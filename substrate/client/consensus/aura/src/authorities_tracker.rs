@@ -22,6 +22,12 @@ pub struct AuthoritiesTracker<P: Pair, B: Block>(
 	RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
 );
 
+impl<P: Pair, B: Block> Default for AuthoritiesTracker<P, B> {
+	fn default() -> Self {
+		Self(RwLock::new(ForkTree::new()))
+	}
+}
+
 impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 	/// Fetch authorities from the tracker, if available. If not available, fetch from the client
 	/// and update the tracker.

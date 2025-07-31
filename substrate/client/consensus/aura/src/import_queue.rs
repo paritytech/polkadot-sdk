@@ -19,13 +19,11 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	fetch_authorities_from_runtime, standalone::SealVerificationError, AuthorityId,
-	CompatibilityMode, Error, LOG_TARGET,
+	standalone::SealVerificationError, AuthoritiesTracker, AuthorityId, CompatibilityMode, Error,
+	LOG_TARGET,
 };
 use codec::Codec;
-use fork_tree::ForkTree;
 use log::{debug, info, trace};
-use parking_lot::RwLock;
 use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockOf, UsageProvider};
 use sc_consensus::{
@@ -38,12 +36,11 @@ use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
-use sp_consensus_aura::{inherents::AuraInherentData, AuraApi, ConsensusLog, AURA_ENGINE_ID};
+use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_consensus_slots::Slot;
 use sp_core::crypto::Pair;
 use sp_inherents::{CreateInherentDataProviders, InherentDataProvider as _};
 use sp_runtime::{
-	generic::OpaqueDigestItemId,
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
 };
@@ -108,7 +105,7 @@ pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<NumberFor<B>>,
-	authorities_cache: RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
+	authorities_tracker: AuthoritiesTracker<P, B>,
 }
 
 impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
@@ -125,7 +122,7 @@ impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
 			check_for_equivocation,
 			telemetry,
 			compatibility_mode,
-			authorities_cache: RwLock::new(ForkTree::new()),
+			authorities_tracker: Default::default(),
 		}
 	}
 }
@@ -167,60 +164,12 @@ where
 		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
 
-		// Fetch authorities from cache, if available.
-		let authorities = {
-			let is_descendent_of =
-				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
-			let authorities_cache = self.authorities_cache.read();
-			authorities_cache
-				.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
-				.map_err(|e| {
-					format!("Could not find authorities for block {hash:?} at number {number}: {e}")
-				})?
-				.map(|node| node.data.clone())
-		};
-
-		let authorities = match authorities {
-			Some(authorities) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Authorities for block {:?} at number {} found in cache",
-					hash,
-					number,
-				);
-				authorities
-			},
-			None => {
-				// Authorities are missing from the cache. Fetch them from the runtime and cache
-				// them.
-				log::debug!(
-					target: LOG_TARGET,
-					"Authorities for block {:?} at number {} not found in cache, fetching from runtime.",
-					hash,
-					number
-				);
-				let authorities = fetch_authorities_from_runtime(
-					self.client.as_ref(),
-					parent_hash,
-					*block.header.number(),
-					&self.compatibility_mode,
-				)
-				.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
-				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
-				let mut authorities_cache = self.authorities_cache.write();
-				authorities_cache
-					.import(
-						parent_hash,
-						number - 1u32.into(),
-						authorities.clone(),
-						&is_descendent_of,
-					)
-					.map_err(|e| {
-						format!("Could not import authorities for block {parent_hash:?} at number {}: {e}", number - 1u32.into())
-					})?;
-				authorities
-			},
-		};
+		let authorities = self
+			.authorities_tracker
+			.fetch_or_update(&block.header, &*self.client, &self.compatibility_mode)
+			.map_err(|e| {
+				format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
+			})?;
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
@@ -234,8 +183,6 @@ where
 			.map_err(Error::<B>::Inherent)?;
 
 		let slot_now = create_inherent_data_providers.slot();
-
-		let authorities_change = find_authorities_change_digest::<B, P>(&block.header);
 
 		// we add one to allow for some small drift.
 		// FIXME #1019 in the future, alter this queue to allow deferring of
@@ -282,27 +229,11 @@ where
 					block.body = Some(inner_body);
 				}
 
-				// If the block contains an authorities change digest, prune the authorities cache
-				// and import the new authorities set into the cache.
-				if let Some(authorities_change) = authorities_change {
-					log::debug!(
-						target: LOG_TARGET,
-						"Importing authorities change for block {:?} at number {} found in header digest",
-						hash,
-						number,
-					);
-					prune_finalized::<B, P, _>(&*self.client, &self.authorities_cache)?;
-					let is_descendent_of =
-						sc_client_api::utils::is_descendent_of(&*self.client, None);
-					let mut authorities_cache = self.authorities_cache.write();
-					authorities_cache
-						.import(hash, number, authorities_change, &is_descendent_of)
-						.map_err(|e| {
-						format!(
-								"Could not import authorities for block {hash:?} at number {number}: {e}"
-							)
-					})?;
-				}
+				self.authorities_tracker.import(&pre_header, &*self.client).map_err(|e| {
+					format!(
+						"Could not import authorities for block {hash:?} at number {number}: {e}"
+					)
+				})?;
 
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(
@@ -333,43 +264,6 @@ where
 			},
 		}
 	}
-}
-
-/// Extract the AURA authorities change digest from the given header, if it exists.
-fn find_authorities_change_digest<B, P>(header: &B::Header) -> Option<Vec<AuthorityId<P>>>
-where
-	B: BlockT,
-	P: Pair,
-	P::Public: Codec,
-{
-	let mut authorities_change_digest: Option<_> = None;
-	for log in header.digest().logs() {
-		trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		let log = log
-			.try_to::<ConsensusLog<AuthorityId<P>>>(OpaqueDigestItemId::Consensus(&AURA_ENGINE_ID));
-		if let Some(ConsensusLog::AuthoritiesChange(authorities)) = log {
-			authorities_change_digest = Some(authorities);
-		}
-	}
-	authorities_change_digest
-}
-
-fn prune_finalized<B, P, Client>(
-	client: &Client,
-	authorities_cache: &RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
-) -> Result<(), String>
-where
-	B: BlockT,
-	P: Pair,
-	Client: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
-{
-	let is_descendent_of = sc_client_api::utils::is_descendent_of(client, None);
-	let info = client.info();
-	let mut authorities_cache = authorities_cache.write();
-	let _pruned = authorities_cache
-		.prune(&info.finalized_hash, &info.finalized_number, &is_descendent_of, &|_| true)
-		.map_err(|e| e.to_string())?;
-	Ok(())
 }
 
 /// Should we check for equivocation of a block author?
