@@ -74,6 +74,9 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks"
 ]
 test-utils = ["std"]
 try-runtime = [
@@ -83,4 +86,6 @@ try-runtime = [
 	"pallet-revive/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-assets/try-runtime",
+	"polkadot-runtime-parachains/try-runtime"
 ]
