@@ -353,7 +353,7 @@ pub type RegisteredDerivativeNftsTransactor = UniqueInstancesAdapter<
 	LocationToAccountId,
 	// Matches derivative NFTs using the `DerivativeNfts` stored mapping.
 	MatchDerivativeInstances<DerivativeNfts>,
-	// The `StashAccountAssetOps` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Stash` and `Restore` operations
 	// to the `PredefinedIdNfts` utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
 	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
