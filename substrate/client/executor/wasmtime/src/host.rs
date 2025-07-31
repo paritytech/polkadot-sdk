@@ -91,6 +91,13 @@ impl<'a> HostContext<'a> {
 			.host_state_mut()
 			.expect("host state is not empty when calling a function in wasm; qed")
 	}
+
+	fn host_state(&mut self) -> &HostState {
+		self.caller
+			.data()
+			.host_state()
+			.expect("host state is not empty when calling a function in wasm; qed")
+	}
 }
 
 impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
@@ -118,10 +125,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		let res = allocator
 			.allocate(&mut MemoryWrapper(&memory, &mut self.caller), size)
 			.inspect(|ptr| {
-				let instance_id = self.host_state_mut().instance_id;
-				let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
 				let call_id = self.host_state_mut().increment_call_id();
-				runtime_code_hash.inspect(|code_hash| {
+				let instance_id = self.host_state().instance_id;
+				let runtime_code_hash = &self.host_state().runtime_code_hash;
+				runtime_code_hash.as_ref().inspect(|code_hash| {
 					let display_ptr = u64::from(*ptr);
 					log::debug!(target: "runtime_host_allocator", "allocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, size={size}, ptr=0x{display_ptr:x?}")
 				});
@@ -144,10 +151,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		let res = allocator
 			.deallocate(&mut MemoryWrapper(&memory, &mut self.caller), ptr)
 			.inspect(|_| {
-				let instance_id = self.host_state_mut().instance_id;
-				let runtime_code_hash = self.host_state_mut().runtime_code_hash.clone();
 				let call_id = self.host_state_mut().increment_call_id();
-				runtime_code_hash.inspect(|code_hash| {
+				let instance_id = self.host_state().instance_id;
+				let runtime_code_hash = &self.host_state().runtime_code_hash;
+				runtime_code_hash.as_ref().inspect(|code_hash| {
 					let display_ptr = u64::from(ptr);
 					log::debug!(target: "runtime_host_allocator", "deallocation: code_hash={code_hash:x?}, instance_id={instance_id}, call_id={call_id}, ptr=0x{display_ptr:x?}");
 				});

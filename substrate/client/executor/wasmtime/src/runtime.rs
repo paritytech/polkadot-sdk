@@ -59,6 +59,11 @@ impl StoreData {
 		self.host_state.as_mut()
 	}
 
+	/// Returns a reference to the host state.
+	pub fn host_state(&self) -> Option<&HostState> {
+		self.host_state.as_ref()
+	}
+
 	/// Returns the host memory.
 	pub fn memory(&self) -> Memory {
 		self.memory.expect("memory is always set; qed")
