@@ -2309,7 +2309,6 @@ dependencies = [
  "hash-db",
  "hex-literal",
  "impl-trait-for-tuples",
- "log",
  "num-traits",
  "parity-scale-codec",
  "scale-info",
@@ -2320,6 +2319,7 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0",
  "sp-trie",
+ "tracing",
  "trie-db",
 ]
 
