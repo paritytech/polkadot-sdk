@@ -56,20 +56,16 @@ use crate as pallet_derivatives;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		tokens::asset_ops::{common_strategies::*, utils::*, *},
+		tokens::asset_ops::{common_ops::*, common_strategies::*, *},
 		ContainsPair, Everything, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureSigned};
-use sp_runtime::{
-	traits::{AsFallibleConvert, TryConvertInto},
-	BuildStorage,
-};
+use sp_runtime::{traits::TryConvertInto, BuildStorage};
 use xcm::prelude::*;
 use xcm_builder::{
 	unique_instances::{
-		ops::{ExtractAssetId, UniqueInstancesWithStashAccount},
-		NonFungibleAsset, UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
+		ExtractAssetId, NonFungibleAsset, UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
 	},
 	AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, FixedWeightBounds, MatchInClassInstances,
 	MatchedConvertedConcreteId, StartsWith,
@@ -316,11 +312,11 @@ impl pallet_derivatives::Config<DerivativeNftsInstance> for Test {
 
 	// The derivative NFTs can't be manually created.
 	type CreateOrigin = EnsureNever<AccountId>;
-	type CreateOp = AlwaysErrOps<Self::Original>;
+	type CreateOp = DisabledOps<Self::Original>;
 
 	// The derivative NFTs can't be manually destroyed.
 	type DestroyOrigin = EnsureNever<AccountId>;
-	type DestroyOp = AlwaysErrOps<Self::Original>;
+	type DestroyOp = DisabledOps<Self::Original>;
 }
 
 /// Matches NFTs within the `PredefinedIdNfts` pallet.
@@ -345,10 +341,10 @@ pub type LocalNftsTransactor = UniqueInstancesAdapter<
 	// The `EnsureNotDerivativeInstance` uses the `DerivativeNfts` stored mapping
 	// to prevent derivative NFTs from being matched.
 	EnsureNotDerivativeInstance<DerivativeNfts, LocalNftsMatcher>,
-	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Stash` and `Restore` operations
 	// to the `PredefinedIdNfts` by utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
-	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
+	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
 >;
 
 /// This asset transactor deals with already registered derivative NFTs.
@@ -357,18 +353,17 @@ pub type RegisteredDerivativeNftsTransactor = UniqueInstancesAdapter<
 	LocationToAccountId,
 	// Matches derivative NFTs using the `DerivativeNfts` stored mapping.
 	MatchDerivativeInstances<DerivativeNfts>,
-	// The `UniqueInstancesWithStashAccount` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Stash` and `Restore` operations
 	// to the `PredefinedIdNfts` utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
-	UniqueInstancesWithStashAccount<StashAccountId, PredefinedIdNfts>,
+	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
 >;
 
 /// Takes `(AssetId, AssetInstance)` to create a new NFT while the underlying `CreateOp` accepts
 /// only the `AssetId`.
 ///
 /// Extracts `AssetId` from the tuple and passes it to `CreateOp`.
-pub type CreateUsingXcmNft<CreateOp> =
-	MapId<NonFungibleAsset, AssetId, AsFallibleConvert<ExtractAssetId>, CreateOp>;
+pub type CreateUsingXcmNft<CreateOp> = MapId<NonFungibleAsset, AssetId, ExtractAssetId, CreateOp>;
 
 /// Takes `AssetId` to create a new NFT while the underlying `CreateOp` accepts `CollectionAutoId`.
 ///
