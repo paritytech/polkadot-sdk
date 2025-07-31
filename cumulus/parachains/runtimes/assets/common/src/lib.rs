@@ -20,6 +20,7 @@ pub mod benchmarks;
 mod erc20_transactor;
 pub mod foreign_creators;
 pub mod fungible_conversion;
+pub mod header_store;
 pub mod local_and_foreign_assets;
 pub mod matching;
 pub mod runtime_api;
