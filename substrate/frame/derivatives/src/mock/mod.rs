@@ -341,7 +341,7 @@ pub type LocalNftsTransactor = UniqueInstancesAdapter<
 	// The `EnsureNotDerivativeInstance` uses the `DerivativeNfts` stored mapping
 	// to prevent derivative NFTs from being matched.
 	EnsureNotDerivativeInstance<DerivativeNfts, LocalNftsMatcher>,
-	// The `StashAccountAssetOps` adds the `Destroy` and `Restore` operations
+	// The `StashAccountAssetOps` adds the `Stash` and `Restore` operations
 	// to the `PredefinedIdNfts` by utilizing the NFT transfer to and from the `StashAccountId`
 	// correspondingly.
 	StashAccountAssetOps<StashAccountId, PredefinedIdNfts>,
