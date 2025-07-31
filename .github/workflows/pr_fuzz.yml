@@ -7,13 +7,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-        - name: Checkout Fuzzer Repo
+        - name: Checkout Srlabs runtime fuzzer repository
           uses: actions/checkout@v2
           with:
             repository: 'srlabs/substrate-runtime-fuzzer'
-            path: 'fuzzer'
+            path: 'runtime_fuzzer'
     
-        - name: Locate  Cargo.toml
+        - name: Locate Cargo.toml
           run: |
-            echo "Cargo.toml:"
-            echo $(pwd)/fuzzer/Cargo.toml
+            cd runtime_fuzzer/templates/kitchensink/
+            cat Cargo.toml
+        
