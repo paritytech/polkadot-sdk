@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::pallet_prelude::RuntimeDebug;
+use crate::{dispatch::DispatchResult, traits::misc::TypedGet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -517,5 +518,61 @@ where
 {
 	fn stash(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
 		StashOp::stash(id, strategy)
+	}
+}
+
+/// The `StashAccountAssetOps` adds the `Stash` and `Restore` implementations to an NFT
+/// engine capable of transferring a token from one account to another (i.e. implementing
+/// `Update<ChangeOwnerFrom<AccountId>>`).
+///
+/// On stash, it will transfer the token from the current owner to the `StashAccount`.
+/// On restore, it will transfer the token from the `StashAccount` to the given beneficiary.
+pub struct StashAccountAssetOps<StashAccount, UpdateOp>(PhantomData<(StashAccount, UpdateOp)>);
+impl<StashAccount, UpdateOp: AssetDefinition> AssetDefinition
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+{
+	type Id = UpdateOp::Id;
+}
+impl<StashAccount: TypedGet, UpdateOp> Update<ChangeOwnerFrom<StashAccount::Type>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn update(
+		id: &Self::Id,
+		strategy: ChangeOwnerFrom<StashAccount::Type>,
+		update: &StashAccount::Type,
+	) -> DispatchResult {
+		UpdateOp::update(id, strategy, update)
+	}
+}
+impl<StashAccount, UpdateOp> Restore<WithConfig<ConfigValue<Owner<StashAccount::Type>>>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount: TypedGet,
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn restore(
+		id: &Self::Id,
+		strategy: WithConfig<ConfigValue<Owner<StashAccount::Type>>>,
+	) -> DispatchResult {
+		let WithConfig { config: ConfigValue(beneficiary), .. } = strategy;
+
+		UpdateOp::update(id, ChangeOwnerFrom::check(StashAccount::get()), &beneficiary)
+	}
+}
+impl<StashAccount, UpdateOp> Stash<IfOwnedBy<StashAccount::Type>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount: TypedGet,
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn stash(id: &Self::Id, strategy: IfOwnedBy<StashAccount::Type>) -> DispatchResult {
+		let CheckState(check_owner, ..) = strategy;
+
+		UpdateOp::update(id, ChangeOwnerFrom::check(check_owner), &StashAccount::get())
 	}
 }

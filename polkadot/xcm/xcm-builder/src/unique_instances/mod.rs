@@ -22,10 +22,7 @@ use sp_runtime::traits::Convert;
 use xcm::latest::prelude::*;
 
 pub mod adapter;
-pub mod ops;
-
 pub use adapter::*;
-pub use ops::*;
 
 /// An XCM ID for unique instances (non-fungible assets).
 pub type NonFungibleAsset = (AssetId, AssetInstance);
