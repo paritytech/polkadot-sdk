@@ -201,26 +201,3 @@ where
 		Op::restore(&id, strategy)
 	}
 }
-
-/// This adapter allows one to derive a [CreateStrategy] value from the ID derivation parameters
-/// from the [DeriveAndReportId].
-///
-/// The instance will be created using the derived strategy.
-pub struct DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>(
-	PhantomData<(Strategy, DeriveCfg, CreateOp)>,
-);
-impl<Params, Strategy, DeriveCfg, CreateOp> Create<DeriveAndReportId<Params, Strategy::Success>>
-	for DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>
-where
-	Strategy: CreateStrategy,
-	DeriveCfg: FallibleConvert<Params, Strategy>,
-	CreateOp: Create<Strategy>,
-{
-	fn create(
-		id_assignment: DeriveAndReportId<Params, Strategy::Success>,
-	) -> Result<Strategy::Success, DispatchError> {
-		let strategy = DeriveCfg::fallible_convert(id_assignment.params)?;
-
-		CreateOp::create(strategy)
-	}
-}

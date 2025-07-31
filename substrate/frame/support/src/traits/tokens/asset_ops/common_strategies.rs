@@ -22,6 +22,7 @@ use crate::pallet_prelude::RuntimeDebug;
 use crate::{dispatch::DispatchResult, traits::misc::TypedGet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use sp_runtime::traits::FallibleConvert;
 
 /// The `CheckState` is a strategy that accepts an `Inspect` value and the `Inner` strategy.
 ///
@@ -592,5 +593,28 @@ impl<Id, S: CreateStrategy> Create<S> for DisabledOps<Id> {
 impl<Id, S: DestroyStrategy> Destroy<S> for DisabledOps<Id> {
 	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
 		Err(DispatchError::Other("Disabled"))
+	}
+}
+
+/// This adapter allows one to derive a [CreateStrategy] value from the ID derivation parameters
+/// from the [DeriveAndReportId].
+///
+/// The instance will be created using the derived strategy.
+pub struct DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>(
+	PhantomData<(Strategy, DeriveCfg, CreateOp)>,
+);
+impl<Params, Strategy, DeriveCfg, CreateOp> Create<DeriveAndReportId<Params, Strategy::Success>>
+	for DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>
+where
+	Strategy: CreateStrategy,
+	DeriveCfg: FallibleConvert<Params, Strategy>,
+	CreateOp: Create<Strategy>,
+{
+	fn create(
+		id_assignment: DeriveAndReportId<Params, Strategy::Success>,
+	) -> Result<Strategy::Success, DispatchError> {
+		let strategy = DeriveCfg::fallible_convert(id_assignment.params)?;
+
+		CreateOp::create(strategy)
 	}
 }
