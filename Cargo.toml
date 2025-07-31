@@ -443,6 +443,7 @@ members = [
 	"substrate/frame/staking-async/reward-fn",
 	"substrate/frame/staking-async/runtime-api",
 	"substrate/frame/staking-async/runtimes/parachain",
+	"substrate/frame/staking-async/runtimes/preset-store",
 	"substrate/frame/staking-async/runtimes/rc",
 	"substrate/frame/staking-async/runtimes/rc/constants",
 	"substrate/frame/staking/reward-curve",
@@ -1053,6 +1054,7 @@ revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
+pallet-staking-async-preset-store = { path = "substrate/frame/staking-async/runtimes/preset-store", default-features = false }
 pallet-staking-async-rc-client = { path = "substrate/frame/staking-async/rc-client", default-features = false }
 pallet-staking-async-rc-runtime = { path = "substrate/frame/staking-async/runtimes/rc" }
 pallet-staking-async-rc-runtime-constants = { path = "substrate/frame/staking-async/runtimes/rc/constants", default-features = false }
