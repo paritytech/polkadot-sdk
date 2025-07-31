@@ -1,21 +1,9 @@
 title: 'executor:  log host alloc/dealloc'
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
-    # Description
-
     Testing allocation patterns in the context of #8992 required adding some debug logs to trace the calls into host allocator `allocate` or `deallocate` functions, while also tracking which runtime did the call (as code hash), which instance of the runtime, and a `call_id` to determine an approximate order of the allocator calls (since the logs associated to allocator calls could pottentially show up out of order in the node logs).
 
-    ## Integration
-
-    Node developers can track host allocator calls and map them to certain runtimes' instances.
-
-    ## Review Notes
-
-    1. Had to store the runtime code hash in both `InstanceCounter/ReleaseInstanceHandle` (this is relevant in the context of `inject_input_data` allocation, and when following the code path, it is also the first contact of the `WasmtimeRuntime` with the runtime code hash) and `HostState` (for the rest of the allocations).
-    2. All host allocator allocations/deallocations will emit a debug log with various information: runtime code hash (blake2_256 based, can point to a compressed runtime), instance id (atomic on `InstanceCounter`) and call_id (incremented with each call into `allocate_memory/deallocate_memory`, useful when executing allocations/deallocations which can have out of order logs - e.g. node log can show two allocations for same size resulting in same data pointer, followed at some later point by two deallocations for same data pointer - when simulating the allocations/deallocations we'll match the deallocations to the allocations ordered by `call_id`)
-    3. Modified `wasm_override`  and `wasm_substitutes` way of computing the runtime code hash - e.g. previously we used the default rust hasher, but I've noticed that throughout the code and in the storage we use mostly blake2_256, so it was important to use the same hashing function to be able to track what runtime calls we do after using wasm overrides or substitutes.
-    4. The global `u64`s for `instance_id` and `allocator_call_id` stored on `InstanceCounter` are `AtomicU64` because we can have multiple tasks calling into the host allocator (corresponding to multiple live parallel instances), or calling into the `InstanceCounter` (for parallel instantiations of same runtime).
 crates:
 - name: sc-executor-common
   bump: major
