@@ -19,7 +19,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, System, Test, Contracts},
+	tests::{builder, ExtBuilder, System, Test, Contracts, Timestamp},
 	Code, Config,
 };
 
@@ -82,7 +82,7 @@ fn block_author_works() {
 
 /// Tests that the chainid opcode works as expected.
 #[test]
-fn chain_id_works() {
+fn chainid_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
@@ -110,6 +110,7 @@ fn timestamp_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
+			Timestamp::set_timestamp(2000);
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -121,7 +122,8 @@ fn timestamp_works() {
 				)
 				.build_and_unwrap_result();
 			assert_eq!(
-				U256::from(1337u64),
+				// Solidity expects timestamps in seconds, whereas pallet_timestamp uses milliseconds.
+				U256::from(Timestamp::get()/1000),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});

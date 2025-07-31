@@ -61,6 +61,7 @@ pub fn block_number<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
 pub fn difficulty<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::BASE);
+	// Aligned with the difficulty hardcoded for PVM
 	push!(context.interpreter, U256::from(2500000000000000_u64));
 }
 
