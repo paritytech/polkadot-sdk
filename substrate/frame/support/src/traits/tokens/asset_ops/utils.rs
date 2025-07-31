@@ -224,21 +224,3 @@ where
 		CreateOp::create(strategy)
 	}
 }
-
-/// Unique instance operations that always fail.
-///
-/// Intended to be used to forbid certain actions.
-pub struct AlwaysErrOps<Id>(PhantomData<Id>);
-impl<Id> AssetDefinition for AlwaysErrOps<Id> {
-	type Id = Id;
-}
-impl<Id, S: CreateStrategy> Create<S> for AlwaysErrOps<Id> {
-	fn create(_strategy: S) -> Result<S::Success, DispatchError> {
-		Err(DispatchError::BadOrigin)
-	}
-}
-impl<Id, S: DestroyStrategy> Destroy<S> for AlwaysErrOps<Id> {
-	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
-		Err(DispatchError::BadOrigin)
-	}
-}

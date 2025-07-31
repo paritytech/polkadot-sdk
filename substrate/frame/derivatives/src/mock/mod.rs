@@ -315,11 +315,11 @@ impl pallet_derivatives::Config<DerivativeNftsInstance> for Test {
 
 	// The derivative NFTs can't be manually created.
 	type CreateOrigin = EnsureNever<AccountId>;
-	type CreateOp = AlwaysErrOps<Self::Original>;
+	type CreateOp = DisabledOps<Self::Original>;
 
 	// The derivative NFTs can't be manually destroyed.
 	type DestroyOrigin = EnsureNever<AccountId>;
-	type DestroyOp = AlwaysErrOps<Self::Original>;
+	type DestroyOp = DisabledOps<Self::Original>;
 }
 
 /// Matches NFTs within the `PredefinedIdNfts` pallet.

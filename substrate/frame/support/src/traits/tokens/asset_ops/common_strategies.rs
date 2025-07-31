@@ -576,3 +576,21 @@ where
 		UpdateOp::update(id, ChangeOwnerFrom::check(check_owner), &StashAccount::get())
 	}
 }
+
+/// Unique instance operations that always fail.
+///
+/// Intended to be used to forbid certain actions.
+pub struct DisabledOps<Id>(PhantomData<Id>);
+impl<Id> AssetDefinition for DisabledOps<Id> {
+	type Id = Id;
+}
+impl<Id, S: CreateStrategy> Create<S> for DisabledOps<Id> {
+	fn create(_strategy: S) -> Result<S::Success, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+}
+impl<Id, S: DestroyStrategy> Destroy<S> for DisabledOps<Id> {
+	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+}
