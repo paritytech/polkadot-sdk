@@ -19,8 +19,8 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	fetch_authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
-	LOG_TARGET,
+	fetch_authorities_from_runtime, standalone::SealVerificationError, AuthorityId,
+	CompatibilityMode, Error, LOG_TARGET,
 };
 use codec::Codec;
 use fork_tree::ForkTree;
@@ -199,7 +199,7 @@ where
 					hash,
 					number
 				);
-				let authorities = fetch_authorities(
+				let authorities = fetch_authorities_from_runtime(
 					self.client.as_ref(),
 					parent_hash,
 					*block.header.number(),
@@ -336,7 +336,7 @@ where
 }
 
 /// Extract the AURA authorities change digest from the given header, if it exists.
-pub fn find_authorities_change_digest<B, P>(header: &B::Header) -> Option<Vec<AuthorityId<P>>>
+fn find_authorities_change_digest<B, P>(header: &B::Header) -> Option<Vec<AuthorityId<P>>>
 where
 	B: BlockT,
 	P: Pair,
