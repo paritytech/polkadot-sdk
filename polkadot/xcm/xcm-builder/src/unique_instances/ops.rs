@@ -21,21 +21,17 @@ use frame_support::traits::tokens::asset_ops::{
 	common_strategies::{ChangeOwnerFrom, CheckState, ConfigValue, IfOwnedBy, Owner, WithConfig},
 	AssetDefinition, Restore, RestoreStrategy, Stash, StashStrategy, Update, UpdateStrategy,
 };
-use sp_runtime::{
-	traits::TypedGet,
-	DispatchError, DispatchResult,
-};
+use sp_runtime::{traits::TypedGet, DispatchError, DispatchResult};
 
-/// The `UniqueInstancesOps` is a tool for combining
-/// different implementations of `Restore`, `Update`, and `Stash` operations
-/// into one type to be used in [`UniqueInstancesAdapter`](super::adapter::UniqueInstancesAdapter).
+/// The `CombinedAssetOps` is a tool for combining
+/// different implementations of `Restore`, `Update`, and `Stash` operations.
 ///
-/// All three operations must use the same ID for instances.
-pub struct UniqueInstancesOps<RestoreOp, UpdateOp, StashOp>(
+/// All three operations must use the same `AssetDefinition::Id`.
+pub struct CombinedAssetOps<RestoreOp, UpdateOp, StashOp>(
 	PhantomData<(RestoreOp, UpdateOp, StashOp)>,
 );
 impl<RestoreOp, UpdateOp, StashOp> AssetDefinition
-	for UniqueInstancesOps<RestoreOp, UpdateOp, StashOp>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
 where
 	RestoreOp: AssetDefinition,
 	UpdateOp: AssetDefinition<Id = RestoreOp::Id>,
@@ -44,7 +40,7 @@ where
 	type Id = RestoreOp::Id;
 }
 impl<Strategy, RestoreOp, UpdateOp, StashOp> Restore<Strategy>
-	for UniqueInstancesOps<RestoreOp, UpdateOp, StashOp>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
 where
 	Strategy: RestoreStrategy,
 	RestoreOp: Restore<Strategy>,
@@ -56,7 +52,7 @@ where
 	}
 }
 impl<Strategy, RestoreOp, UpdateOp, StashOp> Update<Strategy>
-	for UniqueInstancesOps<RestoreOp, UpdateOp, StashOp>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
 where
 	Strategy: UpdateStrategy,
 	UpdateOp: Update<Strategy>,
@@ -73,7 +69,7 @@ where
 	}
 }
 impl<Strategy, RestoreOp, UpdateOp, StashOp> Stash<Strategy>
-	for UniqueInstancesOps<RestoreOp, UpdateOp, StashOp>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
 where
 	Strategy: StashStrategy,
 	StashOp: Stash<Strategy>,
