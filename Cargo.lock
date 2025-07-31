@@ -6646,18 +6646,11 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-genesis-builder",
  "sp-inherents",
-<<<<<<< HEAD
  "sp-io 30.0.0",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
- "sp-state-machine 0.35.0",
-=======
- "sp-io",
- "sp-keystore",
- "sp-runtime",
  "sp-runtime-interface 24.0.0",
- "sp-state-machine",
->>>>>>> e1d67cfe ([FRAME] Custom log level for the runtime benchmarks (#8857))
+ "sp-state-machine 0.35.0",
  "sp-storage 19.0.0",
  "sp-timestamp",
  "sp-transaction-pool",
