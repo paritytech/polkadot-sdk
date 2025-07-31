@@ -1048,7 +1048,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.25.2"
+version = "0.25.3"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1182,7 +1182,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.31.0"
+version = "0.31.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.19.1"
+version = "0.19.2"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.16.2"
+version = "0.16.3"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3291,7 +3291,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "19.0.0"
+version = "19.0.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3668,7 +3668,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3768,7 +3768,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -5761,7 +5761,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "21.0.0"
+version = "21.1.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -6407,7 +6407,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 
 [[package]]
 name = "frame-benchmarking"
-version = "40.2.0"
+version = "40.2.1"
 dependencies = [
  "array-bytes",
  "frame-support",
@@ -7333,7 +7333,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "17.0.0"
+version = "17.0.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -8864,7 +8864,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10097,7 +10097,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
 ]
 
 [[package]]
@@ -10106,7 +10106,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "scale-info",
  "serde_json",
 ]
@@ -12247,7 +12247,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-im-online"
-version = "39.1.0"
+version = "39.1.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12391,7 +12391,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "scale-info",
 ]
 
@@ -12778,7 +12778,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "alloy-core",
  "array-bytes",
@@ -13458,7 +13458,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "19.1.2"
+version = "19.2.0"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
@@ -13569,7 +13569,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -13584,7 +13584,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -13593,7 +13593,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "21.0.0"
+version = "21.0.1"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
@@ -13866,7 +13866,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.29.0"
+version = "0.29.1"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -13960,7 +13960,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14062,7 +14062,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14327,7 +14327,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-availability-bitfield-distribution"
-version = "23.0.0"
+version = "23.0.1"
 dependencies = [
  "assert_matches",
  "bitvec",
@@ -14533,7 +14533,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-gossip-support"
-version = "23.0.0"
+version = "23.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -15077,7 +15077,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-node-network-protocol"
-version = "23.0.0"
+version = "23.1.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -15226,7 +15226,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -15586,7 +15586,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2503.1.1"
+version = "2503.2.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -16007,7 +16007,7 @@ dependencies = [
  "parachain-template-runtime",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "polkadot-sdk-docs-first-pallet",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
@@ -19469,7 +19469,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network"
-version = "0.50.0"
+version = "0.50.1"
 dependencies = [
  "array-bytes",
  "assert_matches",
@@ -23915,7 +23915,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2503.1.1",
+ "polkadot-sdk 2503.2.0",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -24023,7 +24023,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "19.1.2"
+version = "19.1.3"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -24285,7 +24285,7 @@ dependencies = [
 
 [[package]]
 name = "substrate-prometheus-endpoint"
-version = "0.17.2"
+version = "0.17.3"
 dependencies = [
  "http-body-util",
  "hyper 1.6.0",
