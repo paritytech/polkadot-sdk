@@ -17,8 +17,9 @@
 
 use super::{common_strategies::*, *};
 use crate::{
-	dispatch::DispatchResult, sp_runtime::traits::Convert, traits::misc::TypedGet,
-	traits::EnsureOriginWithArg,
+	dispatch::DispatchResult,
+	sp_runtime::traits::Convert,
+	traits::{misc::TypedGet, EnsureOriginWithArg},
 };
 
 /// The `UseEnsuredOrigin` is an adapter that implements all the asset ops implemented by the `Op`
