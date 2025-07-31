@@ -556,11 +556,23 @@ where
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);
 
-		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&res.proof));
-		ignored_nodes.extend(IgnoredNodes::from_memory_db(res.backend_transaction));
-
 		blocks.push(res.block);
 		proofs.push(res.proof);
+
+		if CumulusDigestItem::contains_use_full_core(parent_header.digest()) {
+			tracing::trace!(
+				target: crate::LOG_TARGET,
+				block_hash = ?parent_hash,
+				time_used_by_block_in_secs = %block_start.elapsed().as_secs_f32(),
+				"Found `UseFullCore` digest, stopping block production for core",
+			);
+			break
+		}
+
+		ignored_nodes.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(
+			proofs.last().expect("We just pushed the proof into the vector; qed"),
+		));
+		ignored_nodes.extend(IgnoredNodes::from_memory_db(res.backend_transaction));
 
 		// If there is still time left for the block in the slot, we sleep the rest of the time.
 		// This ensures that we have some steady block rate.

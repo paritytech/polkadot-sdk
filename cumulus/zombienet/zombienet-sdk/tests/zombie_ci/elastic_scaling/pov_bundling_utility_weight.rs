@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use anyhow::anyhow;
-
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call, find_core_info,
@@ -25,6 +24,7 @@ use cumulus_zombienet_sdk_helpers::{
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::sync::Arc;
 use zombienet_sdk::{
 	subxt::{
 		ext::scale_value::value, tx::DynamicPayload, utils::H256, OnlineClient, PolkadotConfig,
@@ -84,7 +84,7 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("First transaction finalized");
 
-	ensure_is_first_block_in_core(&para_client, block_hash).await?;
+	ensure_is_only_block_in_core(&para_client, block_hash).await?;
 
 	// Create a transaction that uses more than the allowed POV size per block.
 	let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
@@ -97,7 +97,7 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("Second transaction finalized");
 
-	ensure_is_first_block_in_core(&para_client, block_hash).await?;
+	ensure_is_only_block_in_core(&para_client, block_hash).await?;
 
 	Ok(())
 }
@@ -133,25 +133,51 @@ fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
 }
 
-/// Checks if the given `block_hash` is the first block in a core.
-async fn ensure_is_first_block_in_core(
+/// Checks if the given `block_hash` is the only block in a core.
+///
+/// Assumes that the given block
+async fn ensure_is_only_block_in_core(
 	para_client: &OnlineClient<PolkadotConfig>,
 	block_hash: H256,
 ) -> Result<(), anyhow::Error> {
-	let block = para_client.blocks().at(block_hash).await?;
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_hash).await?;
 	let core_info = find_core_info(&block)?;
 
 	let parent = para_client.blocks().at(block.header().parent_hash).await?;
 
 	// Genesis is for sure on a different core :)
-	if parent.number() == 0 {
-		return Ok(())
+	if parent.number() != 0 {
+		let parent_core_info = find_core_info(&parent)?;
+
+		if core_info == parent_core_info {
+			return Err(anyhow::anyhow!(
+				"Not first block in core, found in block {}",
+				block.number()
+			))
+		}
 	}
 
-	let parent_core_info = find_core_info(&parent)?;
+	// Start with the latest best block.
+	let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
 
-	if core_info == parent_core_info {
-		Err(anyhow::anyhow!("Not first block in core"))
+	let mut chain_of_blocks = vec![];
+
+	while current_block.hash() != block.hash() {
+		chain_of_blocks.push(current_block.clone());
+		current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+
+		if current_block.number() == 0 {
+			return Err(anyhow::anyhow!(
+				"Did not found block while going backwards from the best block"
+			))
+		}
+	}
+
+	// The last block `CoreInfo` must be different or it shares the core with the block we are
+	// interested in.
+	if core_info == find_core_info(chain_of_blocks.last().unwrap())? {
+		Err(anyhow::anyhow!("Found more blocks on the same core"))
 	} else {
 		Ok(())
 	}

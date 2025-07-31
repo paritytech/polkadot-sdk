@@ -200,11 +200,10 @@ where
 	) -> Result<Self::Pre, TransactionValidityError> {
 		let digest = frame_system::Pallet::<T>::digest();
 
-		let bundle_info = CumulusDigestItem::find_bundle_info(&digest);
+		let is_first_block_on_core =
+			CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0);
 
-		let mode = if frame_system::Pallet::<T>::inherents_applied() &&
-			bundle_info.map_or(false, |bi| bi.index == 0)
-		{
+		let mode = if frame_system::Pallet::<T>::inherents_applied() {
 			let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
 
 			crate::BlockWeightMode::<T>::mutate(|mode| {
@@ -218,11 +217,14 @@ where
 					// We are already allowing the full core, not that much more to do here.
 					BlockWeightMode::FullCore => {},
 					BlockWeightMode::FractionOfCore { first_transaction_index } => {
-						if info.total_weight().any_gt(
-							MaxParachainBlockWeight::target_block_weight::<T>(
+						if info
+							.total_weight()
+							// The extrinsic lengths counts towards the POV size
+							.saturating_add(Weight::from_parts(0, len as u64))
+							.any_gt(MaxParachainBlockWeight::target_block_weight::<T>(
 								TargetBlockRate::get(),
-							),
-						) {
+							)) && is_first_block_on_core
+						{
 							if extrinsic_index.saturating_sub(first_transaction_index) < 10 {
 								new_mode = BlockWeightMode::FullCore;
 								*mode = Some(new_mode);
@@ -260,10 +262,13 @@ where
 			// If the previous one was a fraction and we gave the transaction a `FullCore` we need
 			// to check if it used it.
 			(prev @ BlockWeightMode::FractionOfCore { .. }, BlockWeightMode::FullCore) =>
-			//TODO: Use `BlockWeight` so we actually take reclaim into account
-				if post_info.calc_actual_weight(info).all_lt(
-					MaxParachainBlockWeight::target_block_weight::<T>(TargetBlockRate::get()),
-				) {
+				if post_info
+					.calc_actual_weight(info)
+					// The extrinsic lengths counts towards the POV size
+					.saturating_add(Weight::from_parts(0, len as u64))
+					.all_lt(MaxParachainBlockWeight::target_block_weight::<T>(
+						TargetBlockRate::get(),
+					)) {
 					crate::BlockWeightMode::<T>::put(prev);
 				} else {
 					// Inform the node that this block uses the entire core alone.
@@ -299,9 +304,7 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		S::bare_post_dispatch(info, post_info, len, result)?;
-
-		frame_system::Pallet::<T>::reclaim_weight(info, post_info)
+		S::bare_post_dispatch(info, post_info, len, result)
 	}
 }
 

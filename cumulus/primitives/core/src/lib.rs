@@ -365,6 +365,24 @@ impl CumulusDigestItem {
 			_ => None,
 		})
 	}
+
+	/// Returns `true` if the given `digest` contains the [`Self::UseFullCore`] item.
+	pub fn contains_use_full_core(digest: &Digest) -> bool {
+		digest
+			.convert_first(|d| match d {
+				DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+					let Ok(CumulusDigestItem::UseFullCore) =
+						CumulusDigestItem::decode_all(&mut &val[..])
+					else {
+						return None
+					};
+
+					Some(true)
+				},
+				_ => None,
+			})
+			.unwrap_or_default()
+	}
 }
 
 /// Extract the relay-parent from the provided header digest. Returns `None` if none were found.
