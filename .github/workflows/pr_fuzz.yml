@@ -1,20 +1,36 @@
 name: Checkout Fuzzer Repo
 
-on: [push]
+on:
+    push:
+    pull_request:
 
 jobs:
   checkout:
     runs-on: ubuntu-latest
 
     steps:
-        - name: Checkout Srlabs runtime fuzzer repository
-          uses: actions/checkout@v2
-          with:
-            repository: 'srlabs/substrate-runtime-fuzzer'
-            path: 'runtime_fuzzer'
-    
-        - name: Locate Cargo.toml
-          run: |
-            cd runtime_fuzzer/templates/kitchensink/
-            cat Cargo.toml
-        
+    - name: Checkout Fuzzer Repo
+      uses: actions/checkout@v2
+      with:
+        repository: 'srlabs/substrate-runtime-fuzzer'
+        path: 'runtime_fuzzer'
+
+    - name: Install Rust target
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Install dependencies
+      run: cargo install ziggy cargo-afl honggfuzz grcov
+
+    - name: Print Cargo.toml
+      run: |
+        cd runtime_fuzzer/templates/kitchensink/
+        cat Cargo.toml
+
+    - name: Send message to Element chat
+      run: |
+        # This is a placeholder for your script to send a message to Element chat
+        echo "Sending message to Element chat..."
+
+
+
+   
