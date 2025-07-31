@@ -17,7 +17,7 @@
 
 use super::{
 	types::{ComponentRange, ComponentRangeMap},
-	writer, ListOutput, PalletCmd,
+	writer, ListOutput, PalletCmd, LOG_TARGET,
 };
 use crate::{
 	pallet::{types::FetchedCode, GenesisBuilderPolicy},
@@ -50,7 +50,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::traits::Hash;
 use sp_state_machine::StateMachine;
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::Recorder};
-use sp_wasm_interface::HostFunctions;
+use sp_wasm_interface::{ExtendedHostFunctions, HostFunctions};
 use std::{
 	borrow::Cow,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -60,11 +60,13 @@ use std::{
 	time,
 };
 
-/// Logging target
-const LOG_TARGET: &'static str = "polkadot_sdk_frame::benchmark::pallet";
-
-type SubstrateAndExtraHF<T> =
-	(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions, T);
+type SubstrateAndExtraHF<T> = (
+	ExtendedHostFunctions<
+		(sp_io::SubstrateHostFunctions, frame_benchmarking::benchmarking::HostFunctions),
+		super::logging::logging::HostFunctions,
+	>,
+	T,
+);
 /// How the PoV size of a storage item should be estimated.
 #[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum PovEstimationMode {
@@ -252,6 +254,7 @@ impl PalletCmd {
 			};
 			return self.output_from_results(&batches)
 		}
+		super::logging::init(self.runtime_log.clone());
 
 		let state_handler =
 			self.state_handler_from_cli::<SubstrateAndExtraHF<ExtraHostFunctions>>(chain_spec)?;
@@ -716,7 +719,7 @@ impl PalletCmd {
 		state: &'a BenchmarkingState<H>,
 	) -> Result<FetchedCode<'a, BenchmarkingState<H>, H>> {
 		if let Some(runtime) = self.runtime.as_ref() {
-			log::info!(target: LOG_TARGET, "Loading WASM from file");
+			log::debug!(target: LOG_TARGET, "Loading WASM from file {}", runtime.display());
 			let code = fs::read(runtime).map_err(|e| {
 				format!(
 					"Could not load runtime file from path: {}, error: {}",
