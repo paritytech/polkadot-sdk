@@ -1,6 +1,6 @@
 [package]
 name = "parachains-common"
-version = "21.0.0"
+version = "21.0.1"
 authors.workspace = true
 edition.workspace = true
 description = "Logic which is common to all parachain runtimes"
@@ -39,8 +39,8 @@ xcm-executor.workspace = true
 xcm.workspace = true
 
 [dev-dependencies]
-pallet-authorship = { default-features = false, workspace = true }
-sp-io = { default-features = false, workspace = true }
+pallet-authorship = { default-features = false, path = "../../../substrate/frame/authorship" }
+sp-io = { default-features = false, path = "../../../substrate/primitives/io" }
 
 [features]
 default = ["std"]
