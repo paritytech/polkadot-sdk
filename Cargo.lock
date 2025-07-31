@@ -11500,7 +11500,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
@@ -11513,6 +11512,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
