@@ -162,7 +162,7 @@ pub mod pallet {
 								error=?e,
 								?relayer,
 								?to_reserve,
-								"Failed to reserve on relayer account",
+								"Failed to reserve on relayer account"
 							);
 
 							Error::<T, I>::FailedToReserve
@@ -282,8 +282,10 @@ pub mod pallet {
 							target: LOG_TARGET,
 							error=?e,
 							?relayer,
+							?reward_kind,
+							?reward_balance,
 							?beneficiary,
-							"Failed to pay ({reward_kind:?} / {reward_balance:?}) rewards"
+							"Failed to pay rewards"
 						);
 						Error::<T, I>::FailedToPayReward
 					})?;
@@ -356,17 +358,19 @@ pub mod pallet {
 					tracing::trace!(
 						target: crate::LOG_TARGET,
 						?relayer,
-						"Relayer account has been slashed for {:?}. Funds were deposited to {slash_destination:?}",
-						registration.stake,
+						amount=?registration.stake,
+						?slash_destination,
+						"Relayer account has been slashed. Funds were deposited."
 					);
 				},
 				Ok(failed_to_slash) => {
 					tracing::trace!(
 						target: crate::LOG_TARGET,
 						?relayer,
+						amount=?registration.stake,
+						?slash_destination,
 						?failed_to_slash,
-						"Relayer account has been partially slashed for {:?}. Funds were deposited to {slash_destination:?}.",
-						registration.stake,
+						"Relayer account has been partially slashed. Funds were deposited.",
 					);
 				},
 				Err(e) => {

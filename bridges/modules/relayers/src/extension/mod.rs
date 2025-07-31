@@ -224,10 +224,10 @@ where
 			tracing::trace!(
 				target: LOG_TARGET,
 				error=?e,
+				id_provider=%Self::IDENTIFIER,
+				?lane_id,
 				?relayer,
-				"{}.{:?}: relayer has submitted invalid messages transaction",
-				Self::IDENTIFIER,
-				lane_id,
+				"Relayer has submitted invalid messages transaction",
 			);
 			return slash_relayer_if_delivery_result
 		}
@@ -348,11 +348,12 @@ where
 
 		tracing::trace!(
 			target: LOG_TARGET,
+			id_provider=%Self::IDENTIFIER,
+			lane_id=?data.call_info.messages_call_info().lane_id(),
 			relayer=?data.relayer,
-			"{}.{:?}: has boosted priority of message delivery transaction \
-			of relayer: {bundled_messages} messages -> {priority_boost} priority",
-			Self::IDENTIFIER,
-			data.call_info.messages_call_info().lane_id(),
+			%bundled_messages,
+			%priority_boost,
+			"Has boosted priority of message delivery transaction of relayer"
 		);
 
 		let validity = valid_transaction.build()?;
@@ -370,10 +371,10 @@ where
 		Ok(val.inspect(|data| {
 			tracing::trace!(
 				target: LOG_TARGET,
+				id_provider=%Self::IDENTIFIER,
+				lane_id=?data.call_info.messages_call_info().lane_id(),
 				call_info=?data.call_info,
-				"{}.{:?}: parsed bridge transaction in prepare",
-				Self::IDENTIFIER,
-				data.call_info.messages_call_info().lane_id(),
+				"Parsed bridge transaction in prepare"
 			);
 		}))
 	}
@@ -399,11 +400,11 @@ where
 
 				tracing::trace!(
 					target: LOG_TARGET,
+					id_provider=%Self::IDENTIFIER,
+					?lane_id,
 					?relayer,
 					?reward,
-					"{}.{:?}: has registered reward",
-					Self::IDENTIFIER,
-					lane_id,
+					"Has registered reward"
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
@@ -437,10 +438,10 @@ where
 	) {
 		tracing::trace!(
 			target: LOG_TARGET,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
 			?relayer,
-			"{}.{:?}: relayer has submitted invalid messages call",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
+			"Relayer has submitted invalid messages call"
 		);
 		return false
 	}

@@ -176,10 +176,10 @@ where
 		// we only refund relayer if all calls have updated chain state
 		tracing::trace!(
 			target: LOG_TARGET,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
 			?relayer,
-			"{}.{:?}: relayer has submitted invalid parachain finality proof",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
+			"Relayer has submitted invalid parachain finality proof"
 		);
 		return false
 	}
