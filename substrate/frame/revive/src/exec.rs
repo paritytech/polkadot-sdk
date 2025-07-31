@@ -150,7 +150,8 @@ impl<T: Config> Origin<T> {
 	pub fn from_account_id(account_id: T::AccountId) -> Self {
 		Origin::Signed(account_id)
 	}
-	/// Creates a new Origin from a `RuntimeOrigin`.
+
+	/// Creates a new Origin from a [`Config::RuntimeOrigin`].
 	pub fn from_runtime_origin(o: OriginFor<T>) -> Result<Self, DispatchError> {
 		match o.into() {
 			Ok(RawOrigin::Root) => Ok(Self::Root),
@@ -158,6 +159,15 @@ impl<T: Config> Origin<T> {
 			_ => Err(BadOrigin.into()),
 		}
 	}
+
+	/// Consumes self and converts a [`Config::RuntimeOrigin`].
+	pub fn into_runtime_origin(self) -> OriginFor<T> {
+		match self {
+			Origin::Root => RawOrigin::Root.into(),
+			Origin::Signed(account_id) => RawOrigin::Signed(account_id).into(),
+		}
+	}
+
 	/// Returns the AccountId of a Signed Origin or an error if the origin is Root.
 	pub fn account_id(&self) -> Result<&T::AccountId, DispatchError> {
 		match self {
