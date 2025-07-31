@@ -100,7 +100,7 @@ impl ReleaseInstanceHandle {
 
 	/// Return the unique instance id.
 	///
-	/// Note: this id is increment with every same runtime instantiation.
+	/// Note: this id is incremented with every runtime instantiation.
 	pub(crate) fn id(&self) -> u64 {
 		self.id
 	}
