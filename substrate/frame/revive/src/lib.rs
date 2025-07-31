@@ -598,9 +598,10 @@ pub mod pallet {
 
 		// TODO: Does it hold water?
 		frame_system::Event<T>: TryFrom<<T as frame_system::Config>::RuntimeEvent>,
+		frame_system::Event<T>: TryFrom<<T as pallet_transaction_payment::Config>::RuntimeEvent>,
+
 		// frame_system::Event<T>: TryFrom<<T as
 		// pallet_transaction_payment::Config>::RuntimeEvent>,
-
 		// pallet_transaction_payment::Event::TransactionFeePaid
 
 		// type RuntimeEvent: From<Event<Self>> + IsType<<Self as
@@ -611,6 +612,12 @@ pub mod pallet {
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 		T::Hash: frame_support::traits::IsType<H256>,
+
+		// For ETH block gas limit
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
@@ -802,6 +809,7 @@ pub mod pallet {
 				.unzip();
 
 			// Build EVM block.
+			let gas_limit = Self::evm_block_gas_limit();
 		}
 
 		fn integrity_test() {
