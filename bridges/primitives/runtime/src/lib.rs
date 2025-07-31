@@ -371,7 +371,7 @@ impl OperatingMode for BasicOperatingMode {
 	}
 }
 
-const LOG_TARGET: &'static str = "bridge::owned-bridge-module";
+const COMMON_LOG_TARGET: &'static str = "runtime::bridge-module";
 
 /// Bridge module that has owner and operating mode
 pub trait OwnedBridgeModule<T: frame_system::Config> {
@@ -415,11 +415,11 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 		match maybe_owner {
 			Some(owner) => {
 				Self::OwnerStorage::put(&owner);
-				tracing::info!(target: LOG_TARGET, ?owner, "Setting pallet.");
+				tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, ?owner, "Setting pallet.");
 			},
 			None => {
 				Self::OwnerStorage::kill();
-				tracing::info!(target: LOG_TARGET, "Removed Owner of pallet.");
+				tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, "Removed Owner of pallet.");
 			},
 		}
 
@@ -433,7 +433,7 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 	) -> DispatchResult {
 		Self::ensure_owner_or_root(origin)?;
 		Self::OperatingModeStorage::put(operating_mode);
-		tracing::info!(target: LOG_TARGET, ?operating_mode, "Setting operating mode.");
+		tracing::info!(target: COMMON_LOG_TARGET, module=%Self::LOG_TARGET, ?operating_mode, "Setting operating mode.");
 		Ok(())
 	}
 
