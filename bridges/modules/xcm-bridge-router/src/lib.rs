@@ -269,18 +269,19 @@ pub mod pallet {
 		/// Updates the congestion status of a bridge for a given `bridge_id`.
 		pub(crate) fn do_update_bridge_status(bridge_id: BridgeIdOf<T, I>, is_congested: bool) {
 			Bridges::<T, I>::mutate(&bridge_id, |bridge| {
-				if bridge.is_congested != is_congested {
-					bridge.is_congested = is_congested;
+				let prev_fee_factor = bridge.delivery_fee_factor;
 
-					if bridge.delivery_fee_factor != MINIMAL_DELIVERY_FEE_FACTOR {
-						Self::deposit_event(Event::DeliveryFeeFactorUpdated {
-							previous_value: bridge.delivery_fee_factor,
-							new_value: MINIMAL_DELIVERY_FEE_FACTOR,
-							bridge_id: bridge_id.clone(),
-						});
+				bridge.is_congested = is_congested;
+				if !is_congested {
+					*bridge = Default::default();
+				}
 
-						bridge.delivery_fee_factor = MINIMAL_DELIVERY_FEE_FACTOR;
-					}
+				if prev_fee_factor != bridge.delivery_fee_factor {
+					Self::deposit_event(Event::DeliveryFeeFactorUpdated {
+						previous_value: prev_fee_factor,
+						new_value: bridge.delivery_fee_factor,
+						bridge_id: bridge_id.clone(),
+					});
 				}
 			});
 		}
