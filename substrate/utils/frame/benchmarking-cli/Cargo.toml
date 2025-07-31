@@ -22,11 +22,11 @@ chrono = { workspace = true }
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
 comfy-table = { workspace = true }
-<<<<<<< HEAD
 cumulus-client-parachain-inherent.default-features = true
 cumulus-client-parachain-inherent.workspace = true
 cumulus-primitives-proof-size-hostfunction.default-features = true
 cumulus-primitives-proof-size-hostfunction.workspace = true
+env_filter = { workspace = true }
 frame-benchmarking.default-features = true
 frame-benchmarking.workspace = true
 frame-storage-access-test-runtime.default-features = true
@@ -35,15 +35,6 @@ frame-support.default-features = true
 frame-support.workspace = true
 frame-system.default-features = true
 frame-system.workspace = true
-=======
-cumulus-client-parachain-inherent = { workspace = true, default-features = true }
-cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
-env_filter = { workspace = true }
-frame-benchmarking = { workspace = true, default-features = true }
-frame-storage-access-test-runtime = { workspace = true, default-features = true }
-frame-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
->>>>>>> e1d67cfe ([FRAME] Custom log level for the runtime benchmarks (#8857))
 gethostname = { workspace = true }
 handlebars = { workspace = true }
 itertools = { workspace = true }
@@ -76,7 +67,6 @@ sc-sysinfo.default-features = true
 sc-sysinfo.workspace = true
 serde = { workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
-<<<<<<< HEAD
 sp-api.default-features = true
 sp-api.workspace = true
 sp-block-builder.default-features = true
@@ -99,6 +89,8 @@ sp-keystore.default-features = true
 sp-keystore.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
+sp-runtime-interface.default-features = true
+sp-runtime-interface.workspace = true
 sp-state-machine.default-features = true
 sp-state-machine.workspace = true
 sp-storage.default-features = true
@@ -113,27 +105,6 @@ sp-version.default-features = true
 sp-version.workspace = true
 sp-wasm-interface.default-features = true
 sp-wasm-interface.workspace = true
-=======
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-database = { workspace = true, default-features = true }
-sp-externalities = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-io = { workspace = true, default-features = true }
-sp-keystore = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-runtime-interface = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-storage = { workspace = true, default-features = true }
-sp-timestamp = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sp-wasm-interface = { workspace = true, default-features = true }
->>>>>>> e1d67cfe ([FRAME] Custom log level for the runtime benchmarks (#8857))
 subxt = { workspace = true, features = ["native"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
