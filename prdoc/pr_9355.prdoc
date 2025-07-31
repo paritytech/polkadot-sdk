@@ -8,4 +8,4 @@ doc:
     We should also backport this ideally. It is not a breaking change given the code doesn't compile without the feature and only compiles if indirectly enabled by another crate.
 crates:
 - name: substrate-prometheus-endpoint
-  bump: patch
+  bump: minor
