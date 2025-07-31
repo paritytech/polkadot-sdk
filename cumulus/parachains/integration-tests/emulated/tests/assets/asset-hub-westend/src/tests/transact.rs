@@ -202,7 +202,7 @@ fn transact_from_para_to_para_through_asset_hub() {
 }
 
 #[test]
-fn transact_from_para_to_asset_hub_and_back_to_para_with_authorized_alias() {
+fn transact_using_authorized_alias_from_para_to_asset_hub_and_back_to_para() {
 	let sender = PenpalASender::get();
 	let sov_of_sender_on_asset_hub = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
@@ -422,7 +422,7 @@ fn transact_from_para_to_asset_hub_and_back_to_para_with_authorized_alias() {
 }
 
 #[test]
-fn transact_from_para_to_asset_hub_and_back_to_para() {
+fn transact_using_sov_account_from_para_to_asset_hub_and_back_to_para() {
 	let sender = PenpalASender::get();
 	let sov_of_penpal_on_asset_hub = AssetHubWestend::sovereign_account_id_of(
 		AssetHubWestend::sibling_location_of(PenpalA::para_id()),
