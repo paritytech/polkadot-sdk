@@ -19,3 +19,4 @@ mod arithmetic;
 mod block_info;
 mod misc;
 mod system;
+mod tx_info;

@@ -2047,7 +2047,7 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		crate::Pallet::<T>::block_author()
+		Contracts::<Self::T>::block_author()
 	}
 
 	fn gas_limit(&self) -> u64 {
