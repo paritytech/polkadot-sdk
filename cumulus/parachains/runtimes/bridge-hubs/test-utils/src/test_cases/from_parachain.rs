@@ -121,6 +121,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 	expect_rewards: bool,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
 ) where
 	RuntimeHelper: WithRemoteParachainHelper,
 	AccountIdOf<RuntimeHelper::Runtime>: From<AccountId32>,
@@ -142,6 +143,7 @@ pub fn relayed_incoming_message_works<RuntimeHelper>(
 		sibling_parachain_id,
 		local_relay_chain_id,
 		construct_and_apply_extrinsic,
+		expect_descend_origin_with_messaging_pallet_instance,
 		|relayer_id_at_this_chain,
 		 relayer_id_at_bridged_chain,
 		 message_destination,
@@ -255,6 +257,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 	expect_rewards: bool,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
 ) where
 	RuntimeHelper: WithRemoteParachainHelper,
 	RuntimeHelper::Runtime: pallet_balances::Config,
@@ -283,6 +286,7 @@ pub fn free_relay_extrinsic_works<RuntimeHelper>(
 		sibling_parachain_id,
 		local_relay_chain_id,
 		construct_and_apply_extrinsic,
+		expect_descend_origin_with_messaging_pallet_instance,
 		|relayer_id_at_this_chain,
 		 relayer_id_at_bridged_chain,
 		 message_destination,
@@ -422,6 +426,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		sp_keyring::Sr25519Keyring,
 		<RuntimeHelper::Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
+	expect_descend_origin_with_messaging_pallet_instance: bool,
 ) where
 	RuntimeHelper: WithRemoteParachainHelper,
 	RuntimeHelper::Runtime:
@@ -446,6 +451,7 @@ pub fn complex_relay_extrinsic_works<RuntimeHelper>(
 		sibling_parachain_id,
 		local_relay_chain_id,
 		construct_and_apply_extrinsic,
+		expect_descend_origin_with_messaging_pallet_instance,
 		|relayer_id_at_this_chain,
 		 relayer_id_at_bridged_chain,
 		 message_destination,

@@ -20,6 +20,7 @@ use xcm::opaque::v5;
 use xcm_executor::traits::ConvertLocation;
 
 mod asset_transfers;
+mod bridging;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;

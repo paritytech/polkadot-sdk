@@ -476,6 +476,8 @@ where
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
+			crate::BridgeRejectObsoleteHeadersAndMessages::default(),
+			(bridge_to_rococo_config::OnAssetHubWestendRefundAssetHubRococoMessages::default(),),
 		));
 		let raw_payload = SignedPayload::new(call, tx_ext)
 			.map_err(|e| {

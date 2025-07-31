@@ -18,6 +18,7 @@ use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
 
 mod aliases;
 mod asset_transfers;
+mod bridging;
 mod claim_assets;
 mod register_bridged_assets;
 mod send_xcm;

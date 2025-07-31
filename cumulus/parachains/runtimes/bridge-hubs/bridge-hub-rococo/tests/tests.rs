@@ -422,6 +422,7 @@ mod bridge_hub_westend_tests {
 			},
 			construct_and_apply_extrinsic,
 			true,
+			true,
 		)
 	}
 
@@ -457,6 +458,7 @@ mod bridge_hub_westend_tests {
 			},
 			construct_and_apply_extrinsic,
 			false,
+			true,
 		)
 	}
 
@@ -704,6 +706,7 @@ mod bridge_hub_bulletin_tests {
 			},
 			construct_and_apply_extrinsic,
 			false,
+			true,
 		)
 	}
 
@@ -738,6 +741,7 @@ mod bridge_hub_bulletin_tests {
 			},
 			construct_and_apply_extrinsic,
 			false,
+			true,
 		)
 	}
 }

@@ -1,49 +1,33 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
-// SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Cumulus is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-//! Bridge definitions that can be used by multiple BridgeHub flavors.
-//! All configurations here should be dedicated to a single chain; in other words, we don't need two
-//! chains for a single pallet configuration.
-//!
-//! For example, the messaging pallet needs to know the sending and receiving chains, but the
-//! GRANDPA tracking pallet only needs to be aware of one chain.
+// Cumulus is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Bridge definitions that can be used by multiple bridges.
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
-use crate::{
-	bridge_to_ethereum_config::InboundQueueV2Location, xcm_config::XcmConfig, RuntimeCall,
-	XcmRouter,
-};
-use bp_messages::LegacyLaneId;
+use bp_messages::HashedLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::parameter_types;
 use scale_info::TypeInfo;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
-use xcm::{
-	latest::{prelude::Parachain, Location},
-	VersionedLocation,
-};
-use xcm_executor::XcmExecutor;
+use xcm::VersionedLocation;
 
-parameter_types! {
-	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
+frame_support::parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
 	pub const RelayerStakeLease: u32 = 8;
 	pub const RelayerStakeReserveId: [u8; 8] = *b"brdgrlrs";
+	pub storage DeliveryRewardInBalance: u64 = 1_000_000;
 }
 
 /// Showcasing that we can handle multiple different rewards with the same pallet.
@@ -61,13 +45,11 @@ parameter_types! {
 )]
 pub enum BridgeReward {
 	/// Rewards for the R/W bridge—distinguished by the `RewardsAccountParams` key.
-	RococoWestend(RewardsAccountParams<LegacyLaneId>),
-	/// Rewards for Snowbridge.
-	Snowbridge,
+	RococoWestend(RewardsAccountParams<HashedLaneId>),
 }
 
-impl From<RewardsAccountParams<LegacyLaneId>> for BridgeReward {
-	fn from(value: RewardsAccountParams<LegacyLaneId>) -> Self {
+impl From<RewardsAccountParams<HashedLaneId>> for BridgeReward {
+	fn from(value: RewardsAccountParams<HashedLaneId>) -> Self {
 		Self::RococoWestend(value)
 	}
 }
@@ -108,7 +90,7 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 						bp_relayers::PayRewardFromAccount::<
 							Balances,
 							AccountId,
-							LegacyLaneId,
+							HashedLaneId,
 							u128,
 						>::pay_reward(
 							&relayer, lane_params, reward, account,
@@ -116,34 +98,13 @@ impl bp_relayers::PaymentProcedure<AccountId, BridgeReward, u128> for BridgeRewa
 					},
 					BridgeRewardBeneficiaries::AssetHubLocation(_) => Err(Self::Error::Other("`AssetHubLocation` beneficiary is not supported for `RococoWestend` rewards!")),
 				}
-			},
-			BridgeReward::Snowbridge => {
-				match beneficiary {
-					BridgeRewardBeneficiaries::LocalAccount(_) => Err(Self::Error::Other("`LocalAccount` beneficiary is not supported for `Snowbridge` rewards!")),
-					BridgeRewardBeneficiaries::AssetHubLocation(account_location) => {
-						let account_location = Location::try_from(account_location)
-							.map_err(|_| Self::Error::Other("`AssetHubLocation` beneficiary location version is not supported for `Snowbridge` rewards!"))?;
-						snowbridge_core::reward::PayAccountOnLocation::<
-							AccountId,
-							u128,
-							EthereumNetwork,
-							AssetHubLocation,
-							InboundQueueV2Location,
-							XcmRouter,
-							XcmExecutor<XcmConfig>,
-							RuntimeCall
-						>::pay_reward(
-							relayer, (), reward, account_location
-						)
-					}
-				}
 			}
 		}
 	}
 }
 
-/// Allows collect and claim rewards for relayers
-pub type BridgeRelayersInstance = ();
+/// Allows collect and claim rewards for the relayers
+pub type BridgeRelayersInstance = pallet_bridge_relayers::Instance1;
 impl pallet_bridge_relayers::Config<BridgeRelayersInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 

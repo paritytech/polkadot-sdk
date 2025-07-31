@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Module with configuration which reflects AssetHubWestend runtime setup.
+//! Module with configuration which reflects AssetHubWestend runtime setup (AccountId, Headers,
+//! Hashes...)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -25,11 +26,12 @@ use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
 pub use bp_xcm_bridge_router::XcmBridgeHubCall;
-use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
 	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
 };
+
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::currency::UNITS;
 use xcm::latest::prelude::*;
@@ -48,6 +50,9 @@ pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
 	ToRococoXcmRouter(XcmBridgeHubCall<sp_core::H256>),
+	/// Points to the `pallet_xcm_bridge_hub` pallet instance for `AssetHubRococo`.
+	#[codec(index = 62)]
+	XcmOverAssetHubRococo(bp_xcm_bridge::XcmBridgeCall),
 }
 
 frame_support::parameter_types! {
@@ -148,3 +153,18 @@ pub const WITH_BRIDGE_WESTEND_TO_ROCOCO_MESSAGES_PALLET_INDEX: u8 = 63;
 
 decl_bridge_finality_runtime_apis!(asset_hub_westend);
 decl_bridge_messages_runtime_apis!(asset_hub_westend, HashedLaneId);
+
+frame_support::parameter_types! {
+	/// The XCM fee that is paid for executing XCM program (with `ExportMessage` instruction) at the Westend
+	/// AssetHub.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_weight_for_paid_export_message_with_reserve_transfer` + `33%`)
+	pub const AssetHubWestendBaseXcmFeeInWnds: u128 = 23_180_570_000;
+
+	/// Transaction fee that is paid at the Westend AssetHub for delivering a single inbound message.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_delivery_transaction` + `33%`)
+	pub const AssetHubWestendBaseDeliveryFeeInWnds: u128 = 89_668_215_915;
+
+	/// Transaction fee that is paid at the Westend AssetHub for delivering single outbound message confirmation.
+	/// (initially was calculated by test `AssetHubWestend::can_calculate_fee_for_standalone_message_confirmation_transaction` + `33%`)
+	pub const AssetHubWestendBaseConfirmationFeeInWnds: u128 = 16_960_715_915;
+}

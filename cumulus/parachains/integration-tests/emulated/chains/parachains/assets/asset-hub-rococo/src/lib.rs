@@ -13,7 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use asset_hub_rococo_runtime;
+pub use asset_hub_rococo_runtime::{
+	self as asset_hub_rococo_runtime, xcm_config::XcmConfig as AssetHubRococoXcmConfig,
+	ExistentialDeposit as AssetHubRococoExistentialDeposit,
+	RuntimeOrigin as AssetHubRococoRuntimeOrigin,
+};
 
 pub mod genesis;
 
@@ -52,6 +56,7 @@ decl_test_parachains! {
 			PoolAssets: asset_hub_rococo_runtime::PoolAssets,
 			AssetConversion: asset_hub_rococo_runtime::AssetConversion,
 			Balances: asset_hub_rococo_runtime::Balances,
+			XcmOverAssetHubWestend: asset_hub_rococo_runtime::XcmOverAssetHubWestend,
 		}
 	},
 }

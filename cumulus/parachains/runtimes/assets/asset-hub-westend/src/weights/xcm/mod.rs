@@ -21,6 +21,7 @@ use crate::{
 	Runtime,
 };
 use alloc::vec::Vec;
+use codec::Encode;
 use assets_common::IsLocalAccountKey20;
 use frame_support::{traits::Contains, weights::Weight};
 use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
@@ -269,8 +270,9 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn universal_origin(_: &Junction) -> Weight {
 		XcmGeneric::<Runtime>::universal_origin()
 	}
-	fn export_message(_: &NetworkId, _: &Junctions, _: &Xcm<()>) -> Weight {
-		Weight::MAX
+	fn export_message(_: &NetworkId, _: &Junctions, inner: &Xcm<()>) -> Weight {
+		let inner_encoded_len = inner.encode().len() as u32;
+		XcmGeneric::<Runtime>::export_message(inner_encoded_len)
 	}
 	fn lock_asset(_: &Asset, _: &Location) -> Weight {
 		Weight::MAX
