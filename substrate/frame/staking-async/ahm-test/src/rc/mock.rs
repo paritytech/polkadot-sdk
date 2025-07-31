@@ -88,6 +88,14 @@ pub fn roll_until_matches(criteria: impl Fn() -> bool, with_ah: bool) {
 	}
 }
 
+pub fn roll_to_next_session(with_ah: bool) {
+	let current_session = pallet_session::CurrentIndex::<Runtime>::get();
+	roll_until_matches(
+		|| pallet_session::CurrentIndex::<Runtime>::get() == current_session + 1,
+		with_ah,
+	);
+}
+
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = <Runtime as pallet_balances::Config>::Balance;
 pub type Hash = <Runtime as frame_system::Config>::Hash;
@@ -179,6 +187,8 @@ impl pallet_session::Config for Runtime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, StakingAhClient>;
 
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 parameter_types! {
@@ -247,6 +257,7 @@ pub enum OutgoingMessages {
 
 parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
+	pub static MaxOffenceBatchSize: u32 = 50;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
 }
@@ -275,7 +286,9 @@ impl ah_client::Config for Runtime {
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
 	type PointsPerBlock = ConstU32<20>;
+	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Self;
+	type WeightInfo = ();
 	type Fallback = Staking;
 }
 
@@ -400,6 +413,12 @@ impl ExtBuilder {
 	/// Set the smallest number of validators to be received by ah-client
 	pub fn minimum_validator_set_size(self, size: u32) -> Self {
 		MinimumValidatorSetSize::set(size);
+		self
+	}
+
+	/// Set the maximum offence batch size for testing batching behavior
+	pub fn max_offence_batch_size(self, size: u32) -> Self {
+		MaxOffenceBatchSize::set(size);
 		self
 	}
 

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! RLP encoding and decoding for Ethereum transactions.
-//! See <https://eth.wiki/fundamentals/rlp> for more information about RLP encoding.
+//! See <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/> for more information about RLP encoding.
 
 use super::*;
 use alloc::vec::Vec;

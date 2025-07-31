@@ -29,7 +29,6 @@ use frame_support::{
 use parachains_common::AccountId;
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use rococo_runtime_constants::currency::GRAND;
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use xcm_executor::traits::ConvertLocation;
 
 // Fund Treasury account on Asset Hub from Treasury account on Relay Chain with ROCs.

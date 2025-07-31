@@ -74,7 +74,7 @@ pub fn expand(mut def: Def) -> proc_macro2::TokenStream {
 	let genesis_build = genesis_build::expand_genesis_build(&mut def);
 	let genesis_config = genesis_config::expand_genesis_config(&mut def);
 	let type_values = type_value::expand_type_values(&mut def);
-	let origins = origin::expand_origins(&mut def);
+	let origin = origin::expand_origin(&mut def);
 	let validate_unsigned = validate_unsigned::expand_validate_unsigned(&mut def);
 	let tt_default_parts = tt_default_parts::expand_tt_default_parts(&mut def);
 	let doc_only = doc_only::expand_doc_only(&mut def);
@@ -122,7 +122,7 @@ storage item. Otherwise, all storage items are listed among [*Type Definitions*]
 		#genesis_build
 		#genesis_config
 		#type_values
-		#origins
+		#origin
 		#validate_unsigned
 		#tt_default_parts
 		#doc_only

@@ -1,0 +1,8 @@
+title: Update prdoc in 8327 to fix release issue
+
+doc:
+  - audience: Node Operator
+    description: |
+      Update the prdoc in 8327 to fix a release issue.
+
+crates: [ ]

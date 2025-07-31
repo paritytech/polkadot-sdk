@@ -145,7 +145,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
@@ -155,6 +155,11 @@ pub mod rococo {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}
@@ -185,7 +190,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
@@ -195,6 +200,11 @@ pub mod westend {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}

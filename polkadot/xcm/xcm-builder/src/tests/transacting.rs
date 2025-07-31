@@ -146,14 +146,16 @@ fn report_successful_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(MaybeErrorCode::Success),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(MaybeErrorCode::Success),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -182,14 +184,16 @@ fn report_failed_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(70, 70) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(vec![2].into()),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(vec![2].into()),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }
 
 #[test]
@@ -234,7 +238,10 @@ fn expect_successful_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
+		}
 	);
 }
 
@@ -280,7 +287,10 @@ fn expect_failed_transact_status_should_work() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(70, 70), error: XcmError::ExpectationFalse }
+		Outcome::Incomplete {
+			used: Weight::from_parts(70, 70),
+			error: InstructionError { index: 1, error: XcmError::ExpectationFalse },
+		}
 	);
 }
 
@@ -311,12 +321,14 @@ fn clear_transact_status_should_work() {
 		Weight::zero(),
 	);
 	assert_eq!(r, Outcome::Complete { used: Weight::from_parts(80, 80) });
-	let expected_msg = Xcm(vec![QueryResponse {
-		response: Response::DispatchResult(MaybeErrorCode::Success),
-		query_id: 42,
-		max_weight: Weight::from_parts(5000, 5000),
-		querier: Some(Here.into()),
-	}]);
-	let expected_hash = fake_message_hash(&expected_msg);
-	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, expected_hash)]);
+	let expected_msg = Xcm(vec![
+		QueryResponse {
+			response: Response::DispatchResult(MaybeErrorCode::Success),
+			query_id: 42,
+			max_weight: Weight::from_parts(5000, 5000),
+			querier: Some(Here.into()),
+		},
+		SetTopic(hash),
+	]);
+	assert_eq!(sent_xcm(), vec![(Parent.into(), expected_msg, hash)]);
 }

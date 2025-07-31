@@ -1,0 +1,11 @@
+title: 'Add trie cache warmup'
+doc:
+- audience: Node Dev
+  description: "Warm up the Trie cache based on a CLI flag to enhance the performance of smart contracts on AssetHub by reducing storage access time."
+crates:
+- name: sc-cli
+  bump: major
+- name: sc-service
+  bump: major
+- name: sc-client-db
+  bump: minor

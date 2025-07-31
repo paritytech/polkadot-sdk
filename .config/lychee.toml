@@ -6,6 +6,9 @@ max_cache_age = "10d"
 max_redirects = 10
 max_retries = 3
 
+# User agent to send with each request.
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
+
 # Exclude localhost et.al.
 exclude_all_private = true
 

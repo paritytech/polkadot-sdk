@@ -31,9 +31,10 @@ use crate::{
 	limits,
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	wasm::{PreparedCall, Runtime},
-	BalanceOf, Code, CodeInfoOf, Config, ContractInfo, ContractInfoOf, DepositLimit, Error,
-	GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, WasmBlob, Weight,
+	vm::{PreparedCall, Runtime},
+	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -43,7 +44,7 @@ use sp_core::{Get, H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::{Bounded, Hash};
 
-type StackExt<'a, T> = Stack<'a, T, WasmBlob<T>>;
+type StackExt<'a, T> = Stack<'a, T, ContractBlob<T>>;
 
 /// A builder used to prepare a contract call.
 pub struct CallSetup<T: Config> {
@@ -65,7 +66,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	fn default() -> Self {
-		Self::new(WasmModule::dummy())
+		Self::new(VmBinaryModule::dummy())
 	}
 }
 
@@ -77,12 +78,12 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Setup a new call for the given module.
-	pub fn new(module: WasmModule) -> Self {
+	pub fn new(module: VmBinaryModule) -> Self {
 		let contract = Contract::<T>::new(module, vec![]).unwrap();
 		let dest = contract.account_id.clone();
 		let origin = Origin::from_account_id(contract.caller.clone());
 
-		let storage_meter = Meter::new(&origin, default_deposit_limit::<T>(), 0u32.into()).unwrap();
+		let storage_meter = Meter::new(default_deposit_limit::<T>());
 
 		#[cfg(feature = "runtime-benchmarks")]
 		{
@@ -94,7 +95,7 @@ where
 			// Whitelist the contract's contractInfo as it is already accounted for in the call
 			// benchmark
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::ContractInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
 					&contract.account_id,
 				))
 				.into(),
@@ -115,7 +116,7 @@ where
 
 	/// Set the meter's storage deposit limit.
 	pub fn set_storage_deposit_limit(&mut self, balance: BalanceOf<T>) {
-		self.storage_meter = Meter::new(&self.origin, balance, 0u32.into()).unwrap();
+		self.storage_meter = Meter::new(balance);
 	}
 
 	/// Set the call's origin.
@@ -124,7 +125,7 @@ where
 	}
 
 	/// Set the contract's balance.
-	pub fn set_balance(&mut self, value: BalanceOf<T>) {
+	pub fn set_balance(&mut self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
 		self.contract.set_balance(value);
 	}
 
@@ -149,7 +150,7 @@ where
 	}
 
 	/// Build the call stack.
-	pub fn ext(&mut self) -> (StackExt<'_, T>, WasmBlob<T>) {
+	pub fn ext(&mut self) -> (StackExt<'_, T>, ContractBlob<T>) {
 		let mut ext = StackExt::bench_new_call(
 			T::AddressMapper::to_address(&self.dest),
 			self.origin.clone(),
@@ -166,7 +167,7 @@ where
 	/// Prepare a call to the module.
 	pub fn prepare_call<'a>(
 		ext: &'a mut StackExt<'a, T>,
-		module: WasmBlob<T>,
+		module: ContractBlob<T>,
 		input: Vec<u8>,
 		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
@@ -229,7 +230,7 @@ where
 	T::Hash: frame_support::traits::IsType<H256>,
 {
 	/// Create new contract and use a default account id as instantiator.
-	pub fn new(module: WasmModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
+	pub fn new(module: VmBinaryModule, data: Vec<u8>) -> Result<Contract<T>, &'static str> {
 		let caller = T::AddressMapper::to_fallback_account_id(&crate::test_utils::ALICE_ADDR);
 		Self::with_caller(caller, module, data)
 	}
@@ -238,7 +239,7 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn with_index(
 		index: u32,
-		module: WasmModule,
+		module: VmBinaryModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		Self::with_caller(frame_benchmarking::account("instantiator", index, 0), module, data)
@@ -247,7 +248,7 @@ where
 	/// Create new contract and use the supplied `caller` as instantiator.
 	pub fn with_caller(
 		caller: T::AccountId,
-		module: WasmModule,
+		module: VmBinaryModule,
 		data: Vec<u8>,
 	) -> Result<Contract<T>, &'static str> {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
@@ -264,26 +265,26 @@ where
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
-			0u32.into(),
+			U256::zero(),
 			Weight::MAX,
 			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
 			data,
 			salt,
+			BumpNonce::Yes,
 		);
 
 		let address = outcome.result?.addr;
 		let account_id = T::AddressMapper::to_fallback_account_id(&address);
 		let result = Contract { caller, address, account_id };
 
-		ContractInfoOf::<T>::insert(&address, result.info()?);
-
+		AccountInfo::<T>::insert_contract(&address, result.info()?);
 		Ok(result)
 	}
 
 	/// Create a new contract with the supplied storage item count and size each.
 	pub fn with_storage(
-		code: WasmModule,
+		code: VmBinaryModule,
 		stor_num: u32,
 		stor_size: u32,
 	) -> Result<Self, &'static str> {
@@ -308,19 +309,20 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<ContractInfoOf<T>>::insert(&self.address, info);
+
+		AccountInfo::<T>::insert_contract(&self.address, info);
 		Ok(())
 	}
 
 	/// Create a new contract with the specified unbalanced storage trie.
 	pub fn with_unbalanced_storage_trie(
-		code: WasmModule,
+		code: VmBinaryModule,
 		key: &[u8],
 	) -> Result<Self, &'static str> {
 		/// Number of layers in a Radix16 unbalanced trie.
 		const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
-		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
+		if (key.len() as u32) < UNBALANCED_TRIE_LAYERS.div_ceil(2) {
 			return Err("Key size too small to create the specified trie");
 		}
 
@@ -350,7 +352,7 @@ where
 
 	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
 	pub fn address_info(addr: &T::AccountId) -> Result<ContractInfo<T>, &'static str> {
-		ContractInfoOf::<T>::get(T::AddressMapper::to_address(addr))
+		<AccountInfo<T>>::load_contract(&T::AddressMapper::to_address(addr))
 			.ok_or("Expected contract to exist at this point.")
 	}
 
@@ -360,8 +362,12 @@ where
 	}
 
 	/// Set the balance of the contract to the supplied amount.
-	pub fn set_balance(&self, balance: BalanceOf<T>) {
-		T::Currency::set_balance(&self.account_id, balance);
+	pub fn set_balance(&self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
+		let (value, dust) = value.into().deconstruct();
+		T::Currency::set_balance(&self.account_id, value);
+		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.
@@ -375,14 +381,14 @@ where
 	}
 }
 
-/// A wasm module ready to be put on chain.
+/// A vm binary module ready to be put on chain.
 #[derive(Clone)]
-pub struct WasmModule {
+pub struct VmBinaryModule {
 	pub code: Vec<u8>,
 	pub hash: H256,
 }
 
-impl WasmModule {
+impl VmBinaryModule {
 	/// Return a contract code that does nothing.
 	pub fn dummy() -> Self {
 		Self::new(bench_fixtures::DUMMY.to_vec())
@@ -395,7 +401,7 @@ impl WasmModule {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-impl WasmModule {
+impl VmBinaryModule {
 	/// Same as [`Self::dummy`] but uses `replace_with` to make the code unique.
 	pub fn dummy_unique(replace_with: u32) -> Self {
 		Self::new(bench_fixtures::dummy_unique(replace_with))

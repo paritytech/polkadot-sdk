@@ -110,9 +110,9 @@ use sp_runtime::traits::TrailingZeroInput;
 use sp_runtime::{
 	generic,
 	traits::{
-		self, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded, CheckEqual, Dispatchable,
-		Hash, Header, Lookup, LookupError, MaybeDisplay, MaybeSerializeDeserialize, Member, One,
-		Saturating, SimpleBitOps, StaticLookup, Zero,
+		self, AsTransactionAuthorizedOrigin, AtLeast32Bit, BadOrigin, BlockNumberProvider, Bounded,
+		CheckEqual, Dispatchable, Hash, Header, Lookup, LookupError, MaybeDisplay,
+		MaybeSerializeDeserialize, Member, One, Saturating, SimpleBitOps, StaticLookup, Zero,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionSource, TransactionValidity,
@@ -169,16 +169,22 @@ pub mod weights;
 pub mod migrations;
 
 pub use extensions::{
-	check_genesis::CheckGenesis, check_mortality::CheckMortality,
-	check_non_zero_sender::CheckNonZeroSender, check_nonce::CheckNonce,
-	check_spec_version::CheckSpecVersion, check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight, weight_reclaim::WeightReclaim,
-	weights::SubstrateWeight as SubstrateExtensionsWeight, WeightInfo as ExtensionsWeightInfo,
+	authorize_call::AuthorizeCall,
+	check_genesis::CheckGenesis,
+	check_mortality::CheckMortality,
+	check_non_zero_sender::CheckNonZeroSender,
+	check_nonce::{CheckNonce, ValidNonceInfo},
+	check_spec_version::CheckSpecVersion,
+	check_tx_version::CheckTxVersion,
+	check_weight::CheckWeight,
+	weight_reclaim::WeightReclaim,
+	weights::SubstrateWeight as SubstrateExtensionsWeight,
+	WeightInfo as ExtensionsWeightInfo,
 };
 // Backward compatible re-export.
 pub use extensions::check_mortality::CheckMortality as CheckEra;
 pub use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{PostInherents, PostTransactions, PreInherents};
+use frame_support::traits::{Authorize, PostInherents, PostTransactions, PreInherents};
 use sp_core::storage::StateVersion;
 pub use weights::WeightInfo;
 
@@ -263,6 +269,16 @@ where
 	code_hash: T::Hash,
 	/// Whether or not to carry out version checks.
 	check_version: bool,
+}
+
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+impl<T> CodeUpgradeAuthorization<T>
+where
+	T: Config,
+{
+	pub fn code_hash(&self) -> &T::Hash {
+		&self.code_hash
+	}
 }
 
 /// Information about the dispatch of a call, to be displayed in the
@@ -515,7 +531,8 @@ pub mod pallet {
 		type RuntimeOrigin: Into<Result<RawOrigin<Self::AccountId>, Self::RuntimeOrigin>>
 			+ From<RawOrigin<Self::AccountId>>
 			+ Clone
-			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>;
+			+ OriginTrait<Call = Self::RuntimeCall, AccountId = Self::AccountId>
+			+ AsTransactionAuthorizedOrigin;
 
 		#[docify::export(system_runtime_call)]
 		/// The aggregated `RuntimeCall` type.
@@ -524,7 +541,8 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ Debug
 			+ GetDispatchInfo
-			+ From<Call<Self>>;
+			+ From<Call<Self>>
+			+ Authorize;
 
 		/// The aggregated `RuntimeTask` type.
 		#[pallet::no_default_bounds]
@@ -685,7 +703,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call]
+	#[pallet::call(weight = <T as Config>::SystemWeightInfo)]
 	impl<T: Config> Pallet<T> {
 		/// Make some on-chain remark.
 		///
@@ -973,10 +991,12 @@ pub mod pallet {
 
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
 	/// Whether all inherents have been applied.
 	#[pallet::storage]
+	#[pallet::whitelist_storage]
 	pub type InherentsApplied<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The current weight for the block.
@@ -1465,6 +1485,18 @@ where
 	}
 }
 
+/// Ensure that the origin `o` represents an extrinsic with authorized call. Returns `Ok` or an
+/// `Err` otherwise.
+pub fn ensure_authorized<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Authorized) => Ok(()),
+		_ => Err(BadOrigin),
+	}
+}
+
 /// Reference status; can be either referenced or unreferenced.
 #[derive(RuntimeDebug)]
 pub enum RefStatus {
@@ -1884,7 +1916,6 @@ impl<T: Config> Pallet<T> {
 		<Digest<T>>::put(digest);
 		<ParentHash<T>>::put(parent_hash);
 		<BlockHash<T>>::insert(*number - One::one(), parent_hash);
-		<InherentsApplied<T>>::kill();
 
 		// Remove previous block data from storage
 		BlockWeight::<T>::kill();
@@ -2543,7 +2574,9 @@ where
 
 /// Prelude to be used alongside pallet macro, for ease of use.
 pub mod pallet_prelude {
-	pub use crate::{ensure_none, ensure_root, ensure_signed, ensure_signed_or_root};
+	pub use crate::{
+		ensure_authorized, ensure_none, ensure_root, ensure_signed, ensure_signed_or_root,
+	};
 
 	/// Type alias for the `Origin` associated type of system config.
 	pub type OriginFor<T> = <T as crate::Config>::RuntimeOrigin;

@@ -6,7 +6,10 @@ use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
 use snowbridge_inbound_queue_primitives::{v2::XcmPayload, EventProof, Proof};
-use snowbridge_test_utils::mock_xcm::{set_charge_fees_override, set_sender_override};
+use snowbridge_test_utils::{
+	mock_rewards::RegisteredRewardsCount,
+	mock_xcm::{set_charge_fees_override, set_sender_override},
+};
 use sp_keyring::sr25519::Keyring;
 use sp_runtime::DispatchError;
 
@@ -346,5 +349,43 @@ fn zero_reward_does_not_register_reward() {
 			0,
 			"Zero relayer reward should not be registered"
 		);
+	});
+}
+
+#[test]
+fn test_add_tip_cumulative() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 10;
+		let amount1: u128 = 500;
+		let amount2: u128 = 300;
+
+		assert_eq!(Tips::<Test>::get(nonce), None);
+		assert_ok!(InboundQueue::add_tip(nonce, amount1));
+		assert_eq!(Tips::<Test>::get(nonce), Some(amount1));
+		assert_ok!(InboundQueue::add_tip(nonce, amount2));
+		assert_eq!(Tips::<Test>::get(nonce), Some(amount1 + amount2));
+	});
+}
+
+#[test]
+fn test_add_tip_nonce_consumed() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 20;
+		let amount: u128 = 400;
+		Nonce::<Test>::set(nonce.into());
+
+		assert_noop!(InboundQueue::add_tip(nonce, amount), AddTipError::NonceConsumed);
+		assert_eq!(Tips::<Test>::get(nonce), None);
+	});
+}
+
+#[test]
+fn test_add_tip_amount_zero() {
+	new_tester().execute_with(|| {
+		let nonce: u64 = 30;
+		let amount: u128 = 0;
+
+		assert_noop!(InboundQueue::add_tip(nonce, amount), AddTipError::AmountZero);
+		assert_eq!(Tips::<Test>::get(nonce), None);
 	});
 }

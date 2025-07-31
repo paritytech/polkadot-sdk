@@ -23,9 +23,12 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{traits::TrailingZeroInput, DispatchError};
+use sp_runtime::{
+	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
+};
 use sp_runtime_interface::pass_by::{
-	AllocateAndReturnByCodec, PassFatPointerAndDecode, PassFatPointerAndRead, PassPointerAndWrite,
+	AllocateAndReturnByCodec, AllocateAndReturnPointer, PassFatPointerAndDecode,
+	PassFatPointerAndRead,
 };
 use sp_storage::TrackedStorageKey;
 
@@ -198,6 +201,12 @@ impl From<DispatchError> for BenchmarkError {
 	}
 }
 
+impl From<TransactionValidityError> for BenchmarkError {
+	fn from(e: TransactionValidityError) -> Self {
+		Self::Stop(e.into())
+	}
+}
+
 /// Configuration used to setup and run runtime benchmarks.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 pub struct BenchmarkConfig {
@@ -253,9 +262,7 @@ sp_api::decl_runtime_apis! {
 /// WARNING! This is a non-deterministic call. Do not use this within
 /// consensus critical logic.
 pub fn current_time() -> u128 {
-	let mut out = [0; 16];
-	self::benchmarking::current_time(&mut out);
-	u128::from_le_bytes(out)
+	u128::from_le_bytes(self::benchmarking::current_time())
 }
 
 /// Interface that provides functions for benchmarking the runtime.
@@ -267,12 +274,12 @@ pub trait Benchmarking {
 	///
 	/// WARNING! This is a non-deterministic call. Do not use this within
 	/// consensus critical logic.
-	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
-		*out = std::time::SystemTime::now()
+	fn current_time() -> AllocateAndReturnPointer<[u8; 16], 16> {
+		std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
 			.expect("Unix time doesn't go backwards; qed")
 			.as_nanos()
-			.to_le_bytes();
+			.to_le_bytes()
 	}
 
 	/// Reset the trie database to the genesis state.

@@ -29,8 +29,11 @@ use crate::{
 		error,
 		tracing_log_xt::log_xt_trace,
 	},
-	graph::{self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator},
-	ReadyIteratorFor, LOG_TARGET,
+	graph::{
+		self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator,
+		RawExtrinsicFor,
+	},
+	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
@@ -48,7 +51,7 @@ use sp_runtime::{
 	traits::{
 		AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion, Zero,
 	},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionTag as Tag, TransactionValidityError},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -283,7 +286,7 @@ where
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
 		Ok(pool
-			.submit_at(&at, xts)
+			.submit_at(&at, xts, ValidateTransactionPriority::Submitted)
 			.await
 			.into_iter()
 			.map(|result| result.map(|outcome| outcome.hash()))
@@ -331,7 +334,7 @@ where
 		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		_at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
@@ -591,7 +594,7 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 	}
 }
 
-/// Prune the known txs for the given block.
+/// Prune the known txs from the given pool for the given block.
 ///
 /// Returns the hashes of all transactions included in given block.
 pub async fn prune_known_txs_for_block<
@@ -602,15 +605,20 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
+	extrinsics: Option<Vec<RawExtrinsicFor<Api>>>,
+	known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
-	let extrinsics = api
-		.block_body(at.hash)
-		.await
-		.unwrap_or_else(|error| {
-			warn!(target: LOG_TARGET, ?error, "Prune known transactions: error request.");
-			None
-		})
-		.unwrap_or_default();
+	let extrinsics = match extrinsics {
+		Some(xts) => xts,
+		None => api
+			.block_body(at.hash)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(target: LOG_TARGET, ?error, "Prune known transactions: error request.");
+				None
+			})
+			.unwrap_or_default(),
+	};
 
 	let hashes = extrinsics.iter().map(|tx| pool.hash_of(tx)).collect::<Vec<_>>();
 
@@ -628,7 +636,7 @@ pub async fn prune_known_txs_for_block<
 
 	log_xt_trace!(target: LOG_TARGET, &hashes, "Pruning transaction.");
 
-	pool.prune(at, *header.parent_hash(), &extrinsics).await;
+	pool.prune(at, *header.parent_hash(), &extrinsics, known_provides_tags).await;
 	hashes
 }
 
@@ -674,7 +682,10 @@ where
 		}
 
 		future::join_all(
-			tree_route.enacted().iter().map(|h| prune_known_txs_for_block(h, &*api, &*pool)),
+			tree_route
+				.enacted()
+				.iter()
+				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, None, None)),
 		)
 		.await
 		.into_iter()
@@ -731,7 +742,12 @@ where
 				});
 			}
 
-			pool.resubmit_at(&hash_and_number, resubmit_transactions).await;
+			pool.resubmit_at(
+				&hash_and_number,
+				resubmit_transactions,
+				ValidateTransactionPriority::Submitted,
+			)
+			.await;
 		}
 
 		let extra_pool = pool.clone();

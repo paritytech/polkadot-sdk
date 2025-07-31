@@ -43,7 +43,6 @@ use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 parameter_types! {
-	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Location(Location::parent());
 }
 
@@ -53,15 +52,18 @@ fn construct_extrinsic(
 ) -> UncheckedExtrinsic {
 	let account_id = AccountId32::from(sender.public());
 	let tx_ext: TxExtension = (
-		frame_system::CheckNonZeroSender::<Runtime>::new(),
-		frame_system::CheckSpecVersion::<Runtime>::new(),
-		frame_system::CheckTxVersion::<Runtime>::new(),
-		frame_system::CheckGenesis::<Runtime>::new(),
-		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+			frame_system::CheckNonce::<Runtime>::from(
+				frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+			),
+			frame_system::CheckWeight::<Runtime>::new(),
 		),
-		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
 		BridgeRejectObsoleteHeadersAndMessages::default(),
 		(bridge_to_westend_config::OnBridgeHubRococoRefundBridgeHubWestendMessages::default(),),
@@ -107,7 +109,7 @@ bridge_hub_test_utils::test_cases::include_teleports_for_native_asset_works!(
 	Runtime,
 	AllPalletsWithoutSystem,
 	XcmConfig,
-	CheckingAccount,
+	(),
 	WeightToFee,
 	ParachainSystem,
 	collator_session_keys(),
@@ -137,6 +139,7 @@ mod bridge_hub_westend_tests {
 		BridgeHubWestendLocation, WestendGlobalConsensusNetwork,
 		WithBridgeHubWestendMessagesInstance, XcmOverBridgeHubWestendInstance,
 	};
+	use cumulus_primitives_core::UpwardMessageSender;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -383,7 +386,7 @@ mod bridge_hub_westend_tests {
 					_ => None,
 				}
 			}),
-			|| (),
+			|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 		)
 	}
 
@@ -530,6 +533,7 @@ mod bridge_hub_bulletin_tests {
 		RococoBulletinGlobalConsensusNetwork, RococoBulletinGlobalConsensusNetworkLocation,
 		WithRococoBulletinMessagesInstance, XcmOverPolkadotBulletinInstance,
 	};
+	use cumulus_primitives_core::UpwardMessageSender;
 
 	// Random para id of sibling chain used in tests.
 	pub const SIBLING_PEOPLE_PARACHAIN_ID: u32 =
@@ -665,7 +669,7 @@ mod bridge_hub_bulletin_tests {
 					_ => None,
 				}
 			}),
-			|| (),
+			|| <ParachainSystem as UpwardMessageSender>::ensure_successful_delivery(),
 		)
 	}
 
@@ -998,5 +1002,6 @@ fn xcm_payment_api_works() {
 		RuntimeCall,
 		RuntimeOrigin,
 		Block,
+		WeightToFee,
 	>();
 }

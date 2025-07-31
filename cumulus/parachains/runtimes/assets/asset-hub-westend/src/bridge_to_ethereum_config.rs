@@ -13,13 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(not(feature = "runtime-benchmarks"))]
+use crate::xcm_config::XcmRouter;
 use crate::{
 	weights, xcm_config,
 	xcm_config::{
 		AssetTransactors, LocationToAccountId, TrustBackedAssetsPalletLocation, UniversalLocation,
 		XcmConfig,
 	},
-	AccountId, Assets, ForeignAssets, Runtime, RuntimeEvent,
+	AccountId, AssetConversion, Assets, ForeignAssets, Runtime, RuntimeEvent,
 };
 use assets_common::{matching::FromSiblingParachain, AssetIdForTrustBackedAssetsConvert};
 use frame_support::{parameter_types, traits::EitherOf};
@@ -30,14 +32,13 @@ use testnet_parachains_constants::westend::snowbridge::{EthereumNetwork, FRONTEN
 use xcm::prelude::{Asset, InteriorLocation, Location, PalletInstance, Parachain};
 use xcm_executor::XcmExecutor;
 
-#[cfg(not(feature = "runtime-benchmarks"))]
-use crate::xcm_config::XcmRouter;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
-
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmark_helpers {
-	use crate::{xcm_config::LocationToAccountId, ForeignAssets, RuntimeOrigin};
+	use crate::{
+		xcm_config::LocationToAccountId, AccountId, AssetConversion, Balances, ForeignAssets,
+		RuntimeOrigin,
+	};
+	use alloc::boxed::Box;
 	use codec::Encode;
 	use xcm::prelude::*;
 	use xcm_executor::traits::ConvertLocation;
@@ -58,21 +59,78 @@ pub mod benchmark_helpers {
 		}
 	}
 
-	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin> for () {
+	impl snowbridge_pallet_system_frontend::BenchmarkHelper<RuntimeOrigin, AccountId> for () {
 		fn make_xcm_origin(location: Location) -> RuntimeOrigin {
 			RuntimeOrigin::from(pallet_xcm::Origin::Xcm(location))
 		}
 
-		fn initialize_storage(asset_location: Location, asset_owner: Location) {
-			let asset_owner = LocationToAccountId::convert_location(&asset_owner).unwrap();
+		fn initialize_storage(asset_location: Location, asset_owner_location: Location) {
+			let asset_owner = LocationToAccountId::convert_location(&asset_owner_location).unwrap();
 			ForeignAssets::force_create(
 				RuntimeOrigin::root(),
 				asset_location,
-				asset_owner.into(),
+				asset_owner.clone().into(),
 				true,
 				1,
 			)
-			.unwrap()
+			.unwrap();
+		}
+
+		fn setup_pools(caller: AccountId, asset: Location) {
+			// Prefund the caller's account with DOT
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				caller.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+
+			let asset_owner = caller.clone();
+			ForeignAssets::force_create(
+				RuntimeOrigin::root(),
+				asset.clone(),
+				asset_owner.clone().into(),
+				true,
+				1,
+			)
+			.unwrap();
+
+			let signed_owner = RuntimeOrigin::signed(asset_owner.clone());
+
+			// Prefund the asset owner's account with DOT and Ether to create the pools
+			ForeignAssets::mint(
+				signed_owner.clone(),
+				asset.clone().into(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+			Balances::force_set_balance(
+				RuntimeOrigin::root(),
+				asset_owner.clone().into(),
+				10_000_000_000_000,
+			)
+			.unwrap();
+
+			// Create the pool so the swap will succeed
+			let native_asset: Location = Parent.into();
+			AssetConversion::create_pool(
+				signed_owner.clone(),
+				Box::new(native_asset.clone()),
+				Box::new(asset.clone()),
+			)
+			.unwrap();
+			AssetConversion::add_liquidity(
+				signed_owner,
+				Box::new(native_asset),
+				Box::new(asset),
+				1_000_000_000_000,
+				2_000_000_000_000,
+				0,
+				0,
+				asset_owner.into(),
+			)
+			.unwrap();
 		}
 	}
 }
@@ -120,12 +178,14 @@ impl snowbridge_pallet_system_frontend::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type AssetTransactor = AssetTransactors;
 	type EthereumLocation = FeeAsset;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type BridgeHubLocation = BridgeHubLocation;
 	type UniversalLocation = UniversalLocation;
 	type PalletLocation = SystemFrontendPalletLocation;
+	type Swap = AssetConversion;
 	type BackendWeightInfo = weights::snowbridge_pallet_system_backend::WeightInfo<Runtime>;
+	type AccountIdConverter = xcm_config::LocationToAccountId;
 }

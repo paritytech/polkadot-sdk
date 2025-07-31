@@ -84,6 +84,12 @@ pub enum RawOrigin<AccountId> {
 	/// * included and agreed upon by the validators anyway,
 	/// * or unsigned transaction validated by a pallet.
 	None,
+	/// It is signed by nobody, the extrinsic is authorized by the runtime.
+	///
+	/// Authorization logic is defined by pallets.
+	/// See trait [`Authorize`](crate::traits::Authorize) and attribute macro
+	/// [`authorize`](crate::pallet_macros::authorize) for more details.
+	Authorized,
 }
 
 impl<AccountId> From<Option<AccountId>> for RawOrigin<AccountId> {

@@ -106,7 +106,6 @@ pub fn expand_error(def: &mut Def) -> proc_macro2::TokenStream {
 
 	let deprecation = match crate::deprecation::get_deprecation_enum(
 		&quote::quote! {#frame_support},
-		&error.attrs,
 		error_item.variants.iter().enumerate().map(|(index, item)| {
 			let index = crate::deprecation::variant_index_for_deprecation(index as u8, item);
 

@@ -549,7 +549,7 @@ where
 					// necessary. See <https://github.com/paritytech/substrate/pull/6080>
 					.with_per_connection_event_buffer_size(24)
 					.with_max_negotiating_inbound_streams(2048)
-					.with_idle_connection_timeout(Duration::from_secs(10));
+					.with_idle_connection_timeout(network_config.idle_connection_timeout);
 
 				Swarm::new(transport, behaviour, local_peer_id, config)
 			};
@@ -892,6 +892,16 @@ where
 	B: BlockT + 'static,
 	H: ExHashT,
 {
+	/// Start finding closest peerst to the target peer ID in the DHT.
+	///
+	/// This will generate either a `ClosestPeersFound` or a `ClosestPeersNotFound` event and pass
+	/// it as an item on the [`NetworkWorker`] stream.
+	fn find_closest_peers(&self, target: sc_network_types::PeerId) {
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::FindClosestPeers(target.into()));
+	}
+
 	/// Start getting a value from the DHT.
 	///
 	/// This will generate either a `ValueFound` or a `ValueNotFound` event and pass it as an
@@ -1299,6 +1309,7 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 ///
 /// Each entry corresponds to a method of `NetworkService`.
 enum ServiceToWorkerMsg {
+	FindClosestPeers(PeerId),
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
 	PutRecordTo {
@@ -1431,6 +1442,8 @@ where
 	/// Process the next message coming from the `NetworkService`.
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
+			ServiceToWorkerMsg::FindClosestPeers(target) =>
+				self.network_service.behaviour_mut().find_closest_peers(target),
 			ServiceToWorkerMsg::GetValue(key) =>
 				self.network_service.behaviour_mut().get_value(key.into()),
 			ServiceToWorkerMsg::PutValue(key, value) =>
@@ -1657,13 +1670,17 @@ where
 				match (self.metrics.as_ref(), duration) {
 					(Some(metrics), Some(duration)) => {
 						let query_type = match event {
+							DhtEvent::ClosestPeersFound(_, _) => "peers-found",
+							DhtEvent::ClosestPeersNotFound(_) => "peers-not-found",
 							DhtEvent::ValueFound(_) => "value-found",
 							DhtEvent::ValueNotFound(_) => "value-not-found",
 							DhtEvent::ValuePut(_) => "value-put",
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+							DhtEvent::StartedProviding(_) => "started-providing",
 							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
 							DhtEvent::ProvidersFound(_, _) => "providers-found",
+							DhtEvent::NoMoreProviders(_) => "no-more-providers",
 							DhtEvent::ProvidersNotFound(_) => "providers-not-found",
 						};
 						metrics
