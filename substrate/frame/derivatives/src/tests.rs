@@ -343,7 +343,10 @@ fn derivative_nfts() {
 			Weight::MAX,
 			Weight::zero(),
 		);
-		assert_err!(outcome.ensure_complete(), XcmError::AssetNotFound);
+		assert_err!(
+			outcome.ensure_complete(),
+			InstructionError { index: 1, error: XcmError::AssetNotFound }
+		);
 
 		let message = Xcm::builder_unpaid()
 			.unpaid_execution(Unlimited, None)
