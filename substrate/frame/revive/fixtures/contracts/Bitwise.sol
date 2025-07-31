@@ -46,10 +46,11 @@ contract Bitwise {
 
     function clzOp(uint256 a) public returns (uint256 r) {
         assembly {
-            r := clz(a)
+            // TODO: CLZ instruction is not yet supported by solidity.
+            // r := clz(a)
+            r := 0
         }
     }
-
 
     function byteOp(uint256 index, uint256 value) public returns (uint256 r) {
         assembly {

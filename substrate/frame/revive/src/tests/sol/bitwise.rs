@@ -579,6 +579,7 @@ fn iszero_works() {
 }
 
 #[test]
+#[ignore] // CLZ instruction is not yet supported by solidity.
 fn clz_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Bitwise", fixture_type).unwrap();
