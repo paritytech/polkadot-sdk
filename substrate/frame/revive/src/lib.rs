@@ -56,21 +56,13 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	types::{BlockV3, ReceiptV4},
+	types::BlockV3,
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 
-use alloc::{
-	boxed::Box,
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	format, vec,
-};
+use alloc::{boxed::Box, collections::btree_map::BTreeMap, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
-// use ethereum::{
-// 	AccessListItem, BlockV3 as Block, LegacyTransactionMessage, Log, ReceiptV4 as Receipt,
-// 	TransactionAction, TransactionV3 as Transaction,
-// };
 use frame_support::{
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
@@ -108,10 +100,8 @@ pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 use sp_runtime::{
-	generic::UncheckedExtrinsic as RuntimeUncheckedExtrinsic,
 	traits::{
 		BadOrigin, Block as BlockT, Bounded, Convert, Dispatchable, ExtrinsicCall, Saturating,
-		UniqueSaturatedInto,
 	},
 	AccountId32, DispatchError,
 };
@@ -639,14 +629,12 @@ pub mod pallet {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// Its impossible at this point to associate the event stored
 			// with the ETH transaction submitted, if we use read_events_for_pallet.
-			// let events = <frame_system::Pallet<T>>::read_events_for_pallet::<Event<T>>();
 			let extrinsic_count = frame_system::Pallet::<T>::extrinsic_count();
 			log::info!("Processing {} extrinsics in block", extrinsic_count);
 
 			// A tuple of (index, extrinsic data, events).
 			// Filter extrinsics that are not ether transactions.
 			// Maps the index to the extrinsic data and events.
-			let mut timestamp = 0;
 			let mut extrinsics = (0..extrinsic_count)
 				.into_iter()
 				.filter_map(|index| {
@@ -660,9 +648,10 @@ pub mod pallet {
 							Ok(extrinsic) => extrinsic,
 							Err(_) => return None,
 						};
+
 					let call = extrinsic.call();
 
-					// // check here for timestamp.
+					// TODO: check here for timestamp if T::Time::now() is not enough.
 					// if let Some(call) = call.is_sub_type() {
 					// 	if let pallet_timestamp::Call::set { now } = call {
 					// 		// Handle the timestamp set call
@@ -703,22 +692,13 @@ pub mod pallet {
 
 			// For each transaction we need to build:
 			// TransactionSigned and ReceiptInfo.
-
 			let mut total_gas_used = U256::zero();
 			let tx_and_receipts = extrinsics
 				.into_iter()
 				.filter_map(|(transaction_index, (extrinsic_payload, events))| {
-					// Self::process_extrinsic(
-					// 	transaction_index,
-					// 	extrinsic_payload,
-					// 	events,
-					// 	block_number,
-					// 	block_hash,
-					// )
+					// TODO: Move this to a function.
 
-					// TODO: Move this to a function as above:
 					// Check if the ExtrinsicSuccess event is present in the events.
-
 					let success = events.iter().any(|event| {
 						// TODO: Avoid cloning.
 						if let Ok(frame_system::Event::ExtrinsicSuccess { dispatch_info }) =
@@ -734,7 +714,7 @@ pub mod pallet {
 						}
 					});
 
-					// TODO: Calcuate the transaction fee.
+					// TODO: Calculate the transaction fee.
 					// let tx_fee = events.iter().find_map(|event| {
 					// 	if let Ok(pallet_transaction_payment::Event::TransactionFeePaid { .. }) =
 					// 		event.try_into()
@@ -826,30 +806,6 @@ pub mod pallet {
 
 			// Build EVM block.
 			let gas_limit = Self::evm_block_gas_limit();
-
-			// Get the state root of the current block.
-			// Get the block header using the block hash
-			// TODO: don't panic
-			// TODO: Can we get the header better / does this work?:
-			// let header = sp_io::storage::get(&block_hash.as_ref())
-			// 	.and_then(|raw_header| {
-			// 		<T as frame_system::Config>::Header::decode(&mut &raw_header[..]).ok()
-			// 	})
-			// 	.expect("Block header should be available; qed");
-
-			// // Access the state root from the header
-			// let state_root = header.state_root();
-
-			// Get frame-system's state version:
-			// let version = frame_system::Pallet::<T>::state_version();
-			// let parent_hash = header.parent_hash.0.into();
-			// let state_root = header.state_root.0.into();
-			// let extrinsics_root = header.extrinsics_root.0.into();
-
-			// let storage_root = T::Hash::decode(&mut &sp_io::storage::root(version)[..])
-			// 	.expect("Node is configured to use the same hash; qed");
-
-			// let timestamp = pallet_timestamp::Pallet::<T>::get();
 
 			// TODO: We can bail out sooner.
 			let block_author = Self::block_author().expect("Block author must be found; qed");

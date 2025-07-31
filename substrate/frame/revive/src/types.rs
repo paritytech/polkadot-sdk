@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use std::ops::Deref;
 
