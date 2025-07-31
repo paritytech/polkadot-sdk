@@ -17,6 +17,8 @@ crates:
    bump: patch
  - name: bridge-hub-westend-runtime
    bump: patch
+ - name: bridge-hub-westend-integration-tests
+   bump: patch
  - name: collectives-westend-runtime
    bump: patch
  - name: coretime-rococo-runtime
@@ -28,7 +30,7 @@ crates:
  - name: people-westend-runtime
    bump: patch
  - name: testnet-parachains-constants
-   bump: patch
+   bump: minor
  - name: rococo-runtime-constants
    bump: minor
  - name: westend-runtime-constants
