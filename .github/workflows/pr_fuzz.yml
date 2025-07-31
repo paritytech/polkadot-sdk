@@ -20,7 +20,12 @@ jobs:
 
     - name: Install dependencies
       run: cargo install ziggy cargo-afl honggfuzz grcov
-
+    
+    - name: Run cargo ziggy fuzz for 1 minute
+      run: |
+        export SKIP_WASM_BUILD=1
+        timeout 1m cargo ziggy fuzz
+        
     - name: Print Cargo.toml
       run: |
         cd runtime_fuzzer/templates/kitchensink/
