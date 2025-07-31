@@ -487,7 +487,7 @@ pub struct ClaimQueueOffset(pub u8);
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum UMPSignal {
 	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
