@@ -163,7 +163,7 @@ jobs:
     uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["substrate-node"]'
-      package: substrate-node
+      package: staging-node-cli
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
     secrets:
@@ -318,7 +318,7 @@ jobs:
     uses: "./.github/workflows/release-reusable-rc-build.yml"
     with:
       binary: '["substrate-node"]'
-      package: substrate-node
+      package: staging-node-cli
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
     secrets:
