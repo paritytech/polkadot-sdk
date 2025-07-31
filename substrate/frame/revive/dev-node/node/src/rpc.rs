@@ -40,8 +40,6 @@ pub trait HardhatRpc {
 	#[method(name = "hardhat_getAutomine")]
 	fn get_automine(&self) -> RpcResult<bool>;
 
-	// 	#[method(name = "hardhat_dropTransaction")]
-	//     fn drop_transaction(&self) -> RpcResult<bool>;
 }
 
 pub struct HardhatRpcServerImpl {

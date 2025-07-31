@@ -26,14 +26,15 @@ use sc_consensus_manual_seal::rpc::CreatedBlock;
 pub trait HardhatRpc {
 	/// Returns a list of addresses owned by client.
 	#[method(name = "hardhat_mine")]
-    async fn mine(
+	async fn mine(
 		&self,
 		number_of_blocks: Option<U256>,
 		interval: Option<U256>,
-	)-> RpcResult<CreatedBlock<H256>>;
+	) -> RpcResult<CreatedBlock<H256>>;
 
 	#[method(name = "hardhat_getAutomine")]
-	async fn get_automine(
-		&self
-	) -> RpcResult<bool>;
+	async fn get_automine(&self) -> RpcResult<bool>;
+
+	#[method(name = "hardhat_dropTransaction")]
+	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>>;
 }

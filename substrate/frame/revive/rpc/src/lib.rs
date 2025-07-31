@@ -139,6 +139,13 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<bool> {
 		Ok(self.client.get_automine().await?)
 	}
+
+	async fn drop_transaction(
+		&self,
+		hash: H256
+	) -> RpcResult<Option<H256>> {
+		Ok(self.client.drop_transaction(hash).await?)
+	}
 }
 
 #[async_trait]
@@ -194,6 +201,8 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
+		// println!("hash {:?}", hash);
+		// println!("transaction.-0 {:?}", &transaction.0);
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 		self.client.submit(call).await.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");

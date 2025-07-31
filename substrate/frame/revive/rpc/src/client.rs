@@ -19,10 +19,6 @@
 
 mod runtime_api;
 mod storage_api;
-
-use runtime_api::RuntimeApi;
-use storage_api::StorageApi;
-
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
@@ -33,6 +29,7 @@ use jsonrpsee::{
 	rpc_params,
 	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
 };
+use pallet_revive::evm::Bytes;
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
@@ -41,10 +38,15 @@ use pallet_revive::{
 	},
 	EthTransactError,
 };
+use runtime_api::RuntimeApi;
 use sc_consensus_manual_seal::rpc::CreatedBlock;
+use sc_rpc_api::author::hash::ExtrinsicOrHash;
+use sp_core::keccak_256;
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{ops::Range, sync::Arc, time::Duration};
+use storage_api::StorageApi;
 use subxt::{
 	backend::{
 		legacy::{rpc_methods::SystemHealth, LegacyRpcMethods},
@@ -724,6 +726,7 @@ impl Client {
 				futures_timer::Delay::new(std::time::Duration::from_secs(interval.as_u64())).await;
 			}
 			let params = rpc_params![true, true].to_rpc_params().unwrap_or_default();
+			println!("mine {:?}", params);
 			let res =
 				self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
 
@@ -740,5 +743,38 @@ impl Client {
 		let automine = serde_json::from_str(res.get()).unwrap();
 
 		Ok(automine)
+	}
+
+	/// Takes the eth hash of a tx in the mempool and removes it.
+	/// It goes through the txs in the mempool and compares the
+	/// hashes of their stripped version to the hash provided. For this,
+	/// it trims the extra bytes that are not the `eth_transact` payload before hashing.
+	/// If there's a match, it submits the hash of that extrinsic to be removed.
+	pub async fn drop_transaction(&self, hash: H256) -> Result<Option<H256>, ClientError> {
+		let res = self
+			.rpc_client
+			.request("author_pendingExtrinsics".to_string(), Default::default())
+			.await
+			.unwrap();
+
+		let raw_value = res.get();
+		let bytes_pending_transactions: Vec<Bytes> = serde_json::from_str(raw_value).unwrap();
+
+		for transaction in bytes_pending_transactions {
+			match H256(keccak_256(&transaction.0[11..])).eq(&hash) {
+				true => {
+					let hash: H256 = blake2_256(&transaction.0).into();
+
+					let typed_hash = ExtrinsicOrHash::Hash(hash);
+					let params = rpc_params![typed_hash].to_rpc_params().unwrap();
+
+					let _ = self.rpc_client.request("author_removeExtrinsic".to_string(), params).await;
+
+					return Ok(Some(hash));
+				},
+				_ => continue,
+			}
+		}
+		Ok(None)
 	}
 }
