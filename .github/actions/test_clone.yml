@@ -1,0 +1,13 @@
+name: Checkout Fuzzer Repo
+
+on: [push]
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Fuzzer Repo
+      uses: actions/checkout@v2
+      with:
+        repository: 'srlabs/substrate-runtime-fuzzer'
