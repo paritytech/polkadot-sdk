@@ -15,11 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{
-	common_strategies::{CheckOrigin, ConfigValueMarker, DeriveAndReportId, WithConfig},
-	*,
+use super::{common_strategies::*, *};
+use crate::{
+	dispatch::DispatchResult, sp_runtime::traits::FallibleConvert, traits::misc::TypedGet,
+	traits::EnsureOriginWithArg,
 };
-use crate::{sp_runtime::traits::FallibleConvert, traits::EnsureOriginWithArg};
 
 /// The `UseEnsuredOrigin` is an adapter that implements all the asset ops implemented by the `Op`
 /// with strategies augmented by the [CheckOrigin].
@@ -199,5 +199,138 @@ where
 		let id = M::fallible_convert(id.clone())?;
 
 		Op::restore(&id, strategy)
+	}
+}
+
+/// The `CombinedAssetOps` is a tool for combining
+/// different implementations of `Restore`, `Update`, and `Stash` operations.
+///
+/// All three operations must use the same `AssetDefinition::Id`.
+pub struct CombinedAssetOps<RestoreOp, UpdateOp, StashOp>(
+	PhantomData<(RestoreOp, UpdateOp, StashOp)>,
+);
+impl<RestoreOp, UpdateOp, StashOp> AssetDefinition
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
+where
+	RestoreOp: AssetDefinition,
+	UpdateOp: AssetDefinition<Id = RestoreOp::Id>,
+	StashOp: AssetDefinition<Id = RestoreOp::Id>,
+{
+	type Id = RestoreOp::Id;
+}
+impl<Strategy, RestoreOp, UpdateOp, StashOp> Restore<Strategy>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
+where
+	Strategy: RestoreStrategy,
+	RestoreOp: Restore<Strategy>,
+	UpdateOp: AssetDefinition<Id = RestoreOp::Id>,
+	StashOp: AssetDefinition<Id = RestoreOp::Id>,
+{
+	fn restore(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
+		RestoreOp::restore(id, strategy)
+	}
+}
+impl<Strategy, RestoreOp, UpdateOp, StashOp> Update<Strategy>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
+where
+	Strategy: UpdateStrategy,
+	UpdateOp: Update<Strategy>,
+	RestoreOp: AssetDefinition,
+	UpdateOp: AssetDefinition<Id = RestoreOp::Id>,
+	StashOp: AssetDefinition<Id = RestoreOp::Id>,
+{
+	fn update(
+		id: &Self::Id,
+		strategy: Strategy,
+		update: Strategy::UpdateValue<'_>,
+	) -> Result<Strategy::Success, DispatchError> {
+		UpdateOp::update(id, strategy, update)
+	}
+}
+impl<Strategy, RestoreOp, UpdateOp, StashOp> Stash<Strategy>
+	for CombinedAssetOps<RestoreOp, UpdateOp, StashOp>
+where
+	Strategy: StashStrategy,
+	StashOp: Stash<Strategy>,
+	RestoreOp: AssetDefinition,
+	UpdateOp: AssetDefinition<Id = RestoreOp::Id>,
+	StashOp: AssetDefinition<Id = RestoreOp::Id>,
+{
+	fn stash(id: &Self::Id, strategy: Strategy) -> Result<Strategy::Success, DispatchError> {
+		StashOp::stash(id, strategy)
+	}
+}
+
+/// The `StashAccountAssetOps` adds the `Stash` and `Restore` implementations to an NFT
+/// engine capable of transferring a token from one account to another (i.e. implementing
+/// `Update<ChangeOwnerFrom<AccountId>>`).
+///
+/// On stash, it will transfer the token from the current owner to the `StashAccount`.
+/// On restore, it will transfer the token from the `StashAccount` to the given beneficiary.
+pub struct StashAccountAssetOps<StashAccount, UpdateOp>(PhantomData<(StashAccount, UpdateOp)>);
+impl<StashAccount, UpdateOp: AssetDefinition> AssetDefinition
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+{
+	type Id = UpdateOp::Id;
+}
+impl<StashAccount: TypedGet, UpdateOp> Update<ChangeOwnerFrom<StashAccount::Type>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn update(
+		id: &Self::Id,
+		strategy: ChangeOwnerFrom<StashAccount::Type>,
+		update: &StashAccount::Type,
+	) -> DispatchResult {
+		UpdateOp::update(id, strategy, update)
+	}
+}
+impl<StashAccount, UpdateOp> Restore<WithConfig<ConfigValue<Owner<StashAccount::Type>>>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount: TypedGet,
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn restore(
+		id: &Self::Id,
+		strategy: WithConfig<ConfigValue<Owner<StashAccount::Type>>>,
+	) -> DispatchResult {
+		let WithConfig { config: ConfigValue(beneficiary), .. } = strategy;
+
+		UpdateOp::update(id, ChangeOwnerFrom::check(StashAccount::get()), &beneficiary)
+	}
+}
+impl<StashAccount, UpdateOp> Stash<IfOwnedBy<StashAccount::Type>>
+	for StashAccountAssetOps<StashAccount, UpdateOp>
+where
+	StashAccount: TypedGet,
+	StashAccount::Type: 'static,
+	UpdateOp: Update<ChangeOwnerFrom<StashAccount::Type>>,
+{
+	fn stash(id: &Self::Id, strategy: IfOwnedBy<StashAccount::Type>) -> DispatchResult {
+		let CheckState(check_owner, ..) = strategy;
+
+		UpdateOp::update(id, ChangeOwnerFrom::check(check_owner), &StashAccount::get())
+	}
+}
+
+/// Unique instance operations that always fail.
+///
+/// Intended to be used to forbid certain actions.
+pub struct DisabledOps<Id>(PhantomData<Id>);
+impl<Id> AssetDefinition for DisabledOps<Id> {
+	type Id = Id;
+}
+impl<Id, S: CreateStrategy> Create<S> for DisabledOps<Id> {
+	fn create(_strategy: S) -> Result<S::Success, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
+	}
+}
+impl<Id, S: DestroyStrategy> Destroy<S> for DisabledOps<Id> {
+	fn destroy(_id: &Self::Id, _strategy: S) -> Result<S::Success, DispatchError> {
+		Err(DispatchError::Other("Disabled"))
 	}
 }

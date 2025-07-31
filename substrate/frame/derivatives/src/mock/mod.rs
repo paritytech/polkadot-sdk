@@ -56,7 +56,7 @@ use crate as pallet_derivatives;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		tokens::asset_ops::{common_strategies::*, utils::*, *},
+		tokens::asset_ops::{common_ops::*, common_strategies::*, *},
 		ContainsPair, Everything, Nothing, PalletInfoAccess,
 	},
 };
