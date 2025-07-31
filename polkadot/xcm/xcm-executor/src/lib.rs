@@ -562,6 +562,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		// If there are any leftover `fees`, merge them with `holding`.
 		if !self.fees.is_empty() {
 			let leftover_fees = self.fees.saturating_take(Wild(All));
+			tracing::trace!(
+				target: "xcm::refund_surplus",
+				?leftover_fees,
+			);
 			self.holding.subsume_assets(leftover_fees);
 		}
 		tracing::trace!(
