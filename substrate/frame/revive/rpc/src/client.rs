@@ -726,7 +726,6 @@ impl Client {
 				futures_timer::Delay::new(std::time::Duration::from_secs(interval.as_u64())).await;
 			}
 			let params = rpc_params![true, true].to_rpc_params().unwrap_or_default();
-			println!("mine {:?}", params);
 			let res =
 				self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
 
