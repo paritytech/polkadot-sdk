@@ -74,7 +74,9 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 }
 
 /// Block object
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Block {
 	/// Base fee per gas
 	#[serde(rename = "baseFeePerGas", skip_serializing_if = "Option::is_none")]
@@ -398,7 +400,9 @@ impl Default for SyncingStatus {
 }
 
 /// Transaction information
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct TransactionInfo {
 	/// block hash
 	#[serde(rename = "blockHash")]
@@ -480,7 +484,9 @@ pub enum BlockTag {
 /// Filter Topics
 pub type FilterTopics = Vec<FilterTopic>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(untagged)]
 pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
@@ -540,7 +546,9 @@ pub struct SyncingProgress {
 }
 
 /// EIP-1559 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction1559Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -580,7 +588,9 @@ pub struct Transaction1559Unsigned {
 }
 
 /// EIP-2930 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction2930Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -609,7 +619,9 @@ pub struct Transaction2930Unsigned {
 }
 
 /// EIP-4844 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction4844Unsigned {
 	/// accessList
 	/// EIP-2930 access list
@@ -651,7 +663,9 @@ pub struct Transaction4844Unsigned {
 }
 
 /// Legacy transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
 	/// Chain ID that this transaction is valid on.
@@ -675,7 +689,9 @@ pub struct TransactionLegacyUnsigned {
 	pub value: U256,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction4844Signed(Transaction4844Signed),
@@ -690,7 +706,9 @@ impl Default for TransactionSigned {
 }
 
 /// Validator withdrawal
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Withdrawal {
 	/// recipient address for withdrawal value
 	pub address: Address,
@@ -729,7 +747,9 @@ impl Default for FilterTopic {
 }
 
 /// Signed 1559 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
 	pub transaction_1559_unsigned: Transaction1559Unsigned,
@@ -749,7 +769,9 @@ pub struct Transaction1559Signed {
 }
 
 /// Signed 2930 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
 	pub transaction_2930_unsigned: Transaction2930Unsigned,
@@ -769,7 +791,9 @@ pub struct Transaction2930Signed {
 }
 
 /// Signed 4844 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
 	pub transaction_4844_unsigned: Transaction4844Unsigned,
@@ -784,7 +808,9 @@ pub struct Transaction4844Signed {
 }
 
 /// Signed Legacy Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
