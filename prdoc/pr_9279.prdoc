@@ -1,13 +1,9 @@
-title: Replace `log` with `tracing` on Bridge-related modules
+title: Replace `log` with `tracing` on Snowbridge-related modules
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR replaces `log` with `tracing` instrumentation on Bridge-related modules by providing structured logging.
+    This PR replaces `log` with `tracing` instrumentation on Snowbridge-related modules by providing structured logging.
 crates:
-- name: bp-runtime
-  bump: minor
-- name: pallet-bridge-relayers
-  bump: minor
 - name: snowbridge-core
   bump: minor
 - name: snowbridge-ethereum
