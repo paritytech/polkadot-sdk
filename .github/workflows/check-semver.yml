@@ -122,17 +122,41 @@ jobs:
 
           if ! parity-publish --color always prdoc --since old --validate prdoc/pr_$PR.prdoc $PRDOC_EXTRA_ARGS -v --toolchain $TOOLCHAIN; then
 
-            cat <<EOF
-          👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
+            # Check if the prdoc file contains validate: false under any bump line
+            prdoc_file="prdoc/pr_$PR.prdoc"
+            has_validate_false=false
 
-          Please check the output above and see the following links for more help:
-          - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
-          - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+            if [ -f "$prdoc_file" ]; then
+              # Check if there's a validate: false line after any bump: line
+              while IFS= read -r line; do
+                if [[ "$line" =~ ^[[:space:]]*bump:[[:space:]]* ]]; then
+                  # Found a bump line, check the next line
+                  if IFS= read -r next_line; then
+                    if [[ "$next_line" =~ ^[[:space:]]*validate:[[:space:]]*false ]]; then
+                      has_validate_false=true
+                      break
+                    fi
+                  fi
+                fi
+              done < "$prdoc_file"
+            fi
 
-          Otherwise feel free to ask in the Merge Request or in Matrix chat.
-          EOF
+            # Only show error message and exit if validate: false is not found
+            if [ "$has_validate_false" = false ]; then
+              cat <<EOF
+              👋 Hello developer! The SemVer information that you declared in the prdoc file did not match what the CI detected.
 
-            exit 1
+              Please check the output above and see the following links for more help:
+              - https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/prdoc.md#record-semver-changes
+              - https://forum.polkadot.network/t/psa-polkadot-sdk-to-use-semver
+
+              Otherwise feel free to ask in the Merge Request or in Matrix chat.
+              EOF
+
+              exit 1
+            else
+              echo "✅ SemVer validation skipped due to validate: false in prdoc file"
+            fi
           fi
 
           # Only enforce SemVer restrictions for backports targeting stable branches
