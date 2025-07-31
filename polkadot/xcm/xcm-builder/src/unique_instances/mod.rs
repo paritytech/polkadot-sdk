@@ -18,7 +18,7 @@
 //! The adapters and other utility types use the
 //! [`asset_ops`](frame_support::traits::tokens::asset_ops) traits.
 
-use sp_runtime::traits::Convert;
+use sp_runtime::{traits::Convert, DispatchError};
 use xcm::latest::prelude::*;
 
 pub mod adapter;
@@ -32,5 +32,10 @@ pub struct ExtractAssetId;
 impl Convert<NonFungibleAsset, AssetId> for ExtractAssetId {
 	fn convert((asset_id, _): NonFungibleAsset) -> AssetId {
 		asset_id
+	}
+}
+impl Convert<NonFungibleAsset, Result<AssetId, DispatchError>> for ExtractAssetId {
+	fn convert((asset_id, _): NonFungibleAsset) -> Result<AssetId, DispatchError> {
+		Ok(asset_id)
 	}
 }

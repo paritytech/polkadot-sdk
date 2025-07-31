@@ -17,7 +17,7 @@
 
 use super::{common_strategies::*, *};
 use crate::{
-	dispatch::DispatchResult, sp_runtime::traits::FallibleConvert, traits::misc::TypedGet,
+	dispatch::DispatchResult, sp_runtime::traits::Convert, traits::misc::TypedGet,
 	traits::EnsureOriginWithArg,
 };
 
@@ -111,14 +111,14 @@ pub struct MapId<IdA, IdB, M, Op>(PhantomData<(IdA, IdB, M, Op)>);
 impl<IdA, IdB, ReportedId, M, CreateOp> Create<DeriveAndReportId<IdA, ReportedId>>
 	for MapId<IdA, IdB, M, CreateOp>
 where
-	M: FallibleConvert<IdA, IdB>,
+	M: Convert<IdA, Result<IdB, DispatchError>>,
 	CreateOp: Create<DeriveAndReportId<IdB, ReportedId>>,
 {
 	fn create(
 		id_assignment: DeriveAndReportId<IdA, ReportedId>,
 	) -> Result<ReportedId, DispatchError> {
 		let id_a = id_assignment.params;
-		let id_b = M::fallible_convert(id_a)?;
+		let id_b = M::convert(id_a)?;
 
 		CreateOp::create(DeriveAndReportId::from(id_b))
 	}
@@ -127,7 +127,7 @@ impl<Config, IdA, IdB, ReportedId, M, CreateOp>
 	Create<WithConfig<Config, DeriveAndReportId<IdA, ReportedId>>> for MapId<IdA, IdB, M, CreateOp>
 where
 	Config: ConfigValueMarker,
-	M: FallibleConvert<IdA, IdB>,
+	M: Convert<IdA, Result<IdB, DispatchError>>,
 	CreateOp: Create<WithConfig<Config, DeriveAndReportId<IdB, ReportedId>>>,
 {
 	fn create(
@@ -135,19 +135,19 @@ where
 	) -> Result<ReportedId, DispatchError> {
 		let WithConfig { config, extra: id_assignment } = strategy;
 		let id_a = id_assignment.params;
-		let id_b = M::fallible_convert(id_a)?;
+		let id_b = M::convert(id_a)?;
 
 		CreateOp::create(WithConfig::new(config, DeriveAndReportId::from(id_b)))
 	}
 }
-impl<Id, M: FallibleConvert<Id, Op::Id>, Op: AssetDefinition> AssetDefinition
+impl<Id, M: Convert<Id, Result<Op::Id, DispatchError>>, Op: AssetDefinition> AssetDefinition
 	for MapId<Id, Op::Id, M, Op>
 {
 	type Id = Id;
 }
 impl<Id, M, S, Op> Update<S> for MapId<Id, Op::Id, M, Op>
 where
-	M: FallibleConvert<Id, Op::Id>,
+	M: Convert<Id, Result<Op::Id, DispatchError>>,
 	S: UpdateStrategy,
 	Op: Update<S>,
 	Self::Id: Clone,
@@ -157,46 +157,46 @@ where
 		strategy: S,
 		update_value: S::UpdateValue<'_>,
 	) -> Result<S::Success, DispatchError> {
-		let id = M::fallible_convert(id.clone())?;
+		let id = M::convert(id.clone())?;
 
 		Op::update(&id, strategy, update_value)
 	}
 }
 impl<Id, M, S, Op> Destroy<S> for MapId<Id, Op::Id, M, Op>
 where
-	M: FallibleConvert<Id, Op::Id>,
+	M: Convert<Id, Result<Op::Id, DispatchError>>,
 	S: DestroyStrategy,
 	Op: Destroy<S>,
 	Self::Id: Clone,
 {
 	fn destroy(id: &Self::Id, strategy: S) -> Result<S::Success, DispatchError> {
-		let id = M::fallible_convert(id.clone())?;
+		let id = M::convert(id.clone())?;
 
 		Op::destroy(&id, strategy)
 	}
 }
 impl<Id, M, S, Op> Stash<S> for MapId<Id, Op::Id, M, Op>
 where
-	M: FallibleConvert<Id, Op::Id>,
+	M: Convert<Id, Result<Op::Id, DispatchError>>,
 	S: StashStrategy,
 	Op: Stash<S>,
 	Self::Id: Clone,
 {
 	fn stash(id: &Self::Id, strategy: S) -> Result<S::Success, DispatchError> {
-		let id = M::fallible_convert(id.clone())?;
+		let id = M::convert(id.clone())?;
 
 		Op::stash(&id, strategy)
 	}
 }
 impl<Id, M, S, Op> Restore<S> for MapId<Id, Op::Id, M, Op>
 where
-	M: FallibleConvert<Id, Op::Id>,
+	M: Convert<Id, Result<Op::Id, DispatchError>>,
 	S: RestoreStrategy,
 	Op: Restore<S>,
 	Self::Id: Clone,
 {
 	fn restore(id: &Self::Id, strategy: S) -> Result<S::Success, DispatchError> {
-		let id = M::fallible_convert(id.clone())?;
+		let id = M::convert(id.clone())?;
 
 		Op::restore(&id, strategy)
 	}

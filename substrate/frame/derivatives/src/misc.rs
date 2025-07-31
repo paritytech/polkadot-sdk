@@ -31,7 +31,7 @@ use frame_support::{
 	},
 };
 use sp_runtime::{
-	traits::{FallibleConvert, TypedGet},
+	traits::{Convert, TypedGet},
 	DispatchError, DispatchResult,
 };
 use xcm::latest::prelude::*;
@@ -59,9 +59,9 @@ pub trait DerivativesRegistry<Original, Derivative> {
 /// convert the `Original` value to the `Derivative` one.
 pub struct OriginalToDerivativeConvert<R>(PhantomData<R>);
 impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
-	FallibleConvert<Original, Derivative> for OriginalToDerivativeConvert<R>
+	Convert<Original, Result<Derivative, DispatchError>> for OriginalToDerivativeConvert<R>
 {
-	fn fallible_convert(a: Original) -> Result<Derivative, DispatchError> {
+	fn convert(a: Original) -> Result<Derivative, DispatchError> {
 		R::get_derivative(&a)
 	}
 }
@@ -70,9 +70,9 @@ impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
 /// convert the `Derivative` value to the `Original` one.
 pub struct DerivativeToOriginalConvert<R>(PhantomData<R>);
 impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
-	FallibleConvert<Derivative, Original> for DerivativeToOriginalConvert<R>
+	Convert<Derivative, Result<Original, DispatchError>> for DerivativeToOriginalConvert<R>
 {
-	fn fallible_convert(a: Derivative) -> Result<Original, DispatchError> {
+	fn convert(a: Derivative) -> Result<Original, DispatchError> {
 		R::get_original(&a)
 	}
 }
@@ -211,9 +211,10 @@ impl<Registry: DerivativesRegistry<NonFungibleAsset, DerivativeId>, DerivativeId
 {
 	fn matches_instance(asset: &Asset) -> Result<DerivativeId, Error> {
 		match asset.fun {
-			Fungibility::NonFungible(asset_instance) =>
+			Fungibility::NonFungible(asset_instance) => {
 				Registry::get_derivative(&(asset.id.clone(), asset_instance))
-					.map_err(|_| Error::AssetNotHandled),
+					.map_err(|_| Error::AssetNotHandled)
+			},
 			Fungibility::Fungible(_) => Err(Error::AssetNotHandled),
 		}
 	}
@@ -264,16 +265,16 @@ pub struct OwnerConvertedLocation<CL, IdAssignment, Err = OwnerConvertedLocation
 	PhantomData<(CL, IdAssignment, Err)>,
 );
 impl<AccountId, CL, Err, ReportedId>
-	FallibleConvert<
+	Convert<
 		AssetId,
-		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
+		Result<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>, DispatchError>,
 	> for OwnerConvertedLocation<CL, DeriveAndReportId<AssetId, ReportedId>, Err>
 where
 	CL: ConvertLocation<AccountId>,
 	Err: TypedGet,
 	Err::Type: Into<DispatchError>,
 {
-	fn fallible_convert(
+	fn convert(
 		AssetId(location): AssetId,
 	) -> Result<
 		WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<AssetId, ReportedId>>,
@@ -287,14 +288,16 @@ where
 	}
 }
 impl<AccountId, CL, Err, ReportedId>
-	FallibleConvert<AssetId, WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>>
-	for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
+	Convert<
+		AssetId,
+		Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError>,
+	> for OwnerConvertedLocation<CL, AutoId<ReportedId>, Err>
 where
 	CL: ConvertLocation<AccountId>,
 	Err: TypedGet,
 	Err::Type: Into<DispatchError>,
 {
-	fn fallible_convert(
+	fn convert(
 		AssetId(location): AssetId,
 	) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
 		CL::convert_location(&location)

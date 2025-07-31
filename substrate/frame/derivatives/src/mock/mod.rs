@@ -61,10 +61,7 @@ use frame_support::{
 	},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureSigned};
-use sp_runtime::{
-	traits::{AsFallibleConvert, TryConvertInto},
-	BuildStorage,
-};
+use sp_runtime::{traits::TryConvertInto, BuildStorage};
 use xcm::prelude::*;
 use xcm_builder::{
 	unique_instances::{
@@ -366,8 +363,7 @@ pub type RegisteredDerivativeNftsTransactor = UniqueInstancesAdapter<
 /// only the `AssetId`.
 ///
 /// Extracts `AssetId` from the tuple and passes it to `CreateOp`.
-pub type CreateUsingXcmNft<CreateOp> =
-	MapId<NonFungibleAsset, AssetId, AsFallibleConvert<ExtractAssetId>, CreateOp>;
+pub type CreateUsingXcmNft<CreateOp> = MapId<NonFungibleAsset, AssetId, ExtractAssetId, CreateOp>;
 
 /// Takes `AssetId` to create a new NFT while the underlying `CreateOp` accepts `CollectionAutoId`.
 ///

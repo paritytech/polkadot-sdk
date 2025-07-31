@@ -18,10 +18,10 @@
 //! This module contains the common asset ops strategies.
 
 use super::*;
-use crate::pallet_prelude::RuntimeDebug;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_runtime::traits::FallibleConvert;
+use sp_core::RuntimeDebug;
+use sp_runtime::traits::Convert;
 
 /// The `CheckState` is a strategy that accepts an `Inspect` value and the `Inner` strategy.
 ///
@@ -473,13 +473,13 @@ impl<Params, Strategy, DeriveCfg, CreateOp> Create<DeriveAndReportId<Params, Str
 	for DeriveStrategyThenCreate<Strategy, DeriveCfg, CreateOp>
 where
 	Strategy: CreateStrategy,
-	DeriveCfg: FallibleConvert<Params, Strategy>,
+	DeriveCfg: Convert<Params, Result<Strategy, DispatchError>>,
 	CreateOp: Create<Strategy>,
 {
 	fn create(
 		id_assignment: DeriveAndReportId<Params, Strategy::Success>,
 	) -> Result<Strategy::Success, DispatchError> {
-		let strategy = DeriveCfg::fallible_convert(id_assignment.params)?;
+		let strategy = DeriveCfg::convert(id_assignment.params)?;
 
 		CreateOp::create(strategy)
 	}
