@@ -19,7 +19,10 @@
 //! libp2p-related discovery code for litep2p backend.
 
 use crate::{
-	config::{NetworkConfiguration, ProtocolId},
+	config::{
+		NetworkConfiguration, ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
 	peer_store::PeerStoreProvider,
 };
 
@@ -299,6 +302,9 @@ impl Discovery {
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
+				.with_provider_record_ttl(KADEMLIA_PROVIDER_RECORD_TTL)
+				.with_provider_refresh_interval(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL)
+				.with_max_provider_keys(KADEMLIA_MAX_PROVIDER_KEYS)
 				.build()
 		};
 

@@ -2770,7 +2770,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -2788,6 +2787,7 @@ dependencies = [
  "sp-weights",
  "staging-xcm",
  "static_assertions",
+ "tracing",
  "tuplex",
 ]
 
@@ -4251,6 +4251,11 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cumulus-primitives-parachain-inherent",
+ "sc-basic-authorship",
+ "sc-block-builder",
+ "sc-transaction-pool-api",
+ "sp-api",
+ "sp-blockchain",
  "sp-consensus",
  "sp-inherents",
  "sp-runtime",
@@ -4474,7 +4479,9 @@ dependencies = [
  "polkadot-runtime-parachains",
  "rand 0.8.5",
  "rstest",
+ "sc-consensus",
  "scale-info",
+ "sp-api",
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 28.0.0",
@@ -5847,9 +5854,9 @@ dependencies = [
 
 [[package]]
 name = "env_filter"
-version = "0.1.0"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a009aa4810eb158359dda09d0c87378e4bbb89b5a801f016885a4707ba24f7ea"
+checksum = "186e05a59d4c50738528153b83b0b0194d3a29507dfec16eccd4b342903397d0"
 dependencies = [
  "log",
  "regex",
@@ -6444,6 +6451,7 @@ dependencies = [
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
+ "env_filter",
  "frame-benchmarking",
  "frame-storage-access-test-runtime",
  "frame-support",
@@ -6482,6 +6490,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-runtime-interface 24.0.0",
  "sp-state-machine",
  "sp-storage 19.0.0",
  "sp-timestamp",
@@ -11491,7 +11500,6 @@ dependencies = [
  "bp-test-utils",
  "frame-support",
  "frame-system",
- "log",
  "pallet-beefy-mmr",
  "pallet-mmr",
  "parity-scale-codec",
@@ -11504,6 +11512,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -11537,7 +11546,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
@@ -11547,6 +11555,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0",
  "sp-trie",
+ "tracing",
 ]
 
 [[package]]
@@ -11561,7 +11570,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-bridge-grandpa",
  "parity-scale-codec",
  "scale-info",
@@ -11569,6 +11577,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]
@@ -18964,6 +18973,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-inherents",
  "sp-runtime",
+ "sp-trie",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
 ]

@@ -174,6 +174,12 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 	}
 }
 
+impl AsRef<[u8]> for EthereumAddress {
+	fn as_ref(&self) -> &[u8] {
+		&self.0[..]
+	}
+}
+
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, MaxEncodedLen)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
