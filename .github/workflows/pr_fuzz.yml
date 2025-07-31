@@ -24,8 +24,7 @@ jobs:
     - name: Run cargo ziggy fuzz for 1 minute
       run: |
         cd runtime_fuzzer/templates/kitchensink/
-        # export SKIP_WASM_BUILD=1
-        timeout 15m cargo ziggy fuzz
+        timeout 15m export SKIP_WASM_BUILD=1 cargo ziggy fuzz
 
     - name: Print Cargo.toml
       run: |
