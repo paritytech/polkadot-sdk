@@ -22,12 +22,9 @@ use frame_support::traits::tokens::asset_ops::{
 	AssetDefinition, Restore, RestoreStrategy, Stash, StashStrategy, Update, UpdateStrategy,
 };
 use sp_runtime::{
-	traits::{Convert, TypedGet},
+	traits::TypedGet,
 	DispatchError, DispatchResult,
 };
-
-use super::NonFungibleAsset;
-use xcm::latest::prelude::*;
 
 /// The `UniqueInstancesOps` is a tool for combining
 /// different implementations of `Restore`, `Update`, and `Stash` operations
@@ -144,13 +141,5 @@ where
 		let CheckState(check_owner, ..) = strategy;
 
 		UpdateOp::update(id, ChangeOwnerFrom::check(check_owner), &StashAccount::get())
-	}
-}
-
-/// Gets the XCM [AssetId] (i.e., extracts the NFT collection ID) from the [NonFungibleAsset].
-pub struct ExtractAssetId;
-impl Convert<NonFungibleAsset, AssetId> for ExtractAssetId {
-	fn convert((asset_id, _): NonFungibleAsset) -> AssetId {
-		asset_id
 	}
 }

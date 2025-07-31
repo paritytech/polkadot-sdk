@@ -18,6 +18,7 @@
 //! The adapters and other utility types use the
 //! [`asset_ops`](frame_support::traits::tokens::asset_ops) traits.
 
+use sp_runtime::traits::Convert;
 use xcm::latest::prelude::*;
 
 pub mod adapter;
@@ -28,3 +29,11 @@ pub use ops::*;
 
 /// An XCM ID for unique instances (non-fungible assets).
 pub type NonFungibleAsset = (AssetId, AssetInstance);
+
+/// Gets the XCM [AssetId] (i.e., extracts the NFT collection ID) from the [NonFungibleAsset].
+pub struct ExtractAssetId;
+impl Convert<NonFungibleAsset, AssetId> for ExtractAssetId {
+	fn convert((asset_id, _): NonFungibleAsset) -> AssetId {
+		asset_id
+	}
+}

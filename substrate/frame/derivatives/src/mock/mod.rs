@@ -68,8 +68,8 @@ use sp_runtime::{
 use xcm::prelude::*;
 use xcm_builder::{
 	unique_instances::{
-		ops::{ExtractAssetId, UniqueInstancesWithStashAccount},
-		NonFungibleAsset, UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
+		ops::UniqueInstancesWithStashAccount, ExtractAssetId, NonFungibleAsset,
+		UniqueInstancesAdapter, UniqueInstancesDepositAdapter,
 	},
 	AllowUnpaidExecutionFrom, AsPrefixedGeneralIndex, FixedWeightBounds, MatchInClassInstances,
 	MatchedConvertedConcreteId, StartsWith,
