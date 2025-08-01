@@ -41,7 +41,7 @@ struct MetricsInner {
 	/// The disputes fetched from the runtime.
 	fetched_onchain_disputes: prometheus::Counter<prometheus::U64>,
 
-	/// The difference between the number of backed candidates in a block and the number of 
+	/// The difference between the number of backed candidates in a block and the number of
 	/// backable candidates on the node side.
 	backable_vs_in_block: prometheus::Histogram,
 }
@@ -159,9 +159,7 @@ impl Metrics {
 	}
 
 	pub(crate) fn observe_backable_vs_in_block(&self, diff: isize) {
-		self.0.as_ref().map(|metrics| {
-			metrics.backable_vs_in_block.observe(diff as f64)
-		});
+		self.0.as_ref().map(|metrics| metrics.backable_vs_in_block.observe(diff as f64));
 	}
 }
 

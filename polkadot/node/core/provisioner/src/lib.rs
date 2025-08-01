@@ -159,7 +159,7 @@ async fn run_iteration<Context>(
 				// Map the error to ensure that the subsystem exits when the overseer is gone.
 				match from_overseer.map_err(Error::OverseerExited)? {
 					FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =>
-						handle_active_leaves_update(ctx, update, per_relay_parent, inherent_delays, slot_delays, inherents).await?,
+						handle_active_leaves_update(ctx, update, per_relay_parent, inherent_delays, slot_delays, inherents, metrics).await?,
 					FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 					FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 					FromOrchestra::Communication { msg } => {
@@ -227,6 +227,7 @@ async fn handle_active_leaves_update<Context>(
 	inherent_delays: &mut InherentDelays,
 	slot_delays: &mut SlotDelays,
 	inherents: &mut LruMap<Hash, ProvisionerInherentData>,
+	metrics: &Metrics,
 ) -> Result<(), Error> {
 	gum::trace!(target: LOG_TARGET, "Handle ActiveLeavesUpdate");
 	for deactivated in &update.deactivated {
@@ -284,6 +285,7 @@ async fn handle_active_leaves_update<Context>(
 		 local_count = ?inherent.backed_candidates.len(),
 		 leaf_hash=?leaf.hash, "Statement distribution propagation update");
 
+	metrics.observe_backable_vs_in_block(diff);
 	Ok(())
 }
 
