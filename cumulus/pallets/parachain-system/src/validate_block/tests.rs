@@ -29,14 +29,14 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-use sp_runtime::{
-	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
-	DigestItem,
-};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus_slots::SlotDuration;
 use sp_core::H256;
+use sp_runtime::{
+	traits::{BlakeTwo256, Block as BlockT, Header as HeaderT},
+	DigestItem,
+};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes, StorageProof};
 use std::{env, process::Command};
 

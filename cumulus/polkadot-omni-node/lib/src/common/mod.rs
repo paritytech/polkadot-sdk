@@ -72,7 +72,6 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ TaggedTransactionQueue<Block>
 	+ OffchainWorkerApi<Block>
 	+ CollectCollationInfo<Block>
-	+ GetCoreSelectorApi<Block>
 	+ ValidateStatement<Block>
 	+ GetParachainInfo<Block>
 	+ RelayParentOffsetApi<Block>
