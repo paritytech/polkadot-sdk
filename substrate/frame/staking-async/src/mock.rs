@@ -137,6 +137,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Test {
 	// Staking is the source of truth for voter bags list, since they are not kept up to date.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = ();
 	type Score = VoteWeight;
 }
 
@@ -175,6 +176,7 @@ impl ElectionProvider for TestElectionProvider {
 	type BlockNumber = BlockNumber;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 	type Pages = Pages;
 	type DataProvider = Staking;
 	type Error = onchain::Error;
@@ -436,7 +438,6 @@ impl crate::pallet::pallet::Config for Test {
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type MaxEraDuration = MaxEraDuration;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
@@ -1003,4 +1004,23 @@ pub(crate) fn restrict(who: &AccountId) {
 
 pub(crate) fn remove_from_restrict_list(who: &AccountId) {
 	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
+pub(crate) fn era_unprocessed_offence_count(era: EraIndex) -> u32 {
+	OffenceQueue::<T>::iter_prefix_values(era).count() as u32
+}
+
+pub(crate) fn era_unapplied_slash_count(era: EraIndex) -> u32 {
+	UnappliedSlashes::<T>::iter_prefix_values(era).count() as u32
+}
+
+/// A pending slash from the previous era blocks withdrawal. Use this to apply them.
+pub(crate) fn apply_pending_slashes_from_previous_era() {
+	apply_pending_slashes_from_era(active_era() - 1);
+}
+
+pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
+	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
+		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
+	}
 }

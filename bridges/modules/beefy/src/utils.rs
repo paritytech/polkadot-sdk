@@ -78,12 +78,12 @@ fn verify_signatures<T: Config<I>, I: 'static>(
 					break
 				}
 			} else {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"Signed commitment contains incorrect signature of validator {} ({:?}): {:?}",
-					idx,
-					authority,
-					sig,
+					%idx,
+					?authority,
+					?sig,
+					"Signed commitment contains incorrect signature of validator"
 				);
 			}
 		}
@@ -142,15 +142,14 @@ pub(crate) fn verify_beefy_mmr_leaf<T: Config<I>, I: 'static>(
 		mmr_proof,
 	)
 	.map_err(|e| {
-		log::error!(
+		tracing::error!(
 			target: LOG_TARGET,
-			"MMR proof of leaf {:?} (root: {:?}, leaf count: {}, len: {}) \
-				verification has failed with error: {:?}",
-			mmr_leaf_hash,
-			mmr_root,
-			mmr_proof_leaf_count,
-			mmr_proof_length,
-			e,
+			error=?e,
+			?mmr_leaf_hash,
+			root=?mmr_root,
+			leaf_count=%mmr_proof_leaf_count,
+			len=%mmr_proof_length,
+			"MMR proof of leaf verification has failed"
 		);
 
 		Error::<T, I>::MmrProofVerificationFailed
