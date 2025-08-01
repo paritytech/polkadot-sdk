@@ -197,6 +197,7 @@ pub mod code {
 				_ => (),
 			}
 		}
+		max_block_size = max_block_size.max(block_size);
 
 		if max_block_size > BASIC_BLOCK_SIZE {
 			log::debug!(target: LOG_TARGET, "basic block too large: {max_block_size} limit: {BASIC_BLOCK_SIZE}");
