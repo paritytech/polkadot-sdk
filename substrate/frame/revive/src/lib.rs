@@ -525,6 +525,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	/// The events emitted by this pallet while executing the current inflight transaction.
+	///
+	/// The events are needed to reconstruct the ReceiptInfo, as they represent the
+	/// logs emitted by the contract.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type InflightEvents<T: Config> =
+		CountedStorageMap<_, Identity, u32, Event<T>, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1629,6 +1638,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Deposit a pallet contracts event.
 	fn deposit_event(event: Event<T>) {
+		let events_count = InflightEvents::<T>::count();
+		// TODO: ensure we don't exceed a maximum number of events per tx.
+		InflightEvents::<T>::insert(events_count, event.clone());
+
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
