@@ -130,17 +130,17 @@ type BlockNumberFor<T, I = ()> =
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The account proposing it.
-	proposer: AccountId,
+	pub proposer: AccountId,
 	/// The (total) amount that should be paid if the bounty is rewarded.
-	value: Balance,
+	pub value: Balance,
 	/// The curator fee. Included in value.
-	fee: Balance,
+	pub fee: Balance,
 	/// The deposit of curator.
-	curator_deposit: Balance,
+	pub curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
-	bond: Balance,
+	pub bond: Balance,
 	/// The status of this bounty.
-	status: BountyStatus<AccountId, BlockNumber>,
+	pub status: BountyStatus<AccountId, BlockNumber>,
 }
 
 impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>

@@ -129,11 +129,11 @@ pub type BlockNumberFor<T> =
 #[derive(Clone, Copy, RuntimeDebug, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo)]
 pub struct RetryConfig<Period> {
 	/// Initial amount of retries allowed.
-	total_retries: u8,
+	pub total_retries: u8,
 	/// Amount of retries left.
-	remaining: u8,
+	pub remaining: u8,
 	/// Period of time between retry attempts.
-	period: Period,
+	pub period: Period,
 }
 
 #[cfg_attr(any(feature = "std", test), derive(PartialEq, Eq))]
