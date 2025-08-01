@@ -259,11 +259,8 @@ fn derivative_nfts() {
 			AutoIdDerivativeCollections::get_derivative(&foreign_collection_id).unwrap();
 
 		// There is no derivative NFT yet
-		assert!(DerivativeNfts::get_derivative(&(
-			foreign_collection_id.clone(),
-			foreign_nft_id
-		))
-		.is_err());
+		assert!(DerivativeNfts::get_derivative(&(foreign_collection_id.clone(), foreign_nft_id))
+			.is_err());
 
 		let nft_beneficiary = 1;
 
@@ -291,11 +288,9 @@ fn derivative_nfts() {
 		assert_ok!(outcome.ensure_complete());
 
 		// The derivative NFT should exist now
-		let derivative_full_nft_id = DerivativeNfts::get_derivative(&(
-			foreign_collection_id.clone(),
-			foreign_nft_id,
-		))
-		.unwrap();
+		let derivative_full_nft_id =
+			DerivativeNfts::get_derivative(&(foreign_collection_id.clone(), foreign_nft_id))
+				.unwrap();
 
 		// The derivative NFT should be deposited to the correct beneficiary
 		assert_eq!(
