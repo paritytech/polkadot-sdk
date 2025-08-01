@@ -622,7 +622,7 @@ pub mod pallet {
 			meter.consumed()
 		}
 
-		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// let eth_block = CurrentEthBlock::<T>::get();
 			// let parent_state_root = storage::root(sp_runtime::StateVersion::V1);
 
@@ -662,9 +662,7 @@ pub mod pallet {
 					// 	}
 					// }
 
-					if let Some(crate::Call::eth_transact { payload, raw_bytes }) =
-						call.is_sub_type()
-					{
+					if let Some(crate::Call::eth_transact { payload, .. }) = call.is_sub_type() {
 						Some((index, (payload.clone(), Vec::new())))
 					} else {
 						None

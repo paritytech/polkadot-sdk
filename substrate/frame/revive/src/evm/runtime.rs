@@ -280,7 +280,7 @@ pub trait EthExtra {
 	/// - `raw_bytes`: The raw bytes of the Ethereum transaction.
 	fn try_into_checked_extrinsic(
 		payload: Vec<u8>,
-		raw_bytes: Vec<u8>,
+		_raw_bytes: Vec<u8>,
 		encoded_len: usize,
 	) -> Result<
 		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
