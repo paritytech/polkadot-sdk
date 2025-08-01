@@ -32,6 +32,10 @@ use frame_support::traits::fungible::Inspect;
 #[test]
 fn balance_works() {
 	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
+
+        let existential_deposit_planck = 1u128;
+        let native_to_eth = 1_000_000u128;
+
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 
@@ -74,7 +78,7 @@ fn balance_works() {
                 }
 
                 assert_eq!(
-                    U256::from((100_000_000_000u128-1u128)*1000_000u128),
+                    U256::from((100_000_000_000u128-existential_deposit_planck)*native_to_eth),
                     result_balance,
                     "BALANCE should return BOB's balance for {:?}", fixture_type
                 );
