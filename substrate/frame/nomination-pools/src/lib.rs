@@ -3930,7 +3930,8 @@ impl<T: Config> Pallet<T> {
 			// If this happens, this is most likely due to an old bug and not a recent code change.
 			// We warn about this in try-runtime checks but do not panic.
 			if !pending_rewards_lt_leftover_bal {
-				log::warn!(
+				log!(
+					warn,
 					"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}",
 					id,
 					pools_members_pending_rewards.get(&id),
@@ -3959,7 +3960,8 @@ impl<T: Config> Pallet<T> {
 				.is_destroying_and_only_depositor(depositor.active_points()) ||
 				depositor.active_points() >= MinCreateBond::<T>::get();
 			if !depositor_has_enough_stake {
-				log::warn!(
+				log!(
+					warn,
 					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
 					id,
 					bonded_pool.roles.depositor,
@@ -4049,7 +4051,8 @@ impl<T: Config> Pallet<T> {
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
 				failed += 1;
-				log::warn!(
+				log!(
+					warn,
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
 					id,
 					expected_frozen_balance,
