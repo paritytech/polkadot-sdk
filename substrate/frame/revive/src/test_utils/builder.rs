@@ -242,6 +242,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		payload: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -253,6 +254,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			payload: vec![],
 		}
 	}
 );

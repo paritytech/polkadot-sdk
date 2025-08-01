@@ -869,6 +869,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
+			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
@@ -910,6 +911,7 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
+			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			let mut output = Self::bare_call(
 				origin,
@@ -1355,6 +1357,10 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						data: input.clone(),
+						// Since this is a dry run, we don't need to pass the signed transaction
+						// payload. Instead, use an empty vector. The signed transaction
+						// will be provided by the user when the tx is submitted.
+						payload: Vec::new(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1419,6 +1425,10 @@ where
 						storage_deposit_limit,
 						code: code.to_vec(),
 						data: data.to_vec(),
+						// Since this is a dry run, we don't need to pass the signed transaction
+						// payload. Instead, use an empty vector. The signed transaction
+						// will be provided by the user when the tx is submitted.
+						payload: Vec::new(),
 					}
 					.into();
 				(result, dispatch_call)

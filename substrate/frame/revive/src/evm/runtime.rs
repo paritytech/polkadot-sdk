@@ -346,6 +346,7 @@ pub trait EthExtra {
 					gas_limit,
 					storage_deposit_limit,
 					data,
+					payload,
 				}
 				.into()
 			}
@@ -367,6 +368,7 @@ pub trait EthExtra {
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
+				payload,
 			}
 			.into()
 		};
