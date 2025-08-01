@@ -2078,7 +2078,7 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() || ledger.active.is_zero() {
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
 					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
 					log!(
 						warn,
