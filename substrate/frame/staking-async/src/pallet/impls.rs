@@ -73,26 +73,18 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
-	/// Returns the minimum required bond for participation, considering nominators,
-	/// and the chain’s existential deposit.
-	///
-	/// This function computes the smallest allowed bond among `MinValidatorBond` and
-	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
-	/// account alive.
+	/// Returns the minimum required bond for participation in staking as a chilled account.
 	pub(crate) fn min_chilled_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get()
-			.min(MinNominatorBond::<T>::get())
-			.max(asset::existential_deposit::<T>())
+		// Note: in the future we might add a configurable `MinChilledBond`, else ED is good.
+		asset::existential_deposit::<T>()
 	}
 
-	/// Returns the minimum required bond for validators, defaulting to `MinNominatorBond` if not
-	/// set or less than `MinNominatorBond`.
+	/// Returns the minimum required bond for participation in staking as a validator account.
 	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
-		MinValidatorBond::<T>::get().max(Self::min_nominator_bond())
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
 
-	/// Returns the minimum required bond for nominators, considering the chain’s existential
-	/// deposit.
+	/// Returns the minimum required bond for participation in staking as a nominator account.
 	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
 		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
 	}
@@ -2086,7 +2078,8 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				if ledger.active < Self::min_chilled_bond() {
+				if ledger.active < Self::min_chilled_bond() || ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
 					log!(
 						warn,
 						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
