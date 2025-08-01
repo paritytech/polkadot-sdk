@@ -214,7 +214,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 
 			let mut sink = sink.clone();
 
-			sink.send(command).await;
+			let _ = sink.send(command).await;
 
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
