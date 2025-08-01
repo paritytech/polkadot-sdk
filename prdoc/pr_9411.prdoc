@@ -1,0 +1,18 @@
+title: 'staking-async/papi-tests: fix justfile to run in CI'
+doc:
+- audience: Runtime Dev
+  description: "Make sure to run `just killall` step in a bash shell, otherwise while\
+    \ trying to kill a non existing process e.g.\n```bash\nkillall:\n  pkill -f zombienet\
+    \ || true\n```\n\nwe would get the following issue while running in a container:\n\
+    \n```bash\nRun just setup\n  just setup\n  shell: sh -e {0}\n  env:\n    IMAGE:\
+    \ docker.io/paritytech/ci-unified:bullseye-1.85.0-2025-01-28-v202504231537\n \
+    \   RUST_INFO: rustup show && cargo --version && rustup +nightly show && cargo\
+    \ +nightly --version\n    CACHE_ON_FAILURE: true\n    CARGO_INCREMENTAL: 0\n\U0001F9F9\
+    \ Killing any existing zombienet or chain processes...\npkill -f zombienet ||\
+    \ true\nerror: Recipe `killall` was terminated on line 124 by signal 15\nerror:\
+    \ Recipe `setup` failed with exit code 143\nError: Process completed with exit\
+    \ code 143.\n```\n\nRunning the just step within a bash shell, ensure that the\
+    \ error is properly handled and propagated without terminating the just script."
+crates:
+- name: pallet-staking-async
+  bump: none
