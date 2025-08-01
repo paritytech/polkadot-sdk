@@ -318,10 +318,10 @@ pub enum DisputeCoordinatorMessage {
 	/// Fetch a list of all recent disputes the coordinator is aware of.
 	/// These are disputes which have occurred any time in recent sessions,
 	/// and which may have already concluded.
-	RecentDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	RecentDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Fetch a list of all active disputes that the coordinator is aware of.
 	/// These disputes are either not yet concluded or recently concluded.
-	ActiveDisputes(oneshot::Sender<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputes(oneshot::Sender<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 	/// Get candidate votes for a candidate.
 	QueryCandidateVotes(
 		Vec<(SessionIndex, CandidateHash)>,
