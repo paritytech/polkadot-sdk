@@ -31,31 +31,48 @@ use revm::{
 	primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
 };
 
+use crate::Pallet;
+use crate::AccountId32;
+use crate::BalanceOf;
+use crate::AccountInfo;
+use crate::RuntimeCosts;
+use crate::Config;
+use frame_support::traits::fungible::Inspect;
+use crate::exec::PrecompileExt;
+
 /// Implements the BALANCE instruction.
 ///
 /// Gets the balance of the given account.
-pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) 
+{
+
+	println!("Executing BALANCE instruction");
 	popn_top!([], top, context.interpreter);
+	println!("Top of stack: 0x{:x}", top);
 	let address = top.into_address();
-	let Some(balance) = context.host.balance(address) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	println!("Address to check balance: {:?}", address);
+
+	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
+	println!("H160 address: {:?}", h160);
+	let mut data = [0u8; 32];
+	data[12..].copy_from_slice(h160.as_bytes());
+	let account_id = sp_runtime::AccountId32::from(data);
+	println!("Account ID: {:?}", account_id);
+	let balance = context.interpreter.extend.balance_of(&h160);
+	println!("Balance: {:?}", balance);
+
+	// let balance2 = <E::T as Config>::Currency::balance(&account_id);
+	// println!("Balance from Currency trait: {:?}", balance2);
+
 	let spec_id = context.interpreter.runtime_flag.spec_id();
-	gas_legacy!(
-		context.interpreter,
-		if spec_id.is_enabled_in(BERLIN) {
-			warm_cold_cost(balance.is_cold)
-		} else if spec_id.is_enabled_in(ISTANBUL) {
-			// EIP-1884: Repricing for trie-size-dependent opcodes
-			700
-		} else if spec_id.is_enabled_in(TANGERINE) {
-			400
-		} else {
-			20
-		}
-	);
-	*top = balance.data;
+	gas!(context.interpreter, RuntimeCosts::Balance);
+	// *top = balance;
+	let bytes: [u8; 32] = balance.to_big_endian();
+	// let mut bytes = [0u8; 32];
+	// let offset = 32 - vec.len();
+	// bytes[offset..].copy_from_slice(&vec);
+	*top = U256::from_be_bytes(bytes);
+	println!("BALANCE instruction completed, top of stack: {:?}", top);
 }
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes

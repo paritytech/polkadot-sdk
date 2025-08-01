@@ -18,5 +18,6 @@
 mod arithmetic;
 mod bitwise;
 mod block_info;
+mod host;
 mod misc;
 mod system;

@@ -257,7 +257,7 @@ impl<T: Config> CodeInfo<T> {
 
 impl<T: Config> Executable<T> for ContractBlob<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,// + Bounded,
 {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
@@ -273,10 +273,12 @@ where
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.is_pvm() {
+			println!("Executing PVM function: {:?}", function);
 			let prepared_call =
 				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
+			println!("Executing EVM function: {:?}", function);
 			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
 			let inputs = EVMInputs::new(input_data);
