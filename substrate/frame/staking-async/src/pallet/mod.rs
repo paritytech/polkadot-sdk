@@ -1000,6 +1000,8 @@ pub mod pallet {
 					));
 				});
 
+				// This allows us to work with configs like `dev_stakers: (0, 10)`. Don't create new
+				// validators, just add a bunch of nominators. Useful for slashing tests.
 				let all_validators = Validators::<T>::iter_keys().collect::<Vec<_>>();
 
 				(0..nominators).for_each(|index| {
