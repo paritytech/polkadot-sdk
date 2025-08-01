@@ -261,7 +261,7 @@ fn derivative_nfts() {
 		// There is no derivative NFT yet
 		assert!(DerivativeNfts::get_derivative(&(
 			foreign_collection_id.clone(),
-			foreign_nft_id.clone()
+			foreign_nft_id
 		))
 		.is_err());
 
