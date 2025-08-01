@@ -67,6 +67,7 @@ pub struct CreateCmd {
 	/// The chain type.
 	#[arg(value_enum, short = 't', default_value = "live")]
 	chain_type: ChainType,
+	/// The para ID for your chain.
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
