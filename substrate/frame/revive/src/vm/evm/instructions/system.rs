@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::Context;
-use crate::vm::Ext;
+use crate::{vm::{Ext, RuntimeCosts}, Config, address::AddressMapper};
 use core::ptr;
 use revm::{
 	interpreter::{
@@ -24,7 +24,7 @@ use revm::{
 		interpreter_types::{InputsTr, LegacyBytecode, MemoryTr, ReturnData, RuntimeFlag, StackTr},
 		CallInput, InstructionResult, Interpreter,
 	},
-	primitives::{B256, KECCAK_EMPTY, U256},
+	primitives::{Address, B256, KECCAK_EMPTY, U256},
 };
 
 /// Implements the KECCAK256 instruction.
@@ -48,16 +48,23 @@ pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current contract's address onto the stack.
 pub fn address<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.target_address().into_word().into());
+	gas!(context.interpreter, RuntimeCosts::Address);
+	let address: Address = context.interpreter.extend.address().0.into();
+	push!(context.interpreter, address.into_word().into());
 }
 
 /// Implements the CALLER instruction.
 ///
 /// Pushes the caller's address onto the stack.
 pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.caller_address().into_word().into());
+	gas!(context.interpreter, RuntimeCosts::Caller);
+	match context.interpreter.extend.caller().account_id() {
+		Ok(account_id) => {
+			let address: Address = <E::T as Config>::AddressMapper::to_address(account_id).0.into();
+			push!(context.interpreter, address.into_word().into());
+		},
+		Err(_) => { context.interpreter.halt(revm::interpreter::InstructionResult::Revert); }
+	}
 }
 
 /// Implements the CODESIZE instruction.
@@ -139,8 +146,9 @@ pub fn calldatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the value sent with the current call onto the stack.
 pub fn callvalue<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.call_value());
+	gas!(context.interpreter, RuntimeCosts::ValueTransferred);
+	let call_value = context.interpreter.extend.value_transferred();
+	push!(context.interpreter, U256::from_limbs(call_value.0));
 }
 
 /// Implements the CALLDATACOPY instruction.
