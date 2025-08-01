@@ -609,7 +609,7 @@ fn deposit_limit_enforced_on_plain_transfer() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 
-		// sending balance to a frew account should fail when the limit is lower than the ed
+		// sending balance to a new account should fail when the limit is lower than the ed
 		let result = builder::bare_call(CHARLIE_ADDR)
 			.native_value(1)
 			.storage_deposit_limit(190.into())
