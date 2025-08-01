@@ -293,7 +293,7 @@ fn derivative_nfts() {
 		// The derivative NFT should exist now
 		let derivative_full_nft_id = DerivativeNfts::get_derivative(&(
 			foreign_collection_id.clone(),
-			foreign_nft_id.clone(),
+			foreign_nft_id,
 		))
 		.unwrap();
 
