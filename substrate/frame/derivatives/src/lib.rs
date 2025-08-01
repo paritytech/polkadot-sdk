@@ -164,7 +164,7 @@ pub mod pallet {
 		/// if it returns `Some(SaveMappingTo(DERIVATIVE))`.
 		///
 		/// If the extrinsic isn't used, this type can be set to
-		/// [DisabledOps](frame_support::traits::tokens::asset_ops::common_strategies::DisabledOps).
+		/// [DisabledOps](frame_support::traits::tokens::asset_ops::common_ops::DisabledOps).
 		type CreateOp: Create<
 			DeriveAndReportId<Self::Original, Option<SaveMappingTo<Self::Derivative>>>,
 		>;
@@ -176,7 +176,7 @@ pub mod pallet {
 		/// Used in the `destroy_derivative` extrinsic.
 		///
 		/// If the extrinsic isn't used, this type can be set to
-		/// [DisabledOps](frame_support::traits::tokens::asset_ops::common_strategies::DisabledOps).
+		/// [DisabledOps](frame_support::traits::tokens::asset_ops::common_ops::DisabledOps).
 		type DestroyOp: AssetDefinition<Id = Self::Original> + Destroy<NoParams>;
 	}
 
