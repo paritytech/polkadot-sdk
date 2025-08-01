@@ -42,7 +42,7 @@ const PARA_ID: u32 = 2400;
 /// As we increase the number of cores via `assign_core`, we expect the blocks to spread over the
 /// relay cores.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling() -> Result<(), anyhow::Error> {
+async fn pov_bundling_basic() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -65,8 +65,8 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
-	// 3 relay chain blocks
-	assert_finality_lag(&para_client, 72).await?;
+	// 5 relay chain blocks
+	assert_finality_lag(&para_client, 60).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(0, PARA_ID), (1, PARA_ID)]);
 
@@ -96,7 +96,7 @@ async fn pov_bundling() -> Result<(), anyhow::Error> {
 		[(ParaId::from(PARA_ID), (para_client.clone(), 48..73))],
 	)
 	.await?;
-	assert_finality_lag(&para_client, 72).await?;
+	assert_finality_lag(&para_client, 60).await?;
 
 	let assign_cores_call = create_assign_core_call(&[(2, PARA_ID), (3, PARA_ID), (4, PARA_ID)]);
 	// Assign two extra cores to each parachain.

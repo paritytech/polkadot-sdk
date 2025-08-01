@@ -38,7 +38,7 @@ const PARA_ID: u32 = 2400;
 /// This test starts with 3 cores assigned and configures glutton to use 80% of ref time,
 /// then validates that the parachain produces 72 blocks.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling_3cores_glutton() -> Result<(), anyhow::Error> {
+async fn pov_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

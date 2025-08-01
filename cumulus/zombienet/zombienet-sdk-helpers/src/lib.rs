@@ -681,3 +681,61 @@ pub async fn assert_para_is_registered(
 
 	Err(anyhow!("No more blocks to check"))
 }
+
+/// Checks if the given `block_hash` is the only block in a core.
+///
+/// Assumes that the given block
+pub async fn ensure_is_only_block_in_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_hash: H256,
+) -> Result<(), anyhow::Error> {
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_hash).await?;
+	let core_info = find_core_info(&block)?;
+
+	let parent = para_client.blocks().at(block.header().parent_hash).await?;
+
+	// Genesis is for sure on a different core :)
+	if parent.number() != 0 {
+		let parent_core_info = find_core_info(&parent)?;
+
+		if core_info == parent_core_info {
+			return Err(anyhow::anyhow!(
+				"Not first block in core, found in block {}",
+				block.number()
+			))
+		}
+	}
+
+	let chain_of_blocks = loop {
+		// Start with the latest best block.
+		let mut current_block = std::sync::Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+
+		let mut chain_of_blocks = vec![];
+
+		while current_block.hash() != block_hash {
+			chain_of_blocks.push(current_block.clone());
+			current_block = std::sync::Arc::new(blocks.at(current_block.header().parent_hash).await?);
+
+			if current_block.number() == 0 {
+				return Err(anyhow::anyhow!(
+					"Did not found block while going backwards from the best block"
+				))
+			}
+		}
+
+		// It possible that the first block we got is the same as the transaction got finalized.
+		// So, we just retry again until we found some more blocks.
+		if !chain_of_blocks.is_empty() {
+			break chain_of_blocks
+		}
+	};
+
+	// The last block `CoreInfo` must be different or it shares the core with the block we are
+	// interested in.
+	if core_info == find_core_info(chain_of_blocks.last().unwrap())? {
+		Err(anyhow::anyhow!("Found more blocks on the same core"))
+	} else {
+		Ok(())
+	}
+}
