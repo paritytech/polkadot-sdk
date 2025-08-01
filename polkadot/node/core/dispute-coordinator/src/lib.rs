@@ -197,7 +197,7 @@ impl DisputeCoordinatorSubsystem {
 		self,
 		ctx: &mut Context,
 		mut backend: B,
-		clock: &(dyn Clock),
+		clock: &dyn Clock,
 	) -> FatalResult<
 		Option<(
 			Vec<(ParticipationPriority, ParticipationRequest)>,
