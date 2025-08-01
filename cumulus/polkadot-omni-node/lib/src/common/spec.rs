@@ -160,7 +160,7 @@ pub(crate) trait BaseNodeSpec {
 		let para_id = match client.runtime_api().parachain_id(best_hash) {
 			Ok(para_id) => para_id,
 			Err(err) => {
-				log::info!(
+				log::warn!(
 					"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
 					err
 				);

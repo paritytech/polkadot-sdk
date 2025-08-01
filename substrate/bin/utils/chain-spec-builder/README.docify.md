@@ -34,7 +34,8 @@ implement `cumulus_primitives_core::GetParachainInfo` trait, a new runtime API
 designed to provide the parachain ID from the `parachain-info`
 pallet. The `para-id` flag can be used though if the runtime does not implement
 the runtime API, and the parachain id will be fetched by the node from chain
-specification.
+specification. This can be especially useful when syncing a node from a state
+where the runtime does not implement `cumulus_primitives_core::GetParachainInfo`.
 
 For reference, generating a chain specification with a `para_id` field can be
 done like below:
