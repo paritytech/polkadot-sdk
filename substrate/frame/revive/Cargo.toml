@@ -32,7 +32,7 @@ num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
 polkavm = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false }
-polkavm-common = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false, optional = true }
+polkavm-common = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false, features = ["alloc"]  }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
@@ -62,7 +62,6 @@ subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-polkavm-common = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory" }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -96,7 +95,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"polkavm-common?/std",
+	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
 	"ripemd/std",
@@ -126,7 +125,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",

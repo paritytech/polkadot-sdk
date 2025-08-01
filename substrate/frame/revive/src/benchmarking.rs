@@ -226,8 +226,8 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -1825,7 +1825,7 @@ mod benchmarks {
 	fn seal_instantiate(
 		t: Linear<0, 1>,
 		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::CALLDATA_BYTES }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
