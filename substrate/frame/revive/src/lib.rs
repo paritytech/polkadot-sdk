@@ -534,6 +534,17 @@ pub mod pallet {
 	pub(crate) type InflightEvents<T: Config> =
 		CountedStorageMap<_, Identity, u32, Event<T>, OptionQuery>;
 
+	/// The EVM submitted transactions that are inflight for the current block.
+	///
+	/// The transactions are needed to construct the ETH block.
+	///
+	/// This maps the transaction index to the transaction payload, the events emitted by the
+	/// transaction, the status of the transaction (success or not), and the gas consumed.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type InflightTransactions<T: Config> =
+		CountedStorageMap<_, Identity, u32, (Vec<u8>, Vec<Event<T>>, bool, Weight), OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -898,6 +909,9 @@ pub mod pallet {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
+
+			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+
 			dispatch_result(
 				output.result.map(|result| result.result),
 				output.gas_consumed,
@@ -936,6 +950,9 @@ pub mod pallet {
 					output.result = Err(<Error<T>>::ContractReverted.into());
 				}
 			}
+
+			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+
 			dispatch_result(
 				output.result,
 				output.gas_consumed,
@@ -1643,6 +1660,17 @@ impl<T: Config> Pallet<T> {
 		InflightEvents::<T>::insert(events_count, event.clone());
 
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
+	}
+
+	fn store_transaction(payload: Vec<u8>, success: bool, gas_consumed: Weight) {
+		// Collect inflight events emitted by this EVM transaction.
+		let events = InflightEvents::<T>::drain().map(|(_idx, event)| event).collect::<Vec<_>>();
+
+		let transactions_count = InflightTransactions::<T>::count();
+		InflightTransactions::<T>::insert(
+			transactions_count,
+			(payload, events, success, gas_consumed),
+		);
 	}
 
 	/// The address of the validator that produced the current block.
