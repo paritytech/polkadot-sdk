@@ -45,8 +45,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace,
-		Tracer, TracerType, TYPE_EIP1559,
+		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Log, PrestateTracer,
+		ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -97,7 +97,7 @@ pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use pallet_transaction_payment;
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256};
+pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
@@ -564,11 +564,107 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	where
+		// We need this to place the substrate block
+		// hash into the logs of the receipts.
+		T::Hash: frame_support::traits::IsType<H256>,
+	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
+		}
+
+		fn on_finalize(block_number: BlockNumberFor<T>) {
+			let Some(block_author) = Self::block_author() else {
+				Self::kill_inflight_data();
+				return;
+			};
+
+			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
+			let transactions = InflightTransactions::<T>::drain().collect::<Vec<_>>();
+
+			let base_gas_price = GAS_PRICE.into();
+
+			let tx_and_receipts: Vec<(TransactionSigned, ReceiptInfo)> = transactions
+				.into_iter()
+				.filter_map(|(transaction_index, (payload, events, success, gas))| {
+					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
+						}).ok()?;
+
+					let from = signed_tx.recover_eth_address()
+						.inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to recover sender address at index {transaction_index}: {err:?}");
+						})
+						.ok()?;
+
+					let transaction_hash = H256(keccak_256(&payload));
+
+					let tx_info = GenericTransaction::from_signed(
+						signed_tx.clone(),
+						base_gas_price,
+						Some(from),
+					);
+
+					let _gas_price = tx_info.gas_price;
+
+					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
+						if let Event::ContractEmitted { contract, data, topics } = event {
+							Some(Log {
+								address: contract,
+								topics,
+								data: Some(data.into()),
+
+								transaction_hash,
+								transaction_index: transaction_index.into(),
+
+								// We use the substrate block number and hash as the eth block number and hash.
+								block_number: block_number.into(),
+								block_hash: block_hash.into(),
+								log_index: index.into(),
+
+								..Default::default()
+							})
+						} else {
+							None
+						}
+					}).collect();
+
+					// Could this be extracted from the Call itself?
+					let contract_address = if tx_info.to.is_none() {
+						let nonce = tx_info.nonce.unwrap_or_default().try_into();
+						match nonce {
+							Ok(nonce) => Some(create1(&from, nonce)),
+							Err(err) => {
+								log::error!(target: LOG_TARGET, "Failed to convert nonce at index {transaction_index}: {err:?}");
+								None
+							}
+						}
+					} else {
+						None
+					};
+
+					let receipt = ReceiptInfo::new(
+						block_hash.into(),
+						block_number.into(),
+						contract_address,
+						from,
+						logs,
+						tx_info.to,
+						base_gas_price.into(),
+						// TODO: Is this conversion correct / appropriate for prod use-case?
+						gas.ref_time().into(),
+						success,
+						transaction_hash,
+						transaction_index.into(),
+						tx_info.r#type.unwrap_or_default(),
+					);
+
+					Some((signed_tx, receipt))
+				})
+				.collect();
 		}
 
 		fn integrity_test() {
@@ -910,6 +1006,8 @@ pub mod pallet {
 				}
 			}
 
+			// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
+			// If so, we might need to capture this from inside the `dispatch_result`.
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
 			dispatch_result(
@@ -1662,6 +1760,9 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
+	/// Store a transaction payload with extra details.
+	///
+	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(payload: Vec<u8>, success: bool, gas_consumed: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
 		let events = InflightEvents::<T>::drain().map(|(_idx, event)| event).collect::<Vec<_>>();
@@ -1671,6 +1772,13 @@ impl<T: Config> Pallet<T> {
 			transactions_count,
 			(payload, events, success, gas_consumed),
 		);
+	}
+
+	/// Kill all inflight data collected during the current block.
+	fn kill_inflight_data() {
+		// TODO: Do they remove the data from the storage?
+		InflightEvents::<T>::drain();
+		InflightTransactions::<T>::drain();
 	}
 
 	/// The address of the validator that produced the current block.
