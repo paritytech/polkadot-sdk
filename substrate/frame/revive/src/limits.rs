@@ -52,6 +52,8 @@ pub const NUM_EVENT_TOPICS: u32 = 4;
 pub const PAYLOAD_BYTES: u32 = 416;
 
 /// The maximum size for calldata and return data.
+///
+/// Please note that the calldata is limited to 128KB on geth anyways.
 pub const CALLDATA_BYTES: u32 = 128 * 1024;
 
 /// The maximum size of the transient storage in bytes.
