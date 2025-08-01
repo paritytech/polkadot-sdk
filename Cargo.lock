@@ -12887,6 +12887,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-tracing 16.0.0",
+ "sp-trie",
  "substrate-bn",
  "subxt-signer 0.41.0",
 ]

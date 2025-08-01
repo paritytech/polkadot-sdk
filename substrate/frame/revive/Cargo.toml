@@ -38,6 +38,7 @@ rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+sp-trie = { workspace = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }
@@ -54,7 +55,8 @@ sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-sp-core = { workspace = true }
+# TODO: Is this feature safe? Was it tested? Why experimental? Better to just use alloy-trie/core?
+sp-core = { workspace = true, features = ["bls-experimental", "bandersnatch-experimental"] }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }

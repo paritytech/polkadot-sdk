@@ -577,7 +577,7 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			let Some(block_author) = Self::block_author() else {
+			let Some(_block_author) = Self::block_author() else {
 				Self::kill_inflight_data();
 				return;
 			};
@@ -665,6 +665,26 @@ pub mod pallet {
 					Some((signed_tx, receipt))
 				})
 				.collect();
+
+			// Tx and Receipts must be encoded via: encode_2718
+			// TODO: We need to extend `TransactionSigned` with a new `encode()` fn similar to
+			// decode.
+
+			// TODO:
+			// Calculate tx root:
+			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L16-L24
+			// We might need: `(rlp(index), encoded(tx))` pairs instead.
+			let tx_blobs =
+				tx_and_receipts.iter().map(|(tx, _)| tx.encode_2718()).collect::<Vec<_>>();
+
+			// Do we need V0? What are the diffs here?
+			use sp_trie::TrieConfiguration;
+			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
+			let _transaction_root = sp_trie::LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+
+			// TODO:
+			// Calculate receipt root:
+			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L49-L54
 		}
 
 		fn integrity_test() {
