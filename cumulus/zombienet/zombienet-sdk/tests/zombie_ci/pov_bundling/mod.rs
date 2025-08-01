@@ -15,6 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod pov_recovery;
-mod slot_based_authoring;
-mod slot_based_rp_offset;
+mod basic;
+mod three_cores_glutton;
+mod utility_weight;

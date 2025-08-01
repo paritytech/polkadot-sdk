@@ -158,21 +158,29 @@ async fn ensure_is_only_block_in_core(
 		}
 	}
 
-	// Start with the latest best block.
-	let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+	let chain_of_blocks = loop {
+		// Start with the latest best block.
+		let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
 
-	let mut chain_of_blocks = vec![];
+		let mut chain_of_blocks = vec![];
 
-	while current_block.hash() != block.hash() {
-		chain_of_blocks.push(current_block.clone());
-		current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+		while current_block.hash() != block_hash {
+			chain_of_blocks.push(current_block.clone());
+			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
 
-		if current_block.number() == 0 {
-			return Err(anyhow::anyhow!(
-				"Did not found block while going backwards from the best block"
-			))
+			if current_block.number() == 0 {
+				return Err(anyhow::anyhow!(
+					"Did not found block while going backwards from the best block"
+				))
+			}
 		}
-	}
+
+		// It possible that the first block we got is the same as the transaction got finalized.
+		// So, we just retry again until we found some more blocks.
+		if !chain_of_blocks.is_empty() {
+			break chain_of_blocks
+		}
+	};
 
 	// The last block `CoreInfo` must be different or it shares the core with the block we are
 	// interested in.
