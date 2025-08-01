@@ -69,6 +69,11 @@ impl Extensions {
 	pub fn para_id(&self) -> Option<u32> {
 		self.para_id
 	}
+
+	/// Relay chain field getter
+	pub fn relay_chain(&self) -> String {
+		self.relay_chain.clone()
+	}
 }
 
 /// Generic chain spec for all polkadot-parachain runtimes
