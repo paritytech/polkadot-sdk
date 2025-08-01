@@ -45,17 +45,12 @@ use crate::exec::PrecompileExt;
 /// Gets the balance of the given account.
 pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) 
 {
+	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	popn_top!([], top, context.interpreter);
 	let address = top.into_address();
 
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	let mut data = [0u8; 32];
-	data[12..].copy_from_slice(h160.as_bytes());
-	let account_id = sp_runtime::AccountId32::from(data);
 	let balance = context.interpreter.extend.balance_of(&h160);
-
-	let spec_id = context.interpreter.runtime_flag.spec_id();
-	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	let bytes: [u8; 32] = balance.to_big_endian();
 	*top = U256::from_be_bytes(bytes);
 }
@@ -63,13 +58,19 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>)
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, ISTANBUL);
-	gas_legacy!(context.interpreter, gas::LOW);
+	gas!(context.interpreter, RuntimeCosts::Balance);
 
-	let Some(balance) = context.host.balance(context.interpreter.input.target_address()) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-	push!(context.interpreter, balance.data);
+	let balance = context.interpreter.extend.balance();
+	println!("selfbalance: {:?}", balance);
+	let bytes: [u8; 32] = balance.to_big_endian();
+	let alloy_balance = U256::from_be_bytes(bytes);
+	push!(context.interpreter, alloy_balance);
+
+	// let Some(balance) = context.host.balance(context.interpreter.input.target_address()) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
+	// push!(context.interpreter, balance.data);
 }
 
 /// Implements the EXTCODESIZE instruction.

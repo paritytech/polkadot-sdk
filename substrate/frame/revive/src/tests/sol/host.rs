@@ -66,3 +66,44 @@ fn balance_works() {
         
 	}
 }
+
+#[test]
+fn selfbalance_works() {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
+        let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
+        let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
+        let expected_balance = U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth);
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                let mut data = [0u8; 32];
+                data[12..].copy_from_slice(addr.as_bytes());
+                let account_id32 = sp_runtime::AccountId32::from(data);
+
+                <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000);
+            }
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::selfbalance(Host::selfbalanceCall { })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+
+                assert_eq!(
+                    expected_balance,
+                    result_balance,
+                    "BALANCE should return BOB's balance for {:?}", fixture_type
+                );
+            }
+		});
+    }
+}
