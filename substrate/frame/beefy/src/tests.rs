@@ -54,12 +54,12 @@ pub fn beefy_log(log: ConsensusLog<BeefyId>) -> DigestItem {
 #[test]
 fn genesis_session_initializes_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
-	let want = vec![mock_beefy_id(2), mock_beefy_id(4)];
+	let want = authorities.clone();
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		let authorities = beefy::Authorities::<Test>::get();
 
-		assert_eq!(authorities.len(), 2);
+		assert_eq!(authorities.len(), 4);
 		assert_eq!(want[0], authorities[0]);
 		assert_eq!(want[1], authorities[1]);
 
@@ -67,7 +67,7 @@ fn genesis_session_initializes_authorities() {
 
 		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-		assert_eq!(next_authorities.len(), 2);
+		assert_eq!(next_authorities.len(), 4);
 		assert_eq!(want[0], next_authorities[0]);
 		assert_eq!(want[1], next_authorities[1]);
 	});
@@ -76,113 +76,65 @@ fn genesis_session_initializes_authorities() {
 #[test]
 fn session_change_updates_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
+	let want_validators = authorities.clone();
 
 	ExtBuilder::default()
-		.add_authorities(authorities.clone())
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
 		.build_and_execute(|| {
 			assert!(0 == beefy::ValidatorSetId::<Test>::get());
-
-			// Check initial authorities - should have validators [2, 4] selected
-			let initial_authorities = beefy::Authorities::<Test>::get();
-			assert_eq!(initial_authorities.len(), 2);
-			assert_eq!(initial_authorities[0], mock_beefy_id(2));
-			assert_eq!(initial_authorities[1], mock_beefy_id(4));
 
 			init_block(1);
 
 			assert!(1 == beefy::ValidatorSetId::<Test>::get());
 
-			// Verify first session log
-			let logs = System::digest().logs;
-			assert_eq!(logs.len(), 1);
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(want_validators, 1).unwrap(),
+			));
 
-			let session1_authorities = beefy::Authorities::<Test>::get();
+			let log = System::digest().logs[0].clone();
+			assert_eq!(want, log);
 
-			// change the validator count to force different selection
-			// First increase validator count to include all 4 validators
-			assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 4));
+			init_block(2);
 
-			// Force new era with 4 validators
-			assert_ok!(Staking::force_new_era(RuntimeOrigin::root()));
-			start_era(2);
+			assert!(2 == beefy::ValidatorSetId::<Test>::get());
 
-			// Now we should have all 4 validators instead of just 2
-			let new_authorities = beefy::Authorities::<Test>::get();
+			let want = beefy_log(ConsensusLog::AuthoritiesChange(
+				ValidatorSet::new(vec![mock_beefy_id(2), mock_beefy_id(4)], 2).unwrap(),
+			));
 
-			// The key test: authorities have actually changed!
-			assert_ne!(
-				session1_authorities, new_authorities,
-				"Authorities should have changed from 2 validators to 4 validators"
-			);
-
-			// Verify the specific change: we went from 2 to 4 validators
-			assert_eq!(session1_authorities.len(), 2, "Started with 2 validators");
-			assert_eq!(new_authorities.len(), 4, "Now have 4 validators");
-
-			// Verify the new set includes all expected validators
-			assert_eq!(new_authorities[0], mock_beefy_id(1));
-			assert_eq!(new_authorities[1], mock_beefy_id(2));
-			assert_eq!(new_authorities[2], mock_beefy_id(3));
-			assert_eq!(new_authorities[3], mock_beefy_id(4));
-
-			// Verify the validator set ID has incremented due to the changes
-			let final_set_id = beefy::ValidatorSetId::<Test>::get();
-			assert!(
-				final_set_id > 1,
-				"Validator set ID should have incremented with authority changes"
-			);
+			let log = System::digest().logs[1].clone();
+			assert_eq!(want, log);
 		});
 }
 
 #[test]
 fn session_change_updates_next_authorities() {
-	let authorities = mock_authorities(vec![1, 2, 3, 4]);
+	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
 	ExtBuilder::default()
-		.add_authorities(authorities.clone())
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
 		.build_and_execute(|| {
-			// Check initial next authorities - should have 2 validators selected
-			let initial_next_authorities = beefy::NextAuthorities::<Test>::get();
-			assert_eq!(initial_next_authorities.len(), 2);
-			assert_eq!(initial_next_authorities[0], mock_beefy_id(2));
-			assert_eq!(initial_next_authorities[1], mock_beefy_id(4));
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
+
+			assert_eq!(next_authorities.len(), 4);
+			assert_eq!(want[0], next_authorities[0]);
+			assert_eq!(want[1], next_authorities[1]);
+			assert_eq!(want[2], next_authorities[2]);
+			assert_eq!(want[3], next_authorities[3]);
 
 			init_block(1);
 
-			// After first session, next authorities should still be the same
-			let session1_next_authorities = beefy::NextAuthorities::<Test>::get();
-			assert_eq!(session1_next_authorities, initial_next_authorities);
+			let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-			// Now change the validator count to force different next authority selection
-			assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 4));
-
-			// Force a new era to trigger validator selection change
-			assert_ok!(Staking::force_new_era(RuntimeOrigin::root()));
-			start_era(2);
-
-			// Check that next authorities have changed
-			let new_next_authorities = beefy::NextAuthorities::<Test>::get();
-
-			assert_ne!(
-				session1_next_authorities, new_next_authorities,
-				"Next authorities should have changed due to validator count change"
-			);
-
-			// Verify the specific change: we went from 2 to 4 next validators
-			assert_eq!(session1_next_authorities.len(), 2, "Started with 2 next validators");
-			assert_eq!(new_next_authorities.len(), 4, "Now have 4 next validators");
-
-			// Verify the new next authorities include all expected validators
-			assert_eq!(new_next_authorities[0], mock_beefy_id(1));
-			assert_eq!(new_next_authorities[1], mock_beefy_id(2));
-			assert_eq!(new_next_authorities[2], mock_beefy_id(3));
-			assert_eq!(new_next_authorities[3], mock_beefy_id(4));
+			assert_eq!(next_authorities.len(), 2);
+			assert_eq!(want[1], next_authorities[0]);
+			assert_eq!(want[3], next_authorities[1]);
 		});
 }
 
 #[test]
 fn validator_set_at_genesis() {
-	let want = vec![mock_beefy_id(2), mock_beefy_id(4)];
+	let want = vec![mock_beefy_id(1), mock_beefy_id(2)];
 
 	ExtBuilder::default()
 		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
@@ -197,44 +149,33 @@ fn validator_set_at_genesis() {
 
 #[test]
 fn validator_set_updates_work() {
-	let authorities = mock_authorities(vec![1, 2, 3, 4]);
+	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
 
 	ExtBuilder::default()
-		.add_authorities(authorities.clone())
+		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
 		.build_and_execute(|| {
-			// Initial validator set should have 2 validators
-			let vs0 = Beefy::validator_set().unwrap();
-			assert_eq!(vs0.id(), 0u64);
-			assert_eq!(vs0.validators().len(), 2);
-			assert_eq!(vs0.validators()[0], mock_beefy_id(2));
-			assert_eq!(vs0.validators()[1], mock_beefy_id(4));
+			let vs = Beefy::validator_set().unwrap();
+			assert_eq!(vs.id(), 0u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(want[2], vs.validators()[2]);
+			assert_eq!(want[3], vs.validators()[3]);
 
 			init_block(1);
 
-			// After first session, should still have same validators but new set ID
-			let vs1 = Beefy::validator_set().unwrap();
-			assert_eq!(vs1.id(), 1u64);
-			assert_eq!(vs1.validators().len(), 2);
-			assert_eq!(vs1.validators()[0], mock_beefy_id(2));
-			assert_eq!(vs1.validators()[1], mock_beefy_id(4));
+			let vs = Beefy::validator_set().unwrap();
 
-			// Now change validator count to demonstrate validator set updates
-			assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 4));
-			assert_ok!(Staking::force_new_era(RuntimeOrigin::root()));
-			start_era(2);
+			assert_eq!(vs.id(), 1u64);
+			assert_eq!(want[0], vs.validators()[0]);
+			assert_eq!(want[1], vs.validators()[1]);
 
-			// After validator count change, should have all 4 validators
-			let vs2 = Beefy::validator_set().unwrap();
-			assert!(vs2.id() > 1u64, "Validator set ID should have incremented");
-			assert_eq!(vs2.validators().len(), 4, "Should now have 4 validators");
-			assert_eq!(vs2.validators()[0], mock_beefy_id(1));
-			assert_eq!(vs2.validators()[1], mock_beefy_id(2));
-			assert_eq!(vs2.validators()[2], mock_beefy_id(3));
-			assert_eq!(vs2.validators()[3], mock_beefy_id(4));
+			init_block(2);
 
-			// Verify that validator sets actually changed
-			assert_ne!(vs0.validators(), vs2.validators(), "Validator sets should be different");
-			assert_ne!(vs1.validators(), vs2.validators(), "Validator sets should be different");
+			let vs = Beefy::validator_set().unwrap();
+
+			assert_eq!(vs.id(), 2u64);
+			assert_eq!(want[1], vs.validators()[0]);
+			assert_eq!(want[3], vs.validators()[1]);
 		});
 }
 
@@ -249,45 +190,26 @@ fn cleans_up_old_set_id_session_mappings() {
 			let era_limit = max_set_id_session_entries / 3;
 			// sanity check against division precision loss
 			assert_eq!(0, max_set_id_session_entries % 3);
-			// go through enough eras to create max_set_id_session_entries mappings
-			// Since each era has 3 sessions and each session creates 1 mapping,
-			// we need (max_set_id_session_entries / 3) + 1 eras to ensure we have enough mappings
-			start_era(era_limit + 1);
+			// go through `max_set_id_session_entries` sessions
+			start_era(era_limit);
 
-			// we should have a session id mapping for the most recent set ids
-			// The cleanup logic keeps only the last max_set_id_session_entries mappings
-			let current_set_id = beefy::ValidatorSetId::<Test>::get();
-			let start_range = if current_set_id >= max_set_id_session_entries as u64 {
-				current_set_id - max_set_id_session_entries as u64 + 1
-			} else {
-				0
-			};
-
-			for i in start_range..=current_set_id {
-				assert!(beefy::SetIdSession::<Test>::get(i).is_some());
+			// we should have a session id mapping for all the set ids from
+			// `max_set_id_session_entries` eras we have observed
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 			}
 
 			// go through another `max_set_id_session_entries` sessions
-			start_era((era_limit + 1) * 2);
+			start_era(era_limit * 2);
 
-			// Check which mappings exist now
-			let final_set_id = beefy::ValidatorSetId::<Test>::get();
-
-			// we should keep tracking the new mappings for recent sessions
-			// The last max_set_id_session_entries mappings should exist
-			let start_range = if final_set_id >= max_set_id_session_entries as u64 {
-				final_set_id - max_set_id_session_entries as u64 + 1
-			} else {
-				0
-			};
-
-			for i in start_range..=final_set_id {
-				assert!(beefy::SetIdSession::<Test>::get(i).is_some());
+			// we should keep tracking the new mappings for new sessions
+			for i in max_set_id_session_entries + 1..=max_set_id_session_entries * 2 {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_some());
 			}
 
 			// but the old ones should have been pruned by now
-			for i in 0..start_range {
-				assert!(beefy::SetIdSession::<Test>::get(i).is_none());
+			for i in 1..=max_set_id_session_entries {
+				assert!(beefy::SetIdSession::<Test>::get(i as u64).is_none());
 			}
 		});
 }
@@ -401,7 +323,7 @@ fn report_equivocation_current_set_works(
 	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(1));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -853,7 +775,7 @@ fn report_double_voting_validate_unsigned_prevents_duplicates() {
 		);
 
 		// the transaction is valid when passed as local
-		let tx_tag = (equivocation_key, set_id, 0u64);
+		let tx_tag = (equivocation_key, set_id, 3u64);
 
 		assert_eq!(
 			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
@@ -1091,7 +1013,7 @@ fn report_fork_voting_invalid_context() {
 
 	let mut era = 1;
 	let block_num = ext.execute_with(|| {
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(1));
+		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
 		assert_eq!(Session::current_index(), 0);
 		start_era(era);
 
