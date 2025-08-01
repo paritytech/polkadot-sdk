@@ -1,0 +1,24 @@
+[package]
+name = "pallet-staking-async-preset-store"
+version = "0.1.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+description = "Simple pallet to store the preset used to generate a runtime's genesis in state"
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+
+[dependencies]
+codec = { workspace = true }
+frame = { workspace = true, features = ["runtime"] }
+scale-info = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame/std",
+	"scale-info/std",
+]
