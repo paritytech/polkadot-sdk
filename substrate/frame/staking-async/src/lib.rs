@@ -149,11 +149,11 @@
 //! ```text
 //! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
 //!             |     |     |     |     |     |     |     |     |     |     |          |     |
-//! Unbond:     U                                                                             
-//! Offence:    X                                                                             
-//! Reported:               R                                                                 
-//! Processed:              P (within next few blocks)                                        
-//! Slash Applied:                                                                       S     
+//! Unbond:     U
+//! Offence:    X
+//! Reported:               R
+//! Processed:              P (within next few blocks)
+//! Slash Applied:                                                                       S
 //! Withdraw:                                                                            ❌    ✓
 //!
 //! With BondingDuration = 28 and SlashDeferDuration = 27:
@@ -349,7 +349,7 @@ pub struct ValidatorPrefs {
 }
 
 /// Status of a paged snapshot progress.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, Default)]
 pub enum SnapshotStatus<AccountId> {
 	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated in the list.
 	Ongoing(AccountId),
@@ -429,9 +429,7 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(
-	Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, EqNoBound,
-)]
+#[derive(Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, EqNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
