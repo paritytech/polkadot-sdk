@@ -73,10 +73,16 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
-	/// Returns the minimum required bond for participation in staking as a chilled account.
+	/// Returns the minimum required bond for participation, considering nominators,
+	/// and the chain’s existential deposit.
+	///
+	/// This function computes the smallest allowed bond among `MinValidatorBond` and
+	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
+	/// account alive.
 	pub(crate) fn min_chilled_bond() -> BalanceOf<T> {
-		// Note: in the future we might add a configurable `MinChilledBond`, else ED is good.
-		asset::existential_deposit::<T>()
+		MinValidatorBond::<T>::get()
+			.min(MinNominatorBond::<T>::get())
+			.max(asset::existential_deposit::<T>())
 	}
 
 	/// Returns the minimum required bond for participation in staking as a validator account.

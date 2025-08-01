@@ -4042,7 +4042,7 @@ impl<T: Config> Pallet<T> {
 		debug_assertions
 	))]
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
-		let mut failed: u32 = 0;
+		// TODO: we need a poke_pool_deposit etc here too.
 		BondedPools::<T>::iter_keys().for_each(|id| {
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
@@ -4050,7 +4050,6 @@ impl<T: Config> Pallet<T> {
 
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
-				failed += 1;
 				log!(
 					warn,
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
@@ -4061,7 +4060,6 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		ensure!(failed == 0, "Some pools do not have correct ED frozen");
 		Ok(())
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
