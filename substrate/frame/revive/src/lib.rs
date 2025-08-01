@@ -34,7 +34,7 @@ mod storage;
 #[cfg(test)]
 mod tests;
 mod transient_storage;
-mod types;
+// mod types;
 mod vm;
 
 pub mod evm;
@@ -56,7 +56,7 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	types::BlockV3,
+	// types::BlockV3,
 	vm::{CodeInfo, ContractBlob, RuntimeCosts},
 };
 
@@ -556,9 +556,9 @@ pub mod pallet {
 	// pub type Pending<T: Config> =
 	// 	CountedStorageMap<_, Identity, u32, (Transaction, TransactionStatus, Receipt), OptionQuery>;
 
-	/// The current Ethereum block.
-	#[pallet::storage]
-	pub type CurrentBlock<T: Config> = StorageValue<_, BlockV3>;
+	// /// The current Ethereum block.
+	// #[pallet::storage]
+	// pub type CurrentBlock<T: Config> = StorageValue<_, BlockV3>;
 
 	// TODO: This should be bounded at a constant length.
 	#[pallet::storage]
