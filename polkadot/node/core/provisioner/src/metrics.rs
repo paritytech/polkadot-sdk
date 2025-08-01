@@ -220,7 +220,7 @@ impl metrics::Metrics for Metrics {
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
 						"polkadot_parachain_provisioner_backable_vs_in_block",
-						"Number of inherent bitfields sent in response to `ProvisionerMessage::RequestInherentData`.",
+						"Difference between number of backable blocks and number of backed candidates in block",
 					).buckets(vec![-100.0, -50.0, -40.0, -30.0, -20.0, -15.0, -10.0, -5.0, 0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 100.0]),
 				)?,
 				registry,
