@@ -18,7 +18,7 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE},
+	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB, BOB_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
@@ -31,53 +31,55 @@ use frame_support::traits::fungible::Inspect;
 
 #[test]
 fn balance_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Resolc] {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
-            let alice_evm: [u8; 20] = <sp_runtime::AccountId32 as AsRef<[u8]>>::as_ref(&ALICE)[12..32].try_into().unwrap();
 
-            let evm_account = {
-                let mut data: [u8; 32] = <sp_runtime::AccountId32 as AsRef<[u8]>>::as_ref(&ALICE)[0..32].try_into().unwrap();
-data[..12].copy_from_slice(&[0u8; 12]);
-                sp_runtime::AccountId32::from(data)
+            let bobs_address20: [u8; 20] = {
+                let bob_account32 = {
+                    let mut data = [0u8; 32];
+                    data[12..].copy_from_slice(BOB_ADDR.as_bytes());
+                    sp_runtime::AccountId32::from(data)
+                };
+                let bobs_address32: [u8; 32] = <sp_runtime::AccountId32 as AsRef<[u8; 32]>>::as_ref(&bob_account32).clone();
+                bobs_address32[12..].try_into().unwrap()
             };
-            println!("ALICE: {ALICE:?}");
-            println!("alice_evm: {alice_evm:?}");
-            println!("evm_account: {evm_account:?}");
 
+            {
+                <Test as Config>::Currency::set_balance(&BOB, 100_000_000_000);
+                let balance = <Test as Config>::Currency::balance(&BOB);
+                println!("BOB's balance: {:?}", balance);
+            }
             {
                 <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
                 let balance = <Test as Config>::Currency::balance(&ALICE);
                 println!("ALICE's balance: {:?}", balance);
             }
 
-            <Test as Config>::Currency::set_balance(&evm_account, 100_000_000_000);
-            let balance = <Test as Config>::Currency::balance(&evm_account);
-            println!("evm_account's balance: {:?}", balance);
-
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
-            println!("Contract address: {:?}", addr);
 
-			// Call the balance function on the Host contract, passing evm_account's address
-            let result = builder::bare_call(addr)
-                .data(
-                    Host::HostCalls::balance(Host::balanceCall { account: <sp_runtime::AccountId32 as AsRef<[u8]>>::as_ref(&evm_account)[12..32].try_into().unwrap() })
-                        .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            let balance = <Test as Config>::Currency::balance(&evm_account);
-            println!("evm_account's balance: {:?}", balance);
-            println!("Result data: {:?}", result.data);
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::balance(Host::balanceCall { account: BOB_ADDR.0.into() })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+                {
+                    let balance = <Test as Config>::Currency::balance(&BOB);
+                    println!("BOB's balance: {:?}", balance);
+                    println!("Result balance: {:?}", result_balance);
+                }
 
-			// The contract should return evm_account's balance as a U256
-			assert_eq!(
-				U256::from(100_000_000_000u128),
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-				"BALANCE should return evm_account's balance for {:?}", fixture_type
-			);
+                assert_eq!(
+                    U256::from((100_000_000_000u128-1u128)*1000_000u128),
+                    result_balance,
+                    "BALANCE should return BOB's balance for {:?}", fixture_type
+                );
+            }
 		});
-        break;
+        
 	}
 }
