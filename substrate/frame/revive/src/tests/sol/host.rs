@@ -28,37 +28,21 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Host, FixtureType};
 use pretty_assertions::assert_eq;
 use frame_support::traits::fungible::Inspect;
+use frame_support::traits::Get;
 
 #[test]
 fn balance_works() {
 	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
 
-        let existential_deposit_planck = 1u128;
-        let native_to_eth = 1_000_000u128;
-
+        let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
+        let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
+        let expected_balance = U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth);
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
 		ExtBuilder::default().build().execute_with(|| {
 
-            let bobs_address20: [u8; 20] = {
-                let bob_account32 = {
-                    let mut data = [0u8; 32];
-                    data[12..].copy_from_slice(BOB_ADDR.as_bytes());
-                    sp_runtime::AccountId32::from(data)
-                };
-                let bobs_address32: [u8; 32] = <sp_runtime::AccountId32 as AsRef<[u8; 32]>>::as_ref(&bob_account32).clone();
-                bobs_address32[12..].try_into().unwrap()
-            };
-
-            {
-                <Test as Config>::Currency::set_balance(&BOB, 100_000_000_000);
-                let balance = <Test as Config>::Currency::balance(&BOB);
-                println!("BOB's balance: {:?}", balance);
-            }
-            {
-                <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-                let balance = <Test as Config>::Currency::balance(&ALICE);
-                println!("ALICE's balance: {:?}", balance);
-            }
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+            <Test as Config>::Currency::set_balance(&BOB, 100_000_000_000);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -71,14 +55,9 @@ fn balance_works() {
                     )
                     .build_and_unwrap_result();
                 let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-                {
-                    let balance = <Test as Config>::Currency::balance(&BOB);
-                    println!("BOB's balance: {:?}", balance);
-                    println!("Result balance: {:?}", result_balance);
-                }
 
                 assert_eq!(
-                    U256::from((100_000_000_000u128-existential_deposit_planck)*native_to_eth),
+                    expected_balance,
                     result_balance,
                     "BALANCE should return BOB's balance for {:?}", fixture_type
                 );
