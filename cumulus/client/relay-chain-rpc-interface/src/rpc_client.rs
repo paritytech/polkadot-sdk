@@ -115,7 +115,7 @@ pub async fn create_client_and_start_light_client_worker(
 	task_manager: &mut TaskManager,
 ) -> RelayChainResult<RelayChainRpcClient> {
 	let (client, chain_id, json_rpc_responses) =
-		build_smoldot_client(task_manager.spawn_handle(), &chain_spec).await?;
+		build_smoldot_client(&chain_spec).await?;
 	let (worker, sender) = LightClientRpcWorker::new(client, json_rpc_responses, chain_id);
 
 	task_manager
@@ -241,7 +241,7 @@ impl RelayChainRpcClient {
 
 		let value = rx.await.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(format!(
-				"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}",
+				"RPC worker channel closed. This can hint at connectivity issues with the supplied RPC endpoints. Message: {}",
 				err
 			))
 		})??;

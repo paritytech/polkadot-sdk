@@ -24,7 +24,9 @@ use jsonrpsee::core::client::{
 	Client as JsonRpseeClient, ClientBuilder, ClientT, ReceivedMessage, TransportReceiverT,
 	TransportSenderT,
 };
-use smoldot_light::{ChainId, Client as SmoldotClient, JsonRpcResponses};
+use smoldot_light::{
+	platform::DefaultPlatform, ChainId, Client as SmoldotClient, JsonRpcResponses,
+};
 use std::{num::NonZeroU32, sync::Arc};
 use tokio::sync::mpsc::{channel as tokio_channel, Receiver, Sender as TokioSender};
 
@@ -36,9 +38,8 @@ use cumulus_relay_chain_interface::{RelayChainError, RelayChainResult};
 use sp_runtime::generic::SignedBlock;
 
 use sc_rpc_api::chain::ChainApiClient;
-use sc_service::SpawnTaskHandle;
 
-use crate::{rpc_client::RpcDispatcherMessage, tokio_platform::TokioPlatform};
+use crate::rpc_client::RpcDispatcherMessage;
 
 const LOG_TARGET: &str = "rpc-light-client-worker";
 const MAX_PENDING_REQUESTS: u32 = 128;
@@ -54,7 +55,7 @@ enum LightClientError {
 
 /// Sending adapter allowing JsonRpsee to send messages to smoldot
 struct SimpleStringSender {
-	inner: SmoldotClient<TokioPlatform, ()>,
+	inner: SmoldotClient<Arc<DefaultPlatform>, ()>,
 	chain_id: ChainId,
 }
 
@@ -71,7 +72,7 @@ impl TransportSenderT for SimpleStringSender {
 
 /// Receiving adapter allowing JsonRpsee to receive messages from smoldot
 struct SimpleStringReceiver {
-	inner: JsonRpcResponses,
+	inner: JsonRpcResponses<Arc<DefaultPlatform>>,
 }
 
 #[async_trait::async_trait]
@@ -89,10 +90,16 @@ impl TransportReceiverT for SimpleStringReceiver {
 
 /// Build a smoldot client and add the specified chain spec to it.
 pub async fn build_smoldot_client(
-	spawner: SpawnTaskHandle,
 	chain_spec: &str,
-) -> RelayChainResult<(SmoldotClient<TokioPlatform, ()>, ChainId, JsonRpcResponses)> {
-	let platform = TokioPlatform::new(spawner);
+) -> RelayChainResult<(
+	SmoldotClient<Arc<DefaultPlatform>, ()>,
+	ChainId,
+	JsonRpcResponses<Arc<DefaultPlatform>>,
+)> {
+	let platform = DefaultPlatform::new(
+		"cumulus-relay-chain-light-client".into(),
+		env!("CARGO_PKG_VERSION").into(),
+	);
 	let mut client = SmoldotClient::new(platform);
 
 	// Ask the client to connect to a chain.
@@ -149,8 +156,8 @@ impl LightClientRpcWorker {
 	///
 	/// Returns the worker itself and a channel to send messages.
 	pub fn new(
-		smoldot_client: smoldot_light::Client<TokioPlatform, ()>,
-		json_rpc_responses: JsonRpcResponses,
+		smoldot_client: smoldot_light::Client<Arc<DefaultPlatform>, ()>,
+		json_rpc_responses: JsonRpcResponses<Arc<DefaultPlatform>>,
 		chain_id: ChainId,
 	) -> (LightClientRpcWorker, TokioSender<RpcDispatcherMessage>) {
 		let (tx, rx) = tokio_channel(100);
