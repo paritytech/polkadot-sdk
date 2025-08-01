@@ -120,12 +120,7 @@ fn create_utility_with_weight_call(ref_time: u64, proof_size: u64) -> DynamicPay
 	zombienet_sdk::subxt::tx::dynamic(
 		"Utility",
 		"with_weight",
-		vec![
-			inner_call.into_value(),
-			value! {
-				weight
-			},
-		],
+		vec![inner_call.into_value(), weight],
 	)
 }
 

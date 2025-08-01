@@ -16,5 +16,6 @@
 // limitations under the License.
 
 mod basic;
+mod runtime_upgrade;
 mod three_cores_glutton;
 mod utility_weight;

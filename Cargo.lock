@@ -5052,6 +5052,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cumulus-primitives-core",
+ "cumulus-test-runtime",
  "cumulus-zombienet-sdk-helpers",
  "env_logger 0.11.3",
  "frame-support",
