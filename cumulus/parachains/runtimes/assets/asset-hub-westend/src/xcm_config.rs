@@ -55,7 +55,7 @@ use xcm_builder::{
 	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
-	NetworkExportTableItem, NoChecking, NonFungiblesAdapter, OriginToPluralityVoice,
+	NetworkExportTableItem, NoChecking, OriginToPluralityVoice,
 	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SingleAssetExchangeAdapter, SovereignSignedViaLocation, StartsWith,
