@@ -25,6 +25,9 @@ use super::{
 	*,
 };
 use crate::dday::{prover::AssetHubProver, tracks::TrackId};
+use cumulus_primitives_core::relay_chain::{
+	BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash,
+};
 use frame_support::{
 	parameter_types,
 	traits::{CallerTrait, ContainsPair, EitherOf, Equals, NeverEnsureOrigin, PollStatus, Polling},
@@ -45,15 +48,24 @@ parameter_types! {
 	pub const UndecidingTimeout: BlockNumber = 14 * DAYS;
 }
 
-/// Tracks the AssetHub state when it is stalled.
+/// Ring buffer for storing mappings between Relay Chain block numbers and storage roots.
 ///
-///  1. AssetHub can send XCM with its parachain head data from `on_idle`.
-///  2. Alternatively, XCM from AssetHub may not be needed when custom key reading from
-///     `RelayChainStateProof::read_entry(well_known_keys::para_head(asset_hub_id)`
-/// 	is implemented. In that case, this pallet (`Pallet<T, I>::do_note_new_head(...)`)
-/// 	can be updated directly:
-///     - https://github.com/paritytech/polkadot-sdk/issues/82
-///     - https://github.com/paritytech/polkadot-sdk/issues/7445
+/// The Relay Chain storage roots will be needed for `submit_proof_root_for_voting`, which expects:
+/// * RelayChainBlockNumber - `DDayProofRootStore` stores the mapping between RelayChainBlockNumber and RelayChainHash.
+/// * ProofBlockNumberOf - AssetHub block number, whose state_root we want to use for voting.
+/// * RawStorageProof - The Relay Chain proof about `Paras::Heads::get(AssetHubParaId)` where we get AssetHub's state_root.
+///
+/// We use the stored `RelayChainHash` to extract AssetHub's `HeadData.state_root` from the `RawStorageProof`.
+pub type DDayProofRootStoreInstance = pallet_bridge_proof_root_store::Instance1;
+impl pallet_bridge_proof_root_store::Config<DDayProofRootStoreInstance> for Runtime {
+	type WeightInfo = ();
+	type SubmitOrigin = NeverEnsureOrigin<AccountId>;
+	/// The Relay Chain block number.
+	type Key = RelayChainBlockNumber;
+	/// The Relay Chain storage/state root.
+	type Value = RelayChainHash;
+	type RootsToKeep = ConstU32<1024>;
+}
 
 /// Setup voting by AssetHub account proofs.
 pub type DDayVotingInstance = pallet_dday_voting::Instance1;

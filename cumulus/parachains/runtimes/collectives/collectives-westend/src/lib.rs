@@ -739,6 +739,7 @@ construct_runtime!(
 		DDayReferenda: pallet_referenda::<Instance3> = 81,
 		DDayVoting: pallet_dday_voting::<Instance1> = 82,
 		DDayOrigins: pallet_dday_origins = 83,
+		DDayProofRootStore: pallet_bridge_proof_root_store::<Instance1> = 84,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}

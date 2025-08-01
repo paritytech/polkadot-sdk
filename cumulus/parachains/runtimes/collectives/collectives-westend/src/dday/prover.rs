@@ -16,23 +16,27 @@
 
 //! Utilities for handling proofs from the stalled AssetHub chain.
 
-use crate::{Runtime, dday::DDayVotingInstance};
+use crate::{dday::DDayVotingInstance, DDayProofRootStore, Runtime};
 use bp_runtime::{RawStorageProof, StorageProofChecker};
 use codec::{Decode, Encode};
 use core::ops::ControlFlow;
+use cumulus_primitives_core::relay_chain::{
+	BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash,
+};
 use cumulus_primitives_core::Weight;
 use frame_support::{
 	ensure,
 	storage::storage_prefix,
 	traits::{Contains, ProcessMessageError},
-	Blake2_128Concat, StorageHasher,
+	Blake2_128Concat, StorageHasher, Twox64Concat,
 };
 use pallet_dday_voting::{
 	ProofAccountIdOf, ProofBalanceOf, ProofBlockNumberOf, ProofDescription, ProofHashOf,
-	ProofHasherOf, ProofInterface, ProofOf, TotalForTallyProvider, Totals, VotingPower, ProofRoot,
+	ProofHasherOf, ProofInterface, ProofOf, ProofRoot, TotalForTallyProvider, Totals, VotingPower,
 };
-use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
+use polkadot_parachain_primitives::primitives::{HeadData, Id as ParaId};
 use sp_runtime::traits::BlakeTwo256;
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{latest::prelude::*, DoubleEncoded};
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{Properties, ShouldExecute};
@@ -54,6 +58,27 @@ type AssetHubAccountData = frame_system::AccountInfo<
 	pallet_balances::AccountData<ProofBalanceOf<AssetHubProver>>,
 >;
 
+// /// Implementation of `TotalForTallyProvider` which return recorded/proved issuance that is
+// /// relevant. If nothing is recorded yet, the `ProofBalanceOf<AssetHubAccountProver>::MAX` is used.
+// impl<Chain: IsStalled> TotalForTallyProvider for StalledAssetHubDataProvider<Chain> {
+// 	type TotalKey = ProofBlockNumberOf<AssetHubAccountProver>;
+// 	type Total = ProofBalanceOf<AssetHubAccountProver>;
+//
+// 	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total {
+// 		Chain::stalled_head()
+// 			.and_then(|head| {
+// 				parachains_common::Header::decode(&mut &head.0[..])
+// 					.ok()
+// 					.map(|header| header.number)
+// 			})
+// 			.and_then(|stalled_block_number| {
+// 				// get from recorded ones.
+// 				totals.0.get(&stalled_block_number).map(|b| *b)
+// 			})
+// 			.unwrap_or(ProofBalanceOf::<AssetHubAccountProver>::MAX)
+// 	}
+// }
+
 pub struct AssetHubProver;
 impl AssetHubProver {
 	/// Generate a proof key of account balance data.
@@ -74,11 +99,24 @@ impl AssetHubProver {
 	fn inactive_issuance_storage_key() -> alloc::vec::Vec<u8> {
 		storage_prefix(b"Balances", b"InactiveIssuance").to_vec()
 	}
+
+	/// Proof key of the relay chain `Paras::Heads`.
+	fn paras_heads_storage_key(para_id: ParaId) -> alloc::vec::Vec<u8> {
+		let mut key = storage_prefix(b"Paras", b"Heads").to_vec();
+		para_id.using_encoded(|p| {
+			key.extend(Twox64Concat::hash(p));
+		});
+		key
+	}
 }
 
 impl ProofInterface for AssetHubProver {
 	type RemoteProof = AssetHubProofDescription;
-	type RemoteProofRootInput = RelayChainBlockNumber;
+	/// For `submit_proof_root_for_voting` we expect to submit:
+	/// * RelayChainBlockNumber - `DDayProofRootStore` stores mapping to the Relay Chain storage root as `RelayChainBlockNumber<>RelayChainHash`.
+	/// * ProofBlockNumberOf - AssetHub block number, whose state_root we want to use for voting.
+	/// * RawStorageProof - the Relay Chain proof about `Paras::Heads::get(AssetHubParaId)`, where we get AssetHub's state_root.
+	type RemoteProofRootInput = (RelayChainBlockNumber, ProofBlockNumberOf<Self>, RawStorageProof);
 	type RemoteProofRootOutput = ProofRoot<Runtime, DDayVotingInstance>;
 
 	fn query_voting_power_for(
@@ -131,92 +169,63 @@ impl ProofInterface for AssetHubProver {
 		// return proved/parsed/valid data
 		Some(VotingPower { account_power: account_balance.data.total(), total: active_issuance })
 	}
-}
 
-/// Adapter implementation for `ProvideHash`, `TotalForTallyProvider` and `IsStalled` which returns
-/// stalled AssetHub state root.
-pub struct StalledAssetHubDataProvider<Chain>(core::marker::PhantomData<Chain>);
-impl<Chain: IsStalled> ProvideHash for StalledAssetHubDataProvider<Chain> {
-	type Key = ProofBlockNumberOf<AssetHubAccountProver>;
-	type Hash = ProofHashOf<AssetHubAccountProver>;
+	fn verify_proof_root(input: Self::RemoteProofRootInput) -> Option<Self::RemoteProofRootOutput> {
+		let (relay_block_number, asset_hub_block_number, relay_proof) = input;
 
-	fn provide_hash_for(block_number: &Self::Key) -> Option<Self::Hash> {
-		Chain::stalled_head().and_then(|head| {
-			parachains_common::Header::decode(&mut &head.0[..])
-				.ok()
-				.filter(|header| &header.number == block_number)
-				.map(|header| header.state_root)
-		})
+		// Find the relay chain storage root for relay_block_number.
+		let relay_chain_storage_root = DDayProofRootStore::get_root(&relay_block_number)
+            .inspect(|stored| {
+                tracing::error!(target: "runtime::dday", ?relay_block_number, "Mssing the relay chain storage root for the given block number!")
+            })?;
+
+		// Init proof checker for the relay chain (BlakeTwo256).
+		let mut proof_checker =
+			StorageProofChecker::<BlakeTwo256>::new(relay_chain_storage_root, relay_proof)
+				.inspect_err(
+					|error| tracing::error!(target: "runtime::dday", ?error, "Invalid hash/proof"),
+				)
+				.ok()?;
+
+		// Read total issuance.
+		let asset_hub_head_data: HeadData = proof_checker
+            .read_and_decode_mandatory_value(&Self::paras_heads_storage_key(ASSET_HUB_ID.into()))
+            .inspect_err(|error| {
+                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for `Paras::Heads`")
+            })
+            .ok()?;
+
+		let asset_hub_head_data: parachains_common::Header =
+			Decode::decode(&mut &asset_hub_head_data.0[..])
+				.inspect_err(
+					|error| tracing::error!(target: "runtime::dday", ?error, "Decode asset_hub_head_data failed"),
+				)
+				.ok()?;
+
+		if asset_hub_block_number == asset_hub_head_data.number {
+			Some(ProofRoot {
+				at_block: asset_hub_block_number,
+				proof_root: asset_hub_head_data.state_root,
+			})
+		} else {
+			tracing::error!(target: "runtime::dday", ?asset_hub_block_number, expected = asset_hub_head_data.number, "Invalid AssetHub block number!");
+			None
+		}
 	}
 }
-/// Implementation of `TotalForTallyProvider` which return recorded/proved issuance that is
-/// relevant. If nothing is recorded yet, the `ProofBalanceOf<AssetHubAccountProver>::MAX` is used.
-impl<Chain: IsStalled> TotalForTallyProvider for StalledAssetHubDataProvider<Chain> {
-	type TotalKey = ProofBlockNumberOf<AssetHubAccountProver>;
-	type Total = ProofBalanceOf<AssetHubAccountProver>;
+
+impl TotalForTallyProvider for AssetHubProver {
+	type TotalKey = ProofBlockNumberOf<AssetHubProver>;
+	type Total = ProofBalanceOf<AssetHubProver>;
 
 	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total {
-		Chain::stalled_head()
-			.and_then(|head| {
-				parachains_common::Header::decode(&mut &head.0[..])
-					.ok()
-					.map(|header| header.number)
-			})
-			.and_then(|stalled_block_number| {
-				// get from recorded ones.
-				totals.0.get(&stalled_block_number).map(|b| *b)
-			})
-			.unwrap_or(ProofBalanceOf::<AssetHubAccountProver>::MAX)
-	}
-}
-
-/// Allows execution from `origin` if it is just a straight `DDay` updates.
-pub struct AllowTransactWithDDayDataUpdatesFrom<F>(core::marker::PhantomData<F>);
-impl<F: Contains<Location>> ShouldExecute for AllowTransactWithDDayDataUpdatesFrom<F> {
-	fn should_execute<RuntimeCall>(
-		origin: &Location,
-		instructions: &mut [Instruction<RuntimeCall>],
-		max_weight: Weight,
-		properties: &mut Properties,
-	) -> Result<(), ProcessMessageError> {
-		tracing::trace!(
-			target: "xcm::barriers::dday",
-			?origin, ?instructions, ?max_weight, ?properties,
-			"AllowTransactWithDDayDataUpdatesFrom",
-		);
-		ensure!(F::contains(origin), ProcessMessageError::Unsupported);
-		let mut starts_with_valid_transact = false;
-		instructions
-			.matcher()
-			.skip_inst_while(|inst| matches!(inst, UnpaidExecution { .. }))?
-			.match_next_inst_while(
-				|_| true,
-				|inst| match inst {
-					Transact { call, .. } => {
-						let mut call: DoubleEncoded<super::RuntimeCall> = call.clone().into();
-						// Allow only `Transact` with `DDayDetection`.
-						match call.ensure_decoded().map_err(|_| ProcessMessageError::BadFormat)? {
-							super::RuntimeCall::DDayDetection(..) => {
-								starts_with_valid_transact = true;
-								Ok(ControlFlow::Continue(()))
-							},
-							_ => Err(ProcessMessageError::BadFormat),
-						}
-					},
-					ExpectTransactStatus(..) if starts_with_valid_transact => {
-						Ok(ControlFlow::Continue(()))
-					},
-					_ => Err(ProcessMessageError::BadFormat),
-				},
-			)?
-			.assert_remaining_insts(0)?;
-		Ok(())
+		todo!("ProofBalanceOf::<AssetHubProver>::MAX")
 	}
 }
 
 #[cfg(any(test, feature = "std"))]
 pub mod tests {
-	use bp_runtime::RawStorageProof;
+	use super::{RawStorageProof, RelayChainBlockNumber, RelayChainHash};
 
 	/// Sample proof downloaded from AssetHubWestend:
 	///
@@ -298,7 +307,7 @@ pub mod tests {
 	///     0x9f099d880ec681799c0cf30e8886371da9ffff8004e32281670d1e60eb9972ad429206eba61af1c96aaac1bbdc1177e39a02908580b73adc8a4fde1b9c0d6c427d7c332bd2b5034b98686593f186fd7a481e64f43080f0c4d7c11a916daa2286eac94c977171953935270920f1f5abc6a4e78c4a3d938041034b4c6798fea37aae92ba80d0be65092120a31075ab3b7dda2505d78a780280bc42a9cdd47ff9a74290ebb6f811360228e908b8121a3c0492b35ebc8b11f64680af7e0c101ba329e3d289d49a26beef939117ce1dfa030f3a3555547c90f7117e80d3cbee33cdef01d03eaf93976ceeb574f9ba268fd8deccb2884892b770f0366080c38b39bc69961af6af12d02fb086c8530de05b091fe29cbc22ae221982d2d722804d62634bdc5e2b48874c061781a285cdeb57acae411377064e5a298df9191e6080e85b31c97cbf72c806c04d688bf2c97e63bf465094eda5c8f56300782353970780df12cc548109c2c505652e28a58aee6706b2f7e1e36128e4a04c3fce7992173280e848153205bd1d3e9bdac355859f17142876718fe22e9b8da4c2f7dc5f656d73809dd6ecb97e421388dcc33c307ef54ee811e531f168458684ef7493e911c6441e80eebcd8b73ac6208c3d7a886867c27f1411b861b6d806a8278e907de4a22072cc80147877616eb7c31f516685db05f253055e12bad5afd3cb15703d54d064814f88801b180fba88a8e432f13a7205cf2c8d13d8d8e9fc7e3ad8ba08d00a22d7ef07a1
 	///   ]
 	/// }
-	pub fn sample_proof() -> (
+	pub fn sample_voting_proof() -> (
 		parachains_common::Header,
 		RawStorageProof,
 		(&'static str, &'static str),
@@ -376,6 +385,60 @@ pub mod tests {
 		)
 	}
 
+	/// Returns relay chain data for AssetHub block: 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
+	/// - ParachainSystem::validation_data: (24_915_812, 0xeff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf)
+	/// - 24_915_812 is Westend relay block: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	///
+	/// RelayChain Proof generated by RPC call `state.getReadProof(key, at)`:
+	/// - key: 0xcd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3b6ff6f7d467b87a9e8030000
+	///   - `Paras::Heads::get(1000)`
+	/// - at: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	///
+	/// {
+	///   at: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	///   proof: [
+	///     0x36ff6f7d467b87a9e80300003f106564b65610eb35c6d685917199b0a5f784801afd2efe311ed9b1cfbd960b
+	///     0x80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f9809b4518876f177d68fafc6045c80e3a6b85cf035d19a09ced11e088b3cca9b76b80056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e
+	///     0x80cc0280dbb38ca102bcc487efe5a6030c666df676c5d79923a7fcae1546c743f50327df804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf68071317ccbf901b6df16408074b56ca8033a451b067faff684ef9245a3e85b14cc8069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db
+	///     0x80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b805e5f1e74881d738265a77d7b8341d2430df0906e747628b428d48a4ecf30252280810c4f5c081b1a742ce7f16fafebf91154dc30c41defc26a93f64162816a6e3980c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80117eff48d8190b4d91835e946dceda319dcabcbe16046de52da208a4c3ed56208035b20cbc5baa7d205fb920d82124e3e9ecf2d3d5aa4ed435a399dc0ec510d49480e1a6c15ce01df1ef002449c416e2d4236f080bfa5b909199513d130ea63e4156804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec804c9b8122e32b260ecce24cf34db3c92afa9427cf152f4273d758d71ea2de651280129fbd4718770743113d7ad79f0a32d78df90a53f95a6a974bfcef0b1e235ef3805e9ee63892eab7bcf9e2c7ec3729ea77719b51c6f4c0be3cb460ce9354d88f6480a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643801727428bc5f65bf8b74ffe2be3357f0ac0650d0b081fbb36b6efa1f70f2936f9
+	///     0x91037f4f0cf9a2ebb4cea954ade0d54d9831b3be7d3e74cf2b50a99a41a8db4690115acd9e024793badf3c94de74922b6dd8b66ee25c4ae25e3801d84c948536128e41bf162f718064593607bf2adc373159d47b5942e20ad16b90c0080f17bb6d4e6bd53d280c066175726120a44c4a11000000000452505352903b82172058ce0f80b282c9d6e8848be6e9c6f675849c4d48206d7cc3a103523286bdf005056175726101017012ec679656866a40f60586e1e34b9c7b7370c6c6518a9e8850f85168abc75e434288477eff3a82e86be1f22012c56101c13c67d1aca511fb5959928f807088
+	///     0x9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380ffc24f5876fead1fc6445ed47ec7f097000e2c75754e9cb4ef63b32c232bb0c680a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb8000e994379a73092179651de8c054066f46147ae72e906ff04838f996293360bb80aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5
+	///     0x9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580bff98dcdc63fdfc0fff878a57d30c2627cd490b8d1ad890daa9a61794ec5f01680ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80a2da0e81b60d4846e05fa3719f4aa4158b186d841c477a028033d3b08f950bc680e05b29c6761101f7958ac70aff1c65a85ca087102fd41beb1ac2630fe8e4530580bc968a6391a68d382f61194139b376ca81f249640f11683364984bc37b39d00f80809d141eb9d9ae6d19e68e6f67163b77803b3888fc82a371eb097f2a4d99dbd380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1
+	///   ]
+	/// }
+	pub fn sample_relay_chain_proof(
+		asset_hub_header: &parachains_common::Header,
+	) -> (RelayChainBlockNumber, RelayChainHash, RawStorageProof) {
+		use super::AssetHubProver;
+		use hex_literal::hex;
+
+		let relay_chain_block_number = 24_915_812;
+		let relay_chain_state_root: RelayChainHash =
+			hex!("eff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf").into();
+
+		let relay_chain_proof: RawStorageProof = vec![
+            hex!("36ff6f7d467b87a9e80300003f106564b65610eb35c6d685917199b0a5f784801afd2efe311ed9b1cfbd960b").to_vec(),
+            hex!("80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f9809b4518876f177d68fafc6045c80e3a6b85cf035d19a09ced11e088b3cca9b76b80056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e").to_vec(),
+            hex!("80cc0280dbb38ca102bcc487efe5a6030c666df676c5d79923a7fcae1546c743f50327df804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf68071317ccbf901b6df16408074b56ca8033a451b067faff684ef9245a3e85b14cc8069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db").to_vec(),
+            hex!("80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b805e5f1e74881d738265a77d7b8341d2430df0906e747628b428d48a4ecf30252280810c4f5c081b1a742ce7f16fafebf91154dc30c41defc26a93f64162816a6e3980c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80117eff48d8190b4d91835e946dceda319dcabcbe16046de52da208a4c3ed56208035b20cbc5baa7d205fb920d82124e3e9ecf2d3d5aa4ed435a399dc0ec510d49480e1a6c15ce01df1ef002449c416e2d4236f080bfa5b909199513d130ea63e4156804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec804c9b8122e32b260ecce24cf34db3c92afa9427cf152f4273d758d71ea2de651280129fbd4718770743113d7ad79f0a32d78df90a53f95a6a974bfcef0b1e235ef3805e9ee63892eab7bcf9e2c7ec3729ea77719b51c6f4c0be3cb460ce9354d88f6480a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643801727428bc5f65bf8b74ffe2be3357f0ac0650d0b081fbb36b6efa1f70f2936f9").to_vec(),
+            hex!("91037f4f0cf9a2ebb4cea954ade0d54d9831b3be7d3e74cf2b50a99a41a8db4690115acd9e024793badf3c94de74922b6dd8b66ee25c4ae25e3801d84c948536128e41bf162f718064593607bf2adc373159d47b5942e20ad16b90c0080f17bb6d4e6bd53d280c066175726120a44c4a11000000000452505352903b82172058ce0f80b282c9d6e8848be6e9c6f675849c4d48206d7cc3a103523286bdf005056175726101017012ec679656866a40f60586e1e34b9c7b7370c6c6518a9e8850f85168abc75e434288477eff3a82e86be1f22012c56101c13c67d1aca511fb5959928f807088").to_vec(),
+            hex!("9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380ffc24f5876fead1fc6445ed47ec7f097000e2c75754e9cb4ef63b32c232bb0c680a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb8000e994379a73092179651de8c054066f46147ae72e906ff04838f996293360bb80aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5").to_vec(),
+            hex!("9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580bff98dcdc63fdfc0fff878a57d30c2627cd490b8d1ad890daa9a61794ec5f01680ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80a2da0e81b60d4846e05fa3719f4aa4158b186d841c477a028033d3b08f950bc680e05b29c6761101f7958ac70aff1c65a85ca087102fd41beb1ac2630fe8e4530580bc968a6391a68d382f61194139b376ca81f249640f11683364984bc37b39d00f80809d141eb9d9ae6d19e68e6f67163b77803b3888fc82a371eb097f2a4d99dbd380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1").to_vec(),
+        ];
+
+		// TODO: FAIL-CI - add assert
+		// assert_eq!(
+		//     asset_hub_header.state_root(),
+		//     // TODO: parse from proof HeadData.state_root
+		// );
+		assert_eq!(
+		    AssetHubProver::paras_heads_storage_key(1000.into()),
+		    hex!("cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3b6ff6f7d467b87a9e8030000")
+		);
+
+		(relay_chain_block_number, relay_chain_state_root, relay_chain_proof)
+	}
+
 	#[test]
 	fn asset_hub_account_prover_works() {
 		use super::{AssetHubProver, ProofInterface};
@@ -392,10 +455,10 @@ pub mod tests {
 				account_balance_key,
 				total_issuance_key,
 				inactive_issuance_key,
-			) = sample_proof();
+			) = sample_voting_proof();
 			let state_root = asset_hub_header.state_root;
 
-			// check key generation for account id
+			// check key generation for an account id
 			let who = AccountId::from_ss58check(ss58_account).expect("valid accountId");
 			assert_eq!(AssetHubProver::account_balance_storage_key(&who), account_balance_key,);
 			assert_eq!(AssetHubProver::total_issuance_storage_key(), total_issuance_key,);
@@ -410,7 +473,7 @@ pub mod tests {
 				})
 			);
 
-			// None for invalid account
+			// None for an invalid account
 			let random_account_1 = AccountId::from([2; 32]);
 			assert_eq!(
 				AssetHubProver::query_voting_power_for(
@@ -440,4 +503,6 @@ pub mod tests {
 			);
 		})
 	}
+
+	// TODO: FAIL-CI add here test for AssetHubProver::verify_proof_root with Westend relay chain proof (sample_relay_chain_proof)
 }

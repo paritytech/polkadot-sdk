@@ -24,9 +24,9 @@ use collectives_westend_runtime::{
 	},
 	fellowship::pallet_fellowship_origins::Origin,
 	xcm_config::{AssetHub, GovernanceLocation, LocationToAccountId},
-	AllPalletsWithoutSystem, Balances, Block, DDayReferenda, DDayVoting, Executive,
-	ExistentialDeposit, FellowshipCollective, Preimage, Runtime, RuntimeCall, RuntimeOrigin,
-	System, TxExtension, UncheckedExtrinsic,
+	AllPalletsWithoutSystem, Balances, Block, DDayProofRootStore, DDayReferenda, DDayVoting,
+	Executive, ExistentialDeposit, FellowshipCollective, Preimage, Runtime, RuntimeCall,
+	RuntimeOrigin, System, TxExtension, UncheckedExtrinsic,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -37,12 +37,11 @@ use pallet_dday_voting::{AccountVote, Conviction, ProofInterface, Vote};
 use pallet_referenda::{ReferendumCount, ReferendumInfoFor};
 use parachains_common::{AccountId, Hash};
 use parachains_runtimes_test_utils::{GovernanceOrigin, RuntimeHelper};
-use polkadot_parachain_primitives::primitives::HeadData;
 use sp_core::{crypto::Ss58Codec, Pair};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	transaction_validity::TransactionValidityError,
-	ApplyExtrinsicResult, DispatchError, Either, MultiSignature, Perbill,
+	ApplyExtrinsicResult, BoundedVec, DispatchError, Either, MultiSignature, Perbill,
 };
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
@@ -301,10 +300,12 @@ fn dday_referenda_and_voting_works() {
 
 		// Prepare sample proofs.
 		let (asset_hub_header, proof, (ss58_account, ss58_account_secret_key), ..) =
-			prover::tests::sample_proof();
+			prover::tests::sample_voting_proof();
 		let asset_hub_block_number = asset_hub_header.number;
 		let valid_asset_hub_account =
 			AccountId::from_ss58check(ss58_account).expect("valid accountId");
+		let (relay_chain_block_number, relay_chain_storage_root, relay_chain_proof) =
+			prover::tests::sample_relay_chain_proof(&asset_hub_header);
 		let account_voting_power = AssetHubProver::query_voting_power_for(
 			&valid_asset_hub_account,
 			asset_hub_header.state_root,
@@ -347,19 +348,32 @@ fn dday_referenda_and_voting_works() {
 			DDayVoting::submit_proof_root_for_voting(
 				RuntimeOrigin::signed(account_fellow_rank2),
 				referenda_id,
-				Some(5_u32),
+				Some((relay_chain_block_number, asset_hub_block_number, relay_chain_proof.clone())),
 			),
 			DispatchError::BadOrigin,
 		);
-		// Start voting - ok.
+		// Start voting - error - invalid proof - unknown relay chain block.
 		assert_err!(
 			DDayVoting::submit_proof_root_for_voting(
-				RuntimeOrigin::signed(account_fellow_rank3),
+				RuntimeOrigin::signed(account_fellow_rank3.clone()),
 				referenda_id,
-				Some(5_u32),
+				Some((relay_chain_block_number, asset_hub_block_number, relay_chain_proof.clone())),
 			),
-			DispatchError::BadOrigin,
+			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::InvalidProofRoot,
 		);
+
+		// Sync some relay chain data.
+		DDayProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![(
+			relay_chain_block_number,
+			relay_chain_storage_root,
+		)]));
+
+		// Start voting - ok.
+		assert_ok!(DDayVoting::submit_proof_root_for_voting(
+			RuntimeOrigin::signed(account_fellow_rank3),
+			referenda_id,
+			Some((relay_chain_block_number, asset_hub_block_number, relay_chain_proof)),
+		));
 
 		// Vote by proof - error - a random account cannot vote
 		assert_err!(
@@ -375,7 +389,7 @@ fn dday_referenda_and_voting_works() {
 			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::InvalidProof
 		);
 
-		// Err - when more vote.balance than proven voting power
+		// Vote by proof - error - when more vote.balance than proven voting power
 		assert_err!(
 			DDayVoting::vote(
 				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
@@ -429,72 +443,7 @@ fn dday_referenda_and_voting_works() {
 			);
 			assert_ok!(DDayReferenda::is_referendum_passing(referenda_id), false);
 		}
-
-		// Make AssetHub not stalled.
-		System::set_block_number(14);
-		assert!(!DDayDetection::is_stalled());
-		// Err - cannot vote, AssetHub is not stalled.
-		assert_err!(
-			DDayVoting::vote(
-				RuntimeOrigin::signed(valid_asset_hub_account.clone()),
-				referenda_id,
-				AccountVote::Standard {
-					vote: Vote { aye: true, conviction: Conviction::Locked1x },
-					balance: account_voting_power.account_power
-				},
-				(asset_hub_block_number, proof.clone())
-			),
-			<pallet_dday_voting::Error<Runtime, DDayVotingInstance>>::NotOngoing
-		);
 	})
 }
 
-#[test]
-pub fn asset_hub_can_sync_dday_data() {
-	// Prepare sample proofs.
-	let (asset_hub_header, ..) = prover::tests::sample_proof();
-	let asset_hub_block_number = asset_hub_header.number;
-
-	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-		// Check before.
-		assert!(DDayDetection::last_known_head().is_none());
-		assert!(StalledAssetHubDataProvider::<DDayDetection>::provide_hash_for(
-			&asset_hub_block_number
-		)
-		.is_none());
-
-		// Sync AssetHub header - execute XCM as source origin would do with `Transact ->
-		// Origin::Xcm`.
-		assert_ok!(RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::execute_as_origin(
-			(AssetHub::get(), OriginKind::Xcm),
-			RuntimeCall::DDayDetection(pallet_dday_detection::Call::<
-				Runtime,
-				DDayDetectionInstance,
-			>::note_new_head {
-				remote_block_number: asset_hub_block_number,
-				remote_head: HeadData(asset_hub_header.encode())
-			}),
-			None,
-		)
-		.ensure_complete());
-
-		// Check after header data.
-		let last_known_head = DDayDetection::last_known_head();
-		assert_eq!(last_known_head.clone().map(|h| h.head.hash()), Some(asset_hub_header.hash()));
-		// None - because it is not stalled yet.
-		assert!(StalledAssetHubDataProvider::<DDayDetection>::provide_hash_for(
-			&asset_hub_block_number
-		)
-		.is_none());
-
-		// Simulate stalled head - move local block number behind threshold.
-		System::set_block_number(
-			last_known_head.unwrap().known_at + StalledAssetHubBlockThreshold::get() + 1,
-		);
-		// Now the provider works.
-		assert_eq!(
-			StalledAssetHubDataProvider::<DDayDetection>::provide_hash_for(&asset_hub_block_number),
-			Some(asset_hub_header.state_root)
-		);
-	})
-}
+// TODO: FAIL-CI add simple test for `DDayProofRootStore` and `OnSystemEvent` integration.

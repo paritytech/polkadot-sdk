@@ -106,8 +106,8 @@ pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>
 )]
 #[scale_info(skip_type_params(T, I))]
 pub struct ProofRoot<T: Config<I>, I: 'static> {
-	at_block: VotingProofBlockNumberOf<T, I>,
-	proof_root: VotingProofHashOf<T, I>,
+	pub at_block: VotingProofBlockNumberOf<T, I>,
+	pub proof_root: VotingProofHashOf<T, I>,
 }
 
 #[frame_support::pallet]
@@ -274,7 +274,7 @@ pub mod pallet {
 				let previous = maybe_root.clone();
 
 				let new = match proof_root {
-					Some(ref raw_root) => {
+					Some(raw_root) => {
 						let verified = T::Prover::verify_proof_root(raw_root)
 							.ok_or(Error::<T, I>::InvalidProofRoot)?;
 						*maybe_root = Some(verified.clone());

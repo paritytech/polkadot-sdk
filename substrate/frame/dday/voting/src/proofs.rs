@@ -40,7 +40,7 @@ pub trait ProofInterface {
 
 	/// Verifies the input and returns the verified `RemoteProofRootOutput`.
 	/// Note: This verifies and stores the remote `state_root` based on configurable input.
-	fn verify_proof_root(input: &Self::RemoteProofRootInput)
+	fn verify_proof_root(input: Self::RemoteProofRootInput)
 		-> Option<Self::RemoteProofRootOutput>;
 }
 
