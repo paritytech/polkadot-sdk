@@ -86,6 +86,7 @@ std = [
 	"pallet-core-fellowship?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
+	"pallet-derivatives?/std",
 	"pallet-dev-mode?/std",
 	"pallet-dummy-dim?/std",
 	"pallet-election-provider-multi-block?/std",
@@ -165,7 +166,6 @@ std = [
 	"pallet-xcm-bridge-hub-router?/std",
 	"pallet-xcm-bridge-hub?/std",
 	"pallet-xcm?/std",
-	"pallet-derivatives?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
 	"polkadot-core-primitives?/std",
@@ -277,6 +277,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
+	"pallet-derivatives?/runtime-benchmarks",
 	"pallet-dummy-dim?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
@@ -341,7 +342,6 @@ runtime-benchmarks = [
 	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub?/runtime-benchmarks",
 	"pallet-xcm?/runtime-benchmarks",
-	"pallet-derivatives?/runtime-benchmarks",
 	"parachains-common?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
 	"polkadot-node-metrics?/runtime-benchmarks",
@@ -412,6 +412,7 @@ try-runtime = [
 	"pallet-core-fellowship?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
+	"pallet-derivatives?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
 	"pallet-dummy-dim?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
@@ -479,7 +480,6 @@ try-runtime = [
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
 	"pallet-xcm?/try-runtime",
-	"pallet-derivatives?/try-runtime",
 	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
 	"polkadot-omni-node-lib?/try-runtime",
@@ -621,6 +621,7 @@ runtime-full = [
 	"pallet-core-fellowship",
 	"pallet-delegated-staking",
 	"pallet-democracy",
+	"pallet-derivatives",
 	"pallet-dev-mode",
 	"pallet-dummy-dim",
 	"pallet-election-provider-multi-block",
@@ -703,7 +704,6 @@ runtime-full = [
 	"pallet-xcm-benchmarks",
 	"pallet-xcm-bridge-hub",
 	"pallet-xcm-bridge-hub-router",
-	"pallet-derivatives",
 	"parachains-common",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
@@ -1812,9 +1812,9 @@ optional = true
 path = "../bridges/modules/xcm-bridge-hub-router"
 
 [dependencies.pallet-derivatives]
-path = "../substrate/frame/derivatives"
 default-features = false
 optional = true
+path = "../substrate/frame/derivatives"
 
 [dependencies.parachains-common]
 default-features = false
