@@ -1051,6 +1051,7 @@ pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", def
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
+pallet-derivatives = { path = "polkadot/xcm/pallet-derivatives", default-features = false }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
@@ -1081,7 +1082,6 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
-pallet-derivatives = { path = "polkadot/xcm/pallet-derivatives", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
