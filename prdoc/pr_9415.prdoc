@@ -1,0 +1,9 @@
+title: Cleanup staking try states + fix min bonds
+doc:
+- audience: Todo
+  description: null
+crates:
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
