@@ -99,7 +99,7 @@ use westend_runtime_constants::time::DAYS as RC_DAYS;
 use xcm_config::{
 	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
 	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin, XcmRouter,
 };
 
 #[cfg(any(feature = "std", test))]
@@ -1720,6 +1720,7 @@ mod benches {
 		[pallet_xcm_bridge_router, ToRococoOverBridgeHub]
 		[pallet_xcm_bridge_router, ToRococoOverAssetHubRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		[pallet_bridge_proof_root_store, AssetHubRococoProofRootStore]
 		[pallet_bridge_relayers, BridgeRelayersBench::<Runtime, bridge_common_config::BridgeRelayersInstance>]
 		[pallet_xcm_bridge, OverRococo]
 		// XCM
@@ -2568,7 +2569,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 						alloc::boxed::Box::new(bridge_to_rococo_config::AssetHubRococoLocation::get()),
 						XCM_VERSION,
 					).map_err(|e| {
-						log::error!(
+						tracing::error!(
 							"Failed to dispatch `force_xcm_version({:?}, {:?}, {:?})`, error: {:?}",
 							RuntimeOrigin::root(),
 							bridge_to_rococo_config::AssetHubRococoLocation::get(),
@@ -2590,7 +2591,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 						None,
 						|| ExistentialDeposit::get(),
 					).map_err(|e| {
-						log::error!(
+						tracing::error!(
 							"Failed to `XcmOverAssetHubRococo::open_bridge`({:?}, {:?})`, error: {:?}",
 							sibling_parachain_location,
 							bridge_destination_universal_location,

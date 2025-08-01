@@ -15,10 +15,8 @@
 
 //! Various predefined implementations supporting header storage on AssetHub
 
-extern crate alloc;
-
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
-use bp_runtime::{HeaderOf, Parachain};
+use bp_polkadot_core::parachains::ParaHash;
+use bp_runtime::Parachain;
 
 pub struct StoreParaHeadersFor<T, I, Chain, Sender, Message>(
 	core::marker::PhantomData<(T, I, Chain, Sender, Message)>,
@@ -26,30 +24,20 @@ pub struct StoreParaHeadersFor<T, I, Chain, Sender, Message>(
 
 #[cfg(feature = "runtime-benchmarks")]
 impl<
-		T: pallet_bridge_proof_root_store::Config<I, Key = ParaId, Value = ParaHead>,
+		T: pallet_bridge_proof_root_store::Config<I, Key = ParaHash, Value = ParaHash>,
 		I: 'static,
 		Chain: Parachain<Hash = ParaHash>,
 		Sender,
 		Message,
-	> pallet_bridge_proof_root_store::BenchmarkHelper<ParaId, ParaHead>
+	> pallet_bridge_proof_root_store::BenchmarkHelper<ParaHash, ParaHash>
 	for StoreParaHeadersFor<T, I, Chain, Sender, Message>
 {
-	fn create_key_value_for(id: u32) -> (ParaId, ParaHead) {
-		use codec::Encode;
-
+	fn create_key_value_for(id: u32) -> (ParaHash, ParaHash) {
 		let para_header_number = id;
 		let mut para_hash = [0_u8; 32];
 		para_hash[..4].copy_from_slice(&para_header_number.to_le_bytes());
 		let para_state_root = ParaHash::from(para_hash);
 
-		let para_head = ParaHead(
-			bp_test_utils::test_header_with_root::<HeaderOf<Chain>>(
-				para_header_number.into(),
-				para_state_root,
-			)
-			.encode(),
-		);
-
-		(ParaId::from(Chain::PARACHAIN_ID), para_head)
+		(ParaHash::from(para_hash), para_state_root)
 	}
 }

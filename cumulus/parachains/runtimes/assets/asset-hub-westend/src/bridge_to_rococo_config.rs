@@ -22,7 +22,7 @@ use crate::{
 	xcm_config::UniversalLocation,
 	AccountId, AssetHubRococoProofRootStore, Balance, Balances, BridgeRococoMessages, PolkadotXcm,
 	Runtime, RuntimeEvent, RuntimeHoldReason, ToRococoOverAssetHubRococoXcmRouter,
-	XcmOverAssetHubRococo,
+	XcmOverAssetHubRococo, XcmRouter,
 };
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
@@ -127,6 +127,15 @@ impl pallet_bridge_messages::Config<WithAssetHubRococoMessagesInstance> for Runt
 	type OnMessagesDelivered = XcmOverAssetHubRococo;
 }
 
+// Utility for storing AHW headers with state roots to the AHR.
+pub(crate) type AssetHubRococoHeadersStore = bridge_hub_common::header_store::StoreParaHeadersFor<
+	Runtime,
+	AssetHubRococoProofRootStoreInstance,
+	bp_asset_hub_rococo::AssetHubRococo,
+	XcmRouter,
+	bp_asset_hub_westend::Call,
+>;
+
 /// Add support for storing bridged AssetHubRococo state roots.
 pub type AssetHubRococoProofRootStoreInstance = pallet_bridge_proof_root_store::Instance1;
 impl pallet_bridge_proof_root_store::Config<AssetHubRococoProofRootStoreInstance> for Runtime {
@@ -146,6 +155,10 @@ impl pallet_bridge_proof_root_store::Config<AssetHubRococoProofRootStoreInstance
 		HashOf<pallet_bridge_messages::BridgedChainOf<Runtime, WithAssetHubRococoMessagesInstance>>;
 	// Configured according to the BHW's `ParachainHeadsToKeep`
 	type RootsToKeep = ConstU32<64>;
+
+	/// Helper type for benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetHubRococoHeadersStore;
 }
 
 /// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubRococo `state_root`

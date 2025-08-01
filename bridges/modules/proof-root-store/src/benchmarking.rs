@@ -33,8 +33,6 @@ mod benchmarks {
 	// use frame_system::Pallet;
 
 	use super::*;
-	#[cfg(test)]
-	use crate::pallet::Pallet as Template;
 	use crate::MaybeRootsToKeep;
 
 	#[benchmark]
@@ -58,9 +56,5 @@ mod benchmarks {
 		}
 	}
 
-	impl_benchmark_test_suite!(
-		PalletWrapper,
-		crate::mock::new_test_ext(),
-		crate::mock::TestRuntime,
-	);
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
 }

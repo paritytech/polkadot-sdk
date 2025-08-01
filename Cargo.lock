@@ -2134,7 +2134,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-core 28.0.0",
- "sp-runtime 31.0.1",
+ "sp-runtime",
  "sp-std 14.0.0",
  "staging-xcm",
  "testnet-parachains-constants",
@@ -2155,7 +2155,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-core 28.0.0",
- "sp-runtime 31.0.1",
+ "sp-runtime",
  "sp-std 14.0.0",
  "staging-xcm",
  "testnet-parachains-constants",
@@ -2461,8 +2461,13 @@ dependencies = [
 name = "bridge-hub-common"
 version = "0.1.0"
 dependencies = [
+ "bp-parachains",
+ "bp-polkadot-core",
+ "bp-runtime",
+ "bp-test-utils",
  "cumulus-primitives-core",
  "frame-support",
+ "pallet-bridge-proof-root-store",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
@@ -11676,7 +11681,8 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 30.0.0",
+ "sp-io",
+ "substrate-test-utils",
 ]
 
 [[package]]

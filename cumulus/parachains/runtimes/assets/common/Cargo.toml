@@ -12,9 +12,6 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-bp-parachains = { workspace = true }
-bp-polkadot-core = { workspace = true }
-bp-runtime = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -25,7 +22,6 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-assets = { workspace = true }
-pallet-bridge-proof-root-store = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-revive-uapi = { workspace = true, features = ["scale"] }
 sp-api = { workspace = true }
@@ -43,22 +39,15 @@ cumulus-primitives-core = { workspace = true }
 ethereum-standards = { workspace = true }
 parachains-common = { workspace = true }
 
-# Optional Benchmarking Dependencies
-bp-test-utils = { optional = true, workspace = true }
-
 [features]
 default = ["std"]
 std = [
-	"bp-parachains/std",
-	"bp-polkadot-core/std",
-	"bp-runtime/std",
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-asset-conversion/std",
 	"pallet-assets/std",
-	"pallet-bridge-proof-root-store/std",
 	"pallet-revive/std",
 	"pallet-xcm/std",
 	"parachains-common/std",
@@ -72,13 +61,11 @@ std = [
 	"xcm/std",
 ]
 runtime-benchmarks = [
-	"bp-test-utils",
 	"cumulus-primitives-core/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
-	"pallet-bridge-proof-root-store/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
