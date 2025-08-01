@@ -4,15 +4,16 @@ The purpose of the `pallet-derivatives` is to cover the following derivative ass
 scenarios:
 
   1. The `pallet-derivatives` can serve as an API for creating and destroying derivatives.
-  2. It can store a mapping between the foreign original ID (e.g., XCM `AssetId` or `(AssetId, AssetInstance)`) and the local derivative ID.
+  2. It can store a mapping between the foreign original ID (e.g., XCM `AssetId` or `(AssetId, AssetInstance)`)
+  and the local derivative ID.
 
 The scenarios can be combined.
 
-### Motivation
+## Motivation
 
 The motivation differs depending on the scenario in question.
 
-#### The first scenario
+### The first scenario
 
 The `pallet-derivatives` can be helpful when another pallet, which hosts the derivative assets,
 doesn't provide a good enough way to create new assets in the context of them being derivatives.
@@ -61,7 +62,7 @@ derivative collections registration.
   3. Our chain will handle the reserve chain's response and decide whether it is okay to register
      the given asset.
 
-#### The second scenario
+### The second scenario
 
 Saving the mapping between the original ID and the derivative ID is needed when their types
 differ and the derivative ID value can't be deterministically deduced from the original ID.
@@ -76,7 +77,8 @@ This situation can arise in the following cases:
   the one hosting NFTs and many special logic pallets. In this case, the original ID type would be
   `(AssetId, AssetInstance)`, and the derivative ID type can be anything.
 
-### Usage examples
+## Usage examples
 
-The `src/mock/mod.rs` contains a mock runtime declaration that contains several instances of the pallet to test the scenarios mentioned above.
+The `src/mock/mod.rs` contains a mock runtime declaration that contains several instances of the pallet
+to test the scenarios mentioned above.
 This test configuration can be viewed as a usage example alongside the tests in the `src/tests.rs`.
