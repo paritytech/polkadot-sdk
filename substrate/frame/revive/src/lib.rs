@@ -680,7 +680,8 @@ pub mod pallet {
 			// Do we need V0? What are the diffs here?
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let _transaction_root = sp_trie::LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+			let _transaction_root =
+				sp_trie::LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
 
 			// TODO:
 			// Calculate receipt root:
