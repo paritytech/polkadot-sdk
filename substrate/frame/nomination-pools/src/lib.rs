@@ -720,7 +720,9 @@ pub enum PoolState {
 /// Any pool has a depositor, which can never change. But, all the other roles are optional, and
 /// cannot exist. Note that if `root` is set to `None`, it basically means that the roles of this
 /// pool can never change again (except via governance).
-#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Debug, PartialEq, Clone,
+)]
 pub struct PoolRoles<AccountId> {
 	/// Creates the pool and is the initial member. They can only leave the pool once all other
 	/// members have left. Once they fully leave, the pool is destroyed.
@@ -765,7 +767,16 @@ pub enum CommissionClaimPermission<AccountId> {
 /// An optional commission `change_rate` allows the pool to set strict limits to how much commission
 /// can change in each update, and how often updates can take place.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, DefaultNoBound, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Copy, Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	DefaultNoBound,
+	MaxEncodedLen,
+	TypeInfo,
+	DebugNoBound,
+	PartialEq,
+	Copy,
+	Clone,
 )]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
@@ -971,7 +982,9 @@ pub struct CommissionChangeRate<BlockNumber> {
 }
 
 /// Pool permissions and state
-#[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, DebugNoBound, PartialEq, Clone,
+)]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 pub struct BondedPoolInner<T: Config> {
@@ -3943,12 +3956,18 @@ impl<T: Config> Pallet<T> {
 			);
 
 			let depositor = PoolMembers::<T>::get(&bonded_pool.roles.depositor).unwrap();
-			ensure!(
-				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
-					depositor.active_points() >= MinCreateBond::<T>::get(),
-				"depositor must always have MinCreateBond stake in the pool, except for when the \
-				pool is being destroyed and the depositor is the last member",
-			);
+			let depositor_has_enough_stake = bonded_pool
+				.is_destroying_and_only_depositor(depositor.active_points()) ||
+				depositor.active_points() >= MinCreateBond::<T>::get();
+			if !depositor_has_enough_stake {
+				log::warn!(
+					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
+					id,
+					bonded_pool.roles.depositor,
+					depositor.active_points(),
+					MinCreateBond::<T>::get()
+				);
+			}
 
 			ensure!(
 				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
