@@ -39,7 +39,7 @@ impl Create<WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<NftFullId>>>
 		let id = id_assignment.params;
 
 		unique_items::ItemOwner::<Test, PredefinedIdNftsInstance>::try_mutate(
-			id.clone(),
+			id,
 			|current_owner| {
 				if current_owner.is_none() {
 					*current_owner = Some(owner);
