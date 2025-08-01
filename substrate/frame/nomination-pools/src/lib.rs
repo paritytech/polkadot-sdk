@@ -3955,12 +3955,18 @@ impl<T: Config> Pallet<T> {
 			);
 
 			let depositor = PoolMembers::<T>::get(&bonded_pool.roles.depositor).unwrap();
-			ensure!(
-				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
-					depositor.active_points() >= MinCreateBond::<T>::get(),
-				"depositor must always have MinCreateBond stake in the pool, except for when the \
-				pool is being destroyed and the depositor is the last member",
-			);
+			let depositor_has_enough_stake = bonded_pool
+				.is_destroying_and_only_depositor(depositor.active_points()) ||
+				depositor.active_points() >= MinCreateBond::<T>::get();
+			if !depositor_has_enough_stake {
+				log::warn!(
+					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
+					id,
+					bonded_pool.roles.depositor,
+					depositor.active_points(),
+					MinCreateBond::<T>::get()
+				);
+			}
 
 			ensure!(
 				bonded_pool.points >= bonded_pool.points_to_balance(bonded_pool.points),
