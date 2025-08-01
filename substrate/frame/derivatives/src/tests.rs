@@ -267,7 +267,7 @@ fn derivative_nfts() {
 
 		let nft_beneficiary = 1;
 
-		let nft_asset: Asset = (foreign_collection_id.clone(), foreign_nft_id.clone()).into();
+		let nft_asset: Asset = (foreign_collection_id.clone(), foreign_nft_id).into();
 		let nft_beneficiary_location = AccountIndex64 { index: nft_beneficiary, network: None };
 
 		let deposited_assets: Assets = nft_asset.clone().into();
