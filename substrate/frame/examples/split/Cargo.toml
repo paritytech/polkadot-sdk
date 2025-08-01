@@ -20,16 +20,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-
-sp-io = { workspace = true }
-
+frame-support.workspace = true
+frame-system.workspace = true
+sp-io.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-core = { workspace = true }
+sp-core = { path = "../../../primitives/core", default-features = false }
 
 [features]
 default = ["std"]
@@ -40,7 +37,6 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
-	"sp-core/std",
 	"sp-io/std",
 ]
 runtime-benchmarks = [
