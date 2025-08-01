@@ -32,7 +32,7 @@ num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
 polkavm = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false }
-polkavm-common = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false, features = ["alloc"]  }
+polkavm-common = { git = "https://github.com/aman4150/polkavm.git", branch = "polkavm_memory", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
