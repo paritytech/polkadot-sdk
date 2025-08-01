@@ -1401,6 +1401,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/democracy"
 
+[dependencies.pallet-derivatives]
+default-features = false
+optional = true
+path = "../substrate/frame/derivatives"
+
 [dependencies.pallet-dev-mode]
 default-features = false
 optional = true
@@ -1810,11 +1815,6 @@ path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge-hub-router"
-
-[dependencies.pallet-derivatives]
-default-features = false
-optional = true
-path = "../substrate/frame/derivatives"
 
 [dependencies.parachains-common]
 default-features = false

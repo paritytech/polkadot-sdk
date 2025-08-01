@@ -451,6 +451,10 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
@@ -790,10 +794,6 @@ pub use pallet_xcm_bridge_hub;
 /// Bridge hub interface for sibling/parent chains with dynamic fees support.
 #[cfg(feature = "pallet-xcm-bridge-hub-router")]
 pub use pallet_xcm_bridge_hub_router;
-
-/// XCM derivatives pallet.
-#[cfg(feature = "pallet-derivatives")]
-pub use pallet_derivatives;
 
 /// Logic which is common to all parachain runtimes.
 #[cfg(feature = "parachains-common")]
