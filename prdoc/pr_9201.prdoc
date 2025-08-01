@@ -1,6 +1,6 @@
 title: '`polkadot-parachain`: added asset-hub-westend-local paracahinInfo genesis patch'
 doc:
-- audience: [ Node Dev ] 
+- audience: Node Dev 
   description: |-
     - Provides some updated to the asset-hub-westend-local chain specification, by adding appropriate genesis patch for parachainInfo.
     - refactors the logic related to fetching `para_id` with the node, so that when failing to use `GetParachainInfo::parachain_id` we also get a log with the error (before defaulting to `para_id` extracted from chain spec).
