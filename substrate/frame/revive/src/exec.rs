@@ -27,6 +27,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
 	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1090,13 +1091,6 @@ where
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
 
-		if u32::try_from(input_data.len())
-			.map(|len| len > limits::CALLDATA_BYTES)
-			.unwrap_or(true)
-		{
-			Err(<Error<T>>::CallDataTooLarge)?;
-		}
-
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
 				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
@@ -1127,6 +1121,13 @@ where
 			let caller = self.caller();
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
+
+			if u32::try_from(input_data.len())
+				.map(|len| len > limits::CALLDATA_BYTES)
+				.unwrap_or(true)
+			{
+				Err(<Error<T>>::CallDataTooLarge)?;
+			}
 
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
@@ -1295,6 +1296,8 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
+
+		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
 		output.map(|output| {
