@@ -32,92 +32,312 @@ use pallet_revive::precompiles::{
 use sp_runtime::{traits::StaticLookup, DispatchError, Perbill};
 
 sol! {
-	/// The Staking precompile interface
-	/// Provides access to basic staking functionality matching 1-1 with pallet extrinsics
+	/**
+	 * @title IStaking - Substrate Staking Precompile Interface
+	 * @notice Provides smart contract access to Substrate's native staking functionality
+	 * @dev This interface maps 1-to-1 with pallet-staking-async extrinsics, enabling
+	 *      Ethereum-compatible contracts to interact with Substrate's Nominated Proof of Stake
+	 */
 	interface IStaking {
-		/// Events
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+		//                                        EVENTS
+		// ═══════════════════════════════════════════════════════════════════════════════════════
 
-		/// When someone's bond is created or increased.
+		/**
+		 * @notice Emitted when tokens are bonded to participate in staking
+		 * @param stash The stash account that bonded the tokens
+		 * @param amount The amount of tokens bonded (in smallest unit)
+		 */
 		event Bonded(address indexed stash, uint256 amount);
-		/// When someone's bond is decreased.
+
+		/**
+		 * @notice Emitted when bonded tokens are scheduled for unbonding
+		 * @param stash The stash account that unbonded tokens
+		 * @param amount The amount of tokens scheduled for unbonding (in smallest unit)
+		 */
 		event Unbonded(address indexed stash, uint256 amount);
-		/// When someone nominated a set of validators.
+
+		/**
+		 * @notice Emitted when a nominator selects validators to support
+		 * @param stash The nominator's stash account
+		 * @param targets Array of validator addresses being nominated
+		 */
 		event Nominated(address indexed stash, address[] targets);
-		/// When someone's validator preferences are set.
+
+		/**
+		 * @notice Emitted when validator preferences are updated
+		 * @param validator The validator's stash account
+		 * @param commission The commission rate (parts per billion: 0-1,000,000,000)
+		 * @param blocked Whether the validator is blocked from receiving nominations
+		 */
 		event ValidatorPrefsSet(address indexed validator, uint256 commission, bool blocked);
-		/// When someone's role switched back to chilled.
+
+		/**
+		 * @notice Emitted when an account stops validating or nominating
+		 * @param stash The stash account that became inactive
+		 */
 		event Chilled(address indexed stash);
-		/// When someone withdrew unbonded funds.
+
+		/**
+		 * @notice Emitted when unbonded tokens are withdrawn to free balance
+		 * @param stash The stash account that withdrew tokens
+		 * @param amount The amount withdrawn (in smallest unit)
+		 */
 		event Withdrawn(address indexed stash, uint256 amount);
-		/// When someone rebonded funds.
+
+		/**
+		 * @notice Emitted when previously unbonded tokens are re-bonded
+		 * @param stash The stash account that rebonded tokens
+		 * @param amount The amount rebonded (in smallest unit)
+		 */
 		event Rebonded(address indexed stash, uint256 amount);
-		/// When rewards are paid out.
+
+		/**
+		 * @notice Emitted when staking rewards are distributed
+		 * @param validator The validator for which rewards were paid
+		 * @param era The era for which rewards were distributed
+		 */
 		event RewardsPaid(address indexed validator, uint256 era);
 
-		/// Helper structs
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+		//                                      DATA STRUCTURES
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+
+		/**
+		 * @notice Represents a chunk of tokens scheduled for unlocking
+		 * @param value Amount of tokens in this unlock chunk (in smallest unit)
+		 * @param era Era number when these tokens can be withdrawn
+		 */
 		struct UnlockChunk {
 			uint256 value;
 			uint256 era;
 		}
 
-		/// State-changing functions (matching pallet calls)
-		
-		/// Bond tokens to become a staker. Payee: 0 = Staked, 1 = Stash, 2 = Account(caller), 3 = None
-		function bond(uint256 value, uint8 payee) external returns (bool);
-		
-		/// Add more funds to an existing bond
-		function bondExtra(uint256 maxAdditional) external returns (bool);
-		
-		/// Schedule a portion of the stash to be unlocked
-		function unbond(uint256 value) external returns (bool);
-		
-		/// Withdraw unbonded funds after the unbonding period
-		function withdrawUnbonded(uint32 numSlashingSpans) external returns (bool);
-		
-		/// Declare the desire to validate
-		function validate(uint256 commission, bool blocked) external returns (bool);
-		
-		/// Declare the desire to nominate a set of validators
-		function nominate(address[] calldata targets) external returns (bool);
-		
-		/// Stop validating or nominating
-		function chill() external returns (bool);
-		
-		/// Rebond a portion of unbonded funds
-		function rebond(uint256 value) external returns (bool);
-		
-		/// Pay out rewards for a validator in a specific era
-		function payoutStakers(address validatorStash, uint256 era) external returns (bool);
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+		//                                   STATE-CHANGING FUNCTIONS
+		// ═══════════════════════════════════════════════════════════════════════════════════════
 
-		/// Query functions (basic storage reads)
-		
-		/// Get the staking ledger of an account
+
+		/**
+		 * @notice Bond tokens to participate in staking
+		 * @dev Creates a new staking ledger or adds to existing one. Requires sufficient free balance.
+		 * @param value Amount of tokens to bond (in smallest unit)
+		 * @param payee Reward destination: 0=Staked, 1=Stash, 2=Account(caller), 3=None
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Bonded(stash, actualAmount), creates/updates staking ledger
+		 *   REVERT: If insufficient balance, invalid payee, already bonded, or below minimum bond
+		 * @custom:requirements
+		 *   - Caller must have sufficient free balance >= value
+		 *   - Value must meet minimum bond requirements (see minNominatorBond/minValidatorBond)
+		 *   - Account must not already be bonded as stash or controller
+		 *   - Payee must be valid (0-3)
+		 * @custom:events Bonded(address indexed stash, uint256 amount)
+		 */
+		function bond(uint256 value, uint8 payee) external returns (bool success);
+
+		/**
+		 * @notice Add more tokens to an existing bond
+		 * @dev Increases the total bonded amount for the caller's stash account
+		 * @param maxAdditional Maximum additional tokens to bond (actual amount may be less if insufficient balance)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Bonded(stash, actualAmount), increases bonded amount
+		 *   REVERT: If no existing bond, insufficient free balance, or account restricted
+		 * @custom:requirements
+		 *   - Caller must already have an active staking ledger
+		 *   - Caller must have sufficient free balance
+		 * @custom:events Bonded(address indexed stash, uint256 amount)
+		 */
+		function bondExtra(uint256 maxAdditional) external returns (bool success);
+
+		/**
+		 * @notice Schedule bonded tokens for unbonding
+		 * @dev Tokens become available for withdrawal after the unbonding period
+		 * @param value Amount of bonded tokens to schedule for unbonding (in smallest unit)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Unbonded(stash, amount), creates unbonding chunk
+		 *   REVERT: If insufficient bonded tokens, would leave below minimum if active, or too many chunks
+		 * @custom:requirements
+		 *   - Caller must have sufficient bonded tokens >= value
+		 *   - Cannot unbond below minimum active stake if actively validating/nominating
+		 *   - Limited number of concurrent unbonding chunks allowed (typically 32)
+		 * @custom:events Unbonded(address indexed stash, uint256 amount)
+		 */
+		function unbond(uint256 value) external returns (bool success);
+
+		/**
+		 * @notice Withdraw tokens that have finished unbonding
+		 * @dev Moves fully unbonded tokens from staking ledger to free balance
+		 * @param numSlashingSpans Number of slashing spans to process (affects weight calculation)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Withdrawn(stash, amount), removes completed chunks
+		 *   REVERT: If no staking ledger exists or account doesn't exist
+		 * @custom:requirements
+		 *   - Account must exist and have a staking ledger
+		 *   - Will process all chunks that have completed unbonding period
+		 * @custom:events Withdrawn(address indexed stash, uint256 amount)
+		 */
+		function withdrawUnbonded(uint32 numSlashingSpans) external returns (bool success);
+
+		/**
+		 * @notice Declare intention to validate blocks
+		 * @dev Sets validator preferences and enables block production eligibility
+		 * @param commission Commission rate as parts per billion (0-1,000,000,000 = 0%-100%)
+		 * @param blocked Whether to block new nominations (allows existing nominators to stay)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits ValidatorPrefsSet(validator, commission, blocked)
+		 *   REVERT: If insufficient stake, invalid commission, or below minimum validator bond
+		 * @custom:requirements
+		 *   - Caller must have sufficient bonded stake
+		 *   - Commission rate must not exceed 1,000,000,000 (100%)
+		 *   - Account must meet minimum validator bond requirements
+		 * @custom:events ValidatorPrefsSet(address indexed validator, uint256 commission, bool blocked)
+		 */
+		function validate(uint256 commission, bool blocked) external returns (bool success);
+
+		/**
+		 * @notice Nominate validators to support with staked tokens
+		 * @dev Distributes nominator's stake among selected validators for potential rewards
+		 * @param targets Array of validator addresses to nominate (up to MAX_NOMINATIONS)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Nominated(stash, targets), updates nomination list
+		 *   REVERT: If insufficient stake, invalid targets, too many nominations, or below minimum bond
+		 * @custom:requirements
+		 *   - Caller must have sufficient bonded stake
+		 *   - All targets must be valid addresses (not necessarily active validators)
+		 *   - Cannot exceed maximum number of nominations (typically 16)
+		 *   - Account must meet minimum nominator bond requirements
+		 * @custom:events Nominated(address indexed stash, address[] targets)
+		 */
+		function nominate(address[] calldata targets) external returns (bool success);
+
+		/**
+		 * @notice Stop all validation or nomination activities
+		 * @dev Removes account from active validator/nominator sets while keeping stake bonded
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Chilled(stash), removes from validator/nominator sets
+		 *   REVERT: If account has no staking ledger or is restricted
+		 * @custom:requirements
+		 *   - Caller must have a staking ledger (doesn't need to be actively validating/nominating)
+		 * @custom:events Chilled(address indexed stash)
+		 */
+		function chill() external returns (bool success);
+
+		/**
+		 * @notice Re-bond previously unbonded tokens
+		 * @dev Moves tokens from unbonding back to active bonded state
+		 * @param value Amount to rebond from unbonding chunks (in smallest unit)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits Rebonded(stash, actualAmount), moves from unbonding to active
+		 *   REVERT: If insufficient unbonding tokens or no staking ledger
+		 * @custom:requirements
+		 *   - Must have sufficient tokens in unbonding state >= value
+		 *   - Account must have a staking ledger with unbonding chunks
+		 * @custom:events Rebonded(address indexed stash, uint256 amount)
+		 */
+		function rebond(uint256 value) external returns (bool success);
+
+		/**
+		 * @notice Trigger payout of staking rewards for a specific era
+		 * @dev Distributes accumulated rewards to validator and their nominators
+		 * @param validatorStash Address of the validator to pay rewards for
+		 * @param era Era number for which to pay rewards (must be payable)
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, emits RewardsPaid(validator, era), distributes rewards
+		 *   REVERT: If era not payable, validator not active in era, or already claimed
+		 * @custom:requirements
+		 *   - Era must be within payable range (typically current_era - 84 to current_era - 1)
+		 *   - Validator must have been active in the specified era
+		 *   - Rewards must not have been previously claimed for this era
+		 * @custom:events RewardsPaid(address indexed validator, uint256 era)
+		 */
+		function payoutStakers(address validatorStash, uint256 era) external returns (bool success);
+
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+		//                                      QUERY FUNCTIONS
+		// ═══════════════════════════════════════════════════════════════════════════════════════
+
+		/**
+		 * @notice Get the complete staking ledger for an account
+		 * @dev Returns bonding information including active stake and unbonding schedule
+		 * @param stash The stash account to query
+		 * @return total Total amount ever bonded (active + unbonding)
+		 * @return active Currently active bonded amount earning rewards
+		 * @return unlocking Array of unbonding chunks with values and unlock eras
+		 * @custom:behavior
+		 *   STAKER: Returns actual ledger data with total, active, and unbonding chunks
+		 *   NON_STAKER: Returns (0, 0, []) for accounts without staking ledger
+		 */
 		function ledger(address stash) external view returns (
 			uint256 total,
 			uint256 active,
 			UnlockChunk[] memory unlocking
 		);
-		
-		/// Get nominator preferences
+
+		/**
+		 * @notice Get nominator information and targets
+		 * @dev Returns the validators being nominated and nomination metadata
+		 * @param nominator The nominator account to query
+		 * @return targets Array of validator addresses being nominated
+		 * @return submittedIn Era when the nomination was last updated
+		 * @return suppressed Whether nominations are temporarily suppressed
+		 * @custom:behavior
+		 *   NOMINATOR: Returns actual nomination data with targets, submission era, and suppression status
+		 *   NON_NOMINATOR: Returns ([], 0, false) for accounts not nominating
+		 */
 		function nominators(address nominator) external view returns (
 			address[] memory targets,
 			uint256 submittedIn,
 			bool suppressed
 		);
-		
-		/// Get validator preferences
+
+		/**
+		 * @notice Get validator preferences and status
+		 * @dev Returns commission rate and blocking status for a validator
+		 * @param validator The validator account to query
+		 * @return commission Commission rate in parts per billion (0-1,000,000,000)
+		 * @return blocked Whether the validator is blocking new nominations
+		 * @custom:behavior
+		 *   ANY_ACCOUNT: Always returns current validator preferences (defaults to 0, false)
+		 */
 		function validators(address validator) external view returns (
 			uint256 commission,
 			bool blocked
 		);
-		
-		/// Get the current era index
+
+		/**
+		 * @notice Get the current active era index
+		 * @dev Returns the era currently being used for staking calculations
+		 * @return era The current era number
+		 * @custom:behavior
+		 *   ALWAYS: Returns current active era index, or 0 if no era is active
+		 */
 		function currentEra() external view returns (uint256 era);
-		
-		/// Get minimum nominator bond
+
+		/**
+		 * @notice Get the minimum bond required for nominators
+		 * @dev Returns the minimum amount needed to participate as a nominator
+		 * @return amount Minimum nominator bond in smallest token unit
+		 * @custom:behavior
+		 *   ALWAYS: Returns current minimum nominator bond requirement
+		 */
 		function minNominatorBond() external view returns (uint256 amount);
-		
-		/// Get minimum validator bond
+
+		/**
+		 * @notice Get the minimum bond required for validators
+		 * @dev Returns the minimum amount needed to participate as a validator
+		 * @return amount Minimum validator bond in smallest token unit
+		 * @custom:behavior
+		 *   ALWAYS: Returns current minimum validator bond requirement
+		 */
 		function minValidatorBond() external view returns (uint256 amount);
 	}
 }
@@ -360,7 +580,7 @@ where
 			.map(|addr| Ok(Self::to_account_id(addr)))
 			.collect();
 		let targets = targets?;
-		
+
 		// Convert to lookup sources
 		let target_lookups: Vec<_> = targets
 			.iter()
