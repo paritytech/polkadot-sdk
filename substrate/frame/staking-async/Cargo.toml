@@ -15,11 +15,13 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive"], workspace = true }
 frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 rand = { features = ["alloc"], workspace = true }
 rand_chacha = { workspace = true }
@@ -47,6 +49,7 @@ substrate-test-utils = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-core/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",
@@ -55,6 +58,7 @@ std = [
 	"log/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-revive/std",
 	"pallet-staking-async-rc-client/std",
 	"rand/std",
 	"rand_chacha/std",
@@ -76,6 +80,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-revive/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
@@ -86,6 +91,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-revive/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

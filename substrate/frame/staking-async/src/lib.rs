@@ -149,11 +149,11 @@
 //! ```text
 //! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
 //!             |     |     |     |     |     |     |     |     |     |     |          |     |
-//! Unbond:     U                                                                             
-//! Offence:    X                                                                             
-//! Reported:               R                                                                 
-//! Processed:              P (within next few blocks)                                        
-//! Slash Applied:                                                                       S     
+//! Unbond:     U
+//! Offence:    X
+//! Reported:               R
+//! Processed:              P (within next few blocks)
+//! Slash Applied:                                                                       S
 //! Withdraw:                                                                            ❌    ✓
 //!
 //! With BondingDuration = 28 and SlashDeferDuration = 27:
@@ -191,6 +191,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod precompiles;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;

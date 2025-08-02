@@ -13184,6 +13184,7 @@ dependencies = [
 name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
+ "alloy-core",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
@@ -13191,6 +13192,7 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-revive",
  "pallet-staking-async-rc-client",
  "parity-scale-codec",
  "rand 0.8.5",
