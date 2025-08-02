@@ -110,6 +110,8 @@ impl AssetHubProver {
 	}
 }
 
+const LOG_TARGET: &'static str = "runtime::dday";
+
 impl ProofInterface for AssetHubProver {
 	type RemoteProof = AssetHubProofDescription;
 	/// For `submit_proof_root_for_voting` we expect to submit:
@@ -126,32 +128,30 @@ impl ProofInterface for AssetHubProver {
 	) -> Option<VotingPower<ProofBalanceOf<Self>>> {
 		// Init proof checker.
 		let mut proof_checker = StorageProofChecker::<ProofHasherOf<Self>>::new(hash, proof)
-			.inspect_err(
-				|error| tracing::error!(target: "runtime::dday", ?error, "Invalid hash/proof"),
-			)
+			.inspect_err(|error| tracing::error!(target: LOG_TARGET, ?error, "Invalid hash/proof"))
 			.ok()?;
 
 		// Read account balance.
 		let account_balance: AssetHubAccountData = proof_checker
-            .read_and_decode_mandatory_value(&Self::account_balance_storage_key(who))
-            .inspect_err(|error| {
-                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for account balance")
-            })
-            .ok()?;
+			.read_and_decode_mandatory_value(&Self::account_balance_storage_key(who))
+			.inspect_err(
+				|error| tracing::error!(target: LOG_TARGET, ?error, "Invalid proof value for account balance"),
+			)
+			.ok()?;
 
 		// Read total issuance.
 		let total_issuance: ProofBalanceOf<Self> = proof_checker
-            .read_and_decode_mandatory_value(&Self::total_issuance_storage_key())
-            .inspect_err(|error| {
-                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for total issuance")
-            })
-            .ok()?;
+			.read_and_decode_mandatory_value(&Self::total_issuance_storage_key())
+			.inspect_err(
+				|error| tracing::error!(target: LOG_TARGET, ?error, "Invalid proof value for total issuance"),
+			)
+			.ok()?;
 
 		// Read inactive issuance.
 		let inactive_issuance: ProofBalanceOf<Self> = proof_checker
             .read_and_decode_mandatory_value(&Self::inactive_issuance_storage_key())
             .inspect_err(|error| {
-                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for inactive issuance")
+                tracing::error!(target: LOG_TARGET, ?error, "Invalid proof value for inactive issuance")
             })
             .ok()?;
 
@@ -159,7 +159,7 @@ impl ProofInterface for AssetHubProver {
 		proof_checker
 			.ensure_no_unused_nodes()
 			.inspect_err(
-				|error| tracing::error!(target: "runtime::dday", ?error, "Invalid proof contains unused keys"),
+				|error| tracing::error!(target: LOG_TARGET, ?error, "Invalid proof contains unused keys"),
 			)
 			.ok()?;
 
@@ -174,16 +174,16 @@ impl ProofInterface for AssetHubProver {
 		let (relay_block_number, asset_hub_block_number, relay_proof) = input;
 
 		// Find the relay chain storage root for relay_block_number.
-		let relay_chain_storage_root = DDayProofRootStore::get_root(&relay_block_number)
+		let relay_chain_state_root = DDayProofRootStore::get_root(&relay_block_number)
             .inspect(|stored| {
-                tracing::error!(target: "runtime::dday", ?relay_block_number, "Mssing the relay chain storage root for the given block number!")
+                tracing::error!(target: LOG_TARGET, ?relay_block_number, "Missing the relay chain storage root for the given block number!")
             })?;
 
 		// Init proof checker for the relay chain (BlakeTwo256).
 		let mut proof_checker =
-			StorageProofChecker::<BlakeTwo256>::new(relay_chain_storage_root, relay_proof)
+			StorageProofChecker::<BlakeTwo256>::new(relay_chain_state_root, relay_proof)
 				.inspect_err(
-					|error| tracing::error!(target: "runtime::dday", ?error, "Invalid hash/proof"),
+					|error| tracing::error!(target: LOG_TARGET, ?error, "Invalid hash/proof"),
 				)
 				.ok()?;
 
@@ -191,14 +191,14 @@ impl ProofInterface for AssetHubProver {
 		let asset_hub_head_data: HeadData = proof_checker
             .read_and_decode_mandatory_value(&Self::paras_heads_storage_key(ASSET_HUB_ID.into()))
             .inspect_err(|error| {
-                tracing::error!(target: "runtime::dday", ?error, "Invalid proof value for `Paras::Heads`")
+                tracing::error!(target: LOG_TARGET, ?error, for_para = ASSET_HUB_ID, "Missing value `Paras::Heads`!")
             })
             .ok()?;
 
 		let asset_hub_head_data: parachains_common::Header =
 			Decode::decode(&mut &asset_hub_head_data.0[..])
 				.inspect_err(
-					|error| tracing::error!(target: "runtime::dday", ?error, "Decode asset_hub_head_data failed"),
+					|error| tracing::error!(target: LOG_TARGET, ?error, "Decode asset_hub_head_data failed!"),
 				)
 				.ok()?;
 
@@ -208,7 +208,7 @@ impl ProofInterface for AssetHubProver {
 				proof_root: asset_hub_head_data.state_root,
 			})
 		} else {
-			tracing::error!(target: "runtime::dday", ?asset_hub_block_number, expected = asset_hub_head_data.number, "Invalid AssetHub block number!");
+			tracing::warn!(target: LOG_TARGET, ?asset_hub_block_number, expected = asset_hub_head_data.number, "Invalid AssetHub block number!");
 			None
 		}
 	}
@@ -225,7 +225,7 @@ impl TotalForTallyProvider for AssetHubProver {
 
 #[cfg(any(test, feature = "std"))]
 pub mod tests {
-	use super::{RawStorageProof, RelayChainBlockNumber, RelayChainHash};
+	use super::{ProofRoot, RawStorageProof, RelayChainBlockNumber, RelayChainHash};
 
 	/// Sample proof downloaded from AssetHubWestend:
 	///
@@ -386,57 +386,82 @@ pub mod tests {
 	}
 
 	/// Returns relay chain data for AssetHub block: 0xbad834d093eae042d175d304b1850c37c63e386e9f315b81a46af4867a78625c:
-	/// - ParachainSystem::validation_data: (24_915_812, 0xeff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf)
-	/// - 24_915_812 is Westend relay block: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	/// The relay chain `Paras::Heads(1000)` data from block:
+	/// - 24_915_815 is Westend relay block: 0x0ebde3924be11018110a486a1b40b48c95ef01ad39f88daed97cbbebc1630321
 	///
 	/// RelayChain Proof generated by RPC call `state.getReadProof(key, at)`:
 	/// - key: 0xcd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3b6ff6f7d467b87a9e8030000
 	///   - `Paras::Heads::get(1000)`
-	/// - at: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	/// - at: 0x0ebde3924be11018110a486a1b40b48c95ef01ad39f88daed97cbbebc1630321
 	///
 	/// {
-	///   at: 0x9c66a9323ba13210db805e9897c89034ba9522fe8c61cf779609eceb99c5b93f
+	///   at: 0x0ebde3924be11018110a486a1b40b48c95ef01ad39f88daed97cbbebc1630321
 	///   proof: [
-	///     0x36ff6f7d467b87a9e80300003f106564b65610eb35c6d685917199b0a5f784801afd2efe311ed9b1cfbd960b
-	///     0x80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f9809b4518876f177d68fafc6045c80e3a6b85cf035d19a09ced11e088b3cca9b76b80056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e
-	///     0x80cc0280dbb38ca102bcc487efe5a6030c666df676c5d79923a7fcae1546c743f50327df804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf68071317ccbf901b6df16408074b56ca8033a451b067faff684ef9245a3e85b14cc8069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db
-	///     0x80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b805e5f1e74881d738265a77d7b8341d2430df0906e747628b428d48a4ecf30252280810c4f5c081b1a742ce7f16fafebf91154dc30c41defc26a93f64162816a6e3980c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80117eff48d8190b4d91835e946dceda319dcabcbe16046de52da208a4c3ed56208035b20cbc5baa7d205fb920d82124e3e9ecf2d3d5aa4ed435a399dc0ec510d49480e1a6c15ce01df1ef002449c416e2d4236f080bfa5b909199513d130ea63e4156804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec804c9b8122e32b260ecce24cf34db3c92afa9427cf152f4273d758d71ea2de651280129fbd4718770743113d7ad79f0a32d78df90a53f95a6a974bfcef0b1e235ef3805e9ee63892eab7bcf9e2c7ec3729ea77719b51c6f4c0be3cb460ce9354d88f6480a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643801727428bc5f65bf8b74ffe2be3357f0ac0650d0b081fbb36b6efa1f70f2936f9
-	///     0x91037f4f0cf9a2ebb4cea954ade0d54d9831b3be7d3e74cf2b50a99a41a8db4690115acd9e024793badf3c94de74922b6dd8b66ee25c4ae25e3801d84c948536128e41bf162f718064593607bf2adc373159d47b5942e20ad16b90c0080f17bb6d4e6bd53d280c066175726120a44c4a11000000000452505352903b82172058ce0f80b282c9d6e8848be6e9c6f675849c4d48206d7cc3a103523286bdf005056175726101017012ec679656866a40f60586e1e34b9c7b7370c6c6518a9e8850f85168abc75e434288477eff3a82e86be1f22012c56101c13c67d1aca511fb5959928f807088
-	///     0x9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380ffc24f5876fead1fc6445ed47ec7f097000e2c75754e9cb4ef63b32c232bb0c680a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb8000e994379a73092179651de8c054066f46147ae72e906ff04838f996293360bb80aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5
-	///     0x9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580bff98dcdc63fdfc0fff878a57d30c2627cd490b8d1ad890daa9a61794ec5f01680ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80a2da0e81b60d4846e05fa3719f4aa4158b186d841c477a028033d3b08f950bc680e05b29c6761101f7958ac70aff1c65a85ca087102fd41beb1ac2630fe8e4530580bc968a6391a68d382f61194139b376ca81f249640f11683364984bc37b39d00f80809d141eb9d9ae6d19e68e6f67163b77803b3888fc82a371eb097f2a4d99dbd380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1
+	///     0x36ff6f7d467b87a9e8030000f94ed01d329eeb911c778babd291a05de2c2dedc09bfbdd49899ea9711030b08
+	///     0x80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f980f005e048263805405e35c45335dddebd255b6d591f55318701db1c86a913d42380056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e
+	///     0x80cc02802095a27d6c3c874443cfef91109fe351ff0eb1966e89f709d24dc1dddd94c147804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf680bc39b5834e9d9478203411e834ef51ab82ae0fd6ec769a26e8f81d3a1c2e3f478069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db
+	///    0x80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b80972538b6e68498b933b8740eaecd4d4b044d80267302203e67ebc3d09d2eeb20804266aab1435b35ec4745cdd96f345bc22b1fd94e772700a3496d45737517c44580c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80e3e507f0515e722e16d7997c476574392ba14fb8409a25bc9a166eb944254ab880f4f61c299819b6260a2955f6f4620f1f3b90ce20e1339545738886c1fbdfe9b1801c3de84e18d8e5ca84cac1af8db8146c0560c3900e977b21f943be9ef3c9c0d0804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec80e91b10493b5e111cec37806c14a6bafff4f321c000c9cf78a3e465bdbe7e6e238093fa7a12dd40ea90b2f2be12e06ec90310201c3d4200b193e9e0e80d027ef458809a90a345fc444bc45abc68eabb3b211988d9ddeee52fd8176ed9d33ad10f1b2f80a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643800615eaa6f66330a73191379096dc94b4d498f468a11da2f256d59f3c3b3f9db7
+	///     0x9103347c2e995b0bbd470f083077529a9f8fcc8b18287195cd778ba1023b7fcc1fb366cd9e02b61ad16ff3226be01a583fdb83daad568f690d540bf78770bca841c6099fce8a32bb8ded17ded4b9b73d6efef7fd7e533a647fa868e60e2dff2d288a7300456f0c066175726120a74c4a1100000000045250535290eff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf92bdf00505617572610101aac09b8f89fb7b22a3a03a4dfb75485bec4bc1fd31db5f3afaf20157642d5738d74aadc81893e2231ef4eb2ba98febfc4e2e94984ae9da87604b0bb656d6138e
+	///     0x9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380a2e2aa3ab427b2f44de51be05f46c8e6d1b2dbbda0d754b784f613804f47b91880a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb805757863d56669fd7a4f1b679b07e14cd1394e75b9aded6c617ee2c6557489c5480aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5
+	///     0x9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580e2afffcb5e2c49b0ccaf02326fd373c71ed829f774e017b8db12437947e35e4180ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80410fb3228618850e8993b2f33927f60db725c4229552d44f3f14104aa0823dcc805fc4cfbcb17e68b9c0394589b1ce6a7c6f91916b46344acf791dae9d2e44302c80041f7a67266ba006ad56d34a9310035e73870a82bac0867a0afe6be4960325f080333354441303e9b7e7eb950e72738237977864e44ae1d87127024077fe6c64a380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1
 	///   ]
 	/// }
-	pub fn sample_relay_chain_proof(
-		asset_hub_header: &parachains_common::Header,
-	) -> (RelayChainBlockNumber, RelayChainHash, RawStorageProof) {
+	pub fn sample_relay_chain_proof() -> (RelayChainBlockNumber, RelayChainHash, RawStorageProof) {
 		use super::AssetHubProver;
 		use hex_literal::hex;
 
-		let relay_chain_block_number = 24_915_812;
+		let relay_chain_block_number = 24_915_815;
 		let relay_chain_state_root: RelayChainHash =
-			hex!("eff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf").into();
+			hex!("f1bbc8ceeb2e2df4c1486d6b8225181ca488d38ec570a9be25e1024b67ce2cbe").into();
 
 		let relay_chain_proof: RawStorageProof = vec![
-            hex!("36ff6f7d467b87a9e80300003f106564b65610eb35c6d685917199b0a5f784801afd2efe311ed9b1cfbd960b").to_vec(),
-            hex!("80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f9809b4518876f177d68fafc6045c80e3a6b85cf035d19a09ced11e088b3cca9b76b80056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e").to_vec(),
-            hex!("80cc0280dbb38ca102bcc487efe5a6030c666df676c5d79923a7fcae1546c743f50327df804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf68071317ccbf901b6df16408074b56ca8033a451b067faff684ef9245a3e85b14cc8069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db").to_vec(),
-            hex!("80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b805e5f1e74881d738265a77d7b8341d2430df0906e747628b428d48a4ecf30252280810c4f5c081b1a742ce7f16fafebf91154dc30c41defc26a93f64162816a6e3980c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80117eff48d8190b4d91835e946dceda319dcabcbe16046de52da208a4c3ed56208035b20cbc5baa7d205fb920d82124e3e9ecf2d3d5aa4ed435a399dc0ec510d49480e1a6c15ce01df1ef002449c416e2d4236f080bfa5b909199513d130ea63e4156804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec804c9b8122e32b260ecce24cf34db3c92afa9427cf152f4273d758d71ea2de651280129fbd4718770743113d7ad79f0a32d78df90a53f95a6a974bfcef0b1e235ef3805e9ee63892eab7bcf9e2c7ec3729ea77719b51c6f4c0be3cb460ce9354d88f6480a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643801727428bc5f65bf8b74ffe2be3357f0ac0650d0b081fbb36b6efa1f70f2936f9").to_vec(),
-            hex!("91037f4f0cf9a2ebb4cea954ade0d54d9831b3be7d3e74cf2b50a99a41a8db4690115acd9e024793badf3c94de74922b6dd8b66ee25c4ae25e3801d84c948536128e41bf162f718064593607bf2adc373159d47b5942e20ad16b90c0080f17bb6d4e6bd53d280c066175726120a44c4a11000000000452505352903b82172058ce0f80b282c9d6e8848be6e9c6f675849c4d48206d7cc3a103523286bdf005056175726101017012ec679656866a40f60586e1e34b9c7b7370c6c6518a9e8850f85168abc75e434288477eff3a82e86be1f22012c56101c13c67d1aca511fb5959928f807088").to_vec(),
-            hex!("9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380ffc24f5876fead1fc6445ed47ec7f097000e2c75754e9cb4ef63b32c232bb0c680a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb8000e994379a73092179651de8c054066f46147ae72e906ff04838f996293360bb80aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5").to_vec(),
-            hex!("9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580bff98dcdc63fdfc0fff878a57d30c2627cd490b8d1ad890daa9a61794ec5f01680ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80a2da0e81b60d4846e05fa3719f4aa4158b186d841c477a028033d3b08f950bc680e05b29c6761101f7958ac70aff1c65a85ca087102fd41beb1ac2630fe8e4530580bc968a6391a68d382f61194139b376ca81f249640f11683364984bc37b39d00f80809d141eb9d9ae6d19e68e6f67163b77803b3888fc82a371eb097f2a4d99dbd380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1").to_vec(),
+            hex!("36ff6f7d467b87a9e8030000f94ed01d329eeb911c778babd291a05de2c2dedc09bfbdd49899ea9711030b08").to_vec(),
+                hex!("80446c80d30a5d60ff1a5157f70f2ee4bfcc5cbc9118bc3e61ad8dcc9089f1811c76074e80911e015f455657fe02ab564bf226adfe0e0e93969e95c8f397eb78b2b950d2e380c5745910b5760c4a4f135943e551953d3dabb94e5279514d6ab6eaf17b91cf02808f83f0d8e6399e9f9d10c3c89b614e318848dfb7ecead89b137ab1fe2fa968f980f005e048263805405e35c45335dddebd255b6d591f55318701db1c86a913d42380056aef2d2e9749427b2e7358d4fd5be472e842eb1ce75520a8b1deaec301168e").to_vec(),
+                hex!("80cc02802095a27d6c3c874443cfef91109fe351ff0eb1966e89f709d24dc1dddd94c147804180a84ac485f9bd5c693e145628db6a1bcbd922c22aa6b59a9a94c557cecdf680bc39b5834e9d9478203411e834ef51ab82ae0fd6ec769a26e8f81d3a1c2e3f478069bde6739731a31a3aa566767f8512fcafa144860885b9fe1057cfdcef9fe4d3802f8015fc169fba0816b8e290c0efee9b35e9c4a87029c35262e4e1b9cf85d9db").to_vec(),
+                hex!("80ffff806d3d9c3287d426e35d9017e46f30694858875a7a24e6c56ccb4f627c9e16224b80972538b6e68498b933b8740eaecd4d4b044d80267302203e67ebc3d09d2eeb20804266aab1435b35ec4745cdd96f345bc22b1fd94e772700a3496d45737517c44580c4ce606bb2dfa942695f4c5f6e9bf70ffbb1611eb25c4562ed18251102521b6e80e3e507f0515e722e16d7997c476574392ba14fb8409a25bc9a166eb944254ab880f4f61c299819b6260a2955f6f4620f1f3b90ce20e1339545738886c1fbdfe9b1801c3de84e18d8e5ca84cac1af8db8146c0560c3900e977b21f943be9ef3c9c0d0804f71142ab23511866821870959f09df29f54662afc3f01150024d005dfb06fea804da622a45b8dfd0421b406f26c0649249fd5492622f76f16f82ad5aea61230e780f3692189b82fc927b0182db509ce127f87e1e06d2f8bc2e1b521c8696df8cdec80e91b10493b5e111cec37806c14a6bafff4f321c000c9cf78a3e465bdbe7e6e238093fa7a12dd40ea90b2f2be12e06ec90310201c3d4200b193e9e0e80d027ef458809a90a345fc444bc45abc68eabb3b211988d9ddeee52fd8176ed9d33ad10f1b2f80a3a79c4f72559085c4a93e55ae99bd281337d950294bacc524ad776ef7e85cf880a621852ccdaddb5f3b14ecad82b7e5dff64a26aa580849e5123dfecf5444f643800615eaa6f66330a73191379096dc94b4d498f468a11da2f256d59f3c3b3f9db7").to_vec(),
+                hex!("9103347c2e995b0bbd470f083077529a9f8fcc8b18287195cd778ba1023b7fcc1fb366cd9e02b61ad16ff3226be01a583fdb83daad568f690d540bf78770bca841c6099fce8a32bb8ded17ded4b9b73d6efef7fd7e533a647fa868e60e2dff2d288a7300456f0c066175726120a74c4a1100000000045250535290eff55cbcba39a6fb903bf960fc0036e731b439dd4275d4816ceeb386f1932fbf92bdf00505617572610101aac09b8f89fb7b22a3a03a4dfb75485bec4bc1fd31db5f3afaf20157642d5738d74aadc81893e2231ef4eb2ba98febfc4e2e94984ae9da87604b0bb656d6138e").to_vec(),
+                hex!("9e710b30bd2eab0352ddcc26417aa1945fd380044fb0cba77b719a6b48d4ba365d10b941f5d257356af79055365a7ec37ded3380a2e2aa3ab427b2f44de51be05f46c8e6d1b2dbbda0d754b784f613804f47b91880a9c16ad38139f03e5bb228b7bcee2f7ac14961d58a14f568f2818bef7322eb628069713aa3ecd4549d37524985804ff60f367fc91c1bd229aa181e238657e9827980b410d238b5ea7604f4adbf263a38dbfa89c95d81628847f95eb667e8d0e935914c5f03c716fb8fff3de61a883bb76adb34a2040080cad92adb5641d6caaf11d7fe27dbea1e9a096ae85c0daebd59b1e25eaa4c7fa080b51f79412da4b52f974b1863428a781abdf82fcfe5303f0ee9f6055163e05cb880d2313d845e5c3d686852cf3f674db12f44774e297fa99264d5372698f060e9eb805757863d56669fd7a4f1b679b07e14cd1394e75b9aded6c617ee2c6557489c5480aa0dfbf86b38d60c5f5709e7bc57cbdf27fee6376a27949cf99d6f6b223642a5").to_vec(),
+                hex!("9f0b3c252fcb29d88eff4f3de5de4476c3ffff8050d90198bbf379b2f188dcf1ab68acdc1915e987b49047e394a4885f97d4313880ca8d7733aa29d9ff3ab2ae50a3c0ded0cae0b7237890a34967dc802dc59dc73280a40b94893db95917e44fd1bbba48148848cce9b13a146315951e2a975dda11cd801216188d9911f9999954db02f6d8090ec708e33d2b144b86835f0990f06033ef80a31aac84bfca357e96dd385d2d7cd1c5f90d67c238e904834587c42b3fe0a2ae8027c09a7dd9d5104b58d126a8f2e2d40c3a85d77178e8b0c06fafbd3b732e3bea8088b83f4017190bc2ed83e23663a6df793498d4da96bae824c9e8930575e85b7580e2afffcb5e2c49b0ccaf02326fd373c71ed829f774e017b8db12437947e35e4180ba965772350eecfc339659e689fa5b8e276037ef41def1caea15114051b66c48806df11e7a509e20680981f61d66462852287cf2e828ab20f1540c8c6fca69d3dd80410fb3228618850e8993b2f33927f60db725c4229552d44f3f14104aa0823dcc805fc4cfbcb17e68b9c0394589b1ce6a7c6f91916b46344acf791dae9d2e44302c80041f7a67266ba006ad56d34a9310035e73870a82bac0867a0afe6be4960325f080333354441303e9b7e7eb950e72738237977864e44ae1d87127024077fe6c64a380bece536c3fbd7b98bbb6e2bd43b5e31d09867858ce633dbd1dc4d8ebd735dac780cbdd8fb7c5f5b1ba3389b5770e3277b63c2e11032ce0ca525613f614e4d5d8f1").to_vec(),
         ];
 
-		// TODO: FAIL-CI - add assert
-		// assert_eq!(
-		//     asset_hub_header.state_root(),
-		//     // TODO: parse from proof HeadData.state_root
-		// );
 		assert_eq!(
 		    AssetHubProver::paras_heads_storage_key(1000.into()),
 		    hex!("cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3b6ff6f7d467b87a9e8030000")
 		);
 
 		(relay_chain_block_number, relay_chain_state_root, relay_chain_proof)
+	}
+
+	#[test]
+	fn verify_proof_root_works() {
+		use super::{AssetHubProver, DDayProofRootStore, ProofInterface};
+		use sp_runtime::BoundedVec;
+
+		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+			// proofs
+			let (asset_hub_header, ..) = sample_voting_proof();
+			let (relay_chain_block_number, relay_chain_state_root, relay_chain_proof) =
+				sample_relay_chain_proof();
+
+			// Sync some relay chain data.
+			DDayProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![(
+				relay_chain_block_number,
+				relay_chain_state_root,
+			)]));
+
+			// check
+			assert_eq!(
+				AssetHubProver::verify_proof_root((
+					relay_chain_block_number,
+					asset_hub_header.number,
+					relay_chain_proof
+				)),
+				Some(ProofRoot {
+					at_block: asset_hub_header.number,
+					proof_root: asset_hub_header.state_root,
+				})
+			);
+		})
 	}
 
 	#[test]
@@ -503,6 +528,4 @@ pub mod tests {
 			);
 		})
 	}
-
-	// TODO: FAIL-CI add here test for AssetHubProver::verify_proof_root with Westend relay chain proof (sample_relay_chain_proof)
 }

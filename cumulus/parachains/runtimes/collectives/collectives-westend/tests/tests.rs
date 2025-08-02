@@ -23,8 +23,8 @@ use collectives_westend_runtime::{
 		SubmissionDeposit,
 	},
 	fellowship::pallet_fellowship_origins::Origin,
-	xcm_config::{AssetHub, GovernanceLocation, LocationToAccountId},
-	AllPalletsWithoutSystem, Balances, Block, DDayProofRootStore, DDayReferenda, DDayVoting,
+	xcm_config::{GovernanceLocation, LocationToAccountId},
+	Balances, Block, DDayProofRootStore, DDayReferenda, DDayVoting,
 	Executive, ExistentialDeposit, FellowshipCollective, Preimage, Runtime, RuntimeCall,
 	RuntimeOrigin, System, TxExtension, UncheckedExtrinsic,
 };
@@ -32,11 +32,10 @@ use frame_support::{
 	assert_err, assert_ok,
 	traits::{fungible::Mutate, schedule::DispatchTime, StorePreimage, VoteTally},
 };
-use pallet_dday_detection::IsStalled;
 use pallet_dday_voting::{AccountVote, Conviction, ProofInterface, Vote};
 use pallet_referenda::{ReferendumCount, ReferendumInfoFor};
 use parachains_common::{AccountId, Hash};
-use parachains_runtimes_test_utils::{GovernanceOrigin, RuntimeHelper};
+use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use sp_core::{crypto::Ss58Codec, Pair};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -261,7 +260,7 @@ fn governance_authorize_upgrade_works() {
 
 #[test]
 fn dday_referenda_and_voting_works() {
-	sp_io::TestExternalities::new(Default::default()).execute_with(|| {
+	ExtBuilder::<Runtime>::default().with_tracing().build().execute_with(|| {
 		// Create rank3+ fellow with some balance.
 		let account_fellow_rank3 = AccountId::from([3; 32]);
 		assert_ok!(FellowshipCollective::do_add_member_to_rank(
@@ -304,8 +303,8 @@ fn dday_referenda_and_voting_works() {
 		let asset_hub_block_number = asset_hub_header.number;
 		let valid_asset_hub_account =
 			AccountId::from_ss58check(ss58_account).expect("valid accountId");
-		let (relay_chain_block_number, relay_chain_storage_root, relay_chain_proof) =
-			prover::tests::sample_relay_chain_proof(&asset_hub_header);
+		let (relay_chain_block_number, relay_chain_state_root, relay_chain_proof) =
+			prover::tests::sample_relay_chain_proof();
 		let account_voting_power = AssetHubProver::query_voting_power_for(
 			&valid_asset_hub_account,
 			asset_hub_header.state_root,
@@ -365,7 +364,7 @@ fn dday_referenda_and_voting_works() {
 		// Sync some relay chain data.
 		DDayProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![(
 			relay_chain_block_number,
-			relay_chain_storage_root,
+			relay_chain_state_root,
 		)]));
 
 		// Start voting - ok.
