@@ -19,27 +19,15 @@
 use crate::{dday::DDayVotingInstance, DDayProofRootStore, Runtime};
 use bp_runtime::{RawStorageProof, StorageProofChecker};
 use codec::{Decode, Encode};
-use core::ops::ControlFlow;
-use cumulus_primitives_core::relay_chain::{
-	BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash,
-};
-use cumulus_primitives_core::Weight;
-use frame_support::{
-	ensure,
-	storage::storage_prefix,
-	traits::{Contains, ProcessMessageError},
-	Blake2_128Concat, StorageHasher, Twox64Concat,
-};
+use cumulus_primitives_core::relay_chain::BlockNumber as RelayChainBlockNumber;
+use frame_support::{storage::storage_prefix, Blake2_128Concat, StorageHasher, Twox64Concat};
 use pallet_dday_voting::{
 	ProofAccountIdOf, ProofBalanceOf, ProofBlockNumberOf, ProofDescription, ProofHashOf,
-	ProofHasherOf, ProofInterface, ProofOf, ProofRoot, TotalForTallyProvider, Totals, VotingPower,
+	ProofHasherOf, ProofInterface, ProofOf, ProofRoot, VotingPower,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, Id as ParaId};
 use sp_runtime::traits::BlakeTwo256;
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
-use xcm::{latest::prelude::*, DoubleEncoded};
-use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::traits::{Properties, ShouldExecute};
 
 /// Required description of AssetHub chain (hash, balance, accountId).
 pub struct AssetHubProofDescription;
@@ -57,27 +45,6 @@ type AssetHubAccountData = frame_system::AccountInfo<
 	parachains_common::Nonce,
 	pallet_balances::AccountData<ProofBalanceOf<AssetHubProver>>,
 >;
-
-// /// Implementation of `TotalForTallyProvider` which return recorded/proved issuance that is
-// /// relevant. If nothing is recorded yet, the `ProofBalanceOf<AssetHubAccountProver>::MAX` is used.
-// impl<Chain: IsStalled> TotalForTallyProvider for StalledAssetHubDataProvider<Chain> {
-// 	type TotalKey = ProofBlockNumberOf<AssetHubAccountProver>;
-// 	type Total = ProofBalanceOf<AssetHubAccountProver>;
-//
-// 	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total {
-// 		Chain::stalled_head()
-// 			.and_then(|head| {
-// 				parachains_common::Header::decode(&mut &head.0[..])
-// 					.ok()
-// 					.map(|header| header.number)
-// 			})
-// 			.and_then(|stalled_block_number| {
-// 				// get from recorded ones.
-// 				totals.0.get(&stalled_block_number).map(|b| *b)
-// 			})
-// 			.unwrap_or(ProofBalanceOf::<AssetHubAccountProver>::MAX)
-// 	}
-// }
 
 pub struct AssetHubProver;
 impl AssetHubProver {
@@ -174,10 +141,15 @@ impl ProofInterface for AssetHubProver {
 		let (relay_block_number, asset_hub_block_number, relay_proof) = input;
 
 		// Find the relay chain storage root for relay_block_number.
-		let relay_chain_state_root = DDayProofRootStore::get_root(&relay_block_number)
-            .inspect(|stored| {
-                tracing::error!(target: LOG_TARGET, ?relay_block_number, "Missing the relay chain storage root for the given block number!")
-            })?;
+		let relay_chain_state_root =
+			DDayProofRootStore::get_root(&relay_block_number).or_else(|| {
+				tracing::error!(
+					target: LOG_TARGET,
+					?relay_block_number,
+					"Missing the relay chain storage root for the given block number!"
+				);
+				None
+			})?;
 
 		// Init proof checker for the relay chain (BlakeTwo256).
 		let mut proof_checker =
@@ -214,18 +186,10 @@ impl ProofInterface for AssetHubProver {
 	}
 }
 
-impl TotalForTallyProvider for AssetHubProver {
-	type TotalKey = ProofBlockNumberOf<AssetHubProver>;
-	type Total = ProofBalanceOf<AssetHubProver>;
-
-	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total {
-		todo!("ProofBalanceOf::<AssetHubProver>::MAX")
-	}
-}
-
 #[cfg(any(test, feature = "std"))]
 pub mod tests {
-	use super::{ProofRoot, RawStorageProof, RelayChainBlockNumber, RelayChainHash};
+	use super::{RawStorageProof, RelayChainBlockNumber};
+	use cumulus_primitives_core::relay_chain::Hash as RelayChainHash;
 
 	/// Sample proof downloaded from AssetHubWestend:
 	///
@@ -434,7 +398,7 @@ pub mod tests {
 
 	#[test]
 	fn verify_proof_root_works() {
-		use super::{AssetHubProver, DDayProofRootStore, ProofInterface};
+		use super::{AssetHubProver, DDayProofRootStore, ProofInterface, ProofRoot};
 		use sp_runtime::BoundedVec;
 
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {

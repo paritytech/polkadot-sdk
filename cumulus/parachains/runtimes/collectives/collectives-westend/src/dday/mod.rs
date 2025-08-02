@@ -24,20 +24,15 @@ use super::{
 	fellowship::{ranks, Architects, FellowshipCollectiveInstance, Masters},
 	*,
 };
-use crate::dday::{prover::AssetHubProver, tracks::TrackId};
+use crate::dday::prover::AssetHubProver;
 use cumulus_primitives_core::relay_chain::{
 	BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash,
 };
 use frame_support::{
 	parameter_types,
-	traits::{CallerTrait, ContainsPair, EitherOf, Equals, NeverEnsureOrigin, PollStatus, Polling},
+	traits::{CallerTrait, ContainsPair, EitherOf, NeverEnsureOrigin},
 };
-use frame_system::pallet_prelude::BlockNumberFor;
 pub use origins::pallet_origins as pallet_dday_origins;
-use pallet_dday_detection::{EnsureIsStalled, IsStalled};
-use pallet_dday_voting::ProofBlockNumberOf;
-use pallet_referenda::ReferendumIndex;
-use sp_runtime::DispatchError;
 
 impl pallet_dday_origins::Config for Runtime {}
 
@@ -83,8 +78,9 @@ impl pallet_dday_voting::Config<DDayVotingInstance> for Runtime {
 		FellowshipCollectiveInstance,
 		{ ranks::DAN_3 },
 	>;
+
+	/// AssetHub prover for voting and proof roots.
 	type Prover = AssetHubProver;
-	type MaxTurnoutProvider = AssetHubProver;
 }
 
 /// Rank3+ member can start DDay referendum.

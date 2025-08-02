@@ -22,7 +22,7 @@
 //!
 //! ## Key Features
 //! - Uses [`ProofDescription`] to describe the external chain and its proof.
-//! - Proof validation is handled by `type Prover: VerifyProof`, which verifies the proof against
+//! - Proof validation is handled by `type Prover: ProofInterface`, which verifies the proof against
 //!   the proof root stored by call `fn submit_proof_root_for_voting()`.
 //! - The voting is not allowed, while no proof root is stored for `poll_index`,
 //! - A valid proof is converted into `VotingPower(account_power: Balance, total: Balance)`.
@@ -51,7 +51,7 @@ pub use self::{
 	conviction::Conviction,
 	pallet::*,
 	proofs::*,
-	types::{Delegations, Tally, TotalForTallyProvider, Totals, UnvoteScope},
+	types::{Delegations, Tally, UnvoteScope},
 	vote::{AccountVote, Casting, Delegating, Vote, Voting, VotingPower},
 	weights::WeightInfo,
 };
@@ -87,8 +87,7 @@ pub type VotingOf<T, I = ()> = Voting<
 	PollIndexOf<T, I>,
 	<T as Config<I>>::MaxVotes,
 >;
-pub type TallyOf<T, I = ()> =
-	Tally<VotingProofBalanceOf<T, I>, <T as Config<I>>::MaxTurnoutProvider>;
+pub type TallyOf<T, I = ()> = Tally<VotingProofBalanceOf<T, I>>;
 pub type PollIndexOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 pub type ClassOf<T, I = ()> = <<T as Config<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
 
@@ -161,12 +160,6 @@ pub mod pallet {
 
 		/// Proof verifier.
 		type Prover: ProofInterface<RemoteProofRootOutput = ProofRoot<Self, I>>;
-
-		/// Provides `MaxTurnout` for the `TallyOf<T, I>`.
-		type MaxTurnoutProvider: TotalForTallyProvider<
-			TotalKey = VotingProofBlockNumberOf<Self, I>,
-			Total = VotingProofBalanceOf<Self, I>,
-		>;
 	}
 
 	/// All voting for a particular voter in a particular voting class. We store the balance for the
@@ -186,6 +179,7 @@ pub mod pallet {
 	///
 	/// (Alternatively, we could store this proof root directly into the Tally,
 	/// so we wouldn't need this storage item.)
+	/// TODO: we could join this with `voting_power.total` with one call, so we won't need `record_totals` from the proofs.
 	#[pallet::storage]
 	pub type ProofRootForVoting<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, PollIndexOf<T, I>, ProofRoot<T, I>, OptionQuery>;
@@ -336,7 +330,7 @@ pub mod pallet {
 				VotingPowerOf<T, I>,
 			),
 		) -> DispatchResultWithPostInfo {
-			let (remote_who, at_remote_block, voting_power) = voting_power;
+			let (remote_who, _, voting_power) = voting_power;
 			ensure!(vote.balance() <= voting_power.account_power, Error::<T, I>::InsufficientFunds);
 			T::Polls::try_access_poll(poll_index, |poll_status| {
 				let (tally, class) =
@@ -368,7 +362,7 @@ pub mod pallet {
 					}
 
 					// Record used total voting power from the proof.
-					tally.record_total(at_remote_block, voting_power.total);
+					tally.record_totals(voting_power.total);
 
 					Self::deposit_event(Event::Voted { who: remote_who.clone(), vote });
 					Ok(Pays::No.into())

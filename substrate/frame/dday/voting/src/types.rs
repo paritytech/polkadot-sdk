@@ -19,47 +19,15 @@
 
 use crate::{AccountVote, Conviction};
 use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::{fmt::Debug, marker::PhantomData};
+use core::fmt::Debug;
 use frame_support::{
 	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, ConstU32, Saturating, Zero},
-	BoundedBTreeMap, Perbill, RuntimeDebug,
+	traits::{AtLeast32BitUnsigned, Saturating, Zero},
+	Perbill, RuntimeDebug,
 };
-
-/// A trait that provides a way to compute a total value from a collection of totals.
-pub trait TotalForTallyProvider {
-	/// The key type used to identify totals in the collection.
-	type TotalKey: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen + Ord;
-
-	/// The value type representing a total.
-	type Total: Clone + PartialEq + Eq + Debug + TypeInfo + Codec;
-
-	/// Computes a total value from the provided `Totals` collection.
-	fn total_from(totals: &Totals<Self::TotalKey, Self::Total>) -> Self::Total;
-}
-
-/// The maximum number of totals that can be stored per tally (usually it will be one).
-const MAX_TOTALS_PER_TALLY: u32 = 8;
-
-/// A bounded map structure that holds a collection of totals identified by unique keys.
-#[derive(
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-)]
-pub struct Totals<
-	Key: Clone + PartialEq + Eq + Debug + TypeInfo + Codec + MaxEncodedLen + Ord,
-	Total: Clone + PartialEq + Eq + Debug + TypeInfo + Codec,
->(pub BoundedBTreeMap<Key, Total, ConstU32<{ MAX_TOTALS_PER_TALLY }>>);
 
 /// Info regarding an ongoing referendum.
 #[derive(
@@ -73,37 +41,29 @@ pub struct Totals<
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(TotalProvider))]
 #[codec(mel_bound(Votes: MaxEncodedLen))]
-pub struct Tally<
-	Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec,
-	TotalProvider: TotalForTallyProvider<Total = Votes>,
-> {
+pub struct Tally<Votes: Clone + PartialEq + Eq + Debug + TypeInfo + Codec> {
 	/// The number of aye votes, expressed in terms of post-conviction lock-vote.
 	pub ayes: Votes,
 	/// The number of nay votes, expressed in terms of post-conviction lock-vote.
 	pub nays: Votes,
 	/// The basic number of aye votes, expressed pre-conviction.
 	pub support: Votes,
-	/// Store the recorded totals from proofs.
-	pub totals: Totals<TotalProvider::TotalKey, Votes>,
-	/// Dummy.
-	dummy: PhantomData<TotalProvider>,
+	/// The voting is also fixed block, so the total is also fixed.
+	pub totals: Votes,
 }
 
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		TotalProvider: TotalForTallyProvider<Total = Votes>,
 		Class,
-	> VoteTally<Votes, Class> for Tally<Votes, TotalProvider>
+	> VoteTally<Votes, Class> for Tally<Votes>
 {
 	fn new(_: Class) -> Self {
 		Self {
 			ayes: Zero::zero(),
 			nays: Zero::zero(),
 			support: Zero::zero(),
-			totals: Totals(BoundedBTreeMap::new()),
-			dummy: PhantomData,
+			totals: Votes::max_value(),
 		}
 	}
 
@@ -112,7 +72,7 @@ impl<
 	}
 
 	fn support(&self, _: Class) -> Perbill {
-		Perbill::from_rational(self.support, TotalProvider::total_from(&self.totals))
+		Perbill::from_rational(self.support, self.totals)
 	}
 
 	fn approval(&self, _: Class) -> Perbill {
@@ -121,29 +81,19 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn unanimity(_: Class) -> Self {
-		Self {
-			ayes: TotalProvider::total_from(&self.totals),
-			nays: Zero::zero(),
-			support: TotalProvider::total_from(&self.totals),
-			dummy: PhantomData,
-		}
+		Self { ayes: &self.totals, nays: Zero::zero(), support: &self.totals }
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn rejection(_: Class) -> Self {
-		Self {
-			ayes: Zero::zero(),
-			nays: TotalProvider::total_from(&self.totals),
-			support: TotalProvider::total_from(&self.totals),
-			dummy: PhantomData,
-		}
+		Self { ayes: Zero::zero(), nays: &self.totals, support: &self.totals }
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn from_requirements(support: Perbill, approval: Perbill, _: Class) -> Self {
-		let support = support.mul_ceil(TotalProvider::total_from(&self.totals));
+		let support = support.mul_ceil(&self.totals);
 		let ayes = approval.mul_ceil(support);
-		Self { ayes, nays: support - ayes, support, dummy: PhantomData }
+		Self { ayes, nays: support - ayes, support }
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -152,8 +102,7 @@ impl<
 
 impl<
 		Votes: Clone + Default + PartialEq + Eq + Debug + Copy + AtLeast32BitUnsigned + TypeInfo + Codec,
-		TotalProvider: TotalForTallyProvider<Total = Votes>,
-	> Tally<Votes, TotalProvider>
+	> Tally<Votes>
 {
 	/// Add an account's vote into the tally.
 	pub fn add(&mut self, vote: AccountVote<Votes>) -> Option<()> {
@@ -243,9 +192,9 @@ impl<
 		}
 	}
 
-	/// Record total by key.
-	pub fn record_total(&mut self, key: TotalProvider::TotalKey, total: TotalProvider::Total) {
-		let _ = self.totals.0.try_insert(key, total);
+	/// Record actual totals.
+	pub fn record_totals(&mut self, totals: Votes) {
+		self.totals = totals;
 	}
 }
 
