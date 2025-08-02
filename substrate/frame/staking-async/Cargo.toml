@@ -28,6 +28,7 @@ serde = { features = ["alloc", "derive"], workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
+sp-npos-elections = { workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
@@ -35,18 +36,21 @@ sp-staking = { features = ["serde"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
+env_logger = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-support = { features = ["experimental"], workspace = true, default-features = true }
+log = { workspace = true }
 pallet-bags-list = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"anyhow/std",
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-election-provider-support/std",

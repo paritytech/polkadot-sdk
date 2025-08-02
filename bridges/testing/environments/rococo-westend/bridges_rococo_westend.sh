@@ -23,12 +23,6 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #	}
 #
 #	// SS58=42
-#	println!("GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT=\"{}\"",
-#			 frame_support::sp_runtime::AccountId32::new(
-#				 GlobalConsensusConvertsFor::<UniversalLocationAHW, [u8; 32]>::convert_location(
-#					 &Location { parents: 2, interior: GlobalConsensus(Rococo).into() }).unwrap()
-#			 ).to_ss58check_with_version(42_u16.into())
-#	);
 #	println!("ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND=\"{}\"",
 #			 frame_support::sp_runtime::AccountId32::new(
 #				 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -37,12 +31,6 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #	);
 #
 #	// SS58=42
-#	println!("GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT=\"{}\"",
-#			 frame_support::sp_runtime::AccountId32::new(
-#				 GlobalConsensusConvertsFor::<UniversalLocationAHR, [u8; 32]>::convert_location(
-#					 &Location { parents: 2, interior: GlobalConsensus(Westend).into() }).unwrap()
-#			 ).to_ss58check_with_version(42_u16.into())
-#	);
 #	println!("ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO=\"{}\"",
 #			 frame_support::sp_runtime::AccountId32::new(
 #				 SiblingParachainConvertsVia::<Sibling, [u8; 32]>::convert_location(
@@ -50,11 +38,10 @@ source "$FRAMEWORK_PATH/utils/bridges.sh"
 #			 ).to_ss58check_with_version(42_u16.into())
 #	);
 #}
-GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT="5HmYPhRNAenHN6xnDLQDLZq71d4BgzPrdJ2sNZo8o1KXi9wr"
 ASSET_HUB_WESTEND_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_WESTEND="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
-GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT="5CtHyjQE8fbPaQeBrwaGph6qsSEtnMFBAZcAkxwnEfQkkYAq"
 ASSET_HUB_ROCOCO_SOVEREIGN_ACCOUNT_AT_BRIDGE_HUB_ROCOCO="5Eg2fntNprdN3FgH4sfEaaZhYtddZQSQUqvYJ1f2mLtinVhV"
-ALICE_SOVEREIGN_ACCOUNT="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+BOB_ACCOUNT_AT_ROCOCO="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
+BOB_ACCOUNT_AT_WESTEND="5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"
 
 # Expected sovereign accounts for rewards on BridgeHubs.
 #
@@ -239,33 +226,7 @@ case "$1" in
   run-messages-relay)
     run_messages_relay
     ;;
-  init-asset-hub-rococo-local)
-      ensure_polkadot_js_api
-      # create foreign assets for native Westend token (governance call on Rococo)
-      force_create_foreign_asset \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9910" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
-          "$GLOBAL_CONSENSUS_WESTEND_SOVEREIGN_ACCOUNT" \
-          10000000000 \
-          true
-      # create foreign asset pool
-      create_pool \
-          "ws://127.0.0.1:9910" \
-          "//Alice" \
-          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
-      # Create liquidity in the pool
-      add_liquidity \
-          "ws://127.0.0.1:9910" \
-          "//Alice" \
-          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
-          10000000000 \
-          10000000000 \
-          "$ALICE_SOVEREIGN_ACCOUNT"
+  init-rococo-local)
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9942" \
@@ -275,7 +236,7 @@ case "$1" in
           "ws://127.0.0.1:9942" \
           "//Alice" \
           1013 1000 4 524288
-      # set XCM version of remote AssetHubWestend
+      # governance set XCM version of remote AssetHubWestend on AHR
       force_xcm_version \
           "ws://127.0.0.1:9942" \
           "//Alice" \
@@ -283,6 +244,32 @@ case "$1" in
           "ws://127.0.0.1:9910" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
+      # governance set XCM version of remote BridgeHubWestend on BHR
+      force_xcm_version \
+          "ws://127.0.0.1:9942" \
+          "//Alice" \
+          1013 \
+          "ws://127.0.0.1:8943" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
+          $XCM_VERSION
+      ;;
+  init-asset-hub-rococo-local)
+      ensure_polkadot_js_api
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9910" \
+          "//Bob" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9910" \
+          "//Bob" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }] } }')" \
+          1000000000000 \
+          2500000000000 \
+          "$BOB_ACCOUNT_AT_ROCOCO"
       ;;
   init-bridge-hub-rococo-local)
       ensure_polkadot_js_api
@@ -304,42 +291,8 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_ROCOCO_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhwd_BridgedChain" \
           100000000000000
-      # set XCM version of remote BridgeHubWestend
-      force_xcm_version \
-          "ws://127.0.0.1:9942" \
-          "//Alice" \
-          1013 \
-          "ws://127.0.0.1:8943" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$WESTEND_GENESIS_HASH' } }, { "Parachain": 1002 } ] } }')" \
-          $XCM_VERSION
       ;;
-  init-asset-hub-westend-local)
-      ensure_polkadot_js_api
-      # create foreign assets for native Rococo token (governance call on Westend)
-      force_create_foreign_asset \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1000 \
-          "ws://127.0.0.1:9010" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
-          "$GLOBAL_CONSENSUS_ROCOCO_SOVEREIGN_ACCOUNT" \
-          10000000000 \
-          true
-      # create foreign asset pool
-      create_pool \
-          "ws://127.0.0.1:9010" \
-          "//Alice" \
-          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
-      # Create liquidity in the pool
-      add_liquidity \
-          "ws://127.0.0.1:9010" \
-          "//Alice" \
-          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
-          10000000000 \
-          10000000000 \
-          "$ALICE_SOVEREIGN_ACCOUNT"
+  init-westend-local)
       # HRMP
       open_hrmp_channels \
           "ws://127.0.0.1:9945" \
@@ -349,7 +302,7 @@ case "$1" in
           "ws://127.0.0.1:9945" \
           "//Alice" \
           1002 1000 4 524288
-      # set XCM version of remote AssetHubRococo
+      # governance set XCM version of remote AssetHubRococo on AHW
       force_xcm_version \
           "ws://127.0.0.1:9945" \
           "//Alice" \
@@ -357,6 +310,32 @@ case "$1" in
           "ws://127.0.0.1:9010" \
           "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1000 } ] } }')" \
           $XCM_VERSION
+      # governance set XCM version of remote BridgeHubRococo on BHW
+      force_xcm_version \
+          "ws://127.0.0.1:9945" \
+          "//Alice" \
+          1002 \
+          "ws://127.0.0.1:8945" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1013 } ] } }')" \
+          $XCM_VERSION
+      ;;
+  init-asset-hub-westend-local)
+      ensure_polkadot_js_api
+      # create foreign asset pool
+      create_pool \
+          "ws://127.0.0.1:9010" \
+          "//Bob" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')"
+      # Create liquidity in the pool
+      add_liquidity \
+          "ws://127.0.0.1:9010" \
+          "//Bob" \
+          "$(jq --null-input '{ "parents": 1, "interior": "Here" }')" \
+          "$(jq --null-input '{ "parents": 2, "interior": { "X1": [{ "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }] } }')" \
+          1000000000000 \
+          4000000000000 \
+          "$BOB_ACCOUNT_AT_WESTEND"
       ;;
   init-bridge-hub-westend-local)
       # SA of sibling asset hub pays for the execution
@@ -377,14 +356,6 @@ case "$1" in
           "//Alice" \
           "$ON_BRIDGE_HUB_WESTEND_SOVEREIGN_ACCOUNT_FOR_LANE_00000002_bhro_BridgedChain" \
           100000000000000
-      # set XCM version of remote BridgeHubRococo
-      force_xcm_version \
-          "ws://127.0.0.1:9945" \
-          "//Alice" \
-          1002 \
-          "ws://127.0.0.1:8945" \
-          "$(jq --null-input '{ "parents": 2, "interior": { "X2": [ { "GlobalConsensus": { ByGenesis: '$ROCOCO_GENESIS_HASH' } }, { "Parachain": 1013 } ] } }')" \
-          $XCM_VERSION
       ;;
   reserve-transfer-assets-from-asset-hub-rococo-local)
       amount=$2
@@ -482,8 +453,10 @@ case "$1" in
           - run-finality-relay
           - run-parachains-relay
           - run-messages-relay
+          - init-rococo-local
           - init-asset-hub-rococo-local
           - init-bridge-hub-rococo-local
+          - init-westend-local
           - init-asset-hub-westend-local
           - init-bridge-hub-westend-local
           - reserve-transfer-assets-from-asset-hub-rococo-local

@@ -93,7 +93,6 @@ bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-rococo = { workspace = true }
 bp-runtime = { workspace = true }
-bp-westend = { workspace = true }
 bp-xcm-bridge-hub-router = { workspace = true }
 bridge-hub-common = { workspace = true }
 bridge-runtime-common = { workspace = true }
@@ -118,7 +117,6 @@ snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
 snowbridge-pallet-system-v2 = { workspace = true }
-snowbridge-runtime-common = { workspace = true }
 snowbridge-system-runtime-api = { workspace = true }
 snowbridge-system-v2-runtime-api = { workspace = true }
 
@@ -145,7 +143,6 @@ std = [
 	"bp-relayers/std",
 	"bp-rococo/std",
 	"bp-runtime/std",
-	"bp-westend/std",
 	"bp-xcm-bridge-hub-router/std",
 	"bridge-hub-common/std",
 	"bridge-runtime-common/std",
@@ -206,7 +203,6 @@ std = [
 	"snowbridge-pallet-outbound-queue/std",
 	"snowbridge-pallet-system-v2/std",
 	"snowbridge-pallet-system/std",
-	"snowbridge-runtime-common/std",
 	"snowbridge-system-runtime-api/std",
 	"snowbridge-system-v2-runtime-api/std",
 	"sp-api/std",
@@ -274,7 +270,6 @@ runtime-benchmarks = [
 	"snowbridge-pallet-outbound-queue/runtime-benchmarks",
 	"snowbridge-pallet-system-v2/runtime-benchmarks",
 	"snowbridge-pallet-system/runtime-benchmarks",
-	"snowbridge-runtime-common/runtime-benchmarks",
 	"snowbridge-runtime-test-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"westend-runtime-constants/runtime-benchmarks",
@@ -320,7 +315,6 @@ try-runtime = [
 	"snowbridge-pallet-outbound-queue/try-runtime",
 	"snowbridge-pallet-system-v2/try-runtime",
 	"snowbridge-pallet-system/try-runtime",
-	"snowbridge-runtime-common/try-runtime",
 	"sp-runtime/try-runtime",
 ]
 
