@@ -16,11 +16,13 @@
 // limitations under the License.
 
 use anyhow::anyhow;
+use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 	ensure_is_only_block_in_core, find_core_info,
 	submit_extrinsic_and_wait_for_finalization_success,
+	submit_unsigned_extrinsic_and_wait_for_finalization_success,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -38,7 +40,9 @@ use zombienet_sdk::{
 };
 
 const PARA_ID: u32 = 2400;
-const MIN_RUNTIME_SIZE_BYTES: usize = 2_621_440; // 2.5 MiB
+/// 4 blocks per core and each gets 1/4 of the [`MAX_POV_SIZE`], so the runtime needs to be bigger
+/// than this to trigger the logic of getting one full core.
+const MIN_RUNTIME_SIZE_BYTES: usize = MAX_POV_SIZE as usize / 4 + 50 * 1024;
 
 /// A test that performs runtime upgrade using the `authorize_upgrade` and
 /// `apply_authorized_upgrade` logic.
@@ -58,7 +62,7 @@ async fn pov_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	let runtime_wasm =
 		WASM_RUNTIME_UPGRADE.ok_or_else(|| anyhow!("WASM runtime upgrade binary not available"))?;
 
-	if runtime_wasm.len() < MIN_RUNTIME_SIZE_BYTES {
+	if runtime_wasm.len() <= MIN_RUNTIME_SIZE_BYTES {
 		return Err(anyhow!(
 			"Runtime size {} bytes is below minimum required {} bytes (2.5MiB)",
 			runtime_wasm.len(),
@@ -113,12 +117,15 @@ async fn pov_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		"Sending apply_authorized_upgrade transaction with runtime size: {} bytes",
 		runtime_wasm.len()
 	);
+
 	let block_hash =
-		submit_extrinsic_and_wait_for_finalization_success(&para_client, &apply_call, &alice)
+		submit_unsigned_extrinsic_and_wait_for_finalization_success(&para_client, &apply_call)
 			.await?;
 	log::info!("Apply authorized upgrade transaction finalized in block: {:?}", block_hash);
 
 	ensure_is_only_block_in_core(&para_client, block_hash).await?;
+
+	//TODO: Verify that the runtime upgrade block is also using a full core.
 
 	Ok(())
 }

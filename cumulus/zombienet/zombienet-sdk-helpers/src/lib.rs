@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::anyhow;
-use codec::{Compact, Decode, Encode};
-use cumulus_primitives_core::{
-	relay_chain, rpsr_digest::RPSR_CONSENSUS_ID, CoreInfo, CumulusDigestItem, RelayBlockIdentifier,
-};
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
@@ -18,13 +16,11 @@ use zombienet_sdk::subxt::{
 	self,
 	backend::legacy::LegacyRpcMethods,
 	blocks::Block,
-	config::{
-		signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams, Header,
-	},
+	config::{signed_extensions::CheckMortalityParams, ExtrinsicParams, Header},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
-	tx::{signer::Signer, DynamicPayload, TxStatus},
+	tx::{signer::Signer, DynamicPayload, SubmittableExtrinsic, TxStatus},
 	utils::H256,
 	Config, OnlineClient, PolkadotConfig,
 };
@@ -381,8 +377,6 @@ pub async fn assert_para_blocks_throughput(
 			!included_parachain_block_identifiers.contains(&(core_info, rbi))
 		});
 
-		dbg!(block.number());
-
 		if !is_session_change(&block).await? {
 			found_first_candidate |= !included_parachain_block_identifiers.is_empty();
 
@@ -568,7 +562,7 @@ pub async fn assert_relay_parent_offset(
 	Ok(())
 }
 
-/// Submits the given `call` as transaction and waits for it successful finalization.
+/// Submits the given `call` as signed transaction and waits for it successful finalization.
 ///
 /// The transaction is send as immortal transaction.
 pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
@@ -582,12 +576,26 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 
 	extensions.4 = CheckMortalityParams::<PolkadotConfig>::immortal();
 
-	let mut tx = client
-		.tx()
-		.create_signed(call, signer, extensions)
-		.await?
-		.submit_and_watch()
-		.await?;
+	let tx = client.tx().create_signed(call, signer, extensions).await?;
+
+	submit_tx_and_wait_for_finalization(tx).await
+}
+
+/// Submits the given `call` as unsigned transaction and waits for it successful finalization.
+pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
+	client: &OnlineClient<PolkadotConfig>,
+	call: &DynamicPayload,
+) -> Result<H256, anyhow::Error> {
+	let tx = client.tx().create_unsigned(call)?;
+
+	submit_tx_and_wait_for_finalization(tx).await
+}
+
+/// Submit the given transaction and wait for its finalization.
+async fn submit_tx_and_wait_for_finalization(
+	tx: SubmittableExtrinsic<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<H256, anyhow::Error> {
+	let mut tx = tx.submit_and_watch().await?;
 
 	// Below we use the low level API to replicate the `wait_for_in_block` behaviour
 	// which was removed in subxt 0.33.0. See https://github.com/paritytech/subxt/pull/1237.
@@ -709,13 +717,15 @@ pub async fn ensure_is_only_block_in_core(
 
 	let chain_of_blocks = loop {
 		// Start with the latest best block.
-		let mut current_block = std::sync::Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+		let mut current_block =
+			std::sync::Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
 
 		let mut chain_of_blocks = vec![];
 
 		while current_block.hash() != block_hash {
 			chain_of_blocks.push(current_block.clone());
-			current_block = std::sync::Arc::new(blocks.at(current_block.header().parent_hash).await?);
+			current_block =
+				std::sync::Arc::new(blocks.at(current_block.header().parent_hash).await?);
 
 			if current_block.number() == 0 {
 				return Err(anyhow::anyhow!(
