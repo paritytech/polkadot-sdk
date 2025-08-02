@@ -27,7 +27,6 @@ mod abi_tests {
 		// Test that the ABI encoding/decoding works correctly
 		let bond_call = IStaking::bondCall {
 			value: alloy::primitives::U256::from(1000),
-			payee: 0,
 		};
 
 		// Encode and then decode
@@ -35,7 +34,20 @@ mod abi_tests {
 		let decoded = IStaking::bondCall::abi_decode(&encoded).unwrap();
 
 		assert_eq!(decoded.value, alloy::primitives::U256::from(1000));
-		assert_eq!(decoded.payee, 0);
+	}
+
+	#[test]
+	fn test_set_payee_encoding() {
+		let set_payee_call = IStaking::setPayeeCall {};
+		let encoded = set_payee_call.abi_encode();
+		let _decoded = IStaking::setPayeeCall::abi_decode(&encoded).unwrap();
+	}
+
+	#[test]
+	fn test_set_compound_encoding() {
+		let set_compound_call = IStaking::setCompoundCall {};
+		let encoded = set_compound_call.abi_encode();
+		let _decoded = IStaking::setCompoundCall::abi_decode(&encoded).unwrap();
 	}
 
 	#[test]
@@ -186,13 +198,13 @@ mod conformance_tests {
 			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				let stash = 123u64; // Use an account not already bonded
 				let bond_amount = 1000u128;
-				
+
 				// Give the account sufficient balance
 				let _ = Balances::deposit_creating(&stash, 2000);
-				
+
 				// Bond should succeed and return true
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), bond_amount, RewardDestination::Staked));
-				
+
 				// Verify the bond was created
 				assert!(crate::Ledger::<Test>::contains_key(&stash));
 				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
@@ -206,7 +218,7 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // This account is already bonded in default setup
 				let bond_amount = 1000u128;
-				
+
 				// Second bond should fail since account 11 is already bonded
 				assert!(Staking::bond(RuntimeOrigin::signed(stash), bond_amount, RewardDestination::Staked).is_err());
 			});
@@ -217,11 +229,11 @@ mod conformance_tests {
 			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				let stash = 125u64;
 				let bond_amount = 1000u128;
-				
+
 				let _ = Balances::deposit_creating(&stash, 2000);
-				
+
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), bond_amount, RewardDestination::Staked));
-				
+
 				// Verify Bonded event was emitted
 				let events = frame_system::Pallet::<Test>::events();
 				assert!(events.iter().any(|e| {
@@ -231,7 +243,7 @@ mod conformance_tests {
 		}
 	}
 
-	/// Tests for the bondExtra function according to Solidity interface spec  
+	/// Tests for the bondExtra function according to Solidity interface spec
 	mod bond_extra_tests {
 		use super::*;
 
@@ -240,21 +252,21 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
 				let extra_bond = 500u128;
-				
+
 				// Get initial bond amount and ensure sufficient balance
 				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				let initial_total = initial_ledger.total;
 				let initial_active = initial_ledger.active;
-				
+
 				// Ensure account has sufficient additional balance for bond_extra
 				let current_balance = Balances::free_balance(&stash);
 				if current_balance < initial_total + extra_bond + 1 { // +1 for existential deposit
 					let _ = Balances::deposit_creating(&stash, extra_bond + 100);
 				}
-				
+
 				// Bond extra should succeed
 				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(stash), extra_bond));
-				
+
 				// Verify total bond increased by exactly the extra amount
 				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				assert_eq!(ledger.total, initial_total + extra_bond);
@@ -267,9 +279,9 @@ mod conformance_tests {
 			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				let stash = 126u64; // Fresh account
 				let extra_bond = 500u128;
-				
+
 				let _ = Balances::deposit_creating(&stash, 1000);
-				
+
 				// Bond extra without initial bond should fail
 				assert!(Staking::bond_extra(RuntimeOrigin::signed(stash), extra_bond).is_err());
 			});
@@ -280,19 +292,19 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
 				let extra_bond = 500u128;
-				
+
 				// Ensure account has sufficient additional balance for bond_extra
 				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				let current_balance = Balances::free_balance(&stash);
 				if current_balance < initial_ledger.total + extra_bond + 1 {
 					let _ = Balances::deposit_creating(&stash, extra_bond + 100);
 				}
-				
+
 				// Clear previous events
 				frame_system::Pallet::<Test>::reset_events();
-				
+
 				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(stash), extra_bond));
-				
+
 				// Verify Bonded event for extra amount - check all events
 				let events = frame_system::Pallet::<Test>::events();
 				let bonded_events: Vec<_> = events.iter().filter_map(|e| {
@@ -302,10 +314,10 @@ mod conformance_tests {
 						None
 					}
 				}).collect();
-				
+
 				// Should have at least one Bonded event with our amount
-				assert!(bonded_events.iter().any(|(s, a)| *s == 11 && *a == extra_bond), 
-					"Expected Bonded event with stash=11 and amount={}, but found events: {:?}", 
+				assert!(bonded_events.iter().any(|(s, a)| *s == 11 && *a == extra_bond),
+					"Expected Bonded event with stash=11 and amount={}, but found events: {:?}",
 					extra_bond, bonded_events);
 			});
 		}
@@ -320,14 +332,14 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
 				let unbond_amount = 300u128;
-				
+
 				// Get initial state
 				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				let initial_active = initial_ledger.active;
-				
+
 				// Unbond should succeed
 				assert_ok!(Staking::unbond(RuntimeOrigin::signed(stash), unbond_amount));
-				
+
 				// Verify unbonding chunk was created
 				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				assert_eq!(ledger.active, initial_active - unbond_amount);
@@ -342,7 +354,7 @@ mod conformance_tests {
 			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				let stash = 127u64; // Fresh account
 				let unbond_amount = 300u128;
-				
+
 				// Unbond without bonding should fail
 				assert!(Staking::unbond(RuntimeOrigin::signed(stash), unbond_amount).is_err());
 			});
@@ -353,12 +365,12 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
 				let unbond_amount = 300u128;
-				
+
 				// Clear previous events
 				frame_system::Pallet::<Test>::reset_events();
-				
+
 				assert_ok!(Staking::unbond(RuntimeOrigin::signed(stash), unbond_amount));
-				
+
 				// Verify Unbonded event
 				let events = frame_system::Pallet::<Test>::events();
 				assert!(events.iter().any(|e| {
@@ -378,14 +390,14 @@ mod conformance_tests {
 				let stash = 128u64; // Fresh account
 				let bond_amount = 1000u128;
 				let commission = sp_runtime::Perbill::from_parts(100_000_000); // 10%
-				
+
 				let _ = Balances::deposit_creating(&stash, 2000);
 				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), bond_amount, RewardDestination::Staked));
-				
+
 				// Validate should succeed
 				let prefs = ValidatorPrefs { commission, blocked: false };
 				assert_ok!(Staking::validate(RuntimeOrigin::signed(stash), prefs.clone()));
-				
+
 				// Verify validator preferences were set
 				let stored_prefs = crate::Validators::<Test>::get(&stash);
 				assert_eq!(stored_prefs.commission, commission);
@@ -398,7 +410,7 @@ mod conformance_tests {
 			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 				let stash = 129u64; // Fresh account not bonded
 				let commission = sp_runtime::Perbill::from_parts(100_000_000);
-				
+
 				// Validate without bonding should fail
 				let prefs = ValidatorPrefs { commission, blocked: false };
 				assert!(Staking::validate(RuntimeOrigin::signed(stash), prefs).is_err());
@@ -414,10 +426,10 @@ mod conformance_tests {
 		fn conformance_chill_validator_success_returns_true() {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already a validator in default setup
-				
+
 				// Chill should succeed
 				assert_ok!(Staking::chill(RuntimeOrigin::signed(stash)));
-				
+
 				// Verify validator is no longer active
 				assert!(!crate::Validators::<Test>::contains_key(&stash));
 			});
@@ -427,12 +439,12 @@ mod conformance_tests {
 		fn conformance_chill_emits_chilled_event() {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already a validator in default setup
-				
+
 				// Clear previous events
 				frame_system::Pallet::<Test>::reset_events();
-				
+
 				assert_ok!(Staking::chill(RuntimeOrigin::signed(stash)));
-				
+
 				// Verify Chilled event
 				let events = frame_system::Pallet::<Test>::events();
 				assert!(events.iter().any(|e| {
@@ -451,13 +463,13 @@ mod conformance_tests {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
 				let unbond_amount = 300u128;
-				
+
 				// Get initial state and unbond some amount to create unlocking chunks
 				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				let initial_total = initial_ledger.total;
-				
+
 				assert_ok!(Staking::unbond(RuntimeOrigin::signed(stash), unbond_amount));
-				
+
 				// Query should return correct ledger data
 				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				assert_eq!(ledger.total, initial_total);
@@ -471,7 +483,7 @@ mod conformance_tests {
 		fn conformance_ledger_query_non_bonded_account_returns_defaults() {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 99u64; // Non-bonded account
-				
+
 				// Query should return None/default values for non-bonded account
 				assert!(crate::Ledger::<Test>::get(&stash).is_none());
 			});
@@ -495,7 +507,7 @@ mod conformance_tests {
 		fn conformance_validators_query_existing_validator_returns_prefs() {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already a validator in default setup
-				
+
 				// Query should return validator preferences
 				let stored_prefs = crate::Validators::<Test>::get(&stash);
 				// Default validator should have default preferences
@@ -508,7 +520,7 @@ mod conformance_tests {
 		fn conformance_nominators_query_existing_nominator_returns_targets() {
 			ExtBuilder::default().build_and_execute(|| {
 				let nominator = 101u64; // Account 101 is already a nominator in default setup
-				
+
 				// Query should return nomination targets
 				if let Some(nominations) = crate::Nominators::<Test>::get(&nominator) {
 					assert_eq!(nominations.targets.len(), 2);
@@ -527,24 +539,184 @@ mod conformance_tests {
 		fn conformance_multiple_unbonds_create_multiple_chunks() {
 			ExtBuilder::default().build_and_execute(|| {
 				let stash = 11u64; // Account 11 is already bonded in default setup
-				
+
 				// Get initial state
 				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				let initial_active = initial_ledger.active;
 				let initial_unlocking_count = initial_ledger.unlocking.len();
-				
+
 				// Multiple unbonds should create additional unlocking chunks
 				assert_ok!(Staking::unbond(RuntimeOrigin::signed(stash), 100));
 				assert_ok!(Staking::unbond(RuntimeOrigin::signed(stash), 200));
-				
+
 				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
 				// Should have at least one more chunk than initially, but may combine some
 				assert!(ledger.unlocking.len() >= initial_unlocking_count + 1);
 				assert_eq!(ledger.active, initial_active - 300);
-				
+
 				// Verify total unbonding amount is correct
 				let total_unbonding: u128 = ledger.unlocking.iter().map(|chunk| chunk.value).sum();
 				assert!(total_unbonding >= 300); // At least our unbonded amount
+			});
+		}
+	}
+
+	/// Tests for bond amount edge cases documenting value.min(stash_balance) behavior
+	mod bond_amount_edge_cases {
+		use super::*;
+
+		#[test]
+		fn edge_case_bond_requested_more_than_balance() {
+			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+				let stash = 200u64;
+				let balance = 1000u128;
+				let requested_bond = 2000u128; // More than balance
+
+				// Give the account limited balance
+				let _ = Balances::deposit_creating(&stash, balance);
+
+				// Clear events
+				frame_system::Pallet::<Test>::reset_events();
+
+				// Bond should succeed but only bond what's available
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), requested_bond, RewardDestination::Staked));
+
+				// Verify actual bonded amount is min(requested, available)
+				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				// Available for staking = balance - existential_deposit
+				let available = balance - 1; // Assuming ED = 1
+				assert_eq!(ledger.total, available);
+				assert_eq!(ledger.active, available);
+
+				// Check that the pallet emitted event with actual bonded amount
+				let events = frame_system::Pallet::<Test>::events();
+				assert!(events.iter().any(|e| {
+					matches!(e.event, RuntimeEvent::Staking(StakingEvent::Bonded { stash: 200, amount }) if amount == available)
+				}), "Expected Bonded event with actual bonded amount {}, got events: {:?}", available, events);
+			});
+		}
+
+		#[test]
+		fn edge_case_bond_exact_balance() {
+			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+				let stash = 201u64;
+				let balance = 1000u128;
+				let available_for_staking = balance - 1; // minus existential deposit
+
+				// Give the account balance
+				let _ = Balances::deposit_creating(&stash, balance);
+
+				// Clear events
+				frame_system::Pallet::<Test>::reset_events();
+
+				// Bond exactly what's available
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), available_for_staking, RewardDestination::Staked));
+
+				// Verify exact amount was bonded
+				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				assert_eq!(ledger.total, available_for_staking);
+				assert_eq!(ledger.active, available_for_staking);
+
+				// Check event has actual bonded amount
+				let events = frame_system::Pallet::<Test>::events();
+				assert!(events.iter().any(|e| {
+					matches!(e.event, RuntimeEvent::Staking(StakingEvent::Bonded { stash: 201, amount }) if amount == available_for_staking)
+				}));
+			});
+		}
+
+		#[test]
+		fn edge_case_bond_extra_requested_more_than_balance() {
+			ExtBuilder::default().build_and_execute(|| {
+				let stash = 11u64; // Account 11 is already bonded
+				let extra_requested = 5000u128; // More than available
+
+				// Ensure limited additional balance
+				let current_balance = Balances::free_balance(&stash);
+				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				
+				// Calculate how much is actually available for additional bonding
+				let available_for_extra = current_balance.saturating_sub(initial_ledger.total).saturating_sub(1); // minus ED
+
+				// Clear events
+				frame_system::Pallet::<Test>::reset_events();
+
+				// Bond extra should succeed but only bond what's available
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(stash), extra_requested));
+
+				// Verify actual bonded amount is what was available
+				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				let actual_extra = ledger.total - initial_ledger.total;
+
+				// Should bond min(requested, available)
+				assert!(actual_extra <= available_for_extra);
+				assert!(actual_extra <= extra_requested);
+
+				// Check that the pallet emitted event with actual bonded amount
+				let events = frame_system::Pallet::<Test>::events();
+				assert!(events.iter().any(|e| {
+					matches!(e.event, RuntimeEvent::Staking(StakingEvent::Bonded { stash: 11, amount }) if amount == actual_extra)
+				}), "Expected Bonded event with actual extra amount {}, got events: {:?}", actual_extra, events);
+			});
+		}
+
+		#[test]
+		fn edge_case_bond_zero_amount() {
+			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+				let stash = 202u64;
+				let balance = 1000u128;
+
+				// Give the account balance
+				let _ = Balances::deposit_creating(&stash, balance);
+
+				// Bond zero should fail (below minimum bond)
+				assert!(Staking::bond(RuntimeOrigin::signed(stash), 0, RewardDestination::Staked).is_err());
+			});
+		}
+
+		#[test]
+		fn edge_case_bond_extra_zero_amount() {
+			ExtBuilder::default().build_and_execute(|| {
+				let stash = 11u64; // Account 11 is already bonded
+
+				// Get initial state
+				let initial_ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+
+				// Bond extra zero should still succeed but add nothing
+				assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(stash), 0));
+
+				// Verify nothing changed
+				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				assert_eq!(ledger.total, initial_ledger.total);
+				assert_eq!(ledger.active, initial_ledger.active);
+			});
+		}
+
+		#[test]
+		fn edge_case_bond_with_insufficient_balance_bonds_zero() {
+			ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+				let stash = 203u64;
+				let bond_amount = 1000u128;
+
+				// Give account only existential deposit (insufficient for meaningful bonding)
+				let _ = Balances::deposit_creating(&stash, 1); // Just the ED
+
+				// Clear events
+				frame_system::Pallet::<Test>::reset_events();
+
+				// Bond should succeed but bond zero since free_to_stake returns 0
+				assert_ok!(Staking::bond(RuntimeOrigin::signed(stash), bond_amount, RewardDestination::Staked));
+
+				// Verify zero was bonded (the pallet bonds min(requested, available))
+				let ledger = crate::Ledger::<Test>::get(&stash).unwrap();
+				assert_eq!(ledger.total, 0);
+				assert_eq!(ledger.active, 0);
+
+				// Check that event was emitted with zero amount
+				let events = frame_system::Pallet::<Test>::events();
+				assert!(events.iter().any(|e| {
+					matches!(e.event, RuntimeEvent::Staking(StakingEvent::Bonded { stash: 203, amount }) if amount == 0)
+				}));
 			});
 		}
 	}

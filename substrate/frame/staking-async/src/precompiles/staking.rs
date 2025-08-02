@@ -117,24 +117,49 @@ sol! {
 		//                                   STATE-CHANGING FUNCTIONS
 		// ═══════════════════════════════════════════════════════════════════════════════════════
 
-
 		/**
-		 * @notice Bond tokens to participate in staking
-		 * @dev Creates a new staking ledger or adds to existing one. Requires sufficient free balance.
+		 * @notice Bond tokens to participate in staking with compounding rewards
+		 * @dev Creates a new staking ledger with rewards automatically restaked
 		 * @param value Amount of tokens to bond (in smallest unit)
-		 * @param payee Reward destination: 0=Staked, 1=Stash, 2=Account(caller), 3=None
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits Bonded(stash, actualAmount), creates/updates staking ledger
-		 *   REVERT: If insufficient balance, invalid payee, already bonded, or below minimum bond
+		 *   SUCCESS: Returns true, emits Bonded(stash, requestedAmount), creates staking ledger
+		 *   REVERT: If insufficient balance, already bonded, or below minimum bond
 		 * @custom:requirements
-		 *   - Caller must have sufficient free balance >= value
+		 *   - Caller must have sufficient free balance
 		 *   - Value must meet minimum bond requirements (see minNominatorBond/minValidatorBond)
 		 *   - Account must not already be bonded as stash or controller
-		 *   - Payee must be valid (0-3)
 		 * @custom:events Bonded(address indexed stash, uint256 amount)
+		 * @custom:edge_case 
+		 *   If value > free_balance, only min(value, free_balance) will actually be bonded.
+		 *   The pallet emits its own event with the actual bonded amount.
+		 *   This precompile emits the requested amount for interface consistency.
 		 */
-		function bond(uint256 value, uint8 payee) external returns (bool success);
+		function bond(uint256 value) external returns (bool success);
+
+		/**
+		 * @notice Set reward destination to caller's account
+		 * @dev Changes where staking rewards are sent - to the caller's free balance
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, updates reward destination to Account(caller)
+		 *   REVERT: If no staking ledger exists or account restricted
+		 * @custom:requirements
+		 *   - Caller must have an active staking ledger
+		 */
+		function setPayee() external returns (bool success);
+
+		/**
+		 * @notice Set reward destination to compound (restake automatically)
+		 * @dev Changes where staking rewards are sent - automatically restaked
+		 * @return success Always returns true on successful execution
+		 * @custom:behavior
+		 *   SUCCESS: Returns true, updates reward destination to Staked
+		 *   REVERT: If no staking ledger exists or account restricted
+		 * @custom:requirements
+		 *   - Caller must have an active staking ledger
+		 */
+		function setCompound() external returns (bool success);
 
 		/**
 		 * @notice Add more tokens to an existing bond
@@ -142,12 +167,16 @@ sol! {
 		 * @param maxAdditional Maximum additional tokens to bond (actual amount may be less if insufficient balance)
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits Bonded(stash, actualAmount), increases bonded amount
+		 *   SUCCESS: Returns true, emits Bonded(stash, requestedAmount), increases bonded amount
 		 *   REVERT: If no existing bond, insufficient free balance, or account restricted
 		 * @custom:requirements
 		 *   - Caller must already have an active staking ledger
 		 *   - Caller must have sufficient free balance
 		 * @custom:events Bonded(address indexed stash, uint256 amount)
+		 * @custom:edge_case
+		 *   If maxAdditional > free_balance, only min(maxAdditional, free_balance) will actually be bonded.
+		 *   The pallet emits its own event with the actual bonded amount.
+		 *   This precompile emits the requested amount for interface consistency.
 		 */
 		function bondExtra(uint256 maxAdditional) external returns (bool success);
 
@@ -365,6 +394,8 @@ where
 	) -> Result<Vec<u8>, Error> {
 		match input {
 			IStaking::IStakingCalls::bond(call) => Self::bond(call, env),
+			IStaking::IStakingCalls::setPayee(_) => Self::set_payee(env),
+			IStaking::IStakingCalls::setCompound(_) => Self::set_compound(env),
 			IStaking::IStakingCalls::bondExtra(call) => Self::bond_extra(call, env),
 			IStaking::IStakingCalls::unbond(call) => Self::unbond(call, env),
 			IStaking::IStakingCalls::withdrawUnbonded(call) => Self::withdraw_unbonded(call, env),
@@ -386,7 +417,6 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-const ERR_INVALID_PAYEE: &str = "Invalid payee type";
 const ERR_COMMISSION_TOO_HIGH: &str = "Commission rate too high";
 
 impl<T> StakingPrecompile<T>
@@ -443,26 +473,22 @@ where
 	}
 
 	/// Execute the bond call.
+	/// 
+	/// Note: The pallet internally uses `value.min(stash_balance)` to determine the actual
+	/// bonded amount. The event emitted by the pallet will contain the actual bonded amount,
+	/// not necessarily the requested amount.
 	fn bond(call: &IStaking::bondCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
 		env.charge(<T as crate::Config>::WeightInfo::bond())?;
 
 		let stash = Self::caller(env)?;
 		let value = Self::to_balance(call.value)?;
 
-		// Convert payee type
-		let payee = match call.payee {
-			0 => RewardDestination::Staked,
-			1 => RewardDestination::Stash,
-			2 => RewardDestination::Account(stash.clone()),
-			3 => RewardDestination::None,
-			_ => return Err(Error::Revert(Revert { reason: ERR_INVALID_PAYEE.into() })),
-		};
-
-		// Call pallet function
+		// Call pallet function with compounding rewards (Staked)
+		// Note: Pallet internally handles value.min(stash_balance) logic
 		Pallet::<T>::bond(
 			frame_system::RawOrigin::Signed(stash.clone()).into(),
 			value,
-			payee,
+			RewardDestination::Staked,
 		)
 		.map_err(|e| match e {
 			DispatchError::Other(_) => Error::Revert(Revert { reason: "Bond failed".into() }),
@@ -472,7 +498,8 @@ where
 			_ => Error::Revert(Revert { reason: "Bond failed".into() }),
 		})?;
 
-		// Emit event
+		// Note: We emit the requested amount here, but the pallet's internal event
+		// will emit the actual bonded amount which may be different due to balance constraints
 		Self::deposit_event(
 			env,
 			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
@@ -485,6 +512,10 @@ where
 	}
 
 	/// Execute the bond_extra call.
+	/// 
+	/// Note: The pallet internally uses `max_additional.min(free_balance)` to determine the 
+	/// actual bonded amount. The event emitted by the pallet will contain the actual bonded amount,
+	/// not necessarily the requested maxAdditional amount.
 	fn bond_extra(
 		call: &IStaking::bondExtraCall,
 		env: &mut impl Ext<T = T>,
@@ -495,13 +526,15 @@ where
 		let max_additional = Self::to_balance(call.maxAdditional)?;
 
 		// Call pallet function
+		// Note: Pallet internally handles max_additional.min(free_balance) logic
 		Pallet::<T>::bond_extra(
 			frame_system::RawOrigin::Signed(stash.clone()).into(),
 			max_additional,
 		)
 		.map_err(|_| Error::Revert(Revert { reason: "Bond extra failed".into() }))?;
 
-		// Emit event
+		// Note: We emit the requested amount here, but the pallet's internal event
+		// will emit the actual bonded amount which may be different due to balance constraints
 		Self::deposit_event(
 			env,
 			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
@@ -830,5 +863,37 @@ where
 		let amount = Self::to_u256(min_bond)?;
 
 		Ok(IStaking::minValidatorBondCall::abi_encode_returns(&amount))
+	}
+
+	/// Execute the set_payee call.
+	fn set_payee(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		env.charge(<T as crate::Config>::WeightInfo::set_payee())?;
+
+		let stash = Self::caller(env)?;
+
+		// Call pallet function to set payee to Account(caller)
+		Pallet::<T>::set_payee(
+			frame_system::RawOrigin::Signed(stash.clone()).into(),
+			RewardDestination::Account(stash),
+		)
+		.map_err(|_| Error::Revert(Revert { reason: "Set payee failed".into() }))?;
+
+		Ok(IStaking::setPayeeCall::abi_encode_returns(&true))
+	}
+
+	/// Execute the set_compound call.
+	fn set_compound(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		env.charge(<T as crate::Config>::WeightInfo::set_payee())?;
+
+		let stash = Self::caller(env)?;
+
+		// Call pallet function to set payee to Staked (compound)
+		Pallet::<T>::set_payee(
+			frame_system::RawOrigin::Signed(stash).into(),
+			RewardDestination::Staked,
+		)
+		.map_err(|_| Error::Revert(Revert { reason: "Set compound failed".into() }))?;
+
+		Ok(IStaking::setCompoundCall::abi_encode_returns(&true))
 	}
 }
