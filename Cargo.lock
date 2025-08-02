@@ -1221,7 +1221,6 @@ dependencies = [
  "pallet-authorship",
  "pallet-bags-list",
  "pallet-balances",
- "pallet-bridge-proof-root-sync",
  "pallet-collator-selection",
  "pallet-conviction-voting",
  "pallet-delegated-staking",
@@ -3262,7 +3261,6 @@ dependencies = [
  "frame-support",
  "pallet-assets",
  "pallet-balances",
- "pallet-dday-detection",
  "pallet-message-queue",
  "pallet-treasury",
  "pallet-utility",
@@ -3310,7 +3308,6 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
- "pallet-dday-detection",
  "pallet-dday-voting",
  "pallet-message-queue",
  "pallet-multisig",
@@ -11602,23 +11599,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-bridge-proof-root-sync"
-version = "0.1.0"
-dependencies = [
- "bp-parachains",
- "bp-polkadot-core",
- "bp-runtime",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "tracing",
-]
-
-[[package]]
 name = "pallet-bridge-relayers"
 version = "0.7.0"
 dependencies = [
@@ -11875,18 +11855,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
-]
-
-[[package]]
-name = "pallet-dday-detection"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "polkadot-primitives",
- "scale-info",
 ]
 
 [[package]]

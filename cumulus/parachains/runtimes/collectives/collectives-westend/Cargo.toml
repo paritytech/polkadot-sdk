@@ -35,7 +35,6 @@ pallet-balances = { workspace = true }
 pallet-bridge-proof-root-store = { workspace = true }
 pallet-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
-pallet-dday-detection = { workspace = true }
 pallet-dday-voting = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
@@ -127,7 +126,6 @@ runtime-benchmarks = [
 	"pallet-collective-content/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
-	"pallet-dday-detection/runtime-benchmarks",
 	"pallet-dday-voting/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -174,7 +172,6 @@ try-runtime = [
 	"pallet-collective-content/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-core-fellowship/try-runtime",
-	"pallet-dday-detection/try-runtime",
 	"pallet-dday-voting/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -225,7 +222,6 @@ std = [
 	"pallet-collective-content/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
-	"pallet-dday-detection/std",
 	"pallet-dday-voting/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",

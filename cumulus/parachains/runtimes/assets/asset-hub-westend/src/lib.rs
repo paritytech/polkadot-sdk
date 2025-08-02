@@ -25,7 +25,6 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod bridge_to_ethereum_config;
-mod dday_hook;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -876,7 +875,7 @@ parameter_types! {
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = (dday_hook::DDayHeaderSyncForCollectives,);
+	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
@@ -1344,7 +1343,6 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
-		DDayHook: pallet_bridge_proof_root_sync::<Instance1> = 71,
 
 		// Staking.
 		Staking: pallet_staking_async = 80,

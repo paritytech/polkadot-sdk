@@ -17,7 +17,6 @@ members = [
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/proof-root-store",
-	"bridges/modules/proof-root-sync",
 	"bridges/modules/relayers",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
@@ -360,7 +359,6 @@ members = [
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/dummy-dim",
-	"substrate/frame/dday/detection",
 	"substrate/frame/dday/voting",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
@@ -964,7 +962,6 @@ pallet-bridge-grandpa = { path = "bridges/modules/grandpa", default-features = f
 pallet-bridge-messages = { path = "bridges/modules/messages", default-features = false }
 pallet-bridge-parachains = { path = "bridges/modules/parachains", default-features = false }
 pallet-bridge-proof-root-store = { path = "bridges/modules/proof-root-store", default-features = false }
-pallet-bridge-proof-root-sync = { path = "bridges/modules/proof-root-sync", default-features = false }
 pallet-bridge-relayers = { path = "bridges/modules/relayers", default-features = false }
 pallet-broker = { path = "substrate/frame/broker", default-features = false }
 pallet-child-bounties = { path = "substrate/frame/child-bounties", default-features = false }
@@ -978,7 +975,6 @@ pallet-contracts-proc-macro = { path = "substrate/frame/contracts/proc-macro", d
 pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-features = false }
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
-pallet-dday-detection = { path = "substrate/frame/dday/detection", default-features = false }
 pallet-dday-voting = { path = "substrate/frame/dday/voting", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
