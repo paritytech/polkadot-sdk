@@ -527,7 +527,6 @@ fn transfer_with_dust_works() {
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
 			total_issuance_diff: 1,
 		},
-
 	];
 
 	for TestCase {
