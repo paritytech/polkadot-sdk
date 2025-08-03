@@ -40,9 +40,11 @@ runtime-benchmarks = [
 	"frame/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-nfts/try-runtime",
+	"pallet-balances/try-runtime"
 ]
