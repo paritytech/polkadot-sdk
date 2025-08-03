@@ -25,11 +25,14 @@ use super::{
 	*,
 };
 use crate::dday::prover::AssetHubProver;
-use cumulus_primitives_core::relay_chain::{
-	BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash,
+use cumulus_pallet_parachain_system::OnSystemEvent;
+use cumulus_primitives_core::{
+	relay_chain::{BlockNumber as RelayChainBlockNumber, Hash as RelayChainHash},
+	PersistedValidationData,
 };
 use frame_support::{
 	parameter_types,
+	sp_runtime::BoundedVec,
 	traits::{CallerTrait, ContainsPair, EitherOf, NeverEnsureOrigin},
 };
 pub use origins::pallet_origins as pallet_dday_origins;
@@ -60,6 +63,20 @@ impl pallet_bridge_proof_root_store::Config<DDayProofRootStoreInstance> for Runt
 	/// The Relay Chain storage/state root.
 	type Value = RelayChainHash;
 	type RootsToKeep = ConstU32<1024>;
+}
+
+/// Implementation of `OnSystemEvent` for storing the relay chain state root required for DDay.
+pub struct StoreRelayChainStateRootForDDay;
+impl OnSystemEvent for StoreRelayChainStateRootForDDay {
+	fn on_validation_data(data: &PersistedValidationData) {
+		// TODO: implement here some heuristic to store more headers, for example store only every 100th block.
+		// Store relay chain data.
+		DDayProofRootStore::do_note_new_roots(BoundedVec::truncate_from(vec![(
+			data.relay_parent_number,
+			data.relay_parent_storage_root,
+		)]));
+	}
+	fn on_validation_code_applied() {}
 }
 
 /// Setup voting by AssetHub account proofs.
