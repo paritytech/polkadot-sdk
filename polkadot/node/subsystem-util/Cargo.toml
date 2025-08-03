@@ -54,6 +54,6 @@ parity-db = { workspace = true }
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 kvdb-shared-tests = { workspace = true }
-polkadot-node-subsystem-test-helpers = { path = "../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 tempfile = { workspace = true }

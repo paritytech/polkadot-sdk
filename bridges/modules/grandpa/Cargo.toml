@@ -27,9 +27,9 @@ bp-test-utils = { optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-bp-runtime = { features = ["test-helpers"], path = "../../primitives/runtime", default-features = false }
-sp-core = { default-features = true, path = "../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+bp-runtime = { features = ["test-helpers"], workspace = true, default-features = false }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

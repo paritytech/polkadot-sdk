@@ -28,9 +28,9 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-frame-support-test = { path = "../support/test" }
-pallet-balances = { default-features = true, path = "../balances" }
-sp-crypto-hashing = { default-features = true, path = "../../primitives/crypto/hashing" }
+frame-support-test = { workspace = true }
+pallet-balances = { default-features = true, workspace = true }
+sp-crypto-hashing = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

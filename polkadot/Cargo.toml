@@ -86,8 +86,8 @@ tikv-jemallocator = { workspace = true, features = ["unprefixed_malloc_on_suppor
 [dev-dependencies]
 assert_cmd = { workspace = true }
 nix = { features = ["signal"], workspace = true }
-polkadot-core-primitives = { default-features = true, path = "core-primitives" }
-substrate-rpc-client = { default-features = true, path = "../substrate/utils/frame/rpc/client" }
+polkadot-core-primitives = { default-features = true, workspace = true }
+substrate-rpc-client = { default-features = true, workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, default-features = true }
 

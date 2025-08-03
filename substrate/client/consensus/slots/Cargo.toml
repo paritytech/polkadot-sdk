@@ -46,4 +46,4 @@ sp-state-machine.workspace = true
 sp-state-machine.default-features = true
 
 [dev-dependencies]
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+substrate-test-runtime-client = { workspace = true }

@@ -33,17 +33,17 @@ gum.workspace = true
 gum.default-features = true
 
 [dev-dependencies]
-sc-keystore = { path = "../../../../substrate/client/keystore", default-features = false }
-sp-application-crypto = { default-features = true, path = "../../../../substrate/primitives/application-crypto" }
-sp-authority-discovery = { default-features = true, path = "../../../../substrate/primitives/authority-discovery" }
-sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
+sc-keystore = { workspace = true, default-features = false }
+sp-application-crypto = { default-features = true, workspace = true }
+sp-authority-discovery = { default-features = true, workspace = true }
+sp-core = { features = ["std"], default-features = true, workspace = true }
 
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 
 assert_matches = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
 schnorrkel = { workspace = true }
 # rand_core should match schnorrkel
 rand_core = { workspace = true }
-sp-tracing = { path = "../../../../substrate/primitives/tracing", default-features = false }
+sp-tracing = { workspace = true, default-features = false }
