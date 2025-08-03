@@ -11,12 +11,12 @@ publish = false
 workspace = true
 
 [dependencies]
+cumulus-primitives-core.workspace = true
+emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
+parachains-common.default-features = true
+parachains-common.workspace = true
+penpal-runtime.workspace = true
 sp-core.workspace = true
 sp-keyring.workspace = true
 xcm.workspace = true
-cumulus-primitives-core.workspace = true
-emulated-integration-tests-common.workspace = true
-parachains-common.workspace = true
-parachains-common.default-features = true
-penpal-runtime.workspace = true

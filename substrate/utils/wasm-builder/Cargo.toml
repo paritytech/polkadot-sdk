@@ -22,8 +22,8 @@ filetime = { workspace = true }
 jobserver = { workspace = true }
 parity-wasm = { workspace = true }
 polkavm-linker = { workspace = true }
-sp-maybe-compressed-blob.workspace = true
 sp-maybe-compressed-blob.default-features = true
+sp-maybe-compressed-blob.workspace = true
 strum = { features = ["derive"], workspace = true, default-features = true }
 tempfile = { workspace = true }
 toml = { workspace = true }

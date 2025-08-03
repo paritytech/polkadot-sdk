@@ -36,7 +36,7 @@ path = "src/phragmen_pjr.rs"
 clap = { features = ["derive"], workspace = true }
 honggfuzz = { workspace = true }
 rand = { features = ["small_rng", "std"], workspace = true, default-features = true }
-sp-npos-elections.workspace = true
 sp-npos-elections.default-features = true
-sp-runtime.workspace = true
+sp-npos-elections.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true

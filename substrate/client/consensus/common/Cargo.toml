@@ -21,25 +21,25 @@ futures = { features = ["thread-pool"], workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
 prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
+prometheus-endpoint.workspace = true
 sc-client-api.default-features = true
-sc-network-types.workspace = true
+sc-client-api.workspace = true
 sc-network-types.default-features = true
-sc-utils.workspace = true
+sc-network-types.workspace = true
 sc-utils.default-features = true
+sc-utils.workspace = true
 serde = { features = ["derive"], workspace = true, default-features = true }
-sp-blockchain.workspace = true
 sp-blockchain.default-features = true
-sp-consensus.workspace = true
+sp-blockchain.workspace = true
 sp-consensus.default-features = true
-sp-core.workspace = true
+sp-consensus.workspace = true
 sp-core.default-features = true
-sp-runtime.workspace = true
+sp-core.workspace = true
 sp-runtime.default-features = true
-sp-state-machine.workspace = true
+sp-runtime.workspace = true
 sp-state-machine.default-features = true
+sp-state-machine.workspace = true
 thiserror = { workspace = true }
 
 [dev-dependencies]
