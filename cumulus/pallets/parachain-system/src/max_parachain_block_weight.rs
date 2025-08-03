@@ -38,6 +38,7 @@ use sp_runtime::{
 #[derive(Debug, Encode, Decode, Clone, Copy, TypeInfo)]
 pub enum BlockWeightMode {
 	FullCore,
+	PotentialFullCore { first_transaction_index: u32 },
 	FractionOfCore { first_transaction_index: u32 },
 }
 
@@ -74,13 +75,14 @@ impl MaxParachainBlockWeight {
 
 		match crate::BlockWeightMode::<T>::get() {
 			// We allow the full core.
-			Some(BlockWeightMode::FullCore) => return Self::FULL_CORE_WEIGHT,
+			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
+				return Self::FULL_CORE_WEIGHT,
+			// Let's calculate below how much weight we can use.
+			Some(BlockWeightMode::FractionOfCore { .. }) => (),
 			// Either the runtime is not using the `DynamicMaxBlockWeight` extension or there is
 			// some bug. Because after the inherents are applied, this value should be set by the
 			// extension. To be on the safe side, we allow the full core weight.
 			None => return Self::FULL_CORE_WEIGHT,
-			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::FractionOfCore { .. }) => (),
 		}
 
 		Self::target_block_weight::<T>(target_blocks)
@@ -128,6 +130,102 @@ impl<T, S, TargetBlockRate> DynamicMaxBlockWeight<T, S, TargetBlockRate> {
 	}
 }
 
+impl<T, S, TargetBlockRate> DynamicMaxBlockWeight<T, S, TargetBlockRate>
+where
+	T: Config,
+	TargetBlockRate: Get<u32>,
+{
+	fn pre_dispatch_extrinsic(
+		info: &DispatchInfo,
+		len: usize,
+	) -> Result<(), TransactionValidityError> {
+		let digest = frame_system::Pallet::<T>::digest();
+
+		let is_first_block_on_core =
+			CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0);
+
+		if frame_system::Pallet::<T>::inherents_applied() {
+			let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
+
+			crate::BlockWeightMode::<T>::mutate(|mode| {
+				let current_mode = *mode.get_or_insert_with(|| BlockWeightMode::FractionOfCore {
+					first_transaction_index: extrinsic_index,
+				});
+
+				match current_mode {
+					// We are already allowing the full core, not that much more to do here.
+					BlockWeightMode::FullCore => {},
+					BlockWeightMode::PotentialFullCore { first_transaction_index } |
+					BlockWeightMode::FractionOfCore { first_transaction_index } => {
+						let potential =
+							matches!(current_mode, BlockWeightMode::PotentialFullCore { .. });
+						debug_assert!(
+							!potential,
+							"`PotentialFullCore` should resolve to `FullCore` or `FractionOfCore` after applying a transaction.",
+						);
+
+						if info
+							.total_weight()
+							// The extrinsic lengths counts towards the POV size
+							.saturating_add(Weight::from_parts(0, len as u64))
+							.any_gt(MaxParachainBlockWeight::target_block_weight::<T>(
+								TargetBlockRate::get(),
+							)) && is_first_block_on_core
+						{
+							if extrinsic_index.saturating_sub(first_transaction_index) < 10 {
+								*mode = Some(BlockWeightMode::PotentialFullCore {
+									first_transaction_index,
+								});
+							} else {
+								return Err(InvalidTransaction::ExhaustsResources)
+							}
+						} else if potential {
+							*mode =
+								Some(BlockWeightMode::FractionOfCore { first_transaction_index });
+						}
+					},
+				};
+
+				Ok(())
+			}).map_err(Into::into)
+		} else {
+			Ok(())
+		}
+	}
+
+	fn post_dispatch_extrinsic(info: &DispatchInfo, post_info: &PostDispatchInfo, len: usize) {
+		crate::BlockWeightMode::<T>::mutate(|weight_mode| {
+			let Some(mode) = *weight_mode else { return };
+
+			match mode {
+				// If the previous one was already `FullCore` or `FractionOfCore`, we don't need to
+				// change anything.
+				BlockWeightMode::FullCore | BlockWeightMode::FractionOfCore { .. } => {},
+				// Now we need to check if the transaction required more weight than a fraction of a
+				// core block.
+				BlockWeightMode::PotentialFullCore { first_transaction_index } =>
+					if post_info
+						.calc_actual_weight(info)
+						// The extrinsic lengths counts towards the POV size
+						.saturating_add(Weight::from_parts(0, len as u64))
+						.all_lt(MaxParachainBlockWeight::target_block_weight::<T>(
+							TargetBlockRate::get(),
+						)) {
+						*weight_mode =
+							Some(BlockWeightMode::FractionOfCore { first_transaction_index });
+					} else {
+						*weight_mode = Some(BlockWeightMode::FullCore);
+
+						// Inform the node that this block uses the full core.
+						frame_system::Pallet::<T>::deposit_log(
+							CumulusDigestItem::UseFullCore.to_digest_item(),
+						);
+					},
+			}
+		});
+	}
+}
+
 impl<T, S, TargetBlockRate> From<S> for DynamicMaxBlockWeight<T, S, TargetBlockRate> {
 	fn from(s: S) -> Self {
 		Self::new(s)
@@ -156,7 +254,7 @@ where
 
 	type Val = S::Val;
 
-	type Pre = (Option<(BlockWeightMode, BlockWeightMode)>, S::Pre);
+	type Pre = S::Pre;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
 		self.0.implicit()
@@ -198,50 +296,9 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let digest = frame_system::Pallet::<T>::digest();
+		Self::pre_dispatch_extrinsic(info, len)?;
 
-		let is_first_block_on_core =
-			CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0);
-
-		let mode = if frame_system::Pallet::<T>::inherents_applied() {
-			let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
-
-			crate::BlockWeightMode::<T>::mutate(|mode| {
-				let current_mode = *mode.get_or_insert_with(|| BlockWeightMode::FractionOfCore {
-					first_transaction_index: extrinsic_index,
-				});
-
-				let mut new_mode = current_mode;
-
-				match current_mode {
-					// We are already allowing the full core, not that much more to do here.
-					BlockWeightMode::FullCore => {},
-					BlockWeightMode::FractionOfCore { first_transaction_index } => {
-						if info
-							.total_weight()
-							// The extrinsic lengths counts towards the POV size
-							.saturating_add(Weight::from_parts(0, len as u64))
-							.any_gt(MaxParachainBlockWeight::target_block_weight::<T>(
-								TargetBlockRate::get(),
-							)) && is_first_block_on_core
-						{
-							if extrinsic_index.saturating_sub(first_transaction_index) < 10 {
-								new_mode = BlockWeightMode::FullCore;
-								*mode = Some(new_mode);
-							} else {
-								return Err(InvalidTransaction::ExhaustsResources)
-							}
-						}
-					},
-				};
-
-				Ok(Some((current_mode, new_mode)))
-			})?
-		} else {
-			None
-		};
-
-		self.0.prepare(val, origin, call, info, len).map(|r| (mode, r))
+		self.0.prepare(val, origin, call, info, len)
 	}
 
 	fn post_dispatch(
@@ -251,33 +308,9 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		let (mode, pre) = pre;
 		S::post_dispatch(pre, info, post_info, len, result)?;
 
-		let Some(mode) = mode else { return Ok(()) };
-
-		match mode {
-			// If the previous one was already `FullCore`, we don't need to change anything.
-			(BlockWeightMode::FullCore, _) => {},
-			// If the previous one was a fraction and we gave the transaction a `FullCore` we need
-			// to check if it used it.
-			(prev @ BlockWeightMode::FractionOfCore { .. }, BlockWeightMode::FullCore) =>
-				if post_info
-					.calc_actual_weight(info)
-					// The extrinsic lengths counts towards the POV size
-					.saturating_add(Weight::from_parts(0, len as u64))
-					.all_lt(MaxParachainBlockWeight::target_block_weight::<T>(
-						TargetBlockRate::get(),
-					)) {
-					crate::BlockWeightMode::<T>::put(prev);
-				} else {
-					// Inform the node that this block uses the entire core alone.
-					frame_system::Pallet::<T>::deposit_log(
-						CumulusDigestItem::UseFullCore.to_digest_item(),
-					);
-				},
-			(BlockWeightMode::FractionOfCore { .. }, BlockWeightMode::FractionOfCore { .. }) => (),
-		}
+		Self::post_dispatch_extrinsic(info, post_info, len);
 
 		Ok(())
 	}
@@ -295,7 +328,11 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
-		S::bare_validate_and_prepare(call, info, len)
+		S::bare_validate_and_prepare(call, info, len)?;
+
+		Self::pre_dispatch_extrinsic(info, len)?;
+
+		Ok(())
 	}
 
 	fn bare_post_dispatch(
@@ -304,7 +341,11 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		S::bare_post_dispatch(info, post_info, len, result)
+		S::bare_post_dispatch(info, post_info, len, result)?;
+
+		Self::post_dispatch_extrinsic(info, post_info, len);
+
+		Ok(())
 	}
 }
 
