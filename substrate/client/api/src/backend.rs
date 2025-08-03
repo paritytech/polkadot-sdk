@@ -639,6 +639,12 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 	/// Discard non-best, unfinalized leaf block.
 	fn remove_leaf_block(&self, hash: Block::Hash) -> sp_blockchain::Result<()>;
 
+	/// Store headers and justifications for warp sync proofs.
+	fn store_warp_proofs(
+		&self,
+		proofs: Vec<(Block::Header, Justifications)>,
+	) -> sp_blockchain::Result<()>;
+
 	/// Insert auxiliary data into key-value store.
 	fn insert_aux<
 		'a,

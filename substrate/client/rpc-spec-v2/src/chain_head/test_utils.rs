@@ -289,6 +289,14 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
 		self.client.block_indexed_body(hash)
 	}
+
+	fn store_warp_proofs(
+		&self,
+		proofs: Vec<(Block::Header, Justifications)>,
+	) -> sp_blockchain::Result<()> {
+		self.client.store_warp_proofs(proofs)
+	}
+
 	fn requires_full_sync(&self) -> bool {
 		self.client.requires_full_sync()
 	}

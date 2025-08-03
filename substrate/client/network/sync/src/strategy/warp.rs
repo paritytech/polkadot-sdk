@@ -18,6 +18,7 @@
 
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
+use sc_client_api::BlockBackend;
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
@@ -61,9 +62,9 @@ pub struct WarpProofRequest<B: BlockT> {
 /// Proof verification result.
 pub enum VerificationResult<Block: BlockT> {
 	/// Proof is valid, but the target was not reached.
-	Partial(SetId, AuthorityList, Block::Hash),
+	Partial(SetId, AuthorityList, Block::Hash, Vec<(Block::Header, Justifications)>),
 	/// Target finality is proved.
-	Complete(SetId, AuthorityList, Block::Header),
+	Complete(SetId, AuthorityList, Block::Header, Vec<(Block::Header, Justifications)>),
 }
 
 /// Warp sync backend. Handles retrieving and verifying warp sync proofs.
@@ -220,7 +221,7 @@ pub struct WarpSync<B: BlockT, Client> {
 impl<B, Client> WarpSync<B, Client>
 where
 	B: BlockT,
-	Client: HeaderBackend<B> + 'static,
+	Client: HeaderBackend<B> + BlockBackend<B> + 'static,
 {
 	/// Strategy key used by warp sync.
 	pub const STRATEGY_KEY: StrategyKey = StrategyKey::new("Warp");
@@ -409,14 +410,17 @@ where
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash)) => {
+			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash, proofs)) => {
 				log::debug!(target: LOG_TARGET, "Verified partial proof, set_id={:?}", new_set_id);
 				*set_id = new_set_id;
 				*authorities = new_authorities;
 				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
+				if let Err(e) = self.client.store_warp_proofs(proofs) {
+					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
+				}
 			},
-			Ok(VerificationResult::Complete(new_set_id, _, header)) => {
+			Ok(VerificationResult::Complete(new_set_id, _, header, proofs)) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Verified complete proof, set_id={:?}. Continuing with target block download: {} ({}).",
@@ -426,6 +430,9 @@ where
 				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
+				if let Err(e) = self.client.store_warp_proofs(proofs) {
+					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
+				}
 			},
 		}
 	}
@@ -746,7 +753,10 @@ mod test {
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
 	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_core::H256;
-	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
+	use sp_runtime::{
+		generic::SignedBlock,
+		traits::{Block as BlockT, Header as HeaderT, NumberFor},
+	};
 	use std::{io::ErrorKind, sync::Arc};
 	use substrate_test_runtime_client::{
 		runtime::{Block, Hash},
@@ -765,6 +775,24 @@ mod test {
 				hash: B::Hash,
 			) -> Result<Option<<<B as BlockT>::Header as HeaderT>::Number>, BlockchainError>;
 			fn hash(&self, number: NumberFor<B>) -> Result<Option<B::Hash>, BlockchainError>;
+		}
+
+		impl<B: BlockT> BlockBackend<B> for Client<B> {
+			fn block_body(
+				&self,
+				hash: B::Hash,
+			) -> sp_blockchain::Result<Option<Vec<<B as BlockT>::Extrinsic>>>;
+			fn block_indexed_body(&self, hash: B::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>>;
+			fn block(&self, hash: B::Hash) -> sp_blockchain::Result<Option<SignedBlock<B>>>;
+			fn block_status(&self, hash: B::Hash) -> sp_blockchain::Result<sp_consensus::BlockStatus>;
+			fn justifications(&self, hash: B::Hash) -> sp_blockchain::Result<Option<Justifications>>;
+			fn block_hash(&self, number: NumberFor<B>) -> sp_blockchain::Result<Option<B::Hash>>;
+			fn indexed_transaction(&self, hash: B::Hash) -> sp_blockchain::Result<Option<Vec<u8>>>;
+			fn store_warp_proofs(
+				&self,
+				proofs: Vec<(B::Header, Justifications)>,
+			) -> sp_blockchain::Result<()>;
+			fn requires_full_sync(&self) -> bool;
 		}
 	}
 
@@ -1238,7 +1266,7 @@ mod test {
 			.return_const(AuthorityList::default());
 		// Warp proof is partial.
 		provider.expect_verify().return_once(|_proof, set_id, authorities| {
-			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
+			Ok(VerificationResult::Partial(set_id, authorities, Hash::random(), Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
@@ -1290,7 +1318,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
@@ -1372,7 +1400,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1446,7 +1474,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1485,7 +1513,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1540,7 +1568,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1618,7 +1646,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1672,7 +1700,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =

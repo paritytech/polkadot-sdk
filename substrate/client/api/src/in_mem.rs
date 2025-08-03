@@ -780,6 +780,13 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		let mut blocks = self.pinned_blocks.write();
 		blocks.entry(hash).and_modify(|counter| *counter -= 1).or_insert(-1);
 	}
+
+	fn store_warp_proofs(
+		&self,
+		_proofs: Vec<(Block::Header, Justifications)>,
+	) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
 }
 
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
