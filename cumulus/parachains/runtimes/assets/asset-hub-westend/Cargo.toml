@@ -18,20 +18,20 @@ frame-election-provider-support.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-support.workspace = true
+frame-system.workspace = true
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-system-rpc-runtime-api.workspace = true
-frame-system.workspace = true
 frame-try-runtime = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }
 pallet-ah-ops.workspace = true
+pallet-asset-conversion.workspace = true
 pallet-asset-conversion-ops.workspace = true
 pallet-asset-conversion-tx-payment.workspace = true
-pallet-asset-conversion.workspace = true
 pallet-asset-rate.workspace = true
 pallet-asset-rewards.workspace = true
-pallet-assets-freezer.workspace = true
 pallet-assets.workspace = true
+pallet-assets-freezer.workspace = true
 pallet-aura.workspace = true
 pallet-authorship.workspace = true
 pallet-bags-list.workspace = true
@@ -44,25 +44,25 @@ pallet-indices.workspace = true
 pallet-migrations.workspace = true
 pallet-multisig.workspace = true
 pallet-nft-fractionalization.workspace = true
-pallet-nfts-runtime-api.workspace = true
 pallet-nfts.workspace = true
-pallet-nomination-pools-runtime-api.workspace = true
+pallet-nfts-runtime-api.workspace = true
 pallet-nomination-pools.workspace = true
+pallet-nomination-pools-runtime-api.workspace = true
 pallet-preimage.workspace = true
 pallet-proxy.workspace = true
 pallet-referenda.workspace = true
 pallet-revive.workspace = true
 pallet-scheduler.workspace = true
 pallet-session.workspace = true
-pallet-staking-async-rc-client.workspace = true
-pallet-staking-async.workspace = true
-pallet-staking-runtime-api.workspace = true
 pallet-staking.workspace = true
+pallet-staking-async.workspace = true
+pallet-staking-async-rc-client.workspace = true
+pallet-staking-runtime-api.workspace = true
 pallet-state-trie-migration.workspace = true
 pallet-sudo.workspace = true
 pallet-timestamp.workspace = true
-pallet-transaction-payment-rpc-runtime-api.workspace = true
 pallet-transaction-payment.workspace = true
+pallet-transaction-payment-rpc-runtime-api.workspace = true
 pallet-treasury.workspace = true
 pallet-uniques.workspace = true
 pallet-utility.workspace = true
@@ -106,9 +106,9 @@ cumulus-primitives-core.workspace = true
 cumulus-primitives-utility.workspace = true
 pallet-collator-selection.workspace = true
 pallet-message-queue.workspace = true
+pallet-xcm.workspace = true
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 pallet-xcm-bridge-hub-router.workspace = true
-pallet-xcm.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 polkadot-parachain-primitives.workspace = true
@@ -119,10 +119,10 @@ snowbridge-pallet-system-frontend.workspace = true
 snowbridge-runtime-common.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 westend-runtime-constants.workspace = true
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
-xcm.workspace = true
 
 [dev-dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }

@@ -31,10 +31,10 @@ prometheus-endpoint.workspace = true
 rlp = { workspace = true }
 sc-cli.default-features = true
 sc-cli.workspace = true
-sc-rpc-api.default-features = true
-sc-rpc-api.workspace = true
 sc-rpc.default-features = true
 sc-rpc.workspace = true
+sc-rpc-api.default-features = true
+sc-rpc-api.workspace = true
 sc-service.default-features = true
 sc-service.workspace = true
 serde_json = { workspace = true }
