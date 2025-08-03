@@ -22669,6 +22669,7 @@ dependencies = [
 name = "sp-io"
 version = "30.0.0"
 dependencies = [
+ "anyhow",
  "byte-slice-cast",
  "bytes",
  "docify",
