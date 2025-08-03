@@ -1,0 +1,24 @@
+title: 'feat(warp sync): store headers and justifications during warp sync'
+doc:
+- audience: Node Operator
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/2738.
+
+    Still need to add tests for this - but I think the easiest way might be after the zombienet tests are converted to Rust, in the warp sync test maybe we can just request the headers (and justifications?) from JSON-RPC? Though I'm not sure there is an API for the justifications. But in any case we can in theory make a P2P justifications request as well and the node should be able to respond. Let me know if anybody has some better ideas.
+crates:
+- name: cumulus-client-pov-recovery
+  bump: patch
+- name: sc-client-api
+  bump: patch
+- name: sc-consensus-grandpa
+  bump: patch
+- name: sc-client-db
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: sp-runtime
+  bump: patch
