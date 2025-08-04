@@ -2198,9 +2198,9 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			use testnet_parachains_constants::westend::locations::{PeopleParaId, PeopleLocation};
 
-      use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
+	  use pallet_nomination_pools_benchmarking::Pallet as NominationPoolsBench;
 			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
-      
+
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
 					WestendLocation::get(),
