@@ -241,9 +241,15 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
+		// TODO I wonder if this is it. I should probably add some logging here
+		log::info!("XXX Importing {} blocks from {:?} origin", blocks.len(), origin);
+		if let Some(block) = blocks.first() {
+			log::info!("XXX Importing first block {:?}", block.hash)
+		}
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 
+		log::info!("XXX Calling blocks_processed");
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);
 	}
 }
