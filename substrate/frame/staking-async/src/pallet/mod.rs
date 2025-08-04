@@ -64,7 +64,10 @@ mod impls;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus, UnbondingQueueConfig};
+	use crate::{
+		session_rotation, session_rotation::Eras, PagedExposureMetadata, SnapshotStatus,
+		UnbondingQueueConfig,
+	};
 	use codec::HasCompact;
 	use core::ops::Deref;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -833,7 +836,7 @@ pub mod pallet {
 
 	/// The amount of stake that started unbonding in a given era.
 	#[pallet::storage]
-	pub type TotalUnbondInEra<T: Config> =
+	pub type ErasTotalUnbond<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
 
 	/// Parameters for the unbonding queue mechanism.
@@ -1539,7 +1542,7 @@ pub mod pallet {
 
 				let current_era = session_rotation::Rotator::<T>::active_era();
 				let previous_unbonded_stake =
-					TotalUnbondInEra::<T>::get(current_era).unwrap_or(Zero::zero());
+					session_rotation::Eras::<T>::get_total_unbond_for_era(current_era);
 
 				if let Some(chunk) =
 					ledger.unlocking.last_mut().filter(|chunk| chunk.era == current_era)
@@ -1557,7 +1560,7 @@ pub mod pallet {
 				};
 				let new_total_unbond_in_era =
 					previous_unbonded_stake.defensive_saturating_add(value);
-				TotalUnbondInEra::<T>::set(current_era, Some(new_total_unbond_in_era));
+				Eras::<T>::set_total_unbond_for_era(current_era, new_total_unbond_in_era);
 
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 				ledger.update()?;

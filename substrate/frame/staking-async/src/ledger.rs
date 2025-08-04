@@ -32,8 +32,8 @@
 //! state consistency.
 
 use crate::{
-	asset, log, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error, Ledger, Pallet, Payee,
-	RewardDestination, TotalUnbondInEra, Vec, VirtualStakers,
+	asset, log, session_rotation::Eras, BalanceOf, Bonded, Config, DecodeWithMemTracking,
+	ErasTotalUnbond, Error, Ledger, Pallet, Payee, RewardDestination, Vec, VirtualStakers,
 };
 use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
@@ -377,14 +377,9 @@ impl<T: Config> StakingLedger<T> {
 
 		while let Some(last) = self.unlocking.last_mut() {
 			if unlocking_balance.defensive_saturating_add(last.value) <= value {
-				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
-					if let Some(unbond) = maybe_unbond {
-						unbond.saturating_reduce(last.value);
-						if unbond.is_zero() {
-							*maybe_unbond = None;
-						}
-					}
-				});
+				let unbond =
+					Eras::<T>::get_total_unbond_for_era(last.era).saturating_sub(last.value);
+				Eras::<T>::set_total_unbond_for_era(last.era, unbond);
 				unlocking_balance += last.value;
 				self.active += last.value;
 				self.unlocking.pop();
@@ -394,14 +389,8 @@ impl<T: Config> StakingLedger<T> {
 				unlocking_balance += diff;
 				self.active += diff;
 				last.value -= diff;
-				TotalUnbondInEra::<T>::mutate_exists(last.era, |maybe_unbond| {
-					if let Some(unbond) = maybe_unbond {
-						unbond.saturating_reduce(diff);
-						if unbond.is_zero() {
-							*maybe_unbond = None;
-						}
-					}
-				});
+				let unbond = Eras::<T>::get_total_unbond_for_era(last.era).saturating_sub(diff);
+				Eras::<T>::set_total_unbond_for_era(last.era, unbond);
 			}
 
 			if unlocking_balance >= value {

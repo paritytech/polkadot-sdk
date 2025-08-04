@@ -991,7 +991,7 @@ impl<T: Config> Pallet<T> {
 				let mut total_unbond = BalanceOf::<T>::zero();
 
 				for era in (earliest_considered_era..=chunk.era).rev() {
-					let era_total_amount = TotalUnbondInEra::<T>::get(era).unwrap_or(Zero::zero());
+					let era_total_amount = Eras::<T>::get_total_unbond_for_era(era);
 					let unbond = if era == chunk.era {
 						era_total_amount.min(
 							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),

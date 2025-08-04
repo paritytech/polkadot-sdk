@@ -385,6 +385,22 @@ impl<T: Config> Eras<T> {
 	pub(crate) fn clean_up_lowest_stake(era: EraIndex) {
 		ErasLowestRatioTotalStake::<T>::remove(era);
 	}
+
+	pub(crate) fn get_total_unbond_for_era(era: EraIndex) -> BalanceOf<T> {
+		ErasTotalUnbond::<T>::get(era).unwrap_or(Zero::zero())
+	}
+
+	pub(crate) fn set_total_unbond_for_era(era: EraIndex, value: BalanceOf<T>) {
+		if value.is_zero() {
+			Self::remove_total_unbond_for_era(era);
+		} else {
+			ErasTotalUnbond::<T>::insert(era, value);
+		}
+	}
+
+	pub(crate) fn remove_total_unbond_for_era(era: EraIndex) {
+		ErasTotalUnbond::<T>::remove(era);
+	}
 }
 
 #[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
@@ -823,7 +839,7 @@ impl<T: Config> Rotator<T> {
 		let diff = T::BondingDuration::get();
 		if starting_era >= diff {
 			let target_era = starting_era - diff;
-			TotalUnbondInEra::<T>::remove(target_era);
+			Eras::<T>::remove_total_unbond_for_era(target_era);
 			Eras::<T>::clean_up_lowest_stake(target_era);
 		}
 

@@ -22,7 +22,7 @@ doc:
       - `lowest_ratio`: The proportion of the lowest-backed validator set.
       - `unbond_period_lower_bound`: Minimum unbonding time in eras.
     - `ErasLowestRatioTotalStake`: Tracks the lowest stake proportion among validators in each era.
-    - `TotalUnbondInEra`: Tracks the stake that started unbonding in a given era.
+    - `ErasTotalUnbond`: Tracks the stake that started unbonding in a given era.
     - `Ledger`: Added `previous_unbonded_stake` to track the accumulated stake to be unbonded at the time a given unlock chunk was created.
 
     ### View functions:
