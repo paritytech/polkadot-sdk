@@ -66,6 +66,8 @@ where
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
+	
+	println!("evm.rs::call()");
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
@@ -95,9 +97,11 @@ fn run<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 ) -> InterpreterResult {
+	println!("evm.rs::run()");
 	let host = &mut DummyHost {};
 	loop {
 		let action = interpreter.run_plain(table, host);
+		println!("evm.rs::run() - action: {:?}", action);
 		match action {
 			InterpreterAction::Return(result) => return result,
 			InterpreterAction::NewFrame(_) => unimplemented!(),

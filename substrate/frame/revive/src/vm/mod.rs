@@ -282,6 +282,7 @@ where
 			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
 			let inputs = EVMInputs::new(input_data);
+			println!("Inputs: {:?}", inputs);
 			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
 			evm::call(bytecode, ext, inputs)
 		} else {

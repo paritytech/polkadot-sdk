@@ -155,7 +155,6 @@ fn extcodesize_works() {
 fn extcodehash_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        
 
 		ExtBuilder::default().build().execute_with(|| {
 
@@ -163,6 +162,13 @@ fn extcodehash_works() {
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
+
+            {
+                let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
+
+                <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000);
+            }
             
             let expected_code_hash = {
                 let contract_info = test_utils::get_contract(&addr);
@@ -187,5 +193,64 @@ fn extcodehash_works() {
                 );
             }
 		});
+    }
+}
+
+#[test]
+#[ignore]
+fn extcodecopy_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+        todo!("implement this test");
+    }
+}
+
+#[test]
+fn blockhash_works() {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+        
+        ExtBuilder::default().build().execute_with(|| {
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            println!("addr: {:?}", addr);
+            
+            let expected_code_hash = {
+                let contract_info = test_utils::get_contract(&addr);
+                contract_info.code_hash
+            };
+
+            {
+                let block_hash = [1; 32];
+                frame_system::BlockHash::<Test>::insert(
+                    &crate::BlockNumberFor::<Test>::from(0u32),
+                    <Test as frame_system::Config>::Hash::from(&block_hash),
+                );
+                let current_block = frame_system::Pallet::<Test>::block_number();
+                println!("current_block: {:?}", current_block);
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::blockhash(Host::blockhashCall { blockNumber: U256::from(0u128) })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                println!("result: {:?}", result);
+                
+                let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+                let result_hash = H256::from(result_hash.to_be_bytes());
+
+                println!("Result code hash: {:?}", result_hash);
+
+                assert_eq!(
+                    expected_code_hash,
+                    result_hash,
+                    "EXTCODEHASH should return the code hash for {:?}", fixture_type
+                );
+            }
+		});
+        break;
     }
 }

@@ -114,18 +114,30 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Gets the hash of one of the 256 most recent complete blocks.
 pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, gas::BLOCKHASH);
+	println!(">>>>>>>> blockhash");
+	// gas!(context.interpreter, RuntimeCosts::BlockHash);
 	popn_top!([], number, context.interpreter);
 
-	let requested_number = *number;
-	let block_number = context.host.block_number();
+	let requested_number = {
+		let bytes = number.to_be_bytes::<32>();
+		sp_core::U256::from_big_endian(&bytes)
+	};
+
+	let block_number = context.interpreter.extend.block_number();
+	println!("block_number: {:?}", block_number);
+	println!("requested_number: {:?}", requested_number);
 
 	let Some(diff) = block_number.checked_sub(requested_number) else {
 		*number = U256::ZERO;
 		return;
 	};
 
-	let diff = as_u64_saturated!(diff);
+	// let diff = as_u64_saturated!(diff);
+	let diff = if diff > sp_core::U256::from(u64::MAX) {
+    	u64::MAX
+	} else {
+		diff.low_u64()
+	};
 
 	// blockhash should push zero if number is same as current block number.
 	if diff == 0 {
@@ -134,7 +146,7 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	}
 
 	*number = if diff <= BLOCK_HASH_HISTORY {
-		let Some(hash) = context.host.block_hash(as_u64_saturated!(requested_number)) else {
+		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
 			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		};
