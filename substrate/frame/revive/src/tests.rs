@@ -518,6 +518,15 @@ fn transfer_with_dust_works() {
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
+		TestCase {
+			description: "receiver dust less than 1 plank",
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
+			total_issuance_diff: 1,
+		},
 	];
 
 	for TestCase {
