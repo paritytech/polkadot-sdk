@@ -979,11 +979,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters [first: {:?}, last: {:?}]",
 			page,
 			status,
 			bounds,
 			voters.len(),
+			voters.first().map(|(x, y, _)| (x, y)),
+			voters.last().map(|(x, y, _)| (x, y)),
 		);
 
 		match status {
@@ -1014,8 +1016,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		let targets = Self::get_npos_targets(bounds);
-		// We can't handle this case yet -- return an error. WIP to improve handling this case in
-		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
 			return Err("Target snapshot too big")
 		}

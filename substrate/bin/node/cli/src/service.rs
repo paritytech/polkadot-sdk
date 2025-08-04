@@ -1012,11 +1012,15 @@ mod tests {
 				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(babe_pre_digest));
 
 				let new_block = futures::executor::block_on(async move {
-					let proposer = proposer_factory.init(&parent_header).await;
-					proposer
-						.unwrap()
-						.propose(inherent_data, digest, std::time::Duration::from_secs(1), None)
-						.await
+					let proposer = proposer_factory.init(&parent_header).await.unwrap();
+					Proposer::propose(
+						proposer,
+						inherent_data,
+						digest,
+						std::time::Duration::from_secs(1),
+						None,
+					)
+					.await
 				})
 				.expect("Error making test block")
 				.block;

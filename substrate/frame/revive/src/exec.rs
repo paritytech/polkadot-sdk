@@ -1129,7 +1129,7 @@ where
 				let origin = &self.origin.account_id()?;
 
 				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
+				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
 				if self.skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
@@ -1379,41 +1379,36 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-	) -> ExecResult {
+	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
 			to: &AccountIdOf<T>,
 			value: BalanceWithDust<BalanceOf<T>>,
-		) -> Result<(), ExecError> {
+		) -> DispatchResult {
 			let (value, dust) = value.deconstruct();
 
 			fn transfer_balance<T: Config>(
 				from: &AccountIdOf<T>,
 				to: &AccountIdOf<T>,
 				value: BalanceOf<T>,
-			) -> Result<(), ExecError> {
+			) -> DispatchResult {
 				T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|err| {
 					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					ExecError::from(Error::<T>::TransferFailed)
+					Error::<T>::TransferFailed
 				})?;
-				return Ok(())
+				Ok(())
 			}
 
 			fn transfer_dust<T: Config>(
 				from: &mut AccountInfo<T>,
 				to: &mut AccountInfo<T>,
 				dust: u32,
-			) -> Result<(), ExecError> {
-				from.dust = from
-					.dust
-					.checked_sub(dust)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-				to.dust = to
-					.dust
-					.checked_add(dust)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-				Ok::<(), ExecError>(())
+			) -> DispatchResult {
+				from.dust =
+					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				Ok(())
 			}
 
 			if dust.is_zero() {
@@ -1438,13 +1433,11 @@ where
 				)
 				.map_err(|err| {
 					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-					ExecError::from(Error::<T>::TransferFailed)
+					Error::<T>::TransferFailed
 				})?;
 
-				from_info.dust = from_info
-					.dust
-					.checked_add(plank)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				from_info.dust =
+					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 			}
 
 			transfer_balance::<T>(from, to, value)?;
@@ -1452,10 +1445,8 @@ where
 
 			if to_info.dust.saturating_add(dust) >= plank {
 				T::Currency::mint_into(to, 1u32.into())?;
-				to_info.dust = to_info
-					.dust
-					.checked_sub(plank)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				to_info.dust =
+					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 			}
 
 			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
@@ -1466,26 +1457,25 @@ where
 
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
-			return Ok(Default::default());
+			return Ok(());
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value).map(|_| Default::default())
+			return transfer_with_dust::<T>(from, to, value)
 		}
 
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
-		with_transaction(|| -> TransactionOutcome<ExecResult> {
-			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+		with_transaction(|| -> TransactionOutcome<DispatchResult> {
+			match storage_meter
+				.record_charge(&StorageDeposit::Charge(ed))
+				.and_then(|_| {
+					T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
-				Ok(_) => {
-					// ed is taken from the transaction signer so it should be
-					// limited by the storage deposit
-					storage_meter.record_charge(&StorageDeposit::Charge(ed));
-					TransactionOutcome::Commit(Ok(Default::default()))
-				},
+				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
@@ -1507,6 +1497,8 @@ where
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
 		Self::transfer(origin, from, to, value, storage_meter)
+			.map(|_| Default::default())
+			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
