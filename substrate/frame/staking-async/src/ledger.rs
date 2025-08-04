@@ -32,8 +32,8 @@
 //! state consistency.
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Bonded, Config, DecodeWithMemTracking,
-	ErasTotalUnbond, Error, Ledger, Pallet, Payee, RewardDestination, Vec, VirtualStakers,
+	asset, log, session_rotation::Eras, BalanceOf, Bonded, Config, DecodeWithMemTracking, Error,
+	Ledger, Pallet, Payee, RewardDestination, Vec, VirtualStakers,
 };
 use alloc::{collections::BTreeMap, fmt::Debug};
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};

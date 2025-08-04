@@ -387,7 +387,7 @@ impl<T: Config> Eras<T> {
 	}
 
 	pub(crate) fn get_total_unbond_for_era(era: EraIndex) -> BalanceOf<T> {
-		ErasTotalUnbond::<T>::get(era).unwrap_or(Zero::zero())
+		ErasTotalUnbond::<T>::get(era)
 	}
 
 	pub(crate) fn set_total_unbond_for_era(era: EraIndex, value: BalanceOf<T>) {

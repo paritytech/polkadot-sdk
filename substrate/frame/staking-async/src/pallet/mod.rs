@@ -837,7 +837,7 @@ pub mod pallet {
 	/// The amount of stake that started unbonding in a given era.
 	#[pallet::storage]
 	pub type ErasTotalUnbond<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Parameters for the unbonding queue mechanism.
 	#[pallet::storage]
