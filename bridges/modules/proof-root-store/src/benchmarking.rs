@@ -37,12 +37,11 @@ mod benchmarks {
 
 	#[benchmark]
 	fn note_new_roots() {
-		let roots_to_keep = MaybeRootsToKeep::<T, I>::get().iter().count();
 		let mut roots_store: BoundedVec<(T::Key, T::Value), T::RootsToKeep> = BoundedVec::new();
 
 		// create data
-		for id in 0..roots_to_keep {
-			let (key, value) = T::BenchmarkHelper::create_key_value_for(id.try_into().unwrap());
+		for id in 0..T::RootsToKeep {
+			let (key, value) = T::BenchmarkHelper::create_key_value_for(id);
 			let _ = roots_store.try_push((key, value));
 		}
 

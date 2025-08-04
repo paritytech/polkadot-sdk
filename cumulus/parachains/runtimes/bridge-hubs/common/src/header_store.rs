@@ -15,8 +15,6 @@
 
 //! Various predefined implementations supporting header storage on AssetHub
 
-use bp_polkadot_core::parachains::ParaHash;
-use bp_runtime::Parachain;
 
 pub struct StoreParaHeadersFor<T, I, Chain, Sender, Message>(
 	core::marker::PhantomData<(T, I, Chain, Sender, Message)>,
