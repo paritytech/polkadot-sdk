@@ -351,8 +351,9 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Remove entries from `unlocking` that are sufficiently old and reduce the
 	/// total by the sum of their balances.
-	pub(crate) fn consolidate_unlocked(self) -> Self {
-		let ((_, free), chunks) = Pallet::<T>::curate_unlocking_chunks(self.stash.clone());
+	pub(crate) fn consolidate_unlocked(self, current_era: EraIndex) -> Self {
+		let ((_, free), chunks) =
+			Pallet::<T>::curate_unlocking_chunks(self.stash.clone(), current_era);
 		let unlocking: Vec<_> = chunks.into_values().collect();
 		Self {
 			stash: self.stash,

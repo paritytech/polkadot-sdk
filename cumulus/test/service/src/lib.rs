@@ -34,7 +34,6 @@ use cumulus_client_consensus_aura::{
 	},
 	ImportQueueParams,
 };
-use cumulus_client_consensus_proposer::Proposer;
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -474,14 +473,13 @@ where
 			})
 			.await;
 		} else {
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+			let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				None,
 			);
-			let proposer = Proposer::new(proposer_factory);
 
 			let collator_service = CollatorService::new(
 				client.clone(),
@@ -842,6 +840,7 @@ pub fn node_config(
 		Some(para_id),
 		endowed_accounts,
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+		None,
 	));
 
 	let mut storage = spec.as_storage_builder().build_storage().expect("could not build storage");

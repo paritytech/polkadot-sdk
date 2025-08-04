@@ -487,7 +487,7 @@ pub struct ClaimQueueOffset(pub u8);
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum UMPSignal {
 	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
@@ -594,9 +594,14 @@ pub enum CommittedCandidateReceiptError {
 	/// The core index in commitments doesn't match the one in descriptor
 	#[cfg_attr(
 		feature = "std",
-		error("The core index in commitments doesn't match the one in descriptor")
+		error("The core index in commitments ({commitments:?}) doesn't match the one in descriptor ({descriptor:?})")
 	)]
-	CoreIndexMismatch,
+	CoreIndexMismatch {
+		/// The core index as found in the descriptor.
+		descriptor: CoreIndex,
+		/// The core index as found in the commitments.
+		commitments: CoreIndex,
+	},
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
@@ -787,7 +792,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.copied()?;
 
 		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+				descriptor: descriptor_core_index,
+				commitments: core_index,
+			})
 		}
 
 		Ok(())
@@ -1368,7 +1376,10 @@ mod candidate_receipt_tests {
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+					descriptor: CoreIndex(1),
+					commitments: CoreIndex(0),
+				})
 			);
 		}
 

@@ -200,7 +200,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 #[test]
 fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_queue() {
 	ExtBuilder::default().has_unbonding_queue_config(true).build_and_execute(|| {
-		// Start at era 1 with known minimum lowest stake
+		// Start at era 10 with known minimum lowest stake
 		Session::roll_until_active_era(10);
 		let current_era = Staking::current_era();
 		assert_eq!(current_era, 10);
