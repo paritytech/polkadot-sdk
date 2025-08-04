@@ -594,7 +594,7 @@ pub enum CommittedCandidateReceiptError {
 	/// The core index in commitments doesn't match the one in descriptor
 	#[cfg_attr(
 		feature = "std",
-		error("The core index in commitments (:commitments?) doesn't match the one in descriptor (:descriptor?)")
+		error("The core index in commitments ({commitments:?}) doesn't match the one in descriptor ({descriptor:?})")
 	)]
 	CoreIndexMismatch {
 		/// The core index as found in the descriptor.

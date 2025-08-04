@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `xcm-emulator`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `xcm-emulator`
+    by providing structured logging.
+crates:
+- name: xcm-emulator
+  bump: minor
