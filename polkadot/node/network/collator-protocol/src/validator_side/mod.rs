@@ -29,7 +29,7 @@ use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
 	self as net_protocol,
-	peer_set::{CollationVersion, PeerSet},
+	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
 	request_response::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
@@ -1424,6 +1424,25 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
+
+			// Since the AssetHub system parachain is very important for the operation of the
+			// relay chain we need to ensure that we always accept connections from the invulnerable
+			// AssetHub collators.
+			// However there is a connection limit in `polkadot-node-network-protocol` of the number
+			// of peers which can connect to an authority node. Once this limit is reached all new
+			// connections are dropped.
+			// This means we need to be extra careful when accepting connections from new collators.
+			// If we are at the point where there are not enough slots for
+			// invulnerable AssetHub collators we need to drop new connections.
+			if !can_accept_new_collator_connection(
+				&peer_id,
+				&state.peer_data,
+				&state.ah_invulnerables,
+			) {
+				disconnect_peer(ctx.sender(), peer_id).await;
+				return Ok(())
+			}
+
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
 				state: PeerState::Connected(Instant::now()),
@@ -2261,4 +2280,32 @@ fn descriptor_version_sanity_check(
 		},
 		descriptor_version => Err(SecondingError::InvalidReceiptVersion(descriptor_version)),
 	}
+}
+
+// Checks that there are enough free connection slots for AssetHub invulnerable collators.
+fn can_accept_new_collator_connection(
+	new_peer_id: &PeerId,
+	currently_connected: &HashMap<PeerId, PeerData>,
+	ah_invulnerables: &HashSet<PeerId>,
+) -> bool {
+	if ah_invulnerables.contains(new_peer_id) {
+		// If the new peer is AH invulnerable, we always accept it.
+		return true;
+	}
+
+	// We want to keep some space for new connections. If we use the whole limit we could end up in
+	// the case when a collator keeps on making a connection requests and with some luck (or
+	// something else I don't anticipate right now) it keeps on connecting before the other peers
+	// and thus blocking AssetHub invulnerables from connecting.
+	let max_accepted_connections = MAX_AUTHORITY_INCOMING_STREAMS as usize - 10;
+	let ah_invulnerables_connected = currently_connected
+		.keys()
+		.filter(|peer_id| ah_invulnerables.contains(peer_id))
+		.count();
+
+	// Reserve space for any unconnected AH invulnerable which might want to connect to us.
+	let connection_limit =
+		max_accepted_connections - ah_invulnerables.len() + ah_invulnerables_connected;
+
+	currently_connected.len() >= connection_limit
 }
