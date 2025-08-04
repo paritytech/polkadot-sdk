@@ -442,16 +442,6 @@ pub trait AncestryHelper<Header: HeaderT> {
 	/// The data needed for validating the proof.
 	type ValidationContext;
 
-	#[deprecated(
-		note = "generate_proof will be removed some time after September 2025. Use mmr::MmrAPI::generate_ancestry_proof instead"
-	)]
-	/// Generates a proof that the `prev_block_number` is part of the canonical chain at
-	/// `best_known_block_number`.
-	fn generate_proof(
-		prev_block_number: Header::Number,
-		best_known_block_number: Option<Header::Number>,
-	) -> Option<Self::Proof>;
-
 	/// Check if the proof is optimal.
 	fn is_proof_optimal(proof: &Self::Proof) -> bool;
 

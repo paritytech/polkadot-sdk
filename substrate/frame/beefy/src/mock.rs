@@ -120,14 +120,6 @@ impl<Header: HeaderT> AncestryHelper<Header> for MockAncestryHelper {
 	type Proof = MockAncestryProof;
 	type ValidationContext = MockAncestryProofContext;
 
-	// TODO: Remove once sp_consensus_beefy::BeefyAPI::generate_ancestry_proof is removed.
-	fn generate_proof(
-		_prev_block_number: Header::Number,
-		_best_known_block_number: Option<Header::Number>,
-	) -> Option<Self::Proof> {
-		unimplemented!()
-	}
-
 	fn is_proof_optimal(proof: &Self::Proof) -> bool {
 		proof.is_optimal
 	}
