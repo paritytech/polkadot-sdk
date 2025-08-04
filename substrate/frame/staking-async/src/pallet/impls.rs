@@ -966,7 +966,7 @@ impl<T: Config> Pallet<T> {
 		stash: T::AccountId,
 		last_offence_era: EraIndex,
 	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
-		let current_era = CurrentEra::<T>::get().unwrap_or(Zero::zero());
+		let current_era = Rotator::<T>::planned_era();
 		let ledger = match Self::ledger(Stash(stash)) {
 			Ok(l) => l,
 			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
