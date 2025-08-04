@@ -23,6 +23,7 @@ use crate::{
 	Code, Config,
     address::AddressMapper,
     PristineCode,
+    H256
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -139,12 +140,50 @@ fn extcodesize_works() {
                     .build_and_unwrap_result();
                 
                 let result_size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-                println!("result_size: {:?}", result_size);
 
                 assert_eq!(
                     expected_code_size,
                     result_size,
                     "EXTCODESIZE should return the code size for {:?}", fixture_type
+                );
+            }
+		});
+    }
+}
+
+#[test]
+fn extcodehash_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+        
+
+		ExtBuilder::default().build().execute_with(|| {
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
+            let expected_code_hash = {
+                let contract_info = test_utils::get_contract(&addr);
+                contract_info.code_hash
+            };
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::extcodehash(Host::extcodehashCall { account: addr.0.into() })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                
+                let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+                let result_hash = H256::from(result_hash.to_be_bytes());
+
+                assert_eq!(
+                    expected_code_hash,
+                    result_hash,
+                    "EXTCODEHASH should return the code hash for {:?}", fixture_type
                 );
             }
 		});

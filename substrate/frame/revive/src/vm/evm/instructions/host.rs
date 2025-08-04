@@ -22,6 +22,7 @@ use super::{
 use crate::{
 	vm::Ext,
 	RuntimeCosts,
+	H256
 };
 use core::cmp::min;
 use revm::{
@@ -76,20 +77,10 @@ pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	check!(context.interpreter, CONSTANTINOPLE);
 	popn_top!([], top, context.interpreter);
-	let address = top.into_address();
-	let Some(code_hash) = context.host.load_account_code_hash(address) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-	let spec_id = context.interpreter.runtime_flag.spec_id();
-	if spec_id.is_enabled_in(BERLIN) {
-		gas_legacy!(context.interpreter, warm_cold_cost(code_hash.is_cold));
-	} else if spec_id.is_enabled_in(ISTANBUL) {
-		gas_legacy!(context.interpreter, 700);
-	} else {
-		gas_legacy!(context.interpreter, 400);
-	}
-	*top = code_hash.into_u256();
+	gas!(context.interpreter, RuntimeCosts::CodeHash);
+	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
+	let code_hash = context.interpreter.extend.code_hash(&h160);
+	*top = U256::from_be_bytes(code_hash.0);
 }
 
 /// Implements the EXTCODECOPY instruction.
