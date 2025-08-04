@@ -23,6 +23,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
@@ -50,6 +51,15 @@ impl<T> DepositLimit<T> {
 impl<T> From<T> for DepositLimit<T> {
 	fn from(value: T) -> Self {
 		Self::Balance(value)
+	}
+}
+
+impl<T: Bounded + Copy> DepositLimit<T> {
+	pub fn limit(&self) -> T {
+		match self {
+			Self::UnsafeOnlyForDryRun => T::max_value(),
+			Self::Balance(limit) => *limit,
+		}
 	}
 }
 
