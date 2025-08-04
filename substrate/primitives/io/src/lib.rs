@@ -142,9 +142,6 @@ pub use sp_externalities::MultiRemovalResults;
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
-pub(crate) mod global_alloc_wasm_legacy;
-
 #[cfg(all(
 	not(feature = "disable_allocator"),
 	substrate_runtime,
