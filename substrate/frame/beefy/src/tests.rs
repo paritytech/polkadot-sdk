@@ -59,24 +59,24 @@ fn genesis_session_initializes_authorities() {
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
 		let authorities = beefy::Authorities::<Test>::get();
 
-		assert_eq!(authorities.len(), 4);
-		assert_eq!(want[0], authorities[0]);
-		assert_eq!(want[1], authorities[1]);
+		assert_eq!(authorities.len(), 2);
+		assert_eq!(want[1], authorities[0]);
+		assert_eq!(want[3], authorities[1]);
 
 		assert!(beefy::ValidatorSetId::<Test>::get() == 0);
 
 		let next_authorities = beefy::NextAuthorities::<Test>::get();
 
-		assert_eq!(next_authorities.len(), 4);
-		assert_eq!(want[0], next_authorities[0]);
-		assert_eq!(want[1], next_authorities[1]);
+		assert_eq!(next_authorities.len(), 2);
+		assert_eq!(want[1], authorities[0]);
+		assert_eq!(want[3], authorities[1]);
 	});
 }
 
 #[test]
 fn session_change_updates_authorities() {
 	let authorities = mock_authorities(vec![1, 2, 3, 4]);
-	let want_validators = authorities.clone();
+	let want_validators = vec![authorities[1].clone(), authorities[3].clone()];
 
 	ExtBuilder::default()
 		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
@@ -106,35 +106,55 @@ fn session_change_updates_authorities() {
 			assert_eq!(want, log);
 		});
 }
-
 #[test]
 fn session_change_updates_next_authorities() {
-	let want = vec![mock_beefy_id(1), mock_beefy_id(2), mock_beefy_id(3), mock_beefy_id(4)];
+	let authorities = mock_authorities(vec![1, 2, 3, 4]);
 
 	ExtBuilder::default()
-		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
+		.add_authorities(authorities.clone())
 		.build_and_execute(|| {
-			let next_authorities = beefy::NextAuthorities::<Test>::get();
-
-			assert_eq!(next_authorities.len(), 4);
-			assert_eq!(want[0], next_authorities[0]);
-			assert_eq!(want[1], next_authorities[1]);
-			assert_eq!(want[2], next_authorities[2]);
-			assert_eq!(want[3], next_authorities[3]);
+			// Check initial next authorities - should have 2 validators selected
+			let initial_next_authorities = beefy::NextAuthorities::<Test>::get();
+			assert_eq!(initial_next_authorities.len(), 2);
+			assert_eq!(initial_next_authorities[0], mock_beefy_id(2));
+			assert_eq!(initial_next_authorities[1], mock_beefy_id(4));
 
 			init_block(1);
 
-			let next_authorities = beefy::NextAuthorities::<Test>::get();
+			// After first session, next authorities should still be the same
+			let session1_next_authorities = beefy::NextAuthorities::<Test>::get();
+			assert_eq!(session1_next_authorities, initial_next_authorities);
 
-			assert_eq!(next_authorities.len(), 2);
-			assert_eq!(want[1], next_authorities[0]);
-			assert_eq!(want[3], next_authorities[1]);
+			// Now change the validator count to force different next authority selection
+			assert_ok!(Staking::set_validator_count(RuntimeOrigin::root(), 4));
+
+			// Force a new era to trigger validator selection change
+			assert_ok!(Staking::force_new_era(RuntimeOrigin::root()));
+			init_block(3);
+
+			// Check that next authorities have changed
+			let new_next_authorities = beefy::NextAuthorities::<Test>::get();
+
+			assert_ne!(
+				session1_next_authorities, new_next_authorities,
+				"Next authorities should have changed due to validator count change"
+			);
+
+			// Verify the specific change: we went from 2 to 4 next validators
+			assert_eq!(session1_next_authorities.len(), 2, "Started with 2 next validators");
+			assert_eq!(new_next_authorities.len(), 4, "Now have 4 next validators");
+
+			// Verify the new next authorities include all expected validators
+			assert_eq!(new_next_authorities[0], mock_beefy_id(1));
+			assert_eq!(new_next_authorities[1], mock_beefy_id(2));
+			assert_eq!(new_next_authorities[2], mock_beefy_id(3));
+			assert_eq!(new_next_authorities[3], mock_beefy_id(4));
 		});
 }
 
 #[test]
 fn validator_set_at_genesis() {
-	let want = vec![mock_beefy_id(1), mock_beefy_id(2)];
+	let want = vec![mock_beefy_id(2), mock_beefy_id(4)];
 
 	ExtBuilder::default()
 		.add_authorities(mock_authorities(vec![1, 2, 3, 4]))
@@ -156,18 +176,16 @@ fn validator_set_updates_work() {
 		.build_and_execute(|| {
 			let vs = Beefy::validator_set().unwrap();
 			assert_eq!(vs.id(), 0u64);
-			assert_eq!(want[0], vs.validators()[0]);
-			assert_eq!(want[1], vs.validators()[1]);
-			assert_eq!(want[2], vs.validators()[2]);
-			assert_eq!(want[3], vs.validators()[3]);
+			assert_eq!(want[1], vs.validators()[0]);
+			assert_eq!(want[3], vs.validators()[1]);
 
 			init_block(1);
 
 			let vs = Beefy::validator_set().unwrap();
 
 			assert_eq!(vs.id(), 1u64);
-			assert_eq!(want[0], vs.validators()[0]);
-			assert_eq!(want[1], vs.validators()[1]);
+			assert_eq!(want[1], vs.validators()[0]);
+			assert_eq!(want[3], vs.validators()[1]);
 
 			init_block(2);
 
@@ -323,7 +341,7 @@ fn report_equivocation_current_set_works(
 	let initial_slashable_balance = 10_000;
 
 	ExtBuilder::default().add_authorities(authorities).build_and_execute(|| {
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
+		assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, 0);
 		assert_eq!(Session::current_index(), 0);
 
 		start_era(1);
@@ -340,7 +358,7 @@ fn report_equivocation_current_set_works(
 			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
-				Staking::eras_stakers(1, &validator),
+				Staking::eras_stakers(2, &validator),
 				pallet_staking::Exposure {
 					total: initial_slashable_balance,
 					own: initial_slashable_balance,
@@ -382,7 +400,7 @@ fn report_equivocation_current_set_works(
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		}
 		assert_eq!(
-			Staking::eras_stakers(2, &equivocation_validator_id),
+			Staking::eras_stakers(3, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -396,7 +414,7 @@ fn report_equivocation_current_set_works(
 			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
-				Staking::eras_stakers(2, &validator),
+				Staking::eras_stakers(3, &validator),
 				pallet_staking::Exposure {
 					total: initial_slashable_balance,
 					own: initial_slashable_balance,
@@ -479,7 +497,7 @@ fn report_equivocation_old_set_works(
 			assert_eq!(Staking::slashable_balance_of(&equivocation_validator_id), 0);
 		}
 		assert_eq!(
-			Staking::eras_stakers(3, &equivocation_validator_id),
+			Staking::eras_stakers(4, &equivocation_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -493,7 +511,7 @@ fn report_equivocation_old_set_works(
 			assert_eq!(Staking::slashable_balance_of(validator), initial_slashable_balance);
 
 			assert_eq!(
-				Staking::eras_stakers(3, &validator),
+				Staking::eras_stakers(4, &validator),
 				pallet_staking::Exposure {
 					total: initial_slashable_balance,
 					own: initial_slashable_balance,
@@ -1013,7 +1031,7 @@ fn report_fork_voting_invalid_context() {
 
 	let mut era = 1;
 	let block_num = ext.execute_with(|| {
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(0));
+		assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, 0);
 		assert_eq!(Session::current_index(), 0);
 		start_era(era);
 

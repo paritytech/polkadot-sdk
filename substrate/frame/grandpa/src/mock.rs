@@ -27,8 +27,9 @@ use frame_election_provider_support::{
 	onchain, SequentialPhragmen,
 };
 use frame_support::{
+	__private::BasicExternalities,
 	derive_impl, parameter_types,
-	traits::{ConstU128, ConstU32, ConstU64, OnFinalize, OnInitialize},
+	traits::{ConstU128, ConstU32, ConstU64, OnFinalize, OnGenesis, OnInitialize},
 };
 use pallet_session::historical as pallet_session_historical;
 use sp_consensus_grandpa::{RoundNumber, SetId, GRANDPA_ENGINE_ID};
@@ -273,6 +274,10 @@ pub fn new_test_ext_raw_authorities(authorities: AuthorityList) -> sp_io::TestEx
 
 	staking_config.assimilate_storage(&mut t).unwrap();
 
+	BasicExternalities::execute_with_storage(&mut t, || {
+		<pallet_session::Pallet<Test> as OnGenesis>::on_genesis();
+	});
+
 	t.into()
 }
 
@@ -306,7 +311,7 @@ pub fn start_session(session_index: SessionIndex) {
 
 pub fn start_era(era_index: EraIndex) {
 	start_session((era_index * 3).into());
-	assert_eq!(pallet_staking::CurrentEra::<Test>::get(), Some(era_index));
+	assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, era_index);
 }
 
 pub fn initialize_block(number: u64, parent_hash: H256) {

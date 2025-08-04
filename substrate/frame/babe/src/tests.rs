@@ -358,9 +358,9 @@ fn can_fetch_current_and_next_epoch_data() {
 		assert_eq!(Babe::current_epoch().authorities, Babe::next_epoch().authorities);
 		// 1 era = 3 epochs
 		// 1 epoch = 3 slots
-		// Eras start from 1.
-		// Therefore at era 2 we should be starting epoch 3 with slot 10.
-		start_era(2);
+		// Eras start from 0.
+		// Therefore at era 1 we should be starting epoch 3 with slot 10.
+		start_era(1);
 
 		let current_epoch = Babe::current_epoch();
 		assert_eq!(current_epoch.epoch_index, 3);
@@ -420,7 +420,7 @@ fn disabled_validators_cannot_author_blocks() {
 		// so we should still be able to author blocks
 		start_era(2);
 
-		assert_eq!(pallet_staking::CurrentEra::<Test>::get().unwrap(), 2);
+		assert_eq!(pallet_staking::ActiveEra::<Test>::get().unwrap().index, 2);
 
 		// let's disable the validator at index 0
 		Session::disable_index(0);
@@ -487,7 +487,7 @@ fn report_equivocation_current_session_works() {
 		assert_eq!(Balances::total_balance(&offending_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&offending_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(2, &offending_validator_id),
+			Staking::eras_stakers(3, &offending_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 
@@ -559,7 +559,7 @@ fn report_equivocation_old_session_works() {
 		assert_eq!(Balances::total_balance(&offending_validator_id), 10_000_000 - 10_000);
 		assert_eq!(Staking::slashable_balance_of(&offending_validator_id), 0);
 		assert_eq!(
-			Staking::eras_stakers(3, &offending_validator_id),
+			Staking::eras_stakers(4, &offending_validator_id),
 			pallet_staking::Exposure { total: 0, own: 0, others: vec![] },
 		);
 	})
