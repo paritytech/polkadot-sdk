@@ -28,8 +28,6 @@ use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::Rng;
-#[cfg(feature = "experimental-ump-signals")]
-use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use relay_chain::HrmpChannelId;
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;

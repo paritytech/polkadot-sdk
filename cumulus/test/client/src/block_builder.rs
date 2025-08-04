@@ -239,7 +239,7 @@ impl InitBlockBuilder for Client {
 			at,
 			validation_data,
 			relay_sproof_builder,
-			timestamp,
+			Some(timestamp),
 			None,
 			Some(ignored_nodes),
 		)

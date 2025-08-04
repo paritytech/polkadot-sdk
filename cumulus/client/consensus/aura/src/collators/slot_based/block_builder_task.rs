@@ -775,7 +775,7 @@ mod tests {
 			unimplemented!("Not needed for test")
 		}
 
-		async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
+		async fn header(&self, block_id: BlockId<RelayBlock>) -> RelayChainResult<Option<PHeader>> {
 			let hash = match block_id {
 				BlockId::Hash(hash) => hash,
 				BlockId::Number(_) => unimplemented!("Not needed for test"),

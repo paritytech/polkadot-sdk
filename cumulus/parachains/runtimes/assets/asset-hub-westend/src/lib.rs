@@ -45,9 +45,7 @@ use assets_common::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
-use cumulus_primitives_core::{
-	relay_chain::AccountIndex, AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId,
-};
+use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,

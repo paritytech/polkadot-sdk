@@ -558,6 +558,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 		)],
 		genesis_head.clone(),
 		RelayStateSproofBuilder { current_slot: 1.into(), ..Default::default() },
+		Vec::new(),
 	);
 
 	let initial_block = initial_block_data.blocks()[0].clone();
