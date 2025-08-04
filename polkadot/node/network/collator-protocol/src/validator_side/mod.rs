@@ -405,6 +405,9 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// List of invulnerable collators. They are handled with a priority.
+	invulnerables: HashSet<PeerId>,
 }
 
 impl State {
@@ -1600,6 +1603,7 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
+	invulnerables: HashSet<PeerId>,
 ) -> std::result::Result<(), std::convert::Infallible> {
 	run_inner(
 		ctx,
@@ -1608,6 +1612,7 @@ pub(crate) async fn run<Context>(
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
+		invulnerables,
 	)
 	.await
 }
@@ -1620,11 +1625,12 @@ async fn run_inner<Context>(
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
+	invulnerables: HashSet<PeerId>,
 ) -> std::result::Result<(), std::convert::Infallible> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State { metrics, reputation, ..Default::default() };
+	let mut state = State { metrics, reputation, invulnerables, ..Default::default() };
 
 	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);

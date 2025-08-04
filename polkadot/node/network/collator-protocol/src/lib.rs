@@ -21,7 +21,10 @@
 #![deny(unused_crate_dependencies)]
 #![recursion_limit = "256"]
 
-use std::time::{Duration, Instant};
+use std::{
+	collections::HashSet,
+	time::{Duration, Instant},
+};
 
 use futures::{
 	stream::{FusedStream, StreamExt},
@@ -75,6 +78,8 @@ pub enum ProtocolSide {
 		eviction_policy: CollatorEvictionPolicy,
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
+		/// List of invulnerable collators which is handled with a priority.
+		invulnerables: HashSet<PeerId>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
 	#[cfg(feature = "experimental-collator-protocol")]
@@ -119,8 +124,8 @@ impl CollatorProtocolSubsystem {
 impl<Context> CollatorProtocolSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = match self.protocol_side {
-			ProtocolSide::Validator { keystore, eviction_policy, metrics } =>
-				validator_side::run(ctx, keystore, eviction_policy, metrics)
+			ProtocolSide::Validator { keystore, eviction_policy, metrics, invulnerables } =>
+				validator_side::run(ctx, keystore, eviction_policy, metrics, invulnerables)
 					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
 					.boxed(),
 			#[cfg(feature = "experimental-collator-protocol")]
