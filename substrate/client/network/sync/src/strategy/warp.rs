@@ -845,6 +845,7 @@ mod test {
 			number_leaves: 0,
 			block_gap: None,
 		});
+		client.expect_store_warp_proofs().returning(|_| Ok(()));
 
 		client
 	}
