@@ -19,9 +19,10 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, ExtBuilder, Test},
+	tests::{builder, ExtBuilder, Test, test_utils},
 	Code, Config,
     address::AddressMapper,
+    PristineCode,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -31,13 +32,17 @@ use pretty_assertions::assert_eq;
 use frame_support::traits::fungible::Inspect;
 use frame_support::traits::Get;
 
+fn convert_to_free_balance(total_balance: u128) -> U256 {
+    let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
+    let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
+    U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth)
+}
+
 #[test]
 fn balance_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 
-        let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
-        let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
-        let expected_balance = U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth);
+        let expected_balance = convert_to_free_balance(100_000_000_000);
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -71,9 +76,7 @@ fn balance_works() {
 #[test]
 fn selfbalance_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-        let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
-        let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
-        let expected_balance = U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth);
+        let expected_balance = convert_to_free_balance(100_000_000_000);
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -87,13 +90,7 @@ fn selfbalance_works() {
             {
                 let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
 
-                let balance = <Test as Config>::Currency::balance(&account_id32);
-                println!("selfbalance_works: balance = {:?}", balance);
-
                 <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000);
-
-                let balance = <Test as Config>::Currency::balance(&account_id32);
-                println!("selfbalance_works: balance = {:?}", balance);
             }
             {
                 let result = builder::bare_call(addr)
@@ -108,6 +105,46 @@ fn selfbalance_works() {
                     expected_balance,
                     result_balance,
                     "BALANCE should return contract's balance for {:?}", fixture_type
+                );
+            }
+		});
+    }
+}
+
+#[test]
+fn extcodesize_works() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+        
+
+		ExtBuilder::default().build().execute_with(|| {
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
+            let expected_code_size = {
+                let contract_info = test_utils::get_contract(&addr);
+                let code_hash = contract_info.code_hash;
+                U256::from(test_utils::ensure_stored(code_hash))
+            };
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::extcodesize(Host::extcodesizeCall { account: addr.0.into() })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                
+                let result_size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+                println!("result_size: {:?}", result_size);
+
+                assert_eq!(
+                    expected_code_size,
+                    result_size,
+                    "EXTCODESIZE should return the code size for {:?}", fixture_type
                 );
             }
 		});

@@ -66,21 +66,10 @@ pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Gets the size of an account's code.
 pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], top, context.interpreter);
-	let address = top.into_address();
-	let Some(code) = context.host.load_account_code(address) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-	let spec_id = context.interpreter.runtime_flag.spec_id();
-	if spec_id.is_enabled_in(BERLIN) {
-		gas_legacy!(context.interpreter, warm_cold_cost(code.is_cold));
-	} else if spec_id.is_enabled_in(TANGERINE) {
-		gas_legacy!(context.interpreter, 700);
-	} else {
-		gas_legacy!(context.interpreter, 20);
-	}
-
-	*top = U256::from(code.len());
+	gas!(context.interpreter, RuntimeCosts::CodeSize);
+	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
+	let code_size = context.interpreter.extend.code_size(&h160);
+	*top = U256::from(code_size);
 }
 
 /// EIP-1052: EXTCODEHASH opcode
