@@ -1243,7 +1243,7 @@ fn do_send_pens_and_wnds_from_penpal_westend_via_ahw_to_asset_hub_rococo(
 				ByGenesis(ROCOCO_GENESIS_HASH),
 				AssetHubRococo::para_id(),
 			);
-		let ahw_fee_amount = 100_000_000_000;
+		let ahw_fee_amount = 120_000_000_000;
 		// send message over bridge
 		assert_ok!(PenpalB::execute_with(|| {
 			let destination = asset_hub_rococo_location();

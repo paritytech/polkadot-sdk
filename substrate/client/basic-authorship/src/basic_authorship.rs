@@ -27,10 +27,12 @@ use futures::{
 	future::{Future, FutureExt},
 };
 use log::{debug, error, info, trace, warn};
+use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
+use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_INFO};
 use sc_transaction_pool_api::{InPoolTransaction, TransactionPool, TxInvalidityReportMap};
-use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed, HeaderBackend};
 use sp_consensus::{DisableProofRecording, EnableProofRecording, ProofRecording, Proposal};
 use sp_core::traits::SpawnNamed;
@@ -39,10 +41,8 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT},
 	Digest, ExtrinsicInclusionMode, Percent, SaturatedConversion,
 };
+use sp_trie::recorder::IgnoredNodes;
 use std::{marker::PhantomData, pin::Pin, sync::Arc, time};
-
-use prometheus_endpoint::Registry as PrometheusRegistry;
-use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
 
 /// Default block size limit in bytes used by [`Proposer`].
 ///
@@ -283,28 +283,45 @@ where
 		max_duration: time::Duration,
 		block_size_limit: Option<usize>,
 	) -> Self::Proposal {
-		let (tx, rx) = oneshot::channel();
-		let spawn_handle = self.spawn_handle.clone();
+		self.propose_block(ProposeArgs {
+			inherent_data,
+			inherent_digests,
+			max_duration,
+			block_size_limit,
+			ignored_nodes_by_proof_recording: None,
+		})
+		.boxed()
+	}
+}
 
-		spawn_handle.spawn_blocking(
-			"basic-authorship-proposer",
-			None,
-			Box::pin(async move {
-				// leave some time for evaluation and block finalization (10%)
-				let deadline = (self.now)() + max_duration - max_duration / 10;
-				let res = self
-					.propose_with(inherent_data, inherent_digests, deadline, block_size_limit)
-					.await;
-				if tx.send(res).is_err() {
-					trace!(
-						target: LOG_TARGET,
-						"Could not send block production result to proposer!"
-					);
-				}
-			}),
-		);
+/// Arguments for [`Proposer::propose_block`].
+pub struct ProposeArgs<Block: BlockT> {
+	/// The inherent data to pass to the block production.
+	pub inherent_data: InherentData,
+	/// The inherent digests to include in the produced block.
+	pub inherent_digests: Digest,
+	/// Max duration for building the block.
+	pub max_duration: time::Duration,
+	/// Optional size limit for the produced block.
+	///
+	/// When set, block production ends before hitting this limit. The limit includes the storage
+	/// proof, when proof recording is activated.
+	pub block_size_limit: Option<usize>,
+	/// Trie nodes that should not be recorded.
+	///
+	/// Only applies when proof recording is enabled.
+	pub ignored_nodes_by_proof_recording: Option<IgnoredNodes<Block::Hash>>,
+}
 
-		async move { rx.await? }.boxed()
+impl<Block: BlockT> Default for ProposeArgs<Block> {
+	fn default() -> Self {
+		Self {
+			inherent_data: Default::default(),
+			inherent_digests: Default::default(),
+			max_duration: Default::default(),
+			block_size_limit: None,
+			ignored_nodes_by_proof_recording: None,
+		}
 	}
 }
 
@@ -315,24 +332,60 @@ const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
 impl<A, Block, C, PR> Proposer<Block, C, A, PR>
 where
-	A: TransactionPool<Block = Block>,
+	A: TransactionPool<Block = Block> + 'static,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
 	PR: ProofRecording,
 {
+	/// Propose a new block.
+	pub async fn propose_block(
+		self,
+		args: ProposeArgs<Block>,
+	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+		let (tx, rx) = oneshot::channel();
+		let spawn_handle = self.spawn_handle.clone();
+
+		// Spawn on a new thread, because block production is a blocking operation.
+		spawn_handle.spawn_blocking(
+			"basic-authorship-proposer",
+			None,
+			async move {
+				let res = self.propose_with(args).await;
+				if tx.send(res).is_err() {
+					trace!(
+						target: LOG_TARGET,
+						"Could not send block production result to proposer!"
+					);
+				}
+			}
+			.boxed(),
+		);
+
+		rx.await?.map_err(Into::into)
+	}
+
 	async fn propose_with(
 		self,
-		inherent_data: InherentData,
-		inherent_digests: Digest,
-		deadline: time::Instant,
-		block_size_limit: Option<usize>,
+		ProposeArgs {
+			inherent_data,
+			inherent_digests,
+			max_duration,
+			block_size_limit,
+			ignored_nodes_by_proof_recording,
+		}: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
+		// leave some time for evaluation and block finalization (10%)
+		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
 			.on_parent_block(self.parent_hash)
 			.with_parent_block_number(self.parent_number)
-			.with_proof_recording(PR::ENABLED)
+			.with_proof_recorder(PR::ENABLED.then(|| {
+				ProofRecorder::<Block>::with_ignored_nodes(
+					ignored_nodes_by_proof_recording.unwrap_or_default(),
+				)
+			}))
 			.with_inherent_digests(inherent_digests)
 			.build()?;
 
@@ -605,7 +658,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
 	use sc_client_api::{Backend, TrieCacheContext};
@@ -613,7 +665,7 @@ mod tests {
 	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool, TransactionSource};
 	use sp_api::Core;
 	use sp_blockchain::HeaderBackend;
-	use sp_consensus::{BlockOrigin, Environment, Proposer};
+	use sp_consensus::{BlockOrigin, Environment};
 	use sp_runtime::{generic::BlockId, traits::NumberFor, Perbill};
 	use substrate_test_runtime_client::{
 		prelude::*,
@@ -689,10 +741,11 @@ mod tests {
 
 		// when
 		let deadline = time::Duration::from_secs(3);
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then
 		// block should have some extrinsics although we have some more in the pool.
@@ -731,9 +784,11 @@ mod tests {
 		);
 
 		let deadline = time::Duration::from_secs(1);
-		block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-			.map(|r| r.block)
-			.unwrap();
+		block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 	}
 
 	#[test]
@@ -770,9 +825,10 @@ mod tests {
 		);
 
 		let deadline = time::Duration::from_secs(9);
-		let proposal =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.unwrap();
+		let proposal = block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.unwrap();
 
 		assert_eq!(proposal.block.extrinsics().len(), 1);
 
@@ -835,10 +891,12 @@ mod tests {
 
 			// when
 			let deadline = time::Duration::from_secs(900);
-			let block =
-				block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-					.map(|r| r.block)
-					.unwrap();
+			let block = block_on(
+				proposer
+					.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			)
+			.map(|r| r.block)
+			.unwrap();
 
 			// then
 			// block should have some extrinsics although we have some more in the pool.
@@ -947,12 +1005,11 @@ mod tests {
 
 		// Give it enough time
 		let deadline = time::Duration::from_secs(300);
-		let block = block_on(proposer.propose(
-			Default::default(),
-			Default::default(),
-			deadline,
-			Some(block_limit),
-		))
+		let block = block_on(proposer.propose_block(ProposeArgs {
+			max_duration: deadline,
+			block_size_limit: Some(block_limit),
+			..Default::default()
+		}))
 		.map(|r| r.block)
 		.unwrap();
 
@@ -961,10 +1018,11 @@ mod tests {
 
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
 
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// Without a block limit we should include all of them
 		assert_eq!(block.extrinsics().len(), extrinsics_num);
@@ -990,12 +1048,11 @@ mod tests {
 				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
-		let block = block_on(proposer.propose(
-			Default::default(),
-			Default::default(),
-			deadline,
-			Some(block_limit),
-		))
+		let block = block_on(proposer.propose_block(ProposeArgs {
+			max_duration: deadline,
+			block_size_limit: Some(block_limit),
+			..Default::default()
+		}))
 		.map(|r| r.block)
 		.unwrap();
 
@@ -1065,10 +1122,11 @@ mod tests {
 		// when
 		// give it enough time so that deadline is never triggered.
 		let deadline = time::Duration::from_secs(900);
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then block should have all non-exhaust resources extrinsics (+ the first one).
 		assert_eq!(block.extrinsics().len(), MAX_SKIPPED_TRANSACTIONS + 1);
@@ -1143,10 +1201,11 @@ mod tests {
 			}),
 		);
 
-		let block =
-			block_on(proposer.propose(Default::default(), Default::default(), deadline, None))
-				.map(|r| r.block)
-				.unwrap();
+		let block = block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 
 		// then the block should have one or two transactions. This maybe random as they are
 		// processed in parallel. The same signer and consecutive nonces for huge and tiny

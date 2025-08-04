@@ -2,7 +2,7 @@ version:
   format: 1
   # Minimum version of the binary that is expected to work. This is just for printing a nice error
   # message when someone tries to use an older version.
-  binary: 0.13.2
+  binary: 1.78.0
 
 # The examples in this file assume crate `A` to have a dependency on crate `B`.
 workflows:
@@ -19,6 +19,8 @@ workflows:
         '--left-side-outside-workspace=ignore',
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         '--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking',
+        # Do not propagate std feature from sp-wasm-interface down to wasmtime dependency.
+        '--ignore-missing-propagate=sp-wasm-interface/std:wasmtime/std',
         # Auxillary flags:
         '--offline',
         '--locked',

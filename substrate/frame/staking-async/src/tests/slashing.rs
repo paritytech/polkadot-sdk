@@ -1070,37 +1070,56 @@ fn remove_deferred() {
 
 		// fails if empty
 		assert_noop!(
-			Staking::cancel_deferred_slash(RuntimeOrigin::root(), 1, vec![]),
+			Staking::cancel_deferred_slash(RuntimeOrigin::root(), 3, vec![]),
 			Error::<T>::EmptyTargets
 		);
 
-		// cancel the slash with 10%.
+		// cancel the slash with 12% (which covers the 10% slash but not the 15% slash)
 		assert_ok!(Staking::cancel_deferred_slash(
 			RuntimeOrigin::root(),
 			3,
-			vec![(11, Perbill::from_percent(10), 0)]
+			vec![(11, Perbill::from_percent(12))],
 		));
-		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 1);
+
+		// validator 11 slash is set to be cancelled for era 3 with upto 12% cancellation.
+		assert_eq!(CancelledSlashes::<T>::get(&3), vec![(11, Perbill::from_percent(12))]);
+
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::SlashCancelled {
-				slash_era: 3,
-				slash_key: (11, Perbill::from_percent(10), 0),
-				payout: 12
-			}]
+			vec![Event::SlashCancelled { slash_era: 3, validator: 11 }]
 		);
 
-		// apply the one with 15%.
+		// roll to the slashing era.
 		Session::roll_until_active_era(3);
+		// slash still exists in unapplied.
+		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 2);
+
+		// clear events from session rotation
 		let _ = staking_events_since_last_call();
+
 		Session::roll_next();
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::Slashed { staker: 11, amount: 50 },
-				Event::Slashed { staker: 101, amount: 12 }
-			]
-		);
+		// first slash (10%) is cancelled, no events
+		assert_eq!(staking_events_since_last_call(), vec![]);
+		// one slash processed, one more to go
+		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 1);
+
+		Session::roll_next();
+		// second slash (15%) is NOT cancelled, so it gets applied
+		let events = staking_events_since_last_call();
+		assert_eq!(events.len(), 2);
+		// The 15% slash already has computed amounts in the UnappliedSlash
+		// Based on the test setup, it has own: 50, others: [(101, 12)]
+		assert_eq!(events[0], Event::Slashed { staker: 11, amount: 50 });
+		assert_eq!(events[1], Event::Slashed { staker: 101, amount: 12 });
+
+		// check balances after 15% slash
+		assert_eq!(asset::stakeable_balance::<T>(&11), 950);
+		assert_eq!(asset::stakeable_balance::<T>(&101), 488);
+
+		// all unapplied slashes should have been removed
+		assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 0);
+		// cancelled slashes should have been cleared after all era slashes are applied.
+		assert_eq!(CancelledSlashes::<T>::get(&3), vec![]);
 	})
 }
 
@@ -1148,15 +1167,133 @@ fn remove_multi_deferred() {
 			// there are 3 slashes to be applied in era 3.
 			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 3);
 
-			// lets cancel 2 of them.
+			// lets cancel 2 of them with their respective slash percentages.
 			assert_ok!(Staking::cancel_deferred_slash(
 				RuntimeOrigin::root(),
 				3,
-				vec![(11, Perbill::from_percent(10), 0), (21, Perbill::from_percent(10), 0),]
+				vec![(11, Perbill::from_percent(10)), (21, Perbill::from_percent(10))]
 			));
 
+			// check cancelled slashes are stored correctly
+			let cancelled = CancelledSlashes::<T>::get(&3);
+			assert_eq!(cancelled.len(), 2);
+			assert!(cancelled.contains(&(11, Perbill::from_percent(10))));
+			assert!(cancelled.contains(&(21, Perbill::from_percent(10))));
+
 			let slashes = UnappliedSlashes::<T>::iter_prefix(&3).collect::<Vec<_>>();
-			assert_eq!(slashes.len(), 1);
+			assert_eq!(slashes.len(), 3);
+
+			// go to slash era.
+			Session::roll_until_active_era(3);
+			let _ = staking_events_since_last_call();
+
+			// Process all slashes - they are processed one per block
+			let mut slash_events = vec![];
+			for _ in 0..3 {
+				Session::roll_next();
+				let events = staking_events_since_last_call();
+				for event in events {
+					if let Event::Slashed { .. } = event {
+						slash_events.push(event);
+					}
+				}
+			}
+
+			// Only validator 41 should have been slashed
+			assert_eq!(slash_events.len(), 1);
+			// Validator 41's exposure is 4000, with 25% slash = 1000
+			assert_eq!(slash_events[0], Event::Slashed { staker: 41, amount: 1000 });
+
+			// all unapplied slashes are cleared
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 0);
+
+			// also the cancelled slashes are removed since after this era they are no longer
+			// needed.
+			assert_eq!(CancelledSlashes::<T>::get(&3), vec![]);
+		})
+}
+
+#[test]
+fn cancel_all_slashes_with_100_percent() {
+	// This demonstrates that when a validator has multiple slash entries in the same era,
+	// governance can cancel them all with a 100% cancellation.
+	ExtBuilder::default()
+		.validator_count(4)
+		.slash_defer_duration(2)
+		.build_and_execute(|| {
+			// our validator
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+			// nominator exposed to our validator
+			assert_eq!(asset::stakeable_balance::<T>(&101), 500);
+
+			// Check current era
+			assert_eq!(active_era(), 1);
+
+			// Add 10 slashes in era 1
+			for i in 1..=10 {
+				add_slash_with_percent(11, i * 5);
+				// Process the offence
+				Session::roll_next();
+			}
+
+			// Collect all events
+			let events = staking_events_since_last_call();
+
+			// Count reported and computed events
+			let reported_count =
+				events.iter().filter(|e| matches!(e, Event::OffenceReported { .. })).count();
+			let computed_count =
+				events.iter().filter(|e| matches!(e, Event::SlashComputed { .. })).count();
+
+			// Verify all 10 offences were reported and computed
+			assert_eq!(reported_count, 10);
+			assert_eq!(computed_count, 10);
+
+			// With defer duration 2, slashes from era 1 will be applied in era 3
+			// All 10 slash entries should exist
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 10);
+
+			// Governance cancels all slashes for validator 11 by setting 100% cancellation
+			assert_ok!(Staking::cancel_deferred_slash(
+				RuntimeOrigin::root(),
+				3,
+				vec![(11, Perbill::from_percent(100))],
+			));
+
+			// Verify the cancellation event
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::SlashCancelled { slash_era: 3, validator: 11 }]
+			);
+
+			// Verify CancelledSlashes storage contains our cancellation
+			let cancelled = CancelledSlashes::<T>::get(&3);
+			assert_eq!(cancelled.len(), 1);
+			assert_eq!(cancelled[0], (11, Perbill::from_percent(100)));
+
+			// Roll to the slash era
+			Session::roll_until_active_era(3);
+			// clear staking events
+			let _ = staking_events_since_last_call();
+
+			// Process all 10 slashes - they are processed one per block
+			for _ in 0..10 {
+				Session::roll_next();
+
+				// Verify no slash was applied
+				let events = staking_events_since_last_call();
+				let slash_events: Vec<_> =
+					events.iter().filter(|e| matches!(e, Event::Slashed { .. })).collect();
+				assert_eq!(slash_events.len(), 0);
+			}
+
+			// Verify balances remain unchanged
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+			assert_eq!(asset::stakeable_balance::<T>(&101), 500);
+
+			// Verify all storages are cleaned up
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&3).count(), 0);
+			assert_eq!(CancelledSlashes::<T>::get(&3), vec![]);
 		})
 }
 
