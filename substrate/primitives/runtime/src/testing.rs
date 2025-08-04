@@ -19,10 +19,10 @@
 
 use crate::{
 	codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen},
-	generic::{self, UncheckedExtrinsic},
+	generic::{self, LazyBlock, UncheckedExtrinsic},
 	scale_info::TypeInfo,
-	traits::{self, BlakeTwo256, Dispatchable, OpaqueKeys},
-	DispatchResultWithInfo, KeyTypeId,
+	traits::{self, BlakeTwo256, Dispatchable, LazyExtrinsic, OpaqueKeys},
+	DispatchResultWithInfo, KeyTypeId, OpaqueExtrinsic,
 };
 use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize};
 use sp_core::crypto::{key_types, ByteArray, CryptoType, Dummy};
@@ -246,12 +246,15 @@ impl<
 			+ Clone
 			+ Eq
 			+ Debug
-			+ traits::ExtrinsicLike,
+			+ traits::ExtrinsicLike
+			+ Into<OpaqueExtrinsic>
+			+ LazyExtrinsic,
 	> traits::Block for Block<Xt>
 {
 	type Extrinsic = Xt;
 	type Header = Header;
 	type Hash = <Header as traits::Header>::Hash;
+	type LazyBlock = LazyBlock<Header, Xt>;
 
 	fn header(&self) -> &Self::Header {
 		&self.header

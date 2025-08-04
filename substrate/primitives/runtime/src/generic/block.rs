@@ -26,12 +26,13 @@ use serde::{Deserialize, Serialize};
 use crate::{
 	codec::{Codec, Decode, DecodeWithMemTracking, Encode},
 	traits::{
-		self, Block as BlockT, Header as HeaderT, MaybeSerialize, MaybeSerializeDeserialize,
-		Member, NumberFor,
+		self, Block as BlockT, Header as HeaderT, LazyExtrinsic, MaybeSerialize,
+		MaybeSerializeDeserialize, Member, NumberFor,
 	},
-	Justifications,
+	Justifications, OpaqueExtrinsic,
 };
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use sp_core::RuntimeDebug;
 
 /// Something to identify a block.
@@ -77,6 +78,42 @@ impl<Block: BlockT> fmt::Display for BlockId<Block> {
 	}
 }
 
+/// Abstraction over a substrate block that allows us to lazily decode its extrinsics.
+#[derive(RuntimeDebug, Encode, Decode, scale_info::TypeInfo)]
+pub struct LazyBlock<Header, Extrinsic> {
+	/// The block header.
+	pub header: Header,
+	/// The accompanying extrinsics.
+	pub extrinsics: Vec<OpaqueExtrinsic>,
+
+	_phantom: PhantomData<Extrinsic>,
+}
+
+impl<Header, Extrinsic> traits::LazyBlock for LazyBlock<Header, Extrinsic>
+where
+	Header: HeaderT,
+	Extrinsic: LazyExtrinsic,
+{
+	type Extrinsic = Extrinsic;
+	type Header = Header;
+
+	fn new(header: Self::Header, extrinsics: Vec<OpaqueExtrinsic>) -> Self {
+		Self { header, extrinsics, _phantom: Default::default() }
+	}
+
+	fn header(&self) -> &Self::Header {
+		&self.header
+	}
+
+	fn header_mut(&mut self) -> &mut Self::Header {
+		&mut self.header
+	}
+
+	fn opaque_extrinsics(&self) -> &[OpaqueExtrinsic] {
+		&self.extrinsics
+	}
+}
+
 /// Abstraction over a substrate block.
 #[derive(
 	PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, scale_info::TypeInfo,
@@ -101,11 +138,17 @@ where
 impl<Header, Extrinsic: MaybeSerialize> traits::Block for Block<Header, Extrinsic>
 where
 	Header: HeaderT + MaybeSerializeDeserialize,
-	Extrinsic: Member + Codec + DecodeWithMemTracking + traits::ExtrinsicLike,
+	Extrinsic: Member
+		+ Codec
+		+ DecodeWithMemTracking
+		+ traits::ExtrinsicLike
+		+ Into<OpaqueExtrinsic>
+		+ LazyExtrinsic,
 {
 	type Extrinsic = Extrinsic;
 	type Header = Header;
 	type Hash = <Self::Header as traits::Header>::Hash;
+	type LazyBlock = LazyBlock<Header, Extrinsic>;
 
 	fn header(&self) -> &Self::Header {
 		&self.header
