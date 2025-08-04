@@ -64,17 +64,3 @@ try-runtime = [
 	"pallet-staking-async-ah-client/try-runtime",
 	"pallet-timestamp/try-runtime",
 ]
-runtime-benchmarks = [
-	"frame-election-provider-support/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame/runtime-benchmarks",
-	"pallet-balances/runtime-benchmarks",
-	"pallet-election-provider-multi-block/runtime-benchmarks",
-	"pallet-root-offences/runtime-benchmarks",
-	"pallet-staking-async-ah-client/runtime-benchmarks",
-	"pallet-staking-async-rc-client/runtime-benchmarks",
-	"pallet-staking-async/runtime-benchmarks",
-	"pallet-staking/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks",
-	"sp-staking/runtime-benchmarks",
-]
