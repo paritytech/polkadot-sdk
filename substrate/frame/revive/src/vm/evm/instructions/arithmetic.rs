@@ -21,10 +21,7 @@ use super::{
 };
 use crate::{vm::Ext, RuntimeCosts};
 use revm::{
-	interpreter::{
-		gas as revm_gas,
-		interpreter_types::{RuntimeFlag, StackTr},
-	},
+	interpreter::interpreter_types::StackTr,
 	primitives::U256,
 };
 
@@ -115,7 +112,7 @@ pub fn exp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		1u64
 	} else {
 		let significant_bits = 256 - op2.leading_zeros() as u64;
-		(significant_bits + 7) / 8  // Round up to nearest byte
+		significant_bits.div_ceil(8)  // Round up to nearest byte
 	};
 	let gas_cost = 10u64.saturating_add(50u64.saturating_mul(exp_byte_len));
 	gas!(context.interpreter, RuntimeCosts::EVMGas(gas_cost));

@@ -19,7 +19,10 @@ use super::{
 	utility::{IntoAddress, IntoU256},
 	Context,
 };
-use crate::vm::Ext;
+use crate::{
+	vm::Ext,
+	RuntimeCosts,
+};
 use core::cmp::min;
 use revm::{
 	interpreter::{
@@ -31,15 +34,6 @@ use revm::{
 	primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
 };
 
-use crate::Pallet;
-use crate::AccountId32;
-use crate::BalanceOf;
-use crate::AccountInfo;
-use crate::RuntimeCosts;
-use crate::Config;
-use frame_support::traits::fungible::Inspect;
-use crate::exec::PrecompileExt;
-
 /// Implements the BALANCE instruction.
 ///
 /// Gets the balance of the given account.
@@ -47,7 +41,6 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>)
 {
 	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	popn_top!([], top, context.interpreter);
-	let address = top.into_address();
 
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
 	let balance = context.interpreter.extend.balance_of(&h160);
@@ -66,12 +59,6 @@ pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let bytes: [u8; 32] = balance.to_big_endian();
 	let alloy_balance = U256::from_be_bytes(bytes);
 	push!(context.interpreter, alloy_balance);
-
-	// let Some(balance) = context.host.balance(context.interpreter.input.target_address()) else {
-	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 	return;
-	// };
-	// push!(context.interpreter, balance.data);
 }
 
 /// Implements the EXTCODESIZE instruction.
