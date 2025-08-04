@@ -66,7 +66,7 @@ fn pay_over_xcm_works() {
 			AssetKind,
 			LocatableAssetKindConverter,
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		>::pay(&recipient, asset_kind, amount));
+		>::pay(&(), &recipient, asset_kind, amount));
 
 		let expected_message = Xcm(vec![
 			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
@@ -134,7 +134,7 @@ fn pay_over_xcm_governance_body() {
 			AssetKind,
 			LocatableAssetKindConverter,
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		>::pay(&recipient, asset_kind, amount));
+		>::pay(&(), &recipient, asset_kind, amount));
 
 		let expected_message = Xcm(vec![
 			DescendOrigin(Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into()),

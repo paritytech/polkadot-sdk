@@ -1,0 +1,23 @@
+title: 'pallet-support: add source of payment to Pay trait'
+doc:
+- audience: Runtime Dev
+  description: | 
+    Adds a `Source` type to the `Pay` trait, introducing a new `source` field in its methods.
+    This change enables scenarios where defining the payment source is necessary.
+    It sets the stage for enabling multi-asset and cross-chain bounties in upcoming work.
+
+    Updates pallets using the trait by assigning the unit type, given that the field is currently unused.
+
+crates: 
+- name: staging-xcm-builder
+  bump: minor
+- name: frame-support
+  bump: major
+- name: pallet-salary
+  bump: minor
+- name: pallet-treasury
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: collectives-westend-integration-tests
+  bump: minor

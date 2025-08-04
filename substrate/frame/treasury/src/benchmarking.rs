@@ -103,7 +103,7 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 // Create the arguments for the `spend` dispatchable.
 fn create_spend_arguments<T: Config<I>, I: 'static>(
 	seed: u32,
-) -> (T::AssetKind, AssetBalanceOf<T, I>, T::Beneficiary, BeneficiaryLookupOf<T, I>) {
+) -> (T::AssetKind, BalanceOf<T, I>, T::Beneficiary, BeneficiaryLookupOf<T, I>) {
 	let asset_kind = T::BenchmarkHelper::create_asset_kind(seed);
 	let beneficiary = T::BenchmarkHelper::create_beneficiary([seed.try_into().unwrap(); 32]);
 	let beneficiary_lookup = T::BeneficiaryLookup::unlookup(beneficiary.clone());
@@ -234,7 +234,7 @@ mod benchmarks {
 			false
 		};
 
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
+		T::Paymaster::ensure_successful(&(), &beneficiary, asset_kind, amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		#[block]
@@ -269,7 +269,7 @@ mod benchmarks {
 			create_spend_arguments::<T, _>(SEED);
 
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
-		T::Paymaster::ensure_successful(&beneficiary, asset_kind.clone(), amount);
+		T::Paymaster::ensure_successful(&(), &beneficiary, asset_kind.clone(), amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {

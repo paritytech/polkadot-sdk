@@ -154,27 +154,30 @@ pub mod benchmarks {
 	{
 		type AssetKind = O::AssetKind;
 		type Balance = O::Balance;
+		type Source = O::Source;
 		type Beneficiary = O::Beneficiary;
 		type Error = O::Error;
 		type Id = O::Id;
 
 		fn pay(
-			who: &Self::Beneficiary,
+			source: &Self::Source,
+			beneficiary: &Self::Beneficiary,
 			asset_kind: Self::AssetKind,
 			amount: Self::Balance,
 		) -> Result<Self::Id, Self::Error> {
-			O::pay(who, asset_kind, amount)
+			O::pay(source, beneficiary, asset_kind, amount)
 		}
 		fn check_payment(id: Self::Id) -> PaymentStatus {
 			O::check_payment(id)
 		}
 		fn ensure_successful(
-			who: &Self::Beneficiary,
+			source: &Self::Source,
+			beneficiary: &Self::Beneficiary,
 			asset_kind: Self::AssetKind,
 			amount: Self::Balance,
 		) {
 			E::ensure_successful();
-			O::ensure_successful(who, asset_kind, amount)
+			O::ensure_successful(source, beneficiary, asset_kind, amount)
 		}
 		fn ensure_concluded(id: Self::Id) {
 			O::ensure_concluded(id)
