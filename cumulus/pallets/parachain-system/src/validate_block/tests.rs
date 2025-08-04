@@ -100,14 +100,13 @@ fn create_test_client() -> (Client, Header) {
 }
 
 /// Create test client using the runtime with `elastic-scaling` feature enabled.
-fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
+fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
-	builder.genesis_init_mut().blocks_per_pov = Some(blocks_per_pov);
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -276,7 +275,7 @@ fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 
 	let blocks_per_pov = 4;
-	let (client, parent_head) = create_elastic_scaling_test_client(blocks_per_pov);
+	let (client, parent_head) = create_elastic_scaling_test_client();
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
 		parent_head.clone(),
@@ -545,7 +544,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 
 	let blocks_per_pov = 12;
 	// disable the core selection logic
-	let (client, genesis_head) = create_elastic_scaling_test_client(0);
+	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
 	let TestBlockData { block: initial_block_data, .. } = build_block_with_witness(
@@ -606,7 +605,7 @@ fn validate_block_handles_ump_signal() {
 
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client(1);
+	let (client, parent_head) = create_elastic_scaling_test_client();
 	let extra_extrinsics =
 		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
 
