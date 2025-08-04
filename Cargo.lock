@@ -14520,6 +14520,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "picoalloc"
+version = "5.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b89f2d241d6621c301bfb56235a47abdb5d3fdebff771edb87f0eec237a8de"
+
+[[package]]
 name = "pin-project"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -22677,6 +22683,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
+ "picoalloc",
  "polkavm-derive 0.26.0",
  "rustversion",
  "secp256k1 0.28.2",
