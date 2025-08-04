@@ -163,13 +163,6 @@ fn extcodehash_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
-
-            {
-                let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
-
-                <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000);
-            }
-            
             let expected_code_hash = {
                 let contract_info = test_utils::get_contract(&addr);
                 contract_info.code_hash
@@ -212,7 +205,7 @@ fn blockhash_works() {
         
         ExtBuilder::default().build().execute_with(|| {
 
-            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
@@ -222,6 +215,13 @@ fn blockhash_works() {
                 let contract_info = test_utils::get_contract(&addr);
                 contract_info.code_hash
             };
+            
+
+            {
+                let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
+
+                <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000_000);
+            }
 
             {
                 let block_hash = [1; 32];
