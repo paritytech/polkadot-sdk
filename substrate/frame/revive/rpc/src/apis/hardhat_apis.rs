@@ -37,4 +37,7 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_dropTransaction")]
 	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>>;
+
+	#[method(name = "hardhat_setNonce")]
+	async fn set_evm_nonce(&self, account: H160, nonce: U256) -> RpcResult<Option<U256>>;
 }

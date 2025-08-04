@@ -134,17 +134,16 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.mine(number_of_blocks, interval).await?)
 	}
 
-	async fn get_automine(
-		&self
-	) -> RpcResult<bool> {
+	async fn get_automine(&self) -> RpcResult<bool> {
 		Ok(self.client.get_automine().await?)
 	}
 
-	async fn drop_transaction(
-		&self,
-		hash: H256
-	) -> RpcResult<Option<H256>> {
+	async fn drop_transaction(&self, hash: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.drop_transaction(hash).await?)
+	}
+
+	async fn set_evm_nonce(&self, account: H160, nonce: U256) -> RpcResult<Option<U256>> {
+		Ok(self.client.set_evm_nonce(account, nonce).await?)
 	}
 }
 

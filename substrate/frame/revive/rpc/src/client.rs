@@ -20,7 +20,12 @@
 mod runtime_api;
 mod storage_api;
 use crate::{
-	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
+	subxt_client::{
+		self,
+		revive::calls::types::EthTransact,
+		runtime_types::{revive_dev_runtime::RuntimeCall, pallet_revive::pallet::Call},
+		SrcChainConfig,
+	},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
@@ -34,7 +39,7 @@ use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H256, U256,
+		TransactionSigned, TransactionTrace, H160, H256, U256,
 	},
 	EthTransactError,
 };
@@ -58,6 +63,7 @@ use subxt::{
 	config::Header,
 	Config, OnlineClient,
 };
+use subxt_signer::sr25519::dev;
 use thiserror::Error;
 
 /// The substrate block type.
@@ -767,7 +773,8 @@ impl Client {
 					let typed_hash = ExtrinsicOrHash::Hash(hash);
 					let params = rpc_params![typed_hash].to_rpc_params().unwrap();
 
-					let _ = self.rpc_client.request("author_removeExtrinsic".to_string(), params).await;
+					let _ =
+						self.rpc_client.request("author_removeExtrinsic".to_string(), params).await;
 
 					return Ok(Some(hash));
 				},
@@ -775,5 +782,22 @@ impl Client {
 			}
 		}
 		Ok(None)
+	}
+
+	pub async fn set_evm_nonce(
+		&self,
+		account: H160,
+		nonce: U256,
+	) -> Result<Option<U256>, ClientError> {
+		let alice = dev::alice();
+		let call = RuntimeCall::Revive(Call::set_evm_nonce_call {
+			address: account,
+			nonce: subxt::utils::Static(nonce),
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let hash = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(nonce))
 	}
 }
