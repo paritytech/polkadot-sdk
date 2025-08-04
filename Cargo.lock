@@ -3258,6 +3258,7 @@ dependencies = [
 name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "collectives-westend-runtime",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
