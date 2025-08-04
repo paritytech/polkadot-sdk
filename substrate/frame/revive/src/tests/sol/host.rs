@@ -21,6 +21,7 @@ use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR, BOB, BOB_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
+    address::AddressMapper,
 };
 
 use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface};
@@ -69,7 +70,7 @@ fn balance_works() {
 
 #[test]
 fn selfbalance_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
         let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
         let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
         let expected_balance = U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth);
@@ -81,13 +82,18 @@ fn selfbalance_works() {
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
 
             {
-                let mut data = [0u8; 32];
-                data[12..].copy_from_slice(addr.as_bytes());
-                let account_id32 = sp_runtime::AccountId32::from(data);
+                let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
+
+                let balance = <Test as Config>::Currency::balance(&account_id32);
+                println!("selfbalance_works: balance = {:?}", balance);
 
                 <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000);
+
+                let balance = <Test as Config>::Currency::balance(&account_id32);
+                println!("selfbalance_works: balance = {:?}", balance);
             }
             {
                 let result = builder::bare_call(addr)
@@ -101,7 +107,7 @@ fn selfbalance_works() {
                 assert_eq!(
                     expected_balance,
                     result_balance,
-                    "BALANCE should return BOB's balance for {:?}", fixture_type
+                    "BALANCE should return contract's balance for {:?}", fixture_type
                 );
             }
 		});

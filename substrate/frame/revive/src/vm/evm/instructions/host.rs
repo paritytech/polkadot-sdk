@@ -57,6 +57,7 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>)
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	println!("selfbalance_works");
 	check!(context.interpreter, ISTANBUL);
 	gas!(context.interpreter, RuntimeCosts::Balance);
 
