@@ -415,10 +415,13 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
 
+	log::info!("XXX calling import_block");
 	let imported = import_handle.import_block(import_block).await;
+	log::info!("XXX called import_block");
 	if let Some(metrics) = metrics {
 		metrics.report_verification_and_import(started.elapsed() + verification_time);
 	}
 
+	log::info!("XXX calling import_handler");
 	import_handler::<Block>(number, hash, parent_hash, block_origin, imported)
 }
