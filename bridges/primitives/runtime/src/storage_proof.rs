@@ -166,7 +166,7 @@ where
 		self.read_value(key).and_then(|v| {
 			v.map(|v| {
 				T::decode(&mut &v[..]).map_err(|e| {
-					log::warn!(target: "bridge-storage-proofs", "read_and_decode_value error: {e:?}");
+					tracing::warn!(target: "bridge-storage-proofs", error=?e, "read_and_decode_value");
 					StorageProofError::DecodeError
 				})
 			})
