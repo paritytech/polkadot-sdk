@@ -177,6 +177,7 @@ pub use extensions::{
 	check_spec_version::CheckSpecVersion,
 	check_tx_version::CheckTxVersion,
 	check_weight::CheckWeight,
+	skip_check_if::SkipCheckIf,
 	weight_reclaim::WeightReclaim,
 	weights::SubstrateWeight as SubstrateExtensionsWeight,
 	WeightInfo as ExtensionsWeightInfo,

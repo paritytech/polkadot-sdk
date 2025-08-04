@@ -37,6 +37,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod ambassador;
+pub mod dday;
 mod genesis_config_presets;
 pub mod impls;
 mod weights;
@@ -47,6 +48,7 @@ pub mod fellowship;
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
+pub use dday::pallet_dday_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
@@ -399,7 +401,7 @@ parameter_types! {
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
+	type OnSystemEvent = (dday::StoreRelayChainStateRootForDDay,);
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
@@ -733,6 +735,12 @@ construct_runtime!(
 		AmbassadorSalary: pallet_salary::<Instance2> = 74,
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
+		// DDay feature.
+		DDayReferenda: pallet_referenda::<Instance3> = 81,
+		DDayVoting: pallet_dday_voting::<Instance1> = 82,
+		DDayOrigins: pallet_dday_origins = 83,
+		DDayProofRootStore: pallet_bridge_proof_root_store::<Instance1> = 84,
+
 		StateTrieMigration: pallet_state_trie_migration = 80,
 	}
 );
@@ -755,8 +763,12 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckTxVersion<Runtime>,
 		frame_system::CheckGenesis<Runtime>,
 		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
+		dday::SkipCheckIfValidDDayVotingProof<frame_system::CheckNonce<Runtime>>,
 		frame_system::CheckWeight<Runtime>,
+		dday::SkipCheckIfValidDDayVotingProof<
+			pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
@@ -823,6 +835,7 @@ mod benches {
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
+		[pallet_referenda, DDayReferenda]
 		[pallet_treasury, FellowshipTreasury]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]

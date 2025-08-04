@@ -21,6 +21,7 @@ tracing = { workspace = true }
 # Substrate
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
+frame-metadata-hash-extension = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
@@ -31,8 +32,10 @@ pallet-asset-rate = { workspace = true }
 pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-bridge-proof-root-store = { workspace = true }
 pallet-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
+pallet-dday-voting = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -92,6 +95,9 @@ parachain-info = { workspace = true }
 parachains-common = { workspace = true }
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 
+# Bridges
+bp-runtime = { workspace = true }
+
 [dev-dependencies]
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 sp-io = { features = ["std"], workspace = true, default-features = true }
@@ -115,10 +121,12 @@ runtime-benchmarks = [
 	"pallet-alliance/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-bridge-proof-root-store/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-collective-content/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
+	"pallet-dday-voting/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -159,10 +167,12 @@ try-runtime = [
 	"pallet-aura/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-bridge-proof-root-store/try-runtime",
 	"pallet-collator-selection/try-runtime",
 	"pallet-collective-content/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-core-fellowship/try-runtime",
+	"pallet-dday-voting/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-preimage/try-runtime",
@@ -196,6 +206,7 @@ std = [
 	"cumulus-primitives-utility/std",
 	"frame-benchmarking?/std",
 	"frame-executive/std",
+	"frame-metadata-hash-extension/std",
 	"frame-support/std",
 	"frame-system-benchmarking?/std",
 	"frame-system-rpc-runtime-api/std",
@@ -206,10 +217,12 @@ std = [
 	"pallet-aura/std",
 	"pallet-authorship/std",
 	"pallet-balances/std",
+	"pallet-bridge-proof-root-store/std",
 	"pallet-collator-selection/std",
 	"pallet-collective-content/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
+	"pallet-dday-voting/std",
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-preimage/std",
