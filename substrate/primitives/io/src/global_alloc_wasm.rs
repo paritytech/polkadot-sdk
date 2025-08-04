@@ -22,22 +22,6 @@ use core::{
 };
 
 /// Allocator used by Substrate from within the runtime.
-///
-/// The allocator needs to align the returned pointer to given layout. We assume that on the host
-/// side the freeing-bump allocator is used with a fixed alignment of `8` and a `HEADER_SIZE` of
-/// `8`. The freeing-bump allocator is storing the header in the 8 bytes before the actual pointer
-/// returned by `alloc`. The problem is that the runtime not only sees pointers allocated by this
-/// `RuntimeAllocator`, but also pointers allocated by the host. The header is stored as a
-/// little-endian `u64`. The allocation header consists of 8 bytes. The first four bytes (as written
-/// in memory) are used to store the order of the allocation (or the link to the next slot, if
-/// unallocated). Then the least significant bit of the next byte determines whether a given slot is
-/// occupied or free, and the last three bytes are unused.
-///
-/// The `RuntimeAllocator` aligns the pointer to the required alignment before returning it to the
-/// user code. As we are assuming the freeing-bump allocator that already aligns by `8` by default,
-/// we only need to take care of alignments above `8`. The offset is stored in two bytes before the
-/// pointer that we return to the user. Depending on the alignment, we may write into the header,
-/// but given the assumptions above this should be no problem.
 struct RuntimeAllocator;
 
 #[global_allocator]
@@ -122,7 +106,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		if let Some(pointer) = local_allocator().alloc(align, size) {
 			pointer.as_ptr()
 		} else {
-			crate::allocator::malloc(layout.size() as u32)
+			crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout)
 		}
 	}
 
@@ -131,7 +115,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 			// SAFETY: We've checked that the pointer is from the local allocator.
 			unsafe { local_allocator().free(NonNull::new_unchecked(ptr)) }
 		} else {
-			crate::allocator::free(ptr)
+			crate::global_alloc_wasm_legacy::HostAllocator.dealloc(ptr)
 		}
 	}
 
@@ -154,7 +138,7 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 		// The local allocator is full, so fall back to the host allocator.
 
 		let size = layout.size();
-		let ptr = crate::allocator::malloc(layout.size() as u32);
+		let ptr = crate::global_alloc_wasm_legacy::HostAllocator.alloc(layout);
 		if !ptr.is_null() {
 			// SAFETY: as allocation succeeded, the region from `ptr`
 			// of size `size` is guaranteed to be valid for writes.
