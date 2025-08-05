@@ -206,9 +206,9 @@ pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
 ) -> anyhow::Result<()> {
 	tracing::info!(
 		target: "bridge",
-		"Starting {} -> {} equivocations detection loop",
-		P::SourceChain::NAME,
-		P::TargetChain::NAME,
+		source=%P::SourceChain::NAME,
+		target=%P::TargetChain::NAME,
+		"Starting equivocations detection loop"
 	);
 
 	equivocation_detector::run(
