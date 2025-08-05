@@ -1,4 +1,4 @@
-name: Checkout Fuzzer Repo
+name: Kitchensink Fuzz
 
 on:
     push:
