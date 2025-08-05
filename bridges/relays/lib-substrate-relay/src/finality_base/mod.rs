@@ -60,8 +60,8 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 					tracing::error!(
 						target: "bridge",
 						error=?err,
-						"Failed to read justification target from the {} justifications stream",
-						P::SourceChain::NAME,
+						source=%P::SourceChain::NAME,
+						"Failed to read justification target from the justifications stream"
 					);
 				};
 
