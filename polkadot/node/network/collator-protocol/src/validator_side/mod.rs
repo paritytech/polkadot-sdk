@@ -15,13 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{
-	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
+	channel::{mpsc, oneshot},
+	future::BoxFuture,
+	select,
+	stream::FuturesUnordered,
+	FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
-	time::{Duration, Instant},
+	time::{Duration, Instant, SystemTime},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -44,7 +48,7 @@ use polkadot_node_subsystem::{
 		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
-	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
+	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -72,6 +76,8 @@ use collation::{
 	PendingCollationFetch, ProspectiveCandidate,
 };
 use error::{Error, FetchError, Result, SecondingError};
+
+const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
 
 #[cfg(test)]
 mod tests;
@@ -408,6 +414,10 @@ struct State {
 
 	/// List of invulnerable AssetHub collators. They are handled with a priority.
 	ah_invulnerables: HashSet<PeerId>,
+
+	// AssetHub advertisements which were held off because they are not from invulnerable
+	// collators.
+	ah_held_off_collations: VecDeque<(SystemTime, Hash, PeerId, Option<(CandidateHash, Hash)>)>,
 }
 
 impl State {
@@ -869,7 +879,11 @@ async fn process_incoming_peer_message<Context>(
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) =>
+		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
+			if hold_off_asset_hub_collation_if_needed(state, origin, relay_parent, None) {
+				return
+			}
+
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -884,12 +898,22 @@ async fn process_incoming_peer_message<Context>(
 				if let Some(rep) = err.reputation_changes() {
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
-			},
+			}
+		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
 		}) => {
+			if hold_off_asset_hub_collation_if_needed(
+				state,
+				origin,
+				relay_parent,
+				Some((candidate_hash, parent_head_data_hash)),
+			) {
+				return
+			}
+
 			if let Err(err) = handle_advertisement(
 				ctx.sender(),
 				state,
@@ -925,6 +949,36 @@ async fn process_incoming_peer_message<Context>(
 				.await;
 		},
 	}
+}
+
+// Holds off an AssetHub collation, if it's not from an invulnerable AssetHub collator. Returns
+// `true` if the collation was held off and `false` otherwise.
+fn hold_off_asset_hub_collation_if_needed(
+	state: &mut State,
+	origin: PeerId,
+	relay_parent: Hash,
+	prospective_candidate: Option<(CandidateHash, Hash)>,
+) -> bool {
+	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
+	// copy-pasted logic we'll just return `false` and let the caller handle it.
+	let maybe_para_id = state.peer_data.get(&origin).and_then(|pd| pd.collating_para());
+	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&origin) {
+		state.ah_held_off_collations.push_back((
+			SystemTime::now(),
+			relay_parent,
+			origin,
+			prospective_candidate,
+		));
+		gum::debug!(
+			target: LOG_TARGET,
+			peer_id = ?origin,
+			?relay_parent,
+			"AssetHub collation held off, not from invulnerable collator",
+		);
+		return true
+	}
+
+	return false
 }
 
 #[derive(Debug)]
@@ -1623,7 +1677,7 @@ pub(crate) async fn run<Context>(
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
 	ah_invulnerables: HashSet<PeerId>,
-) -> std::result::Result<(), std::convert::Infallible> {
+) -> std::result::Result<(), SubsystemError> {
 	run_inner(
 		ctx,
 		keystore,
@@ -1645,9 +1699,35 @@ async fn run_inner<Context>(
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
-) -> std::result::Result<(), std::convert::Infallible> {
+) -> std::result::Result<(), SubsystemError> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
+
+	// A ticker which checks if any of the held off AssetHub advertisements should be processed.
+	let (mut ah_held_off_ticker_tx, mut ah_held_off_ticker_rx) = mpsc::channel::<()>(1);
+	let (ah_held_off_ticker_shutdown_tx, mut ah_held_off_ticker_shutdown_rx) = oneshot::channel();
+	ctx.spawn(
+		"ah-held-off-ticker",
+		Box::pin(async move {
+			loop {
+				select! {
+					_ = ah_held_off_ticker_shutdown_rx => {
+						gum::trace!(target: LOG_TARGET, "AssetHub held off ticker shutdown");
+						return;
+					},
+					_ = futures_timer::Delay::new(Duration::from_millis(500)).fuse() => {
+						if let Err(err) = ah_held_off_ticker_tx.try_send(()) {
+							gum::warn!(
+								target: LOG_TARGET,
+								?err,
+								"Failed to send a tick for held off AssetHub advertisements",
+							);
+						}
+					}
+				}
+			}
+		}),
+	)?;
 
 	let mut state = State { metrics, reputation, ah_invulnerables, ..Default::default() };
 
@@ -1674,7 +1754,10 @@ async fn run_inner<Context>(
 							&mut state,
 						).await;
 					}
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
+						let _ = ah_held_off_ticker_shutdown_tx.send(());
+						break
+					},
 					Ok(FromOrchestra::Signal(_)) => continue,
 				}
 			},
@@ -1764,7 +1847,50 @@ async fn run_inner<Context>(
 					(collator_id, maybe_candidate_hash),
 				)
 				.await;
-			}
+			},
+			_ = ah_held_off_ticker_rx.select_next_some() => {
+				let now = SystemTime::now();
+
+				loop {
+					let should_process = state.ah_held_off_collations.get(0).map(|head| {
+						let hold_off_duration =  now.duration_since(head.0).unwrap_or_else(|_| {
+							gum::warn!(
+								target: LOG_TARGET,
+								"SystemTime went backwards, this should not happen, but we will continue processing",
+							);
+							// In case of an error better make sure the request is processed.
+							Duration::from_secs(2)
+						});
+
+						hold_off_duration > Duration::from_secs(1)
+					}).unwrap_or(false);
+
+					if !should_process {
+						break;
+					}
+
+					let (_, relay_parent, peer_id, prospective_candidate) = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
+					gum::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?peer_id,
+						?prospective_candidate,
+						"Processing held off advertisement for AssetHub",
+					);
+					if let Err(err) = handle_advertisement(
+						ctx.sender(),
+						&mut state,
+						relay_parent,
+						peer_id,
+						prospective_candidate,
+					).await {
+						if let Some(rep) = err.reputation_changes() {
+							modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+						}
+					}
+				}
+
+			},
 		}
 	}
 
