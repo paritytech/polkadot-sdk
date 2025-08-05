@@ -23,7 +23,7 @@ jobs:
         path: |
           substrate/bin/node/runtime/fuzzer/target
           ~/.cargo/
-        key: fuzzer-target-dir
+        key: fuzzer-target-and-cache-dirs
 
     #- name: Install Rust target
     #  run: rustup target add wasm32-unknown-unknown
