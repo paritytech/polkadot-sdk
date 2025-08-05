@@ -23,6 +23,11 @@ jobs:
     - name: Install dependencies
       run: cargo install ziggy cargo-afl grcov
 
+    - name: Fuzzer target dir cache
+      uses: actions/cache@v4
+      with:
+        path: substrate/bin/node/runtime/fuzzer/target
+          
     - name: Run cargo ziggy fuzz for 15 minute
       env:
         SKIP_WASM_BUILD: true
