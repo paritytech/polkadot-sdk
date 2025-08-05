@@ -114,4 +114,9 @@ where
 			last_claimed_core_selector: None,
 		})
 	}
+
+	#[cfg(test)]
+	pub(crate) fn insert_test_data(&mut self, relay_parent: RelayHash, data: RelayChainData) {
+		self.cached_data.insert(relay_parent, data);
+	}
 }
