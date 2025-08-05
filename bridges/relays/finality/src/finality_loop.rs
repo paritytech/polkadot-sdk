@@ -143,12 +143,12 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 		} else {
 			tracing::error!(
 				target: "bridge",
+				%source=P::SOURCE_NAME,
+				%target=P::TARGET_NAME,
+				height=?id_at_target.0,
 				at_source=?header_hash_at_source,
 				at_target=?id_at_target.1,
-				"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
-				id_at_target.0,
+				"Source node and pallet at target node have different headers at the same height"
 			);
 
 			false
@@ -207,9 +207,10 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		let header_number = header.number();
 		tracing::debug!(
 			target: "bridge",
-			"Going to submit finality proof of {} header #{header_number:?} to {}",
-			P::SOURCE_NAME,
-			P::TARGET_NAME,
+			%source=P::SOURCE_NAME,
+			%target=P::TARGET_NAME,
+			header=?header_number,
+			"Going to submit finality proof of header"
 		);
 
 		let tracker = target_client
@@ -302,9 +303,9 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 
 		tracing::info!(
 			target: "bridge",
-			"Synced {:?} of {:?} headers",
-			info.best_number_at_target,
-			info.best_number_at_source,
+			best_number_at_target=?info.best_number_at_target,
+			best_number_at_source=?info.best_number_at_source,
+			"Synced headers"
 		);
 
 		self.progress = (now, Some(info.best_number_at_target))
@@ -318,9 +319,9 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		// to see that the loop is progressing
 		tracing::trace!(
 			target: "bridge",
-			"Considering range of headers ({}; {}]",
-			info.best_number_at_target,
-			info.best_number_at_source
+			best_number_at_target=%info.best_number_at_target,
+			best_number_at_source=%info.best_number_at_source,
+			"Considering range of headers"
 		);
 
 		// read missing headers
@@ -448,8 +449,8 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 						tracing::error!(
 							target: "bridge",
 							error=?e,
-							"Finality sync proof submission tx to {} has failed.",
-							P::TARGET_NAME,
+							target=%P::TARGET_NAME,
+							"Finality sync proof submission tx has failed."
 						);
 						self.best_submitted_number = None;
 						e.fail_if_connection_error()?;
@@ -480,28 +481,28 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 		Ok(Some(free_headers_interval)) if !free_headers_interval.is_zero() => {
 			tracing::trace!(
 				target: "bridge",
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
 				?free_headers_interval,
-				"Free headers interval for {} headers at {}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				"Free headers interval for headers"
 			);
 			Ok(Some(free_headers_interval))
 		},
 		Ok(Some(_free_headers_interval)) => {
 			tracing::trace!(
 				target: "bridge",
-				"Free headers interval for {} headers at {} is zero. Not submitting any free headers",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Free headers interval for headers is zero. Not submitting any free headers"
 			);
 			Ok(None)
 		},
 		Ok(None) => {
 			tracing::trace!(
 				target: "bridge",
-				"Free headers interval for {} headers at {} is None. Not submitting any free headers",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Free headers interval for headers is None. Not submitting any free headers"
 			);
 
 			Ok(None)
@@ -510,9 +511,9 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 			tracing::error!(
 				target: "bridge",
 				error=?e,
-				"Failed to read free headers interval for {} headers at {}",
-				P::SOURCE_NAME,
-				P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
+				"Failed to read free headers interval for headers"
 			);
 			Err(FailedClient::Target)
 		},
