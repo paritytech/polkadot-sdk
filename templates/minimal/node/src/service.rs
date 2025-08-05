@@ -20,7 +20,6 @@ use futures::FutureExt;
 use minimal_template_runtime::{interface::OpaqueBlock as Block, RuntimeApi};
 use polkadot_sdk::{
 	sc_client_api::backend::Backend,
-	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
@@ -108,7 +107,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 }
 
 /// Builds a new service for a full client.
-pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
+pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	consensus: Consensus,
 ) -> Result<TaskManager, ServiceError> {
@@ -197,7 +196,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		telemetry: telemetry.as_mut(),
 	})?;
 
-	let mut proposer = sc_basic_authorship::ProposerFactory::new(
+	let proposer = sc_basic_authorship::ProposerFactory::new(
 		task_manager.spawn_handle(),
 		client.clone(),
 		transaction_pool.clone(),
@@ -207,31 +206,6 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 
 	match consensus {
 		Consensus::InstantSeal => {
-			// Seal a first block to trigger fork-aware txpool `maintain`, and create a first
-			// view. This is necessary so that sending txs will not keep them in mempool for
-			// an undeterminated amount of time.
-			//
-			// If single state txpool is used there's no issue if we're sealing a first block in
-			// advance.
-			let create_inherent_data_providers =
-				|_, ()| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
-			let mut client_mut = client.clone();
-			let consensus_data_provider = None;
-			let seal_params = SealBlockParams {
-				sender: None,
-				parent_hash: None,
-				finalize: true,
-				create_empty: true,
-				env: &mut proposer,
-				select_chain: &select_chain,
-				block_import: &mut client_mut,
-				consensus_data_provider,
-				pool: transaction_pool.clone(),
-				client: client.clone(),
-				create_inherent_data_providers: &create_inherent_data_providers,
-			};
-			seal_block(seal_params).await;
-
 			let params = sc_consensus_manual_seal::InstantSealParams {
 				block_import: client.clone(),
 				env: proposer,
@@ -239,7 +213,9 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				pool: transaction_pool,
 				select_chain,
 				consensus_data_provider: None,
-				create_inherent_data_providers,
+				create_inherent_data_providers: move |_, ()| async move {
+					Ok(sp_timestamp::InherentDataProvider::from_system_time())
+				},
 			};
 
 			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
