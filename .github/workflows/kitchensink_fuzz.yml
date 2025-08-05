@@ -8,6 +8,7 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
 
+    steps:
     - name: Get PR Details 
       run: |
           # TODO: (hardcoded for demo, pedning to push PR)
