@@ -112,16 +112,16 @@ impl MessageRaceLimits {
 			// limit messages in the batch by weight
 			let new_selected_weight = match selected_weight.checked_add(&details.dispatch_weight) {
 				Some(new_selected_weight)
-					if new_selected_weight
-						.all_lte(reference.max_messages_weight_in_single_batch) =>
+				if new_selected_weight
+					.all_lte(reference.max_messages_weight_in_single_batch) =>
 					new_selected_weight,
 				new_selected_weight if selected_count == 0 => {
-					tracing::warn!(
+					log::warn!(
 						target: "bridge",
-						dispatch_weight=?new_selected_weight,
-						configured_weight=%reference.max_messages_weight_in_single_batch,
 						"Going to submit message delivery transaction with declared dispatch \
-						weight that overflows maximal configured weight"
+						weight {:?} that overflows maximal configured weight {}",
+						new_selected_weight,
+						reference.max_messages_weight_in_single_batch,
 					);
 					new_selected_weight.unwrap_or(Weight::MAX)
 				},
@@ -131,15 +131,15 @@ impl MessageRaceLimits {
 			// limit messages in the batch by size
 			let new_selected_size = match relay_reference.selected_size.checked_add(details.size) {
 				Some(new_selected_size)
-					if new_selected_size <= reference.max_messages_size_in_single_batch =>
+				if new_selected_size <= reference.max_messages_size_in_single_batch =>
 					new_selected_size,
 				new_selected_size if selected_count == 0 => {
-					tracing::warn!(
+					log::warn!(
 						target: "bridge",
-						message_size=new_selected_size,
-						configured_size=%reference.max_messages_size_in_single_batch,
 						"Going to submit message delivery transaction with message \
-						size that overflows maximal configured size"
+						size {:?} that overflows maximal configured size {}",
+						new_selected_size,
+						reference.max_messages_size_in_single_batch,
 					);
 					new_selected_size.unwrap_or(u32::MAX)
 				},

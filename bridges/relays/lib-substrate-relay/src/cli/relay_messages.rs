@@ -140,8 +140,8 @@ where
 			limits: Self::maybe_messages_limits(),
 			metrics_params: data.prometheus_params.into_metrics_params()?,
 		})
-		.await
-		.map_err(|e| anyhow::format_err!("{}", e))
+			.await
+			.map_err(|e| anyhow::format_err!("{}", e))
 	}
 
 	/// Relay a consequitive range of messages.
@@ -160,10 +160,9 @@ where
 			.header_by_number(data.at_source_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				tracing::trace!(
+				log::trace!(
 					target: "bridge",
-					error=?e,
-					"Failed to read {} header with number {}",
+					"Failed to read {} header with number {}: {e:?}",
 					Self::Source::NAME,
 					data.at_source_block,
 				);
@@ -181,7 +180,7 @@ where
 			data.messages_start..=data.messages_end,
 			data.outbound_state_proof_required,
 		)
-		.await
+			.await
 	}
 
 	/// Relay a messages delivery confirmation.
@@ -200,10 +199,9 @@ where
 			.header_by_number(data.at_target_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				tracing::trace!(
+				log::trace!(
 					target: "bridge",
-					error=?e,
-					"Failed to read {} header with number {}",
+					"Failed to read {} header with number {}: {e:?}",
 					Self::Target::NAME,
 					data.at_target_block,
 				);
@@ -218,7 +216,7 @@ where
 			at_target_block,
 			lane_id,
 		)
-		.await
+			.await
 	}
 
 	/// Add relay guards if required.

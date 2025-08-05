@@ -42,13 +42,12 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 			Ok(synced_headers) =>
 				Ok(ReadContext { target_block_num: self.target_block_num, synced_headers }),
 			Err(e) => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					error=?e,
-					block=%self.target_block_num,
-					"Could not get {} headers synced to {} at block",
+					"Could not get {} headers synced to {} at block {}: {e:?}",
 					P::SOURCE_NAME,
 					P::TARGET_NAME,
+					self.target_block_num
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -78,7 +77,7 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 			target_client,
 			self.target_block_num.saturating_sub(1.into()),
 		)
-		.await
+			.await
 		{
 			Ok(Some(context)) => Ok(Some(FindEquivocations {
 				target_block_num: self.target_block_num,
@@ -87,13 +86,12 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 			})),
 			Ok(None) => Ok(None),
 			Err(e) => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					error=?e,
-					block=%self.target_block_num.saturating_sub(1.into()),
-					"Could not read {} `EquivocationReportingContext` from {} at block",
+					"Could not read {} `EquivocationReportingContext` from {} at block {}: {e:?}",
 					P::SOURCE_NAME,
 					P::TARGET_NAME,
+					self.target_block_num.saturating_sub(1.into()),
 				);
 
 				// Reconnect target client in case of a connection error.
@@ -135,13 +133,12 @@ impl<P: EquivocationDetectionPipeline> FindEquivocations<P> {
 						})
 					},
 				Err(e) => {
-					tracing::error!(
+					log::error!(
 						target: "bridge",
-						error=?e,
-						source_header=?synced_header.finality_proof.target_header_hash(),
-						block=%self.target_block_num,
 						"Could not search for equivocations in the finality proof \
-						for source header synced at target block"
+						for source header {:?} synced at target block {}: {e:?}",
+						synced_header.finality_proof.target_header_hash(),
+						self.target_block_num
 					);
 				},
 			};
@@ -177,11 +174,9 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 			{
 				Ok(_) => {},
 				Err(e) => {
-					tracing::error!(
+					log::error!(
 						target: "bridge",
-						error=?e,
-						?equivocation,
-						"Could not submit equivocation report to {}",
+						"Could not submit equivocation report to {} for {equivocation:?}: {e:?}",
 						P::SOURCE_NAME,
 					);
 
@@ -260,7 +255,7 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 				},
 			}
 		}
-		.boxed()
+			.boxed()
 	}
 }
 

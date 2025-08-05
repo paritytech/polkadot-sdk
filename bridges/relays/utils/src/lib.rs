@@ -51,7 +51,29 @@ pub mod relay_loop;
 
 /// Block number traits shared by all chains that relay is able to serve.
 pub trait BlockNumberBase:
-	'static
+'static
++ From<u32>
++ UniqueSaturatedInto<u64>
++ Ord
++ Clone
++ Copy
++ Default
++ Send
++ Sync
++ std::fmt::Debug
++ std::fmt::Display
++ std::hash::Hash
++ std::ops::Add<Output = Self>
++ std::ops::Sub<Output = Self>
++ num_traits::CheckedSub
++ num_traits::Saturating
++ num_traits::Zero
++ num_traits::One
+{
+}
+
+impl<T> BlockNumberBase for T where
+	T: 'static
 	+ From<u32>
 	+ UniqueSaturatedInto<u64>
 	+ Ord
@@ -69,28 +91,6 @@ pub trait BlockNumberBase:
 	+ num_traits::Saturating
 	+ num_traits::Zero
 	+ num_traits::One
-{
-}
-
-impl<T> BlockNumberBase for T where
-	T: 'static
-		+ From<u32>
-		+ UniqueSaturatedInto<u64>
-		+ Ord
-		+ Clone
-		+ Copy
-		+ Default
-		+ Send
-		+ Sync
-		+ std::fmt::Debug
-		+ std::fmt::Display
-		+ std::hash::Hash
-		+ std::ops::Add<Output = Self>
-		+ std::ops::Sub<Output = Self>
-		+ num_traits::CheckedSub
-		+ num_traits::Saturating
-		+ num_traits::Zero
-		+ num_traits::One
 {
 }
 
@@ -143,7 +143,7 @@ pub trait TransactionTracker: Send {
 
 /// Future associated with `TransactionTracker`, monitoring the transaction status.
 pub type TrackedTransactionFuture<'a, T> =
-	BoxFuture<'a, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
+BoxFuture<'a, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
 
 /// Stringified error that may be either connection-related or not.
 #[derive(Error, Debug)]
@@ -290,11 +290,11 @@ where
 			ProcessFutureResult::Success
 		},
 		Err(error) if error.is_connection_error() => {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				?error,
-				"{}. Going to restart",
+				"{}: {:?}. Going to restart",
 				error_pattern(),
+				error,
 			);
 
 			retry_backoff.reset();
@@ -303,11 +303,11 @@ where
 		},
 		Err(error) => {
 			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				?error,
-				"{}. Retrying in {}",
+				"{}: {:?}. Retrying in {}",
 				error_pattern(),
+				error,
 				retry_delay.as_secs_f64(),
 			);
 

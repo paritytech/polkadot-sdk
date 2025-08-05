@@ -46,11 +46,11 @@ pub async fn initialize<
 	dry_run: bool,
 ) where
 	F: FnOnce(
-			TargetChain::Nonce,
-			E::InitializationData,
-		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
-		+ Send
-		+ 'static,
+		TargetChain::Nonce,
+		E::InitializationData,
+	) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
+	+ Send
+	+ 'static,
 	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let result = do_initialize::<E, _, _, _>(
@@ -60,36 +60,36 @@ pub async fn initialize<
 		prepare_initialize_transaction,
 		dry_run,
 	)
-	.await;
+		.await;
 
 	match result {
 		Ok(Some(tx_status)) => match tx_status {
 			TrackedTransactionStatus::Lost => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					?tx_status,
-					"Failed to execute {}-headers bridge initialization transaction on {}.",
+					"Failed to execute {}-headers bridge initialization transaction on {}: {:?}.",
 					SourceChain::NAME,
 					TargetChain::NAME,
+					tx_status
 				)
 			},
 			TrackedTransactionStatus::Finalized(_) => {
-				tracing::info!(
+				log::info!(
 					target: "bridge",
-					?tx_status,
-					"Successfully executed {}-headers bridge initialization transaction on {}.",
+					"Successfully executed {}-headers bridge initialization transaction on {}: {:?}.",
 					SourceChain::NAME,
 					TargetChain::NAME,
+					tx_status
 				)
 			},
 		},
 		Ok(None) => (),
-		Err(err) => tracing::error!(
+		Err(err) => log::error!(
 			target: "bridge",
-			error=?err,
-			"Failed to submit {}-headers bridge initialization transaction to {}",
+			"Failed to submit {}-headers bridge initialization transaction to {}: {:?}",
 			SourceChain::NAME,
 			TargetChain::NAME,
+			err,
 		),
 	}
 }
@@ -112,18 +112,18 @@ async fn do_initialize<
 >
 where
 	F: FnOnce(
-			TargetChain::Nonce,
-			E::InitializationData,
-		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
-		+ Send
-		+ 'static,
+		TargetChain::Nonce,
+		E::InitializationData,
+	) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
+	+ Send
+	+ 'static,
 	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let is_initialized = E::is_initialized(&target_client)
 		.await
 		.map_err(|e| Error::IsInitializedRetrieve(SourceChain::NAME, TargetChain::NAME, e))?;
 	if is_initialized {
-		tracing::info!(
+		log::info!(
 			target: "bridge",
 			"{}-headers bridge at {} is already initialized. Skipping",
 			SourceChain::NAME,
@@ -135,12 +135,12 @@ where
 	}
 
 	let initialization_data = E::prepare_initialization_data(source_client).await?;
-	tracing::info!(
+	log::info!(
 		target: "bridge",
-		?initialization_data,
-		"Prepared initialization data for {}-headers bridge at {}",
+		"Prepared initialization data for {}-headers bridge at {}: {:?}",
 		SourceChain::NAME,
 		TargetChain::NAME,
+		initialization_data,
 	);
 
 	let tx_status = target_client

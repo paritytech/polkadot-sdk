@@ -66,7 +66,7 @@ pub async fn run<P: MessageLane>(
 		source_state_updates,
 		ReceivingConfirmationsBasicStrategy::<P>::new(),
 	)
-	.await
+		.await
 }
 
 /// Relay messages delivery confirmation.
@@ -77,11 +77,11 @@ pub async fn relay_messages_delivery_confirmation<P: MessageLane>(
 ) -> Result<(), ()> {
 	// prepare messages delivery proof
 	let (at, proof) = target_client.prove_messages_receiving(at.clone()).await.map_err(|e| {
-		tracing::error!(
+		log::error!(
 			target: "bridge",
-			error=?e,
-			?at,
-			"Failed to generate messages delivery proof",
+			"Failed to generate messages delivery proof at {:?}: {:?}",
+			at,
+			e,
 		);
 	})?;
 	// submit messages delivery proof to the source node
@@ -90,17 +90,17 @@ pub async fn relay_messages_delivery_confirmation<P: MessageLane>(
 			.submit_messages_receiving_proof(None, at, proof)
 			.await
 			.map_err(|e| {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					error=?e,
-					"Failed to submit messages delivery proof"
+					"Failed to submit messages delivery proof: {:?}",
+					e,
 				);
 			})?;
 
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			tracing::error!("Transaction with messages delivery proof is considered lost");
+			log::error!("Transaction with messages delivery proof is considered lost");
 			Err(())
 		},
 	}

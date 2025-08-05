@@ -141,14 +141,15 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 		Ok(if id_at_target.1 == header_hash_at_source {
 			true
 		} else {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				at_source=?header_hash_at_source,
-				at_target=?id_at_target.1,
-				"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}",
+				"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
+				at-source {:?} vs at-target {:?}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
 				id_at_target.0,
+				header_hash_at_source,
+				id_at_target.1,
 			);
 
 			false
@@ -205,10 +206,11 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		is_free_execution_expected: bool,
 	) -> Result<Self, TC::Error> {
 		let header_number = header.number();
-		tracing::debug!(
+		log::debug!(
 			target: "bridge",
-			"Going to submit finality proof of {} header #{header_number:?} to {}",
+			"Going to submit finality proof of {} header #{:?} to {}",
 			P::SOURCE_NAME,
+			header_number,
 			P::TARGET_NAME,
 		);
 
@@ -300,7 +302,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			return
 		}
 
-		tracing::info!(
+		log::info!(
 			target: "bridge",
 			"Synced {:?} of {:?} headers",
 			info.best_number_at_target,
@@ -316,7 +318,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 		free_headers_interval: Option<P::Number>,
 	) -> Result<Option<JustifiedHeader<P>>, Error<P, SC::Error, TC::Error>> {
 		// to see that the loop is progressing
-		tracing::trace!(
+		log::trace!(
 			target: "bridge",
 			"Considering range of headers ({}; {}]",
 			info.best_number_at_target,
@@ -330,7 +332,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			self.sync_params.headers_to_relay,
 			free_headers_interval,
 		)
-		.await?;
+			.await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
 		if self.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
 			return Ok(selector.select_mandatory())
@@ -387,8 +389,8 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 					header.proof,
 					self.sync_params.headers_to_relay == HeadersToRelay::Free,
 				)
-				.await
-				.map_err(Error::Target)?;
+					.await
+					.map_err(Error::Target)?;
 				self.best_submitted_number = Some(transaction.header_number);
 				Ok(Some(transaction))
 			},
@@ -432,7 +434,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 					self.sync_params.tick
 				},
 				Err(error) => {
-					tracing::error!(target: "bridge", ?error, "Finality sync loop iteration has failed");
+					log::error!(target: "bridge", "Finality sync loop iteration has failed with error: {:?}", error);
 					error.fail_if_connection_error()?;
 					self.retry_backoff
 						.next_backoff()
@@ -445,11 +447,11 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			select! {
 				proof_submission_result = proof_submission_tx_tracker => {
 					if let Err(e) = proof_submission_result {
-						tracing::error!(
+						log::error!(
 							target: "bridge",
-							error=?e,
-							"Finality sync proof submission tx to {} has failed.",
+							"Finality sync proof submission tx to {} has failed with error: {:?}.",
 							P::TARGET_NAME,
+							e,
 						);
 						self.best_submitted_number = None;
 						e.fail_if_connection_error()?;
@@ -478,17 +480,17 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 ) -> Result<Option<P::Number>, FailedClient> {
 	match target_client.free_source_headers_interval().await {
 		Ok(Some(free_headers_interval)) if !free_headers_interval.is_zero() => {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				?free_headers_interval,
-				"Free headers interval for {} headers at {}",
+				"Free headers interval for {} headers at {} is: {:?}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
+				free_headers_interval,
 			);
 			Ok(Some(free_headers_interval))
 		},
 		Ok(Some(_free_headers_interval)) => {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
 				"Free headers interval for {} headers at {} is zero. Not submitting any free headers",
 				P::SOURCE_NAME,
@@ -497,7 +499,7 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 			Ok(None)
 		},
 		Ok(None) => {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
 				"Free headers interval for {} headers at {} is None. Not submitting any free headers",
 				P::SOURCE_NAME,
@@ -507,12 +509,12 @@ async fn free_headers_interval<P: FinalitySyncPipeline>(
 			Ok(None)
 		},
 		Err(e) => {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				error=?e,
-				"Failed to read free headers interval for {} headers at {}",
+				"Failed to read free headers interval for {} headers at {}: {:?}",
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
+				e,
 			);
 			Err(FailedClient::Target)
 		},
@@ -614,8 +616,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
 				(10, (TestSourceHeader(false, 10, 10), None)),
 			]
-			.into_iter()
-			.collect(),
+				.into_iter()
+				.collect(),
 		);
 		let sync_params = test_sync_params();
 
@@ -694,8 +696,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
 				(10, (TestSourceHeader(false, 10, 10), Some(TestFinalityProof(10)))),
 			]
-			.into_iter()
-			.collect(),
+				.into_iter()
+				.collect(),
 		);
 		async_std::task::block_on(async {
 			let mut finality_loop = FinalityLoop::new(
@@ -776,8 +778,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), None)),
 				(10, (TestSourceHeader(false, 10, 10), None)),
 			]
-			.into_iter()
-			.collect(),
+				.into_iter()
+				.collect(),
 		);
 
 		let metrics_sync = SyncLoopMetrics::new(None, "source", "target").unwrap();

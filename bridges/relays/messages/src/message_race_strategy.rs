@@ -28,7 +28,7 @@ use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, ops::RangeIncl
 
 /// Queue of nonces known to the source node.
 pub type SourceRangesQueue<SourceHeaderHash, SourceHeaderNumber, SourceNoncesRange> =
-	VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)>;
+VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)>;
 
 /// Nonces delivery strategy.
 #[derive(Debug)]
@@ -53,21 +53,21 @@ pub struct BasicStrategy<
 }
 
 impl<
-		SourceHeaderNumber,
-		SourceHeaderHash,
-		TargetHeaderNumber,
-		TargetHeaderHash,
-		SourceNoncesRange,
-		Proof,
-	>
-	BasicStrategy<
-		SourceHeaderNumber,
-		SourceHeaderHash,
-		TargetHeaderNumber,
-		TargetHeaderHash,
-		SourceNoncesRange,
-		Proof,
-	>
+	SourceHeaderNumber,
+	SourceHeaderHash,
+	TargetHeaderNumber,
+	TargetHeaderHash,
+	SourceNoncesRange,
+	Proof,
+>
+BasicStrategy<
+	SourceHeaderNumber,
+	SourceHeaderHash,
+	TargetHeaderNumber,
+	TargetHeaderHash,
+	SourceNoncesRange,
+	Proof,
+>
 where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
@@ -171,26 +171,26 @@ where
 
 #[async_trait]
 impl<
-		SourceHeaderNumber,
-		SourceHeaderHash,
-		TargetHeaderNumber,
-		TargetHeaderHash,
-		SourceNoncesRange,
-		Proof,
-	>
-	RaceStrategy<
-		HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-		HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-		Proof,
-	>
-	for BasicStrategy<
-		SourceHeaderNumber,
-		SourceHeaderHash,
-		TargetHeaderNumber,
-		TargetHeaderHash,
-		SourceNoncesRange,
-		Proof,
-	>
+	SourceHeaderNumber,
+	SourceHeaderHash,
+	TargetHeaderNumber,
+	TargetHeaderHash,
+	SourceNoncesRange,
+	Proof,
+>
+RaceStrategy<
+	HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+	HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+	Proof,
+>
+for BasicStrategy<
+	SourceHeaderNumber,
+	SourceHeaderHash,
+	TargetHeaderNumber,
+	TargetHeaderHash,
+	SourceNoncesRange,
+	Proof,
+>
 where
 	SourceHeaderHash: Clone + Debug + Send + Sync,
 	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,
@@ -279,9 +279,10 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				"Latest nonce at target is {nonce}. Clearing nonces to submit: {:?}",
+				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
+				nonce,
 				race_state.nonces_to_submit(),
 			);
 
@@ -295,9 +296,10 @@ where
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				"Latest nonce at target is {nonce}. Clearing submitted nonces: {:?}",
+				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
+				nonce,
 				race_state.nonces_submitted(),
 			);
 

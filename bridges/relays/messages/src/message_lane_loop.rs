@@ -90,7 +90,7 @@ pub struct MessageDetails<SourceChainBalance> {
 
 /// Messages details map.
 pub type MessageDetailsMap<SourceChainBalance> =
-	BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
+BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
 
 /// Message delivery race proof parameters.
 #[derive(Debug, PartialEq, Eq)]
@@ -341,7 +341,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		metrics_msg.clone(),
 		params.delivery_params,
 	)
-	.fuse();
+		.fuse();
 
 	let (
 		(receiving_source_state_sender, receiving_source_state_receiver),
@@ -354,7 +354,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		receiving_target_state_receiver,
 		metrics_msg.clone(),
 	)
-	.fuse();
+		.fuse();
 
 	let exit_signal = exit_signal.fuse();
 
@@ -379,11 +379,11 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_source_state,
 					&mut source_retry_backoff,
 					|new_source_state| {
-						tracing::debug!(
+						log::debug!(
 							target: "bridge",
-							?new_source_state,
-							"Received state from {} node",
+							"Received state from {} node: {:?}",
 							P::SOURCE_NAME,
+							new_source_state,
 						);
 						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
 						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
@@ -410,11 +410,11 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_target_state,
 					&mut target_retry_backoff,
 					|new_target_state| {
-						tracing::debug!(
+						log::debug!(
 							target: "bridge",
-							?new_target_state,
-							"Received state from {} node",
+							"Received state from {} node: {:?}",
 							P::TARGET_NAME,
+							new_target_state,
 						);
 						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
 						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());
@@ -454,13 +454,13 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		}
 
 		if source_client_is_online && source_state_required {
-			tracing::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
+			log::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
 			source_state.set(source_client.state().fuse());
 			source_client_is_online = false;
 		}
 
 		if target_client_is_online && target_state_required {
-			tracing::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
+			log::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
 			target_state.set(target_client.state().fuse());
 			target_client_is_online = false;
 		}
@@ -979,7 +979,7 @@ pub(crate) mod tests {
 				MetricsParams::disabled(),
 				exit_signal,
 			)
-			.await;
+				.await;
 			let result = data.lock().clone();
 			result
 		})
@@ -1285,7 +1285,7 @@ pub(crate) mod tests {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
 			&HashedLaneId::try_new(1, 2).unwrap()
 		)))
-		.is_ok());
+			.is_ok());
 
 		// with LegacyLaneId
 		#[derive(Clone)]
@@ -1309,6 +1309,6 @@ pub(crate) mod tests {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
 			&LegacyLaneId([0, 0, 0, 1])
 		)))
-		.is_ok());
+			.is_ok());
 	}
 }

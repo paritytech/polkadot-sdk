@@ -119,11 +119,11 @@ impl<C: Chain> RpcClient<C> {
 		loop {
 			match Self::try_connect(params.clone()).await {
 				Ok(client) => return client,
-				Err(error) => tracing::error!(
+				Err(error) => log::error!(
 					target: "bridge",
-					?error,
-					"Failed to connect to {} node. Going to retry in {}s",
+					"Failed to connect to {} node: {:?}. Going to retry in {}s",
 					C::NAME,
+					error,
 					RECONNECT_DELAY.as_secs(),
 				),
 			}
@@ -177,7 +177,7 @@ impl<C: Chain> RpcClient<C> {
 				Err(Error::WaitingForRuntimeUpgrade { chain: C::NAME.into(), expected, actual }),
 			Ordering::Equal => Ok(()),
 			Ordering::Greater => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
 					"The {} client is configured to use runtime version {expected:?} and actual \
 					version is {actual:?}. Aborting",
@@ -195,7 +195,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", %uri, "Connecting to {} node", C::NAME);
+		log::info!(target: "bridge", "Connecting to {} node at {}", C::NAME, uri);
 
 		let client = tokio
 			.spawn(async move {
@@ -240,7 +240,7 @@ impl<C: Chain> RpcClient<C> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateFrameSystemClient::<C>::account_next_index(&*client, account).await?)
 		})
-		.await
+			.await
 	}
 
 	/// Subscribe to finality justifications.
@@ -331,40 +331,40 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateChainClient::<C>::block_hash(&*client, Some(number)).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))
+			.await
+			.map_err(|e| Error::failed_to_read_header_hash_by_number::<C>(number, e))
 	}
 
 	async fn header_by_hash(&self, hash: HashOf<C>) -> Result<HeaderOf<C>> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateChainClient::<C>::header(&*client, Some(hash)).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_header_by_hash::<C>(hash, e))
+			.await
+			.map_err(|e| Error::failed_to_read_header_by_hash::<C>(hash, e))
 	}
 
 	async fn block_by_hash(&self, hash: HashOf<C>) -> Result<SignedBlockOf<C>> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateChainClient::<C>::block(&*client, Some(hash)).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_block_by_hash::<C>(hash, e))
+			.await
+			.map_err(|e| Error::failed_to_read_block_by_hash::<C>(hash, e))
 	}
 
 	async fn best_finalized_header_hash(&self) -> Result<HashOf<C>> {
 		self.jsonrpsee_execute(|client| async move {
 			Ok(SubstrateChainClient::<C>::finalized_head(&*client).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_best_finalized_header_hash::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_read_best_finalized_header_hash::<C>(e))
 	}
 
 	async fn best_header(&self) -> Result<HeaderOf<C>> {
 		self.jsonrpsee_execute(|client| async move {
 			Ok(SubstrateChainClient::<C>::header(&*client, None).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_best_header::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_read_best_header::<C>(e))
 	}
 
 	async fn subscribe_best_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
@@ -373,7 +373,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			move |client| async move { SubstrateChainClient::<C>::subscribe_new_heads(&*client).await },
 			|e| Error::failed_to_subscribe_best_headers::<C>(e),
 		)
-		.await
+			.await
 	}
 
 	async fn subscribe_finalized_headers(&self) -> Result<Subscription<HeaderOf<C>>> {
@@ -384,7 +384,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			},
 			|e| Error::failed_to_subscribe_finalized_headers::<C>(e),
 		)
-		.await
+			.await
 	}
 
 	async fn subscribe_grandpa_finality_justifications(&self) -> Result<Subscription<Bytes>>
@@ -394,7 +394,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		self.subscribe_finality_justifications("GRANDPA", move |client| async move {
 			SubstrateGrandpaClient::<C>::subscribe_justifications(&*client).await
 		})
-		.await
+			.await
 	}
 
 	async fn generate_grandpa_key_ownership_proof(
@@ -408,14 +408,14 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF.into(),
 			(set_id, authority_id),
 		)
-		.await
+			.await
 	}
 
 	async fn subscribe_beefy_finality_justifications(&self) -> Result<Subscription<Bytes>> {
 		self.subscribe_finality_justifications("BEEFY", move |client| async move {
 			SubstrateBeefyClient::<C>::subscribe_justifications(&*client).await
 		})
-		.await
+			.await
 	}
 
 	async fn token_decimals(&self) -> Result<Option<u64>> {
@@ -423,15 +423,15 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let system_properties = SubstrateSystemClient::<C>::properties(&*client).await?;
 			Ok(system_properties.get("tokenDecimals").and_then(|v| v.as_u64()))
 		})
-		.await
+			.await
 	}
 
 	async fn runtime_version(&self) -> Result<RuntimeVersion> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateStateClient::<C>::runtime_version(&*client).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_runtime_version::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_read_runtime_version::<C>(e))
 	}
 
 	async fn simple_runtime_version(&self) -> Result<SimpleRuntimeVersion> {
@@ -457,16 +457,16 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateStateClient::<C>::storage(&*client, cloned_storage_key, Some(at)).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_read_storage_value::<C>(at, storage_key, e))
+			.await
+			.map_err(|e| Error::failed_to_read_storage_value::<C>(at, storage_key, e))
 	}
 
 	async fn pending_extrinsics(&self) -> Result<Vec<Bytes>> {
 		self.jsonrpsee_execute(move |client| async move {
 			Ok(SubstrateAuthorClient::<C>::pending_extrinsics(&*client).await?)
 		})
-		.await
-		.map_err(|e| Error::failed_to_get_pending_extrinsics::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_get_pending_extrinsics::<C>(e))
 	}
 
 	async fn submit_unsigned_extrinsic(&self, transaction: Bytes) -> Result<HashOf<C>> {
@@ -482,22 +482,22 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
+					log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
 					e
 				})?;
-			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
+			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(tx_hash)
 		})
-		.await
-		.map_err(|e| Error::failed_to_submit_transaction::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_submit_transaction::<C>(e))
 	}
 
 	async fn submit_signed_extrinsic(
 		&self,
 		signer: &AccountKeyPairOf<C>,
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, NonceOf<C>) -> Result<UnsignedTransaction<C>>
-			+ Send
-			+ 'static,
+		+ Send
+		+ 'static,
 	) -> Result<HashOf<C>>
 	where
 		C: ChainWithTransactions,
@@ -524,8 +524,8 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 		&self,
 		signer: &AccountKeyPairOf<C>,
 		prepare_extrinsic: impl FnOnce(HeaderIdOf<C>, NonceOf<C>) -> Result<UnsignedTransaction<C>>
-			+ Send
-			+ 'static,
+		+ Send
+		+ 'static,
 	) -> Result<TransactionTracker<C, Self>>
 	where
 		C: ChainWithTransactions,
@@ -560,12 +560,12 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 					&*client,
 					Bytes(signed_extrinsic),
 				)
-				.await
-				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
-					e
-				})?;
-			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
+					.await
+					.map_err(|e| {
+						log::error!(target: "bridge", "Failed to send transaction to {} node: {:?}", C::NAME, e);
+						e
+					})?;
+			log::trace!(target: "bridge", "Sent transaction to {} node: {:?}", C::NAME, tx_hash);
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,
@@ -576,8 +576,8 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				),
 			))
 		})
-		.await
-		.map_err(|e| Error::failed_to_submit_transaction::<C>(e))
+			.await
+			.map_err(|e| Error::failed_to_submit_transaction::<C>(e))
 	}
 
 	async fn validate_transaction<SignedTransaction: Encode + Send + 'static>(
@@ -590,7 +590,7 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			SUB_API_TXPOOL_VALIDATE_TRANSACTION.into(),
 			(TransactionSource::External, transaction, at),
 		)
-		.await
+			.await
 	}
 
 	async fn estimate_extrinsic_weight<SignedTransaction: Encode + Send + 'static>(
@@ -620,8 +620,8 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				.await
 				.map_err(Into::into)
 		})
-		.await
-		.map_err(|e| Error::failed_state_call::<C>(at, method_clone, arguments_clone, e))
+			.await
+			.map_err(|e| Error::failed_state_call::<C>(at, method_clone, arguments_clone, e))
 	}
 
 	async fn prove_storage(

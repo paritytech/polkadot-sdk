@@ -68,10 +68,10 @@ pub struct OnDemandParachainsRelay<P: SubstrateParachainsPipeline, SourceRelayCl
 }
 
 impl<
-		P: SubstrateParachainsPipeline,
-		SourceRelayClnt: Client<P::SourceRelayChain>,
-		TargetClnt: Client<P::TargetChain>,
-	> OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
+	P: SubstrateParachainsPipeline,
+	SourceRelayClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
+> OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
 {
 	/// Create new on-demand parachains relay.
 	///
@@ -89,9 +89,9 @@ impl<
 	where
 		P::SourceParachain: Chain<Hash = ParaHash>,
 		P::SourceRelayChain:
-			Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
+		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
 		AccountIdOf<P::TargetChain>:
-			From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
+		From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 	{
 		let (required_header_number_sender, required_header_number_receiver) = unbounded();
 		let this = OnDemandParachainsRelay {
@@ -111,7 +111,7 @@ impl<
 				on_demand_source_relay_to_target_headers,
 				required_header_number_receiver,
 			)
-			.await;
+				.await;
 		});
 
 		this
@@ -120,8 +120,8 @@ impl<
 
 #[async_trait]
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
-	OnDemandRelay<P::SourceParachain, P::TargetChain>
-	for OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
+OnDemandRelay<P::SourceParachain, P::TargetChain>
+for OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>
 where
 	P::SourceParachain: Chain<Hash = ParaHash>,
 	SourceRelayClnt: Client<P::SourceRelayChain>,
@@ -138,13 +138,13 @@ where
 
 	async fn require_more_headers(&self, required_header: BlockNumberOf<P::SourceParachain>) {
 		if let Err(e) = self.required_header_number_sender.send(required_header).await {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				error=?e,
-				header=?required_header,
-				"[{}] Failed to request {}",
+				"[{}] Failed to request {} header {:?}: {:?}",
 				self.relay_task_name,
 				P::SourceParachain::NAME,
+				required_header,
+				e,
 			);
 		}
 	}
@@ -163,12 +163,14 @@ where
 		let (need_to_prove_relay_block, selected_relay_block, selected_parachain_block) =
 			select_headers_to_prove(env, required_parachain_header).await?;
 
-		tracing::debug!(
+		log::debug!(
 			target: "bridge",
-			"[{}] Requested to prove {} head {required_parachain_header:?}. Selected to prove {} head {selected_parachain_block:?} and {} head {:?}",
+			"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} and {} head {:?}",
 			self.relay_task_name,
 			P::SourceParachain::NAME,
+			required_parachain_header,
 			P::SourceParachain::NAME,
+			selected_parachain_block,
 			P::SourceRelayChain::NAME,
 			if need_to_prove_relay_block {
 				Some(selected_relay_block)
@@ -206,14 +208,18 @@ where
 					)
 				})?;
 
-			tracing::debug!(
+			log::debug!(
 				target: "bridge",
-				"[{}] Selected to prove {} head {selected_parachain_block:?} and {} head {selected_relay_block:?}. Instead proved {} head {proved_parachain_block:?} and {} head {proved_relay_block:?}",
+				"[{}] Selected to prove {} head {:?} and {} head {:?}. Instead proved {} head {:?} and {} head {:?}",
 				self.relay_task_name,
 				P::SourceParachain::NAME,
+				selected_parachain_block,
 				P::SourceRelayChain::NAME,
+				selected_relay_block,
 				P::SourceParachain::NAME,
+				proved_parachain_block,
 				P::SourceRelayChain::NAME,
+				proved_relay_block,
 			);
 		}
 
@@ -243,7 +249,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 ) where
 	P::SourceParachain: Chain<Hash = ParaHash>,
 	P::SourceRelayChain:
-		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
+	Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash, Hasher = RelayBlockHasher>,
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 {
 	let relay_task_name = on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>();
@@ -273,10 +279,11 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				let new_required_parachain_header_number = match new_required_parachain_header_number {
 					Ok(new_required_parachain_header_number) => new_required_parachain_header_number,
 					Err(e) => {
-						tracing::error!(
+						log::error!(
 							target: "bridge",
-							error=?e,
-							"[{relay_task_name}] Background task has exited with error"
+							"[{}] Background task has exited with error: {:?}",
+							relay_task_name,
+							e,
 						);
 
 						return;
@@ -287,10 +294,12 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				// then we'll be submitting all previous headers as well (while required relay headers are
 				// delivered) and we want to avoid that (to reduce cost)
 				if new_required_parachain_header_number > required_parachain_header_number {
-					tracing::trace!(
+					log::trace!(
 						target: "bridge",
-						"[{relay_task_name}] More {} headers required. Going to sync up to the {new_required_parachain_header_number}",
+						"[{}] More {} headers required. Going to sync up to the {}",
+						relay_task_name,
 						P::SourceParachain::NAME,
+						new_required_parachain_header_number,
 					);
 
 					required_parachain_header_number = new_required_parachain_header_number;
@@ -332,17 +341,18 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 			&parachains_target,
 			required_parachain_header_number,
 		)
-		.await;
+			.await;
 		match relay_data {
 			Ok(relay_data) => {
 				let prev_relay_state = relay_state;
 				relay_state = select_headers_to_relay(&relay_data, relay_state);
-				tracing::trace!(
+				log::trace!(
 					target: "bridge",
-					?relay_state,
-					old_state=?prev_relay_state,
-					data=?relay_data,
-					"[{relay_task_name}] Selected new relay state"
+					"[{}] Selected new relay state: {:?} using old state {:?} and data {:?}",
+					relay_task_name,
+					relay_state,
+					prev_relay_state,
+					relay_data,
 				);
 			},
 			Err(failed_client) => {
@@ -352,7 +362,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					&mut parachains_source,
 					&mut parachains_target,
 				)
-				.await;
+					.await;
 				continue
 			},
 		}
@@ -380,12 +390,15 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				relay_utils::STALL_TIMEOUT,
 			);
 
-			tracing::info!(
+			log::info!(
 				target: "bridge",
-				"[{relay_task_name}] Starting on-demand-parachains relay task\n\t\
-					Tx mortality: {target_transactions_mortality:?} (~{}m)\n\t\
-					Stall timeout: {stall_timeout:?}",
+				"[{}] Starting on-demand-parachains relay task\n\t\
+					Tx mortality: {:?} (~{}m)\n\t\
+					Stall timeout: {:?}",
+				relay_task_name,
+				target_transactions_mortality,
 				stall_timeout.as_secs_f64() / 60.0f64,
+				stall_timeout,
 			);
 
 			parachains_relay_task.set(
@@ -397,7 +410,7 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 					false,
 					futures::future::pending(),
 				)
-				.fuse(),
+					.fuse(),
 			);
 
 			restart_relay = false;
@@ -459,25 +472,25 @@ where
 	SourceRelayClnt: Client<P::SourceRelayChain>,
 	TargetClnt: Client<P::TargetChain>,
 	ParachainsTarget<P, SourceRelayClnt, TargetClnt>:
-		TargetClient<ParachainsPipelineAdapter<P>> + RelayClient<Error = SubstrateError>,
+	TargetClient<ParachainsPipelineAdapter<P>> + RelayClient<Error = SubstrateError>,
 {
 	let map_target_err = |e| {
-		tracing::error!(
+		log::error!(
 			target: "bridge",
-			error=?e,
-			"[{}] Failed to read relay data from {} client",
+			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::TargetChain::NAME,
+			e,
 		);
 		FailedClient::Target
 	};
 	let map_source_err = |e| {
-		tracing::error!(
+		log::error!(
 			target: "bridge",
-			error=?e,
-			"[{}] Failed to read relay data from {} client",
+			"[{}] Failed to read relay data from {} client: {:?}",
 			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
 			P::SourceRelayChain::NAME,
+			e,
 		);
 		FailedClient::Source
 	};
@@ -487,7 +500,7 @@ where
 		P::TargetChain,
 		P::SourceParachain,
 	>(target.target_client(), best_target_block_hash)
-	.await;
+		.await;
 	// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we'll need to
 	// submit at least one. Otherwise the pallet will be treated as uninitialized and messages
 	// sync will stall.
@@ -510,8 +523,8 @@ where
 		P::TargetChain,
 		P::SourceRelayChain,
 	>(target.target_client(), best_target_block_hash)
-	.await
-	.map_err(map_target_err)?;
+		.await
+		.map_err(map_target_err)?;
 
 	// if relay header at target is too old then its state may already be discarded at the source
 	// => just use `None` in this case
@@ -642,16 +655,16 @@ trait SelectHeadersToProveEnvironment<RBN, RBH, PBN, PBH> {
 
 #[async_trait]
 impl<'a, P: SubstrateParachainsPipeline, SourceRelayClnt, TargetClnt>
-	SelectHeadersToProveEnvironment<
-		BlockNumberOf<P::SourceRelayChain>,
-		HashOf<P::SourceRelayChain>,
-		BlockNumberOf<P::SourceParachain>,
-		HashOf<P::SourceParachain>,
-	>
-	for (
-		&'a OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>,
-		&'a ParachainsSource<P, SourceRelayClnt>,
-	)
+SelectHeadersToProveEnvironment<
+	BlockNumberOf<P::SourceRelayChain>,
+	HashOf<P::SourceRelayChain>,
+	BlockNumberOf<P::SourceParachain>,
+	HashOf<P::SourceParachain>,
+>
+for (
+	&'a OnDemandParachainsRelay<P, SourceRelayClnt, TargetClnt>,
+	&'a ParachainsSource<P, SourceRelayClnt>,
+)
 where
 	SourceRelayClnt: Client<P::SourceRelayChain>,
 	TargetClnt: Client<P::TargetChain>,
@@ -672,9 +685,9 @@ where
 		Ok(crate::messages::source::read_client_state::<P::TargetChain, P::SourceRelayChain>(
 			&self.0.target_client,
 		)
-		.await?
-		.best_finalized_peer_at_best_self
-		.ok_or(SubstrateError::BridgePalletIsNotInitialized)?)
+			.await?
+			.best_finalized_peer_at_best_self
+			.ok_or(SubstrateError::BridgePalletIsNotInitialized)?)
 	}
 
 	async fn best_finalized_para_block_at_source(

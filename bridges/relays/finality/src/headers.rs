@@ -71,22 +71,22 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 
 			match (header.is_mandatory(), maybe_proof) {
 				(true, Some(proof)) => {
-					tracing::trace!(target: "bridge", "Header {header_number:?} is mandatory");
+					log::trace!(target: "bridge", "Header {:?} is mandatory", header_number);
 					return Ok(Self::Mandatory(JustifiedHeader { header, proof }))
 				},
 				(true, None) => return Err(Error::MissingMandatoryFinalityProof(header.number())),
 				(false, Some(proof))
-					if need_to_relay::<P>(
-						info,
-						headers_to_relay,
-						free_headers_interval,
-						&header,
-					) =>
-				{
-					tracing::trace!(target: "bridge", "Header {header_number:?} has persistent finality proof");
-					unjustified_headers.clear();
-					maybe_justified_header = Some(JustifiedHeader { header, proof });
-				},
+				if need_to_relay::<P>(
+					info,
+					headers_to_relay,
+					free_headers_interval,
+					&header,
+				) =>
+					{
+						log::trace!(target: "bridge", "Header {:?} has persistent finality proof", header_number);
+						unjustified_headers.clear();
+						maybe_justified_header = Some(JustifiedHeader { header, proof });
+					},
 				_ => {
 					unjustified_headers.push(header);
 				},
@@ -95,7 +95,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			header_number = header_number + 1.into();
 		}
 
-		tracing::trace!(
+		log::trace!(
 			target: "bridge",
 			"Read {} {} headers. Selected finality proof for header: {:?}",
 			info.num_headers(),
@@ -144,25 +144,25 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 		{
 			match finality_proof.target_header_number().cmp(&unjustified_header.number()) {
 				Ordering::Equal
-					if need_to_relay::<P>(
-						info,
-						headers_to_relay,
-						free_headers_interval,
-						&unjustified_header,
-					) =>
-				{
-					tracing::trace!(
+				if need_to_relay::<P>(
+					info,
+					headers_to_relay,
+					free_headers_interval,
+					&unjustified_header,
+				) =>
+					{
+						log::trace!(
 						target: "bridge",
 						"Managed to improve selected {} finality proof {:?} to {:?}.",
 						P::SOURCE_NAME,
 						maybe_justified_header.as_ref().map(|justified_header| justified_header.number()),
 						finality_proof.target_header_number()
 					);
-					return Some(JustifiedHeader {
-						header: unjustified_header.clone(),
-						proof: finality_proof.clone(),
-					})
-				},
+						return Some(JustifiedHeader {
+							header: unjustified_header.clone(),
+							proof: finality_proof.clone(),
+						})
+					},
 				Ordering::Equal => {
 					maybe_finality_proof = finality_proofs_iter.next();
 					maybe_unjustified_header = unjustified_headers_iter.next();
@@ -174,7 +174,7 @@ impl<P: FinalitySyncPipeline> JustifiedHeaderSelector<P> {
 			}
 		}
 
-		tracing::trace!(
+		log::trace!(
 			target: "bridge",
 			"Could not improve selected {} finality proof {:?}.",
 			P::SOURCE_NAME,

@@ -69,16 +69,16 @@ where
 			target_sign,
 			move |transaction_nonce, initialization_data| {
 				let call = Self::encode_init_bridge(initialization_data);
-				tracing::info!(
+				log::info!(
 					target: "bridge",
-					hex_string=?format!("0x{}", hex::encode(call.encode())),
-					"Initialize bridge call encoded"
+					"Initialize bridge call encoded as hex string: {:?}",
+					format!("0x{}", hex::encode(call.encode()))
 				);
 				Ok(UnsignedTransaction::new(call.into(), transaction_nonce))
 			},
 			dry_run,
 		)
-		.await;
+			.await;
 
 		Ok(())
 	}

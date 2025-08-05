@@ -155,11 +155,10 @@ where
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			tracing::error!(
-				target: "bridge",
-				?at_relay_block,
-				"Transaction with {} header at relay header is considered lost at {}",
+			log::error!(
+				"Transaction with {} header at relay header {:?} is considered lost at {}",
 				P::SourceParachain::NAME,
+				at_relay_block,
 				P::TargetChain::NAME,
 			);
 			Err(())
@@ -178,12 +177,12 @@ pub async fn run<P: ParachainsPipeline>(
 where
 	P::SourceRelayChain: Chain<BlockNumber = RelayBlockNumber>,
 {
-	tracing::info!(
+	log::info!(
 		target: "bridge",
-		?only_free_headers,
-		"Starting {} -> {} finality proof relay: relaying headers",
+		"Starting {} -> {} finality proof relay: relaying (only_free_headers: {:?}) headers",
 		P::SourceParachain::NAME,
 		P::TargetChain::NAME,
+		only_free_headers,
 	);
 
 	let exit_signal = exit_signal.shared();
@@ -226,33 +225,33 @@ where
 	let free_source_relay_headers_interval = if only_free_headers {
 		let free_source_relay_headers_interval =
 			target_client.free_source_relay_headers_interval().await.map_err(|e| {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge",
-					error=?e,
-					"Failed to read free {} headers interval at {}",
+					"Failed to read free {} headers interval at {}: {:?}",
 					P::SourceRelayChain::NAME,
 					P::TargetChain::NAME,
+					e,
 				);
 				FailedClient::Target
 			})?;
 		match free_source_relay_headers_interval {
 			Some(free_source_relay_headers_interval) if free_source_relay_headers_interval != 0 => {
-				tracing::trace!(
+				log::trace!(
 					target: "bridge",
-					?free_source_relay_headers_interval,
-					"Free {} headers interval at {}",
+					"Free {} headers interval at {}: {:?}",
 					P::SourceRelayChain::NAME,
 					P::TargetChain::NAME,
+					free_source_relay_headers_interval,
 				);
 				free_source_relay_headers_interval
 			},
 			_ => {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge",
-					?free_source_relay_headers_interval,
-					"Invalid free {} headers interval at {}",
+					"Invalid free {} headers interval at {}: {:?}",
 					P::SourceRelayChain::NAME,
 					P::TargetChain::NAME,
+					free_source_relay_headers_interval,
 				);
 				return Err(FailedClient::Target)
 			},
@@ -284,7 +283,7 @@ where
 		match source_client.ensure_synced().await {
 			Ok(true) => (),
 			Ok(false) => {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge",
 					"{} client is syncing. Won't do anything until it is synced",
 					P::SourceRelayChain::NAME,
@@ -292,11 +291,11 @@ where
 				continue
 			},
 			Err(e) => {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge",
-					error=?e,
-					"{} client has failed to return its sync status",
+					"{} client has failed to return its sync status: {:?}",
 					P::SourceRelayChain::NAME,
+					e,
 				);
 				return Err(FailedClient::Source)
 			},
@@ -304,7 +303,7 @@ where
 
 		// if we have active transaction, we'll need to wait until it is mined or dropped
 		let best_target_block = target_client.best_block().await.map_err(|e| {
-			tracing::warn!(target: "bridge", error=?e, "Failed to read best {} block", P::SourceRelayChain::NAME);
+			log::warn!(target: "bridge", "Failed to read best {} block: {:?}", P::SourceRelayChain::NAME, e);
 			FailedClient::Target
 		})?;
 		let (relay_of_head_at_target, head_at_target) =
@@ -322,7 +321,7 @@ where
 					// all heads have been updated, we don't need this tracker anymore
 				},
 				SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost) => {
-					tracing::warn!(
+					log::warn!(
 						target: "bridge",
 						"Parachains synchronization from {} to {} has stalled. Going to restart",
 						P::SourceRelayChain::NAME,
@@ -340,12 +339,12 @@ where
 			.best_finalized_source_relay_chain_block(&best_target_block)
 			.await
 			.map_err(|e| {
-				tracing::warn!(
+				log::warn!(
 					target: "bridge",
-					error=?e,
-					"Failed to read best finalized {} block from {}",
+					"Failed to read best finalized {} block from {}: {:?}",
 					P::SourceRelayChain::NAME,
 					P::TargetChain::NAME,
+					e,
 				);
 				FailedClient::Target
 			})?;
@@ -363,11 +362,13 @@ where
 						free_source_relay_headers_interval
 					{
 						// there are no new **free** relay chain headers in the range
-						tracing::trace!(
+						log::trace!(
 							target: "bridge",
-							"Waiting for new free {} headers at {}: scanned {scan_range_begin:?}..={scan_range_end:?}",
+							"Waiting for new free {} headers at {}: scanned {:?}..={:?}",
 							P::SourceRelayChain::NAME,
 							P::TargetChain::NAME,
+							scan_range_begin,
+							scan_range_end,
 						);
 						continue;
 					}
@@ -401,7 +402,7 @@ where
 				prove_at_relay_block,
 				only_free_headers,
 			)
-			.await?;
+				.await?;
 			submitted_heads_tracker =
 				Some(SubmittedHeadsTracker::<P>::new(head_at_source, transaction_tracker));
 		}
@@ -417,34 +418,36 @@ async fn submit_selected_head<P: ParachainsPipeline, TC: TargetClient<P>>(
 ) -> Result<TC::TransactionTracker, FailedClient> {
 	let (head_proof, head_hash) =
 		source_client.prove_parachain_head(prove_at_relay_block).await.map_err(|e| {
-			tracing::warn!(
+			log::warn!(
 				target: "bridge",
-				error=?e,
-				"Failed to prove {} parachain ParaId({}) heads",
+				"Failed to prove {} parachain ParaId({}) heads: {:?}",
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
+				e,
 			);
 			FailedClient::Source
 		})?;
-	tracing::info!(
+	log::info!(
 		target: "bridge",
-		"Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {prove_at_relay_block:?}: {head_hash:?}",
+		"Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {:?}: {:?}",
 		P::SourceRelayChain::NAME,
 		P::SourceParachain::PARACHAIN_ID,
 		P::TargetChain::NAME,
+		prove_at_relay_block,
+		head_hash,
 	);
 
 	target_client
 		.submit_parachain_head_proof(prove_at_relay_block, head_hash, head_proof, only_free_headers)
 		.await
 		.map_err(|e| {
-			tracing::warn!(
+			log::warn!(
 				target: "bridge",
-				error=?e,
-				"Failed to submit {} parachain ParaId({}) heads proof to {}",
+				"Failed to submit {} parachain ParaId({}) heads proof to {}: {:?}",
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
+				e,
 			);
 			FailedClient::Target
 		})
@@ -460,16 +463,20 @@ fn is_update_required<P: ParachainsPipeline>(
 where
 	P::SourceRelayChain: Chain<BlockNumber = RelayBlockNumber>,
 {
-	tracing::trace!(
+	log::trace!(
 		target: "bridge",
 		"Checking if {} parachain ParaId({}) needs update at {}:\n\t\
-			At {} ({prove_at_relay_block:?}): {head_at_source:?}\n\t\
-			At {} ({best_target_block:?}): {head_at_target:?}",
+			At {} ({:?}): {:?}\n\t\
+			At {} ({:?}): {:?}",
 		P::SourceRelayChain::NAME,
 		P::SourceParachain::PARACHAIN_ID,
 		P::TargetChain::NAME,
 		P::SourceRelayChain::NAME,
+		prove_at_relay_block,
+		head_at_source,
 		P::TargetChain::NAME,
+		best_target_block,
+		head_at_target,
 	);
 
 	let needs_update = match (head_at_source, head_at_target) {
@@ -479,12 +486,12 @@ where
 			false
 		},
 		(AvailableHeader::Available(head_at_source), Some(head_at_target))
-			if head_at_source.number() > head_at_target.number() =>
-		{
-			// source client knows head that is better than the head known to the target
-			// client
-			true
-		},
+		if head_at_source.number() > head_at_target.number() =>
+			{
+				// source client knows head that is better than the head known to the target
+				// client
+				true
+			},
 		(AvailableHeader::Available(_), Some(_)) => {
 			// this is normal case when relay has recently updated heads, when parachain is
 			// not progressing, or when our source client is still syncing
@@ -507,12 +514,14 @@ where
 	};
 
 	if needs_update {
-		tracing::trace!(
+		log::trace!(
 			target: "bridge",
-			"{} parachain ParaId({}) needs update at {}: {head_at_source:?} vs {head_at_target:?}",
+			"{} parachain ParaId({}) needs update at {}: {:?} vs {:?}",
 			P::SourceRelayChain::NAME,
 			P::SourceParachain::PARACHAIN_ID,
 			P::TargetChain::NAME,
+			head_at_source,
+			head_at_target,
 		);
 	}
 
@@ -538,12 +547,12 @@ async fn read_head_at_source<P: ParachainsPipeline>(
 		},
 		Ok(r) => Ok(r),
 		Err(e) => {
-			tracing::warn!(
+			log::warn!(
 				target: "bridge",
-				error=?e,
-				"Failed to read head of {} parachain ParaId({:?})",
+				"Failed to read head of {} parachain ParaId({:?}): {:?}",
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
+				e,
 			);
 			Err(FailedClient::Source)
 		},
@@ -573,13 +582,13 @@ async fn read_head_at_target<P: ParachainsPipeline>(
 		},
 		Ok(None) => Ok((None, None)),
 		Err(e) => {
-			tracing::warn!(
+			log::warn!(
 				target: "bridge",
-				error=?e,
-				"Failed to read head of {} parachain ParaId({}) at {}",
+				"Failed to read head of {} parachain ParaId({}) at {}: {:?}",
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
+				e,
 			);
 			Err(FailedClient::Target)
 		},
@@ -601,10 +610,10 @@ type SharedTransactionTracker<P> = Shared<
 	Pin<
 		Box<
 			dyn Future<
-					Output = TrackedTransactionStatus<
-						HeaderIdOf<<P as ParachainsPipeline>::TargetChain>,
-					>,
-				> + Send,
+				Output = TrackedTransactionStatus<
+					HeaderIdOf<<P as ParachainsPipeline>::TargetChain>,
+				>,
+			> + Send,
 		>,
 	>,
 >;
@@ -640,18 +649,18 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 		// check if our head has been updated
 		let is_head_updated = match (self.submitted_head, head_at_target) {
 			(AvailableHeader::Available(submitted_head), Some(head_at_target))
-				if head_at_target.number() >= submitted_head.number() =>
+			if head_at_target.number() >= submitted_head.number() =>
 				true,
 			(AvailableHeader::Missing, None) => true,
 			_ => false,
 		};
 		if is_head_updated {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				?head_at_target,
-				"Head of parachain ParaId({}) has been updated at {}",
+				"Head of parachain ParaId({}) has been updated at {}: {:?}",
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
+				head_at_target,
 			);
 
 			return SubmittedHeadStatus::Final(TrackedTransactionStatus::Finalized(*at_target_block))
@@ -1025,8 +1034,8 @@ mod tests {
 				(90, Ok(AvailableHeader::Available(HeaderId(9, [9u8; 32].into())))),
 				(95, Ok(AvailableHeader::Available(HeaderId(42, [42u8; 32].into())))),
 			]
-			.into_iter()
-			.collect(),
+				.into_iter()
+				.collect(),
 			source_proof: Ok(()),
 
 			target_free_source_relay_headers_interval: Ok(Some(10)),

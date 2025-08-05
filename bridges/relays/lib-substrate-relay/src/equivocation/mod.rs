@@ -39,14 +39,14 @@ use std::marker::PhantomData;
 
 /// Convenience trait that adds bounds to `SubstrateEquivocationDetectionPipeline`.
 pub trait BaseSubstrateEquivocationDetectionPipeline:
-	SubstrateFinalityPipeline<SourceChain = Self::BoundedSourceChain>
+SubstrateFinalityPipeline<SourceChain = Self::BoundedSourceChain>
 {
 	/// Bounded `SubstrateFinalityPipeline::SourceChain`.
 	type BoundedSourceChain: ChainWithTransactions<AccountId = Self::BoundedSourceChainAccountId>;
 
 	/// Bounded `AccountIdOf<SubstrateFinalityPipeline::SourceChain>`.
 	type BoundedSourceChainAccountId: From<<AccountKeyPairOf<Self::BoundedSourceChain> as Pair>::Public>
-		+ Send;
+	+ Send;
 }
 
 impl<T> BaseSubstrateEquivocationDetectionPipeline for T
@@ -62,7 +62,7 @@ where
 /// Substrate -> Substrate equivocation detection pipeline.
 #[async_trait]
 pub trait SubstrateEquivocationDetectionPipeline:
-	BaseSubstrateEquivocationDetectionPipeline
+BaseSubstrateEquivocationDetectionPipeline
 {
 	/// How the `report_equivocation` call is built ?
 	type ReportEquivocationCallBuilder: ReportEquivocationCallBuilder<Self>;
@@ -86,9 +86,9 @@ type FinalityProoffOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as 
 	<P as SubstrateFinalityPipeline>::SourceChain,
 >>::FinalityProof;
 type FinalityVerificationContextfOf<P> =
-	<<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
-		<P as SubstrateFinalityPipeline>::SourceChain,
-	>>::FinalityVerificationContext;
+<<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
+	<P as SubstrateFinalityPipeline>::SourceChain,
+>>::FinalityVerificationContext;
 /// The type of the equivocation proof used by the `SubstrateEquivocationDetectionPipeline`
 pub type EquivocationProofOf<P> = <<P as SubstrateFinalityPipeline>::FinalityEngine as Engine<
 	<P as SubstrateFinalityPipeline>::SourceChain,
@@ -109,7 +109,7 @@ pub struct EquivocationDetectionPipelineAdapter<P: SubstrateEquivocationDetectio
 }
 
 impl<P: SubstrateEquivocationDetectionPipeline> FinalityPipeline
-	for EquivocationDetectionPipelineAdapter<P>
+for EquivocationDetectionPipelineAdapter<P>
 {
 	const SOURCE_NAME: &'static str = P::SourceChain::NAME;
 	const TARGET_NAME: &'static str = P::TargetChain::NAME;
@@ -120,7 +120,7 @@ impl<P: SubstrateEquivocationDetectionPipeline> FinalityPipeline
 }
 
 impl<P: SubstrateEquivocationDetectionPipeline> EquivocationDetectionPipeline
-	for EquivocationDetectionPipelineAdapter<P>
+for EquivocationDetectionPipelineAdapter<P>
 {
 	type TargetNumber = BlockNumberOf<P::TargetChain>;
 	type FinalityVerificationContext = FinalityVerificationContextfOf<P>;
@@ -153,7 +153,7 @@ where
 		>,
 	>,
 	R: frame_system::Config<Hash = HashOf<P::SourceChain>>
-		+ GrandpaConfig<KeyOwnerProof = KeyOwnerProofOf<P>>,
+	+ GrandpaConfig<KeyOwnerProof = KeyOwnerProofOf<P>>,
 	<R::Block as Block>::Header: Header<Number = BlockNumberOf<P::SourceChain>>,
 	CallOf<P::SourceChain>: From<GrandpaCall<R>>,
 {
@@ -165,7 +165,7 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		}
-		.into()
+			.into()
 	}
 }
 
@@ -204,7 +204,7 @@ pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
 	source_transaction_params: TransactionParams<AccountKeyPairOf<P::SourceChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
-	tracing::info!(
+	log::info!(
 		target: "bridge",
 		"Starting {} -> {} equivocations detection loop",
 		P::SourceChain::NAME,
@@ -218,6 +218,6 @@ pub async fn run<P: SubstrateEquivocationDetectionPipeline>(
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await
-	.map_err(|e| anyhow::format_err!("{}", e))
+		.await
+		.map_err(|e| anyhow::format_err!("{}", e))
 }

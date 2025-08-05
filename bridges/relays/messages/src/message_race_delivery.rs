@@ -71,7 +71,7 @@ pub async fn run<P: MessageLane>(
 			strategy: BasicStrategy::new(),
 		},
 	)
-	.await
+		.await
 }
 
 /// Relay range of messages.
@@ -87,11 +87,12 @@ pub async fn relay_messages_range<P: MessageLane>(
 		.generated_message_details(at.clone(), range.clone())
 		.await
 		.map_err(|e| {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				error=?e,
-				?at,
-				"Failed to get generated message details at for messages {range:?}"
+				"Failed to get generated message details at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
 			);
 		})?
 		.values()
@@ -105,11 +106,12 @@ pub async fn relay_messages_range<P: MessageLane>(
 		)
 		.await
 		.map_err(|e| {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				error=?e,
-				?at,
-				"Failed to generate messages proof at for messages {range:?}"
+				"Failed to generate messages proof at {:?} for messages {:?}: {:?}",
+				at,
+				range,
+				e,
 			);
 		})?;
 	// submit messages proof to the target node
@@ -117,10 +119,11 @@ pub async fn relay_messages_range<P: MessageLane>(
 		.submit_messages_proof(None, at, range.clone(), proof)
 		.await
 		.map_err(|e| {
-			tracing::error!(
+			log::error!(
 				target: "bridge",
-				error=?e,
-				"Failed to submit messages proof for messages {range:?}"
+				"Failed to submit messages proof for messages {:?}: {:?}",
+				range,
+				e,
 			);
 		})?
 		.tx_tracker;
@@ -128,7 +131,7 @@ pub async fn relay_messages_range<P: MessageLane>(
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			tracing::error!("Transaction with messages {range:?} is considered lost");
+			log::error!("Transaction with messages {:?} is considered lost", range,);
 			Err(())
 		},
 	}
@@ -516,7 +519,7 @@ where
 
 #[async_trait]
 impl<P> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-	for MessageDeliveryStrategy<P>
+for MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
 {
@@ -1000,8 +1003,8 @@ mod tests {
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
-		.into_iter()
-		.collect();
+			.into_iter()
+			.collect();
 		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
 			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
@@ -1019,8 +1022,8 @@ mod tests {
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
-		.into_iter()
-		.collect();
+			.into_iter()
+			.collect();
 		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
 			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_source = Some(header_id(2));
@@ -1195,8 +1198,8 @@ mod tests {
 			24,
 			MessageDetails { dispatch_weight: Weight::from_parts(1, 0), size: 0, reward: 0 },
 		)]
-		.into_iter()
-		.collect();
+			.into_iter()
+			.collect();
 		let source_header_2 = header_id(2);
 		state.best_finalized_source_header_id_at_source = Some(source_header_2);
 		strategy.source_nonces_updated(

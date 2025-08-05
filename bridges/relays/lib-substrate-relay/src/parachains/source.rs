@@ -45,7 +45,7 @@ pub struct ParachainsSource<P: SubstrateParachainsPipeline, SourceRelayClnt> {
 }
 
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>>
-	ParachainsSource<P, SourceRelayClnt>
+ParachainsSource<P, SourceRelayClnt>
 {
 	/// Creates new parachains source client.
 	pub fn new(
@@ -81,7 +81,7 @@ impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain
 
 #[async_trait]
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>> RelayClient
-	for ParachainsSource<P, SourceRelayClnt>
+for ParachainsSource<P, SourceRelayClnt>
 {
 	type Error = SubstrateError;
 
@@ -92,7 +92,7 @@ impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain
 
 #[async_trait]
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>>
-	SourceClient<ParachainsPipelineAdapter<P>> for ParachainsSource<P, SourceRelayClnt>
+SourceClient<ParachainsPipelineAdapter<P>> for ParachainsSource<P, SourceRelayClnt>
 where
 	P::SourceParachain: Chain<Hash = ParaHash>,
 {
@@ -112,11 +112,11 @@ where
 		// parachain head - we simply return `Unavailable`
 		let best_block_number = self.client.best_finalized_header_number().await?;
 		if is_ancient_block(at_block.number(), best_block_number) {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				?at_block,
-				"{} block is ancient. Cannot prove the {} header there",
+				"{} block {:?} is ancient. Cannot prove the {} header there",
 				P::SourceRelayChain::NAME,
+				at_block,
 				P::SourceParachain::NAME,
 			);
 			return Ok(AvailableHeader::Unavailable)

@@ -85,7 +85,7 @@ pub struct SubstrateMessagesSource<P: SubstrateMessageLane, SourceClnt, TargetCl
 }
 
 impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
-	SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	/// Create new Substrate headers source.
 	pub fn new(
@@ -130,7 +130,7 @@ impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
 }
 
 impl<P: SubstrateMessageLane, SourceClnt: Clone, TargetClnt: Clone> Clone
-	for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -145,10 +145,10 @@ impl<P: SubstrateMessageLane, SourceClnt: Clone, TargetClnt: Clone> Clone
 
 #[async_trait]
 impl<
-		P: SubstrateMessageLane,
-		SourceClnt: Client<P::SourceChain>,
-		TargetClnt: Client<P::TargetChain>,
-	> RelayClient for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+	P: SubstrateMessageLane,
+	SourceClnt: Client<P::SourceChain>,
+	TargetClnt: Client<P::TargetChain>,
+> RelayClient for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	type Error = SubstrateError;
 
@@ -174,15 +174,15 @@ impl<
 
 #[async_trait]
 impl<
-		P: SubstrateMessageLane,
-		SourceClnt: Client<P::SourceChain>,
-		TargetClnt: Client<P::TargetChain>,
-	> SourceClient<MessageLaneAdapter<P>> for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+	P: SubstrateMessageLane,
+	SourceClnt: Client<P::SourceChain>,
+	TargetClnt: Client<P::TargetChain>,
+> SourceClient<MessageLaneAdapter<P>> for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 where
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
 {
 	type BatchTransaction =
-		BatchProofTransaction<P::SourceChain, P::TargetChain, P::SourceBatchCallBuilder>;
+	BatchProofTransaction<P::SourceChain, P::TargetChain, P::SourceBatchCallBuilder>;
 	type TransactionTracker = TransactionTracker<P::SourceChain, SourceClnt>;
 
 	async fn state(&self) -> Result<SourceClientState<MessageLaneAdapter<P>>, SubstrateError> {
@@ -294,7 +294,7 @@ where
 			for ((_, out_msg_details), in_msg_details) in
 				msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
 			{
-				tracing::trace!(
+				log::trace!(
 					target: "bridge",
 					"Refined weight of {}->{} message {:?}/{}: at-source: {}, at-target: {}",
 					P::SourceChain::NAME,
@@ -546,7 +546,7 @@ fn validate_out_msgs_details<C: Chain>(
 	// some messages were already pruned from the source node. This is not a critical error
 	// and will be auto-resolved by messages lane (and target node).
 	if nonces_iter.peek().is_some() {
-		tracing::info!(
+		log::info!(
 			target: "bridge",
 			"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
 			C::NAME,

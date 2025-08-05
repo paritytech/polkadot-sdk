@@ -54,15 +54,15 @@ impl<P: FinalityPipeline, SC: SourceClientBase<P>> FinalityProofsStream<P, SC> {
 
 	pub async fn ensure_stream(&mut self, source_client: &SC) -> Result<(), SC::Error> {
 		if self.stream.is_none() {
-			tracing::warn!(target: "bridge", "{} finality proofs stream is being started / restarted",
+			log::warn!(target: "bridge", "{} finality proofs stream is being started / restarted",
 				P::SOURCE_NAME);
 
 			let stream = source_client.finality_proofs().await.map_err(|error| {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					?error,
-					"Failed to subscribe to {} justifications",
+					"Failed to subscribe to {} justifications: {:?}",
 					P::SOURCE_NAME,
+					error,
 				);
 
 				error
@@ -103,10 +103,13 @@ impl<P: FinalityPipeline> FinalityProofsBuf<P> {
 		}
 
 		if proofs_count != 0 {
-			tracing::trace!(
+			log::trace!(
 				target: "bridge",
-				"Read {proofs_count} finality proofs from {} finality stream for headers in range [{first_header_number:?}; {last_header_number:?}]",
+				"Read {} finality proofs from {} finality stream for headers in range [{:?}; {:?}]",
+				proofs_count,
 				P::SOURCE_NAME,
+				first_header_number,
+				last_header_number,
 			);
 		}
 	}
@@ -178,8 +181,8 @@ mod tests {
 			TestFinalityProof(17),
 			TestFinalityProof(19),
 		]
-		.into_iter()
-		.collect();
+			.into_iter()
+			.collect();
 
 		// when there's proof for justified header in the vec
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {

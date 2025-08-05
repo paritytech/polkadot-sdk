@@ -52,10 +52,10 @@ pub struct ParachainsTarget<P: SubstrateParachainsPipeline, SourceClnt, TargetCl
 }
 
 impl<
-		P: SubstrateParachainsPipeline,
-		SourceClnt: Client<P::SourceRelayChain>,
-		TargetClnt: Client<P::TargetChain>,
-	> ParachainsTarget<P, SourceClnt, TargetClnt>
+	P: SubstrateParachainsPipeline,
+	SourceClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
+> ParachainsTarget<P, SourceClnt, TargetClnt>
 {
 	/// Creates new parachains target client.
 	pub fn new(
@@ -73,10 +73,10 @@ impl<
 }
 
 impl<
-		P: SubstrateParachainsPipeline,
-		SourceClnt: Client<P::SourceRelayChain>,
-		TargetClnt: Clone,
-	> Clone for ParachainsTarget<P, SourceClnt, TargetClnt>
+	P: SubstrateParachainsPipeline,
+	SourceClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Clone,
+> Clone for ParachainsTarget<P, SourceClnt, TargetClnt>
 {
 	fn clone(&self) -> Self {
 		ParachainsTarget {
@@ -89,10 +89,10 @@ impl<
 
 #[async_trait]
 impl<
-		P: SubstrateParachainsPipeline,
-		SourceClnt: Client<P::SourceRelayChain>,
-		TargetClnt: Client<P::TargetChain>,
-	> RelayClient for ParachainsTarget<P, SourceClnt, TargetClnt>
+	P: SubstrateParachainsPipeline,
+	SourceClnt: Client<P::SourceRelayChain>,
+	TargetClnt: Client<P::TargetChain>,
+> RelayClient for ParachainsTarget<P, SourceClnt, TargetClnt>
 {
 	type Error = SubstrateError;
 
@@ -105,7 +105,7 @@ impl<
 
 #[async_trait]
 impl<P, SourceClnt, TargetClnt> TargetClient<ParachainsPipelineAdapter<P>>
-	for ParachainsTarget<P, SourceClnt, TargetClnt>
+for ParachainsTarget<P, SourceClnt, TargetClnt>
 where
 	P: SubstrateParachainsPipeline,
 	SourceClnt: Client<P::SourceRelayChain>,
@@ -150,12 +150,12 @@ where
 			)
 			.await
 			.unwrap_or_else(|e| {
-				tracing::info!(
+				log::info!(
 					target: "bridge",
-					error=?e,
-					"Call of {} at {} has failed. Treating as `None`",
+					"Call of {} at {} has failed with an error: {:?}. Treating as `None`",
 					P::SourceRelayChain::FREE_HEADERS_INTERVAL_METHOD,
 					P::TargetChain::NAME,
+					e,
 				);
 				None
 			}))

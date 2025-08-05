@@ -49,14 +49,14 @@ pub(crate) const RECENT_FINALITY_PROOFS_LIMIT: usize = 4096;
 
 /// Convenience trait that adds bounds to `SubstrateFinalitySyncPipeline`.
 pub trait BaseSubstrateFinalitySyncPipeline:
-	SubstrateFinalityPipeline<TargetChain = Self::BoundedTargetChain>
+SubstrateFinalityPipeline<TargetChain = Self::BoundedTargetChain>
 {
 	/// Bounded `SubstrateFinalityPipeline::TargetChain`.
 	type BoundedTargetChain: ChainWithTransactions<AccountId = Self::BoundedTargetChainAccountId>;
 
 	/// Bounded `AccountIdOf<SubstrateFinalityPipeline::TargetChain>`.
 	type BoundedTargetChainAccountId: From<<AccountKeyPairOf<Self::BoundedTargetChain> as Pair>::Public>
-		+ Send;
+	+ Send;
 }
 
 impl<T> BaseSubstrateFinalitySyncPipeline for T
@@ -129,7 +129,7 @@ pub struct DirectSubmitGrandpaFinalityProofCallBuilder<P, R, I> {
 }
 
 impl<P, R, I> SubmitFinalityProofCallBuilder<P>
-	for DirectSubmitGrandpaFinalityProofCallBuilder<P, R, I>
+for DirectSubmitGrandpaFinalityProofCallBuilder<P, R, I>
 where
 	P: SubstrateFinalitySyncPipeline,
 	R: BridgeGrandpaConfig<I>,
@@ -152,7 +152,7 @@ where
 			finality_target: Box::new(header.into_inner()),
 			justification: proof,
 		}
-		.into()
+			.into()
 	}
 }
 
@@ -246,12 +246,12 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
-	tracing::info!(
+	log::info!(
 		target: "bridge",
-		?headers_to_relay,
-		"Starting {} -> {} finality proof relay",
+		"Starting {} -> {} finality proof relay: relaying {:?} headers",
 		P::SourceChain::NAME,
 		P::TargetChain::NAME,
+		headers_to_relay,
 	);
 
 	finality_relay::run(
@@ -273,8 +273,8 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 		metrics_params,
 		futures::future::pending(),
 	)
-	.await
-	.map_err(|e| anyhow::format_err!("{}", e))
+		.await
+		.map_err(|e| anyhow::format_err!("{}", e))
 }
 
 /// Relay single header. No checks are made to ensure that transaction will succeed.

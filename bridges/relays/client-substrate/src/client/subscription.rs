@@ -68,7 +68,7 @@ impl<S: Stream<Item = StdResult<T, E>>, T, E> Unwrap<S, T, E> {
 }
 
 impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> Stream
-	for Unwrap<S, T, E>
+for Unwrap<S, T, E>
 {
 	type Item = T;
 
@@ -78,17 +78,17 @@ impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> S
 				Some(Ok(item)) => Some(item),
 				Some(Err(e)) => {
 					self.stream.take();
-					tracing::debug!(
+					log::debug!(
 						target: "bridge",
-						error=?e,
-						"{} has returned. It may need to be restarted",
+						"{} has returned error: {:?}. It may need to be restarted",
 						self.desc.get(),
+						e,
 					);
 					None
 				},
 				None => {
 					self.stream.take();
-					tracing::debug!(
+					log::debug!(
 						target: "bridge",
 						"{} has returned `None`. It may need to be restarted",
 						self.desc.get()
@@ -183,11 +183,11 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 	mut subscribers_receiver: Receiver<Sender<T>>,
 ) {
 	fn log_task_exit(desc: &StreamDescription, reason: &str) {
-		tracing::debug!(
+		log::debug!(
 			target: "bridge",
-			%reason,
-			"Background task of subscription broadcaster for {} has stopped",
+			"Background task of subscription broadcaster for {} has stopped: {}",
 			desc.get(),
+			reason,
 		);
 	}
 

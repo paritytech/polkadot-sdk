@@ -45,16 +45,15 @@ struct EquivocationDetectionLoop<
 }
 
 impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
-	EquivocationDetectionLoop<P, SC, TC>
+EquivocationDetectionLoop<P, SC, TC>
 {
 	async fn ensure_finality_proofs_stream(&mut self) {
 		match self.finality_proofs_stream.ensure_stream(&self.source_client).await {
 			Ok(_) => {},
 			Err(e) => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					error=?e,
-					"Could not connect to the {} `FinalityProofsStream`",
+					"Could not connect to the {} `FinalityProofsStream`: {e:?}",
 					P::SOURCE_NAME,
 				);
 
@@ -68,10 +67,9 @@ impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
 		match self.target_client.best_finalized_header_number().await {
 			Ok(block_num) => Some(block_num),
 			Err(e) => {
-				tracing::error!(
+				log::error!(
 					target: "bridge",
-					error=?e,
-					"Could not read best finalized header number from {}",
+					"Could not read best finalized header number from {}: {e:?}",
 					P::TARGET_NAME,
 				);
 
@@ -255,8 +253,8 @@ mod tests {
 			MetricsParams { address: None, registry: Default::default() },
 			exit_receiver.into_future().map(|(_, _)| ()),
 		)
-		.await
-		.is_ok());
+			.await
+			.is_ok());
 		assert_eq!(
 			*reported_equivocations.lock().unwrap(),
 			HashMap::from([
@@ -303,8 +301,8 @@ mod tests {
 			MetricsParams { address: None, registry: Default::default() },
 			exit_receiver.into_future().map(|(_, _)| ()),
 		)
-		.await
-		.is_ok());
+			.await
+			.is_ok());
 		assert_eq!(*reported_equivocations.lock().unwrap(), HashMap::from([(2, vec!["3-1"]),]));
 	}
 }
