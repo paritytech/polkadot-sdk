@@ -308,6 +308,13 @@ impl Contains<Location> for AmbassadorEntities {
 	}
 }
 
+pub struct SecretaryEntities;
+impl Contains<Location> for SecretaryEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(91)]))
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -329,6 +336,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						FellowshipEntities,
 						AmbassadorEntities,
+						SecretaryEntities,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
@@ -352,6 +360,7 @@ pub type WaivedLocations = (
 	FellowshipEntities,
 	AmbassadorEntities,
 	LocalPlurality,
+	SecretaryEntities,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
