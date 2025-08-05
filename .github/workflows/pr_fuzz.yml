@@ -23,11 +23,13 @@ jobs:
 
     - name: Fuzz only Treasury pallet for Demo
       run: |
-        cd runtime_fuzzer/templates/kitchensink/
-        cp Cargo.toml Cargo.toml.bak
-        sed -i '/^pallet-/ s/^/#/' Cargo.toml
-        sed -i '/#pallet-treasury/ s/^#//' Cargo.toml
-        sed -i '/#pallet-timestamp/ s/^#//' Cargo.toml
+        # TODO: There are some plallet dependecies within the template, we cant remove all pallet
+        # Ref: https://github.com/DcrHB/polkadot-sdk/actions/runs/16742477104/job/47393516245
+        #cd runtime_fuzzer/templates/kitchensink/
+        #cp Cargo.toml Cargo.toml.bak
+        #sed -i '/^pallet-/ s/^/#/' Cargo.toml
+        #sed -i '/#pallet-treasury/ s/^#//' Cargo.toml
+        #sed -i '/#pallet-timestamp/ s/^#//' Cargo.toml
 
     - name: Print Cargo.toml
       run: |
