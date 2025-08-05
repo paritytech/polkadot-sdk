@@ -258,6 +258,8 @@ fn maybe_compact_and_compress_wasm(
 			// We at least want to lower the `sign-ext` code to `mvp`.
 			wasm_opt::OptimizationOptions::new_opt_level_0()
 				.add_pass(wasm_opt::Pass::SignextLowering)
+				.add_pass(wasm_opt::Pass::MemoryPacking)
+				.zero_filled_memory(true)
 				.run(bloaty_blob_binary.bloaty_path(), bloaty_blob_binary.bloaty_path())
 				.expect("Failed to lower sign-ext in WASM binary.");
 
@@ -1036,6 +1038,8 @@ fn compact_wasm(
 		.debug_info(true)
 		.add_pass(wasm_opt::Pass::StripDwarf)
 		.add_pass(wasm_opt::Pass::SignextLowering)
+		.add_pass(wasm_opt::Pass::MemoryPacking)
+		.zero_filled_memory(true)
 		.run(bloaty_binary.bloaty_path(), &wasm_compact_path)
 		.expect("Failed to compact generated WASM binary.");
 
