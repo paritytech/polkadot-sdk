@@ -55,7 +55,7 @@ jobs:
             keys=("fuzz_time" "saved_crashes" "edges_found" "total_edges")
             for key in ${keys[@]}; do
               value=$(cat substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats | grep $key | awk -F: '{print $2}')
-              echo "{key}={value}" >> $GITHUB_OUTPUT
+              echo "${key}=${value}" | tee -a $GITHUB_OUTPUT
             done
 
     - name: Get Coverage 
@@ -63,7 +63,28 @@ jobs:
         # TODO: 
         # This is a placeholder to get gcov report
 
-    - name: Post the coverage report in PR
-      run: |
-        # TODO: 
-        # This is a placeholder to post the coverage report in PR
+    - name: Post comment on the PR
+      # FIXME: Remove gurard condition once the action is finlaised to only for PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v3
+      with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const comment = `
+            Fuzz Time: ${process.env.FUZZ_TIME}
+            Saved Crashes: ${process.env.SAVED_CRASHES}
+            Edges Found: ${process.env.EDGES_FOUND}
+            Total Edges: ${process.env.TOTAL_EDGES}
+            `;
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      env:
+        FUZZ_TIME: ${{ steps.file_content.outputs.fuzz_time }}
+        SAVED_CRASHES: ${{ steps.file_content.outputs.saved_crashes }}
+        EDGES_FOUND: ${{ steps.file_content.outputs.edges_found }}
+        TOTAL_EDGES: ${{ steps.file_content.outputs.total_edges }}
+  
