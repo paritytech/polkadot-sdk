@@ -415,6 +415,10 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
 
+	// TODO This is where I left off. I'm trying to dig into where the environment::finalize_block
+	// call happens and why having these sparse headers might cause problems there
+	// TODO Also, I should check the logs of the other failing zombienet test and see if it's the
+	// same thing. Maybe that one is faster to run locally! (Or at least doesn't require a snapshot)
 	log::info!("XXX calling import_block");
 	let imported = import_handle.import_block(import_block).await;
 	log::info!("XXX called import_block");
