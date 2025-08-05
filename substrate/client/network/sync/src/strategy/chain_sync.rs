@@ -1152,8 +1152,6 @@ where
 		request: Option<BlockRequest<B>>,
 		response: BlockResponse<B>,
 	) -> Result<(), BadPeer> {
-		// TODO I think this is where we receive blocks from the gap sync. I think this is causing
-		// issues
 		self.downloaded_blocks += response.blocks.len();
 		let mut gap = false;
 		let new_blocks: Vec<IncomingBlock<B>> = if let Some(peer) = self.peers.get_mut(peer_id) {
@@ -1580,10 +1578,6 @@ where
 				.set(self.queue_blocks.len().try_into().unwrap_or(u64::MAX));
 		}
 
-		// TODO I think this is where we get to
-		// TODO Maybe I should add logging to make sure
-		// TODO I think from here I should read what the import code looks like (it's GRANDPA) and
-		// then I can maybe figure out where finalize_block is being called from
 		self.actions.push(SyncingAction::ImportBlocks { origin, blocks: new_blocks })
 	}
 

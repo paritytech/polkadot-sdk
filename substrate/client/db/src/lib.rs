@@ -2489,28 +2489,6 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		Ok(())
 	}
 
-	fn store_warp_proofs(
-		&self,
-		proofs: Vec<(Block::Header, Justifications)>,
-	) -> sp_blockchain::Result<()> {
-		let mut transaction = Transaction::new();
-		for (header, justifications) in proofs {
-			let number = *header.number();
-			let hash = header.hash();
-			log::info!(
-				"XXX storing header {number} {hash:?} with {} justifications",
-				justifications.iter().count()
-			);
-			utils::insert_hash_to_key_mapping(&mut transaction, columns::KEY_LOOKUP, number, hash)?;
-			let lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
-			transaction.set_from_vec(columns::HEADER, &lookup_key, header.encode());
-			transaction.set_from_vec(columns::JUSTIFICATIONS, &lookup_key, justifications.encode());
-		}
-		self.storage.db.commit(transaction)?;
-		log::info!("XXX committed");
-		Ok(())
-	}
-
 	fn blockchain(&self) -> &BlockchainDb<Block> {
 		&self.blockchain
 	}

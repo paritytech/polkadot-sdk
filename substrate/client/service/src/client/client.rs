@@ -1982,13 +1982,6 @@ where
 		self.backend.blockchain().block_indexed_body(hash)
 	}
 
-	fn store_warp_proofs(
-		&self,
-		proofs: Vec<(Block::Header, Justifications)>,
-	) -> sp_blockchain::Result<()> {
-		self.backend.store_warp_proofs(proofs)
-	}
-
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
 	}

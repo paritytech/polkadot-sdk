@@ -241,7 +241,6 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		// TODO I wonder if this is it. I should probably add some logging here
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 		result_sender.blocks_processed(res.imported, res.block_count, res.results);

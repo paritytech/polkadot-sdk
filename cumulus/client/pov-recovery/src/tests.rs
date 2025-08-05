@@ -213,13 +213,6 @@ impl<Block: BlockT> BlockBackend<Block> for ParachainClient<Block> {
 		unimplemented!()
 	}
 
-	fn store_warp_proofs(
-		&self,
-		_: Vec<(Block::Header, Justifications)>,
-	) -> sp_blockchain::Result<()> {
-		unimplemented!()
-	}
-
 	fn requires_full_sync(&self) -> bool {
 		unimplemented!()
 	}

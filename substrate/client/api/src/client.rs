@@ -160,12 +160,6 @@ pub trait BlockBackend<Block: BlockT> {
 		Ok(self.indexed_transaction(hash)?.is_some())
 	}
 
-	/// Store headers and justifications for warp sync proofs.
-	fn store_warp_proofs(
-		&self,
-		proofs: Vec<(Block::Header, Justifications)>,
-	) -> sp_blockchain::Result<()>;
-
 	/// Tells whether the current client configuration requires full-sync mode.
 	fn requires_full_sync(&self) -> bool;
 }

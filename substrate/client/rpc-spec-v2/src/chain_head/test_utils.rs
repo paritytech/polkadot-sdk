@@ -290,13 +290,6 @@ impl<Block: BlockT, Client: BlockBackend<Block>> BlockBackend<Block>
 		self.client.block_indexed_body(hash)
 	}
 
-	fn store_warp_proofs(
-		&self,
-		proofs: Vec<(Block::Header, Justifications)>,
-	) -> sp_blockchain::Result<()> {
-		self.client.store_warp_proofs(proofs)
-	}
-
 	fn requires_full_sync(&self) -> bool {
 		self.client.requires_full_sync()
 	}
