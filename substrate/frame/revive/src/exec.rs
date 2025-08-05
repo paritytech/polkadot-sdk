@@ -77,6 +77,7 @@ pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 /// Combined key type for both fixed and variable sized storage keys.
+#[derive(Debug)]
 pub enum Key {
 	/// Variant for fixed sized keys.
 	Fix([u8; 32]),
