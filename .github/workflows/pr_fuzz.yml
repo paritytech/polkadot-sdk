@@ -26,6 +26,7 @@ jobs:
         cd runtime_fuzzer/templates/kitchensink/
         cp Cargo.toml Cargo.toml.bak
         sed -i '/^pallet-/ s/^/#/' Cargo.toml
+        sed -i '/#pallet-treasury/ s/^#//' Cargo.toml
         grep -v '#pallet-treasury' Cargo.toml > temp && mv temp Cargo.toml
 
     - name: Run cargo ziggy fuzz for 15 minute
