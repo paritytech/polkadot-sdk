@@ -27,6 +27,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: substrate/bin/node/runtime/fuzzer/target
+        key: fuzzer-target-dir
           
     - name: Run cargo ziggy fuzz for 15 minute
       env:
