@@ -145,6 +145,10 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	async fn set_evm_nonce(&self, account: H160, nonce: U256) -> RpcResult<Option<U256>> {
 		Ok(self.client.set_evm_nonce(account, nonce).await?)
 	}
+
+	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>> {
+		Ok(self.client.set_balance(who, new_free).await?)
+	}
 }
 
 #[async_trait]

@@ -40,4 +40,7 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_setNonce")]
 	async fn set_evm_nonce(&self, account: H160, nonce: U256) -> RpcResult<Option<U256>>;
+
+	#[method(name = "hardhat_setBalance")]
+	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>>;
 }

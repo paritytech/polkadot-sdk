@@ -23,7 +23,10 @@ use crate::{
 	subxt_client::{
 		self,
 		revive::calls::types::EthTransact,
-		runtime_types::{revive_dev_runtime::RuntimeCall, pallet_revive::pallet::Call},
+		runtime_types::{
+			pallet_balances::pallet::Call as BalancesCall,
+			pallet_revive::pallet::Call as ReviveCall, revive_dev_runtime::RuntimeCall,
+		},
 		SrcChainConfig,
 	},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
@@ -790,14 +793,35 @@ impl Client {
 		nonce: U256,
 	) -> Result<Option<U256>, ClientError> {
 		let alice = dev::alice();
-		let call = RuntimeCall::Revive(Call::set_evm_nonce_call {
+		let call = RuntimeCall::Revive(ReviveCall::set_evm_nonce_call {
 			address: account,
 			nonce: subxt::utils::Static(nonce),
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let hash = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
 
 		Ok(Some(nonce))
+	}
+
+	pub async fn set_balance(
+		&self,
+		who: H160,
+		new_free: U256,
+	) -> Result<Option<U256>, ClientError> {
+		let alice = dev::alice();
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at_latest().await?);
+
+		let account = runtime_api.account_or_fallback(who).await?;
+
+		let call = RuntimeCall::Balances(BalancesCall::force_set_balance {
+			who: subxt::utils::MultiAddress::Id(account),
+			new_free: new_free.as_u128(),
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(new_free))
 	}
 }

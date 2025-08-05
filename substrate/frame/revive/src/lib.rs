@@ -1736,6 +1736,8 @@ sp_api::decl_runtime_apis! {
 		/// Returns the nonce of the given `[H160]` address.
 		fn nonce(address: H160) -> Nonce;
 
+		fn account_or_fallback(address: H160) -> AccountId;
+	
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
@@ -1859,6 +1861,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn block_author() -> Option<$crate::H160> {
 					$crate::Pallet::<Self>::block_author()
+				}
+
+				fn account_or_fallback(address: $crate::H160) -> AccountId {
+					use $crate::AddressMapper;
+					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
