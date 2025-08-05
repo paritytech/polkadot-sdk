@@ -440,11 +440,6 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-				/*
-				if let Err(e) = self.client.store_warp_proofs(proofs) {
-					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
-				}
-				*/
 			},
 			Ok(VerificationResult::Complete(new_set_id, _, header, proofs)) => {
 				log::debug!(
@@ -460,11 +455,6 @@ where
 					origin: BlockOrigin::NetworkInitialSync,
 					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
 				});
-				/*
-				if let Err(e) = self.client.store_warp_proofs(proofs) {
-					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
-				}
-				*/
 			},
 		}
 	}
