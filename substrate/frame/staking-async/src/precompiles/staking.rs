@@ -15,9 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::precompiles::staking::IStaking::bondReturn;
 use crate::{
-	weights::WeightInfo, ActiveEra, BalanceOf, Call, Config, Ledger, MinNominatorBond,
-	MinValidatorBond, Nominators, Pallet, RewardDestination, Validators, ValidatorPrefs,
+	weights::WeightInfo, ActiveEra, BalanceOf, Call, Config, Ledger, MaxNominatorsCount,
+	MinCommission, MinNominatorBond, MinValidatorBond, Nominators, Pallet, RewardDestination,
+	StakingLedger, ValidatorPrefs, Validators,
 };
 use alloc::vec::Vec;
 use alloy_core as alloy;
@@ -26,17 +28,22 @@ use alloy_core::{
 	sol,
 	sol_types::{Revert, SolCall},
 };
-use pallet_revive::precompiles::{
-	AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H256,
+use pallet_revive::{
+	precompiles::{AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H256},
+	AddressMapper,
 };
-use sp_runtime::{traits::StaticLookup, DispatchError, Perbill};
+use sp_core::H160;
+use sp_runtime::{
+	traits::{Get, StaticLookup},
+	DispatchError, Perbill,
+};
 
 sol! {
 	/**
-	 * @title IStaking - Substrate Staking Precompile Interface
-	 * @notice Provides smart contract access to Substrate's native staking functionality
-	 * @dev This interface maps 1-to-1 with pallet-staking-async extrinsics, enabling
-	 *      Ethereum-compatible contracts to interact with Substrate's Nominated Proof of Stake
+	 * @title IStaking - Polkadot Staking Precompile Interface
+	 * @notice Provides smart contract access to Polkadot's native staking functionality
+	 * @dev This interface mostly maps 1-to-1 with pallet-staking-async extrinsics, enabling
+	 *      Ethereum-compatible contracts to interact with Polkadot's Nominated Proof of Stake
 	 */
 	interface IStaking {
 		// ═══════════════════════════════════════════════════════════════════════════════════════
@@ -67,19 +74,19 @@ sol! {
 		/**
 		 * @notice Emitted when validator preferences are updated
 		 * @param validator The validator's stash account
-		 * @param commission The commission rate (parts per billion: 0-1,000,000,000)
+		 * @param commission The commission rate (represented as parts per billion: 0-1,000,000,000)
 		 * @param blocked Whether the validator is blocked from receiving nominations
 		 */
-		event ValidatorPrefsSet(address indexed validator, uint256 commission, bool blocked);
+		event Validated(address indexed validator, uint256 commission, bool blocked);
 
 		/**
-		 * @notice Emitted when an account stops validating or nominating
+		 * @notice Emitted when an account stops validating or nominating aka is chilled
 		 * @param stash The stash account that became inactive
 		 */
 		event Chilled(address indexed stash);
 
 		/**
-		 * @notice Emitted when unbonded tokens are withdrawn to free balance
+		 * @notice Emitted when previously unbonded tokens are withdrawn to free balance
 		 * @param stash The stash account that withdrew tokens
 		 * @param amount The amount withdrawn (in smallest unit)
 		 */
@@ -93,7 +100,9 @@ sol! {
 		event Rebonded(address indexed stash, uint256 amount);
 
 		/**
-		 * @notice Emitted when staking rewards are distributed
+		 * @notice Emitted when staking rewards of a validator are distributed
+		 * @dev This event is only called when the all of the rewards associated with `validator` for `era` are paid out.
+		 TODO: make sure emitted on last page only
 		 * @param validator The validator for which rewards were paid
 		 * @param era The era for which rewards were distributed
 		 */
@@ -107,6 +116,7 @@ sol! {
 		 * @notice Represents a chunk of tokens scheduled for unlocking
 		 * @param value Amount of tokens in this unlock chunk (in smallest unit)
 		 * @param era Era number when these tokens can be withdrawn
+		 TODO: double check correct era.
 		 */
 		struct UnlockChunk {
 			uint256 value;
@@ -120,26 +130,33 @@ sol! {
 		/**
 		 * @notice Bond tokens to participate in staking with compounding rewards
 		 * @dev Creates a new staking ledger with rewards automatically restaked
-		 * @param value Amount of tokens to bond (in smallest unit)
-		 * @return success Always returns true on successful execution
+		 * @param requested Maximum amount of tokens to bond (in smallest unit). If requested > free_balance, only `stakedAmount = min(requested, free_balance)`` will be bonded.
+		 * @return success Always returns true if any tokens are bonded
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits Bonded(stash, requestedAmount), creates staking ledger
-		 *   REVERT: If insufficient balance, already bonded, or below minimum bond
+		 *   SUCCESS: Emits `Bonded(stash, stakedAmount), creates staking ledger
+		 *   REVERT: If filtered account, insufficient balance, already bonded, already paired, or below minimum bond
 		 * @custom:requirements
+		 *   - Account must not be filtered by T::Filter (governance can block accounts)
+		 *   - Value must be >= minChilledBond() (NOT minNominatorBond or minValidatorBond)
+		 *   - Account must not already be bonded as stash (AlreadyBonded error)
+		 *   - Account must not already be bonded as controller (AlreadyPaired error)
 		 *   - Caller must have sufficient free balance
-		 *   - Value must meet minimum bond requirements (see minNominatorBond/minValidatorBond)
-		 *   - Account must not already be bonded as stash or controller
 		 * @custom:events Bonded(address indexed stash, uint256 amount)
-		 * @custom:edge_case 
-		 *   If value > free_balance, only min(value, free_balance) will actually be bonded.
+		 * @custom:edge_case
+		 *   If requested > free_balance, only min(requested, free_balance) will actually be bonded.
 		 *   The pallet emits its own event with the actual bonded amount.
 		 *   This precompile emits the requested amount for interface consistency.
+		 TODO note the case, precompile should also emit events with the actual bonded amount.
+		 * @custom:stability
+		 *   - T::Filter can be changed via governance, blocking previously valid accounts
+		 *   - minChilledBond() calculation can change if governance updates MinValidatorBond/MinNominatorBond
 		 */
-		function bond(uint256 value) external returns (bool success);
+		function bond(uint256 requested) external;
 
 		/**
-		 * @notice Set reward destination to caller's account
-		 * @dev Changes where staking rewards are sent - to the caller's free balance
+		 * @notice Set reward destination of caller to `payee`.
+		 TODO: interface has changed.
+		 * @dev Changes where staking rewards are sent - to `payee`, and not compounding.
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
 		 *   SUCCESS: Returns true, updates reward destination to Account(caller)
@@ -147,7 +164,7 @@ sol! {
 		 * @custom:requirements
 		 *   - Caller must have an active staking ledger
 		 */
-		function setPayee() external returns (bool success);
+		function setPayee(address payee) external returns (bool success);
 
 		/**
 		 * @notice Set reward destination to compound (restake automatically)
@@ -182,24 +199,35 @@ sol! {
 
 		/**
 		 * @notice Schedule bonded tokens for unbonding
-		 * @dev Tokens become available for withdrawal after the unbonding period
+		 * @dev Tokens become available for withdrawal after the unbonding period. The actual unbdonding period should be later checked with `ledger(account).unlocking`.
 		 * @param value Amount of bonded tokens to schedule for unbonding (in smallest unit)
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits Unbonded(stash, amount), creates unbonding chunk
-		 *   REVERT: If insufficient bonded tokens, would leave below minimum if active, or too many chunks
+		 *   SUCCESS: Returns true, emits Unbonded(stash, actualAmount), creates unbonding chunk
+		 *   REVERT: If insufficient bonded tokens, would leave below minimum if active, too many chunks, or not bonded
 		 * @custom:requirements
-		 *   - Caller must have sufficient bonded tokens >= value
+		 *   - Account must have an existing staking ledger
+		 *   - Must have unlocking chunks < maxUnlockingChunks() after auto-withdraw
 		 *   - Cannot unbond below minimum active stake if actively validating/nominating
-		 *   - Limited number of concurrent unbonding chunks allowed (typically 32)
+		 * @custom:auto_withdraw
+		 *   - If maxUnlockingChunks() limit is reached, automatically withdraws fully unbonded funds first
+		 *   - This may change account state before processing the unbond request
+		 * @custom:amount_adjustment
+		 *   - Actual unbonded amount = min(value, ledger.active)
+		 *   - If remaining active would be < existentialDeposit, unbonds all remaining active
 		 * @custom:events Unbonded(address indexed stash, uint256 amount)
+		 * @custom:stability_risk
+		 *   - maxUnlockingChunks() limit affects when auto-withdraw occurs
+		 *   - Minimum bond requirements can change via governance
 		 */
 		function unbond(uint256 value) external returns (bool success);
+
+		// TODO
+		function unbondAll() external returns (bool success);
 
 		/**
 		 * @notice Withdraw tokens that have finished unbonding
 		 * @dev Moves fully unbonded tokens from staking ledger to free balance
-		 * @param numSlashingSpans Number of slashing spans to process (affects weight calculation)
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
 		 *   SUCCESS: Returns true, emits Withdrawn(stash, amount), removes completed chunks
@@ -209,39 +237,56 @@ sol! {
 		 *   - Will process all chunks that have completed unbonding period
 		 * @custom:events Withdrawn(address indexed stash, uint256 amount)
 		 */
-		function withdrawUnbonded(uint32 numSlashingSpans) external returns (bool success);
+		function withdrawUnbonded() external returns (bool success);
 
 		/**
 		 * @notice Declare intention to validate blocks
 		 * @dev Sets validator preferences and enables block production eligibility
 		 * @param commission Commission rate as parts per billion (0-1,000,000,000 = 0%-100%)
-		 * @param blocked Whether to block new nominations (allows existing nominators to stay)
+		 * @param blocked Whether to block new nominations (allows existing nominators to stay -- use `kick` to remove them)
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits ValidatorPrefsSet(validator, commission, blocked)
-		 *   REVERT: If insufficient stake, invalid commission, or below minimum validator bond
+		 *   SUCCESS: Returns true, emits Validated(validator, commission, blocked)
+		 *   REVERT: If insufficient stake, commission too low, commission too high, or not bonded
 		 * @custom:requirements
-		 *   - Caller must have sufficient bonded stake
+		 *   - Caller must have active bonded stake >= minValidatorBond()
+		 *   - Commission rate must be >= minCommission() (can change via governance!)
 		 *   - Commission rate must not exceed 1,000,000,000 (100%)
-		 *   - Account must meet minimum validator bond requirements
-		 * @custom:events ValidatorPrefsSet(address indexed validator, uint256 commission, bool blocked)
+		 *   - Account must have an existing staking ledger
+		 * @custom:events Validated(address indexed validator, uint256 commission, bool blocked)
+		 * @custom:stability_risk
+		 *   - minCommission() can be changed via governance, potentially invalidating previously valid commission rates
+		 *   - minValidatorBond() can be changed via governance, potentially invalidating previously valid stakes
 		 */
 		function validate(uint256 commission, bool blocked) external returns (bool success);
+
+		// TODO
+		function kick(address nominator) external returns (bool success);
 
 		/**
 		 * @notice Nominate validators to support with staked tokens
 		 * @dev Distributes nominator's stake among selected validators for potential rewards
-		 * @param targets Array of validator addresses to nominate (up to MAX_NOMINATIONS)
+		 * @param targets Array of validator addresses to nominate
 		 * @return success Always returns true on successful execution
 		 * @custom:behavior
-		 *   SUCCESS: Returns true, emits Nominated(stash, targets), updates nomination list
-		 *   REVERT: If insufficient stake, invalid targets, too many nominations, or below minimum bond
+		 *   SUCCESS: Returns true, emits Nominated(stash, processedTargets), updates nomination list
+		 *   REVERT: If system full, insufficient stake, invalid targets, too many targets, empty targets, or not bonded
 		 * @custom:requirements
-		 *   - Caller must have sufficient bonded stake
-		 *   - All targets must be valid addresses (not necessarily active validators)
-		 *   - Cannot exceed maximum number of nominations (typically 16)
-		 *   - Account must meet minimum nominator bond requirements
+		 *   - Account must have active bonded stake >= minNominatorBond()
+		 *   - System must not be at maxNominatorsCount() limit (for new nominators only)
+		 *   - Targets array must not be empty (EmptyTargets error)
+		 *   - Targets count must be <= NominationsQuota based on stake amount
+		 *   - All targets must be either: existing nominations OR active non-blocked validators
+		 *   - Account must have an existing staking ledger
+		 * @custom:target_processing
+		 *   - Targets are automatically sorted and deduplicated by the pallet
+		 *   - Only previously nominated targets OR active non-blocked validators are accepted
+		 *   - Final target list may differ from input due to deduplication
 		 * @custom:events Nominated(address indexed stash, address[] targets)
+		 * @custom:stability_risk
+		 *   - maxNominatorsCount() can block new nominators when system is full
+		 *   - NominationsQuota calculation can change, affecting max targets allowed
+		 *   - Validator blocked status can change, affecting target validity
 		 */
 		function nominate(address[] calldata targets) external returns (bool success);
 
@@ -295,7 +340,7 @@ sol! {
 		// ═══════════════════════════════════════════════════════════════════════════════════════
 
 		/**
-		 * @notice Get the complete staking ledger for an account
+		 * @notice Get the staked balance of `stash`. Returns total and active stake, the difference of the two being the amount queued for unbdoning. This amount can be either `rebond`-ed, or `withdrawUnbonded`.
 		 * @dev Returns bonding information including active stake and unbonding schedule
 		 * @param stash The stash account to query
 		 * @return total Total amount ever bonded (active + unbonding)
@@ -322,7 +367,7 @@ sol! {
 		 *   NOMINATOR: Returns actual nomination data with targets, submission era, and suppression status
 		 *   NON_NOMINATOR: Returns ([], 0, false) for accounts not nominating
 		 */
-		function nominators(address nominator) external view returns (
+		function nominator(address nominator) external view returns (
 			address[] memory targets,
 			uint256 submittedIn,
 			bool suppressed
@@ -337,7 +382,7 @@ sol! {
 		 * @custom:behavior
 		 *   ANY_ACCOUNT: Always returns current validator preferences (defaults to 0, false)
 		 */
-		function validators(address validator) external view returns (
+		function validator(address validator) external view returns (
 			uint256 commission,
 			bool blocked
 		);
@@ -349,7 +394,7 @@ sol! {
 		 * @custom:behavior
 		 *   ALWAYS: Returns current active era index, or 0 if no era is active
 		 */
-		function currentEra() external view returns (uint256 era);
+		function era() external view returns (uint256 era);
 
 		/**
 		 * @notice Get the minimum bond required for nominators
@@ -368,6 +413,46 @@ sol! {
 		 *   ALWAYS: Returns current minimum validator bond requirement
 		 */
 		function minValidatorBond() external view returns (uint256 amount);
+
+		/**
+		 * @notice Get the minimum commission rate for validators
+		 * @dev Returns the minimum commission rate that validators must set
+		 * @return commission Minimum commission rate in parts per billion (0-1,000,000,000)
+		 * @custom:behavior
+		 *   ALWAYS: Returns current minimum commission requirement
+		 * @custom:stability_risk This value can change via governance, affecting validate() calls
+		 */
+		function minCommission() external view returns (uint256 commission);
+
+		/**
+		 * @notice Get the minimum bond required for initial bonding (chilled state)
+		 * @dev Returns the minimum amount needed to create a new bond
+		 * @return amount Minimum chilled bond = min(minValidatorBond, minNominatorBond).max(existentialDeposit)
+		 * @custom:behavior
+		 *   ALWAYS: Returns current minimum bond for initial bonding
+		 * @custom:note This is different from minValidatorBond and minNominatorBond
+		 */
+		function minChilledBond() external view returns (uint256 amount);
+
+		/**
+		 * @notice Get the maximum number of nominators allowed in the system
+		 * @dev Returns the global limit on total nominators
+		 * @return count Maximum number of nominators (0 = no limit)
+		 * @custom:behavior
+		 *   ALWAYS: Returns current maximum nominator count
+		 * @custom:stability_risk This affects nominate() success when system is full
+		 */
+		function maxNominatorsCount() external view returns (uint256 count);
+
+		/**
+		 * @notice Get the maximum number of unlocking chunks allowed per account
+		 * @dev Returns the limit on concurrent unbonding operations
+		 * @return count Maximum unlocking chunks per account
+		 * @custom:behavior
+		 *   ALWAYS: Returns current max unlocking chunks limit
+		 * @custom:stability_risk This affects unbond() behavior with auto-withdraw
+		 */
+		function maxUnlockingChunks() external view returns (uint256 count);
 	}
 }
 
@@ -383,8 +468,7 @@ where
 {
 	type T = T;
 	type Interface = IStaking::IStakingCalls;
-	const MATCHER: AddressMatcher =
-		AddressMatcher::Fixed(core::num::NonZero::new(0x0800).unwrap());
+	const MATCHER: AddressMatcher = AddressMatcher::Fixed(core::num::NonZero::new(0x0800).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
@@ -394,23 +478,29 @@ where
 	) -> Result<Vec<u8>, Error> {
 		match input {
 			IStaking::IStakingCalls::bond(call) => Self::bond(call, env),
-			IStaking::IStakingCalls::setPayee(_) => Self::set_payee(env),
-			IStaking::IStakingCalls::setCompound(_) => Self::set_compound(env),
+			IStaking::IStakingCalls::setPayee(call) => Self::set_payee(call, env),
+			IStaking::IStakingCalls::setCompound(call) => Self::set_compound(call, env),
 			IStaking::IStakingCalls::bondExtra(call) => Self::bond_extra(call, env),
 			IStaking::IStakingCalls::unbond(call) => Self::unbond(call, env),
+			IStaking::IStakingCalls::unbondAll(call) => Self::unbond_all(call, env),
 			IStaking::IStakingCalls::withdrawUnbonded(call) => Self::withdraw_unbonded(call, env),
 			IStaking::IStakingCalls::nominate(call) => Self::nominate(call, env),
 			IStaking::IStakingCalls::validate(call) => Self::validate(call, env),
-			IStaking::IStakingCalls::chill(_) => Self::chill(env),
+			IStaking::IStakingCalls::kick(call) => Self::kick(call, env),
+			IStaking::IStakingCalls::chill(_call) => Self::chill(_call, env),
 			IStaking::IStakingCalls::rebond(call) => Self::rebond(call, env),
 			IStaking::IStakingCalls::payoutStakers(call) => Self::payout_stakers(call, env),
 			// Query functions
 			IStaking::IStakingCalls::ledger(call) => Self::ledger(call, env),
-			IStaking::IStakingCalls::nominators(call) => Self::nominators(call, env),
-			IStaking::IStakingCalls::validators(call) => Self::validators(call, env),
-			IStaking::IStakingCalls::currentEra(_) => Self::current_era(env),
+			IStaking::IStakingCalls::nominator(call) => Self::nominator(call, env),
+			IStaking::IStakingCalls::validator(call) => Self::validator(call, env),
+			IStaking::IStakingCalls::era(_call) => Self::era(_call, env),
 			IStaking::IStakingCalls::minNominatorBond(_) => Self::min_nominator_bond(env),
 			IStaking::IStakingCalls::minValidatorBond(_) => Self::min_validator_bond(env),
+			IStaking::IStakingCalls::minCommission(_) => Self::min_commission(env),
+			IStaking::IStakingCalls::minChilledBond(_) => Self::min_chilled_bond(env),
+			IStaking::IStakingCalls::maxNominatorsCount(_) => Self::max_nominators_count(env),
+			IStaking::IStakingCalls::maxUnlockingChunks(_) => Self::max_unlocking_chunks(env),
 		}
 	}
 }
@@ -426,12 +516,20 @@ where
 	BalanceOf<T>: TryFrom<alloy::primitives::U256> + Into<alloy::primitives::U256>,
 	Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
 {
-	/// Get the caller as an AccountId.
-	fn caller(env: &mut impl Ext<T = T>) -> Result<T::AccountId, Error> {
-		match env.caller() {
-			pallet_revive::Origin::Signed(account_id) => Ok(account_id),
-			_ => Err(Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() })),
-		}
+	/// Get the caller as an `H160` address.
+	fn caller(env: &mut impl Ext<T = T>) -> Result<H160, Error> {
+		env.caller()
+			.account_id()
+			.map(<T as pallet_revive::Config>::AddressMapper::to_address)
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))
+	}
+
+	fn account_id(caller: &H160) -> T::AccountId {
+		<T as pallet_revive::Config>::AddressMapper::to_account_id(caller)
+	}
+
+	fn runtime_origin(id: &T::AccountId) -> T::RuntimeOrigin {
+		frame_system::RawOrigin::Signed(id.clone()).into()
 	}
 
 	/// Convert a `U256` value to the balance type of the pallet.
@@ -442,19 +540,8 @@ where
 	}
 
 	/// Convert a balance to a `U256` value.
-	fn to_u256(value: BalanceOf<T>) -> Result<alloy::primitives::U256, Error> {
-		Ok(value.into())
-	}
-
-	/// Convert an AccountId to an address.
-	fn to_address(account: &T::AccountId) -> alloy::primitives::Address {
-		let bytes: [u8; 20] = account.clone().into();
-		alloy::primitives::Address::from(bytes)
-	}
-
-	/// Convert an address to an AccountId.
-	fn to_account_id(address: &alloy::primitives::Address) -> T::AccountId {
-		T::AccountId::from(address.into_array())
+	fn to_u256(value: BalanceOf<T>) -> alloy::primitives::U256 {
+		value.into()
 	}
 
 	/// Deposit an event to the runtime.
@@ -473,100 +560,121 @@ where
 	}
 
 	/// Execute the bond call.
-	/// 
+	///
 	/// Note: The pallet internally uses `value.min(stash_balance)` to determine the actual
 	/// bonded amount. The event emitted by the pallet will contain the actual bonded amount,
 	/// not necessarily the requested amount.
 	fn bond(call: &IStaking::bondCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
 		env.charge(<T as crate::Config>::WeightInfo::bond())?;
 
-		let stash = Self::caller(env)?;
-		let value = Self::to_balance(call.value)?;
+		let stash_address = Self::caller(env)?;
+		let stash_id = Self::account_id(&stash_address);
+		let value = Self::to_balance(call.requested)?;
 
-		// Call pallet function with compounding rewards (Staked)
-		// Note: Pallet internally handles value.min(stash_balance) logic
-		Pallet::<T>::bond(
-			frame_system::RawOrigin::Signed(stash.clone()).into(),
-			value,
-			RewardDestination::Staked,
-		)
-		.map_err(|e| match e {
-			DispatchError::Other(_) => Error::Revert(Revert { reason: "Bond failed".into() }),
-			DispatchError::Module(module_error) => Error::Revert(Revert {
-				reason: alloc::format!("Module error: {:?}", module_error).into(),
-			}),
-			_ => Error::Revert(Revert { reason: "Bond failed".into() }),
-		})?;
+		Pallet::<T>::bond(Self::runtime_origin(&stash_id), value, RewardDestination::Staked)?;
 
-		// Note: We emit the requested amount here, but the pallet's internal event
-		// will emit the actual bonded amount which may be different due to balance constraints
+		let amount_bonded = Self::to_u256(
+			StakingLedger::<T>::get(sp_staking::StakingAccount::Stash(stash_id.clone()))
+				.map(|ledger| ledger.active)
+				.unwrap_or_default(),
+		);
+
+		// // Note: We emit the requested amount here, but the pallet's internal event
+		// // will emit the actual bonded amount which may be different due to balance constraints
 		Self::deposit_event(
 			env,
 			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
-				stash: Self::to_address(&stash),
-				amount: call.value,
+				stash: stash_address.0.into(),
+				amount: amount_bonded,
 			}),
 		)?;
 
-		Ok(IStaking::bondCall::abi_encode_returns(&true))
+		Ok(Default::default())
 	}
 
 	/// Execute the bond_extra call.
-	/// 
-	/// Note: The pallet internally uses `max_additional.min(free_balance)` to determine the 
+	///
+	/// Note: The pallet internally uses `max_additional.min(free_balance)` to determine the
 	/// actual bonded amount. The event emitted by the pallet will contain the actual bonded amount,
 	/// not necessarily the requested maxAdditional amount.
 	fn bond_extra(
 		call: &IStaking::bondExtraCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::bond_extra())?;
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::bond_extra())?;
 
-		let stash = Self::caller(env)?;
-		let max_additional = Self::to_balance(call.maxAdditional)?;
+		// let stash = Self::caller(env)?;
+		// let max_additional = Self::to_balance(call.maxAdditional)?;
 
-		// Call pallet function
-		// Note: Pallet internally handles max_additional.min(free_balance) logic
-		Pallet::<T>::bond_extra(
-			frame_system::RawOrigin::Signed(stash.clone()).into(),
-			max_additional,
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Bond extra failed".into() }))?;
+		// // Call pallet function
+		// // Note: Pallet internally handles max_additional.min(free_balance) logic
+		// Pallet::<T>::bond_extra(
+		// 	frame_system::RawOrigin::Signed(stash.clone()).into(),
+		// 	max_additional,
+		// )
+		// .map_err(|_| Error::Revert(Revert { reason: "Bond extra failed".into() }))?;
 
-		// Note: We emit the requested amount here, but the pallet's internal event
-		// will emit the actual bonded amount which may be different due to balance constraints
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
-				stash: Self::to_address(&stash),
-				amount: call.maxAdditional,
-			}),
-		)?;
+		// // Note: We emit the requested amount here, but the pallet's internal event
+		// // will emit the actual bonded amount which may be different due to balance constraints
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Bonded(IStaking::Bonded {
+		// 		stash: Self::to_address(&stash),
+		// 		amount: call.maxAdditional,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::bondExtraCall::abi_encode_returns(&true))
+		// Ok(IStaking::bondExtraCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the unbond call.
 	fn unbond(call: &IStaking::unbondCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::unbond())?;
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::unbond())?;
 
-		let stash = Self::caller(env)?;
-		let value = Self::to_balance(call.value)?;
+		// let stash = Self::caller(env)?;
+		// let value = Self::to_balance(call.value)?;
 
-		// Call pallet function
-		Pallet::<T>::unbond(frame_system::RawOrigin::Signed(stash.clone()).into(), value)
-			.map_err(|_| Error::Revert(Revert { reason: "Unbond failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::unbond(frame_system::RawOrigin::Signed(stash.clone()).into(), value)
+		// 	.map_err(|_| Error::Revert(Revert { reason: "Unbond failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Unbonded(IStaking::Unbonded {
-				stash: Self::to_address(&stash),
-				amount: call.value,
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Unbonded(IStaking::Unbonded {
+		// 		stash: Self::to_address(&stash),
+		// 		amount: call.value,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::unbondCall::abi_encode_returns(&true))
+		// Ok(IStaking::unbondCall::abi_encode_returns(&true))
+	}
+
+	fn unbond_all(
+		call: &IStaking::unbondAllCall,
+		env: &mut impl Ext<T = T>,
+	) -> Result<Vec<u8>, Error> {
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::unbond_all())?;
+
+		// let stash = Self::caller(env)?;
+
+		// // Call pallet function
+		// Pallet::<T>::unbond_all(frame_system::RawOrigin::Signed(stash.clone()).into())
+		// 	.map_err(|_| Error::Revert(Revert { reason: "Unbond all failed".into() }))?;
+
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Unbonded(IStaking::Unbonded {
+		// 		stash: Self::to_address(&stash),
+		// 		amount: alloy::primitives::U256::ZERO, // We don't know the exact amount unbonded
+		// 	}),
+		// )?;
+
+		// Ok(IStaking::unbondCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the withdraw_unbonded call.
@@ -574,27 +682,28 @@ where
 		call: &IStaking::withdrawUnbondedCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::withdraw_unbonded_kill())?;
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::withdraw_unbonded_kill())?;
 
-		let stash = Self::caller(env)?;
+		// let stash = Self::caller(env)?;
 
-		// Call pallet function
-		Pallet::<T>::withdraw_unbonded(
-			frame_system::RawOrigin::Signed(stash.clone()).into(),
-			call.numSlashingSpans,
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Withdraw unbonded failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::withdraw_unbonded(
+		// 	frame_system::RawOrigin::Signed(stash.clone()).into(),
+		// 	call.numSlashingSpans,
+		// )
+		// .map_err(|_| Error::Revert(Revert { reason: "Withdraw unbonded failed".into() }))?;
 
-		// Emit event (we don't know the exact amount withdrawn, so use 0)
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Withdrawn(IStaking::Withdrawn {
-				stash: Self::to_address(&stash),
-				amount: alloy::primitives::U256::ZERO,
-			}),
-		)?;
+		// // Emit event (we don't know the exact amount withdrawn, so use 0)
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Withdrawn(IStaking::Withdrawn {
+		// 		stash: Self::to_address(&stash),
+		// 		amount: alloy::primitives::U256::ZERO,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::withdrawUnbondedCall::abi_encode_returns(&true))
+		// Ok(IStaking::withdrawUnbondedCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the nominate call.
@@ -602,41 +711,42 @@ where
 		call: &IStaking::nominateCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::nominate(call.targets.len() as u32))?;
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::nominate(call.targets.len() as u32))?;
 
-		let nominator = Self::caller(env)?;
+		// let nominator = Self::caller(env)?;
 
-		// Convert targets to AccountIds and then to lookups
-		let targets: Result<Vec<T::AccountId>, Error> = call
-			.targets
-			.iter()
-			.map(|addr| Ok(Self::to_account_id(addr)))
-			.collect();
-		let targets = targets?;
+		// // Convert targets to AccountIds and then to lookups
+		// let targets: Result<Vec<T::AccountId>, Error> = call
+		// 	.targets
+		// 	.iter()
+		// 	.map(|addr| Ok(Self::to_account_id(addr)))
+		// 	.collect();
+		// let targets = targets?;
 
-		// Convert to lookup sources
-		let target_lookups: Vec<_> = targets
-			.iter()
-			.map(|account| <T as frame_system::Config>::Lookup::unlookup(account.clone()))
-			.collect();
+		// // Convert to lookup sources
+		// let target_lookups: Vec<_> = targets
+		// 	.iter()
+		// 	.map(|account| <T as frame_system::Config>::Lookup::unlookup(account.clone()))
+		// 	.collect();
 
-		// Call pallet function
-		Pallet::<T>::nominate(
-			frame_system::RawOrigin::Signed(nominator.clone()).into(),
-			target_lookups,
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Nominate failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::nominate(
+		// 	frame_system::RawOrigin::Signed(nominator.clone()).into(),
+		// 	target_lookups,
+		// )
+		// .map_err(|_| Error::Revert(Revert { reason: "Nominate failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Nominated(IStaking::Nominated {
-				stash: Self::to_address(&nominator),
-				targets: call.targets.clone(),
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Nominated(IStaking::Nominated {
+		// 		stash: Self::to_address(&nominator),
+		// 		targets: call.targets.clone(),
+		// 	}),
+		// )?;
 
-		Ok(IStaking::nominateCall::abi_encode_returns(&true))
+		// Ok(IStaking::nominateCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the validate call.
@@ -644,80 +754,87 @@ where
 		call: &IStaking::validateCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::validate())?;
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::validate())?;
 
-		let validator = Self::caller(env)?;
+		// let validator = Self::caller(env)?;
 
-		// Convert commission from U256 to Perbill
-		// Commission is expected to be in parts per billion (10^9)
-		let commission_value = call.commission.to::<u32>();
-		let commission = if commission_value > 1_000_000_000u32 {
-			return Err(Error::Revert(Revert { reason: ERR_COMMISSION_TOO_HIGH.into() }));
-		} else {
-			Perbill::from_parts(commission_value)
-		};
+		// // Convert commission from U256 to Perbill
+		// // Commission is expected to be in parts per billion (10^9)
+		// let commission_value = call.commission.to::<u32>();
+		// let commission = if commission_value > 1_000_000_000u32 {
+		// 	return Err(Error::Revert(Revert { reason: ERR_COMMISSION_TOO_HIGH.into() }));
+		// } else {
+		// 	Perbill::from_parts(commission_value)
+		// };
 
-		let prefs = ValidatorPrefs { commission, blocked: call.blocked };
+		// let prefs = ValidatorPrefs { commission, blocked: call.blocked };
 
-		// Call pallet function
-		Pallet::<T>::validate(frame_system::RawOrigin::Signed(validator.clone()).into(), prefs)
-			.map_err(|_| Error::Revert(Revert { reason: "Validate failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::validate(frame_system::RawOrigin::Signed(validator.clone()).into(), prefs)
+		// 	.map_err(|_| Error::Revert(Revert { reason: "Validate failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::ValidatorPrefsSet(IStaking::ValidatorPrefsSet {
-				validator: Self::to_address(&validator),
-				commission: call.commission,
-				blocked: call.blocked,
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Validated(IStaking::Validated {
+		// 		validator: Self::to_address(&validator),
+		// 		commission: call.commission,
+		// 		blocked: call.blocked,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::validateCall::abi_encode_returns(&true))
+		// Ok(IStaking::validateCall::abi_encode_returns(&true))
+	}
+
+	fn kick(call: &IStaking::kickCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!()
 	}
 
 	/// Execute the chill call.
-	fn chill(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::chill())?;
+	fn chill(call: &IStaking::chillCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::chill())?;
 
-		let stash = Self::caller(env)?;
+		// let stash = Self::caller(env)?;
 
-		// Call pallet function
-		Pallet::<T>::chill(frame_system::RawOrigin::Signed(stash.clone()).into())
-			.map_err(|_| Error::Revert(Revert { reason: "Chill failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::chill(frame_system::RawOrigin::Signed(stash.clone()).into())
+		// 	.map_err(|_| Error::Revert(Revert { reason: "Chill failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Chilled(IStaking::Chilled {
-				stash: Self::to_address(&stash),
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Chilled(IStaking::Chilled {
+		// 		stash: Self::to_address(&stash),
+		// 	}),
+		// )?;
 
-		Ok(IStaking::chillCall::abi_encode_returns(&true))
+		// Ok(IStaking::chillCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the rebond call.
 	fn rebond(call: &IStaking::rebondCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::rebond(1))?; // Approximate weight
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::rebond(1))?; // Approximate weight
 
-		let stash = Self::caller(env)?;
-		let value = Self::to_balance(call.value)?;
+		// let stash = Self::caller(env)?;
+		// let value = Self::to_balance(call.value)?;
 
-		// Call pallet function
-		Pallet::<T>::rebond(frame_system::RawOrigin::Signed(stash.clone()).into(), value)
-			.map_err(|_| Error::Revert(Revert { reason: "Rebond failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::rebond(frame_system::RawOrigin::Signed(stash.clone()).into(), value)
+		// 	.map_err(|_| Error::Revert(Revert { reason: "Rebond failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::Rebonded(IStaking::Rebonded {
-				stash: Self::to_address(&stash),
-				amount: call.value,
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::Rebonded(IStaking::Rebonded {
+		// 		stash: Self::to_address(&stash),
+		// 		amount: call.value,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::rebondCall::abi_encode_returns(&true))
+		// Ok(IStaking::rebondCall::abi_encode_returns(&true))
 	}
 
 	/// Execute the payout_stakers call.
@@ -725,175 +842,217 @@ where
 		call: &IStaking::payoutStakersCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::payout_stakers_alive_staked(1))?; // Approximate weight
+		todo!()
+		// env.charge(<T as crate::Config>::WeightInfo::payout_stakers_alive_staked(1))?; //
+		// Approximate weight
 
-		let validator_stash = Self::to_account_id(&call.validatorStash);
-		let era = call.era.to::<u32>();
+		// let validator_stash = Self::to_account_id(&call.validatorStash);
+		// let era = call.era.to::<u32>();
 
-		// Call pallet function
-		Pallet::<T>::payout_stakers(
-			frame_system::RawOrigin::Signed(Self::caller(env)?).into(),
-			validator_stash.clone(),
-			era,
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Payout stakers failed".into() }))?;
+		// // Call pallet function
+		// Pallet::<T>::payout_stakers(
+		// 	frame_system::RawOrigin::Signed(Self::caller(env)?).into(),
+		// 	validator_stash.clone(),
+		// 	era,
+		// )
+		// .map_err(|_| Error::Revert(Revert { reason: "Payout stakers failed".into() }))?;
 
-		// Emit event
-		Self::deposit_event(
-			env,
-			IStaking::IStakingEvents::RewardsPaid(IStaking::RewardsPaid {
-				validator: call.validatorStash,
-				era: call.era,
-			}),
-		)?;
+		// // Emit event
+		// Self::deposit_event(
+		// 	env,
+		// 	IStaking::IStakingEvents::RewardsPaid(IStaking::RewardsPaid {
+		// 		validator: call.validatorStash,
+		// 		era: call.era,
+		// 	}),
+		// )?;
 
-		Ok(IStaking::payoutStakersCall::abi_encode_returns(&true))
+		// Ok(IStaking::payoutStakersCall::abi_encode_returns(&true))
 	}
 
+	fn set_payee(
+		call: &IStaking::setPayeeCall,
+		env: &mut impl Ext<T = T>,
+	) -> Result<Vec<u8>, Error> {
+		todo!()
+	}
+
+	fn set_compound(
+		call: &IStaking::setCompoundCall,
+		env: &mut impl Ext<T = T>,
+	) -> Result<Vec<u8>, Error> {
+		todo!()
+	}
+}
+
+// read-only fns
+impl<T> StakingPrecompile<T>
+where
+	T: Config + pallet_revive::Config,
+	T::AccountId: From<[u8; 20]> + Into<[u8; 20]>,
+	BalanceOf<T>: TryFrom<alloy::primitives::U256> + Into<alloy::primitives::U256>,
+	Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+{
 	/// Execute the ledger query.
 	fn ledger(call: &IStaking::ledgerCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		// Query operations are typically free, but we'll charge minimal weight
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+		todo!()
+		// // Query operations are typically free, but we'll charge minimal weight
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let stash = Self::to_account_id(&call.stash);
+		// let stash = Self::to_account_id(&call.stash);
 
-		if let Some(ledger) = Ledger::<T>::get(&stash) {
-			let total = Self::to_u256(ledger.total)?;
-			let active = Self::to_u256(ledger.active)?;
+		// if let Some(ledger) = Ledger::<T>::get(&stash) {
+		// 	let total = Self::to_u256(ledger.total)?;
+		// 	let active = Self::to_u256(ledger.active)?;
 
-			let unlocking: Result<Vec<IStaking::UnlockChunk>, Error> = ledger
-				.unlocking
-				.iter()
-				.map(|chunk| {
-					Ok(IStaking::UnlockChunk {
-						value: Self::to_u256(chunk.value)?,
-						era: alloy::primitives::U256::from(chunk.era),
-					})
-				})
-				.collect();
+		// 	let unlocking: Result<Vec<IStaking::UnlockChunk>, Error> = ledger
+		// 		.unlocking
+		// 		.iter()
+		// 		.map(|chunk| {
+		// 			Ok(IStaking::UnlockChunk {
+		// 				value: Self::to_u256(chunk.value)?,
+		// 				era: alloy::primitives::U256::from(chunk.era),
+		// 			})
+		// 		})
+		// 		.collect();
 
-			Ok(IStaking::ledgerCall::abi_encode_returns(&IStaking::ledgerReturn {
-				total,
-				active,
-				unlocking: unlocking?,
-			}))
-		} else {
-			// Return empty ledger for non-stakers
-			Ok(IStaking::ledgerCall::abi_encode_returns(&IStaking::ledgerReturn {
-				total: alloy::primitives::U256::ZERO,
-				active: alloy::primitives::U256::ZERO,
-				unlocking: Vec::<IStaking::UnlockChunk>::new(),
-			}))
-		}
+		// 	Ok(IStaking::ledgerCall::abi_encode_returns(&IStaking::ledgerReturn {
+		// 		total,
+		// 		active,
+		// 		unlocking: unlocking?,
+		// 	}))
+		// } else {
+		// 	// Return empty ledger for non-stakers
+		// 	Ok(IStaking::ledgerCall::abi_encode_returns(&IStaking::ledgerReturn {
+		// 		total: alloy::primitives::U256::ZERO,
+		// 		active: alloy::primitives::U256::ZERO,
+		// 		unlocking: Vec::<IStaking::UnlockChunk>::new(),
+		// 	}))
+		// }
 	}
 
 	/// Execute the nominators query.
-	fn nominators(
-		call: &IStaking::nominatorsCall,
+	fn nominator(
+		call: &IStaking::nominatorCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let nominator = Self::to_account_id(&call.nominator);
+		// let nominator = Self::to_account_id(&call.nominator);
 
-		if let Some(nominations) = Nominators::<T>::get(&nominator) {
-			let targets: Vec<alloy::primitives::Address> =
-				nominations.targets.iter().map(|acc| Self::to_address(acc)).collect();
+		// if let Some(nominations) = Nominators::<T>::get(&nominator) {
+		// 	let targets: Vec<alloy::primitives::Address> =
+		// 		nominations.targets.iter().map(|acc| Self::to_address(acc)).collect();
 
-			Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
-				targets,
-				submittedIn: alloy::primitives::U256::from(nominations.submitted_in),
-				suppressed: nominations.suppressed,
-			}))
-		} else {
-			// Return empty nominations for non-nominators
-			Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
-				targets: Vec::<alloy::primitives::Address>::new(),
-				submittedIn: alloy::primitives::U256::ZERO,
-				suppressed: false,
-			}))
-		}
+		// 	Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
+		// 		targets,
+		// 		submittedIn: alloy::primitives::U256::from(nominations.submitted_in),
+		// 		suppressed: nominations.suppressed,
+		// 	}))
+		// } else {
+		// 	// Return empty nominations for non-nominators
+		// 	Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
+		// 		targets: Vec::<alloy::primitives::Address>::new(),
+		// 		submittedIn: alloy::primitives::U256::ZERO,
+		// 		suppressed: false,
+		// 	}))
+		// }
 	}
 
 	/// Execute the validators query.
-	fn validators(
-		call: &IStaking::validatorsCall,
+	fn validator(
+		call: &IStaking::validatorCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let validator = Self::to_account_id(&call.validator);
+		// let validator = Self::to_account_id(&call.validator);
 
-		let prefs = Validators::<T>::get(&validator);
-		let commission = alloy::primitives::U256::from(prefs.commission.deconstruct());
+		// let prefs = Validators::<T>::get(&validator);
+		// let commission = alloy::primitives::U256::from(prefs.commission.deconstruct());
 
-		Ok(IStaking::validatorsCall::abi_encode_returns(&IStaking::validatorsReturn {
-			commission,
-			blocked: prefs.blocked,
-		}))
+		// Ok(IStaking::validatorsCall::abi_encode_returns(&IStaking::validatorsReturn {
+		// 	commission,
+		// 	blocked: prefs.blocked,
+		// }))
 	}
 
 	/// Execute the current_era query.
-	fn current_era(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+	fn era(call: &IStaking::eraCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let era = ActiveEra::<T>::get()
-			.map(|info| info.index)
-			.unwrap_or_default();
+		// let era = ActiveEra::<T>::get()
+		// 	.map(|info| info.index)
+		// 	.unwrap_or_default();
 
-		Ok(IStaking::currentEraCall::abi_encode_returns(&alloy::primitives::U256::from(era)))
+		// Ok(IStaking::currentEraCall::abi_encode_returns(&alloy::primitives::U256::from(era)))
 	}
-
 
 	/// Execute the min_nominator_bond query.
 	fn min_nominator_bond(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let min_bond = MinNominatorBond::<T>::get();
-		let amount = Self::to_u256(min_bond)?;
+		// let min_bond = MinNominatorBond::<T>::get();
+		// let amount = Self::to_u256(min_bond)?;
 
-		Ok(IStaking::minNominatorBondCall::abi_encode_returns(&amount))
+		// Ok(IStaking::minNominatorBondCall::abi_encode_returns(&amount))
 	}
 
 	/// Execute the min_validator_bond query.
 	fn min_validator_bond(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let min_bond = MinValidatorBond::<T>::get();
-		let amount = Self::to_u256(min_bond)?;
+		// let min_bond = MinValidatorBond::<T>::get();
+		// let amount = Self::to_u256(min_bond)?;
 
-		Ok(IStaking::minValidatorBondCall::abi_encode_returns(&amount))
+		// Ok(IStaking::minValidatorBondCall::abi_encode_returns(&amount))
 	}
 
-	/// Execute the set_payee call.
-	fn set_payee(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::set_payee())?;
+	/// Execute the min_commission query.
+	fn min_commission(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!()
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let stash = Self::caller(env)?;
+		// let min_commission = MinCommission::<T>::get();
+		// let commission = alloy::primitives::U256::from(min_commission.deconstruct());
 
-		// Call pallet function to set payee to Account(caller)
-		Pallet::<T>::set_payee(
-			frame_system::RawOrigin::Signed(stash.clone()).into(),
-			RewardDestination::Account(stash),
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Set payee failed".into() }))?;
-
-		Ok(IStaking::setPayeeCall::abi_encode_returns(&true))
+		// Ok(IStaking::minCommissionCall::abi_encode_returns(&commission))
 	}
 
-	/// Execute the set_compound call.
-	fn set_compound(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
-		env.charge(<T as crate::Config>::WeightInfo::set_payee())?;
+	/// Execute the min_chilled_bond query.
+	fn min_chilled_bond(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!();
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
-		let stash = Self::caller(env)?;
+		// let min_bond = Pallet::<T>::min_chilled_bond();
+		// let amount = Self::to_u256(min_bond)?;
 
-		// Call pallet function to set payee to Staked (compound)
-		Pallet::<T>::set_payee(
-			frame_system::RawOrigin::Signed(stash).into(),
-			RewardDestination::Staked,
-		)
-		.map_err(|_| Error::Revert(Revert { reason: "Set compound failed".into() }))?;
+		// Ok(IStaking::minChilledBondCall::abi_encode_returns(&amount))
+	}
 
-		Ok(IStaking::setCompoundCall::abi_encode_returns(&true))
+	/// Execute the max_nominators_count query.
+	fn max_nominators_count(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!();
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+
+		// let max_count = MaxNominatorsCount::<T>::get().unwrap_or(0);
+		// let count = alloy::primitives::U256::from(max_count);
+
+		// Ok(IStaking::maxNominatorsCountCall::abi_encode_returns(&count))
+	}
+
+	/// Execute the max_unlocking_chunks query.
+	fn max_unlocking_chunks(env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
+		todo!();
+		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
+
+		// let max_chunks = T::MaxUnlockingChunks::get();
+		// let count = alloy::primitives::U256::from(max_chunks);
+
+		// Ok(IStaking::maxUnlockingChunksCall::abi_encode_returns(&count))
 	}
 }
