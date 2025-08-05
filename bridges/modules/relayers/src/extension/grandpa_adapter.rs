@@ -156,12 +156,12 @@ where
 		finality_proof_info.block_number,
 	) {
 		// we only refund relayer if all calls have updated chain state
-		tracing::trace!(
+		log::trace!(
 			target: LOG_TARGET,
-			id_provider=%C::IdProvider::STR,
-			lane_id=?call_info.messages_call_info().lane_id(),
-			?relayer,
-			"Relayer has submitted invalid GRANDPA chain finality proof"
+			"{}.{:?}: relayer {:?} has submitted invalid GRANDPA chain finality proof",
+			C::IdProvider::STR,
+			call_info.messages_call_info().lane_id(),
+			relayer,
 		);
 		return false
 	}

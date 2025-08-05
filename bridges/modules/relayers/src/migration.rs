@@ -191,12 +191,12 @@ pub mod v1 {
 					old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 				*old_reward = Some(new_reward);
 
-				tracing::trace!(
+				log::trace!(
 					target: crate::LOG_TARGET,
-					?relayer,
-					?rewards_account_params,
-					?new_reward,
-					"Relayer can now claim reward"
+					"Relayer {:?} can now claim reward for serving payer {:?}: {:?}",
+					relayer,
+					rewards_account_params,
+					new_reward,
 				);
 			},
 		);
@@ -252,7 +252,7 @@ pub mod v1 {
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v0::RelayerRewards::<T, I, LaneId>::iter() {
-				tracing::info!(target: LOG_TARGET, ?key1, ?key2, ?reward, "Reward to migrate");
+				log::info!(target: LOG_TARGET, "Reward to migrate: {key1:?}::{key2:?} - {reward:?}");
 				rewards = rewards
 					.try_mutate(|inner| {
 						inner
@@ -262,7 +262,7 @@ pub mod v1 {
 					})
 					.unwrap();
 			}
-			tracing::info!(target: LOG_TARGET, ?rewards, "Found total rewards to migrate");
+			log::info!(target: LOG_TARGET, "Found total rewards to migrate: {rewards:?}");
 
 			Ok(rewards.encode())
 		}
@@ -286,7 +286,7 @@ pub mod v1 {
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
-				tracing::info!(target: LOG_TARGET, ?key1, ?key2, ?reward, "Migrated rewards");
+				log::info!(target: LOG_TARGET, "Migrated rewards: {key1:?}::{key2:?} - {reward:?}");
 				rewards_after = rewards_after
 					.try_mutate(|inner| {
 						inner
@@ -296,14 +296,14 @@ pub mod v1 {
 					})
 					.unwrap();
 			}
-			tracing::info!(target: LOG_TARGET, ?rewards_after, "Found total migrated rewards");
+			log::info!(target: LOG_TARGET, "Found total migrated rewards: {rewards_after:?}");
 
 			frame_support::ensure!(
 				rewards_before == rewards_after,
 				"The rewards were not migrated correctly!."
 			);
 
-			tracing::info!(target: LOG_TARGET, "migrated all.");
+			log::info!(target: LOG_TARGET, "migrated all.");
 			Ok(())
 		}
 	}
@@ -382,7 +382,7 @@ pub mod v2 {
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v1::RelayerRewards::<T, I, LaneId>::iter() {
 				let new_key2: T::Reward = key2.into();
-				tracing::info!(target: LOG_TARGET, ?key1, ?key2, ?new_key2, ?reward, "Reward to migrate");
+				log::info!(target: LOG_TARGET, "Reward to migrate: {key1:?}::{key2:?}->{new_key2:?} - {reward:?}");
 				rewards = rewards
 					.try_mutate(|inner| {
 						inner
@@ -392,7 +392,7 @@ pub mod v2 {
 					})
 					.unwrap();
 			}
-			tracing::info!(target: LOG_TARGET, ?rewards, "Found total rewards to migrate");
+			log::info!(target: LOG_TARGET, "Found total rewards to migrate: {rewards:?}");
 
 			Ok(rewards.encode())
 		}
@@ -416,7 +416,7 @@ pub mod v2 {
 				ConstU32<{ u32::MAX }>,
 			> = BoundedBTreeMap::new();
 			for (key1, key2, reward) in v2::RelayerRewards::<T, I>::iter() {
-				tracing::info!(target: LOG_TARGET, ?key1, ?key2, ?reward, "Migrated rewards");
+				log::info!(target: LOG_TARGET, "Migrated rewards: {key1:?}::{key2:?} - {reward:?}");
 				rewards_after = rewards_after
 					.try_mutate(|inner| {
 						inner
@@ -426,14 +426,14 @@ pub mod v2 {
 					})
 					.unwrap();
 			}
-			tracing::info!(target: LOG_TARGET, ?rewards_after, "Found total migrated rewards");
+			log::info!(target: LOG_TARGET, "Found total migrated rewards: {rewards_after:?}");
 
 			frame_support::ensure!(
 				rewards_before == rewards_after,
 				"The rewards were not migrated correctly!."
 			);
 
-			tracing::info!(target: LOG_TARGET, "migrated all.");
+			log::info!(target: LOG_TARGET, "migrated all.");
 			Ok(())
 		}
 	}

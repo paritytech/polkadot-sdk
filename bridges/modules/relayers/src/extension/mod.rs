@@ -221,13 +221,13 @@ where
 
 		// We don't refund anything if the transaction has failed.
 		if let Err(e) = result {
-			tracing::trace!(
+			log::trace!(
 				target: LOG_TARGET,
-				error=?e,
-				id_provider=%Self::IDENTIFIER,
-				?lane_id,
-				?relayer,
-				"Relayer has submitted invalid messages transaction",
+				"{}.{:?}: relayer {:?} has submitted invalid messages transaction: {:?}",
+				Self::IDENTIFIER,
+				lane_id,
+				relayer,
+				e,
 			);
 			return slash_relayer_if_delivery_result
 		}
@@ -346,14 +346,15 @@ where
 			priority::compute_priority_boost::<C::PriorityBoostPerMessage>(bundled_messages);
 		let valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
-		tracing::trace!(
+		log::trace!(
 			target: LOG_TARGET,
-			id_provider=%Self::IDENTIFIER,
-			lane_id=?data.call_info.messages_call_info().lane_id(),
-			relayer=?data.relayer,
-			%bundled_messages,
-			%priority_boost,
-			"Has boosted priority of message delivery transaction of relayer"
+			"{}.{:?}: has boosted priority of message delivery transaction \
+			of relayer {:?}: {} messages -> {} priority",
+			Self::IDENTIFIER,
+			data.call_info.messages_call_info().lane_id(),
+			data.relayer,
+			bundled_messages,
+			priority_boost,
 		);
 
 		let validity = valid_transaction.build()?;
@@ -369,12 +370,12 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		Ok(val.inspect(|data| {
-			tracing::trace!(
+			log::trace!(
 				target: LOG_TARGET,
-				id_provider=%Self::IDENTIFIER,
-				lane_id=?data.call_info.messages_call_info().lane_id(),
-				call_info=?data.call_info,
-				"Parsed bridge transaction in prepare"
+				"{}.{:?}: parsed bridge transaction in prepare: {:?}",
+				Self::IDENTIFIER,
+				data.call_info.messages_call_info().lane_id(),
+				data.call_info,
 			);
 		}))
 	}
@@ -398,13 +399,13 @@ where
 					reward,
 				);
 
-				tracing::trace!(
+				log::trace!(
 					target: LOG_TARGET,
-					id_provider=%Self::IDENTIFIER,
-					?lane_id,
-					?relayer,
-					?reward,
-					"Has registered reward"
+					"{}.{:?}: has registered reward: {:?} for {:?}",
+					Self::IDENTIFIER,
+					lane_id,
+					reward,
+					relayer,
 				);
 			},
 			RelayerAccountAction::Slash(relayer, slash_account) =>
@@ -436,12 +437,12 @@ where
 	if !MessagesCallHelper::<C::Runtime, C::BridgeMessagesPalletInstance>::was_successful(
 		messages_call,
 	) {
-		tracing::trace!(
+		log::trace!(
 			target: LOG_TARGET,
-			id_provider=%C::IdProvider::STR,
-			lane_id=?call_info.messages_call_info().lane_id(),
-			?relayer,
-			"Relayer has submitted invalid messages call"
+			"{}.{:?}: relayer {:?} has submitted invalid messages call",
+			C::IdProvider::STR,
+			call_info.messages_call_info().lane_id(),
+			relayer,
 		);
 		return false
 	}
