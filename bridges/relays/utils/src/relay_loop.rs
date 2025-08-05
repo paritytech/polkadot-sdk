@@ -45,8 +45,8 @@ pub trait Client: 'static + Clone + Send + Sync {
 					tracing::warn!(
 						target: "bridge",
 						?error,
-						"Failed to reconnect to client. Going to retry in {}s",
-						delay.as_secs(),
+						retry_as_secs=%delay.as_secs(),
+						"Failed to reconnect to client. Going to retry"
 					);
 
 					async_std::task::sleep(delay).await;
