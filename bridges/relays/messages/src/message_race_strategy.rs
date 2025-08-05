@@ -281,8 +281,9 @@ where
 		if need_to_select_new_nonces {
 			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {nonce}. Clearing nonces to submit: {:?}",
-				race_state.nonces_to_submit(),
+				%nonce,
+				nonces_to_submit=?race_state.nonces_to_submit(),
+				"Latest nonce at target. Clearing nonces to submit"
 			);
 
 			race_state.reset_nonces_to_submit();
@@ -297,8 +298,9 @@ where
 		if need_new_nonces_to_submit {
 			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {nonce}. Clearing submitted nonces: {:?}",
-				race_state.nonces_submitted(),
+				%nonce,
+				nonces_submitted=?race_state.nonces_submitted(),
+				"Latest nonce at target. Clearing submitted nonces"
 			);
 
 			race_state.reset_nonces_submitted();
