@@ -381,9 +381,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					|new_source_state| {
 						tracing::debug!(
 							target: "bridge",
+							source=%P::SOURCE_NAME,
 							?new_source_state,
-							"Received state from {} node",
-							P::SOURCE_NAME,
+							"Received state"
 						);
 						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
 						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
@@ -412,9 +412,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					|new_target_state| {
 						tracing::debug!(
 							target: "bridge",
+							target=%P::TARGET_NAME,
 							?new_target_state,
-							"Received state from {} node",
-							P::TARGET_NAME,
+							"Received state"
 						);
 						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
 						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());
@@ -454,13 +454,13 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		}
 
 		if source_client_is_online && source_state_required {
-			tracing::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
+			tracing::debug!(target: "bridge", source=%P::SOURCE_NAME, "Asking node about its state");
 			source_state.set(source_client.state().fuse());
 			source_client_is_online = false;
 		}
 
 		if target_client_is_online && target_state_required {
-			tracing::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
+			tracing::debug!(target: "bridge", target=%P::TARGET_NAME, "Asking node about its state");
 			target_state.set(target_client.state().fuse());
 			target_client_is_online = false;
 		}
