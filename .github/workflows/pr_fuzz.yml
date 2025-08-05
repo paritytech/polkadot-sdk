@@ -15,6 +15,11 @@ jobs:
         repository: 'srlabs/substrate-runtime-fuzzer'
         path: 'runtime_fuzzer'
 
+    - name: Get PR Details 
+      run: |
+          # TODO: (hardcoded for demo, pedning to push PR)
+          # This is a placeholder to find affected pallet in the PR and post the coverage report
+
     - name: Install Rust target
       run: rustup target add wasm32-unknown-unknown
 
@@ -42,7 +47,7 @@ jobs:
         ls -la
         export SKIP_WASM_BUILD=1
         # TODO: Fuzzer output not persisted in the output
-        timeout 15m cargo ziggy fuzz > fuzz.txt
+        timeout 15m cargo ziggy fuzz &> fuzz.txt
         # tail -f ./output/kitchensink-fuzzer/logs/afl.log
 
     - name: Upload Fuzzer Output
@@ -51,9 +56,20 @@ jobs:
           name: fuzzer-output
           path: runtime_fuzzer/templates/kitchensink/fuzz.txt
 
+    - name: Get Coverage 
+      run: |
+        # TODO: 
+        # This is a placeholder to get gcov report
+
+    - name: Post the coverage report in PR
+      run: |
+        # TODO: 
+        # This is a placeholder to post the coverage report in PR
+
     - name: Send message to Element chat
       run: |
-        # This is a placeholder for your script to send a message to Element chat
+        # TODO: 
+        # (Optional) This is a placeholder for your script to send a message to Element chat
         echo "Sending message to Element chat..."
 
 
