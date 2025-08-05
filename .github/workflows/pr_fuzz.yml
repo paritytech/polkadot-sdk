@@ -28,7 +28,7 @@ jobs:
 
     - name: Fuzz only Treasury pallet for Demo
       run: |
-        # TODO: There are some plallet dependecies within the template, we cant remove all pallet
+        # TODO: There are some pallet dependecies within the template, we cant remove all pallet
         # Ref: https://github.com/DcrHB/polkadot-sdk/actions/runs/16742477104/job/47393516245
         # cd runtime_fuzzer/templates/kitchensink/
         # cp Cargo.toml Cargo.toml.bak
@@ -69,7 +69,7 @@ jobs:
     - name: Send message to Element chat
       run: |
         # TODO: 
-        # (Optional) This is a placeholder for your script to send a message to Element chat
+        # (Optional) This is a placeholder to send a message to Element chat
         echo "Sending message to Element chat..."
 
 
