@@ -43,7 +43,7 @@ jobs:
         AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
         AFL_SKIP_CPUFREQ: true
       working-directory: substrate/bin/node/runtime/fuzzer
-      run: timeout 5m cargo ziggy fuzz
+      run: timeout 5m cargo ziggy fuzz || [[ $? -eq 124 ]]
 
     - name: Upload Fuzzer Output
       uses: actions/upload-artifact@v4
