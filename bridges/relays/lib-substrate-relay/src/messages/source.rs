@@ -294,7 +294,7 @@ where
 			for ((_, out_msg_details), in_msg_details) in
 				msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
 			{
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
 					"Refined weight of {}->{} message {:?}/{}: at-source: {}, at-target: {}",
 					P::SourceChain::NAME,
@@ -546,7 +546,7 @@ fn validate_out_msgs_details<C: Chain>(
 	// some messages were already pruned from the source node. This is not a critical error
 	// and will be auto-resolved by messages lane (and target node).
 	if nonces_iter.peek().is_some() {
-		log::info!(
+		tracing::info!(
 			target: "bridge",
 			"Some messages are missing from the {} node: {:?}. Target node may be out of sync?",
 			C::NAME,

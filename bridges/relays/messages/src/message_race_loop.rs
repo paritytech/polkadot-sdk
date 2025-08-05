@@ -407,11 +407,11 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					nonces,
 					&mut source_retry_backoff,
 					|(at_block, nonces)| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received nonces from {}: {:?}",
+							?nonces,
+							"Received nonces from {}",
 							P::source_name(),
-							nonces,
 						);
 
 						strategy.source_nonces_updated(at_block, nonces);
@@ -433,11 +433,11 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					nonces,
 					&mut target_retry_backoff,
 					|(_, nonces)| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received best nonces from {}: {:?}",
+							?nonces,
+							"Received best nonces from {}",
 							P::target_name(),
-							nonces,
 						);
 
 						strategy.best_target_nonces_updated(nonces, &mut race_state);
@@ -454,11 +454,11 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					nonces,
 					&mut target_retry_backoff,
 					|(_, nonces)| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received finalized nonces from {}: {:?}",
+							?nonces,
+							"Received finalized nonces from {}",
 							P::target_name(),
-							nonces,
 						);
 
 						strategy.finalized_target_nonces_updated(nonces, &mut race_state);
@@ -477,15 +477,15 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					maybe_batch_transaction,
 					&mut target_retry_backoff,
 					|maybe_batch_transaction: Option<TC::BatchTransaction>| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Target {} client has been asked for more {} headers. Batch tx: {}",
-							P::target_name(),
-							P::source_name(),
-							maybe_batch_transaction
+							batch_tx=%maybe_batch_transaction
 								.as_ref()
 								.map(|bt| format!("yes ({:?})", bt.required_header_id()))
 								.unwrap_or_else(|| "no".into()),
+							"Target {} client has been asked for more {} headers.",
+							P::target_name(),
+							P::source_name(),
 						);
 
 						target_batch_transaction = maybe_batch_transaction;
@@ -500,10 +500,10 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					proof,
 					&mut source_retry_backoff,
 					|(at_block, nonces_range, proof, batch_transaction)| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received proof for nonces in range {:?} from {}",
-							nonces_range,
+							?nonces_range,
+							"Received proof from {}",
 							P::source_name(),
 						);
 
@@ -520,10 +520,10 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					proof_submit_result,
 					&mut target_retry_backoff,
 					|artifacts: NoncesSubmitArtifacts<TC::TransactionTracker>| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Successfully submitted proof of nonces {:?} to {}",
-							artifacts.nonces,
+							nonces=?artifacts.nonces,
+							"Successfully submitted proof to {}",
 							P::target_name(),
 						);
 
@@ -564,25 +564,25 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 								}
 							})
 							.map_err(|e| {
-								log::error!(
+								tracing::error!(
 									target: "bridge",
-									"{} -> {} race transaction failed: {}",
+									error=%e,
+									"{} -> {} race transaction failed",
 									P::source_name(),
 									P::target_name(),
-									e,
 								);
 
 								race_state.reset_nonces_submitted();
 							});
 					},
 					(TrackedTransactionStatus::Lost, _) => {
-						log::warn!(
+						tracing::warn!(
 							target: "bridge",
-							"{} -> {} race transaction has been lost. State: {:?}. Strategy: {:?}",
+							state=?race_state,
+							?strategy,
+							"{} -> {} race transaction has been lost.",
 							P::source_name(),
 							P::target_name(),
-							race_state,
-							strategy,
 						);
 
 						race_state.reset_nonces_submitted();
@@ -630,12 +630,12 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 			let best_at_source = strategy.best_at_source();
 
 			if let Some((at_block, nonces_range, proof_parameters)) = nonces_to_deliver {
-				log::debug!(
+				tracing::debug!(
 					target: "bridge",
-					"Asking {} to prove nonces in range {:?} at block {:?}",
+					?nonces_range,
+					?at_block,
+					"Asking {} to prove",
 					P::source_name(),
-					nonces_range,
-					at_block,
 				);
 
 				source_generate_proof.set(
@@ -647,12 +647,12 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						.fuse(),
 				);
 			} else if let (true, Some(best_at_source)) = (source_nonces_required, best_at_source) {
-				log::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
+				tracing::debug!(target: "bridge", "Asking {} about message nonces", P::source_name());
 				let at_block = race_state
 					.best_finalized_source_header_id_at_source
 					.as_ref()
 					.expect(
-						"source_nonces_required is only true when\
+						"source_nonces_required is only true when \
 						best_finalized_source_header_id_at_source is Some; qed",
 					)
 					.clone();
@@ -666,10 +666,10 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 			target_client_is_online = false;
 
 			if let Some((at_block, nonces_range, proof)) = race_state.nonces_to_submit.as_ref() {
-				log::debug!(
+				tracing::debug!(
 					target: "bridge",
-					"Going to submit proof of messages in range {:?} to {} node{}",
-					nonces_range,
+					?nonces_range,
+					"Going to submit proof of messages in range to {} node{}",
 					P::target_name(),
 					race_state.nonces_to_submit_batch.as_ref().map(|tx| format!(
 						". This transaction is batched with sending the proof for header {:?}.",
@@ -688,17 +688,16 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 						.fuse(),
 				);
 			} else if let Some(source_required_header) = source_required_header.clone() {
-				log::debug!(
+				tracing::debug!(
 					target: "bridge",
-					"Going to require {} header {:?} at {}",
+					"Going to require {} header {source_required_header:?} at {}",
 					P::source_name(),
-					source_required_header,
 					P::target_name(),
 				);
 				target_require_source_header
 					.set(race_target.require_source_header(source_required_header).fuse());
 			} else if target_best_nonces_required {
-				log::debug!(target: "bridge", "Asking {} about best message nonces", P::target_name());
+				tracing::debug!(target: "bridge", "Asking {} about best message nonces", P::target_name());
 				let at_block = race_state
 					.best_target_header_id
 					.as_ref()
@@ -706,12 +705,12 @@ pub async fn run<P: MessageRace, SC: SourceClient<P>, TC: TargetClient<P>>(
 					.clone();
 				target_best_nonces.set(race_target.nonces(at_block, false).fuse());
 			} else if target_finalized_nonces_required {
-				log::debug!(target: "bridge", "Asking {} about finalized message nonces", P::target_name());
+				tracing::debug!(target: "bridge", "Asking {} about finalized message nonces", P::target_name());
 				let at_block = race_state
 					.best_finalized_target_header_id
 					.as_ref()
 					.expect(
-						"target_finalized_nonces_required is only true when\
+						"target_finalized_nonces_required is only true when \
 						best_finalized_target_header_id is Some; qed",
 					)
 					.clone();
@@ -738,11 +737,9 @@ where
 
 	let now_best_nonce_at_source = strategy.best_at_source();
 	let now_best_nonce_at_target = strategy.best_at_target();
-	log::info!(
+	tracing::info!(
 		target: "bridge",
-		"Synced {:?} of {:?} nonces in {} -> {} race",
-		now_best_nonce_at_target,
-		now_best_nonce_at_source,
+		"Synced {now_best_nonce_at_target:?} of {now_best_nonce_at_source:?} nonces in {} -> {} race",
 		P::source_name(),
 		P::target_name(),
 	);

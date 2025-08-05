@@ -160,9 +160,10 @@ where
 			.header_by_number(data.at_source_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
+					error=?e,
+					"Failed to read {} header with number {}",
 					Self::Source::NAME,
 					data.at_source_block,
 				);
@@ -199,9 +200,10 @@ where
 			.header_by_number(data.at_target_block.unique_saturated_into())
 			.await
 			.map_err(|e| {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"Failed to read {} header with number {}: {e:?}",
+					error=?e,
+					"Failed to read {} header with number {}",
 					Self::Target::NAME,
 					data.at_target_block,
 				);
