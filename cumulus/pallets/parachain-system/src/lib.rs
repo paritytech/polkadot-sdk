@@ -114,6 +114,9 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
 
+//TODO: https://github.com/paritytech/polkadot-sdk/issues/9428
+const FIXED_CLAIM_QUEUE_OFFSET: u8 = 0;
+
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -528,8 +531,14 @@ pub mod pallet {
 			weight += T::DbWeight::get().reads(1);
 
 			// We need to ensure that `CoreInfo` digest exists only once.
-			if !CumulusDigestItem::core_info_exists_at_max_once(&frame_system::Pallet::<T>::digest())
-			{
+			if let Some(core_info) = CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				assert_eq!(
+					core_info.claim_queue_offset.0, FIXED_CLAIM_QUEUE_OFFSET,
+					"Only {FIXED_CLAIM_QUEUE_OFFSET} is supported as valid claim queue offset"
+				);
+			} else {
 				panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
 			}
 

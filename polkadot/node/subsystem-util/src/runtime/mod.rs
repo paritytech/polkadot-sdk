@@ -33,10 +33,7 @@ use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex,
 	slashing,
-	vstaging::{
-		CandidateEvent, ClaimQueueOffset, CoreSelector, CoreState, OccupiedCore,
-		ScrapedOnChainVotes,
-	},
+	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
 	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
 	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
 	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
@@ -517,48 +514,15 @@ impl ClaimQueueSnapshot {
 		self.0.iter()
 	}
 
-	/// Find a core for the given `para_id`.
-	///
-	/// `cores_claimed` is the number of cores already claimed from this snapshot for `para_id` at
-	/// the given `claim_queue_offset`.
-	///
-	/// Returns the core selector, claim queue offset, core index and the number of cores at claim
-	/// queue offset.
-	pub fn find_core(
+	/// Get all claimed cores for the given `para_id` at the specified depth.
+	pub fn iter_claims_at_depth_for_para(
 		&self,
+		depth: usize,
 		para_id: ParaId,
-		mut cores_claimed: u32,
-		claim_queue_offset: u32,
-	) -> Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)> {
-		let mut offset_to_core_count = BTreeMap::<usize, Vec<CoreIndex>>::new();
-
-		self.0.iter().for_each(|(core_index, ids)| {
-			ids.iter()
-				.enumerate()
-				.filter_map(|(i, id)| (*id == para_id).then(|| i))
-				.for_each(|offset| {
-					offset_to_core_count.entry(offset).or_default().push(*core_index);
-				});
-		});
-
-		for (offset, cores) in offset_to_core_count {
-			if (offset as u32) < claim_queue_offset {
-				continue
-			}
-
-			if let Some(core_index) = cores.get(cores_claimed as usize) {
-				return Some((
-					CoreSelector(cores_claimed as u8),
-					ClaimQueueOffset(offset as u8),
-					*core_index,
-					cores.len() as u16,
-				))
-			}
-
-			cores_claimed -= cores.len() as u32;
-		}
-
-		None
+	) -> impl Iterator<Item = CoreIndex> + '_ {
+		self.0.iter().filter_map(move |(core_index, ids)| {
+			ids.get(depth).filter(|id| **id == para_id).map(|_| *core_index)
+		})
 	}
 }
 
@@ -638,7 +602,7 @@ mod test {
 	use super::*;
 
 	#[test]
-	fn find_core_works() {
+	fn iter_claims_at_depth_for_para_works() {
 		let claim_queue = ClaimQueueSnapshot(BTreeMap::from_iter(
 			[
 				(
@@ -661,56 +625,55 @@ mod test {
 			.into_iter(),
 		));
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(0), CoreIndex(0), 3)
-		);
+		// Test getting claims for para_id 1 at depth 0: cores 0, 1, 2
+		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 1u32.into());
+		assert_eq!(depth_0_cores.len(), 3);
+		assert_eq!(depth_0_cores, vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(0), CoreIndex(1), 3)
-		);
+		// Test getting claims for para_id 1 at depth 1: cores 1, 3
+		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 1u32.into());
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(1), CoreIndex(3)]);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 2, 0).unwrap(),
-			(CoreSelector(2), ClaimQueueOffset(0), CoreIndex(2), 3)
-		);
+		// Test getting claims for para_id 1 at depth 2: core 0
+		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 1u32.into());
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(0)]);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 3, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
-		);
+		// Test getting claims for para_id 1 at depth 3: no claims
+		let depth_3_cores = claim_queue.iter_claims_at_depth_for_para(3, 1u32.into());
+		assert!(depth_3_cores.is_empty());
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 4, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(1), CoreIndex(3), 2)
-		);
+		// Test getting claims for para_id 2 at depth 0: core 3
+		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 2u32.into());
+		assert_eq!(depth_0_cores.len(), 1);
+		assert_eq!(depth_0_cores, vec![CoreIndex(3)]);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 5, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
-		);
+		// Test getting claims for para_id 2 at depth 1: cores 0, 2
+		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 2u32.into());
+		assert_eq!(depth_1_cores.len(), 2);
+		assert_eq!(depth_1_cores, vec![CoreIndex(0), CoreIndex(2)]);
 
-		assert_eq!(claim_queue.find_core(1u32.into(), 6, 0), None);
+		// Test getting claims for para_id 2 at depth 2: core 1
+		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 2u32.into());
+		assert_eq!(depth_2_cores.len(), 1);
+		assert_eq!(depth_2_cores, vec![CoreIndex(1)]);
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 0, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(1), CoreIndex(1), 2)
-		);
+		// Test getting claims for para_id 3 at depth 0: no claims
+		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 3u32.into());
+		assert!(depth_0_cores.is_empty());
 
-		assert_eq!(
-			claim_queue.find_core(1u32.into(), 2, 1).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(0), 1)
-		);
+		// Test getting claims for para_id 3 at depth 1: no claims
+		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 3u32.into());
+		assert!(depth_1_cores.is_empty());
 
-		assert_eq!(
-			claim_queue.find_core(3u32.into(), 0, 0).unwrap(),
-			(CoreSelector(0), ClaimQueueOffset(2), CoreIndex(2), 2)
-		);
+		// Test getting claims for para_id 3 at depth 2: cores 2, 3
+		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 3u32.into());
+		assert_eq!(depth_2_cores.len(), 2);
+		assert_eq!(depth_2_cores, vec![CoreIndex(2), CoreIndex(3)]);
 
-		assert_eq!(
-			claim_queue.find_core(3u32.into(), 1, 0).unwrap(),
-			(CoreSelector(1), ClaimQueueOffset(2), CoreIndex(3), 2)
-		);
+		// Test getting claims for non-existent para_id at depth 0: no claims
+		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 99u32.into());
+		assert!(depth_0_cores.is_empty());
 	}
 }

@@ -56,6 +56,9 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
+//TODO: https://github.com/paritytech/polkadot-sdk/issues/9428
+const FIXED_CLAIM_QUEUE_OFFSET: usize = 0;
+
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
 	Block: BlockT,
@@ -230,65 +233,59 @@ where
 			};
 
 			let parent_hash = parent.hash;
-			let parent_header = parent.header;
+			let parent_header = &parent.header;
 
-			// Retrieve the core selector.
-			let (core_selector, claim_queue_offset, core_index, number_of_cores) =
-				match determine_core(
-					&mut relay_chain_data_cache,
-					&relay_parent_header,
-					para_id,
-					&parent_header,
-				)
-				.await
-				{
-					Err(()) => {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?relay_parent,
-							"Failed to determine core"
-						);
+			// Retrieve the core.
+			let core = match determine_core(
+				&mut relay_chain_data_cache,
+				&relay_parent_header,
+				para_id,
+				parent_header,
+			)
+			.await
+			{
+				Err(()) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						"Failed to determine core"
+					);
 
-						continue
-					},
-					Ok(Some(res)) => {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?relay_parent,
-							core_selector = ?res.0,
-							claim_queue_offset = ?res.1,
-							"Going to claim core",
-						);
+					continue
+				},
+				Ok(Some(cores)) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						core_selector = ?cores.selector,
+						claim_queue_offset = ?cores.claim_queue_offset,
+						"Going to claim core",
+					);
 
-						res
-					},
-					Ok(None) => {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?relay_parent,
-							"No available core"
-						);
+					cores
+				},
+				Ok(None) => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						"No core scheduled"
+					);
 
-						continue
-					},
-				};
+					continue
+				},
+			};
 
-			let Ok(RelayChainData { max_pov_size, claim_queue, .. }) =
+			let Ok(RelayChainData { max_pov_size, last_claimed_core_selector, .. }) =
 				relay_chain_data_cache.get_mut_relay_chain_data(relay_parent).await
 			else {
 				continue;
 			};
 
-			slot_timer.update_scheduling(
-				claim_queue
-					.iter_claims_at_depth(claim_queue_offset.0 as usize)
-					.filter(|(_, id)| para_id == *id)
-					.count() as u32,
-			);
+			slot_timer.update_scheduling(core.total_cores().into());
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
-			collator.collator_service().check_block_status(parent_hash, &parent_header);
+			collator.collator_service().check_block_status(parent_hash, parent_header);
 
 			let Ok(relay_slot) =
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
@@ -395,12 +392,7 @@ where
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
-					Some(vec![CumulusDigestItem::CoreInfo(CoreInfo {
-						selector: core_selector,
-						claim_queue_offset,
-						number_of_cores: number_of_cores.into(),
-					})
-					.to_digest_item()]),
+					Some(vec![CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
 					authoring_duration,
 					allowed_pov_size,
@@ -416,12 +408,14 @@ where
 			// Announce the newly built block to our peers.
 			collator.collator_service().announce_block(new_block_hash, None);
 
+			*last_claimed_core_selector = Some(core.core_selector());
+
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
-				parent_header,
+				parent_header: parent_header.clone(),
 				parachain_candidate: candidate,
 				validation_code_hash,
-				core_index,
+				core_index: core.core_index(),
 				max_pov_size: validation_data.max_pov_size,
 			}) {
 				tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
@@ -514,54 +508,96 @@ where
 	Ok(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into()))
 }
 
+/// Return value of [`determine_core`].
+struct Core {
+	selector: CoreSelector,
+	claim_queue_offset: ClaimQueueOffset,
+	core_index: CoreIndex,
+	number_of_cores: u16,
+}
+
+impl Core {
+	/// Returns the current [`CoreInfo`].
+	fn core_info(&self) -> CoreInfo {
+		CoreInfo {
+			selector: self.selector,
+			claim_queue_offset: self.claim_queue_offset,
+			number_of_cores: self.number_of_cores.into(),
+		}
+	}
+
+	/// Returns the current [`CoreSelector`].
+	fn core_selector(&self) -> CoreSelector {
+		self.selector
+	}
+
+	/// Returns the current [`CoreIndex`].
+	fn core_index(&self) -> CoreIndex {
+		self.core_index
+	}
+
+	/// Returns the total number of cores.
+	fn total_cores(&self) -> u16 {
+		self.number_of_cores
+	}
+}
+
 /// Determine the core for the given `para_id`.
-///
-/// Takes into account the `parent` core to find the next available core.
-async fn determine_core<Header: HeaderT, RI: RelayChainInterface + 'static>(
+async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
-	parent: &Header,
-) -> Result<Option<(CoreSelector, ClaimQueueOffset, CoreIndex, u16)>, ()> {
-	let core_info = CumulusDigestItem::find_core_info(parent.digest());
+	para_parent: &H,
+) -> Result<Option<Core>, ()> {
+	let cores_at_offset = &relay_chain_data_cache
+		.get_mut_relay_chain_data(relay_parent.hash())
+		.await?
+		.claim_queue
+		.iter_claims_at_depth_for_para(FIXED_CLAIM_QUEUE_OFFSET, para_id)
+		.collect::<Vec<_>>();
 
-	let last_relay_parent = if parent.number().is_zero() {
-		0
+	let is_new_relay_parent = if para_parent.number().is_zero() {
+		true
 	} else {
-		match extract_relay_parent(parent.digest()) {
-			Some(last_relay_parent) => *relay_chain_data_cache
-				.get_mut_relay_chain_data(last_relay_parent)
-				.await?
-				.relay_parent_header
-				.number(),
-			None => rpsr_digest::extract_relay_parent_storage_root(parent.digest()).ok_or(())?.1,
+		match extract_relay_parent(para_parent.digest()) {
+			Some(last_relay_parent) => last_relay_parent != relay_parent.hash(),
+			None =>
+				rpsr_digest::extract_relay_parent_storage_root(para_parent.digest())
+					.ok_or(())?
+					.0 != *relay_parent.state_root(),
 		}
 	};
 
-	let relay_parent_offset = relay_parent.number().saturating_sub(last_relay_parent);
-	let claim_queue = &relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_parent.hash())
-		.await?
-		.claim_queue;
+	let core_info = CumulusDigestItem::find_core_info(para_parent.digest());
 
-	// If the offset between the last relay parent and the current one is bigger than the last
-	// claim queue offset, we can start from the beginning of the claim queue. Because there was no
-	// core yet claimed from this claim queue.
-	let res = if relay_parent_offset >
-		core_info.as_ref().map(|ci| ci.claim_queue_offset).unwrap_or_default().0 as u32
-	{
-		claim_queue.find_core(para_id, 0, 0)
+	// If we are using a new relay parent, we can start over from the start.
+	let (selector, core_index) = if is_new_relay_parent {
+		let Some(core_index) = cores_at_offset.get(0) else { return Ok(None) };
+
+		(0, *core_index)
+	} else if let Some(core_info) = core_info {
+		let selector = core_info.selector.0 as usize + 1;
+		let Some(core_index) = cores_at_offset.get(selector) else { return Ok(None) };
+
+		(selector, *core_index)
 	} else {
-		claim_queue.find_core(
-			para_id,
-			core_info.as_ref().map_or(0, |ci| ci.selector.0 as u32 + 1),
-			core_info
-				.as_ref()
-				.map_or(0, |ci| ci.claim_queue_offset.0 as u32 - relay_parent_offset),
-		)
+		let last_claimed_core_selector = relay_chain_data_cache
+			.get_mut_relay_chain_data(relay_parent.hash())
+			.await?
+			.last_claimed_core_selector;
+
+		let selector = last_claimed_core_selector.map_or(0, |cs| cs.0 as usize) + 1;
+		let Some(core_index) = cores_at_offset.get(selector) else { return Ok(None) };
+
+		(selector, *core_index)
 	};
 
-	Ok(res)
+	Ok(Some(Core {
+		selector: CoreSelector(selector as u8),
+		core_index,
+		claim_queue_offset: ClaimQueueOffset(FIXED_CLAIM_QUEUE_OFFSET as u8),
+		number_of_cores: cores_at_offset.len() as u16,
+	}))
 }
 
 #[cfg(test)]

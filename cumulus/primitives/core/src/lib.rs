@@ -240,7 +240,10 @@ pub enum CumulusDigestItem {
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
-		DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode())
+		match self {
+			Self::RelayParent(_) => DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode()),
+			Self::CoreInfo(_) => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode()),
+		}
 	}
 
 	/// Find [`CumulusDigestItem::CoreInfo`] in the given `digest`.
@@ -261,18 +264,30 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns `true` if `Self::CoreInfo` only exists at max once in the given `digest`.
-	pub fn core_info_exists_at_max_once(digest: &Digest) -> bool {
-		digest
+	/// Returns the found [`CoreInfo`] iff `Self::CoreInfo` exists at max once in the given
+	/// `digest`.
+	pub fn core_info_exists_at_max_once(digest: &Digest) -> Option<CoreInfo> {
+		let mut core_info = None;
+		if digest
 			.logs()
 			.iter()
 			.filter(|l| match l {
 				DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, d) => {
-					matches!(Self::decode_all(&mut &d[..]), Ok(CumulusDigestItem::CoreInfo(_)))
+					if let Ok(Self::CoreInfo(ci)) = Self::decode_all(&mut &d[..]) {
+						core_info = Some(ci);
+						true
+					} else {
+						false
+					}
 				},
 				_ => false,
 			})
 			.count() <= 1
+		{
+			core_info
+		} else {
+			None
+		}
 	}
 }
 
