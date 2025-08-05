@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! The Cumulus [`Proposer`] is a wrapper around a Substrate [`sp_consensus::Environment`]
+//! The Cumulus [`ProposerInterface`] is an extension of the Substrate [`ProposerFactory`]
 //! for creating new parachain blocks.
 //!
 //! This utility is designed to be composed within any collator consensus algorithm.
@@ -27,6 +27,7 @@ use sc_block_builder::BlockBuilderApi;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::{ApiExt, CallApiAt, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
+
 use sp_consensus::{EnableProofRecording, Environment, Proposal};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_runtime::{traits::Block as BlockT, Digest};
@@ -53,7 +54,7 @@ impl Error {
 }
 
 /// A type alias for easily referring to the type of a proposal produced by a specific
-/// [`Proposer`].
+/// [`ProposerInterface`].
 pub type ProposalOf<B> = Proposal<B, StorageProof>;
 
 /// An interface for proposers.
@@ -114,7 +115,7 @@ where
 			.map_err(|e| Error::proposing(anyhow::Error::new(e)))?;
 
 		proposer
-			.propose(ProposeArgs {
+			.propose_block(ProposeArgs {
 				inherent_data,
 				inherent_digests,
 				max_duration,

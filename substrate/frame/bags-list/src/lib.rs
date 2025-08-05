@@ -136,7 +136,7 @@ use sp_runtime::TryRuntimeError;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarks;
 
-mod list;
+pub mod list;
 pub mod migrations;
 #[cfg(any(test, feature = "fuzz"))]
 pub mod mock;

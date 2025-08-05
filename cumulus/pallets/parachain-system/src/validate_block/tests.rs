@@ -80,7 +80,7 @@ fn call_validate_block_elastic_scaling(
 	relay_parent_storage_root: Hash,
 ) -> cumulus_test_client::ExecutorResult<Header> {
 	call_validate_block_validation_result(
-		test_runtime::elastic_scaling::WASM_BINARY
+		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!"),
 		parent_head,
 		block_data,
@@ -102,13 +102,14 @@ fn create_test_client() -> (Client, Header) {
 }
 
 /// Create test client using the runtime with `elastic-scaling` feature enabled.
-fn create_elastic_scaling_test_client() -> (Client, Header) {
+fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
+	builder.genesis_init_mut().blocks_per_pov = Some(blocks_per_pov);
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -606,7 +607,7 @@ fn validate_block_handles_ump_signal() {
 
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client();
+	let (client, parent_head) = create_elastic_scaling_test_client(1);
 	let extra_extrinsics =
 		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
 

@@ -283,7 +283,7 @@ where
 		max_duration: time::Duration,
 		block_size_limit: Option<usize>,
 	) -> Self::Proposal {
-		Self::propose(
+		Self::propose_block(
 			self,
 			ProposeArgs {
 				inherent_data,
@@ -342,7 +342,7 @@ where
 	PR: ProofRecording,
 {
 	/// Propose a new block.
-	pub async fn propose(
+	pub async fn propose_block(
 		self,
 		args: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
@@ -378,7 +378,7 @@ where
 			ignored_nodes_by_proof_recording,
 		}: ProposeArgs<Block>,
 	) -> Result<Proposal<Block, PR::Proof>, sp_blockchain::Error> {
-		// leave some time for evaluation and block finalization (33%)
+		// leave some time for evaluation and block finalization (10%)
 		let deadline = (self.now)() + max_duration - max_duration / 10;
 		let block_timer = time::Instant::now();
 		let mut block_builder = BlockBuilderBuilder::new(&*self.client)
@@ -661,7 +661,6 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-
 	use futures::executor::block_on;
 	use parking_lot::Mutex;
 	use sc_client_api::{Backend, TrieCacheContext};
@@ -746,7 +745,7 @@ mod tests {
 		// when
 		let deadline = time::Duration::from_secs(3);
 		let block = block_on(
-			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 		)
 		.map(|r| r.block)
 		.unwrap();
@@ -788,9 +787,11 @@ mod tests {
 		);
 
 		let deadline = time::Duration::from_secs(1);
-		block_on(proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }))
-			.map(|r| r.block)
-			.unwrap();
+		block_on(
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
+		)
+		.map(|r| r.block)
+		.unwrap();
 	}
 
 	#[test]
@@ -828,7 +829,7 @@ mod tests {
 
 		let deadline = time::Duration::from_secs(9);
 		let proposal = block_on(
-			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 		)
 		.unwrap();
 
@@ -894,7 +895,8 @@ mod tests {
 			// when
 			let deadline = time::Duration::from_secs(900);
 			let block = block_on(
-				proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+				proposer
+					.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 			)
 			.map(|r| r.block)
 			.unwrap();
@@ -1006,7 +1008,7 @@ mod tests {
 
 		// Give it enough time
 		let deadline = time::Duration::from_secs(300);
-		let block = block_on(proposer.propose(ProposeArgs {
+		let block = block_on(proposer.propose_block(ProposeArgs {
 			max_duration: deadline,
 			block_size_limit: Some(block_limit),
 			..Default::default()
@@ -1020,7 +1022,7 @@ mod tests {
 		let proposer = block_on(proposer_factory.init(&genesis_header)).unwrap();
 
 		let block = block_on(
-			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 		)
 		.map(|r| r.block)
 		.unwrap();
@@ -1049,7 +1051,7 @@ mod tests {
 				.unwrap();
 			builder.estimate_block_size(true) + extrinsics[0].encoded_size()
 		};
-		let block = block_on(proposer.propose(ProposeArgs {
+		let block = block_on(proposer.propose_block(ProposeArgs {
 			max_duration: deadline,
 			block_size_limit: Some(block_limit),
 			..Default::default()
@@ -1124,7 +1126,7 @@ mod tests {
 		// give it enough time so that deadline is never triggered.
 		let deadline = time::Duration::from_secs(900);
 		let block = block_on(
-			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 		)
 		.map(|r| r.block)
 		.unwrap();
@@ -1203,7 +1205,7 @@ mod tests {
 		);
 
 		let block = block_on(
-			proposer.propose(ProposeArgs { max_duration: deadline, ..Default::default() }),
+			proposer.propose_block(ProposeArgs { max_duration: deadline, ..Default::default() }),
 		)
 		.map(|r| r.block)
 		.unwrap();

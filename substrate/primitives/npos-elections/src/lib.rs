@@ -187,6 +187,27 @@ pub struct ElectionScore {
 	pub sum_stake_squared: ExtendedBalance,
 }
 
+#[cfg(feature = "std")]
+impl ElectionScore {
+	/// format the election score in a pretty way with the given `token` symbol and `decimals`.
+	pub fn pretty(&self, token: &str, decimals: u32) -> String {
+		format!(
+			"ElectionScore (minimal_stake: {}, sum_stake: {}, sum_stake_squared: {})",
+			pretty_balance(self.minimal_stake, token, decimals),
+			pretty_balance(self.sum_stake, token, decimals),
+			pretty_balance(self.sum_stake_squared, token, decimals),
+		)
+	}
+}
+
+/// Format a single [`ExtendedBalance`] into a pretty string with the given `token` symbol and
+/// `decimals`.
+#[cfg(feature = "std")]
+pub fn pretty_balance<B: Into<u128>>(b: B, token: &str, decimals: u32) -> String {
+	let b: u128 = b.into();
+	format!("{} {}", b / 10u128.pow(decimals), token)
+}
+
 impl ElectionScore {
 	/// Iterate over the inner items, first visiting the most significant one.
 	fn iter_by_significance(self) -> impl Iterator<Item = ExtendedBalance> {

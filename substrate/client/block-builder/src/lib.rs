@@ -243,7 +243,7 @@ where
 		let mut api = call_api_at.runtime_api();
 
 		if let Some(recorder) = proof_recorder {
-			api.set_proof_recorder(recorder.clone());
+			api.record_proof_with_recorder(recorder.clone());
 			api.register_extension(ProofSizeExt::new(recorder));
 		}
 

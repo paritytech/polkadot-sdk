@@ -156,7 +156,7 @@ where
 
 			runtime_api.set_call_context(CallContext::Onchain);
 
-			runtime_api.set_proof_recorder(recorder.clone());
+			runtime_api.record_proof_with_recorder(recorder.clone());
 			runtime_api.register_extension(ProofSizeExt::new(recorder));
 
 			let parent_hash = *params.header.parent_hash();

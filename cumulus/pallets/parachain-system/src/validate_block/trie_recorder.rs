@@ -20,10 +20,8 @@
 //! [`SizeOnlyRecorderProvider`]. They are used to track the current
 //! proof-size without actually recording the accessed nodes themselves.
 
-use codec::Encode;
-
 use alloc::rc::Rc;
-
+use codec::Encode;
 use core::cell::{RefCell, RefMut};
 use hashbrown::{HashMap, HashSet};
 use sp_trie::{NodeCodec, ProofSizeProvider, RandomState, StorageProof};
