@@ -9,37 +9,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Get PR Details 
-      run: |
-          # TODO: (hardcoded for demo, pedning to push PR)
-          # This is a placeholder to find affected pallet in the PR and post the coverage report
-
-    - name: Fuzzer target and cargo cache
-      uses: actions/cache@v4
+    # Setup
+    - uses: actions/checkout@v4
+    - uses: actions/cache@v4
       with:
-        path: |
-          substrate/bin/node/runtime/fuzzer/target
-          ~/.cargo/
-        key: fuzzer-target-and-cache-dirs
+        path: ~/.cargo/
+        key: dot-cargo
+    - run: cargo install ziggy cargo-afl
+    - run: cargo afl config --build
 
-    #- name: Install Rust target
-    #  run: rustup target add wasm32-unknown-unknown
-
-    - name: Install dependencies
-      run: cargo install ziggy cargo-afl
-    
-    - name: Re-build afl
-      run: cargo afl config --build
-
+    # Build
+    - uses: actions/cache@v4
+      with:
+        path: substrate/bin/node/runtime/fuzzer/target
+        key: target-${{ hashFiles('**/Cargo.lock') }}
     - name: Build fuzzer
       env:
         SKIP_WASM_BUILD: true
       working-directory: substrate/bin/node/runtime/fuzzer
       run: cargo ziggy build --no-honggfuzz
 
+    # Fuzz
+    - uses: actions/cache@v4
+      with:
+        path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/corpus
+        key: kitchensink-corpus
     - name: Fuzz for 5 minutes
       env:
         SKIP_WASM_BUILD: true
@@ -48,6 +42,7 @@ jobs:
       working-directory: substrate/bin/node/runtime/fuzzer
       run: timeout 5m cargo ziggy fuzz || [[ $? -eq 124 ]]
 
+    # Finally
     - name: Upload Fuzzer Output
       uses: actions/upload-artifact@v4
       with:
