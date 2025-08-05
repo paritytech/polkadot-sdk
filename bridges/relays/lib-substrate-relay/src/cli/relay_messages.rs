@@ -163,9 +163,9 @@ where
 				tracing::trace!(
 					target: "bridge",
 					error=?e,
-					"Failed to read {} header with number {}",
-					Self::Source::NAME,
-					data.at_source_block,
+					source=%Self::Source::NAME,
+					at_source_block=%data.at_source_block,
+					"Failed to read header"
 				);
 				anyhow::format_err!("The command has failed")
 			})?
@@ -203,9 +203,9 @@ where
 				tracing::trace!(
 					target: "bridge",
 					error=?e,
-					"Failed to read {} header with number {}",
-					Self::Target::NAME,
-					data.at_target_block,
+					target=%Self::Target::NAME,
+					at_target_block=%data.at_target_block,
+					"Failed to read header"
 				);
 				anyhow::format_err!("The command has failed")
 			})?
