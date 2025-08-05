@@ -45,8 +45,8 @@ impl<P: EquivocationDetectionPipeline> ReadSyncedHeaders<P> {
 				tracing::error!(
 					target: "bridge",
 					error=?e,
-					%source=P::SOURCE_NAME,
-					%target=P::TARGET_NAME,
+					source=%P::SOURCE_NAME,
+					target=%P::TARGET_NAME,
 					block=%self.target_block_num,
 					"Could not get headers synced at block"
 				);
@@ -90,8 +90,8 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 				tracing::error!(
 					target: "bridge",
 					error=?e,
-					%source=P::SOURCE_NAME,
-					%target=P::TARGET_NAME,
+					source=%P::SOURCE_NAME,
+					target=%P::TARGET_NAME,
 					block=%self.target_block_num.saturating_sub(1.into()),
 					"Could not read `EquivocationReportingContext` at block",
 				);
@@ -180,7 +180,7 @@ impl<P: EquivocationDetectionPipeline> ReportEquivocations<P> {
 					tracing::error!(
 						target: "bridge",
 						error=?e,
-						%source=P::SOURCE_NAME,
+						source=%P::SOURCE_NAME,
 						?equivocation,
 						"Could not submit equivocation report"
 					);

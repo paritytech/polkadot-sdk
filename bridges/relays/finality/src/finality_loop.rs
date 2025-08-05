@@ -143,8 +143,8 @@ impl<P: FinalitySyncPipeline> SyncInfo<P> {
 		} else {
 			tracing::error!(
 				target: "bridge",
-				%source=P::SOURCE_NAME,
-				%target=P::TARGET_NAME,
+				source=%P::SOURCE_NAME,
+				target=%P::TARGET_NAME,
 				height=?id_at_target.0,
 				at_source=?header_hash_at_source,
 				at_target=?id_at_target.1,
@@ -207,8 +207,8 @@ impl<Tracker: TransactionTracker, Number: Debug + PartialOrd> Transaction<Tracke
 		let header_number = header.number();
 		tracing::debug!(
 			target: "bridge",
-			%source=P::SOURCE_NAME,
-			%target=P::TARGET_NAME,
+			source=%P::SOURCE_NAME,
+			target=%P::TARGET_NAME,
 			header=?header_number,
 			"Going to submit finality proof of header"
 		);

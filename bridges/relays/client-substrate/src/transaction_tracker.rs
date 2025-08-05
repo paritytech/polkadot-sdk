@@ -113,7 +113,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 			Either::Left((_, _)) => {
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?self.transaction_hash,
 					"Transaction is considered lost after timeout (no status response from the node)"
 				);
@@ -133,7 +133,7 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 					// an error here (which is treated as "transaction lost")
 					tracing::trace!(
 						target: "bridge",
-						%node=C::NAME,
+						node=%C::NAME,
 						transaction=?self.transaction_hash,
 						"Transaction is considered lost after timeout"
 					);
@@ -190,7 +190,7 @@ async fn watch_transaction_status<
 				// has been finalized
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					block=?block_hash,
 					"Transaction has been finalized"
@@ -202,7 +202,7 @@ async fn watch_transaction_status<
 						tracing::error!(
 							target: "bridge",
 							error=?e,
-							%node=C::NAME,
+							node=%C::NAME,
 							transaction=?transaction_hash,
 							block=?block_hash,
 							"Failed to read header when watching for transaction",
@@ -222,7 +222,7 @@ async fn watch_transaction_status<
 				// case.
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					"Transaction has been invalidated"
 				);
@@ -239,7 +239,7 @@ async fn watch_transaction_status<
 				// https://github.com/paritytech/parity-bridges-common/issues/1464
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					block=?block_hash,
 					"Transaction has been included"
@@ -248,7 +248,7 @@ async fn watch_transaction_status<
 			Some(TransactionStatusOf::<C>::Retracted(block_hash)) => {
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					block=?block_hash,
 					"Transaction has been retracted"
@@ -258,7 +258,7 @@ async fn watch_transaction_status<
 				// finality is lagging? let's wait a bit more and report a stall
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					block=?block_hash,
 					"Transaction has not been finalized for too long"
@@ -271,7 +271,7 @@ async fn watch_transaction_status<
 				// of transaction may have changed
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					new_transaction=?new_transaction_hash,
 					"Transaction has been usurped"
@@ -283,7 +283,7 @@ async fn watch_transaction_status<
 				// a bit and report a stall
 				tracing::trace!(
 					target: "bridge",
-					%node=C::NAME,
+					node=%C::NAME,
 					transaction=?transaction_hash,
 					"Transaction has been dropped from the pool"
 				);
