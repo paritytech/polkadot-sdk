@@ -27,7 +27,12 @@ jobs:
         cp Cargo.toml Cargo.toml.bak
         sed -i '/^pallet-/ s/^/#/' Cargo.toml
         sed -i '/#pallet-treasury/ s/^#//' Cargo.toml
-        grep -v '#pallet-treasury' Cargo.toml > temp && mv temp Cargo.toml
+        sed -i '/#pallet-timestamp/ s/^#//' Cargo.toml
+
+    - name: Print Cargo.toml
+      run: |
+          cd runtime_fuzzer/templates/kitchensink/
+          cat Cargo.toml
 
     - name: Run cargo ziggy fuzz for 15 minute
       run: |
@@ -37,10 +42,6 @@ jobs:
         timeout 10m cargo ziggy fuzz
         # tail -f ./output/kitchensink-fuzzer/logs/afl.log
 
-    - name: Print Cargo.toml
-      run: |
-        cd runtime_fuzzer/templates/kitchensink/
-        cat Cargo.toml
 
     - name: Send message to Element chat
       run: |
