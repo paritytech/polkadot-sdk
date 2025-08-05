@@ -360,14 +360,10 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		// because they have already been posted on chain.
 		let is_potential = is_pending || is_included || {
 			let digest = entry.header.digest();
-			let is_hash_in_ancestry_check = cumulus_primitives_core::extract_relay_parent(digest)
-				.map_or(false, is_hash_in_ancestry);
-			let is_root_in_ancestry_check =
-				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
-					.map(|(r, _n)| r)
-					.map_or(false, is_root_in_ancestry);
-
-			is_hash_in_ancestry_check || is_root_in_ancestry_check
+			cumulus_primitives_core::CumulusDigestItem::find_relay_block_identifier(digest)
+				.map_or(false, |identifier| {
+					is_hash_in_ancestry(identifier) || is_root_in_ancestry(identifier)
+				})
 		};
 
 		let parent_aligned_with_pending = entry.aligned_with_pending;
