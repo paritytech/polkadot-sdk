@@ -81,8 +81,8 @@ impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> S
 					tracing::debug!(
 						target: "bridge",
 						error=?e,
-						"{} has returned. It may need to be restarted",
-						self.desc.get(),
+						%desc=self.desc.get(),
+						"Returned with error. It may need to be restarted"
 					);
 					None
 				},
@@ -90,8 +90,8 @@ impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> S
 					self.stream.take();
 					tracing::debug!(
 						target: "bridge",
-						"{} has returned `None`. It may need to be restarted",
-						self.desc.get()
+						%desc=self.desc.get(),
+						"Returned `None`. It may need to be restarted"
 					);
 					None
 				},
@@ -185,9 +185,9 @@ async fn background_worker<T: 'static + Clone + DeserializeOwned + Send>(
 	fn log_task_exit(desc: &StreamDescription, reason: &str) {
 		tracing::debug!(
 			target: "bridge",
+			%desc=desc.get(),
 			%reason,
-			"Background task of subscription broadcaster for {} has stopped",
-			desc.get(),
+			"Background task of subscription broadcaster has stopped"
 		);
 	}
 
