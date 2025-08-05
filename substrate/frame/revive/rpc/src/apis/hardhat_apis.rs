@@ -24,7 +24,6 @@ use sc_consensus_manual_seal::rpc::CreatedBlock;
 
 #[rpc(server, client)]
 pub trait HardhatRpc {
-	/// Returns a list of addresses owned by client.
 	#[method(name = "hardhat_mine", aliases = ["evm_mine"])]
 	async fn mine(
 		&self,
