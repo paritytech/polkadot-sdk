@@ -100,7 +100,7 @@ pub async fn relay_messages_delivery_confirmation<P: MessageLane>(
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			tracing::error!("Transaction with messages delivery proof is considered lost");
+			tracing::error!(target: "bridge", "Transaction with messages delivery proof is considered lost");
 			Err(())
 		},
 	}
