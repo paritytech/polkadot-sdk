@@ -149,6 +149,10 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>> {
 		Ok(self.client.set_balance(who, new_free).await?)
 	}
+
+	async fn set_next_block_base_fee_per_gas(&self, base_fee_per_gas: U128) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_next_block_base_fee_per_gas(base_fee_per_gas).await?)
+	}
 }
 
 #[async_trait]

@@ -42,7 +42,7 @@ use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H160, H256, U256,
+		TransactionSigned, TransactionTrace, H160, H256, U256, U128
 	},
 	EthTransactError,
 };
@@ -823,5 +823,21 @@ impl Client {
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
 
 		Ok(Some(new_free))
+	}
+
+	pub async fn set_next_block_base_fee_per_gas(
+		&self,
+		base_fee_per_gas: U128
+	) -> Result<Option<U128>, ClientError> {
+		let alice = dev::alice();
+
+		let call = RuntimeCall::Revive(ReviveCall::set_gas_price {
+			new_price: base_fee_per_gas.as_u64(),
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(base_fee_per_gas))
 	}
 }

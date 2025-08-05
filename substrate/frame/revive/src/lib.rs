@@ -507,6 +507,9 @@ pub mod pallet {
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+	#[pallet::storage]
+	/// The modifiable EVM gas price, used by the EVM RPC.
+	pub type GasPrice<T> = StorageValue<_, u64, ValueQuery>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -535,6 +538,7 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		/// Genesis mapped accounts
 		pub mapped_accounts: Vec<T::AccountId>,
+		pub gas_price: u64,
 	}
 
 	#[pallet::genesis_build]
@@ -545,6 +549,7 @@ pub mod pallet {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
+			GasPrice::<T>::put(self.gas_price);
 		}
 	}
 
@@ -1066,6 +1071,14 @@ pub mod pallet {
 			Self::set_evm_nonce(&address, nonce.as_u32());
 			Ok(())
 		}
+
+		#[pallet::call_index(13)]
+		#[pallet::weight(10_000)]
+		pub fn set_gas_price(origin: OriginFor<T>, new_price: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasPrice::<T>::put(new_price);
+			Ok(())
+		}
 	}
 }
 
@@ -1271,13 +1284,13 @@ where
 			tx.chain_id = Some(T::ChainId::get().into());
 		}
 		if tx.gas_price.is_none() {
-			tx.gas_price = Some(GAS_PRICE.into());
+			tx.gas_price = Some(Self::evm_gas_price().into());
 		}
 		if tx.max_priority_fee_per_gas.is_none() {
-			tx.max_priority_fee_per_gas = Some(GAS_PRICE.into());
+			tx.max_priority_fee_per_gas = Some(Self::evm_gas_price().into());
 		}
 		if tx.max_fee_per_gas.is_none() {
-			tx.max_fee_per_gas = Some(GAS_PRICE.into());
+			tx.max_fee_per_gas = Some(Self::evm_gas_price().into());
 		}
 		if tx.gas.is_none() {
 			tx.gas = Some(Self::evm_block_gas_limit());
@@ -1484,8 +1497,7 @@ where
 		}
 	}
 
-	pub fn set_evm_nonce(address: &H160, nonce: u32) -> u32
-	{
+	pub fn set_evm_nonce(address: &H160, nonce: u32) -> u32 {
 		let account = T::AddressMapper::to_account_id(&address);
 		let substrate_nonce: u32 = System::<T>::account_nonce(account).try_into().ok().unwrap();
 		let evm_nonce_u32 = nonce;
@@ -1516,7 +1528,7 @@ where
 	/// The gas is calculated as `fee / GAS_PRICE`, rounded up to the nearest integer.
 	pub fn evm_fee_to_gas(fee: BalanceOf<T>) -> U256 {
 		let fee = Self::convert_native_to_evm(fee);
-		let gas_price = GAS_PRICE.into();
+		let gas_price = Self::evm_gas_price().into();
 		let (quotient, remainder) = fee.div_mod(gas_price);
 		if remainder.is_zero() {
 			quotient
@@ -1561,7 +1573,7 @@ where
 
 	/// Get the gas price.
 	pub fn evm_gas_price() -> U256 {
-		GAS_PRICE.into()
+		GasPrice::<T>::get().into()
 	}
 
 	/// Build an EVM tracer from the given tracer type.
@@ -1737,7 +1749,7 @@ sp_api::decl_runtime_apis! {
 		fn nonce(address: H160) -> Nonce;
 
 		fn account_or_fallback(address: H160) -> AccountId;
-	
+
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].

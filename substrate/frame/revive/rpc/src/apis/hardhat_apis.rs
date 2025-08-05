@@ -43,4 +43,7 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_setBalance")]
 	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>>;
+
+	#[method(name = "hardhat_setNextBlockBaseFeePerGas")]
+	async fn set_next_block_base_fee_per_gas(&self, base_fee_per_gas: U128) -> RpcResult<Option<U128>>;
 }
