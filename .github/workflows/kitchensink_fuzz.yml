@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Get PR Details 
       run: |
           # TODO: (hardcoded for demo, pedning to push PR)
@@ -31,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
           name: fuzzer-output
-          path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflconfig/
+          path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflconfig/fuzzer_stats
 
     - name: Get Coverage 
       run: |
