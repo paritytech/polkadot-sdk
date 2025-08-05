@@ -123,9 +123,10 @@ impl MetricsParams {
 
 		tracing::info!(
 			target: "bridge",
+			metric=%BUILD_INFO_METRIC,
 			version=%relay_version,
 			commit=%relay_commit,
-			"Exposed {BUILD_INFO_METRIC} metric"
+			"Exposed metric"
 		);
 
 		Ok(MetricsParams { address, registry })
