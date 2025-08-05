@@ -39,7 +39,7 @@ contract Host {
         return value;
     }
 
-    function sstore(uint256 slot, uint256 value) public returns (uint256) {
+    function sstore(uint256 slot, uint256 value) public {
         assembly {
             sstore(slot, value)
         }

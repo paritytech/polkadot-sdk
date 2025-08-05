@@ -162,7 +162,7 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Loads a word from storage.
 pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::GetStorage(1)); // TODO: correct number here?
+	gas!(context.interpreter, RuntimeCosts::GetStorage(32)); // TODO: correct number here?
     let key = Key::Fix(index.to_be_bytes());
     let value = context.interpreter.extend.get_storage(&key);
 
@@ -185,33 +185,32 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
-	let Some(state_load) =
-		context.host.sstore(context.interpreter.input.target_address(), index, value)
-	else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: need to check if there is already data at the location because it affects the gas.
+	gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
 
-	// EIP-1706 Disable SSTORE with gasleft lower than call stipend
-	if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL) &&
-		context.interpreter.gas.remaining() <= CALL_STIPEND
-	{
-		context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
-		return;
-	}
-	gas_legacy!(
-		context.interpreter,
-		gas::sstore_cost(
-			context.interpreter.runtime_flag.spec_id(),
-			&state_load.data,
-			state_load.is_cold
-		)
-	);
+    let key = Key::Fix(index.to_be_bytes());
+	let take_old = false;
+    let value = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old);
+	
+	// let Some(state_load) =
+	// 	context.host.sstore(context.interpreter.input.target_address(), index, value)
+	// else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
-	context.interpreter.gas.record_refund(gas::sstore_refund(
-		context.interpreter.runtime_flag.spec_id(),
-		&state_load.data,
-	));
+	// // EIP-1706 Disable SSTORE with gasleft lower than call stipend
+	// if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL) &&
+	// 	context.interpreter.gas.remaining() <= CALL_STIPEND
+	// {
+	// 	context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
+	// 	return;
+	// }
+
+	// context.interpreter.gas.record_refund(gas::sstore_refund(
+	// 	context.interpreter.runtime_flag.spec_id(),
+	// 	&state_load.data,
+	// ));
 }
 
 /// EIP-1153: Transient storage opcodes

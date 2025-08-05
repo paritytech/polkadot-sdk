@@ -265,24 +265,23 @@ fn sload_works() {
         let index = U256::from(13);
         let expected_value = U256::from(17);
 
-		ExtBuilder::default()
-        .build().execute_with(|| {
+		ExtBuilder::default().build().execute_with(|| {
 
             <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-        {
-            let contract_info = test_utils::get_contract(&addr);
-            let key = Key::Fix(index.to_be_bytes());
-            contract_info.write(
-                &key,
-                Some(expected_value.to_be_bytes::<32>().to_vec()),
-                None,
-                false
-            );
-        }
+            {
+                let contract_info = test_utils::get_contract(&addr);
+                let key = Key::Fix(index.to_be_bytes());
+                contract_info.write(
+                    &key,
+                    Some(expected_value.to_be_bytes::<32>().to_vec()),
+                    None,
+                    false
+                );
+            }
 
             {
                 let result = builder::bare_call(addr)
@@ -300,15 +299,57 @@ fn sload_works() {
                 );
             }
 		});
-        break;
     }
 }
 
 #[test]
 fn sstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        todo!("implement this test");
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		
+        ExtBuilder::default().build().execute_with(|| {
+
+            let index = U256::from(13);
+            let expected_value = U256::from(17);
+            let unexpected_value = U256::from(19);
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            {
+                let contract_info = test_utils::get_contract(&addr);
+                let key = Key::Fix(index.to_be_bytes());
+                contract_info.write(
+                    &key,
+                    Some(unexpected_value.to_be_bytes::<32>().to_vec()),
+                    None,
+                    false
+                );
+            }
+
+            {
+                builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::sstore(Host::sstoreCall { slot: index, value: expected_value })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+
+                let written_value = {
+                    let contract_info = test_utils::get_contract(&addr);
+                    let key = Key::Fix(index.to_be_bytes());
+                    let result = contract_info.read(&key).unwrap();
+                    U256::from_be_bytes::<32>(result.try_into().unwrap())
+                };
+                assert_eq!(
+                    expected_value,
+                    written_value,
+                    "result should return expected value {:?}", fixture_type
+                );
+            }
+		});
     }
 }
 
