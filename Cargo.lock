@@ -22171,6 +22171,7 @@ dependencies = [
  "sp-api-proc-macro",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
+ "sp-io",
  "sp-metadata-ir",
  "sp-runtime",
  "sp-runtime-interface 24.0.0",

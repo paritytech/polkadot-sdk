@@ -108,6 +108,7 @@ pub mod __private {
 		ExtrinsicInclusionMode, TransactionOutcome,
 	};
 	pub use sp_version::{create_apis_vec, ApiId, ApisVec, RuntimeVersion};
+	pub use sp_io;
 
 	#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))]
 	pub use sp_runtime_interface::polkavm::{polkavm_abi, polkavm_export};
