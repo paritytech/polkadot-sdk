@@ -22,7 +22,8 @@ use super::{
 use crate::{
 	vm::Ext,
 	RuntimeCosts,
-	H256
+	H256,
+	Key,
 };
 use core::cmp::min;
 use revm::{
@@ -161,14 +162,19 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Loads a word from storage.
 pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::GetStorage);
+	gas!(context.interpreter, RuntimeCosts::GetStorage(1)); // TODO: correct number here?
+    let key = Key::Fix(index.to_be_bytes());
+    let value = context.interpreter.extend.get_storage(&key);
 
-	let Some(value) = context.host.sload(context.interpreter.input.target_address(), *index) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-
-	*index = value.data;
+    *index = if let Some(storage_value) = value {
+		// TODO: Should we enforce constant size here? Can return only 32 bytes.
+		let mut bytes = [0u8; 32];
+        let len = core::cmp::min(storage_value.len(), 32);
+        bytes[32 - len..].copy_from_slice(&storage_value[..len]);
+        U256::from_be_bytes(bytes)
+    } else {
+        U256::ZERO
+    };
 }
 
 /// Implements the SSTORE instruction.

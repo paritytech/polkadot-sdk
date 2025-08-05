@@ -23,7 +23,8 @@ use crate::{
 	Code, Config,
     address::AddressMapper,
     PristineCode,
-    H256
+    H256,
+    Key,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -70,7 +71,6 @@ fn balance_works() {
                 );
             }
 		});
-        
 	}
 }
 
@@ -193,7 +193,7 @@ fn extcodehash_works() {
 #[ignore]
 fn extcodecopy_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
@@ -261,14 +261,53 @@ fn blockhash_works() {
 fn sload_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        todo!("implement this test");
+
+        let index = U256::from(13);
+        let expected_value = U256::from(17);
+
+		ExtBuilder::default()
+        .build().execute_with(|| {
+
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+        {
+            let contract_info = test_utils::get_contract(&addr);
+            let key = Key::Fix(index.to_be_bytes());
+            contract_info.write(
+                &key,
+                Some(expected_value.to_be_bytes::<32>().to_vec()),
+                None,
+                false
+            );
+        }
+
+            {
+                let result = builder::bare_call(addr)
+                    .data(
+                        Host::HostCalls::sload(Host::sloadCall { slot: index })
+                            .abi_encode(),
+                    )
+                    .build_and_unwrap_result();
+                let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+
+                assert_eq!(
+                    expected_value,
+                    result,
+                    "result should return expected value {:?}", fixture_type
+                );
+            }
+		});
+        break;
     }
 }
 
 #[test]
 fn sstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
@@ -276,7 +315,7 @@ fn sstore_works() {
 #[test]
 fn tstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
@@ -284,7 +323,7 @@ fn tstore_works() {
 #[test]
 fn tload_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
@@ -292,7 +331,7 @@ fn tload_works() {
 #[test]
 fn log_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
@@ -300,7 +339,7 @@ fn log_works() {
 #[test]
 fn selfdestruct_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         todo!("implement this test");
     }
 }
