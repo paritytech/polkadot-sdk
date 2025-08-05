@@ -314,7 +314,7 @@ impl multi_block::signed::Config for Runtime {
 parameter_types! {
 	pub static BondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
-	pub static OffenceReportableWindow: u32 = 2;
+	pub static OffenceReportableWindow: u32 = 1;
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
 }
