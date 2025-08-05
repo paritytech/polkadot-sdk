@@ -114,10 +114,10 @@ where
 		if is_ancient_block(at_block.number(), best_block_number) {
 			tracing::trace!(
 				target: "bridge",
+				source_relay_chain=%P::SourceRelayChain::NAME,
 				?at_block,
-				"{} block is ancient. Cannot prove the {} header there",
-				P::SourceRelayChain::NAME,
-				P::SourceParachain::NAME,
+				source=%P::SourceParachain::NAME,
+				"Block is ancient. Cannot prove the header there"
 			);
 			return Ok(AvailableHeader::Unavailable)
 		}
