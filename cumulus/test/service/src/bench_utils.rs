@@ -190,9 +190,22 @@ pub fn create_benchmarking_transfer_extrinsics(
 
 /// Prepare cumulus test runtime for execution
 pub fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
+			let wasm_content = if let Ok(wasm_path) = std::env::var("WASM_PATH") {
+				std::fs::read(wasm_path).expect("Failed to read the file specified by WASM_PATH")
+			} else {
+				    WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!") .to_vec()
+			};
 	let blob = RuntimeBlob::uncompress_if_needed(
-		WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
-	)
+		{
+			// let wasm_path = std::env::var("WASM_PATH").unwrap_or_else(|_| {
+			// 	    WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!")
+			// });
+
+
+			// WASM_BINARY.expect("You need to build the WASM binaries to run the benchmark!"),
+			&wasm_content
+		}
+		)
 	.unwrap();
 
 	let config = sc_executor_wasmtime::Config {
