@@ -122,9 +122,9 @@ impl<C: Chain> RpcClient<C> {
 				Err(error) => tracing::error!(
 					target: "bridge",
 					?error,
-					"Failed to connect to {} node. Going to retry in {}s",
-					C::NAME,
-					RECONNECT_DELAY.as_secs(),
+					%node=C::NAME,
+					%retry_secs=RECONNECT_DELAY.as_secs(),
+					"Failed to connect. Going to retry"
 				),
 			}
 
@@ -179,9 +179,11 @@ impl<C: Chain> RpcClient<C> {
 			Ordering::Greater => {
 				tracing::error!(
 					target: "bridge",
-					"The {} client is configured to use runtime version {expected:?} and actual \
-					version is {actual:?}. Aborting",
-					C::NAME,
+					%node=C::NAME,
+					?expected,
+					?actual,
+					"The client is configured to use runtime version, which is different from the \
+					actual version. Aborting",
 				);
 				env.abort().await;
 				Err(Error::Custom("Aborted".into()))
@@ -195,7 +197,7 @@ impl<C: Chain> RpcClient<C> {
 	) -> Result<(Arc<tokio::runtime::Runtime>, Arc<WsClient>)> {
 		let tokio = tokio::runtime::Runtime::new()?;
 		let uri = params.uri.clone();
-		tracing::info!(target: "bridge", %uri, "Connecting to {} node", C::NAME);
+		tracing::info!(target: "bridge", %node=C::NAME, %uri, "Connecting");
 
 		let client = tokio
 			.spawn(async move {
@@ -482,10 +484,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 			let tx_hash = SubstrateAuthorClient::<C>::submit_extrinsic(&*client, transaction)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
+					tracing::error!(target: "bridge", error=?e, %node=C::NAME, "Failed to send transaction");
 					e
 				})?;
-			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
+			tracing::trace!(target: "bridge", %node=C::NAME, ?tx_hash, "Sent transaction");
 			Ok(tx_hash)
 		})
 		.await
@@ -562,10 +564,10 @@ impl<C: Chain> Client<C> for RpcClient<C> {
 				)
 				.await
 				.map_err(|e| {
-					tracing::error!(target: "bridge", error=?e, "Failed to send transaction to {} node", C::NAME);
+					tracing::error!(target: "bridge", error=?e, %node=C::NAME, "Failed to send transaction");
 					e
 				})?;
-			tracing::trace!(target: "bridge", ?tx_hash, "Sent transaction to {} node", C::NAME);
+			tracing::trace!(target: "bridge", %node=C::NAME, ?tx_hash, "Sent transaction");
 			Ok(TransactionTracker::new(
 				self_clone,
 				stall_timeout,
