@@ -22,7 +22,7 @@ use crate::backend::AsTrieBackend;
 use crate::{
 	backend::{IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence, TrieBackendStorage},
-	Backend, StorageKey, StorageValue,
+	Backend, BackendTransaction, StorageKey, StorageValue,
 };
 
 use codec::Codec;
@@ -507,27 +507,29 @@ where
 		self.essence.raw_iter(args)
 	}
 
-	fn storage_root<'a>(
+	fn storage_root2<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<H>, H::Out)>,
 	) -> (H::Out, PrefixedMemoryDB<H>)
 	where
 		H::Out: Ord,
 	{
-		self.essence.storage_root(delta, state_version)
+		self.essence.storage_root(delta, state_version, xxx)
 	}
 
-	fn child_storage_root<'a>(
+	fn child_storage_root2<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<H>, H::Out)>,
 	) -> (H::Out, bool, PrefixedMemoryDB<H>)
 	where
 		H::Out: Ord,
 	{
-		self.essence.child_storage_root(child_info, delta, state_version)
+		self.essence.child_storage_root(child_info, delta, state_version, xxx)
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}

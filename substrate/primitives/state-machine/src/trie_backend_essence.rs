@@ -21,7 +21,7 @@
 use crate::{
 	backend::{IterArgs, StorageIterator},
 	trie_backend::TrieCacheProvider,
-	warn, StorageKey, StorageValue,
+	warn, BackendTransaction, StorageKey, StorageValue,
 };
 #[cfg(feature = "std")]
 use alloc::sync::Arc;
@@ -630,18 +630,46 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<H>, H::Out)>,
 	) -> (H::Out, PrefixedMemoryDB<H>) {
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
 
 		let root = self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
-			let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
-			let res = match state_version {
-				StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
-					&mut eph, self.root, delta, recorder, cache,
-				),
-				StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
-					&mut eph, self.root, delta, recorder, cache,
-				),
+			let res = if let Some(xxx) = xxx {
+				let mut tmp_eph =
+					TrieBackendStorageWithReadOnlyOverlay::new(self.backend_storage(), &xxx.0);
+
+				let mut tmp_eph2 = Ephemeral::new(&tmp_eph, &mut write_overlay);
+				#[cfg(feature = "std")]
+				{
+					debug!(target: "trie", "using read-only overlay for: {:?}", xxx.1);
+				}
+				match state_version {
+					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+						&mut tmp_eph2,
+						xxx.1,
+						delta,
+						recorder,
+						cache,
+					),
+					StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+						&mut tmp_eph2,
+						xxx.1,
+						delta,
+						recorder,
+						cache,
+					),
+				}
+			} else {
+				let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+				match state_version {
+					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+						&mut eph, self.root, delta, recorder, cache,
+					),
+					StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+						&mut eph, self.root, delta, recorder, cache,
+					),
+				}
 			};
 
 			match res {
@@ -663,6 +691,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<H>, H::Out)>,
 	) -> (H::Out, bool, PrefixedMemoryDB<H>) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
@@ -711,6 +740,36 @@ where
 		let is_default = new_child_root == default_root;
 
 		(new_child_root, is_default, write_overlay)
+	}
+}
+
+pub(crate) struct TrieBackendStorageWithReadOnlyOverlay<
+	'a,
+	S: 'a + TrieBackendStorage<H>,
+	H: 'a + Hasher,
+> {
+	storage: &'a S,
+	overlay: &'a PrefixedMemoryDB<H>,
+}
+
+impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> TrieBackendStorage<H>
+	for TrieBackendStorageWithReadOnlyOverlay<'a, S, H>
+{
+	fn get(&self, key: &H::Out, prefix: Prefix) -> Result<Option<DBValue>> {
+		// Ok(hash_db::HashDBRef::<H, DBValue>::get(self, key, prefix))
+		// todo!()
+		Ok(HashDBRef::get(self.overlay, key, prefix).or_else(|| {
+			self.storage.get(key, prefix).unwrap_or_else(|e| {
+				warn!(target: "trie", "Failed to read from DB: {}", e);
+				None
+			})
+		}))
+	}
+}
+
+impl<'a, S: TrieBackendStorage<H>, H: Hasher> TrieBackendStorageWithReadOnlyOverlay<'a, S, H> {
+	pub fn new(storage: &'a S, overlay: &'a PrefixedMemoryDB<H>) -> Self {
+		TrieBackendStorageWithReadOnlyOverlay { storage, overlay }
 	}
 }
 

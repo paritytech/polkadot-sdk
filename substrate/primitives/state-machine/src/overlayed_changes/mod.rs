@@ -19,6 +19,7 @@
 
 mod changeset;
 mod offchain;
+mod xxx;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -108,6 +109,9 @@ pub struct OverlayedChanges<H: Hasher> {
 	///
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
+
+	// todo: better name
+	storage_transaction_cache2: xxx::BackendSnapshots<StorageTransactionCache<H>>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -120,6 +124,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
+			storage_transaction_cache2: Default::default(),
 		}
 	}
 }
@@ -134,6 +139,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
+			storage_transaction_cache2: Default::default(),
 		}
 	}
 }
@@ -246,6 +252,13 @@ struct StorageTransactionCache<H: Hasher> {
 	transaction_storage_root: H::Out,
 }
 
+impl<H: Hasher> xxx::BackendTransaction for StorageTransactionCache<H> {
+	fn consolidate(&mut self, other: Self) {
+		self.transaction_storage_root = other.transaction_storage_root;
+		self.transaction.consolidate(other.transaction);
+	}
+}
+
 impl<H: Hasher> StorageTransactionCache<H> {
 	fn into_inner(self) -> (BackendTransaction<H>, H::Out) {
 		(self.transaction, self.transaction_storage_root)
@@ -334,6 +347,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
+		//todo: not sure?
+		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
@@ -430,6 +445,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	///
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
+		self.storage_transaction_cache2.start_transaction();
 		self.top.start_transaction();
 		for (_, (changeset, _)) in self.children.iter_mut() {
 			changeset.start_transaction();
@@ -444,6 +460,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.mark_dirty();
 
+		self.storage_transaction_cache2.rollback_transaction();
 		self.top.rollback_transaction()?;
 		retain_map(&mut self.children, |_, (changeset, _)| {
 			changeset
@@ -463,6 +480,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Any changes made during that transaction are committed. Returns an error if there
 	/// is no open transaction that can be committed.
 	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
+		self.storage_transaction_cache2.commit_transaction();
 		self.top.commit_transaction()?;
 		for (_, (changeset, _)) in self.children.iter_mut() {
 			changeset
@@ -579,7 +597,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		state_version: StateVersion,
 	) -> Result<StorageChanges<H>, DefaultError>
 	where
-		H::Out: Ord + Encode + 'static,
+		H::Out: Ord + Encode + 'static + codec::Codec,
 	{
 		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
 			Some(cache) => cache.into_inner(),
@@ -648,12 +666,58 @@ impl<H: Hasher> OverlayedChanges<H> {
 		state_version: StateVersion,
 	) -> (H::Out, bool)
 	where
-		H::Out: Ord + Encode,
+		H::Out: Ord + Encode + codec::Codec,
 	{
 		if let Some(cache) = &self.storage_transaction_cache {
+			crate::debug!(target: "overlayed_changes", "storage_root (cache)");
 			return (cache.transaction_storage_root, true)
 		}
+		crate::debug!(target: "overlayed_changes", "storage_root (non-cache)");
 
+		// X:
+		// apply_ext
+		//   -> proof_size --> storage_root
+		//
+		// - rollbacl or commit
+		//
+		//
+		// X1 --> storage_root__db_transaction[1]
+		// X2 --> storage_root__db_transaction[2] : delta2 - delta1
+		// X3 --> storage_root__db_transaction[3] : delta3 - delta2
+		// ...
+		//
+		//
+		// XN -> storage_root__db_transaction from point 0 (pure backend) + delta from pure backend
+		//
+		//
+		//
+		// overlayed_changes: start_transaction
+		//   BlockBuilder_apply_extrinsic
+		//     trie-recorder: estimate_encoded_size
+		//     overlayed_changes: start_transaction
+		//     overlayed_changes: commit_transaction
+		//     trie-recorder: estimate_encoded_size
+		// overlayed_changes: commit_transaction
+		//
+		// BlockBuilder_finalize_block
+		//   overlayed_changes: storage_root
+
+		//todo:
+		// 1. [x] filter delta through snaphost
+		// 2. [ ] snapshots for children + filtering
+		// 3. [ ] later: move above to method | no filtering - just iterate the keys
+
+		let snapshot = self.top.storage_root_snaphost_delta_keys();
+		#[cfg(feature = "std")]
+		{
+			let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+			for i in delta {
+				crate::debug!(target: "overlayed_changes", "delta: {}:{:?}", hex::encode(i.0), i.1.map(|x| hex::encode(x)));
+			}
+			for i in &snapshot {
+				crate::debug!(target: "overlayed_changes", "snaphsot: {}", hex::encode(i));
+			}
+		};
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
 
 		let child_delta = self
@@ -661,10 +725,57 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.values_mut()
 			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
 
-		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
+		let root = {
+			let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
 
-		self.storage_transaction_cache =
+			self.storage_transaction_cache = //MemmoryDB overlay over StorgageHashDb
 			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
+			root
+		};
+
+		{
+			#[cfg(feature = "std")]
+			{
+				let delta = self
+					.top
+					.changes_mut()
+					.filter(|(k, v)| snapshot.contains(*k))
+					.map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+				for i in delta {
+					crate::debug!(target: "overlayed_changes", "snapshot-filtered delta: {}:{:?}", hex::encode(i.0), i.1.map(|x| hex::encode(x)));
+				}
+			}
+			let delta = self
+				.top
+				.changes_mut()
+				.filter(|(k, v)| snapshot.contains(*k))
+				.map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+
+			let child_delta = self.children.values_mut().map(|v| {
+				(&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
+			});
+			if let Some(current_snaphost) = self.storage_transaction_cache2.pop() {
+				let (root2, transaction) = backend.full_storage_root2(
+					delta,
+					child_delta,
+					state_version,
+					&Some(current_snaphost.into_inner()),
+				);
+
+				crate::debug!(target: "overlayed_changes", "XXXXXXX: {:?} {:?}", root, root2);
+				self.storage_transaction_cache2
+					.push(StorageTransactionCache { transaction, transaction_storage_root: root2 });
+			} else {
+				if let Some(storage_transaction_cache) = &self.storage_transaction_cache {
+					self.storage_transaction_cache2.push(StorageTransactionCache {
+						transaction: storage_transaction_cache.transaction.clone(),
+						transaction_storage_root: storage_transaction_cache
+							.transaction_storage_root
+							.clone(),
+					});
+				}
+			}
+		}
 
 		(root, false)
 	}

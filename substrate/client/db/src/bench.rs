@@ -464,6 +464,30 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
+	fn storage_root2<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<Hasher>, Hasher::Output)>,
+	) -> (Hasher::Output, BackendTransaction<Hasher>) {
+		self.state
+			.borrow()
+			.as_ref()
+			.map_or(Default::default(), |s| s.storage_root2(delta, state_version, xxx))
+	}
+
+	fn child_storage_root2<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<Hasher>, Hasher::Output)>,
+	) -> (Hasher::Output, bool, BackendTransaction<Hasher>) {
+		self.state.borrow().as_ref().map_or(Default::default(), |s| {
+			s.child_storage_root2(child_info, delta, state_version, xxx)
+		})
+	}
+
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
 		let child_trie =
 			args.child_info.as_ref().map(|child_info| child_info.storage_key().to_vec());

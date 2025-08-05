@@ -275,6 +275,25 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
+	fn storage_root2<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<HashingFor<B>>, B::Hash)>,
+	) -> (B::Hash, BackendTransaction<HashingFor<B>>) {
+		self.state.storage_root2(delta, state_version, xxx)
+	}
+
+	fn child_storage_root2<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: &Option<(BackendTransaction<HashingFor<B>>, B::Hash)>,
+	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
+		self.state.child_storage_root2(child_info, delta, state_version, xxx)
+	}
+
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {
 		self.state.raw_iter(args).map(|inner| RawIter { inner })
 	}
