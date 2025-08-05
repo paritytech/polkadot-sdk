@@ -91,7 +91,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 				target: "bridge",
 				error=?e,
 				?at,
-				"Failed to get generated message details at for messages {range:?}"
+				?range,
+				"Failed to get generated message details at for messages"
 			);
 		})?
 		.values()
@@ -109,7 +110,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 				target: "bridge",
 				error=?e,
 				?at,
-				"Failed to generate messages proof at for messages {range:?}"
+				?range,
+				"Failed to generate messages proof at for messages"
 			);
 		})?;
 	// submit messages proof to the target node
@@ -120,7 +122,8 @@ pub async fn relay_messages_range<P: MessageLane>(
 			tracing::error!(
 				target: "bridge",
 				error=?e,
-				"Failed to submit messages proof for messages {range:?}"
+				?range,
+				"Failed to submit messages proof for messages"
 			);
 		})?
 		.tx_tracker;
@@ -128,7 +131,7 @@ pub async fn relay_messages_range<P: MessageLane>(
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			tracing::error!("Transaction with messages {range:?} is considered lost");
+			tracing::error!(target: "bridge", ?range, "Transaction with messages is considered lost");
 			Err(())
 		},
 	}
