@@ -46,7 +46,7 @@ jobs:
         # tail -f ./output/kitchensink-fuzzer/logs/afl.log
 
     - name: Upload Fuzzer Output
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
           name: fuzzer-output
           path: fuzz.txt
