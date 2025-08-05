@@ -293,8 +293,8 @@ where
 			tracing::error!(
 				target: "bridge",
 				?error,
-				"{}. Going to restart",
-				error_pattern(),
+				error_pattern=?error_pattern(),
+				"Going to restart"
 			);
 
 			retry_backoff.reset();
@@ -306,9 +306,9 @@ where
 			tracing::error!(
 				target: "bridge",
 				?error,
-				"{}. Retrying in {}",
-				error_pattern(),
-				retry_delay.as_secs_f64(),
+				error_pattern=?error_pattern(),
+				retry_as_secs=%retry_delay.as_secs_f64(),
+				"Retrying"
 			);
 
 			go_offline_future.set(go_offline(retry_delay).fuse());
