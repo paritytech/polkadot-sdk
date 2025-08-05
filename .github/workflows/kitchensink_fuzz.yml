@@ -43,12 +43,14 @@ jobs:
       run: timeout 1m cargo ziggy fuzz || [[ $? -eq 124 ]]
 
     # Finally
+    # FIXME: Dont export as artifact as we dont share the fuzzer stats file
     - name: Upload Fuzzer Output
       uses: actions/upload-artifact@v4
       with:
           name: fuzzer-output
           path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats
 
+    # Extract fuzzer metrics from fuzzer status 
     - name: Read Fuzzer metrics for status
       id: file_content
       run: |
@@ -58,7 +60,7 @@ jobs:
               echo "${key}=${value}" | tee -a $GITHUB_OUTPUT
             done
 
-    - name: Get Coverage 
+    - name: Get Coverage Report
       run: |
         # TODO: 
         # This is a placeholder to get gcov report
@@ -71,8 +73,8 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const comment = `
-            Fuzz Time: ${process.env.FUZZ_TIME}
-            Saved Crashes: ${process.env.SAVED_CRASHES}
+            Total Fuzzing Time: ${process.env.FUZZ_TIME}
+            No. of Crashes found: ${process.env.SAVED_CRASHES}
             Edges Found: ${process.env.EDGES_FOUND}
             Total Edges: ${process.env.TOTAL_EDGES}
             `;
