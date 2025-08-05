@@ -49,6 +49,15 @@ jobs:
           name: fuzzer-output
           path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats
 
+    - name: Read Fuzzer metrics for status
+      id: file_content
+      run: |
+            keys=("fuzz_time" "saved_crashes" "edges_found" "total_edges")
+            for key in ${keys[@]}; do
+              value=$(cat substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats | grep $key | awk -F: '{print $2}')
+              echo ::set-output name=$key::$value
+            done
+
     - name: Get Coverage 
       run: |
         # TODO: 
