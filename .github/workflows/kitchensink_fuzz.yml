@@ -26,6 +26,8 @@ jobs:
     - name: Run cargo ziggy fuzz for 15 minute
       env:
         SKIP_WASM_BUILD: true
+        AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
+        AFL_SKIP_CPUFREQ: true
       working-directory: substrate/bin/node/runtime/fuzzer
       timeout-minutes: 15
       run: cargo ziggy fuzz
