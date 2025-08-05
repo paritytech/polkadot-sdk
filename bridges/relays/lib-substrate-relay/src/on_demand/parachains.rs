@@ -141,10 +141,10 @@ where
 			tracing::trace!(
 				target: "bridge",
 				error=?e,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceParachain::NAME,
 				header=?required_header,
-				"[{}] Failed to request {}",
-				self.relay_task_name,
-				P::SourceParachain::NAME,
+				"Failed to request"
 			);
 		}
 	}
@@ -165,16 +165,17 @@ where
 
 		tracing::debug!(
 			target: "bridge",
-			"[{}] Requested to prove {} head {required_parachain_header:?}. Selected to prove {} head {selected_parachain_block:?} and {} head {:?}",
-			self.relay_task_name,
-			P::SourceParachain::NAME,
-			P::SourceParachain::NAME,
-			P::SourceRelayChain::NAME,
-			if need_to_prove_relay_block {
+			relay_task_name=%self.relay_task_name,
+			source=%P::SourceParachain::NAME,
+			?required_parachain_header,
+			?selected_parachain_block,
+			source_relay_chain=%P::SourceRelayChain::NAME,
+			selected_relay_block=?if need_to_prove_relay_block {
 				Some(selected_relay_block)
 			} else {
 				None
 			},
+			"Requested to prove head. Selected to prove head"
 		);
 
 		// now let's prove relay chain block (if needed)
@@ -208,12 +209,14 @@ where
 
 			tracing::debug!(
 				target: "bridge",
-				"[{}] Selected to prove {} head {selected_parachain_block:?} and {} head {selected_relay_block:?}. Instead proved {} head {proved_parachain_block:?} and {} head {proved_relay_block:?}",
-				self.relay_task_name,
-				P::SourceParachain::NAME,
-				P::SourceRelayChain::NAME,
-				P::SourceParachain::NAME,
-				P::SourceRelayChain::NAME,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceParachain::NAME,
+				?selected_parachain_block,
+				source_relay_chain=%P::SourceRelayChain::NAME,
+				?selected_relay_block,
+				?proved_parachain_block,
+				?proved_relay_block,
+				"Selected to prove head. Instead proved head"
 			);
 		}
 
@@ -276,7 +279,8 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 						tracing::error!(
 							target: "bridge",
 							error=?e,
-							"[{relay_task_name}] Background task has exited with error"
+							%relay_task_name,
+							"Background task has exited"
 						);
 
 						return;
@@ -289,8 +293,10 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				if new_required_parachain_header_number > required_parachain_header_number {
 					tracing::trace!(
 						target: "bridge",
-						"[{relay_task_name}] More {} headers required. Going to sync up to the {new_required_parachain_header_number}",
-						P::SourceParachain::NAME,
+						%relay_task_name,
+						source=%P::SourceParachain::NAME,
+						%new_required_parachain_header_number,
+						"More headers required. Going to sync up"
 					);
 
 					required_parachain_header_number = new_required_parachain_header_number;
@@ -339,10 +345,11 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 				relay_state = select_headers_to_relay(&relay_data, relay_state);
 				tracing::trace!(
 					target: "bridge",
+					%relay_task_name,
 					?relay_state,
-					old_state=?prev_relay_state,
-					data=?relay_data,
-					"[{relay_task_name}] Selected new relay state"
+					?prev_relay_state,
+					?relay_data,
+					"Selected new relay state"
 				);
 			},
 			Err(failed_client) => {
@@ -382,10 +389,11 @@ async fn background_task<P: SubstrateParachainsPipeline>(
 
 			tracing::info!(
 				target: "bridge",
-				"[{relay_task_name}] Starting on-demand-parachains relay task\n\t\
-					Tx mortality: {target_transactions_mortality:?} (~{}m)\n\t\
-					Stall timeout: {stall_timeout:?}",
-				stall_timeout.as_secs_f64() / 60.0f64,
+				relay_task_name,
+				target_transactions_mortality,
+				stall_timeout_as_mins=%stall_timeout.as_secs_f64() / 60.0f64,
+				?stall_timeout,
+				"Starting on-demand-parachains relay task"
 			);
 
 			parachains_relay_task.set(
@@ -465,9 +473,9 @@ where
 		tracing::error!(
 			target: "bridge",
 			error=?e,
-			"[{}] Failed to read relay data from {} client",
-			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
-			P::TargetChain::NAME,
+			relay_name=%on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
+			target=%P::TargetChain::NAME,
+			"Failed to read relay data from client"
 		);
 		FailedClient::Target
 	};
@@ -475,9 +483,9 @@ where
 		tracing::error!(
 			target: "bridge",
 			error=?e,
-			"[{}] Failed to read relay data from {} client",
-			on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
-			P::SourceRelayChain::NAME,
+			relay_name=%on_demand_parachains_relay_name::<P::SourceParachain, P::TargetChain>(),
+			source_relay_chain=%P::SourceRelayChain::NAME,
+			"Failed to read relay data from client"
 		);
 		FailedClient::Source
 	};
