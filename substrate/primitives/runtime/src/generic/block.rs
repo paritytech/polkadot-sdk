@@ -92,7 +92,7 @@ pub struct LazyBlock<Header, Extrinsic> {
 impl<Header, Extrinsic> traits::LazyBlock for LazyBlock<Header, Extrinsic>
 where
 	Header: HeaderT,
-	Extrinsic: LazyExtrinsic,
+	Extrinsic: core::fmt::Debug + LazyExtrinsic,
 {
 	type Extrinsic = Extrinsic;
 	type Header = Header;

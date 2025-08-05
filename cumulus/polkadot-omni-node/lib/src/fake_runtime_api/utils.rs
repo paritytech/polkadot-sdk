@@ -34,7 +34,7 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn execute_block(_: $block) {
+				fn execute_block(_: <$block as BlockT>::LazyBlock) {
 					unimplemented!()
 				}
 

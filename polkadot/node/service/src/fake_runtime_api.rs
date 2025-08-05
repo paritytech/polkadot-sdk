@@ -64,7 +64,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn execute_block(_: Block) {
+		fn execute_block(_: <Block as BlockT>::LazyBlock) {
 			unimplemented!()
 		}
 

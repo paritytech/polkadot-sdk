@@ -222,7 +222,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as frame::traits::Block>::LazyBlock) {
 			RuntimeExecutive::execute_block(block)
 		}
 
