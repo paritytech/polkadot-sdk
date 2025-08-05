@@ -19,6 +19,8 @@
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
 use sc_client_api::BlockBackend;
+use sc_consensus::IncomingBlock;
+use sp_consensus::BlockOrigin;
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
@@ -404,6 +406,25 @@ where
 			return
 		};
 
+		let proof_to_incoming_block =
+			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
+				IncomingBlock {
+					hash: header.hash(),
+					header: Some(header),
+					body: None,
+					indexed_body: None,
+					justifications: Some(justifications),
+					origin: Some(*peer_id),
+					// We are still in warp sync, so we don't have the state. This means
+					// we also can't execute the block.
+					allow_missing_state: true,
+					skip_execution: true,
+					// Shouldn't already exist in the database.
+					import_existing: false,
+					state: None,
+				}
+			};
+
 		match warp_sync_provider.verify(&response, *set_id, authorities.clone()) {
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Bad warp proof response: {}", e);
@@ -416,9 +437,15 @@ where
 				*authorities = new_authorities;
 				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
+				/*
 				if let Err(e) = self.client.store_warp_proofs(proofs) {
 					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
 				}
+				*/
 			},
 			Ok(VerificationResult::Complete(new_set_id, _, header, proofs)) => {
 				log::debug!(
@@ -430,9 +457,15 @@ where
 				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
+				/*
 				if let Err(e) = self.client.store_warp_proofs(proofs) {
 					warn!(target: LOG_TARGET, "Failed to store warp proof headers and justifications: {}", e);
 				}
+				*/
 			},
 		}
 	}
