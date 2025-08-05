@@ -1,0 +1,12 @@
+title: "[FRAME] Custom log level for the runtime benchmarks"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Add `--runtime-log` option to omni-bencher CLI
+    - Read env var `RUNTIME_LOG` as fallback to the `--runtime-log` option
+    - Set custom log level for runtime benchmarks that can be different form CLI level
+    - Fix issue where old runtimes have a space in the pallet or instance name from breaking change in `quote` macro
+crates:
+- name: frame-benchmarking-cli
+  bump: minor
