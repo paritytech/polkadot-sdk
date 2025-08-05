@@ -30,6 +30,9 @@ jobs:
 
     - name: Install dependencies
       run: cargo install ziggy cargo-afl
+    
+    - name: Re-build afl
+      run: cargo afl config --build
 
     - name: Build fuzzer
       env:
