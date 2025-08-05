@@ -203,7 +203,7 @@ where
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				E::execute_block(block);
+				E::execute_block(block.into_lazy_block());
 			},
 		);
 

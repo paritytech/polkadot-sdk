@@ -850,7 +850,7 @@ pub trait ExecuteBlock<Block: BlockT> {
 	/// # Panic
 	///
 	/// Panics when an extrinsics panics or the resulting header doesn't match the expected header.
-	fn execute_block(block: Block);
+	fn execute_block(block: Block::LazyBlock);
 }
 
 /// Something that can compare privileges of two origins.

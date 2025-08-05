@@ -1307,7 +1307,7 @@ pub trait LazyExtrinsic: Sized {
 }
 
 /// A Substrate block that allows us to lazily decode its extrinsics.
-pub trait LazyBlock: Sized {
+pub trait LazyBlock: Debug + Encode + Sized {
 	/// Type for the decoded extrinsics.
 	type Extrinsic: LazyExtrinsic;
 	/// Header type.

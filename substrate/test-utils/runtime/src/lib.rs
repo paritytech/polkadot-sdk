@@ -514,7 +514,7 @@ impl_runtime_apis! {
 			version()
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			log::trace!(target: LOG_TARGET, "execute_block: {block:#?}");
 			Executive::execute_block(block);
 		}
