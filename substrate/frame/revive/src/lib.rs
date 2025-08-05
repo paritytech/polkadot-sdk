@@ -1079,6 +1079,34 @@ pub mod pallet {
 			GasPrice::<T>::put(new_price);
 			Ok(())
 		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(10_000)]
+		pub fn set_storage_at(
+			origin: OriginFor<T>,
+			address: H160,
+			storage_slot: U256,
+			value: U256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&address).unwrap_or_else(|| {
+				ContractInfo::new(&address, T::Nonce::default(), H256::zero())
+					.expect("Should insert dummy contract")
+			});
+
+			AccountInfo::<T>::insert_contract(&address, contract_info.clone());
+
+			contract_info
+				.write(
+					&Key::from_fixed(storage_slot.to_big_endian()),
+					Some(value.to_big_endian().to_vec()),
+					None,
+					false,
+				)
+				.map_err(|_| Error::<T>::ExecutionFailed)?;
+
+			Ok(())
+		}
 	}
 }
 

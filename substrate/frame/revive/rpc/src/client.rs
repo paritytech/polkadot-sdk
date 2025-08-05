@@ -840,4 +840,24 @@ impl Client {
 
 		Ok(Some(base_fee_per_gas))
 	}
+
+	pub async fn set_storage_at(
+		&self,
+		address: H160,
+		storage_slot: U256,
+		value: U256,
+	) -> Result<Option<U256>, ClientError> {
+		let alice = dev::alice();
+
+		let call = RuntimeCall::Revive(ReviveCall::set_storage_at {
+			address,
+			storage_slot: subxt::utils::Static(storage_slot),
+			value: subxt::utils::Static(value)
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(value))
+	}
 }
