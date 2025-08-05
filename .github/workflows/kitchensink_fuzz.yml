@@ -16,7 +16,7 @@ jobs:
         path: ~/.cargo/
         key: dot-cargo
     - run: cargo install ziggy cargo-afl
-    - run: cargo afl config --build
+    - run: cargo afl config --build --force
 
     # Build
     - uses: actions/cache@v4
