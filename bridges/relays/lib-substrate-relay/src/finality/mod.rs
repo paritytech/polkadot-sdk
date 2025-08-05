@@ -248,10 +248,10 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 ) -> anyhow::Result<()> {
 	tracing::info!(
 		target: "bridge",
+		source=%P::SourceChain::NAME,
+		target=%P::TargetChain::NAME,
 		?headers_to_relay,
-		"Starting {} -> {} finality proof relay",
-		P::SourceChain::NAME,
-		P::TargetChain::NAME,
+		"Starting source -> target finality proof relay"
 	);
 
 	finality_relay::run(
