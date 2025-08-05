@@ -128,9 +128,9 @@ where
 				tracing::info!(
 					target: "bridge",
 					error=?e,
-					"Call of {} at {} has failed. Treating as `None`",
-					P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
-					P::TargetChain::NAME,
+					method=%P::SourceChain::FREE_HEADERS_INTERVAL_METHOD,
+					target=%P::TargetChain::NAME,
+					"Call has failed. Treating as `None`"
 				);
 				None
 			}))
