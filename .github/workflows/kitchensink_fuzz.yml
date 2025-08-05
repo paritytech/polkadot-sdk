@@ -40,7 +40,7 @@ jobs:
         AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
         AFL_SKIP_CPUFREQ: true
       working-directory: substrate/bin/node/runtime/fuzzer
-      run: timeout 5m cargo ziggy fuzz || [[ $? -eq 124 ]]
+      run: timeout 1m cargo ziggy fuzz || [[ $? -eq 124 ]]
 
     # Finally
     - name: Upload Fuzzer Output
@@ -55,7 +55,7 @@ jobs:
             keys=("fuzz_time" "saved_crashes" "edges_found" "total_edges")
             for key in ${keys[@]}; do
               value=$(cat substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats | grep $key | awk -F: '{print $2}')
-              echo ::set-output name=$key::$value
+              echo "{key}={value}" >> $GITHUB_OUTPUT
             done
 
     - name: Get Coverage 
