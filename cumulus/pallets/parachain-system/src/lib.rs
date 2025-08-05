@@ -192,6 +192,7 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -531,15 +532,19 @@ pub mod pallet {
 			weight += T::DbWeight::get().reads(1);
 
 			// We need to ensure that `CoreInfo` digest exists only once.
-			if let Some(core_info) = CumulusDigestItem::core_info_exists_at_max_once(
+			match CumulusDigestItem::core_info_exists_at_max_once(
 				&frame_system::Pallet::<T>::digest(),
 			) {
-				assert_eq!(
-					core_info.claim_queue_offset.0, FIXED_CLAIM_QUEUE_OFFSET,
-					"Only {FIXED_CLAIM_QUEUE_OFFSET} is supported as valid claim queue offset"
-				);
-			} else {
-				panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					assert_eq!(
+						core_info.claim_queue_offset.0, FIXED_CLAIM_QUEUE_OFFSET,
+						"Only {FIXED_CLAIM_QUEUE_OFFSET} is supported as valid claim queue offset"
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
 			}
 
 			weight

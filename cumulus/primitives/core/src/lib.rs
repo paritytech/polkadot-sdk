@@ -215,7 +215,7 @@ pub enum ServiceQuality {
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
 /// Information about the core on the relay chain this block will be validated on.
-#[derive(Clone, Debug, Decode, Encode, PartialEq)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct CoreInfo {
 	/// The selector that determines the actual core at `claim_queue_offset`.
 	pub selector: CoreSelector,
@@ -223,6 +223,17 @@ pub struct CoreInfo {
 	pub claim_queue_offset: ClaimQueueOffset,
 	/// The number of cores assigned to the parachain at `claim_queue_offset`.
 	pub number_of_cores: Compact<u16>,
+}
+
+/// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoreInfoExistsAtMaxOnce {
+	/// Exists exactly once.
+	Once(CoreInfo),
+	/// Not found.
+	NotFound,
+	/// Found more than once.
+	MoreThanOnce,
 }
 
 /// Consensus header digests for Cumulus parachains.
@@ -264,9 +275,9 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns the found [`CoreInfo`] iff `Self::CoreInfo` exists at max once in the given
+	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
 	/// `digest`.
-	pub fn core_info_exists_at_max_once(digest: &Digest) -> Option<CoreInfo> {
+	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
 		let mut core_info = None;
 		if digest
 			.logs()
@@ -285,8 +296,10 @@ impl CumulusDigestItem {
 			.count() <= 1
 		{
 			core_info
+				.map(CoreInfoExistsAtMaxOnce::Once)
+				.unwrap_or(CoreInfoExistsAtMaxOnce::NotFound)
 		} else {
-			None
+			CoreInfoExistsAtMaxOnce::MoreThanOnce
 		}
 	}
 }
