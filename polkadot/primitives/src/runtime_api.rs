@@ -114,10 +114,11 @@
 //! separated from the stable primitives.
 
 use crate::{
+	async_backing::Constraints,
 	slashing,
 	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
 	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,

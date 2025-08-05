@@ -82,8 +82,10 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as OldPrimitiveConstraints,
-	vstaging::{async_backing::Constraints as PrimitiveConstraints, skip_ump_signals},
+	async_backing::{
+		Constraints as PrimitiveConstraints, LegacyConstraints as LegacyPrimitiveConstraints,
+	},
+	vstaging::skip_ump_signals,
 	BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId,
 	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
@@ -179,8 +181,8 @@ impl From<PrimitiveConstraints> for Constraints {
 	}
 }
 
-impl From<OldPrimitiveConstraints> for Constraints {
-	fn from(c: OldPrimitiveConstraints) -> Self {
+impl From<LegacyPrimitiveConstraints> for Constraints {
+	fn from(c: LegacyPrimitiveConstraints) -> Self {
 		Constraints {
 			min_relay_parent_number: c.min_relay_parent_number,
 			max_pov_size: c.max_pov_size as _,

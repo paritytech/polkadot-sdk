@@ -16,12 +16,12 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing,
+	async_backing::{self, Constraints},
 	runtime_api::ParachainHost,
 	slashing,
 	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
+		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,

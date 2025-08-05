@@ -42,9 +42,10 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
-	async_backing, slashing,
+	async_backing::{self, Constraints},
+	slashing,
 	vstaging::{
-		self, async_backing::Constraints, BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
+		self, BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,

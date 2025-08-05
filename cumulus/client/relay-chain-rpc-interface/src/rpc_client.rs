@@ -33,11 +33,11 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::AsyncBackingParams,
+		async_backing::{AsyncBackingParams, Constraints},
 		slashing,
 		vstaging::{
-			async_backing::{BackingState, Constraints},
-			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+			async_backing::BackingState, CandidateEvent,
+			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 			ScrapedOnChainVotes,
 		},
 		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,

@@ -20,7 +20,7 @@ use crate::{configuration, initializer, paras};
 use alloc::vec::Vec;
 
 use frame_system::pallet_prelude::*;
-use polkadot_primitives::{vstaging::async_backing::Constraints, Id as ParaId};
+use polkadot_primitives::{async_backing::Constraints, Id as ParaId};
 
 /// Implementation for `constraints` function from the runtime API
 pub fn backing_constraints<T: initializer::Config>(

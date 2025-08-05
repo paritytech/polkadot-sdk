@@ -20,7 +20,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // `v13` is currently the latest stable version of the runtime API, the number below
-// should be incremented when a new version is released and is independent of the 
+// should be incremented when a new version is released and is independent of the
 // released version of the Polkadot runtime.
 pub mod v9;
 

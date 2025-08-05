@@ -27,9 +27,9 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
-	async_backing::AsyncBackingParams,
+	async_backing::{AsyncBackingParams, Constraints},
 	slashing,
-	vstaging::async_backing::{BackingState, Constraints},
+	vstaging::async_backing::BackingState,
 	ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};

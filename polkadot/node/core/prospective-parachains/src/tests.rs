@@ -25,7 +25,7 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	async_backing::{Constraints, InboundHrmpLimitations},
+	async_backing::{InboundHrmpLimitations, LegacyConstraints},
 	vstaging::{
 		async_backing::{BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2},
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
@@ -54,8 +54,8 @@ fn dummy_constraints(
 	valid_watermarks: Vec<BlockNumber>,
 	required_parent: HeadData,
 	validation_code_hash: ValidationCodeHash,
-) -> Constraints {
-	Constraints {
+) -> LegacyConstraints {
+	LegacyConstraints {
 		min_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
 		max_code_size: 1_000_000,

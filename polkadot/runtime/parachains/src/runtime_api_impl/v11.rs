@@ -30,7 +30,8 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, InboundHrmpLimitations, LegacyConstraints,
+		OutboundHrmpChannelLimitations,
 	},
 	slashing,
 	vstaging::{
@@ -404,7 +405,7 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 // Helper function that returns the backing constraints given a parachain id.
 pub(crate) fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
-) -> Option<Constraints<BlockNumberFor<T>>> {
+) -> Option<LegacyConstraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
 	// Async backing is only expected to be enabled with a tracker capacity of 1.
 	// Subsequent configuration update gets applied on new session, which always
@@ -458,7 +459,7 @@ pub(crate) fn backing_constraints<T: initializer::Config>(
 		})
 		.collect();
 
-	Some(Constraints {
+	Some(LegacyConstraints {
 		min_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,

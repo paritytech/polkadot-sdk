@@ -21,11 +21,10 @@ use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAtt
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::{InboundHrmpLimitations, OutboundHrmpChannelLimitations},
 	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
 	CollatorSignature, CoreIndex, GroupIndex, Hash, HashT, HeadData, Header, Id, Id as ParaId,
 	MultiDisputeStatementSet, ScheduledCore, UncheckedSignedAvailabilityBitfields,
-	UpgradeRestriction, ValidationCodeHash,
+	ValidationCodeHash,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet, VecDeque},

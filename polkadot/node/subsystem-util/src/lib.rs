@@ -41,11 +41,11 @@ use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
+	async_backing::Constraints,
 	slashing,
 	vstaging::{
-		async_backing::{BackingState, Constraints},
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		ScrapedOnChainVotes,
+		async_backing::BackingState, CandidateEvent,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
 	},
 	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
