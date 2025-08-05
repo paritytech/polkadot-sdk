@@ -626,54 +626,65 @@ mod test {
 		));
 
 		// Test getting claims for para_id 1 at depth 0: cores 0, 1, 2
-		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 1u32.into());
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 1u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_0_cores.len(), 3);
 		assert_eq!(depth_0_cores, vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
 
 		// Test getting claims for para_id 1 at depth 1: cores 1, 3
-		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 1u32.into());
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 1u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_1_cores.len(), 2);
 		assert_eq!(depth_1_cores, vec![CoreIndex(1), CoreIndex(3)]);
 
 		// Test getting claims for para_id 1 at depth 2: core 0
-		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 1u32.into());
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 1u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_2_cores.len(), 1);
 		assert_eq!(depth_2_cores, vec![CoreIndex(0)]);
 
 		// Test getting claims for para_id 1 at depth 3: no claims
-		let depth_3_cores = claim_queue.iter_claims_at_depth_for_para(3, 1u32.into());
+		let depth_3_cores =
+			claim_queue.iter_claims_at_depth_for_para(3, 1u32.into()).collect::<Vec<_>>();
 		assert!(depth_3_cores.is_empty());
 
 		// Test getting claims for para_id 2 at depth 0: core 3
-		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 2u32.into());
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 2u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_0_cores.len(), 1);
 		assert_eq!(depth_0_cores, vec![CoreIndex(3)]);
 
 		// Test getting claims for para_id 2 at depth 1: cores 0, 2
-		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 2u32.into());
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 2u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_1_cores.len(), 2);
 		assert_eq!(depth_1_cores, vec![CoreIndex(0), CoreIndex(2)]);
 
 		// Test getting claims for para_id 2 at depth 2: core 1
-		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 2u32.into());
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 2u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_2_cores.len(), 1);
 		assert_eq!(depth_2_cores, vec![CoreIndex(1)]);
 
 		// Test getting claims for para_id 3 at depth 0: no claims
-		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 3u32.into());
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 3u32.into()).collect::<Vec<_>>();
 		assert!(depth_0_cores.is_empty());
 
 		// Test getting claims for para_id 3 at depth 1: no claims
-		let depth_1_cores = claim_queue.iter_claims_at_depth_for_para(1, 3u32.into());
+		let depth_1_cores =
+			claim_queue.iter_claims_at_depth_for_para(1, 3u32.into()).collect::<Vec<_>>();
 		assert!(depth_1_cores.is_empty());
 
 		// Test getting claims for para_id 3 at depth 2: cores 2, 3
-		let depth_2_cores = claim_queue.iter_claims_at_depth_for_para(2, 3u32.into());
+		let depth_2_cores =
+			claim_queue.iter_claims_at_depth_for_para(2, 3u32.into()).collect::<Vec<_>>();
 		assert_eq!(depth_2_cores.len(), 2);
 		assert_eq!(depth_2_cores, vec![CoreIndex(2), CoreIndex(3)]);
 
 		// Test getting claims for non-existent para_id at depth 0: no claims
-		let depth_0_cores = claim_queue.iter_claims_at_depth_for_para(0, 99u32.into());
+		let depth_0_cores =
+			claim_queue.iter_claims_at_depth_for_para(0, 99u32.into()).collect::<Vec<_>>();
 		assert!(depth_0_cores.is_empty());
 	}
 }
