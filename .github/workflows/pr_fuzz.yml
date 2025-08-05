@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: cargo install ziggy cargo-afl honggfuzz grcov
 
-    - name: Fuzz only Treasury pallet for Demosntration
+    - name: Fuzz only Treasury pallet for Demo
       run: |
         cd runtime_fuzzer/templates/kitchensink/
         cp Cargo.toml Cargo.toml.bak
@@ -37,9 +37,10 @@ jobs:
     - name: Run cargo ziggy fuzz for 15 minute
       run: |
         cd runtime_fuzzer/templates/kitchensink/
+        ls -la
         export SKIP_WASM_BUILD=1
         # TODO: Fuzzer output not persisted in the output
-        timeout 10m cargo ziggy fuzz
+        timeout 15m cargo ziggy fuzz
         # tail -f ./output/kitchensink-fuzzer/logs/afl.log
 
 
