@@ -71,7 +71,7 @@ pub async fn run<P: MessageLane>(
 			strategy: BasicStrategy::new(),
 		},
 	)
-		.await
+	.await
 }
 
 /// Relay range of messages.
@@ -519,7 +519,7 @@ where
 
 #[async_trait]
 impl<P> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-for MessageDeliveryStrategy<P>
+	for MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
 {
@@ -1003,8 +1003,8 @@ mod tests {
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
-			.into_iter()
-			.collect();
+		.into_iter()
+		.collect();
 		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
 			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_best_target = Some(header_id(1));
@@ -1022,8 +1022,8 @@ mod tests {
 			(header_id(1), prev_confirmed_nonce_at_source - 1),
 			(header_id(2), prev_confirmed_nonce_at_source),
 		]
-			.into_iter()
-			.collect();
+		.into_iter()
+		.collect();
 		strategy.target_nonces.as_mut().unwrap().nonces_data.confirmed_nonce =
 			prev_confirmed_nonce_at_source - 1;
 		state.best_finalized_source_header_id_at_source = Some(header_id(2));
@@ -1198,8 +1198,8 @@ mod tests {
 			24,
 			MessageDetails { dispatch_weight: Weight::from_parts(1, 0), size: 0, reward: 0 },
 		)]
-			.into_iter()
-			.collect();
+		.into_iter()
+		.collect();
 		let source_header_2 = header_id(2);
 		state.best_finalized_source_header_id_at_source = Some(source_header_2);
 		strategy.source_nonces_updated(

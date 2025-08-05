@@ -214,7 +214,7 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			target_client,
 			target_client.best_header().await?.hash(),
 		)
-			.await?;
+		.await?;
 		// we're risking with race here - we have decided to submit justification some time ago and
 		// actual authorities set (which we have read now) may have changed, so this
 		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
@@ -224,15 +224,15 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 			&verification_context,
 			proof,
 		)
-			.map(|_| verification_context)
-			.map_err(|e| {
-				SubstrateError::Custom(format!(
-					"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}",
-					C::NAME,
-					header.id(),
-					e,
-				))
-			})
+		.map(|_| verification_context)
+		.map_err(|e| {
+			SubstrateError::Custom(format!(
+				"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}",
+				C::NAME,
+				header.id(),
+				e,
+			))
+		})
 	}
 
 	fn check_max_expected_call_limits(
@@ -326,13 +326,13 @@ impl<C: ChainWithGrandpa> Engine<C> for Grandpa<C> {
 					authorities: authorities_for_verification.clone(),
 					set_id: initial_authorities_set_id,
 				}
-					.try_into()
-					.map_err(|_| {
-						Error::ReadInvalidAuthorities(C::NAME, authorities_for_verification.clone())
-					})?,
+				.try_into()
+				.map_err(|_| {
+					Error::ReadInvalidAuthorities(C::NAME, authorities_for_verification.clone())
+				})?,
 				&mut justification.clone(),
 			)
-				.is_ok();
+			.is_ok();
 
 			if is_valid_set_id {
 				break

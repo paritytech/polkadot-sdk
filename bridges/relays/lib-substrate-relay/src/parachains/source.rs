@@ -45,7 +45,7 @@ pub struct ParachainsSource<P: SubstrateParachainsPipeline, SourceRelayClnt> {
 }
 
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>>
-ParachainsSource<P, SourceRelayClnt>
+	ParachainsSource<P, SourceRelayClnt>
 {
 	/// Creates new parachains source client.
 	pub fn new(
@@ -81,7 +81,7 @@ ParachainsSource<P, SourceRelayClnt>
 
 #[async_trait]
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>> RelayClient
-for ParachainsSource<P, SourceRelayClnt>
+	for ParachainsSource<P, SourceRelayClnt>
 {
 	type Error = SubstrateError;
 
@@ -92,7 +92,7 @@ for ParachainsSource<P, SourceRelayClnt>
 
 #[async_trait]
 impl<P: SubstrateParachainsPipeline, SourceRelayClnt: Client<P::SourceRelayChain>>
-SourceClient<ParachainsPipelineAdapter<P>> for ParachainsSource<P, SourceRelayClnt>
+	SourceClient<ParachainsPipelineAdapter<P>> for ParachainsSource<P, SourceRelayClnt>
 where
 	P::SourceParachain: Chain<Hash = ParaHash>,
 {

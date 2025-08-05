@@ -402,7 +402,7 @@ where
 				prove_at_relay_block,
 				only_free_headers,
 			)
-				.await?;
+			.await?;
 			submitted_heads_tracker =
 				Some(SubmittedHeadsTracker::<P>::new(head_at_source, transaction_tracker));
 		}
@@ -486,12 +486,12 @@ where
 			false
 		},
 		(AvailableHeader::Available(head_at_source), Some(head_at_target))
-		if head_at_source.number() > head_at_target.number() =>
-			{
-				// source client knows head that is better than the head known to the target
-				// client
-				true
-			},
+			if head_at_source.number() > head_at_target.number() =>
+		{
+			// source client knows head that is better than the head known to the target
+			// client
+			true
+		},
 		(AvailableHeader::Available(_), Some(_)) => {
 			// this is normal case when relay has recently updated heads, when parachain is
 			// not progressing, or when our source client is still syncing
@@ -610,10 +610,10 @@ type SharedTransactionTracker<P> = Shared<
 	Pin<
 		Box<
 			dyn Future<
-				Output = TrackedTransactionStatus<
-					HeaderIdOf<<P as ParachainsPipeline>::TargetChain>,
-				>,
-			> + Send,
+					Output = TrackedTransactionStatus<
+						HeaderIdOf<<P as ParachainsPipeline>::TargetChain>,
+					>,
+				> + Send,
 		>,
 	>,
 >;
@@ -649,7 +649,7 @@ impl<P: ParachainsPipeline> SubmittedHeadsTracker<P> {
 		// check if our head has been updated
 		let is_head_updated = match (self.submitted_head, head_at_target) {
 			(AvailableHeader::Available(submitted_head), Some(head_at_target))
-			if head_at_target.number() >= submitted_head.number() =>
+				if head_at_target.number() >= submitted_head.number() =>
 				true,
 			(AvailableHeader::Missing, None) => true,
 			_ => false,
@@ -1034,8 +1034,8 @@ mod tests {
 				(90, Ok(AvailableHeader::Available(HeaderId(9, [9u8; 32].into())))),
 				(95, Ok(AvailableHeader::Available(HeaderId(42, [42u8; 32].into())))),
 			]
-				.into_iter()
-				.collect(),
+			.into_iter()
+			.collect(),
 			source_proof: Ok(()),
 
 			target_free_source_relay_headers_interval: Ok(Some(10)),

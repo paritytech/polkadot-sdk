@@ -65,10 +65,10 @@ pub struct OnDemandHeadersRelay<P: SubstrateFinalitySyncPipeline, SourceClnt, Ta
 }
 
 impl<
-	P: SubstrateFinalitySyncPipeline,
-	SourceClnt: Client<P::SourceChain>,
-	TargetClnt: Client<P::TargetChain>,
-> OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
 {
 	/// Create new on-demand headers relay.
 	///
@@ -83,7 +83,7 @@ impl<
 	) -> Self
 	where
 		AccountIdOf<P::TargetChain>:
-		From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
+			From<<AccountKeyPairOf<P::TargetChain> as sp_core::Pair>::Public>,
 	{
 		let required_header_number = Arc::new(Mutex::new(Zero::zero()));
 		let this = OnDemandHeadersRelay {
@@ -101,7 +101,7 @@ impl<
 				required_header_number,
 				metrics_params,
 			)
-				.await;
+			.await;
 		});
 
 		this
@@ -110,11 +110,11 @@ impl<
 
 #[async_trait]
 impl<
-	P: SubstrateFinalitySyncPipeline,
-	SourceClnt: Client<P::SourceChain>,
-	TargetClnt: Client<P::TargetChain>,
-> OnDemandRelay<P::SourceChain, P::TargetChain>
-for OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
+		P: SubstrateFinalitySyncPipeline,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> OnDemandRelay<P::SourceChain, P::TargetChain>
+	for OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
 {
 	async fn reconnect(&self) -> Result<(), SubstrateError> {
 		// using clone is fine here (to avoid mut requirement), because clone on Client clones
@@ -159,7 +159,7 @@ for OnDemandHeadersRelay<P, SourceClnt, TargetClnt>
 				&header,
 				&mut proof,
 			)
-				.await?;
+			.await?;
 
 			// now we have the header and its proof, but we want to minimize our losses, so let's
 			// check if we'll get the full refund for submitting this header
@@ -249,7 +249,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				&mut finality_source,
 				&mut finality_target,
 			)
-				.await;
+			.await;
 			continue
 		}
 
@@ -264,7 +264,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				&mut finality_source,
 				&mut finality_target,
 			)
-				.await;
+			.await;
 			continue
 		}
 
@@ -279,7 +279,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 			best_finalized_source_header_at_target.ok(),
 			required_header_number_value,
 		)
-			.await;
+		.await;
 
 		log::trace!(
 			target: "bridge",
@@ -302,7 +302,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 				),
 				&relay_task_name,
 			)
-				.await;
+			.await;
 			match relay_mandatory_header_result {
 				Ok(true) => (),
 				Ok(false) => {
@@ -335,7 +335,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 							&mut finality_source,
 							&mut finality_target,
 						)
-							.await;
+						.await;
 						continue
 					}
 				},
@@ -379,7 +379,7 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 					metrics_params.clone().unwrap_or_else(MetricsParams::disabled),
 					futures::future::pending(),
 				)
-					.fuse(),
+				.fuse(),
 			);
 
 			restart_relay = false;

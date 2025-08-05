@@ -158,7 +158,7 @@ impl<SC, TC, LM> Loop<SC, TC, LM> {
 							&mut self.source_client,
 							&mut self.target_client,
 						)
-							.await
+						.await
 					},
 				}
 			}

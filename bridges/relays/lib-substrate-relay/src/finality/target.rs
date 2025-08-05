@@ -42,7 +42,7 @@ pub struct SubstrateFinalityTarget<P: SubstrateFinalitySyncPipeline, TargetClnt>
 }
 
 impl<P: SubstrateFinalitySyncPipeline, TargetClnt: Client<P::TargetChain>>
-SubstrateFinalityTarget<P, TargetClnt>
+	SubstrateFinalityTarget<P, TargetClnt>
 {
 	/// Create new Substrate headers target.
 	pub fn new(
@@ -69,7 +69,7 @@ SubstrateFinalityTarget<P, TargetClnt>
 }
 
 impl<P: SubstrateFinalitySyncPipeline, TargetClnt: Clone> Clone
-for SubstrateFinalityTarget<P, TargetClnt>
+	for SubstrateFinalityTarget<P, TargetClnt>
 {
 	fn clone(&self) -> Self {
 		SubstrateFinalityTarget {
@@ -81,7 +81,7 @@ for SubstrateFinalityTarget<P, TargetClnt>
 
 #[async_trait]
 impl<P: SubstrateFinalitySyncPipeline, TargetClnt: Client<P::TargetChain>> RelayClient
-for SubstrateFinalityTarget<P, TargetClnt>
+	for SubstrateFinalityTarget<P, TargetClnt>
 {
 	type Error = Error;
 
@@ -92,7 +92,7 @@ for SubstrateFinalityTarget<P, TargetClnt>
 
 #[async_trait]
 impl<P: SubstrateFinalitySyncPipeline, TargetClnt: Client<P::TargetChain>>
-TargetClient<FinalitySyncPipelineAdapter<P>> for SubstrateFinalityTarget<P, TargetClnt>
+	TargetClient<FinalitySyncPipelineAdapter<P>> for SubstrateFinalityTarget<P, TargetClnt>
 where
 	AccountIdOf<P::TargetChain>: From<<AccountKeyPairOf<P::TargetChain> as Pair>::Public>,
 {
@@ -109,8 +109,8 @@ where
 			&self.client,
 			self.client.best_header().await?.hash(),
 		)
-			.await?
-			.ok_or(Error::BridgePalletIsNotInitialized)?)
+		.await?
+		.ok_or(Error::BridgePalletIsNotInitialized)?)
 	}
 
 	async fn free_source_headers_interval(

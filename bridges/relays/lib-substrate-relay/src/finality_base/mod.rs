@@ -46,7 +46,7 @@ pub type SubstrateFinalityProof<P> = <<P as SubstrateFinalityPipeline>::Finality
 
 /// Substrate finality proofs stream.
 pub type SubstrateFinalityProofsStream<P> =
-Pin<Box<dyn Stream<Item = SubstrateFinalityProof<P>> + Send>>;
+	Pin<Box<dyn Stream<Item = SubstrateFinalityProof<P>> + Send>>;
 
 /// Subscribe to new finality proofs.
 pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
@@ -84,7 +84,7 @@ pub async fn finality_proofs<P: SubstrateFinalityPipeline>(
 			}
 		},
 	)
-		.boxed())
+	.boxed())
 }
 
 /// Get the id of the best `SourceChain` header known to the `TargetChain` at the provided

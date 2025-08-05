@@ -51,29 +51,7 @@ pub mod relay_loop;
 
 /// Block number traits shared by all chains that relay is able to serve.
 pub trait BlockNumberBase:
-'static
-+ From<u32>
-+ UniqueSaturatedInto<u64>
-+ Ord
-+ Clone
-+ Copy
-+ Default
-+ Send
-+ Sync
-+ std::fmt::Debug
-+ std::fmt::Display
-+ std::hash::Hash
-+ std::ops::Add<Output = Self>
-+ std::ops::Sub<Output = Self>
-+ num_traits::CheckedSub
-+ num_traits::Saturating
-+ num_traits::Zero
-+ num_traits::One
-{
-}
-
-impl<T> BlockNumberBase for T where
-	T: 'static
+	'static
 	+ From<u32>
 	+ UniqueSaturatedInto<u64>
 	+ Ord
@@ -91,6 +69,28 @@ impl<T> BlockNumberBase for T where
 	+ num_traits::Saturating
 	+ num_traits::Zero
 	+ num_traits::One
+{
+}
+
+impl<T> BlockNumberBase for T where
+	T: 'static
+		+ From<u32>
+		+ UniqueSaturatedInto<u64>
+		+ Ord
+		+ Clone
+		+ Copy
+		+ Default
+		+ Send
+		+ Sync
+		+ std::fmt::Debug
+		+ std::fmt::Display
+		+ std::hash::Hash
+		+ std::ops::Add<Output = Self>
+		+ std::ops::Sub<Output = Self>
+		+ num_traits::CheckedSub
+		+ num_traits::Saturating
+		+ num_traits::Zero
+		+ num_traits::One
 {
 }
 
@@ -143,7 +143,7 @@ pub trait TransactionTracker: Send {
 
 /// Future associated with `TransactionTracker`, monitoring the transaction status.
 pub type TrackedTransactionFuture<'a, T> =
-BoxFuture<'a, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
+	BoxFuture<'a, TrackedTransactionStatus<<T as TransactionTracker>::HeaderId>>;
 
 /// Stringified error that may be either connection-related or not.
 #[derive(Error, Debug)]

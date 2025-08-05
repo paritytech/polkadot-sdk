@@ -68,7 +68,7 @@ impl<S: Stream<Item = StdResult<T, E>>, T, E> Unwrap<S, T, E> {
 }
 
 impl<S: Stream<Item = StdResult<T, E>> + Unpin, T: DeserializeOwned, E: Debug> Stream
-for Unwrap<S, T, E>
+	for Unwrap<S, T, E>
 {
 	type Item = T;
 

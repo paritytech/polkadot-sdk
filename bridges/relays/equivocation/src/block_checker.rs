@@ -77,7 +77,7 @@ impl<P: EquivocationDetectionPipeline> ReadContext<P> {
 			target_client,
 			self.target_block_num.saturating_sub(1.into()),
 		)
-			.await
+		.await
 		{
 			Ok(Some(context)) => Ok(Some(FindEquivocations {
 				target_block_num: self.target_block_num,
@@ -255,7 +255,7 @@ impl<P: EquivocationDetectionPipeline> BlockChecker<P> {
 				},
 			}
 		}
-			.boxed()
+		.boxed()
 	}
 }
 

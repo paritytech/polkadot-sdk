@@ -60,15 +60,15 @@ pub trait SubstrateMessageLane: 'static + Clone + Debug + Send + Sync {
 
 	/// Lane identifier type.
 	type LaneId: Clone
-	+ Copy
-	+ Debug
-	+ Codec
-	+ EncodeLike
-	+ Send
-	+ Sync
-	+ Labeled
-	+ TryFrom<Vec<u8>>
-	+ Default;
+		+ Copy
+		+ Debug
+		+ Codec
+		+ EncodeLike
+		+ Send
+		+ Sync
+		+ Labeled
+		+ TryFrom<Vec<u8>>
+		+ Default;
 
 	/// How receive messages proof call is built?
 	type ReceiveMessagesProofCallBuilder: ReceiveMessagesProofCallBuilder<Self>;
@@ -150,7 +150,7 @@ pub struct BatchProofTransaction<SC: Chain, TC: Chain, B: BatchCallBuilderConstr
 }
 
 impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>> std::fmt::Debug
-for BatchProofTransaction<SC, TC, B>
+	for BatchProofTransaction<SC, TC, B>
 {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("BatchProofTransaction")
@@ -160,7 +160,7 @@ for BatchProofTransaction<SC, TC, B>
 }
 
 impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
-BatchProofTransaction<SC, TC, B>
+	BatchProofTransaction<SC, TC, B>
 {
 	/// Creates a new instance of `BatchProofTransaction`.
 	pub async fn new(
@@ -188,7 +188,7 @@ BatchProofTransaction<SC, TC, B>
 }
 
 impl<SC: Chain, TC: Chain, B: BatchCallBuilderConstructor<CallOf<SC>>>
-BatchTransaction<HeaderIdOf<TC>> for BatchProofTransaction<SC, TC, B>
+	BatchTransaction<HeaderIdOf<TC>> for BatchProofTransaction<SC, TC, B>
 {
 	fn required_header_id(&self) -> HeaderIdOf<TC> {
 		self.proved_header
@@ -217,7 +217,7 @@ where
 				P::TargetChain::max_extrinsic_weight(),
 				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 			)
-				.await?,
+			.await?,
 	};
 	let (max_messages_in_single_batch, max_messages_weight_in_single_batch) =
 		(limits.max_messages_in_single_batch / 2, limits.max_messages_weight_in_single_batch / 2);
@@ -264,9 +264,9 @@ where
 			reconnect_delay: relay_utils::relay_loop::RECONNECT_DELAY,
 			delivery_params: messages_relay::message_lane_loop::MessageDeliveryParams {
 				max_unrewarded_relayer_entries_at_target:
-				P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
+					P::SourceChain::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX,
 				max_unconfirmed_nonces_at_target:
-				P::SourceChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
+					P::SourceChain::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX,
 				max_messages_in_single_batch,
 				max_messages_weight_in_single_batch,
 				max_messages_size_in_single_batch,
@@ -293,8 +293,8 @@ where
 		},
 		futures::future::pending(),
 	)
-		.await
-		.map_err(Into::into)
+	.await
+	.map_err(Into::into)
 }
 
 /// Deliver range of Substrate-to-Substrate messages. No checks are made to ensure that transaction
@@ -336,8 +336,8 @@ where
 		range,
 		outbound_state_proof_required,
 	)
-		.await
-		.map_err(|_| anyhow::format_err!("The command has failed"))
+	.await
+	.map_err(|_| anyhow::format_err!("The command has failed"))
 }
 
 /// Relay messages delivery confirmation of Substrate-to-Substrate messages.
@@ -374,8 +374,8 @@ where
 		),
 		at_target_block,
 	)
-		.await
-		.map_err(|_| anyhow::format_err!("The command has failed"))
+	.await
+	.map_err(|_| anyhow::format_err!("The command has failed"))
 }
 
 /// Different ways of building `receive_messages_proof` calls.
@@ -403,7 +403,7 @@ where
 	R: BridgeMessagesConfig<I, LaneId = P::LaneId>,
 	I: 'static,
 	R::BridgedChain:
-	bp_runtime::Chain<AccountId = AccountIdOf<P::SourceChain>, Hash = HashOf<P::SourceChain>>,
+		bp_runtime::Chain<AccountId = AccountIdOf<P::SourceChain>, Hash = HashOf<P::SourceChain>>,
 	CallOf<P::TargetChain>: From<BridgeMessagesCall<R, I>> + GetDispatchInfo,
 {
 	fn build_receive_messages_proof_call(
@@ -419,7 +419,7 @@ where
 			messages_count,
 			dispatch_weight,
 		}
-			.into();
+		.into();
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
@@ -495,7 +495,7 @@ pub struct DirectReceiveMessagesDeliveryProofCallBuilder<P, R, I> {
 }
 
 impl<P, R, I> ReceiveMessagesDeliveryProofCallBuilder<P>
-for DirectReceiveMessagesDeliveryProofCallBuilder<P, R, I>
+	for DirectReceiveMessagesDeliveryProofCallBuilder<P, R, I>
 where
 	P: SubstrateMessageLane,
 	R: BridgeMessagesConfig<I, LaneId = P::LaneId>,
@@ -512,7 +512,7 @@ where
 				proof: proof.1.into(),
 				relayers_state: proof.0,
 			}
-				.into();
+			.into();
 		if trace_call {
 			// this trace isn't super-accurate, because limits are for transactions and we
 			// have a call here, but it provides required information
@@ -681,7 +681,7 @@ where
 			era: TransactionEra::Immortal,
 		},
 	)
-		.map_err(Into::into)
+	.map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -1024,9 +1024,9 @@ mod tests {
 			type TargetChain = BridgedChain;
 			type LaneId = mock::TestLaneIdType;
 			type ReceiveMessagesProofCallBuilder =
-			ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder;
+				ThisChainToBridgedChainMessageLaneReceiveMessagesProofCallBuilder;
 			type ReceiveMessagesDeliveryProofCallBuilder =
-			ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder;
+				ThisChainToBridgedChainMessageLaneReceiveMessagesDeliveryProofCallBuilder;
 			type SourceBatchCallBuilder = UtilityPalletBatchCallBuilder<ThisChain>;
 			type TargetBatchCallBuilder = UtilityPalletBatchCallBuilder<BridgedChain>;
 		}

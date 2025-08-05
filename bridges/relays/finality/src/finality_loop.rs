@@ -332,7 +332,7 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 			self.sync_params.headers_to_relay,
 			free_headers_interval,
 		)
-			.await?;
+		.await?;
 		// if we see that the header schedules GRANDPA change, we need to submit it
 		if self.sync_params.headers_to_relay == HeadersToRelay::Mandatory {
 			return Ok(selector.select_mandatory())
@@ -389,8 +389,8 @@ impl<P: FinalitySyncPipeline, SC: SourceClient<P>, TC: TargetClient<P>> Finality
 					header.proof,
 					self.sync_params.headers_to_relay == HeadersToRelay::Free,
 				)
-					.await
-					.map_err(Error::Target)?;
+				.await
+				.map_err(Error::Target)?;
 				self.best_submitted_number = Some(transaction.header_number);
 				Ok(Some(transaction))
 			},
@@ -616,8 +616,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
 				(10, (TestSourceHeader(false, 10, 10), None)),
 			]
-				.into_iter()
-				.collect(),
+			.into_iter()
+			.collect(),
 		);
 		let sync_params = test_sync_params();
 
@@ -696,8 +696,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), Some(TestFinalityProof(9)))),
 				(10, (TestSourceHeader(false, 10, 10), Some(TestFinalityProof(10)))),
 			]
-				.into_iter()
-				.collect(),
+			.into_iter()
+			.collect(),
 		);
 		async_std::task::block_on(async {
 			let mut finality_loop = FinalityLoop::new(
@@ -778,8 +778,8 @@ mod tests {
 				(9, (TestSourceHeader(false, 9, 9), None)),
 				(10, (TestSourceHeader(false, 10, 10), None)),
 			]
-				.into_iter()
-				.collect(),
+			.into_iter()
+			.collect(),
 		);
 
 		let metrics_sync = SyncLoopMetrics::new(None, "source", "target").unwrap();

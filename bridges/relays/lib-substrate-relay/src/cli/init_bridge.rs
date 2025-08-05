@@ -78,7 +78,7 @@ where
 			},
 			dry_run,
 		)
-			.await;
+		.await;
 
 		Ok(())
 	}

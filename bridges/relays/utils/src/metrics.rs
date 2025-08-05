@@ -114,12 +114,12 @@ impl MetricsParams {
 					BUILD_INFO_METRIC,
 					"A metric with a constant '1' value labeled by version",
 				)
-					.const_label("version", &relay_version)
-					.const_label("commit", &relay_commit),
+				.const_label("version", &relay_version)
+				.const_label("commit", &relay_commit),
 			)?,
 			&registry,
 		)?
-			.set(1);
+		.set(1);
 
 		log::info!(
 			target: "bridge",

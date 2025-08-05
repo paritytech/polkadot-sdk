@@ -140,8 +140,8 @@ where
 			limits: Self::maybe_messages_limits(),
 			metrics_params: data.prometheus_params.into_metrics_params()?,
 		})
-			.await
-			.map_err(|e| anyhow::format_err!("{}", e))
+		.await
+		.map_err(|e| anyhow::format_err!("{}", e))
 	}
 
 	/// Relay a consequitive range of messages.
@@ -180,7 +180,7 @@ where
 			data.messages_start..=data.messages_end,
 			data.outbound_state_proof_required,
 		)
-			.await
+		.await
 	}
 
 	/// Relay a messages delivery confirmation.
@@ -216,7 +216,7 @@ where
 			at_target_block,
 			lane_id,
 		)
-			.await
+		.await
 	}
 
 	/// Add relay guards if required.

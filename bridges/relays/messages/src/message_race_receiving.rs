@@ -66,7 +66,7 @@ pub async fn run<P: MessageLane>(
 		source_state_updates,
 		ReceivingConfirmationsBasicStrategy::<P>::new(),
 	)
-		.await
+	.await
 }
 
 /// Relay messages delivery confirmation.

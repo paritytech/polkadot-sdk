@@ -85,7 +85,7 @@ pub struct SubstrateMessagesSource<P: SubstrateMessageLane, SourceClnt, TargetCl
 }
 
 impl<P: SubstrateMessageLane, SourceClnt: Client<P::SourceChain>, TargetClnt>
-SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+	SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	/// Create new Substrate headers source.
 	pub fn new(
@@ -130,7 +130,7 @@ SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 }
 
 impl<P: SubstrateMessageLane, SourceClnt: Clone, TargetClnt: Clone> Clone
-for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+	for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	fn clone(&self) -> Self {
 		Self {
@@ -145,10 +145,10 @@ for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 
 #[async_trait]
 impl<
-	P: SubstrateMessageLane,
-	SourceClnt: Client<P::SourceChain>,
-	TargetClnt: Client<P::TargetChain>,
-> RelayClient for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+		P: SubstrateMessageLane,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> RelayClient for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 {
 	type Error = SubstrateError;
 
@@ -174,15 +174,15 @@ impl<
 
 #[async_trait]
 impl<
-	P: SubstrateMessageLane,
-	SourceClnt: Client<P::SourceChain>,
-	TargetClnt: Client<P::TargetChain>,
-> SourceClient<MessageLaneAdapter<P>> for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
+		P: SubstrateMessageLane,
+		SourceClnt: Client<P::SourceChain>,
+		TargetClnt: Client<P::TargetChain>,
+	> SourceClient<MessageLaneAdapter<P>> for SubstrateMessagesSource<P, SourceClnt, TargetClnt>
 where
 	AccountIdOf<P::SourceChain>: From<<AccountKeyPairOf<P::SourceChain> as Pair>::Public>,
 {
 	type BatchTransaction =
-	BatchProofTransaction<P::SourceChain, P::TargetChain, P::SourceBatchCallBuilder>;
+		BatchProofTransaction<P::SourceChain, P::TargetChain, P::SourceBatchCallBuilder>;
 	type TransactionTracker = TransactionTracker<P::SourceChain, SourceClnt>;
 
 	async fn state(&self) -> Result<SourceClientState<MessageLaneAdapter<P>>, SubstrateError> {

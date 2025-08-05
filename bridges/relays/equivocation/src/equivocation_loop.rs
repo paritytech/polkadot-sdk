@@ -45,7 +45,7 @@ struct EquivocationDetectionLoop<
 }
 
 impl<P: EquivocationDetectionPipeline, SC: SourceClient<P>, TC: TargetClient<P>>
-EquivocationDetectionLoop<P, SC, TC>
+	EquivocationDetectionLoop<P, SC, TC>
 {
 	async fn ensure_finality_proofs_stream(&mut self) {
 		match self.finality_proofs_stream.ensure_stream(&self.source_client).await {
@@ -253,8 +253,8 @@ mod tests {
 			MetricsParams { address: None, registry: Default::default() },
 			exit_receiver.into_future().map(|(_, _)| ()),
 		)
-			.await
-			.is_ok());
+		.await
+		.is_ok());
 		assert_eq!(
 			*reported_equivocations.lock().unwrap(),
 			HashMap::from([
@@ -301,8 +301,8 @@ mod tests {
 			MetricsParams { address: None, registry: Default::default() },
 			exit_receiver.into_future().map(|(_, _)| ()),
 		)
-			.await
-			.is_ok());
+		.await
+		.is_ok());
 		assert_eq!(*reported_equivocations.lock().unwrap(), HashMap::from([(2, vec!["3-1"]),]));
 	}
 }

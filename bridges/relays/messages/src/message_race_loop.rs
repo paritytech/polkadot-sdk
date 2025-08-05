@@ -58,11 +58,11 @@ pub trait MessageRace {
 
 /// State of race source client.
 type SourceClientState<P> =
-ClientState<<P as MessageRace>::SourceHeaderId, <P as MessageRace>::TargetHeaderId>;
+	ClientState<<P as MessageRace>::SourceHeaderId, <P as MessageRace>::TargetHeaderId>;
 
 /// State of race target client.
 type TargetClientState<P> =
-ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
+	ClientState<<P as MessageRace>::TargetHeaderId, <P as MessageRace>::SourceHeaderId>;
 
 /// Inclusive nonces range.
 pub trait NoncesRange: Debug + Sized {
@@ -263,7 +263,7 @@ pub(crate) struct RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx> 
 }
 
 impl<SourceHeaderId, TargetHeaderId, Proof, BatchTx> Default
-for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
+	for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
 {
 	fn default() -> Self {
 		RaceStateImpl {
@@ -279,7 +279,7 @@ for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
 }
 
 impl<SourceHeaderId, TargetHeaderId, Proof, BatchTx> RaceState<SourceHeaderId, TargetHeaderId>
-for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
+	for RaceStateImpl<SourceHeaderId, TargetHeaderId, Proof, BatchTx>
 where
 	SourceHeaderId: Clone + Send + Sync,
 	TargetHeaderId: Clone + Send + Sync,

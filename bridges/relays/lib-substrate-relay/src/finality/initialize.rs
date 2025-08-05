@@ -46,11 +46,11 @@ pub async fn initialize<
 	dry_run: bool,
 ) where
 	F: FnOnce(
-		TargetChain::Nonce,
-		E::InitializationData,
-	) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
-	+ Send
-	+ 'static,
+			TargetChain::Nonce,
+			E::InitializationData,
+		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
+		+ Send
+		+ 'static,
 	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let result = do_initialize::<E, _, _, _>(
@@ -60,7 +60,7 @@ pub async fn initialize<
 		prepare_initialize_transaction,
 		dry_run,
 	)
-		.await;
+	.await;
 
 	match result {
 		Ok(Some(tx_status)) => match tx_status {
@@ -112,11 +112,11 @@ async fn do_initialize<
 >
 where
 	F: FnOnce(
-		TargetChain::Nonce,
-		E::InitializationData,
-	) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
-	+ Send
-	+ 'static,
+			TargetChain::Nonce,
+			E::InitializationData,
+		) -> Result<UnsignedTransaction<TargetChain>, SubstrateError>
+		+ Send
+		+ 'static,
 	TargetChain::AccountId: From<<TargetChain::AccountKeyPair as Pair>::Public>,
 {
 	let is_initialized = E::is_initialized(&target_client)

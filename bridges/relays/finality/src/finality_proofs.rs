@@ -181,8 +181,8 @@ mod tests {
 			TestFinalityProof(17),
 			TestFinalityProof(19),
 		]
-			.into_iter()
-			.collect();
+		.into_iter()
+		.collect();
 
 		// when there's proof for justified header in the vec
 		let mut finality_proofs_buf = FinalityProofsBuf::<TestFinalitySyncPipeline> {

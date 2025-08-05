@@ -28,7 +28,7 @@ use std::{collections::VecDeque, fmt::Debug, marker::PhantomData, ops::RangeIncl
 
 /// Queue of nonces known to the source node.
 pub type SourceRangesQueue<SourceHeaderHash, SourceHeaderNumber, SourceNoncesRange> =
-VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)>;
+	VecDeque<(HeaderId<SourceHeaderHash, SourceHeaderNumber>, SourceNoncesRange)>;
 
 /// Nonces delivery strategy.
 #[derive(Debug)]
@@ -53,21 +53,21 @@ pub struct BasicStrategy<
 }
 
 impl<
-	SourceHeaderNumber,
-	SourceHeaderHash,
-	TargetHeaderNumber,
-	TargetHeaderHash,
-	SourceNoncesRange,
-	Proof,
->
-BasicStrategy<
-	SourceHeaderNumber,
-	SourceHeaderHash,
-	TargetHeaderNumber,
-	TargetHeaderHash,
-	SourceNoncesRange,
-	Proof,
->
+		SourceHeaderNumber,
+		SourceHeaderHash,
+		TargetHeaderNumber,
+		TargetHeaderHash,
+		SourceNoncesRange,
+		Proof,
+	>
+	BasicStrategy<
+		SourceHeaderNumber,
+		SourceHeaderHash,
+		TargetHeaderNumber,
+		TargetHeaderHash,
+		SourceNoncesRange,
+		Proof,
+	>
 where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
@@ -171,26 +171,26 @@ where
 
 #[async_trait]
 impl<
-	SourceHeaderNumber,
-	SourceHeaderHash,
-	TargetHeaderNumber,
-	TargetHeaderHash,
-	SourceNoncesRange,
-	Proof,
->
-RaceStrategy<
-	HeaderId<SourceHeaderHash, SourceHeaderNumber>,
-	HeaderId<TargetHeaderHash, TargetHeaderNumber>,
-	Proof,
->
-for BasicStrategy<
-	SourceHeaderNumber,
-	SourceHeaderHash,
-	TargetHeaderNumber,
-	TargetHeaderHash,
-	SourceNoncesRange,
-	Proof,
->
+		SourceHeaderNumber,
+		SourceHeaderHash,
+		TargetHeaderNumber,
+		TargetHeaderHash,
+		SourceNoncesRange,
+		Proof,
+	>
+	RaceStrategy<
+		HeaderId<SourceHeaderHash, SourceHeaderNumber>,
+		HeaderId<TargetHeaderHash, TargetHeaderNumber>,
+		Proof,
+	>
+	for BasicStrategy<
+		SourceHeaderNumber,
+		SourceHeaderHash,
+		TargetHeaderNumber,
+		TargetHeaderHash,
+		SourceNoncesRange,
+		Proof,
+	>
 where
 	SourceHeaderHash: Clone + Debug + Send + Sync,
 	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,

@@ -90,7 +90,7 @@ pub struct MessageDetails<SourceChainBalance> {
 
 /// Messages details map.
 pub type MessageDetailsMap<SourceChainBalance> =
-BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
+	BTreeMap<MessageNonce, MessageDetails<SourceChainBalance>>;
 
 /// Message delivery race proof parameters.
 #[derive(Debug, PartialEq, Eq)]
@@ -341,7 +341,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		metrics_msg.clone(),
 		params.delivery_params,
 	)
-		.fuse();
+	.fuse();
 
 	let (
 		(receiving_source_state_sender, receiving_source_state_receiver),
@@ -354,7 +354,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		receiving_target_state_receiver,
 		metrics_msg.clone(),
 	)
-		.fuse();
+	.fuse();
 
 	let exit_signal = exit_signal.fuse();
 
@@ -979,7 +979,7 @@ pub(crate) mod tests {
 				MetricsParams::disabled(),
 				exit_signal,
 			)
-				.await;
+			.await;
 			let result = data.lock().clone();
 			result
 		})
@@ -1285,7 +1285,7 @@ pub(crate) mod tests {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
 			&HashedLaneId::try_new(1, 2).unwrap()
 		)))
-			.is_ok());
+		.is_ok());
 
 		// with LegacyLaneId
 		#[derive(Clone)]
@@ -1309,6 +1309,6 @@ pub(crate) mod tests {
 		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
 			&LegacyLaneId([0, 0, 0, 1])
 		)))
-			.is_ok());
+		.is_ok());
 	}
 }
