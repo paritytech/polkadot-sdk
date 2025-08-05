@@ -35,6 +35,7 @@ jobs:
         AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
         AFL_SKIP_CPUFREQ: true
       working-directory: substrate/bin/node/runtime/fuzzer
+      run: cargo ziggy build --no-honggfuzz
       run: timeout 15m cargo ziggy fuzz
 
     - name: Upload Fuzzer Output
