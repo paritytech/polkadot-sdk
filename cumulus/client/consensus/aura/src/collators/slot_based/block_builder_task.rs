@@ -599,4 +599,3 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		number_of_cores: cores_at_offset.len() as u16,
 	}))
 }
-

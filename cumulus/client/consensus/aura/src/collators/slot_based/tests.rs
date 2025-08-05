@@ -164,12 +164,10 @@ async fn determine_core_with_core_info() {
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
 	// Add relay parent storage root to make it a non-new relay parent
-	digest.push(
-		cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-			relay_parent.state_root().clone(),
-			relay_parent.number().clone()
-		)
-	);
+	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+		relay_parent.state_root().clone(),
+		relay_parent.number().clone(),
+	));
 
 	let para_parent = TestHeader {
 		parent_hash: best_hash.into(),
@@ -247,12 +245,10 @@ async fn determine_core_selector_overflow() {
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
 	// Add relay parent storage root to make it a non-new relay parent
-	digest.push(
-		cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-			relay_parent.state_root().clone(),
-			relay_parent.number().clone()
-		)
-	);
+	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+		relay_parent.state_root().clone(),
+		relay_parent.number().clone(),
+	));
 
 	let para_parent = TestHeader {
 		parent_hash: best_hash.into(),
@@ -290,13 +286,11 @@ async fn determine_core_uses_last_claimed_core_selector() {
 	// Create a para parent header without core info in digest (non-genesis)
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(
-		cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-			relay_parent.state_root().clone(),
-			relay_parent.number().clone()
-		)
-	);
-	
+	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+		relay_parent.state_root().clone(),
+		relay_parent.number().clone(),
+	));
+
 	let para_parent = TestHeader {
 		parent_hash: best_hash.into(),
 		number: 1,
@@ -307,9 +301,9 @@ async fn determine_core_uses_last_claimed_core_selector() {
 
 	// Setup claim queue data with last_claimed_core_selector set to 1
 	cache.set_test_data_with_last_selector(
-		relay_parent.clone(), 
+		relay_parent.clone(),
 		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		Some(CoreSelector(1))
+		Some(CoreSelector(1)),
 	);
 
 	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
@@ -345,13 +339,11 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 	// Create a para parent header without core info in digest (non-genesis)
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(
-		cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-			relay_parent.state_root().clone(),
-			relay_parent.number().clone()
-		)
-	);
-	
+	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+		relay_parent.state_root().clone(),
+		relay_parent.number().clone(),
+	));
+
 	let para_parent = TestHeader {
 		parent_hash: best_hash.into(),
 		number: 1,
@@ -363,9 +355,9 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 	// Setup claim queue data with last_claimed_core_selector set to 2 (last index)
 	// Next selector should wrap around to out of bounds and return None
 	cache.set_test_data_with_last_selector(
-		relay_parent.clone(), 
+		relay_parent.clone(),
 		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		Some(CoreSelector(2))
+		Some(CoreSelector(2)),
 	);
 
 	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
@@ -398,13 +390,11 @@ async fn determine_core_no_last_claimed_core_selector() {
 	// Create a para parent header without core info in digest (non-genesis)
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
-	digest.push(
-		cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-			relay_parent.state_root().clone(),
-			relay_parent.number().clone()
-		)
-	);
-	
+	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
+		relay_parent.state_root().clone(),
+		relay_parent.number().clone(),
+	));
+
 	let para_parent = TestHeader {
 		parent_hash: best_hash.into(),
 		number: 1,
@@ -415,9 +405,9 @@ async fn determine_core_no_last_claimed_core_selector() {
 
 	// Setup claim queue data with no last_claimed_core_selector (None)
 	cache.set_test_data_with_last_selector(
-		relay_parent.clone(), 
+		relay_parent.clone(),
 		vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)],
-		None
+		None,
 	);
 
 	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
@@ -648,10 +638,10 @@ impl RelayChainDataCache<TestRelayClient> {
 	}
 
 	fn set_test_data_with_last_selector(
-		&mut self, 
-		relay_parent_header: RelayHeader, 
+		&mut self,
+		relay_parent_header: RelayHeader,
 		cores: Vec<CoreIndex>,
-		last_claimed_core_selector: Option<CoreSelector>
+		last_claimed_core_selector: Option<CoreSelector>,
 	) {
 		let relay_parent_hash = relay_parent_header.hash();
 
