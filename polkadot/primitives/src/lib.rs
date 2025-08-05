@@ -19,8 +19,10 @@
 #![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-// `v11` is currently the latest stable version of the runtime API.
-pub mod v8;
+// `v13` is currently the latest stable version of the runtime API, the number below
+// should be incremented when a new version is released and is independent of the 
+// released version of the Polkadot runtime.
+pub mod v9;
 
 // The 'staging' version is special - it contains primitives which are
 // still in development. Once they are considered stable, they will be
@@ -35,7 +37,7 @@ extern crate alloc;
 
 // Current primitives not requiring versioning are exported here.
 // Primitives requiring versioning must not be exported and must be referred by an exact version.
-pub use v8::{
+pub use v9::{
 	async_backing, byzantine_threshold, check_candidate_backing, collator_signature_payload,
 	effective_minimum_backing_votes, executor_params, metric_definitions, node_features, slashing,
 	supermajority_threshold, well_known_keys, AbridgedHostConfiguration, AbridgedHrmpChannel,
@@ -67,4 +69,4 @@ pub use v8::{
 };
 
 #[cfg(feature = "std")]
-pub use v8::{AssignmentPair, CollatorPair, ValidatorPair};
+pub use v9::{AssignmentPair, CollatorPair, ValidatorPair};

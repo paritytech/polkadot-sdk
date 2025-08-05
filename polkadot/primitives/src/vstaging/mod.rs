@@ -240,7 +240,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 
 		let Some(signature) = self.signature() else { return Ok(()) };
 
-		super::v8::check_collator_signature(
+		super::v9::check_collator_signature(
 			&self.relay_parent,
 			&self.para_id,
 			&self.persisted_validation_data_hash,
@@ -360,25 +360,25 @@ pub enum CandidateEvent<H = Hash> {
 	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
 }
 
-impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v8::CandidateEvent<H> {
+impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v9::CandidateEvent<H> {
 	fn from(value: CandidateEvent<H>) -> Self {
 		match value {
 			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
-				super::v8::CandidateEvent::CandidateBacked(
+				super::v9::CandidateEvent::CandidateBacked(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
-				super::v8::CandidateEvent::CandidateIncluded(
+				super::v9::CandidateEvent::CandidateIncluded(
 					receipt.into(),
 					head_data,
 					core_index,
 					group_index,
 				),
 			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v8::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
+				super::v9::CandidateEvent::CandidateTimedOut(receipt.into(), head_data, core_index),
 		}
 	}
 }
@@ -398,8 +398,8 @@ impl<H> CandidateReceiptV2<H> {
 	}
 }
 
-impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
-	fn from(value: super::v8::CandidateReceipt<H>) -> Self {
+impl<H: Copy> From<super::v9::CandidateReceipt<H>> for CandidateReceiptV2<H> {
+	fn from(value: super::v9::CandidateReceipt<H>) -> Self {
 		CandidateReceiptV2 {
 			descriptor: value.descriptor.into(),
 			commitments_hash: value.commitments_hash,
@@ -407,8 +407,8 @@ impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
 	}
 }
 
-impl<H: Copy> From<super::v8::CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
-	fn from(value: super::v8::CommittedCandidateReceipt<H>) -> Self {
+impl<H: Copy> From<super::v9::CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+	fn from(value: super::v9::CommittedCandidateReceipt<H>) -> Self {
 		CommittedCandidateReceiptV2 {
 			descriptor: value.descriptor.into(),
 			commitments: value.commitments,
@@ -460,13 +460,13 @@ impl Ord for CommittedCandidateReceiptV2 {
 	}
 }
 
-impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v8::CommittedCandidateReceipt<H> {
+impl<H: Copy> From<CommittedCandidateReceiptV2<H>> for super::v9::CommittedCandidateReceipt<H> {
 	fn from(value: CommittedCandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments: value.commitments }
 	}
 }
 
-impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
+impl<H: Copy> From<CandidateReceiptV2<H>> for super::v9::CandidateReceipt<H> {
 	fn from(value: CandidateReceiptV2<H>) -> Self {
 		Self { descriptor: value.descriptor.into(), commitments_hash: value.commitments_hash }
 	}
@@ -941,7 +941,7 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	pub disputes: MultiDisputeStatementSet,
 }
 
-impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v8::ScrapedOnChainVotes<H> {
+impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v9::ScrapedOnChainVotes<H> {
 	fn from(value: ScrapedOnChainVotes<H>) -> Self {
 		Self {
 			session: value.session,
@@ -1033,7 +1033,7 @@ impl<N> CoreState<N> {
 	}
 }
 
-impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
+impl<H: Copy> From<OccupiedCore<H>> for super::v9::OccupiedCore<H> {
 	fn from(value: OccupiedCore<H>) -> Self {
 		Self {
 			next_up_on_available: value.next_up_on_available,
@@ -1048,13 +1048,13 @@ impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
 	}
 }
 
-impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
+impl<H: Copy> From<CoreState<H>> for super::v9::CoreState<H> {
 	fn from(value: CoreState<H>) -> Self {
 		match value {
-			CoreState::Free => super::v8::CoreState::Free,
-			CoreState::Scheduled(core) => super::v8::CoreState::Scheduled(core),
+			CoreState::Free => super::v9::CoreState::Free,
+			CoreState::Scheduled(core) => super::v9::CoreState::Scheduled(core),
 			CoreState::Occupied(occupied_core) =>
-				super::v8::CoreState::Occupied(occupied_core.into()),
+				super::v9::CoreState::Occupied(occupied_core.into()),
 		}
 	}
 }
@@ -1086,7 +1086,7 @@ pub fn transpose_claim_queue(
 mod candidate_receipt_tests {
 	use super::*;
 	use crate::{
-		v8::{
+		v9::{
 			tests::dummy_committed_candidate_receipt as dummy_old_committed_candidate_receipt,
 			CommittedCandidateReceipt, Hash, HeadData, ValidationCode,
 		},
@@ -1575,17 +1575,17 @@ pub enum DisputeOffenceKind {
 /// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
 /// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not
 /// supported in the past
-impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
-	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
+impl From<super::v9::slashing::SlashingOffenceKind> for DisputeOffenceKind {
+	fn from(value: super::v9::slashing::SlashingOffenceKind) -> Self {
 		match value {
-			super::v8::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
-			super::v8::slashing::SlashingOffenceKind::AgainstValid => Self::AgainstValid,
+			super::v9::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
+			super::v9::slashing::SlashingOffenceKind::AgainstValid => Self::AgainstValid,
 		}
 	}
 }
 
 /// impl for a tryFrom conversion from DisputeOffenceKind to SlashingOffenceKind
-impl TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
+impl TryFrom<DisputeOffenceKind> for super::v9::slashing::SlashingOffenceKind {
 	type Error = ();
 
 	fn try_from(value: DisputeOffenceKind) -> Result<Self, Self::Error> {
@@ -1608,15 +1608,15 @@ pub struct PendingSlashes {
 	pub kind: DisputeOffenceKind,
 }
 
-impl From<super::v8::slashing::PendingSlashes> for PendingSlashes {
-	fn from(old: super::v8::slashing::PendingSlashes) -> Self {
+impl From<super::v9::slashing::PendingSlashes> for PendingSlashes {
+	fn from(old: super::v9::slashing::PendingSlashes) -> Self {
 		let keys = old.keys;
 		let kind = old.kind.into();
 		Self { keys, kind }
 	}
 }
 
-impl TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
+impl TryFrom<PendingSlashes> for super::v9::slashing::PendingSlashes {
 	type Error = ();
 
 	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
@@ -1638,8 +1638,8 @@ pub struct DisputeProof {
 	pub validator_id: ValidatorId,
 }
 
-impl From<super::v8::slashing::DisputeProof> for DisputeProof {
-	fn from(old: super::v8::slashing::DisputeProof) -> Self {
+impl From<super::v9::slashing::DisputeProof> for DisputeProof {
+	fn from(old: super::v9::slashing::DisputeProof) -> Self {
 		let time_slot = old.time_slot;
 		let kind = old.kind.into(); // infallible conversion
 		let validator_index = old.validator_index;
@@ -1648,7 +1648,7 @@ impl From<super::v8::slashing::DisputeProof> for DisputeProof {
 	}
 }
 
-impl TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
+impl TryFrom<DisputeProof> for super::v9::slashing::DisputeProof {
 	type Error = ();
 
 	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
