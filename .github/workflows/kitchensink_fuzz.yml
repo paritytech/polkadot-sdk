@@ -29,13 +29,18 @@ jobs:
         path: substrate/bin/node/runtime/fuzzer/target
         key: fuzzer-target-dir
           
-    - name: Run cargo ziggy fuzz for 5 minute
+    - name: Build fuzzer
+      env:
+        SKIP_WASM_BUILD: true
+      working-directory: substrate/bin/node/runtime/fuzzer
+      run: cargo ziggy build --no-honggfuzz
+
+    - name: Fuzz for 5 minutes
       env:
         SKIP_WASM_BUILD: true
         AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
         AFL_SKIP_CPUFREQ: true
       working-directory: substrate/bin/node/runtime/fuzzer
-      run: cargo ziggy build --no-honggfuzz
       run: timeout 5m cargo ziggy fuzz
 
     - name: Upload Fuzzer Output
