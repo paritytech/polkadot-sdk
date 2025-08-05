@@ -42,11 +42,14 @@ jobs:
         ls -la
         export SKIP_WASM_BUILD=1
         # TODO: Fuzzer output not persisted in the output
-        cargo ziggy fuzz
-        with:
-          duration: 15m
+        timeout 15m cargo ziggy fuzz > fuzz.txt
         # tail -f ./output/kitchensink-fuzzer/logs/afl.log
 
+    - name: Upload Fuzzer Output
+      uses: actions/upload-artifact@v2
+      with:
+          name: fuzzer-output
+          path: fuzz.txt
 
     - name: Send message to Element chat
       run: |
