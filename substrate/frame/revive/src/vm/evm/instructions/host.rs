@@ -115,7 +115,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Gets the hash of one of the 256 most recent complete blocks.
 pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	println!(">>>>>>>> blockhash");
-	// gas!(context.interpreter, RuntimeCosts::BlockHash);
+	gas!(context.interpreter, RuntimeCosts::BlockHash);
 	popn_top!([], number, context.interpreter);
 
 	let requested_number = {
@@ -161,16 +161,13 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Loads a word from storage.
 pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
+	gas!(context.interpreter, RuntimeCosts::GetStorage);
 
 	let Some(value) = context.host.sload(context.interpreter.input.target_address(), *index) else {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
 
-	gas_legacy!(
-		context.interpreter,
-		gas::sload_cost(context.interpreter.runtime_flag.spec_id(), value.is_cold)
-	);
 	*index = value.data;
 }
 
