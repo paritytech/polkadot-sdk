@@ -1,0 +1,61 @@
+[package]
+name = "kitchensink-fuzzer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ziggy = {version = "1.3.1", default-features = false}
+
+kitchensink-runtime = { workspace = true }
+
+codec = { version = "3.7.4", features = ["derive"], default-features = false, package = "parity-scale-codec" }
+
+node-primitives = { workspace = true }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-state-machine = { workspace = true }
+sp-consensus-babe = { workspace = true }
+sp-consensus-beefy = { workspace = true }
+sp-authority-discovery = { workspace = true }
+
+pallet-timestamp = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-grandpa = { workspace = true }
+pallet-staking = { workspace = true }
+pallet-im-online = { workspace = true }
+pallet-referenda = { workspace = true }
+pallet-contracts = { workspace = true }
+pallet-society = { workspace = true }
+pallet-lottery = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-multisig = { workspace = true }
+pallet-remark = { workspace = true }
+pallet-transaction-storage = { workspace = true }
+pallet-sudo = { workspace = true }
+pallet-treasury = { workspace = true }
+pallet-collective = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-broker = { workspace = true }
+pallet-revive = { workspace = true }
+pallet-meta-tx = { workspace = true }
+pallet-asset-rewards = { workspace = true }
+
+[features]
+default = ["std", "try-runtime"]
+fuzzing = []
+std = [
+    "kitchensink-runtime/std",
+    "codec/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "pallet-timestamp/std",
+]
+try-runtime = [
+    "kitchensink-runtime/try-runtime",
+    "frame-support/try-runtime",
+    "pallet-timestamp/try-runtime",
+]

@@ -1,0 +1,60 @@
+name: Kitchensink Fuzz
+
+on:
+    push:
+    pull_request:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Setup
+    - uses: actions/checkout@v4
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cargo/
+        key: dot-cargo
+    - run: cargo install ziggy cargo-afl
+    - run: cargo afl config --build --force
+
+    # Build
+    - uses: actions/cache@v4
+      with:
+        path: substrate/bin/node/runtime/fuzzer/target
+        key: target-${{ hashFiles('**/Cargo.lock') }}
+    - name: Build fuzzer
+      env:
+        SKIP_WASM_BUILD: true
+      working-directory: substrate/bin/node/runtime/fuzzer
+      run: cargo ziggy build --no-honggfuzz
+
+    # Fuzz
+    - uses: actions/cache@v4
+      with:
+        path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/corpus
+        key: kitchensink-corpus
+    - name: Fuzz for 5 minutes
+      env:
+        SKIP_WASM_BUILD: true
+        AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES: true
+        AFL_SKIP_CPUFREQ: true
+      working-directory: substrate/bin/node/runtime/fuzzer
+      run: timeout 5m cargo ziggy fuzz || [[ $? -eq 124 ]]
+
+    # Finally
+    - name: Upload Fuzzer Output
+      uses: actions/upload-artifact@v4
+      with:
+          name: fuzzer-output
+          path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflfuzzer/fuzzer_stats
+
+    - name: Get Coverage 
+      run: |
+        # TODO: 
+        # This is a placeholder to get gcov report
+
+    - name: Post the coverage report in PR
+      run: |
+        # TODO: 
+        # This is a placeholder to post the coverage report in PR

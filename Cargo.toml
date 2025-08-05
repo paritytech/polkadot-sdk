@@ -256,6 +256,7 @@ members = [
 	"substrate/bin/node/primitives",
 	"substrate/bin/node/rpc",
 	"substrate/bin/node/runtime",
+	"substrate/bin/node/runtime/fuzzer",
 	"substrate/bin/node/testing",
 	"substrate/bin/utils/chain-spec-builder",
 	"substrate/bin/utils/subkey",

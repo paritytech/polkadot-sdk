@@ -2,7 +2,7 @@ name: Checkout Fuzzer Repo
 
 on:
     # push:
-    pull_request:
+    # pull_request:
 
 jobs:
   checkout:
@@ -74,4 +74,3 @@ jobs:
 
 
 
-   
