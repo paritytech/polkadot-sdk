@@ -1,0 +1,60 @@
+title: Forward `CoreInfo` via an digest to the runtime
+doc:
+- audience: Runtime Dev
+  description: |-
+    Before this pull request we had this rather inflexible `SelectCore` type in `parachain-system`. It was just taking the last byte of the block number as the core selector. This resulted in issues like #8893. While it was not totally static, it was very complicated to forward the needed information to the runtime. In the case of running with block bundling (500ms blocks), multiple blocks are actually validated on the same core. Finding out the selector and offset without having access to the claim queue is rather hard. The claim queue could be forwarded to the runtime, but it would waste POV size as we would need to include the entire claim queue of all parachains.
+
+    This pull request solves the problem by moving the entire core selection to the collator side. From there the information is passed via a `PreRuntime` digest to the runtime. The `CoreInfo` contains the `selector`, `claim_queue_offset` and `number_of_cores`. Doing this on the collator side is fine as long as we don't have slot durations that are lower than the relay chain slot duration. As we have agreed to always have equal or bigger slot durations on parachains, there should be no problem with this change.
+
+    Downstream users need to remove the `SelectCore` type from the `parachain_system::Config`:
+    ```diff
+    - type SelectCore = ...;
+    +
+    ```
+
+    Closes: https://github.com/paritytech/polkadot-sdk/issues/8893 https://github.com/paritytech/polkadot-sdk/issues/8906
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: major
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
