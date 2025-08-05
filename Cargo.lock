@@ -8835,6 +8835,45 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33070833c9ee02266356de0c43f723152bd38bd96ddf52c82b3af10c9138b28"
 
 [[package]]
+name = "kitchensink-fuzzer"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "kitchensink-runtime",
+ "node-primitives",
+ "pallet-asset-rewards",
+ "pallet-balances",
+ "pallet-broker",
+ "pallet-collective",
+ "pallet-contracts",
+ "pallet-grandpa",
+ "pallet-im-online",
+ "pallet-lottery",
+ "pallet-meta-tx",
+ "pallet-multisig",
+ "pallet-proxy",
+ "pallet-referenda",
+ "pallet-remark",
+ "pallet-revive",
+ "pallet-society",
+ "pallet-staking",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-storage",
+ "pallet-treasury",
+ "pallet-utility",
+ "parity-scale-codec",
+ "sp-authority-discovery",
+ "sp-consensus-babe",
+ "sp-consensus-beefy",
+ "sp-core 28.0.0",
+ "sp-runtime",
+ "sp-state-machine",
+ "ziggy",
+]
+
+[[package]]
 name = "kitchensink-runtime"
 version = "3.0.0-dev"
 dependencies = [
@@ -27701,6 +27740,12 @@ dependencies = [
  "quote 1.0.40",
  "syn 2.0.98",
 ]
+
+[[package]]
+name = "ziggy"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1ae470de366d6fd62f31423eb880c06c73b04bceaeedf87864891e9d32d51d9"
 
 [[package]]
 name = "zombienet-backchannel"

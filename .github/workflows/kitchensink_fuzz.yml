@@ -1,0 +1,43 @@
+name: Checkout Fuzzer Repo
+
+on:
+    push:
+    pull_request:
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+
+    - name: Get PR Details 
+      run: |
+          # TODO: (hardcoded for demo, pedning to push PR)
+          # This is a placeholder to find affected pallet in the PR and post the coverage report
+
+    #- name: Install Rust target
+    #  run: rustup target add wasm32-unknown-unknown
+
+    - name: Install dependencies
+      run: cargo install ziggy cargo-afl grcov
+
+    - name: Run cargo ziggy fuzz for 15 minute
+      env:
+        SKIP_WASM_BUILD: true
+      working-directory: substrate/bin/node/runtime/fuzzer
+      timeout-minutes: 15
+      run: cargo ziggy fuzz
+
+    - name: Upload Fuzzer Output
+      uses: actions/upload-artifact@v4
+      with:
+          name: fuzzer-output
+          path: substrate/bin/node/runtime/fuzzer/output/kitchensink-fuzzer/afl/mainaflconfig/
+
+    - name: Get Coverage 
+      run: |
+        # TODO: 
+        # This is a placeholder to get gcov report
+
+    - name: Post the coverage report in PR
+      run: |
+        # TODO: 
+        # This is a placeholder to post the coverage report in PR
