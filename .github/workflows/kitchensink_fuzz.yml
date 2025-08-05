@@ -17,18 +17,20 @@ jobs:
           # TODO: (hardcoded for demo, pedning to push PR)
           # This is a placeholder to find affected pallet in the PR and post the coverage report
 
+    - name: Fuzzer target and cargo cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          substrate/bin/node/runtime/fuzzer/target
+          ~/.cargo/
+        key: fuzzer-target-dir
+
     #- name: Install Rust target
     #  run: rustup target add wasm32-unknown-unknown
 
     - name: Install dependencies
       run: cargo install ziggy cargo-afl
 
-    - name: Fuzzer target dir cache
-      uses: actions/cache@v4
-      with:
-        path: substrate/bin/node/runtime/fuzzer/target
-        key: fuzzer-target-dir
-          
     - name: Build fuzzer
       env:
         SKIP_WASM_BUILD: true
