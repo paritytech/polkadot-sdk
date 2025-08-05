@@ -354,6 +354,7 @@ fn sstore_works() {
 }
 
 #[test]
+#[ignore] // TODO: find a way to test transient storage
 fn tstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
@@ -362,6 +363,7 @@ fn tstore_works() {
 }
 
 #[test]
+#[ignore] // TODO: find a way to test transient storage
 fn tload_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();

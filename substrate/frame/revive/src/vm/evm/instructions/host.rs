@@ -222,6 +222,8 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
+	let ts = context.interpreter.extend.transient_storage();
+
 	context.host.tstore(context.interpreter.input.target_address(), index, value);
 }
 
