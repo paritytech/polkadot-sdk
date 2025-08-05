@@ -128,9 +128,10 @@ impl<
 		if required_header > *required_header_number {
 			tracing::trace!(
 				target: "bridge",
-				"[{}] More {} headers required. Going to sync up to the {required_header}",
-				self.relay_task_name,
-				P::SourceChain::NAME,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceChain::NAME,
+				%required_header,
+				"More headers required. Going to sync up"
 			);
 
 			*required_header_number = required_header;
@@ -169,11 +170,13 @@ impl<
 				if iterations < MAX_ITERATIONS {
 					tracing::debug!(
 						target: "bridge",
-						"[{}] Requested to prove {} head {required_header:?}. Selected to prove {} head {header_id:?}. But it exceeds limits: {check_result:?}. \
-						Going to select next header",
-						self.relay_task_name,
-						P::SourceChain::NAME,
-						P::SourceChain::NAME,
+						relay_task_name=%self.relay_task_name,
+						source=%P::SourceChain::NAME,
+						%required_header,
+						?header_id,
+						?check_result,
+						"Requested to prove head. Selected to prove head. But it exceeds limits. \
+						Going to select next header"
 					);
 
 					continue;
@@ -182,10 +185,12 @@ impl<
 
 			tracing::debug!(
 				target: "bridge",
-				"[{}] Requested to prove {} head {required_header:?}. Selected to prove {} head {header_id:?} (after {iterations} iterations)",
-				self.relay_task_name,
-				P::SourceChain::NAME,
-				P::SourceChain::NAME,
+				relay_task_name=%self.relay_task_name,
+				source=%P::SourceChain::NAME,
+				%required_header,
+				?header_id,
+				%iterations,
+				"Requested to prove head. Selected to prove head (after iterations)",
 			);
 
 			// and then craft the submit-proof call
@@ -276,7 +281,12 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 		tracing::trace!(
 			target: "bridge",
-			"[{relay_task_name}] Mandatory headers scan range: ({required_header_number_value:?}, {best_finalized_source_header_at_source_fmt:?}, {best_finalized_source_header_at_target_fmt:?}) -> {mandatory_scan_range:?}"
+			%relay_task_name,
+			?required_header_number_value,
+			?best_finalized_source_header_at_source_fmt,
+			?best_finalized_source_header_at_target_fmt,
+			?mandatory_scan_range,
+			"Mandatory headers scan range"
 		);
 
 		if let Some(mandatory_scan_range) = mandatory_scan_range {
@@ -300,18 +310,20 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 					tracing::trace!(
 						target: "bridge",
+						%relay_task_name,
+						source=%P::SourceChain::NAME,
 						?mandatory_scan_range,
-						"[{relay_task_name}] No mandatory {} headers in the range",
-						P::SourceChain::NAME,
+						"No mandatory headers in the range"
 					);
 				},
 				Err(e) => {
 					tracing::warn!(
 						target: "bridge",
 						error=?e,
+						%relay_task_name,
+						source=%P::SourceChain::NAME,
 						?mandatory_scan_range,
-						"[{relay_task_name}] Failed to scan mandatory {} headers range",
-						P::SourceChain::NAME,
+						"Failed to scan mandatory headers range"
 					);
 
 					if e.is_connection_error() {
@@ -338,11 +350,12 @@ async fn background_task<P: SubstrateFinalitySyncPipeline>(
 
 			tracing::info!(
 				target: "bridge",
-				"[{relay_task_name}] Starting on-demand headers relay task\n\t\
-					Headers to relay: {headers_to_relay:?}\n\t\
-					Tx mortality: {target_transactions_mortality:?} (~{}m)\n\t\
-					Stall timeout: {stall_timeout:?}",
-				stall_timeout.as_secs_f64() / 60.0f64,
+				%relay_task_name,
+				?headers_to_relay,
+				?target_transactions_mortality,
+				stall_timeout_as_mins=%stall_timeout.as_secs_f64() / 60.0f64,
+				?stall_timeout,
+				"Starting on-demand headers relay task"
 			);
 
 			finality_relay_task.set(
@@ -432,9 +445,12 @@ where
 
 	tracing::trace!(
 		target: "bridge",
-		"[{relay_task_name}] Too many {} headers missing at target ({best_finalized_source_header_at_target} vs {}). Going to sync up to the mandatory {mandatory_source_header_number}",
-		P::SourceChain::NAME,
-		range.1,
+		%relay_task_name,
+		source=%P::SourceChain::NAME,
+		%best_finalized_source_header_at_target,
+		at_source=%range.1,
+		mandatory_source_header_number,
+		"Too many headers missing at target. Going to sync up to the mandatory"
 	);
 
 	*required_header_number = mandatory_source_header_number;
@@ -456,7 +472,8 @@ where
 		tracing::error!(
 			target: "bridge",
 			?error,
-			"[{relay_task_name}] Failed to read best finalized source header from source"
+			%relay_task_name,
+			"Failed to read best finalized source header from source"
 		);
 
 		error
@@ -485,7 +502,8 @@ where
 			tracing::error!(
 				target: "bridge",
 				?error,
-				"[{relay_task_name}] Failed to read best finalized source header from target"
+				%relay_task_name,
+				"Failed to read best finalized source header from target"
 			);
 
 			error
