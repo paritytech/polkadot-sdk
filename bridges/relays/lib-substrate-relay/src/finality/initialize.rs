@@ -67,19 +67,19 @@ pub async fn initialize<
 			TrackedTransactionStatus::Lost => {
 				tracing::error!(
 					target: "bridge",
+					source=%SourceChain::NAME,
+					target=%TargetChain::NAME,
 					?tx_status,
-					"Failed to execute {}-headers bridge initialization transaction on {}.",
-					SourceChain::NAME,
-					TargetChain::NAME,
+					"Failed to execute headers bridge initialization transaction."
 				)
 			},
 			TrackedTransactionStatus::Finalized(_) => {
 				tracing::info!(
 					target: "bridge",
+					source=%SourceChain::NAME,
+					target=%TargetChain::NAME,
 					?tx_status,
-					"Successfully executed {}-headers bridge initialization transaction on {}.",
-					SourceChain::NAME,
-					TargetChain::NAME,
+					"Successfully executed headers bridge initialization transaction."
 				)
 			},
 		},
@@ -87,9 +87,9 @@ pub async fn initialize<
 		Err(err) => tracing::error!(
 			target: "bridge",
 			error=?err,
-			"Failed to submit {}-headers bridge initialization transaction to {}",
-			SourceChain::NAME,
-			TargetChain::NAME,
+			source=%SourceChain::NAME,
+			target=%TargetChain::NAME,
+			"Failed to submit headers bridge initialization transaction"
 		),
 	}
 }
@@ -125,9 +125,9 @@ where
 	if is_initialized {
 		tracing::info!(
 			target: "bridge",
-			"{}-headers bridge at {} is already initialized. Skipping",
-			SourceChain::NAME,
-			TargetChain::NAME,
+			source=%SourceChain::NAME,
+			target=%TargetChain::NAME,
+			"Headers bridge is already initialized. Skipping"
 		);
 		if !dry_run {
 			return Ok(None)
@@ -137,10 +137,10 @@ where
 	let initialization_data = E::prepare_initialization_data(source_client).await?;
 	tracing::info!(
 		target: "bridge",
+		source=%SourceChain::NAME,
+		target=%TargetChain::NAME,
 		?initialization_data,
-		"Prepared initialization data for {}-headers bridge at {}",
-		SourceChain::NAME,
-		TargetChain::NAME,
+		"Prepared initialization data for headers bridge"
 	);
 
 	let tx_status = target_client
