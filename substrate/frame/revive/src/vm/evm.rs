@@ -18,9 +18,7 @@
 mod instructions;
 
 use crate::{
-	vm::{ExecResult, Ext},
-	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, H256, LOG_TARGET, U256,
+	precompiles::{All as AllPrecompiles, Precompiles}, vm::{ExecResult, Ext, RuntimeCosts}, AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256, LOG_TARGET, U256
 };
 use alloc::vec::Vec;
 use instructions::instruction_table;
@@ -28,14 +26,12 @@ use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
 	interpreter::{
-		host::DummyHost,
-		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
-		interpreter_action::InterpreterAction,
-		interpreter_types::InputsTr,
-		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
+		host::DummyHost, interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags}, interpreter_action::InterpreterAction, interpreter_types::{InputsTr, ReturnData}, CallInput, FrameInput, Gas, InstructionResult, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack
 	},
-	primitives::{self, hardfork::SpecId, Address},
+	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
+use sp_core::H160;
+use sp_runtime::Weight;
 
 impl<T: Config> ContractBlob<T>
 where
@@ -67,7 +63,7 @@ where
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
-		gas: Gas::default(),
+		gas: Gas::new(ext.gas_meter_mut().evm_engine_fuel_left()),
 		bytecode: ExtBytecode::new(bytecode),
 		stack: Stack::new(),
 		return_data: Default::default(),
@@ -90,17 +86,89 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 	}
 }
 
+fn out_of_gas_result() -> InterpreterResult {
+	InterpreterResult {
+			result: InstructionResult::OutOfGas,
+			gas: Gas::default(),
+			output: Bytes::new(),
+	}
+}
+
 /// Runs the EVM interpreter until it returns an action.
-fn run<WIRE: InterpreterTypes>(
-	interpreter: &mut Interpreter<WIRE>,
-	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
+fn run<'a, E: Ext>(
+	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
+	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
 	loop {
 		let action = interpreter.run_plain(table, host);
 		match action {
-			InterpreterAction::Return(result) => return result,
-			InterpreterAction::NewFrame(_) => unimplemented!(),
+			InterpreterAction::Return(result) => {
+				// To check what to do with refunded gas
+				if interpreter.extend.gas_meter_mut().sync_from_executor(interpreter.gas.remaining() as i64).is_err() {
+					return out_of_gas_result();
+				}
+				return result
+			},
+			InterpreterAction::NewFrame(frame_input) => {
+				match frame_input {
+					FrameInput::Call(call_input) => {
+						let callee: H160 = call_input.target_address.0.0.into();
+						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.0);
+						match &precompile {
+							Some(precompile) if precompile.has_contract_info() => {
+								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
+									return out_of_gas_result();
+								}
+							},
+							Some(_) => { 
+								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::PrecompileBase).is_err() {
+									return out_of_gas_result();
+								}
+							},
+							None => {
+								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::CallBase).is_err() {
+								return out_of_gas_result();
+							}
+						},
+						};
+
+						let input = match &call_input.input {
+							CallInput::Bytes(bytes) => bytes.clone(),
+							// Consider the usage fo SharedMemory as REVM is doing
+							_ => unimplemented!(),	
+						};
+
+						// Interpreter call
+						let call_result = interpreter.extend.call(
+							Weight::from_parts(call_input.gas_limit, call_input.gas_limit),
+							U256::zero(),
+							&callee,
+							U256::from_little_endian(call_input.call_value().as_le_slice()),
+							input.to_vec(),
+							// EVM doesn't have an explicit `allows_reentry` flag like pallet-contracts.
+							// Re-entrancy is managed by the logic of the contract itself.
+							true,
+							call_input.is_static,
+						);
+
+						let (success, return_data) = match call_result {
+							Ok(()) => {
+								let return_value = interpreter.extend.last_frame_output();
+								(!return_value.did_revert(), return_value.data.clone().into())
+							},
+							Err(_) => (false, primitives::Bytes::new()),
+						};
+
+						// Set the interpreter with the nested frame result
+						interpreter.return_data.set_buffer(return_data);
+						let _ = interpreter.stack.push(primitives::U256::from(success as u8));
+
+					},
+					FrameInput::Create(create_input) => unimplemented!(),
+					FrameInput::Empty => unreachable!(),
+				}	
+			},
 		}
 	}
 }
@@ -161,7 +229,6 @@ impl InputsTr for EVMInputs {
 	}
 
 	fn call_value(&self) -> primitives::U256 {
-		// TODO replae by panic once instruction that use call_value are updated
-		primitives::U256::ZERO
+		panic!()
 	}
 }

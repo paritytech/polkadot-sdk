@@ -285,6 +285,11 @@ impl<T: Config> GasMeter<T> {
 		self.engine_meter.fuel.try_into().map_err(|_| <Error<T>>::OutOfGas.into())
 	}
 
+	/// The amount of gas in terms of engine gas.
+	pub fn evm_engine_fuel_left(&self) -> u64 {
+		self.engine_meter.fuel
+	}
+
 	/// Turn this GasMeter into a DispatchResult that contains the actually used gas.
 	pub fn into_dispatch_result<R, E>(
 		self,
