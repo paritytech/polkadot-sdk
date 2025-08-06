@@ -35,7 +35,7 @@ polkavm = { version = "0.26.0", default-features = false }
 polkavm-common = { version = "0.26.0", default-features = false, optional = true }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
-rlp = { workspace = true }
+rlp = { workspace = true, features = ["derive"] }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
 sp-trie = { workspace = true }
