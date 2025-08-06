@@ -16,7 +16,10 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::{connect, Client, SubscriptionType, SubstrateBlockNumber}, HardhatRpcServer, HardhatRpcServerImpl, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET
+	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, HardhatRpcServer,
+	HardhatRpcServerImpl, ReceiptExtractor, ReceiptProvider, SubxtBlockInfoProvider,
+	SystemHealthRpcServer, SystemHealthRpcServerImpl, LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -27,7 +30,10 @@ use sc_service::{
 	start_rpc_servers, TaskManager,
 };
 use sqlx::sqlite::SqlitePoolOptions;
-
+use std::{
+	collections::HashMap,
+	sync::{Arc, RwLock},
+};
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
@@ -134,8 +140,10 @@ fn build_client(
 			)
 			.await?;
 
+		let ephemeral_store = Arc::new(RwLock::new(HashMap::new()));
+
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, ephemeral_store).await?;
 
 		Ok(client)
 	}
@@ -259,6 +267,8 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
-	module.merge(hardhat_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module
+		.merge(hardhat_api)
+		.map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

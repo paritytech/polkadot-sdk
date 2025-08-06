@@ -181,6 +181,13 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
 
+	async fn set_next_block_timestamp(
+		&self,
+		next_timestamp: U256,
+	) -> RpcResult<()> {
+		Ok(self.client.set_next_block_timestamp(next_timestamp).await?)
+	}
+
 	async fn set_prev_randao(
 		&self,
 		prev_randao: H256,

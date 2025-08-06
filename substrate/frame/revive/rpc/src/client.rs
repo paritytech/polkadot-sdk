@@ -42,7 +42,7 @@ use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
 		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H160, H256, U256, U128
+		TransactionSigned, TransactionTrace, H160, H256, U128, U256,
 	},
 	EthTransactError,
 };
@@ -53,7 +53,12 @@ use sp_core::keccak_256;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::{ops::Range, sync::Arc, time::Duration};
+use std::collections::HashMap;
+use std::{
+	ops::Range,
+	sync::{Arc, RwLock},
+	time::Duration,
+};
 use storage_api::StorageApi;
 use subxt::{
 	backend::{
@@ -178,6 +183,7 @@ pub struct Client {
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
+	ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -232,6 +238,7 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
+		ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -245,6 +252,7 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
+			ephemeral_store,
 		})
 	}
 
@@ -648,7 +656,15 @@ impl Client {
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
 		let header = block.header();
-		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let maybe_timestamp = {
+			let store = self.ephemeral_store.read().unwrap();
+			store.get(&header.number).copied() // copy the u64 out here
+		};
+
+		let timestamp = match maybe_timestamp {
+			Some(ts) => ts,
+			None => extract_block_timestamp(block).await.unwrap_or_default(),
+		};
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -671,17 +687,39 @@ impl Client {
 				.into()
 		};
 
-		let coinbase_query = subxt_client::storage().revive().modified_coinbase(subxt::utils::Static(U256::from(header.number)));
-		let maybe_coinbase = self.api.storage().at_latest().await.unwrap().fetch(&coinbase_query).await.unwrap();
+		let coinbase_query = subxt_client::storage()
+			.revive()
+			.modified_coinbase(subxt::utils::Static(U256::from(header.number)));
+		let maybe_coinbase = self
+			.api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&coinbase_query)
+			.await
+			.unwrap();
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
-			Some(author) => block_author = author
+			None => {
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
+			},
+			Some(author) => block_author = author,
 		}
 
-		let mix_hash_query = subxt_client::storage().revive().modified_prevrandao(subxt::utils::Static(U256::from(header.number)));
-		let maybe_mix_hash = self.api.storage().at_latest().await.unwrap().fetch(&mix_hash_query).await.unwrap();
+		let mix_hash_query = subxt_client::storage()
+			.revive()
+			.modified_prevrandao(subxt::utils::Static(U256::from(header.number)));
+		let maybe_mix_hash = self
+			.api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&mix_hash_query)
+			.await
+			.unwrap();
 		let prev_randao: H256;
 
 		match maybe_mix_hash {
@@ -845,13 +883,12 @@ impl Client {
 
 	pub async fn set_next_block_base_fee_per_gas(
 		&self,
-		base_fee_per_gas: U128
+		base_fee_per_gas: U128,
 	) -> Result<Option<U128>, ClientError> {
 		let alice = dev::alice();
 
-		let call = RuntimeCall::Revive(ReviveCall::set_gas_price {
-			new_price: base_fee_per_gas.as_u64(),
-		});
+		let call =
+			RuntimeCall::Revive(ReviveCall::set_gas_price { new_price: base_fee_per_gas.as_u64() });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
@@ -870,7 +907,7 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::set_storage_at {
 			address,
 			storage_slot: subxt::utils::Static(storage_slot),
-			value: subxt::utils::Static(value)
+			value: subxt::utils::Static(value),
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
@@ -879,17 +916,10 @@ impl Client {
 		Ok(Some(value))
 	}
 
-	pub async fn set_code(
-		&self,
-		dest: H160,
-		code_hash: H256,
-	) -> Result<Option<H256>, ClientError> {
+	pub async fn set_code(&self, dest: H160, code_hash: H256) -> Result<Option<H256>, ClientError> {
 		let alice = dev::alice();
 
-		let call = RuntimeCall::Revive(ReviveCall::set_code {
-			dest,
-			code_hash
-		});
+		let call = RuntimeCall::Revive(ReviveCall::set_code { dest, code_hash });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
@@ -897,19 +927,17 @@ impl Client {
 		Ok(Some(code_hash))
 	}
 
-	pub async fn set_coinbase(
-		&self,
-		coinbase: H160,
-	) -> Result<Option<H160>, ClientError> {
-
-		let block_hash = self.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest)).await?;
+	pub async fn set_coinbase(&self, coinbase: H160) -> Result<Option<H160>, ClientError> {
+		let block_hash = self
+			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
+			.await?;
 		let block = self.tracing_block(block_hash).await?;
 
 		let alice = dev::alice();
 
 		let call = RuntimeCall::Revive(ReviveCall::set_next_coinbase {
 			last_block: subxt::utils::Static(U256::from(block.header.number)),
-			coinbase
+			coinbase,
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
@@ -918,24 +946,37 @@ impl Client {
 		Ok(Some(coinbase))
 	}
 
-	pub async fn set_prev_randao(
-		&self,
-		prev_randao: H256,
-	) -> Result<Option<H256>, ClientError> {
-
-		let block_hash = self.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest)).await?;
+	pub async fn set_prev_randao(&self, prev_randao: H256) -> Result<Option<H256>, ClientError> {
+		let block_hash = self
+			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
+			.await?;
 		let block = self.tracing_block(block_hash).await?;
 
 		let alice = dev::alice();
 
 		let call = RuntimeCall::Revive(ReviveCall::set_next_prev_randao {
 			last_block: subxt::utils::Static(U256::from(block.header.number)),
-			prev_randao
+			prev_randao,
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
 
 		Ok(Some(prev_randao))
+	}
+
+	pub async fn set_next_block_timestamp(&self, next_timestamp: U256) -> Result<(), ClientError> {
+		let block_hash = self
+			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
+			.await?;
+		let block = self.tracing_block(block_hash).await?;
+		let block_number = block.header.number;
+		let next_block_number = block_number.saturating_add(1);
+
+		let next_timestamp = next_timestamp.as_u64();
+
+		self.ephemeral_store.write().unwrap().insert(next_block_number, next_timestamp);
+
+		Ok(())
 	}
 }

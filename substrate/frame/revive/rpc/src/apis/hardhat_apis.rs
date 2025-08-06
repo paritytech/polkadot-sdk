@@ -75,4 +75,10 @@ pub trait HardhatRpc {
 		&self,
 		prev_randao: H256,
 	) -> RpcResult<Option<H256>>;
+
+	#[method(name = "evm_setNextBlockTimestamp")]
+	async fn set_next_block_timestamp(
+		&self,
+		next_timestamp: U256,
+	) -> RpcResult<()>;
 }
