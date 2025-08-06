@@ -465,7 +465,7 @@ async fn send_collation_and_assert_processing(
 fn v1_advertisement_accepted_and_seconded() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -544,7 +544,7 @@ fn v1_advertisement_accepted_and_seconded() {
 fn v1_advertisement_rejected_on_non_active_leaf() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -586,7 +586,7 @@ fn v1_advertisement_rejected_on_non_active_leaf() {
 fn accept_advertisements_from_implicit_view() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -689,7 +689,7 @@ fn accept_advertisements_from_implicit_view() {
 fn second_multiple_candidates_per_relay_parent() {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -778,7 +778,7 @@ fn second_multiple_candidates_per_relay_parent() {
 fn fetched_collation_sanity_check() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -889,7 +889,7 @@ fn fetched_collation_sanity_check() {
 fn sanity_check_invalid_parent_head_data() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -1009,7 +1009,7 @@ fn sanity_check_invalid_parent_head_data() {
 fn advertisement_spam_protection() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -1083,7 +1083,7 @@ fn advertisement_spam_protection() {
 fn child_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::with_one_scheduled_para();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair = CollatorPair::generate().0;
@@ -1391,7 +1391,7 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 		test_state.node_features = NodeFeatures::EMPTY;
 	}
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -1499,7 +1499,7 @@ fn v2_descriptor(#[case] v2_feature_enabled: bool) {
 fn invalid_v2_descriptor() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -1605,7 +1605,7 @@ fn invalid_v2_descriptor() {
 fn fair_collation_fetches() {
 	let mut test_state = TestState::with_shared_core();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let head_b = Hash::from_low_u64_be(128);
@@ -1707,7 +1707,7 @@ fn fair_collation_fetches() {
 fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 	let mut test_state = TestState::with_shared_core();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -1882,7 +1882,7 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue() {
 fn collation_fetching_considers_advertisements_from_the_whole_view() {
 	let mut test_state = TestState::with_shared_core();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -2021,7 +2021,7 @@ fn collation_fetching_considers_advertisements_from_the_whole_view() {
 fn collation_fetching_fairness_handles_old_claims() {
 	let mut test_state = TestState::with_shared_core();
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let pair_a = CollatorPair::generate().0;
@@ -2179,7 +2179,7 @@ fn claims_below_are_counted_correctly() {
 	test_state.claim_queue = claim_queue;
 	test_state.scheduling_lookahead = 2;
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
@@ -2269,7 +2269,7 @@ fn claims_above_are_counted_correctly() {
 	test_state.claim_queue = claim_queue;
 	test_state.scheduling_lookahead = 2;
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
@@ -2374,7 +2374,7 @@ fn claim_fills_last_free_slot() {
 	test_state.claim_queue = claim_queue;
 	test_state.scheduling_lookahead = 2;
 
-	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
 		let hash_a = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1); // block 0
