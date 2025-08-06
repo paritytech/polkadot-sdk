@@ -1469,6 +1469,7 @@ impl pallet_contracts::Config for Runtime {
 
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
+	type StateRoot = pallet_revive::DeterministicStateRoot<Self::Version>;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
