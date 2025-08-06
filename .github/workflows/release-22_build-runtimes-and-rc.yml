@@ -21,7 +21,7 @@ on:
         description: The runtime_dir to be used (this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
         default: polkadot/runtime/westend
       binary:
-        description: Binary to be built for the release candidate
+        description: Binary to be build for the release
         default: all
         type: choice
         options:
