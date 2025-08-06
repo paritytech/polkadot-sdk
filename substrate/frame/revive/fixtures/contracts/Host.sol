@@ -94,12 +94,6 @@ contract Host {
         }
     }
 
-    function selfdestructOp(address payable recipient) public {
-        //assembly{
-        //    selfdestruct(recipient)
-        //}
-    }
-
     function selfbalance() public view returns (uint256) {
         return address(this).balance;
     }

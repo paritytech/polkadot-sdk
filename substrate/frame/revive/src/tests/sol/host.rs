@@ -372,45 +372,72 @@ fn log_works() {
 
 #[test]
 fn selfdestruct_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+    {
+        use pallet_revive_fixtures::HostSelfDestructEvm::selfdestructOpCall;
+        use pallet_revive_fixtures::HostSelfDestructEvm::HostSelfDestructEvmCalls;
+        use pallet_revive_fixtures::HostSelfDestructEvm;
+        let fixture_type = FixtureType::Solc;
+		let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
+
+        let expected_bobs_balance = 100_000_000_000u64;
 		
         ExtBuilder::default().build().execute_with(|| {
-
-            let expected_balance = convert_to_free_balance(666_000_000_000);
+            
             <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
             <Test as Config>::Currency::set_balance(&BOB, 0);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
+            assert!(test_utils::get_contract_checked(&addr).is_some());
             {
                 let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
 
-                <Test as Config>::Currency::set_balance(&account_id32, 666_000_000_000);
+                <Test as Config>::Currency::set_balance(&account_id32, expected_bobs_balance);
             }
 
             {
-                let result = builder::bare_call(addr)
+                let _ = builder::bare_call(addr)
                     .gas_limit(1_000_000_000.into())
                     .data(
-                        Host::HostCalls::selfdestructOp(Host::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
+                        HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(HostSelfDestructEvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
-                let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-
+                
                 let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
-
-                log::info!("bobs_balance: {:?}", bobs_balance);
-
-                assert_eq!(
-                    expected_balance,
-                    U256::from(bobs_balance),
-                    "BALANCE should return BOB's balance for {:?}", fixture_type
-                );
+                assert_eq!(bobs_balance, expected_bobs_balance,
+                    "BOB's balance should be updated after selfdestruct for {:?}", fixture_type);
             }
+            assert!(test_utils::get_contract_checked(&addr).is_none());
 		});
-        break; // only testing Resolc for now
     }
+
+    // TODO: how to call selfdestruct from solidity in PVM?
+    // {
+    //     use pallet_revive_fixtures::HostSelfDestructPvm::selfdestructOpCall;
+    //     use pallet_revive_fixtures::HostSelfDestructPvm::HostSelfDestructPvmCalls;
+    //     use pallet_revive_fixtures::HostSelfDestructPvm;
+    //     let fixture_type = FixtureType::Resolc;
+	// 	let (code, _) = compile_module_with_type("HostSelfDestructPvm", fixture_type).unwrap();
+		
+    //     ExtBuilder::default().build().execute_with(|| {
+            
+    //         <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+	// 		let Contract { addr, .. } =
+	// 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+    //         assert!(test_utils::get_contract_checked(&addr).is_some());
+
+    //         {
+    //             let _ = builder::bare_call(addr)
+    //                 .gas_limit(1_000_000_000.into())
+    //                 .data(
+    //                     HostSelfDestructPvm::HostSelfDestructPvmCalls::selfdestructOp(HostSelfDestructPvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
+    //                         .abi_encode(),
+    //                 )
+    //                 .build_and_unwrap_result();
+    //         }
+    //         assert!(test_utils::get_contract_checked(&addr).is_none());
+	// 	});
+    // }
 }
