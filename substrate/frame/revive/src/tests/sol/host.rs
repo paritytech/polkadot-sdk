@@ -200,7 +200,7 @@ fn extcodecopy_works() {
 
 // TODO: this test is giving out-of-gas errors. investigate why.
 #[test]
-#[ignore]
+// #[ignore]
 fn blockhash_works() {
 	for fixture_type in [FixtureType::Resolc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
@@ -234,6 +234,7 @@ fn blockhash_works() {
                 let current_block = frame_system::Pallet::<Test>::block_number();
                 println!("current_block: {:?}", current_block);
                 let result = builder::bare_call(addr)
+                    .gas_limit(1_000_000_000.into())
                     .data(
                         Host::HostCalls::blockhash(Host::blockhashCall { blockNumber: U256::from(0u128) })
                             .abi_encode(),
@@ -253,7 +254,7 @@ fn blockhash_works() {
                 );
             }
 		});
-        break;
+        break; // only testing Resolc for now
     }
 }
 
@@ -280,7 +281,7 @@ fn sload_works() {
                     Some(expected_value.to_be_bytes::<32>().to_vec()),
                     None,
                     false
-                );
+                ).unwrap();
             }
 
             {
@@ -326,7 +327,7 @@ fn sstore_works() {
                     Some(unexpected_value.to_be_bytes::<32>().to_vec()),
                     None,
                     false
-                );
+                ).unwrap();
             }
 
             {
@@ -402,6 +403,7 @@ fn selfdestruct_works() {
 
             {
                 let result = builder::bare_call(addr)
+                    .gas_limit(1_000_000_000.into())
                     .data(
                         Host::HostCalls::selfdestruct(Host::selfdestructCall { recipient: BOB_ADDR.0.into() })
                             .abi_encode(),
@@ -420,6 +422,6 @@ fn selfdestruct_works() {
                 );
             }
 		});
-        break;
+        break; // only testing Resolc for now
     }
 }

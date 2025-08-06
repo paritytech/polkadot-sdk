@@ -16,19 +16,18 @@
 // limitations under the License.
 
 use super::{
-	utility::{IntoAddress, IntoU256},
+	utility::IntoAddress,
 	Context,
 };
 use crate::{
 	vm::Ext,
 	RuntimeCosts,
-	H256,
 	Key,
 };
 use core::cmp::min;
 use revm::{
 	interpreter::{
-		gas::{self, warm_cold_cost, CALL_STIPEND},
+		gas::self,
 		host::Host,
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
@@ -190,7 +189,9 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
     let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-    let value = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old);
+    let _value = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old);
+
+	// TODO: what to do with returned value?
 	
 	// let Some(state_load) =
 	// 	context.host.sstore(context.interpreter.input.target_address(), index, value)
@@ -222,7 +223,7 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
-	let ts = context.interpreter.extend.transient_storage();
+	// let ts = context.interpreter.extend.transient_storage();
 
 	context.host.tstore(context.interpreter.input.target_address(), index, value);
 }
@@ -283,7 +284,9 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let h160 = sp_core::H160::from_slice(&target.to_be_bytes::<32>()[12..]);
 
 
-	let contract_info = context.interpreter.extend.terminate(&h160);
+	let _contract_info = context.interpreter.extend.terminate(&h160);
+
+	// TODO: what to do with return contract info?
 
 	// let Some(res) = context.host.selfdestruct(context.interpreter.input.target_address(), target)
 	// else {
