@@ -358,19 +358,17 @@ pub fn search_child_branches_for_parents<Block: BlockT>(
 		// note: even if the pending block or included block have a relay parent
 		// outside of the expected part of the relay chain, they are always allowed
 		// because they have already been posted on chain.
-		let is_potential =
-			is_pending || is_included || {
-				let digest = entry.header.digest();
-				cumulus_primitives_core::CumulusDigestItem::find_relay_block_identifier(digest)
-					.map_or(false, |identifier| match identifier {
-						cumulus_primitives_core::RelayBlockIdentifier::ByHash(hash) =>
-							is_hash_in_ancestry(hash),
-						cumulus_primitives_core::RelayBlockIdentifier::ByStorageRoot {
-							storage_root,
-							..
-						} => is_root_in_ancestry(storage_root),
-					})
-			};
+		let is_potential = is_pending || is_included || {
+			let digest = entry.header.digest();
+			let is_hash_in_ancestry_check = cumulus_primitives_core::extract_relay_parent(digest)
+				.map_or(false, is_hash_in_ancestry);
+			let is_root_in_ancestry_check =
+				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(digest)
+					.map(|(r, _n)| r)
+					.map_or(false, is_root_in_ancestry);
+
+			is_hash_in_ancestry_check || is_root_in_ancestry_check
+		};
 
 		let parent_aligned_with_pending = entry.aligned_with_pending;
 		let child_depth = entry.depth + 1;
