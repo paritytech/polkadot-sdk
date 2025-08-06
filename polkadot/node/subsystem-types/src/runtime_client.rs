@@ -264,7 +264,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError>;
 
@@ -583,7 +583,7 @@ where
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		let mut runtime_api = self.client.runtime_api();

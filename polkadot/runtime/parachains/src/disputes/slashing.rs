@@ -65,7 +65,7 @@ use alloc::{
 };
 use polkadot_primitives::{
 	slashing::{
-		DisputeProof as DisputeProofV1, DisputesTimeSlot, PendingSlashes as PendingSlashesV1,
+		DisputesTimeSlot, LegacyDisputeProof as DisputeProofV1, PendingSlashes as PendingSlashesV1,
 	},
 	vstaging::{
 		DisputeOffenceKind, DisputeProof as DisputeProofV2, PendingSlashes as PendingSlashesV2,

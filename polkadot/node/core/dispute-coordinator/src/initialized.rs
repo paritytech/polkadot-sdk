@@ -437,7 +437,7 @@ impl Initialized {
 							key_ownership_proofs.push(key_ownership_proof);
 							let time_slot =
 								slashing::DisputesTimeSlot::new(session_index, candidate_hash);
-							let dispute_proof = slashing::DisputeProof {
+							let dispute_proof = slashing::LegacyDisputeProof {
 								time_slot,
 								kind: pending.kind,
 								validator_index: *validator_index,

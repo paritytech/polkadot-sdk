@@ -243,7 +243,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		_: Hash,
-		_: slashing::DisputeProof,
+		_: slashing::LegacyDisputeProof,
 		_: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		todo!("Not required for tests")

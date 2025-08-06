@@ -455,7 +455,7 @@ where
 pub async fn submit_report_dispute_lost<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-	dispute_proof: slashing::DisputeProof,
+	dispute_proof: slashing::LegacyDisputeProof,
 	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Result<Option<()>>
 where

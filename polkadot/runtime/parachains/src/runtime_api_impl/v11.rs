@@ -386,7 +386,7 @@ pub fn unapplied_slashes<T: disputes::slashing::Config>(
 
 /// Implementation of `submit_report_dispute_lost` runtime API
 pub fn submit_unsigned_slashing_report<T: disputes::slashing::Config>(
-	dispute_proof: slashing::DisputeProof,
+	dispute_proof: slashing::LegacyDisputeProof,
 	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Option<()> {
 	let key_ownership_proof = key_ownership_proof.decode()?;

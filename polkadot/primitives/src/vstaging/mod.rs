@@ -1641,8 +1641,8 @@ pub struct DisputeProof {
 	pub validator_id: ValidatorId,
 }
 
-impl From<super::v9::slashing::DisputeProof> for DisputeProof {
-	fn from(old: super::v9::slashing::DisputeProof) -> Self {
+impl From<super::v9::slashing::LegacyDisputeProof> for DisputeProof {
+	fn from(old: super::v9::slashing::LegacyDisputeProof) -> Self {
 		let time_slot = old.time_slot;
 		let kind = old.kind.into(); // infallible conversion
 		let validator_index = old.validator_index;
@@ -1651,7 +1651,7 @@ impl From<super::v9::slashing::DisputeProof> for DisputeProof {
 	}
 }
 
-impl TryFrom<DisputeProof> for super::v9::slashing::DisputeProof {
+impl TryFrom<DisputeProof> for super::v9::slashing::LegacyDisputeProof {
 	type Error = ();
 
 	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {

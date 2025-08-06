@@ -385,7 +385,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		Ok(self

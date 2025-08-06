@@ -748,7 +748,7 @@ pub enum RuntimeApiRequest {
 	/// Submits an unsigned extrinsic to slash validator who lost a past session dispute.
 	/// `V5`
 	SubmitReportDisputeLost(
-		slashing::DisputeProof,
+		slashing::LegacyDisputeProof,
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),

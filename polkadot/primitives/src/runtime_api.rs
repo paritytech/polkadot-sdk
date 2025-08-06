@@ -249,7 +249,7 @@ sp_api::decl_runtime_apis! {
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn submit_report_dispute_lost(
-			dispute_proof: slashing::DisputeProof,
+			dispute_proof: slashing::LegacyDisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

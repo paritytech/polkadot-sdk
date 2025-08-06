@@ -465,7 +465,7 @@ impl RequestResultCache {
 	// This request is never cached, hence always returns `None`.
 	pub(crate) fn submit_report_dispute_lost(
 		&mut self,
-		_key: (Hash, slashing::DisputeProof, slashing::OpaqueKeyOwnershipProof),
+		_key: (Hash, slashing::LegacyDisputeProof, slashing::OpaqueKeyOwnershipProof),
 	) -> Option<&Option<()>> {
 		None
 	}

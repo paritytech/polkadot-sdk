@@ -64,7 +64,7 @@ impl DisputesTimeSlot {
 /// that uses the newer `DisputeOffenceKind` enum instead.
 /// Only kept for backwards compatibility.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
-pub struct DisputeProof {
+pub struct LegacyDisputeProof {
 	/// Time slot when the dispute occurred.
 	pub time_slot: DisputesTimeSlot,
 	/// The dispute outcome.

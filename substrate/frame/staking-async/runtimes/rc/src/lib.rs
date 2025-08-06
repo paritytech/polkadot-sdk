@@ -2259,7 +2259,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_dispute_lost(
-			dispute_proof: slashing::DisputeProof,
+			dispute_proof: slashing::LegacyDisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			parachains_runtime_api_impl::submit_unsigned_slashing_report::<Runtime>(

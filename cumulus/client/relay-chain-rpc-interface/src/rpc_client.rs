@@ -481,7 +481,7 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_submit_report_dispute_lost(
 		&self,
 		at: RelayHash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, RelayChainError> {
 		self.call_remote_runtime_function(

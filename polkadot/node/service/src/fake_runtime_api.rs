@@ -232,7 +232,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_dispute_lost(
-			_: slashing::DisputeProof,
+			_: slashing::LegacyDisputeProof,
 			_: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			unimplemented!()
