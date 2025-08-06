@@ -25,6 +25,7 @@ use crate::{
     PristineCode,
     H256,
     Key,
+    System,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -207,50 +208,38 @@ fn blockhash_works() {
         
         ExtBuilder::default().build().execute_with(|| {
 
+            let block_number_to_test = 5u64;
+
+            System::<Test>::set_block_number(13);
+
             <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            println!("addr: {:?}", addr);
-            
-            let expected_code_hash = {
-                let contract_info = test_utils::get_contract(&addr);
-                contract_info.code_hash
-            };
-            
-
-            {
-                let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
-
-                <Test as Config>::Currency::set_balance(&account_id32, 100_000_000_000_000);
-            }
 
             {
                 let block_hash = [1; 32];
                 frame_system::BlockHash::<Test>::insert(
-                    &crate::BlockNumberFor::<Test>::from(0u32),
+                    &crate::BlockNumberFor::<Test>::from(block_number_to_test as u64),
                     <Test as frame_system::Config>::Hash::from(&block_hash),
                 );
-                let current_block = frame_system::Pallet::<Test>::block_number();
-                println!("current_block: {:?}", current_block);
                 let result = builder::bare_call(addr)
                     .gas_limit(1_000_000_000.into())
                     .data(
-                        Host::HostCalls::blockhashOp(Host::blockhashOpCall { blockNumber: U256::from(0u128) })
+                        Host::HostCalls::blockhashOp(Host::blockhashOpCall { blockNumber: U256::from(block_number_to_test) })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
-                println!("result: {:?}", result);
                 
                 let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
                 let result_hash = H256::from(result_hash.to_be_bytes());
 
-                println!("Result code hash: {:?}", result_hash);
+                let expected_block_hash = System::<Test>::block_hash(block_number_to_test);
 
                 assert_eq!(
-                    expected_code_hash,
+                    expected_block_hash,
                     result_hash,
-                    "EXTCODEHASH should return the code hash for {:?}", fixture_type
+                    "EXTBLOCKHASH should return the block hash for {:?}", fixture_type
                 );
             }
 		});
@@ -413,7 +402,7 @@ fn selfdestruct_works() {
 
                 let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
 
-                println!("bobs_balance: {:?}", bobs_balance);
+                log::info!("bobs_balance: {:?}", bobs_balance);
 
                 assert_eq!(
                     expected_balance,

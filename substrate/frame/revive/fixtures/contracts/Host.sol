@@ -28,7 +28,11 @@ contract Host {
     }
 
     function blockhashOp(uint256 blockNumber) public view returns (bytes32) {
-        return blockhash(blockNumber);
+        bytes32 hash;
+        assembly {
+            hash := blockhash(blockNumber)
+        }
+        return hash;
     }
 
     function sloadOp(uint256 slot) public view returns (uint256) {
@@ -43,7 +47,6 @@ contract Host {
         assembly {
             sstore(slot, value)
         }
-        return value;
     }
 
     function tloadOp(uint256 slot) public view returns (uint256) {
@@ -92,7 +95,9 @@ contract Host {
     }
 
     function selfdestructOp(address payable recipient) public {
-        selfdestruct(recipient);
+        //assembly{
+        //    selfdestruct(recipient)
+        //}
     }
 
     function selfbalance() public view returns (uint256) {
