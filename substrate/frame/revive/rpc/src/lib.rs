@@ -194,6 +194,13 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_prev_randao(prev_randao).await?)
 	}
+
+	async fn set_block_gas_limit(
+		&self,
+		block_gas_limit: U128,
+	) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_block_gas_limit(block_gas_limit).await?)
+	}
 }
 
 #[async_trait]

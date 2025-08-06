@@ -979,4 +979,19 @@ impl Client {
 
 		Ok(())
 	}
+
+	pub async fn set_block_gas_limit(
+		&self,
+		block_gas_limit: U128,
+	) -> Result<Option<U128>, ClientError> {
+		let alice = dev::alice();
+
+		let call =
+			RuntimeCall::Revive(ReviveCall::set_block_gas_limit { block_gas_limit: block_gas_limit.as_u64() });
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(block_gas_limit))
+	}
 }
