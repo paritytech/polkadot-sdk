@@ -199,11 +199,9 @@ fn extcodecopy_works() {
     }
 }
 
-// TODO: this test is giving out-of-gas errors. investigate why.
 #[test]
-// #[ignore]
 fn blockhash_works() {
-	for fixture_type in [FixtureType::Resolc, FixtureType::Resolc] {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
         
         ExtBuilder::default().build().execute_with(|| {
@@ -243,7 +241,6 @@ fn blockhash_works() {
                 );
             }
 		});
-        break; // only testing Resolc for now
     }
 }
 
