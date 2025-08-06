@@ -1972,7 +1972,7 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
 
 		let result;
