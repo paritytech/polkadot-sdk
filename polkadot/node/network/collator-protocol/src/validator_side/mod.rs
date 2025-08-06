@@ -2443,7 +2443,7 @@ fn can_accept_new_collator_connection(
 		target: LOG_TARGET,
 		?new_peer_id,
 		?ah_invulnerables,
-		?currently_connected,
+		currently_connected=currently_connected.len(),
 		?connection_limit,
 		"Checking if we can accept a new collator connection",
 	);

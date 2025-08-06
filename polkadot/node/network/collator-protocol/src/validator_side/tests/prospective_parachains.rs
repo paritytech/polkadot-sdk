@@ -2462,3 +2462,94 @@ fn claim_fills_last_free_slot() {
 		virtual_overseer
 	});
 }
+
+mod ah_stop_gap {
+
+	use super::*;
+
+	#[test]
+	fn permissionless_collators_are_rejected_when_connection_limit_is_hit() {
+		let mut test_state = TestState::with_one_scheduled_para();
+		let invulnerable_collator = PeerId::random();
+		let invulnerables = HashSet::from_iter([invulnerable_collator.clone()]);
+		let invulnerables_len = invulnerables.len();
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID].into_iter(),
+			),
+		);
+		test_state.claim_queue = claim_queue;
+
+		test_harness(
+			ReputationAggregator::new(|_| true),
+			invulnerables,
+			|test_harness| async move {
+				let TestHarness { mut virtual_overseer, keystore: _ } = test_harness;
+
+				let head = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
+				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 2)]).await;
+
+				// collators are accepted up to the connection limit AND a slot for the
+				// invulnerables is kept
+				let connection_limit =
+					MAX_AUTHORITY_INCOMING_STREAMS - 10 - invulnerables_len as u32;
+				for _ in 0..connection_limit {
+					let pair = CollatorPair::generate().0;
+					let collator = PeerId::random();
+
+					connect_and_declare_collator(
+						&mut virtual_overseer,
+						collator,
+						pair.clone(),
+						ASSET_HUB_PARA_ID,
+						CollationVersion::V2,
+					)
+					.await;
+				}
+
+				// connecting one more permissionless collator should be rejected
+				{
+					let collator = PeerId::random();
+					overseer_send(
+						&mut virtual_overseer,
+						CollatorProtocolMessage::NetworkBridgeUpdate(
+							NetworkBridgeEvent::PeerConnected(
+								collator,
+								ObservedRole::Full,
+								CollationVersion::V2.into(),
+								None,
+							),
+						),
+					)
+					.await;
+					assert_matches!(
+						overseer_recv(&mut virtual_overseer).await,
+						AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set)
+						) => {
+							assert_eq!(peers, vec![collator]);
+							assert_eq!(peer_set, PeerSet::Collation);
+						}
+					);
+				}
+
+				//connecting an invulnerable collator should succeed
+				connect_and_declare_collator(
+					&mut virtual_overseer,
+					invulnerable_collator.clone(),
+					CollatorPair::generate().0,
+					ASSET_HUB_PARA_ID,
+					CollationVersion::V2,
+				)
+				.await;
+
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				virtual_overseer
+			},
+		);
+	}
+}
