@@ -682,11 +682,10 @@ pub mod pallet {
 			let tx_blobs =
 				tx_and_receipts.iter().map(|(tx, _)| tx.encode_2718()).collect::<Vec<_>>();
 
-			// Do we need V0? What are the diffs here?
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
 			let _transaction_root =
-				sp_trie::LayoutV1::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
 
 			// TODO:
 			// Calculate receipt root:
