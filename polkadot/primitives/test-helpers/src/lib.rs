@@ -23,10 +23,10 @@
 //! Note that `dummy_` prefixed values are meant to be fillers, that should not matter, and will
 //! contain randomness based data.
 use polkadot_primitives::{
-	v9::MutateDescriptorV2, vstaging::CommittedCandidateReceiptV2, CandidateCommitments,
-	CandidateDescriptor, CandidateDescriptorV2, CandidateReceipt, CandidateReceiptV2, CollatorId,
-	CollatorSignature, CommittedCandidateReceipt, CoreIndex, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
+	v9::MutateDescriptorV2, CandidateCommitments, CandidateDescriptor, CandidateDescriptorV2,
+	CandidateReceipt, CandidateReceiptV2, CollatorId, CollatorSignature, CommittedCandidateReceipt,
+	CommittedCandidateReceiptV2, CoreIndex, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use sp_application_crypto::{sr25519, ByteArray};

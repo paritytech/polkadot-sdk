@@ -33,10 +33,9 @@ use polkadot_node_subsystem::messages::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, AssignmentPair, Block,
-	BlockNumber, GroupRotationInfo, HeadData, Header, IndexedVec, NodeFeatures,
-	PersistedValidationData, SessionIndex, SessionInfo, ValidatorPair,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	AssignmentPair, Block, BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	GroupRotationInfo, HeadData, Header, IndexedVec, NodeFeatures, PersistedValidationData,
+	SessionIndex, SessionInfo, ValidatorPair, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::ProtocolName;

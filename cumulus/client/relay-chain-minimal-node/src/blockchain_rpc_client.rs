@@ -217,10 +217,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
-	) -> Result<
-		Option<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
-		sp_api::ApiError,
-	> {
+	) -> Result<Option<polkadot_primitives::CommittedCandidateReceiptV2<Hash>>, sp_api::ApiError> {
 		Ok(self
 			.rpc_client
 			.parachain_host_candidate_pending_availability(at, para_id)
@@ -446,10 +443,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 		para_id: cumulus_primitives_core::ParaId,
-	) -> Result<
-		Vec<polkadot_primitives::vstaging::CommittedCandidateReceiptV2<Hash>>,
-		sp_api::ApiError,
-	> {
+	) -> Result<Vec<polkadot_primitives::CommittedCandidateReceiptV2<Hash>>, sp_api::ApiError> {
 		Ok(self
 			.rpc_client
 			.parachain_host_candidates_pending_availability(at, para_id)

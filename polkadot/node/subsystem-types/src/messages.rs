@@ -44,11 +44,10 @@ use polkadot_node_primitives::{
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	slashing,
-	vstaging::{
-		self, BackedCandidate, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-	},
+	vstaging::{self, BackedCandidate, CoreState},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeState,
+	CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,

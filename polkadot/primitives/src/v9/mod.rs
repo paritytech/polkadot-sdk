@@ -2561,6 +2561,16 @@ pub struct CandidateReceiptV2<H = Hash> {
 	pub commitments_hash: Hash,
 }
 
+/// A candidate-receipt with commitments directly included.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Hash))]
+pub struct CommittedCandidateReceiptV2<H = Hash> {
+	/// The descriptor of the candidate.
+	pub descriptor: CandidateDescriptorV2<H>,
+	/// The commitments of the candidate receipt.
+	pub commitments: CandidateCommitments,
+}
+
 #[cfg(test)]
 /// Test helpers
 pub mod tests {
@@ -2720,9 +2730,8 @@ mod candidate_receipt_tests {
 	use crate::{
 		v9::{
 			tests::dummy_committed_candidate_receipt as dummy_old_committed_candidate_receipt,
-			CommittedCandidateReceipt, Hash, HeadData, ValidationCode,
+			CommittedCandidateReceipt, CommittedCandidateReceiptV2, Hash, HeadData, ValidationCode,
 		},
-		vstaging::CommittedCandidateReceiptV2,
 		CandidateDescriptorV2,
 	};
 

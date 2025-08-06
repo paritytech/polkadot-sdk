@@ -133,9 +133,9 @@ use polkadot_node_subsystem_util::inclusion_emulator::{
 	HypotheticalOrConcreteCandidate, ProspectiveCandidate, RelayChainBlockInfo,
 };
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber,
-	CandidateCommitments, CandidateHash, Hash, HeadData, PersistedValidationData,
-	ValidationCodeHash,
+	BlockNumber, CandidateCommitments, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, HeadData,
+	PersistedValidationData, ValidationCodeHash,
 };
 use thiserror::Error;
 

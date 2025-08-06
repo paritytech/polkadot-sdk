@@ -26,10 +26,10 @@ use async_trait::async_trait;
 use cumulus_client_bootnodes::bootnode_request_response_config;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost,
-		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
-		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, vstaging::CoreState, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Hash as PHash,
+		Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

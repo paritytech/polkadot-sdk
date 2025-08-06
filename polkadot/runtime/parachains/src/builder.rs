@@ -34,15 +34,15 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	vstaging::{
-		ApprovedPeerId, BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreSelector,
+		ApprovedPeerId, BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset, CoreSelector,
 		InherentData as ParachainsInherentData, UMPSignal, UMP_SEPARATOR,
 	},
 	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
-	CollatorSignature, CompactStatement, CoreIndex, DisputeStatement, DisputeStatementSet,
-	GroupIndex, HeadData, Id as ParaId, IndexedVec, InvalidDisputeStatementKind,
-	PersistedValidationData, SessionIndex, SigningContext, UncheckedSigned,
-	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	CollatorSignature, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
+	CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData, Id as ParaId,
+	IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
+	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
 };
 use sp_core::{ByteArray, H256};
 use sp_runtime::{

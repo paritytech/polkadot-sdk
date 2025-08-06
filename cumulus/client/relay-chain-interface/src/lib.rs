@@ -34,9 +34,9 @@ use sp_api::ApiError;
 use cumulus_primitives_core::relay_chain::{vstaging::CandidateEvent, BlockId, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		BlockNumber, CoreIndex, Hash as PHash, Header as PHeader, InboundHrmpMessage,
-		OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		vstaging::CoreState, BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+		CoreIndex, Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
