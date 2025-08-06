@@ -26,12 +26,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
-	CandidateDescriptorV2,
-	vstaging::{
-		CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
-	},
-	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	OccupiedCoreAssumption,
+	vstaging::{ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET},
+	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, CollatorId, CollatorPair,
+	CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;

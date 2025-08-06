@@ -44,11 +44,8 @@ use polkadot_overseer::BlockInfo;
 use polkadot_primitives::MutateDescriptorV2;
 
 use polkadot_primitives::{
-	vstaging::{
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	BlockNumber, CandidateHash, CompactStatement, CoreIndex, Hash, Header, Id,
+	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, BlockNumber, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, CoreIndex, Hash, Header, Id,
 	PersistedValidationData, SessionInfo, SignedStatement, SigningContext, UncheckedSigned,
 	ValidatorIndex, ValidatorPair,
 };

@@ -34,9 +34,9 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AvailabilityBitfield, BlockNumber,
-	CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed,
-	SigningContext, ValidatorIndex,
+	AvailabilityBitfield, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext,
+	ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sp_core::H256;

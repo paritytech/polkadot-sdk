@@ -25,8 +25,8 @@ use polkadot_node_subsystem::SubsystemResult;
 use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use polkadot_overseer::SubsystemError;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash, CandidateIndex,
-	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
+	BlockNumber, CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
+	GroupIndex, Hash, SessionIndex, ValidatorIndex, ValidatorSignature,
 };
 
 use sp_consensus_slots::Slot;

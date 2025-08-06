@@ -29,8 +29,8 @@ use polkadot_node_subsystem_util::runtime::{
 };
 use polkadot_primitives::{
 	slashing::LegacyPendingSlashes,
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, Hash, SessionIndex,
+	vstaging::{CandidateEvent, ScrapedOnChainVotes},
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, SessionIndex,
 };
 
 use crate::{

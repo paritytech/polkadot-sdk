@@ -51,13 +51,10 @@ use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
 	effective_minimum_backing_votes,
 	node_features::FeatureIndex,
-	vstaging::{
-		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
-		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
-	},
-	CandidateDescriptorVersion, CandidateHash, CheckedDisputeStatementSet,
-	CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet, HeadData,
-	MultiDisputeStatementSet, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	vstaging::{BackedCandidate, InherentData as ParachainsInherentData, ScrapedOnChainVotes},
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
+	HeadData, MultiDisputeStatementSet, SessionIndex, SignedAvailabilityBitfields, SigningContext,
 	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
 	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };

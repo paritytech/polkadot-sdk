@@ -63,11 +63,8 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		InternalVersion,
-		vstaging::{
-			CandidateDescriptorV2, CommittedCandidateReceiptV2, MutateDescriptorV2,
-		},
-		AvailabilityBitfield, CandidateDescriptor, UncheckedSigned,
+		vstaging::{CandidateDescriptorV2, CommittedCandidateReceiptV2, MutateDescriptorV2},
+		AvailabilityBitfield, CandidateDescriptor, InternalVersion, UncheckedSigned,
 	};
 	use sp_runtime::Perbill;
 

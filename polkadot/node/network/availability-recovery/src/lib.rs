@@ -66,8 +66,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	node_features, vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, CandidateHash,
-	ChunkIndex, CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
+	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;

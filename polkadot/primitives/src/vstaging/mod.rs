@@ -20,7 +20,7 @@ use core::fmt::Formatter;
 use crate::{
 	slashing::DisputesTimeSlot,
 	v9::{CandidateDescriptorV2, CandidateDescriptorVersion, InternalVersion},
-	ValidatorId, ValidatorIndex, ValidityAttestation,
+	CandidateReceiptV2, ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 
 // Put any primitives used by staging APIs functions here
@@ -47,16 +47,6 @@ use sp_staking::SessionIndex;
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
-
-/// A candidate-receipt at version 2.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Hash))]
-pub struct CandidateReceiptV2<H = Hash> {
-	/// The descriptor of the candidate.
-	pub descriptor: CandidateDescriptorV2<H>,
-	/// The hash of the encoded commitments made as a result of candidate execution.
-	pub commitments_hash: Hash,
-}
 
 /// A candidate-receipt with commitments directly included.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]

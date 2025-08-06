@@ -33,11 +33,10 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::{AsyncBackingParams, Constraints, BackingState},
+		async_backing::{AsyncBackingParams, BackingState, Constraints},
 		slashing,
 		vstaging::{
-			CandidateEvent,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 			ScrapedOnChainVotes,
 		},
 		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
@@ -453,7 +452,8 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
 			.await
 	}

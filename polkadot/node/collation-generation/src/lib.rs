@@ -51,13 +51,10 @@ use polkadot_node_subsystem_util::{
 use polkadot_primitives::{
 	collator_signature_payload,
 	node_features::FeatureIndex,
-	vstaging::{
-		transpose_claim_queue, CandidateReceiptV2 as CandidateReceipt, CommittedCandidateReceiptV2,
-		TransposedClaimQueue,
-	},
-	CandidateCommitments, CandidateDescriptor, CandidateDescriptorV2, CollatorPair, CoreIndex,
-	Hash, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	ValidationCodeHash,
+	vstaging::{transpose_claim_queue, CommittedCandidateReceiptV2, TransposedClaimQueue},
+	CandidateCommitments, CandidateDescriptor, CandidateDescriptorV2,
+	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, Id as ParaId,
+	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
 use sp_core::crypto::Pair;

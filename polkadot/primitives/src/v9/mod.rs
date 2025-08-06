@@ -2551,6 +2551,16 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 	}
 }
 
+/// A candidate-receipt at version 2.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Hash))]
+pub struct CandidateReceiptV2<H = Hash> {
+	/// The descriptor of the candidate.
+	pub descriptor: CandidateDescriptorV2<H>,
+	/// The hash of the encoded commitments made as a result of candidate execution.
+	pub commitments_hash: Hash,
+}
+
 #[cfg(test)]
 /// Test helpers
 pub mod tests {

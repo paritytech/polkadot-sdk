@@ -32,7 +32,7 @@ use polkadot_cli::{
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
-use polkadot_primitives::{vstaging::CandidateReceiptV2, CandidateDescriptor};
+use polkadot_primitives::{CandidateDescriptor, CandidateReceiptV2};
 
 use polkadot_node_subsystem_util::request_validators;
 use sp_core::traits::SpawnNamed;

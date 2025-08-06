@@ -29,8 +29,8 @@ use polkadot_node_subsystem_types::messages::{
 };
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CoreIndex, GroupIndex, Hash, Header, Id as ParaId, Slot, ValidatorIndex,
+	vstaging::CandidateEvent, BlockNumber, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
+	GroupIndex, Hash, Header, Id as ParaId, Slot, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
 use rand::{seq::SliceRandom, SeedableRng};
