@@ -162,7 +162,7 @@ pub struct LegacyCandidatePendingAvailability<H = Hash, N = BlockNumber> {
 /// The per-parachain state of the backing system, including
 /// state-machine constraints and candidates pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct BackingState<H = Hash, N = BlockNumber> {
+pub struct LegacyBackingState<H = Hash, N = BlockNumber> {
 	/// The state-machine constraints of the parachain.
 	pub constraints: LegacyConstraints<N>,
 	/// The candidates pending availability. These should be ordered, i.e. they should form

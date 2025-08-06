@@ -62,7 +62,7 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
 }
 
-impl<H: Copy> From<BackingState<H>> for crate::v9::async_backing::BackingState<H> {
+impl<H: Copy> From<BackingState<H>> for crate::v9::async_backing::LegacyBackingState<H> {
 	fn from(value: BackingState<H>) -> Self {
 		Self {
 			constraints: value.constraints,
