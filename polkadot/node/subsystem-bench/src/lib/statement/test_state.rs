@@ -40,10 +40,13 @@ use polkadot_node_subsystem_test_helpers::{
 	derive_erasure_chunks_with_proofs_and_root, mock::new_block_import_info,
 };
 use polkadot_overseer::BlockInfo;
+
+use polkadot_primitives::MutateDescriptorV2;
+
 use polkadot_primitives::{
 	vstaging::{
 		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
 	BlockNumber, CandidateHash, CompactStatement, CoreIndex, Hash, Header, Id,
 	PersistedValidationData, SessionInfo, SignedStatement, SigningContext, UncheckedSigned,

@@ -24,10 +24,8 @@ use crate::{
 use polkadot_node_primitives::{InvalidCandidate, ValidationResult};
 
 use polkadot_primitives::{
-	vstaging::{
-		CandidateDescriptorV2 as CandidateDescriptor, CandidateReceiptV2 as CandidateReceipt,
-	},
-	CandidateCommitments, PersistedValidationData, PvfExecKind,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateCommitments,
+	CandidateDescriptorV2 as CandidateDescriptor, PersistedValidationData, PvfExecKind,
 };
 
 use futures::channel::oneshot;

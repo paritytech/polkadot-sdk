@@ -49,13 +49,12 @@ use polkadot_primitives::{
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
 	vstaging::{
-		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
-		CandidateReceiptV2 as CandidateReceipt,
+		transpose_claim_queue, CandidateEvent, CandidateReceiptV2 as CandidateReceipt,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
-	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
-	ValidationCodeHash, ValidatorId,
+	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	ExecutorParams, Hash, PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
+	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;

@@ -23,7 +23,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 
-use crate::vstaging::CandidateDescriptorV2;
+use crate::CandidateDescriptorV2;
 
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(

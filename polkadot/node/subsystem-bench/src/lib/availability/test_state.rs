@@ -34,9 +34,9 @@ use polkadot_node_subsystem_test_helpers::{
 use polkadot_node_subsystem_util::availability_chunks::availability_chunk_indices;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
-	AvailabilityBitfield, BlockNumber, CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData,
-	Header, PersistedValidationData, Signed, SigningContext, ValidatorIndex,
+	vstaging::CandidateReceiptV2 as CandidateReceipt, AvailabilityBitfield, BlockNumber,
+	CandidateHash, ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed,
+	SigningContext, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
 use sp_core::H256;
@@ -86,6 +86,7 @@ pub struct TestState {
 
 impl TestState {
 	pub fn new(config: &TestConfiguration) -> Self {
+		use polkadot_primitives::MutateDescriptorV2;
 		let mut test_state = Self {
 			available_data: Default::default(),
 			candidate_receipt_templates: Default::default(),

@@ -26,8 +26,9 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_primitives::{
+	CandidateDescriptorV2,
 	vstaging::{
-		CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
+		CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
 	},
 	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
 	OccupiedCoreAssumption,
