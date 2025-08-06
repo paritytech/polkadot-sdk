@@ -763,7 +763,7 @@ pub type UncheckedSignedAvailabilityBitfields = Vec<UncheckedSignedAvailabilityB
 
 /// A backed (or backable, depending on context) candidate.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct BackedCandidate<H = Hash> {
+pub struct LegacyBackedCandidate<H = Hash> {
 	/// The candidate referred to.
 	candidate: CommittedCandidateReceipt<H>,
 	/// The validity votes themselves, expressed as signatures.
@@ -773,7 +773,7 @@ pub struct BackedCandidate<H = Hash> {
 	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
 }
 
-impl<H> BackedCandidate<H> {
+impl<H> LegacyBackedCandidate<H> {
 	/// Constructor
 	pub fn new(
 		candidate: CommittedCandidateReceipt<H>,
@@ -1687,7 +1687,7 @@ pub struct InherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,
 	/// Backed candidates for inclusion in the block.
-	pub backed_candidates: Vec<BackedCandidate<HDR::Hash>>,
+	pub backed_candidates: Vec<LegacyBackedCandidate<HDR::Hash>>,
 	/// Sets of dispute votes for inclusion,
 	pub disputes: MultiDisputeStatementSet,
 	/// The parent block header. Used for checking state proofs.
@@ -2311,7 +2311,7 @@ pub mod tests {
 	#[test]
 	fn test_backed_candidate_injected_core_index() {
 		let initial_validator_indices = bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1];
-		let mut candidate = BackedCandidate::new(
+		let mut candidate = LegacyBackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
 			initial_validator_indices.clone(),
@@ -2337,7 +2337,7 @@ pub mod tests {
 		assert!(core_index.is_some());
 
 		// Core index supplied.
-		let mut candidate = BackedCandidate::new(
+		let mut candidate = LegacyBackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
 			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
