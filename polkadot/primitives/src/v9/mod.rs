@@ -1202,7 +1202,7 @@ pub enum OccupiedCoreAssumption {
 /// An event concerning a candidate.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
-pub enum CandidateEvent<H = Hash> {
+pub enum LegacyCandidateEvent<H = Hash> {
 	/// This candidate receipt was backed in the most recent block.
 	/// This includes the core index the candidate is now occupying.
 	#[codec(index = 0)]
