@@ -4,4 +4,4 @@ doc:
   description: This PR changes the default transaction pool to the fork aware implementation. The old implementation can be still used with `--pool-type=single-state` command line argument.
 crates:
 - name: sc-cli
-  bump: major
+  bump: minor
