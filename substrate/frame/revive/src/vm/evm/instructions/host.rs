@@ -278,25 +278,25 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 	popn!([target], context.interpreter);
-	let target = target.into_address();
+	gas!(context.interpreter, RuntimeCosts::Terminate);
 
-	let Some(res) = context.host.selfdestruct(context.interpreter.input.target_address(), target)
-	else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	let h160 = sp_core::H160::from_slice(&target.to_be_bytes::<32>()[12..]);
+
+
+	let contract_info = context.interpreter.extend.terminate(&h160);
+
+	// let Some(res) = context.host.selfdestruct(context.interpreter.input.target_address(), target)
+	// else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	// EIP-3529: Reduction in refunds
-	if !context.interpreter.runtime_flag.spec_id().is_enabled_in(LONDON) &&
-		!res.previously_destroyed
-	{
-		context.interpreter.gas.record_refund(gas::SELFDESTRUCT)
-	}
+	// if !context.interpreter.runtime_flag.spec_id().is_enabled_in(LONDON) &&
+	// 	!res.previously_destroyed
+	// {
+	// 	context.interpreter.gas.record_refund(gas::SELFDESTRUCT)
+	// }
 
-	gas_legacy!(
-		context.interpreter,
-		gas::selfdestruct_cost(context.interpreter.runtime_flag.spec_id(), res)
-	);
-
-	context.interpreter.halt(InstructionResult::SelfDestruct);
+	// context.interpreter.halt(InstructionResult::SelfDestruct);
 }
