@@ -23,6 +23,7 @@ mod modexp;
 mod point_eval;
 mod ripemd160;
 mod sha256;
+mod system;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -53,6 +54,7 @@ type Production<T> = (
 	bn128::Bn128Pairing<T>,
 	blake2f::Blake2F<T>,
 	point_eval::PointEval<T>,
+	system::System<T>,
 );
 
 #[cfg(feature = "runtime-benchmarks")]
