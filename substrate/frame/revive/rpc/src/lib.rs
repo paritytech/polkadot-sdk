@@ -180,6 +180,13 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<Option<H160>> {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
+
+	async fn set_prev_randao(
+		&self,
+		prev_randao: H256,
+	) -> RpcResult<Option<H256>> {
+		Ok(self.client.set_prev_randao(prev_randao).await?)
+	}
 }
 
 #[async_trait]

@@ -504,6 +504,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ModifiedCoinbase<T: Config> = StorageMap<_, Identity, U256, H160>;
 
+	/// A mapping from a block to it's modified prevrandao.
+	#[pallet::storage]
+	pub(crate) type ModifiedPrevrandao<T: Config> = StorageMap<_, Identity, U256, H256>;
+
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
@@ -1122,6 +1126,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let next_block_number = last_block.as_u32().saturating_add(2);
 			ModifiedCoinbase::<T>::insert(U256::from(next_block_number), coinbase);
+			Ok(())
+		}
+
+		#[pallet::call_index(16)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_prev_randao(
+			origin: OriginFor<T>,
+			last_block: U256,
+			prev_randao: H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let next_block_number = last_block.as_u32().saturating_add(1);
+			ModifiedPrevrandao::<T>::insert(U256::from(next_block_number), prev_randao);
 			Ok(())
 		}
 	}

@@ -69,4 +69,10 @@ pub trait HardhatRpc {
 		&self,
 		coinbase: H160,
 	) -> RpcResult<Option<H160>>;
+
+	#[method(name = "hardhat_setPrevRandao")]
+	async fn set_prev_randao(
+		&self,
+		prev_randao: H256,
+	) -> RpcResult<Option<H256>>;
 }

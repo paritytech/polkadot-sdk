@@ -671,13 +671,22 @@ impl Client {
 				.into()
 		};
 
-		let query = subxt_client::storage().revive().modified_coinbase(subxt::utils::Static(U256::from(header.number)));
-		let maybe_coinbase = self.api.storage().at_latest().await.unwrap().fetch(&query).await.unwrap();
+		let coinbase_query = subxt_client::storage().revive().modified_coinbase(subxt::utils::Static(U256::from(header.number)));
+		let maybe_coinbase = self.api.storage().at_latest().await.unwrap().fetch(&coinbase_query).await.unwrap();
 		let block_author: H160;
 
 		match maybe_coinbase {
 			None => block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author
+		}
+
+		let mix_hash_query = subxt_client::storage().revive().modified_prevrandao(subxt::utils::Static(U256::from(header.number)));
+		let maybe_mix_hash = self.api.storage().at_latest().await.unwrap().fetch(&mix_hash_query).await.unwrap();
+		let prev_randao: H256;
+
+		match maybe_mix_hash {
+			None => prev_randao = Default::default(),
+			Some(value) => prev_randao = value,
 		}
 
 		Block {
@@ -694,6 +703,7 @@ impl Client {
 			gas_used,
 			receipts_root: extrinsics_root,
 			transactions,
+			mix_hash: prev_randao,
 			..Default::default()
 		}
 	}
@@ -906,5 +916,26 @@ impl Client {
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
 
 		Ok(Some(coinbase))
+	}
+
+	pub async fn set_prev_randao(
+		&self,
+		prev_randao: H256,
+	) -> Result<Option<H256>, ClientError> {
+
+		let block_hash = self.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest)).await?;
+		let block = self.tracing_block(block_hash).await?;
+
+		let alice = dev::alice();
+
+		let call = RuntimeCall::Revive(ReviveCall::set_next_prev_randao {
+			last_block: subxt::utils::Static(U256::from(block.header.number)),
+			prev_randao
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(prev_randao))
 	}
 }
