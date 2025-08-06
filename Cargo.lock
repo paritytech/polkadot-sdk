@@ -12889,6 +12889,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "sp-trie",
+ "sp-version",
  "substrate-bn",
  "subxt-signer 0.41.0",
 ]

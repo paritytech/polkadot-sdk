@@ -59,6 +59,7 @@ sp-consensus-slots = { workspace = true, optional = true }
 sp-core = { workspace = true, features = ["bls-experimental", "bandersnatch-experimental"] }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+sp-version = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
 
 [dev-dependencies]

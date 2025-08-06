@@ -146,6 +146,9 @@ pub mod pallet {
 		/// The time implementation used to supply timestamps to contracts through `seal_now`.
 		type Time: Time;
 
+		/// How Ethereum state root is calculated.
+		type StateRoot: Get<H256>;
+
 		/// The fungible in which fees are paid and contract balances are held.
 		#[pallet::no_default]
 		type Currency: Inspect<Self::AccountId>
@@ -336,6 +339,7 @@ pub mod pallet {
 			type DepositPerByte = DepositPerByte;
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
+			type StateRoot = DeterministicStateRoot<Self::Version>;
 			type UnsafeUnstableInterface = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
@@ -702,6 +706,8 @@ pub mod pallet {
 
 			let _receipts_root =
 				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
+
+			let _storage_root = T::StateRoot::get();
 		}
 
 		fn integrity_test() {
@@ -2195,4 +2201,31 @@ macro_rules! impl_runtime_apis_plus_revive {
 			}
 		}
 	};
+}
+
+/// Represents an intermediate state root for the current runtime version.
+///
+/// This represents a snapshot of the state root at the time of calling, and
+/// the it will most certainly be different than the state root of the final
+/// substrate block.
+///
+/// When in doubt, please select
+pub struct IntermediateStateRoot<T>(PhantomData<T>);
+impl<T: Get<sp_version::RuntimeVersion>> Get<H256> for IntermediateStateRoot<T> {
+	fn get() -> H256 {
+		let version = T::get().state_version();
+		H256::decode(&mut &sp_io::storage::root(version)[..])
+			.expect("Node is configured to use the same hash; qed")
+	}
+}
+
+/// Represents a deterministic state root for the current runtime version.
+///
+/// This returns a deterministic state root (ie zeroed out). It has the same
+/// level of usefulness as `IntermediateStateRoot`, but consumes less resources.
+pub struct DeterministicStateRoot<T>(PhantomData<T>);
+impl<T: Get<sp_version::RuntimeVersion>> Get<H256> for DeterministicStateRoot<T> {
+	fn get() -> H256 {
+		H256::zero()
+	}
 }
