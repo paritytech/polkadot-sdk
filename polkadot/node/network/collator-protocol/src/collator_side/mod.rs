@@ -52,7 +52,7 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::CandidateEvent, AuthorityDiscoveryId, BlockNumber, CandidateHash,
+	AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, GroupIndex, Hash, HeadData,
 	Id as ParaId, SessionIndex,
 };

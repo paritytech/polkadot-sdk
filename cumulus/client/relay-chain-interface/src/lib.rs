@@ -31,7 +31,7 @@ use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::{vstaging::CandidateEvent, BlockId, Hash as RelayHash};
+use cumulus_primitives_core::relay_chain::{BlockId, CandidateEvent, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		vstaging::CoreState, BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,

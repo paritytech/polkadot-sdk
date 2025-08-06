@@ -2571,6 +2571,25 @@ pub struct CommittedCandidateReceiptV2<H = Hash> {
 	pub commitments: CandidateCommitments,
 }
 
+/// An event concerning a candidate.
+#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(PartialEq))]
+pub enum CandidateEvent<H = Hash> {
+	/// This candidate receipt was backed in the most recent block.
+	/// This includes the core index the candidate is now occupying.
+	#[codec(index = 0)]
+	CandidateBacked(CandidateReceiptV2<H>, HeadData, CoreIndex, GroupIndex),
+	/// This candidate receipt was included and became a parablock at the most recent block.
+	/// This includes the core index the candidate was occupying as well as the group responsible
+	/// for backing the candidate.
+	#[codec(index = 1)]
+	CandidateIncluded(CandidateReceiptV2<H>, HeadData, CoreIndex, GroupIndex),
+	/// This candidate receipt was not made available in time and timed out.
+	/// This includes the core index the candidate was occupying.
+	#[codec(index = 2)]
+	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
+}
+
 #[cfg(test)]
 /// Test helpers
 pub mod tests {

@@ -36,7 +36,7 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::{reexports::SubsystemContext, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::CandidateEvent, BlakeTwo256, BlockNumber, CandidateDescriptor,
+	BlakeTwo256, BlockNumber, CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, Hash, HashT, HeadData,
 	Id as ParaId,
 };

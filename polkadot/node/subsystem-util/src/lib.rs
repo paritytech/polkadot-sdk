@@ -43,8 +43,8 @@ use futures::channel::{mpsc, oneshot};
 use polkadot_primitives::{
 	async_backing::{BackingState, Constraints},
 	slashing,
-	vstaging::{CandidateEvent, CoreState, ScrapedOnChainVotes},
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash,
+	vstaging::{CoreState, ScrapedOnChainVotes},
+	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, EncodeAs, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
 	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,

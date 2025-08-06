@@ -62,8 +62,8 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
 	async_backing::Constraints,
 	slashing,
-	vstaging::{CandidateEvent, CoreState, ScrapedOnChainVotes},
-	AccountId, AccountIndex, Balance, BlockNumber, CandidateHash,
+	vstaging::{CoreState, ScrapedOnChainVotes},
+	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
 	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,

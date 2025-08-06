@@ -31,7 +31,7 @@ use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
 use futures::{channel::mpsc, StreamExt};
-use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
+use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,

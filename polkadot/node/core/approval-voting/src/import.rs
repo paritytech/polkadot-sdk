@@ -45,7 +45,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_overseer::SubsystemSender;
 use polkadot_primitives::{
-	node_features, vstaging::CandidateEvent, BlockNumber, CandidateHash,
+	node_features, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, ConsensusLog, CoreIndex, GroupIndex, Hash, Header,
 	SessionIndex,
 };

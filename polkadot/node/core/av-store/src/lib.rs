@@ -47,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	vstaging::CandidateEvent, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
-	ChunkIndex, CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 

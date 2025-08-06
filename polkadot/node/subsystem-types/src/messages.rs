@@ -45,8 +45,8 @@ use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	slashing,
 	vstaging::{self, BackedCandidate, CoreState},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
+	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
@@ -705,7 +705,7 @@ pub enum RuntimeApiRequest {
 	CandidatePendingAvailability(ParaId, RuntimeApiSender<Option<CommittedCandidateReceipt>>),
 	/// Get all events concerning candidates (backing, inclusion, time-out) in the parent of
 	/// the block in whose state this request is executed.
-	CandidateEvents(RuntimeApiSender<Vec<vstaging::CandidateEvent>>),
+	CandidateEvents(RuntimeApiSender<Vec<CandidateEvent>>),
 	/// Get the execution environment parameter set by session index
 	SessionExecutorParams(SessionIndex, RuntimeApiSender<Option<ExecutorParams>>),
 	/// Get the session info for the given session, if stored.

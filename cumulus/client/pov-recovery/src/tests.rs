@@ -35,7 +35,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,

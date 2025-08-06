@@ -35,7 +35,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,

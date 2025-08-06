@@ -523,7 +523,7 @@ mod tests {
 	use async_trait::async_trait;
 	use cumulus_relay_chain_interface::*;
 	use futures::Stream;
-	use polkadot_primitives::vstaging::{CandidateEvent, CommittedCandidateReceiptV2};
+	use polkadot_primitives::{vstaging::CommittedCandidateReceiptV2, CandidateEvent};
 	use sp_version::RuntimeVersion;
 	use std::{
 		collections::{BTreeMap, HashMap, VecDeque},

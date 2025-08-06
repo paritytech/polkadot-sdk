@@ -227,7 +227,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn candidate_events(
 		&self,
 		at: Hash,
-	) -> Result<Vec<polkadot_primitives::vstaging::CandidateEvent<Hash>>, sp_api::ApiError> {
+	) -> Result<Vec<polkadot_primitives::CandidateEvent<Hash>>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_candidate_events(at).await?)
 	}
 
