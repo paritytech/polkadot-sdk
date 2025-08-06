@@ -618,6 +618,8 @@ pub mod pallet {
 					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
 						if let Event::ContractEmitted { contract, data, topics } = event {
 							Some(Log {
+								// The address, topics and data are the only fields that
+								// get encoded while building the receipt root.
 								address: contract,
 								topics,
 								data: Some(data.into()),
@@ -651,7 +653,10 @@ pub mod pallet {
 						None
 					};
 
-					let receipt = ReceiptInfo::new(
+					// The receipt only encodes the status code, gas used,
+					// logs bloom and logs. An encoded log only contains the
+					// contract address, topics and data.
+					let receipt: ReceiptInfo = ReceiptInfo::new(
 						block_hash.into(),
 						block_number.into(),
 						contract_address,
@@ -690,6 +695,13 @@ pub mod pallet {
 			// TODO:
 			// Calculate receipt root:
 			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L49-L54
+			let receipt_blobs = tx_and_receipts
+				.iter()
+				.map(|(_, receipt)| receipt.encode_2718())
+				.collect::<Vec<_>>();
+
+			let _receipts_root =
+				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
 		}
 
 		fn integrity_test() {
