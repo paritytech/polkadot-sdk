@@ -26,6 +26,10 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
       options: --privileged
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/2, 2/2]
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -41,7 +45,8 @@ jobs:
                    --locked \
                    --release \
                    --no-fail-fast \
-                   --features experimental,ci-only-tests
+                   --features experimental,ci-only-tests \
+                   --partition count:${{ matrix.partition }}
       #              --filter-expr "test(/all_security_features_work/) + test(/nonexistent_cache_dir/)"
       # - name: Stop all workflows if failed
       #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
