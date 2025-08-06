@@ -37,6 +37,9 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::{IBenchmarking, NoInfo, WithInfo};
 
+#[cfg(feature = "runtime-benchmarks")]
+pub use system::ISystem;
+
 #[cfg(not(feature = "runtime-benchmarks"))]
 pub type Builtin<T> = Production<T>;
 

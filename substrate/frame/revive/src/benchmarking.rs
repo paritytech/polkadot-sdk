@@ -1973,7 +1973,15 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use crate::precompiles::ISystem;
+		use alloy_core::sol_types::SolInterface;
+
 		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hash_blake2_256(ISystem::hash_blake2_256Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
@@ -1982,8 +1990,8 @@ mod benchmarks {
 		{
 			result = run_builtin_precompile(
 				&mut ext,
-				H160::from_low_u64_be(2).as_fixed_bytes(),
-				input.clone(),
+				H160::from_low_u64_be(901).as_fixed_bytes(),
+				input_bytes,
 			);
 		}
 		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
