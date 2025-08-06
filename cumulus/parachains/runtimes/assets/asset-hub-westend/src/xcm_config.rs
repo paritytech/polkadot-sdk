@@ -42,9 +42,9 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
-	system_parachain::{ASSET_HUB_ID, COLLECTIVES_ID},
-	xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -67,7 +67,6 @@ parameter_types! {
 	pub const RootLocation: Location = Location::here();
 	pub const WestendLocation: Location = Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = Some(NetworkId::ByGenesis(WESTEND_GENESIS_HASH));
-	pub const AssetHubParaId: crate::ParaId = crate::ParaId::new(ASSET_HUB_ID);
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
@@ -309,6 +308,13 @@ impl Contains<Location> for AmbassadorEntities {
 	}
 }
 
+pub struct SecretaryEntities;
+impl Contains<Location> for SecretaryEntities {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, [Parachain(COLLECTIVES_ID), PalletInstance(91)]))
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -330,6 +336,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						FellowshipEntities,
 						AmbassadorEntities,
+						SecretaryEntities,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
@@ -353,6 +360,7 @@ pub type WaivedLocations = (
 	FellowshipEntities,
 	AmbassadorEntities,
 	LocalPlurality,
+	SecretaryEntities,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

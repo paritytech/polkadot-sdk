@@ -319,6 +319,7 @@ specialize_requests! {
 	fn request_backing_constraints(para_id: ParaId) -> Option<Constraints>; BackingConstraints;
 	fn request_min_backing_votes(session_index: SessionIndex) -> u32; MinimumBackingVotes;
 	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
+	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
 
 }
 

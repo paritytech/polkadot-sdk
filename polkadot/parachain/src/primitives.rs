@@ -190,6 +190,7 @@ impl From<u32> for Id {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 impl From<usize> for Id {
 	fn from(x: usize) -> Self {
 		// can't panic, so need to truncate
