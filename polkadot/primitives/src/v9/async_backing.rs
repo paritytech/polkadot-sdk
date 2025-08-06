@@ -146,7 +146,7 @@ pub struct Constraints<N = BlockNumber> {
 
 /// A candidate pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
+pub struct LegacyCandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// The candidate's descriptor.
@@ -168,5 +168,5 @@ pub struct BackingState<H = Hash, N = BlockNumber> {
 	/// The candidates pending availability. These should be ordered, i.e. they should form
 	/// a sub-chain, where the first candidate builds on top of the required parent of the
 	/// constraints and each subsequent builds on top of the previous head-data.
-	pub pending_availability: Vec<CandidatePendingAvailability<H, N>>,
+	pub pending_availability: Vec<LegacyCandidatePendingAvailability<H, N>>,
 }

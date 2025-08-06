@@ -37,7 +37,7 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 }
 
 impl<H: Copy> From<CandidatePendingAvailability<H>>
-	for crate::v9::async_backing::CandidatePendingAvailability<H>
+	for crate::v9::async_backing::LegacyCandidatePendingAvailability<H>
 {
 	fn from(value: CandidatePendingAvailability<H>) -> Self {
 		Self {
