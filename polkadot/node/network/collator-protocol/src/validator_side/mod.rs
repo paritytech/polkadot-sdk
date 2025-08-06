@@ -1493,6 +1493,12 @@ async fn handle_network_msg<Context>(
 				&state.peer_data,
 				&state.ah_invulnerables,
 			) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?peer_id,
+					?observed_role,
+					"Peer connection refused, no slots for invulnerable AssetHub collators",
+				);
 				disconnect_peer(ctx.sender(), peer_id).await;
 				return Ok(())
 			}
@@ -2433,5 +2439,14 @@ fn can_accept_new_collator_connection(
 	let connection_limit =
 		max_accepted_connections - ah_invulnerables.len() + ah_invulnerables_connected;
 
-	currently_connected.len() >= connection_limit
+	gum::trace!(
+		target: LOG_TARGET,
+		?new_peer_id,
+		?ah_invulnerables,
+		?currently_connected,
+		?connection_limit,
+		"Checking if we can accept a new collator connection",
+	);
+
+	currently_connected.len() < connection_limit
 }
