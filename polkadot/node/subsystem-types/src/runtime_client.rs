@@ -20,7 +20,7 @@ use polkadot_primitives::{
 	runtime_api::ParachainHost,
 	slashing,
 	vstaging::{
-		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 		ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
@@ -310,7 +310,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError>;
+	) -> Result<Option<async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
 
@@ -607,7 +607,7 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 

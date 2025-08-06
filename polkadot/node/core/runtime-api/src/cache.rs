@@ -23,7 +23,7 @@ use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	slashing,
 	vstaging::{
-		self, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 		ScrapedOnChainVotes,
 	},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
@@ -67,11 +67,12 @@ pub(crate) struct RequestResultCache {
 		LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCodeHash>>,
 	version: LruMap<Hash, u32>,
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
-	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
+	unapplied_slashes:
+		LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
-	para_backing_state: LruMap<(Hash, ParaId), Option<vstaging::async_backing::BackingState>>,
+	para_backing_state: LruMap<(Hash, ParaId), Option<async_backing::BackingState>>,
 	async_backing_params: LruMap<Hash, async_backing::AsyncBackingParams>,
 	node_features: LruMap<SessionIndex, NodeFeatures>,
 	approval_voting_params: LruMap<SessionIndex, ApprovalVotingParams>,
@@ -512,14 +513,14 @@ impl RequestResultCache {
 	pub(crate) fn para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-	) -> Option<&Option<vstaging::async_backing::BackingState>> {
+	) -> Option<&Option<async_backing::BackingState>> {
 		self.para_backing_state.get(&key).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_para_backing_state(
 		&mut self,
 		key: (Hash, ParaId),
-		value: Option<vstaging::async_backing::BackingState>,
+		value: Option<async_backing::BackingState>,
 	) {
 		self.para_backing_state.insert(key, value);
 	}
@@ -658,7 +659,7 @@ pub(crate) enum RequestResult {
 	SubmitReportDisputeLost(Option<()>),
 	ApprovalVotingParams(Hash, SessionIndex, ApprovalVotingParams),
 	DisabledValidators(Hash, Vec<ValidatorIndex>),
-	ParaBackingState(Hash, ParaId, Option<vstaging::async_backing::BackingState>),
+	ParaBackingState(Hash, ParaId, Option<async_backing::BackingState>),
 	AsyncBackingParams(Hash, async_backing::AsyncBackingParams),
 	NodeFeatures(SessionIndex, NodeFeatures),
 	ClaimQueue(Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>),

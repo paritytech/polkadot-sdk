@@ -30,12 +30,11 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, InboundHrmpLimitations, LegacyConstraints,
-		OutboundHrmpChannelLimitations,
+		AsyncBackingParams, BackingState, CandidatePendingAvailability, InboundHrmpLimitations,
+		LegacyConstraints, OutboundHrmpChannelLimitations,
 	},
 	slashing,
 	vstaging::{
-		async_backing::{BackingState, CandidatePendingAvailability},
 		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
 		OccupiedCore, ScrapedOnChainVotes,
 	},

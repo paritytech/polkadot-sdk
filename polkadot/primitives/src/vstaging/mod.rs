@@ -40,9 +40,6 @@ use sp_core::{ConstU32, RuntimeDebug};
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
 
-/// Async backing primitives
-pub mod async_backing;
-
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;

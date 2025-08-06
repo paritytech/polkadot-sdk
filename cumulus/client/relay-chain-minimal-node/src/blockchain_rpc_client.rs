@@ -27,10 +27,8 @@ use futures::{Stream, StreamExt};
 use polkadot_core_primitives::{Block, BlockNumber, Hash, Header};
 use polkadot_overseer::{ChainApiBackend, RuntimeApiSubsystemClient};
 use polkadot_primitives::{
-	async_backing::{AsyncBackingParams, Constraints},
-	slashing,
-	vstaging::async_backing::BackingState,
-	ApprovalVotingParams, CoreIndex, NodeFeatures,
+	async_backing::{AsyncBackingParams, BackingState, Constraints},
+	slashing, ApprovalVotingParams, CoreIndex, NodeFeatures,
 };
 use sc_authority_discovery::{AuthorityDiscovery, Error as AuthorityDiscoveryError};
 use sc_client_api::AuxStore;

@@ -285,7 +285,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 		_: ParaId,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		todo!("Not required for tests")
 	}
 

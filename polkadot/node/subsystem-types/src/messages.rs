@@ -757,7 +757,7 @@ pub enum RuntimeApiRequest {
 	/// Returns all disabled validators at a given block height.
 	DisabledValidators(RuntimeApiSender<Vec<ValidatorIndex>>),
 	/// Get the backing state of the given para.
-	ParaBackingState(ParaId, RuntimeApiSender<Option<vstaging::async_backing::BackingState>>),
+	ParaBackingState(ParaId, RuntimeApiSender<Option<async_backing::BackingState>>),
 	/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
 	///
 	/// If it's not supported by the Runtime, the async backing is said to be disabled.
