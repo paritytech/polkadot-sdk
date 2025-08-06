@@ -1221,7 +1221,7 @@ pub enum LegacyCandidateEvent<H = Hash> {
 /// Scraped runtime backing votes and resolved disputes.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
-pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
+pub struct LegacyScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	/// The session in which the block was included.
 	pub session: SessionIndex,
 	/// Set of backing validators for each candidate, represented by its candidate

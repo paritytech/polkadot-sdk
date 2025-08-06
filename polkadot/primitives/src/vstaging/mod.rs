@@ -944,7 +944,9 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	pub disputes: MultiDisputeStatementSet,
 }
 
-impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>> for super::v9::ScrapedOnChainVotes<H> {
+impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>>
+	for super::v9::LegacyScrapedOnChainVotes<H>
+{
 	fn from(value: ScrapedOnChainVotes<H>) -> Self {
 		Self {
 			session: value.session,
