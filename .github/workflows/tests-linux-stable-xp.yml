@@ -18,9 +18,6 @@ jobs:
 
   # some tests do not run with `try-runtime` feature enabled
   # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
-  #
-  # all_security_features_work and nonexistent_cache_dir are currently skipped
-  # becuase runners don't have the necessary permissions to run them
   test-linux-stable-no-try-runtime-full:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
