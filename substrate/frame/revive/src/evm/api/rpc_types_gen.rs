@@ -149,6 +149,44 @@ pub struct Block {
 	pub withdrawals_root: Option<H256>,
 }
 
+/// Block header.
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	rlp::RlpEncodable,
+)]
+pub struct BlockHeader {
+	pub parent_hash: H256,
+	pub ommers_hash: H256,
+	pub beneficiary: H160,
+	pub state_root: H256,
+	pub transactions_root: H256,
+	pub receipts_root: H256,
+	pub logs_bloom: Bytes256,
+	pub difficulty: U256,
+	pub number: U256,
+	pub gas_limit: U256,
+	pub gas_used: U256,
+	pub timestamp: u64,
+	pub extra_data: Bytes,
+	pub mix_hash: H256,
+	pub nonce: Bytes8,
+}
+
+impl BlockHeader {
+	pub fn hash(&self) -> H256 {
+		H256(sp_core::keccak_256(&rlp::encode(self)))
+	}
+}
+
 /// Block number or tag
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
