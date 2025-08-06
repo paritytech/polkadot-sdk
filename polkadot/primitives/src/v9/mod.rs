@@ -1683,7 +1683,7 @@ pub struct DisputeState<N = BlockNumber> {
 
 /// Parachains inherent-data passed into the runtime by a block author
 #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct InherentData<HDR: HeaderT = Header> {
+pub struct LegacyInherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,
 	/// Backed candidates for inclusion in the block.
