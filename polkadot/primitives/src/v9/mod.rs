@@ -1144,7 +1144,7 @@ pub struct ScheduledCore {
 /// The state of a particular availability core.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
-pub enum CoreState<H = Hash, N = BlockNumber> {
+pub enum LegacyCoreState<H = Hash, N = BlockNumber> {
 	/// The core is currently occupied.
 	#[codec(index = 0)]
 	Occupied(OccupiedCore<H, N>),
@@ -1162,7 +1162,7 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	Free,
 }
 
-impl<N> CoreState<N> {
+impl<N> LegacyCoreState<N> {
 	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
 	///
 	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s

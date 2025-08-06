@@ -1051,13 +1051,13 @@ impl<H: Copy> From<OccupiedCore<H>> for super::v9::OccupiedCore<H> {
 	}
 }
 
-impl<H: Copy> From<CoreState<H>> for super::v9::CoreState<H> {
+impl<H: Copy> From<CoreState<H>> for super::v9::LegacyCoreState<H> {
 	fn from(value: CoreState<H>) -> Self {
 		match value {
-			CoreState::Free => super::v9::CoreState::Free,
-			CoreState::Scheduled(core) => super::v9::CoreState::Scheduled(core),
+			CoreState::Free => super::v9::LegacyCoreState::Free,
+			CoreState::Scheduled(core) => super::v9::LegacyCoreState::Scheduled(core),
 			CoreState::Occupied(occupied_core) =>
-				super::v9::CoreState::Occupied(occupied_core.into()),
+				super::v9::LegacyCoreState::Occupied(occupied_core.into()),
 		}
 	}
 }
