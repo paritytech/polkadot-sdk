@@ -35,7 +35,7 @@ use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+use sp_io::hashing::{blake2_128, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 /// Abstraction over the memory access within syscalls.
@@ -1980,21 +1980,6 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
 			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 
