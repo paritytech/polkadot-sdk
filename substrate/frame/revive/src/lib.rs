@@ -542,8 +542,13 @@ pub mod pallet {
 	/// transaction, the status of the transaction (success or not), and the gas consumed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightTransactions<T: Config> =
-		CountedStorageMap<_, Identity, u32, (Vec<u8>, Vec<Event<T>>, bool, Weight), OptionQuery>;
+	pub(crate) type InflightTransactions<T: Config> = CountedStorageMap<
+		_,
+		Identity,
+		u32,
+		(Vec<u8>, u32, Vec<Event<T>>, bool, Weight),
+		OptionQuery,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -589,7 +594,7 @@ pub mod pallet {
 
 			let tx_and_receipts: Vec<(TransactionSigned, ReceiptInfo)> = transactions
 				.into_iter()
-				.filter_map(|(transaction_index, (payload, events, success, gas))| {
+				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
 					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
 							log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
 						}).ok()?;
@@ -1788,10 +1793,15 @@ impl<T: Config> Pallet<T> {
 		// Collect inflight events emitted by this EVM transaction.
 		let events = InflightEvents::<T>::drain().map(|(_idx, event)| event).collect::<Vec<_>>();
 
+		let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
+			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
+			0
+		});
+
 		let transactions_count = InflightTransactions::<T>::count();
 		InflightTransactions::<T>::insert(
 			transactions_count,
-			(payload, events, success, gas_consumed),
+			(payload, extrinsic_index, events, success, gas_consumed),
 		);
 	}
 
