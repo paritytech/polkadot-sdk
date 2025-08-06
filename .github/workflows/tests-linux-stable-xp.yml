@@ -24,7 +24,7 @@ jobs:
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: cattery-gce-large
+    runs-on: parity-large-test
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
