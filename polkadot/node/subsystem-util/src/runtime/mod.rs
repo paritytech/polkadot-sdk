@@ -429,7 +429,7 @@ where
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>
+) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {

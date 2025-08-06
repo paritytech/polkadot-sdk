@@ -380,7 +380,7 @@ pub fn session_executor_params<T: session_info::Config>(
 
 /// Implementation of `unapplied_slashes` runtime API
 pub fn unapplied_slashes<T: disputes::slashing::Config>(
-) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
 	disputes::slashing::Pallet::<T>::unapplied_slashes()
 }
 

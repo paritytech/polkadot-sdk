@@ -250,7 +250,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
 	async fn key_ownership_proof(
@@ -568,7 +568,7 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
 	}
 

@@ -83,7 +83,7 @@ pub struct LegacyDisputeProof {
 /// that uses the newer `DisputeOffenceKind` enum instead.
 /// Only kept for backwards compatibility.
 #[derive(Encode, Decode, TypeInfo, Debug, Clone)]
-pub struct PendingSlashes {
+pub struct LegacyPendingSlashes {
 	/// Indices and keys of the validators who lost a dispute and are pending
 	/// slashes.
 	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,

@@ -367,7 +367,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Vec<(
 			polkadot_primitives::SessionIndex,
 			polkadot_primitives::CandidateHash,
-			slashing::PendingSlashes,
+			slashing::LegacyPendingSlashes,
 		)>,
 		ApiError,
 	> {

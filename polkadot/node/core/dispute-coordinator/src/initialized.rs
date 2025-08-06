@@ -398,7 +398,7 @@ impl Initialized {
 		&mut self,
 		ctx: &mut Context,
 		relay_parent: Hash,
-		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
+		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
 			gum::info!(

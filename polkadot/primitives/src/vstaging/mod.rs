@@ -1611,15 +1611,15 @@ pub struct PendingSlashes {
 	pub kind: DisputeOffenceKind,
 }
 
-impl From<super::v9::slashing::PendingSlashes> for PendingSlashes {
-	fn from(old: super::v9::slashing::PendingSlashes) -> Self {
+impl From<super::v9::slashing::LegacyPendingSlashes> for PendingSlashes {
+	fn from(old: super::v9::slashing::LegacyPendingSlashes) -> Self {
 		let keys = old.keys;
 		let kind = old.kind.into();
 		Self { keys, kind }
 	}
 }
 
-impl TryFrom<PendingSlashes> for super::v9::slashing::PendingSlashes {
+impl TryFrom<PendingSlashes> for super::v9::slashing::LegacyPendingSlashes {
 	type Error = ();
 
 	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
