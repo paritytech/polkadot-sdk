@@ -112,8 +112,7 @@ impl TransactionSigned {
 				vec![TYPE_EIP1559].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
 			Transaction4844Signed(ref tx) =>
 				vec![TYPE_EIP4844].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
-			TransactionLegacySigned(ref tx) =>
-				vec![0].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
+			TransactionLegacySigned(ref tx) => rlp::encode(tx).to_vec(),
 		}
 	}
 }
