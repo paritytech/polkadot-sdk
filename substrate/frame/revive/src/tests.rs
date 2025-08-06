@@ -1535,13 +1535,11 @@ fn crypto_hashes() {
 		macro_rules! dyn_hash_fn {
 			($name:ident) => {
 				Box::new(|input| $name(input).as_ref().to_vec().into_boxed_slice())
-			}
+			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(2, dyn_hash_fn!(keccak_256), 32),
-			(4, dyn_hash_fn!(blake2_128), 16),
-		];
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] =
+			&[(2, dyn_hash_fn!(keccak_256), 32), (4, dyn_hash_fn!(blake2_128), 16)];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
 		for (n, hash_fn, expected_size) in test_cases.iter() {
 			let mut params = vec![*n];

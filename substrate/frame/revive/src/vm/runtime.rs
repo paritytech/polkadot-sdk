@@ -353,7 +353,8 @@ pub enum RuntimeCosts {
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
-	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input size.
+	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// size.
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
