@@ -37,7 +37,6 @@ use std::{
 
 #[tokio::test]
 async fn offset_test_zero_offset() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
@@ -54,7 +53,6 @@ async fn offset_test_zero_offset() {
 
 #[tokio::test]
 async fn offset_test_two_offset() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
@@ -74,7 +72,6 @@ async fn offset_test_two_offset() {
 
 #[tokio::test]
 async fn offset_test_five_offset() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
@@ -94,7 +91,6 @@ async fn offset_test_five_offset() {
 
 #[tokio::test]
 async fn offset_test_too_long() {
-	sp_tracing::init_for_tests();
 	let (headers, _best_hash) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
@@ -110,7 +106,6 @@ async fn offset_test_too_long() {
 
 #[tokio::test]
 async fn determine_core_new_relay_parent() {
-	sp_tracing::init_for_tests();
 	let (headers, _best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -141,7 +136,6 @@ async fn determine_core_new_relay_parent() {
 
 #[tokio::test]
 async fn determine_core_with_core_info() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -165,8 +159,8 @@ async fn determine_core_with_core_info() {
 	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
 	// Add relay parent storage root to make it a non-new relay parent
 	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		relay_parent.state_root().clone(),
-		relay_parent.number().clone(),
+		*relay_parent.state_root(),
+		*relay_parent.number(),
 	));
 
 	let para_parent = TestHeader {
@@ -195,7 +189,6 @@ async fn determine_core_with_core_info() {
 
 #[tokio::test]
 async fn determine_core_no_cores_available() {
-	sp_tracing::init_for_tests();
 	let (headers, _best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -223,7 +216,6 @@ async fn determine_core_no_cores_available() {
 
 #[tokio::test]
 async fn determine_core_selector_overflow() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -246,8 +238,8 @@ async fn determine_core_selector_overflow() {
 	digest.push(CumulusDigestItem::CoreInfo(core_info).to_digest_item());
 	// Add relay parent storage root to make it a non-new relay parent
 	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		relay_parent.state_root().clone(),
-		relay_parent.number().clone(),
+		*relay_parent.state_root(),
+		*relay_parent.number(),
 	));
 
 	let para_parent = TestHeader {
@@ -269,7 +261,6 @@ async fn determine_core_selector_overflow() {
 
 #[tokio::test]
 async fn determine_core_uses_last_claimed_core_selector() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -287,8 +278,8 @@ async fn determine_core_uses_last_claimed_core_selector() {
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		relay_parent.state_root().clone(),
-		relay_parent.number().clone(),
+		*relay_parent.state_root(),
+		*relay_parent.number(),
 	));
 
 	let para_parent = TestHeader {
@@ -322,7 +313,6 @@ async fn determine_core_uses_last_claimed_core_selector() {
 
 #[tokio::test]
 async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -340,8 +330,8 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		relay_parent.state_root().clone(),
-		relay_parent.number().clone(),
+		*relay_parent.state_root(),
+		*relay_parent.number(),
 	));
 
 	let para_parent = TestHeader {
@@ -373,7 +363,6 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 
 #[tokio::test]
 async fn determine_core_no_last_claimed_core_selector() {
-	sp_tracing::init_for_tests();
 	let (headers, best_hash) = create_header_chain();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
@@ -391,8 +380,8 @@ async fn determine_core_no_last_claimed_core_selector() {
 	// Need to add relay parent storage root to digest to make it a non-new relay parent
 	let mut digest = sp_runtime::generic::Digest::default();
 	digest.push(cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-		relay_parent.state_root().clone(),
-		relay_parent.number().clone(),
+		*relay_parent.state_root(),
+		*relay_parent.number(),
 	));
 
 	let para_parent = TestHeader {
