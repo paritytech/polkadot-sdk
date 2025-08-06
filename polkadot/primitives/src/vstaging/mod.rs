@@ -12,12 +12,15 @@
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+// along with Polkadot.  If not, see <http://www.g	nu.org/licenses/>.
 
 //! Staging Primitives.
 use core::fmt::Formatter;
 
-use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAttestation};
+use crate::{
+	slashing::DisputesTimeSlot, v9::InternalVersion, ValidatorId, ValidatorIndex,
+	ValidityAttestation,
+};
 
 // Put any primitives used by staging APIs functions here
 use super::{
@@ -43,13 +46,6 @@ use sp_staking::SessionIndex;
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
-
-/// A type representing the version of the candidate descriptor and internal version number.
-#[derive(
-	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
-)]
-#[cfg_attr(feature = "std", derive(Hash))]
-pub struct InternalVersion(pub u8);
 
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]

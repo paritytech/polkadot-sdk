@@ -2200,6 +2200,13 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 	}
 }
 
+/// A type representing the version of the candidate descriptor and internal version number.
+#[derive(
+	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
+)]
+#[cfg_attr(feature = "std", derive(Hash))]
+pub struct InternalVersion(pub u8);
+
 #[cfg(test)]
 /// Test helpers
 pub mod tests {
