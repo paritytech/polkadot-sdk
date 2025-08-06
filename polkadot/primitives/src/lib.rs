@@ -52,7 +52,7 @@ pub use v9::{
 	ExplicitDisputeStatement, GroupIndex, GroupRotationInfo, Hash, HashT, HeadData, Header,
 	HorizontalMessages, HrmpChannelId, Id, InboundDownwardMessage, InboundHrmpMessage, IndexedVec,
 	InvalidDisputeStatementKind, LegacyBackedCandidate, LegacyCandidateEvent, LegacyCoreState,
-	LegacyInherentData, Moment, MultiDisputeStatementSet, NodeFeatures, Nonce, OccupiedCore,
+	LegacyInherentData, LegacyOccupiedCore, Moment, MultiDisputeStatementSet, NodeFeatures, Nonce,
 	OccupiedCoreAssumption, OutboundHrmpMessage, ParathreadClaim, ParathreadEntry,
 	PersistedValidationData, PvfCheckStatement, PvfExecKind, PvfPrepKind, RuntimeMetricLabel,
 	RuntimeMetricLabelValue, RuntimeMetricLabelValues, RuntimeMetricLabels, RuntimeMetricOp,

@@ -1097,7 +1097,7 @@ impl<N: Saturating + BaseArithmetic + Copy> GroupRotationInfo<N> {
 /// Information about a core which is currently occupied.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
-pub struct OccupiedCore<H = Hash, N = BlockNumber> {
+pub struct LegacyOccupiedCore<H = Hash, N = BlockNumber> {
 	// NOTE: this has no ParaId as it can be deduced from the candidate descriptor.
 	/// If this core is freed by availability, this is the assignment that is next up on this
 	/// core, if any. None if there is nothing queued for this core.
@@ -1122,7 +1122,7 @@ pub struct OccupiedCore<H = Hash, N = BlockNumber> {
 	pub candidate_descriptor: CandidateDescriptor<H>,
 }
 
-impl<H, N> OccupiedCore<H, N> {
+impl<H, N> LegacyOccupiedCore<H, N> {
 	/// Get the Para currently occupying this core.
 	pub fn para_id(&self) -> Id {
 		self.candidate_descriptor.para_id
@@ -1147,7 +1147,7 @@ pub struct ScheduledCore {
 pub enum LegacyCoreState<H = Hash, N = BlockNumber> {
 	/// The core is currently occupied.
 	#[codec(index = 0)]
-	Occupied(OccupiedCore<H, N>),
+	Occupied(LegacyOccupiedCore<H, N>),
 	/// The core is currently free, with a para scheduled and given the opportunity
 	/// to occupy.
 	///

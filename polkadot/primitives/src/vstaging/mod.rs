@@ -1036,7 +1036,7 @@ impl<N> CoreState<N> {
 	}
 }
 
-impl<H: Copy> From<OccupiedCore<H>> for super::v9::OccupiedCore<H> {
+impl<H: Copy> From<OccupiedCore<H>> for super::v9::LegacyOccupiedCore<H> {
 	fn from(value: OccupiedCore<H>) -> Self {
 		Self {
 			next_up_on_available: value.next_up_on_available,
