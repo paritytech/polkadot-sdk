@@ -123,7 +123,7 @@ impl<C: Chain> RpcClient<C> {
 					target: "bridge",
 					?error,
 					node=%C::NAME,
-					%retry_secs=RECONNECT_DELAY.as_secs(),
+					retry_as_secs=%RECONNECT_DELAY.as_secs(),
 					"Failed to connect. Going to retry"
 				),
 			}

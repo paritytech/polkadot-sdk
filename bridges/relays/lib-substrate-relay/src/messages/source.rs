@@ -301,7 +301,7 @@ where
 					lane_id=?self.lane_id,
 					nonce=%out_msg_details.nonce,
 					at_source=%out_msg_details.dispatch_weight,
-					at_target=%in_msg_details.dispatch_weight
+					at_target=%in_msg_details.dispatch_weight,
 					"Refined weight of source->target message"
 				);
 				out_msg_details.dispatch_weight = in_msg_details.dispatch_weight;
