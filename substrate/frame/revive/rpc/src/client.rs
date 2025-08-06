@@ -860,4 +860,22 @@ impl Client {
 
 		Ok(Some(value))
 	}
+
+	pub async fn set_code(
+		&self,
+		dest: H160,
+		code_hash: H256,
+	) -> Result<Option<H256>, ClientError> {
+		let alice = dev::alice();
+
+		let call = RuntimeCall::Revive(ReviveCall::set_code {
+			dest,
+			code_hash
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(code_hash))
+	}
 }

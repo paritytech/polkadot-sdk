@@ -56,4 +56,11 @@ pub trait HardhatRpc {
 		storage_slot: U256,
 		value: U256,
 	) -> RpcResult<Option<U256>>;
+
+	#[method(name = "hardhat_setCode")]
+	async fn set_code(
+		&self,
+		dest: H160,
+		code_hash: H256,
+	) -> RpcResult<Option<H256>>;
 }

@@ -165,6 +165,14 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<Option<U256>> {
 		Ok(self.client.set_storage_at(address, storage_slot, value).await?)
 	}
+
+	async fn set_code(
+		&self,
+		dest: H160,
+		code_hash: H256,
+	) -> RpcResult<Option<H256>> {
+		Ok(self.client.set_code(dest, code_hash).await?)
+	}
 }
 
 #[async_trait]
