@@ -2207,6 +2207,18 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
+/// A type representing the version of the candidate descriptor.
+#[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
+#[cfg_attr(feature = "std", derive(Hash))]
+pub enum CandidateDescriptorVersion {
+	/// The old candidate descriptor version.
+	V1,
+	/// The new `CandidateDescriptorV2`.
+	V2,
+	/// An unknown version.
+	Unknown,
+}
+
 #[cfg(test)]
 /// Test helpers
 pub mod tests {

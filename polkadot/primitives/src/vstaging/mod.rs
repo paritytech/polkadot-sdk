@@ -18,8 +18,9 @@
 use core::fmt::Formatter;
 
 use crate::{
-	slashing::DisputesTimeSlot, v9::InternalVersion, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	slashing::DisputesTimeSlot,
+	v9::{CandidateDescriptorVersion, InternalVersion},
+	ValidatorId, ValidatorIndex, ValidityAttestation,
 };
 
 // Put any primitives used by staging APIs functions here
@@ -46,18 +47,6 @@ use sp_staking::SessionIndex;
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
-
-/// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Hash))]
-pub enum CandidateDescriptorVersion {
-	/// The old candidate descriptor version.
-	V1,
-	/// The new `CandidateDescriptorV2`.
-	V2,
-	/// An unknown version.
-	Unknown,
-}
 
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]

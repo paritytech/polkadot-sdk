@@ -52,14 +52,14 @@ use polkadot_primitives::{
 	effective_minimum_backing_votes,
 	node_features::FeatureIndex,
 	vstaging::{
-		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
+		BackedCandidate, CandidateReceiptV2 as CandidateReceipt,
 		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
 	},
-	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
-	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
-	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
-	PARACHAINS_INHERENT_IDENTIFIER,
+	CandidateDescriptorVersion, CandidateHash, CheckedDisputeStatementSet,
+	CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet, HeadData,
+	MultiDisputeStatementSet, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
+	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
