@@ -6,7 +6,7 @@ contract Host {
         return account.balance;
     }
 
-    function extcodesize(address account) public view returns (uint256) {
+    function extcodesizeOp(address account) public view returns (uint256) {
         uint256 size;
         assembly {
             size := extcodesize(account)
@@ -19,7 +19,7 @@ contract Host {
         return code;
     }
 
-    function extcodehash(address account) public view returns (bytes32) {
+    function extcodehashOp(address account) public view returns (bytes32) {
         bytes32 hash;
         assembly {
             hash := extcodehash(account)
@@ -27,11 +27,11 @@ contract Host {
         return hash;
     }
 
-    function blockhash(uint256 blockNumber) public view returns (bytes32) {
+    function blockhashOp(uint256 blockNumber) public view returns (bytes32) {
         return blockhash(blockNumber);
     }
 
-    function sload(uint256 slot) public view returns (uint256) {
+    function sloadOp(uint256 slot) public view returns (uint256) {
         uint256 value;
         assembly {
             value := sload(slot)
@@ -39,14 +39,14 @@ contract Host {
         return value;
     }
 
-    function sstore(uint256 slot, uint256 value) public {
+    function sstoreOp(uint256 slot, uint256 value) public {
         assembly {
             sstore(slot, value)
         }
         return value;
     }
 
-    function tload(uint256 slot) public view returns (uint256) {
+    function tloadOp(uint256 slot) public view returns (uint256) {
         uint256 value;
         assembly {
             value := tload(slot)
@@ -54,44 +54,44 @@ contract Host {
         return value;
     }
 
-    function tstore(uint256 slot, uint256 value) public returns (uint256) {
+    function tstoreOp(uint256 slot, uint256 value) public returns (uint256) {
         assembly {
             tstore(slot, value)
         }
         return value;
     }
 
-    function log0(bytes32 data) public {
+    function log0Op(bytes32 data) public {
         assembly {
             log0(data, 0x20)
         }
     }
 
-    function log1(bytes32 data, bytes32 topic1) public {
+    function log1Op(bytes32 data, bytes32 topic1) public {
         assembly {
             log1(data, 0x20, topic1)
         }
     }
 
-    function log2(bytes32 data, bytes32 topic1, bytes32 topic2) public {
+    function log2Op(bytes32 data, bytes32 topic1, bytes32 topic2) public {
         assembly {
             log2(data, 0x20, topic1, topic2)
         }
     }
 
-    function log3(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3) public {
+    function log3Op(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3) public {
         assembly {
             log3(data, 0x20, topic1, topic2, topic3)
         }
     }
 
-    function log4(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3, bytes32 topic4) public {
+    function log4Op(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3, bytes32 topic4) public {
         assembly {
             log4(data, 0x20, topic1, topic2, topic3, topic4)
         }
     }
 
-    function selfdestruct(address payable recipient) public {
+    function selfdestructOp(address payable recipient) public {
         selfdestruct(recipient);
     }
 

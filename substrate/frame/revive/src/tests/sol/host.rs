@@ -134,7 +134,7 @@ fn extcodesize_works() {
             {
                 let result = builder::bare_call(addr)
                     .data(
-                        Host::HostCalls::extcodesize(Host::extcodesizeCall { account: addr.0.into() })
+                        Host::HostCalls::extcodesizeOp(Host::extcodesizeOpCall { account: addr.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
@@ -171,7 +171,7 @@ fn extcodehash_works() {
             {
                 let result = builder::bare_call(addr)
                     .data(
-                        Host::HostCalls::extcodehash(Host::extcodehashCall { account: addr.0.into() })
+                        Host::HostCalls::extcodehashOp(Host::extcodehashOpCall { account: addr.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
@@ -236,7 +236,7 @@ fn blockhash_works() {
                 let result = builder::bare_call(addr)
                     .gas_limit(1_000_000_000.into())
                     .data(
-                        Host::HostCalls::blockhash(Host::blockhashCall { blockNumber: U256::from(0u128) })
+                        Host::HostCalls::blockhashOp(Host::blockhashOpCall { blockNumber: U256::from(0u128) })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
@@ -287,7 +287,7 @@ fn sload_works() {
             {
                 let result = builder::bare_call(addr)
                     .data(
-                        Host::HostCalls::sload(Host::sloadCall { slot: index })
+                        Host::HostCalls::sloadOp(Host::sloadOpCall { slot: index })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
@@ -333,7 +333,7 @@ fn sstore_works() {
             {
                 builder::bare_call(addr)
                     .data(
-                        Host::HostCalls::sstore(Host::sstoreCall { slot: index, value: expected_value })
+                        Host::HostCalls::sstoreOp(Host::sstoreOpCall { slot: index, value: expected_value })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
@@ -405,7 +405,7 @@ fn selfdestruct_works() {
                 let result = builder::bare_call(addr)
                     .gas_limit(1_000_000_000.into())
                     .data(
-                        Host::HostCalls::selfdestruct(Host::selfdestructCall { recipient: BOB_ADDR.0.into() })
+                        Host::HostCalls::selfdestructOp(Host::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
