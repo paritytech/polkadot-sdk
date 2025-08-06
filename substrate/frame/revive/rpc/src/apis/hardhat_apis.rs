@@ -63,4 +63,10 @@ pub trait HardhatRpc {
 		dest: H160,
 		code_hash: H256,
 	) -> RpcResult<Option<H256>>;
+
+	#[method(name = "hardhat_setCoinbase")]
+	async fn set_coinbase(
+		&self,
+		coinbase: H160,
+	) -> RpcResult<Option<H160>>;
 }

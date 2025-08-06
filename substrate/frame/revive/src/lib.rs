@@ -500,6 +500,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type EvmNonceOf<T: Config> = StorageMap<_, Identity, H160, EvmNonce>;
 
+	/// A mapping from a block to it's modified miner.
+	#[pallet::storage]
+	pub(crate) type ModifiedCoinbase<T: Config> = StorageMap<_, Identity, U256, H160>;
+
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
@@ -1105,6 +1109,19 @@ pub mod pallet {
 				)
 				.map_err(|_| Error::<T>::ExecutionFailed)?;
 
+			Ok(())
+		}
+
+		#[pallet::call_index(15)]
+		#[pallet::weight(10_000)]
+		pub fn set_next_coinbase(
+			origin: OriginFor<T>,
+			last_block: U256,
+			coinbase: H160,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let next_block_number = last_block.as_u32().saturating_add(2);
+			ModifiedCoinbase::<T>::insert(U256::from(next_block_number), coinbase);
 			Ok(())
 		}
 	}

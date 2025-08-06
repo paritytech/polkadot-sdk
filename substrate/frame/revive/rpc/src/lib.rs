@@ -173,6 +173,13 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_code(dest, code_hash).await?)
 	}
+
+	async fn set_coinbase(
+		&self,
+		coinbase: H160,
+	) -> RpcResult<Option<H160>> {
+		Ok(self.client.set_coinbase(coinbase).await?)
+	}
 }
 
 #[async_trait]

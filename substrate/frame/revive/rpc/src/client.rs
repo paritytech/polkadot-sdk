@@ -649,7 +649,6 @@ impl Client {
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
-		let block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -671,6 +670,15 @@ impl Client {
 				.collect::<Vec<_>>()
 				.into()
 		};
+
+		let query = subxt_client::storage().revive().modified_coinbase(subxt::utils::Static(U256::from(header.number)));
+		let maybe_coinbase = self.api.storage().at_latest().await.unwrap().fetch(&query).await.unwrap();
+		let block_author: H160;
+
+		match maybe_coinbase {
+			None => block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
+			Some(author) => block_author = author
+		}
 
 		Block {
 			hash: block.hash(),
@@ -877,5 +885,26 @@ impl Client {
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
 
 		Ok(Some(code_hash))
+	}
+
+	pub async fn set_coinbase(
+		&self,
+		coinbase: H160,
+	) -> Result<Option<H160>, ClientError> {
+
+		let block_hash = self.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest)).await?;
+		let block = self.tracing_block(block_hash).await?;
+
+		let alice = dev::alice();
+
+		let call = RuntimeCall::Revive(ReviveCall::set_next_coinbase {
+			last_block: subxt::utils::Static(U256::from(block.header.number)),
+			coinbase
+		});
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(coinbase))
 	}
 }
