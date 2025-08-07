@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, Block, BlockHeader, Bytes256, CallTracer, GasEncoder,
+		runtime::GAS_PRICE, Block as EthBlock, BlockHeader, Bytes256, CallTracer, GasEncoder,
 		GenericTransaction, HashesOrTransactionInfos, Log, PartialSignedTransactionInfo,
 		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionInfo, TransactionSigned,
 		TYPE_EIP1559,
@@ -565,6 +565,15 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// The previous ETH block.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type PreviousBlock<T> = StorageValue<_, (EthBlock, Vec<ReceiptInfo>), ValueQuery>;
+
+	// Mapping for block number and hashes.
+	#[pallet::storage]
+	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -637,7 +646,7 @@ pub mod pallet {
 				})
 				.unzip();
 
-			let block = Block {
+			let block = EthBlock {
 				parent_hash: header.parent_hash,
 				sha_3_uncles: header.ommers_hash,
 				miner: header.beneficiary,
@@ -658,6 +667,10 @@ pub mod pallet {
 
 				..Default::default()
 			};
+
+			// TODO: Prune older blocks.
+			BlockHash::<T>::insert(block_number, block_hash);
+			PreviousBlock::<T>::put((block.clone(), receipts));
 
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
