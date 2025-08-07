@@ -51,7 +51,7 @@ use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
@@ -157,21 +157,27 @@ pub(crate) trait BaseNodeSpec {
 		parachain_config: &Configuration,
 	) -> Option<ParaId> {
 		let best_hash = client.chain_info().best_hash;
-		let para_id = match client.runtime_api().parachain_id(best_hash) {
-			Ok(para_id) => para_id,
-			Err(err) => {
-				log::warn!(
-					"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
-					err
-				);
-				let id = ParaId::from(
-					Extensions::try_get(&*parachain_config.chain_spec)
-						.and_then(|ext| ext.para_id())?,
-				);
-				// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-				log::info!("The parachain id was provided via the chain spec. This is not recommended anymore and should be used mainly when syncing from an old state. The alternative is to implement the `cumulus_primitives_core::GetParachainInfo` runtime API in the runtime, and upgrade it on-chain.");
-				id
-			},
+		let para_id = if client
+			.runtime_api()
+			.has_api::<dyn GetParachainInfo<Self::Block>>(best_hash)
+			.ok()
+			.filter(|has_api| *has_api)
+			.is_some()
+		{
+			client
+				.runtime_api()
+				.parachain_id(best_hash)
+				.inspect_err(|err| {
+					log::error!(
+								"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+								err
+							);
+				})
+				.ok()?
+		} else {
+			ParaId::from(
+				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id())?,
+			)
 		};
 
 		let parachain_account =
