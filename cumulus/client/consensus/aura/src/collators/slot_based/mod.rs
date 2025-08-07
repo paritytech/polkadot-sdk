@@ -80,8 +80,8 @@ use cumulus_primitives_core::{
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId,
-	ValidationCodeHash,
+	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, ValidationCodeHash,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;

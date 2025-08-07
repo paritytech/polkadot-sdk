@@ -33,16 +33,14 @@ use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
-	vstaging::{
-		ApprovedPeerId, BackedCandidate, CandidateDescriptorV2, ClaimQueueOffset, CoreSelector,
-		InherentData as ParachainsInherentData, UMPSignal, UMP_SEPARATOR,
-	},
-	AvailabilityBitfield, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	ApprovedPeerId, AvailabilityBitfield, BackedCandidate, CandidateCommitments,
+	CandidateDescriptor, CandidateDescriptorV2, CandidateHash, ClaimQueueOffset, CollatorId,
 	CollatorSignature, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
-	CoreIndex, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData, Id as ParaId,
-	IndexedVec, InvalidDisputeStatementKind, PersistedValidationData, SessionIndex, SigningContext,
-	UncheckedSigned, ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex,
-	ValidityAttestation,
+	CoreIndex, CoreSelector, DisputeStatement, DisputeStatementSet, GroupIndex, HeadData,
+	Id as ParaId, IndexedVec, InherentData as ParachainsInherentData, InvalidDisputeStatementKind,
+	PersistedValidationData, SessionIndex, SigningContext, UMPSignal, UncheckedSigned,
+	ValidDisputeStatementKind, ValidationCode, ValidatorId, ValidatorIndex, ValidityAttestation,
+	UMP_SEPARATOR,
 };
 use sp_core::{ByteArray, H256};
 use sp_runtime::{

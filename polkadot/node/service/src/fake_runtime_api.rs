@@ -21,14 +21,13 @@
 
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	runtime_api, slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber, CandidateCommitments,
-	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	runtime_api, slashing, AccountId, AuthorityDiscoveryId, Balance, Block, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Nonce, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;

@@ -21,13 +21,12 @@ use sp_consensus_babe::Epoch;
 
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
-	slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId,
+	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 
 /// For consistency we have the same capacity for all caches. We use 128 as we'll only need that

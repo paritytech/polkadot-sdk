@@ -44,9 +44,7 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-	use polkadot_primitives::vstaging::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
-	};
+	use polkadot_primitives::{ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal};
 	use rstest::rstest;
 
 	use crate::{
@@ -63,8 +61,8 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		vstaging::{CandidateDescriptorV2, CommittedCandidateReceiptV2, MutateDescriptorV2},
-		AvailabilityBitfield, CandidateDescriptor, InternalVersion, UncheckedSigned,
+		AvailabilityBitfield, CandidateDescriptor, CandidateDescriptorV2,
+		CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2, UncheckedSigned,
 	};
 	use sp_runtime::Perbill;
 

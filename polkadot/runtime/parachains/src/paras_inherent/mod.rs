@@ -49,12 +49,11 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes,
-	node_features::FeatureIndex,
-	vstaging::{BackedCandidate, InherentData as ParachainsInherentData, ScrapedOnChainVotes},
+	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate,
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
-	HeadData, MultiDisputeStatementSet, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	HeadData, InherentData as ParachainsInherentData, MultiDisputeStatementSet,
+	ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields, SigningContext,
 	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
 	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };

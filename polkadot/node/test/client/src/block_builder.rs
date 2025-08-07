@@ -16,7 +16,7 @@
 
 use crate::Client;
 use codec::{Decode, Encode};
-use polkadot_primitives::{vstaging::InherentData as ParachainsInherentData, Block};
+use polkadot_primitives::{Block, InherentData as ParachainsInherentData};
 use polkadot_test_runtime::UncheckedExtrinsic;
 use polkadot_test_service::GetLastTimestamp;
 use sc_block_builder::{BlockBuilder, BlockBuilderBuilder};

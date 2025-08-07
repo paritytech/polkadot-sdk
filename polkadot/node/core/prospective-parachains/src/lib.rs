@@ -50,7 +50,7 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	vstaging::transpose_claim_queue, BlockNumber, CandidateHash,
+	transpose_claim_queue, BlockNumber, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
 	PersistedValidationData,
 };

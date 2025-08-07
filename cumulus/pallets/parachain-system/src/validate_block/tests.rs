@@ -30,7 +30,7 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 #[cfg(feature = "experimental-ump-signals")]
-use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+use relay_chain::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus_slots::SlotDuration;

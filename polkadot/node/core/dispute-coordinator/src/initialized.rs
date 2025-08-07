@@ -44,10 +44,9 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing, vstaging::ScrapedOnChainVotes, BlockNumber, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
-	DisputeStatementSet, Hash, SessionIndex, ValidDisputeStatementKind, ValidatorId,
-	ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 

@@ -47,15 +47,13 @@ use frame_support::{
 use pallet_balances::WeightInfo;
 use pallet_nis::WithMaximumOf;
 use polkadot_primitives::{
-	async_backing::Constraints,
-	slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	async_backing::Constraints, slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance,
+	BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Moment, NodeFeatures, Nonce, OccupiedCoreAssumption,
-	PersistedValidationData, SessionInfo, Signature, ValidationCode, ValidationCodeHash,
-	ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
+	PersistedValidationData, ScrapedOnChainVotes, SessionInfo, Signature, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, claims, crowdloan, identity_migrator, impl_runtime_weights,

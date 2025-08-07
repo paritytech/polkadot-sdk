@@ -23,7 +23,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::UpwardMessages;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
 };
 use tiny_keccak::{Hasher as _, Keccak};

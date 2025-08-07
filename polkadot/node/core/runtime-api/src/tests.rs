@@ -20,16 +20,13 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, slashing, vstaging,
-	vstaging::{
-		async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash,
-	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Id as ParaId,
-	InboundDownwardMessage, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo, Slot, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing, async_backing::Constraints, slashing, vstaging, ApprovalVotingParams,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
+	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, Slot, ValidationCode, ValidationCodeHash,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_committed_candidate_receipt_v2, dummy_validation_code,

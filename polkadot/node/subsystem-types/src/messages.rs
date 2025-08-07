@@ -42,12 +42,12 @@ use polkadot_node_primitives::{
 	ValidationResult,
 };
 use polkadot_primitives::{
+	self,
 	async_backing::{self, Constraints},
-	slashing,
-	vstaging::{self, BackedCandidate, CoreState},
-	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
-	CandidateHash, CandidateIndex, CandidateReceiptV2 as CandidateReceipt,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, BackedCandidate, BlockNumber,
+	CandidateCommitments, CandidateEvent, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, HeadData, Header as BlockHeader,
 	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, MultiDisputeStatementSet,
 	NodeFeatures, OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement,
@@ -721,7 +721,7 @@ pub enum RuntimeApiRequest {
 	/// Get information about the BABE epoch the block was included in.
 	CurrentBabeEpoch(RuntimeApiSender<BabeEpoch>),
 	/// Get all disputes in relation to a relay parent.
-	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes>>),
+	FetchOnChainVotes(RuntimeApiSender<Option<polkadot_primitives::ScrapedOnChainVotes>>),
 	/// Submits a PVF pre-checking statement into the transaction pool.
 	SubmitPvfCheckStatement(PvfCheckStatement, ValidatorSignature, RuntimeApiSender<()>),
 	/// Returns code hashes of PVFs that require pre-checking by validators in the active set.

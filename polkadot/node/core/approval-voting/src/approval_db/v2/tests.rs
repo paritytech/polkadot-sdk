@@ -26,8 +26,8 @@ use crate::{
 	ops::{add_block_entry, canonicalize, force_approve, NewCandidateInfo},
 };
 use polkadot_primitives::{
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
-	BlockNumber, CandidateHash, CoreIndex, GroupIndex, Hash,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	Hash, MutateDescriptorV2,
 };
 
 use polkadot_node_subsystem_util::database::Database;

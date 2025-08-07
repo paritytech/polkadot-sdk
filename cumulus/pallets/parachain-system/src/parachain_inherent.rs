@@ -20,8 +20,7 @@ use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::ApprovedPeerId, BlockNumber as RelayChainBlockNumber, BlockNumber,
-		Header as RelayHeader,
+		ApprovedPeerId, BlockNumber as RelayChainBlockNumber, BlockNumber, Header as RelayHeader,
 	},
 	InboundDownwardMessage, InboundHrmpMessage, ParaId, PersistedValidationData,
 };

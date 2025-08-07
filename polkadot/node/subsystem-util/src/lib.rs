@@ -42,13 +42,12 @@ use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
 	async_backing::{BackingState, Constraints},
-	slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, EncodeAs, ExecutorParams,
-	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SessionInfo, Signed, SigningContext, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;

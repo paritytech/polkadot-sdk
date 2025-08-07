@@ -25,13 +25,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	async_backing::{InboundHrmpLimitations, LegacyConstraints},
-	vstaging::{
-		async_backing::{BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2},
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+	async_backing::{
+		BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2,
+		InboundHrmpLimitations, LegacyConstraints,
 	},
-	CoreIndex, HeadData, Header, PersistedValidationData, ValidationCodeHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Header,
+	MutateDescriptorV2, PersistedValidationData, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 use polkadot_primitives_test_helpers::make_candidate;
 use rstest::rstest;

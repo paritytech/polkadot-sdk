@@ -60,13 +60,11 @@ use pallet_session::historical as session_historical;
 use pallet_timestamp::Now;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_primitives::{
-	async_backing::Constraints,
-	slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	AccountId, AccountIndex, Balance, BlockNumber, CandidateEvent, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
-	ExecutorParams, GroupRotationInfo, Hash as HashT, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, Moment, Nonce, OccupiedCoreAssumption, PersistedValidationData,
+	async_backing::Constraints, slashing, AccountId, AccountIndex, Balance, BlockNumber,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as HashT,
+	Id as ParaId, InboundDownwardMessage, InboundHrmpMessage, Moment, Nonce,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes,
 	SessionInfo as SessionInfoData, Signature, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };

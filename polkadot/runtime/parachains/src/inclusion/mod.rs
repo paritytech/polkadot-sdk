@@ -44,9 +44,8 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold,
-	vstaging::{skip_ump_signals, BackedCandidate},
-	well_known_keys, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	effective_minimum_backing_votes, skip_ump_signals, supermajority_threshold, well_known_keys,
+	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
 	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,

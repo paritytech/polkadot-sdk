@@ -27,11 +27,10 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	vstaging::{CommittedCandidateReceiptV2, CoreState},
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateEvent, CollatorPair,
-	CommittedCandidateReceipt, Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext,
-	ValidationCodeHash, ValidatorId,
+	CommittedCandidateReceipt, CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData,
+	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData,
+	SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_test_client::{
 	Client as PClient, ClientBlockImportExt, DefaultTestClientBuilderExt, FullBackend as PBackend,

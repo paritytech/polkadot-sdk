@@ -31,12 +31,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CoreState, OccupiedCore, ScrapedOnChainVotes},
-	CandidateEvent, CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex,
-	GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo,
-	Signed, SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
 	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 

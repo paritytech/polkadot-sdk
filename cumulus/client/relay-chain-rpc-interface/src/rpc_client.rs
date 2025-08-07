@@ -34,14 +34,12 @@ use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState, Constraints},
-		slashing,
-		vstaging::{CoreState, ScrapedOnChainVotes},
-		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, DisputeState,
-		ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
-		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement, SessionIndex,
-		SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-		ValidatorSignature,
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };

@@ -32,8 +32,8 @@ use frame_support::{
 	weights::Weight,
 };
 use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
-	well_known_keys, Id as ParaId, UpwardMessage,
+	well_known_keys, ClaimQueueOffset, CoreSelector, Id as ParaId, UMPSignal, UpwardMessage,
+	UMP_SEPARATOR,
 };
 use sp_crypto_hashing::{blake2_256, twox_64};
 use sp_runtime::traits::Bounded;

@@ -85,9 +85,8 @@ use polkadot_primitives::{
 	async_backing::{
 		Constraints as PrimitiveConstraints, LegacyConstraints as LegacyPrimitiveConstraints,
 	},
-	vstaging::skip_ump_signals,
-	BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
+	skip_ump_signals, BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData,
+	Id as ParaId, PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -887,8 +886,8 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use polkadot_primitives::{
-		vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
-		HorizontalMessages, OutboundHrmpMessage, ValidationCode,
+		ClaimQueueOffset, CoreSelector, HorizontalMessages, OutboundHrmpMessage, UMPSignal,
+		ValidationCode, UMP_SEPARATOR,
 	};
 
 	#[test]

@@ -26,12 +26,10 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::OverseerSignal;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CoreState, OccupiedCore},
-	ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, GroupRotationInfo, Id as ParaId,
-	IndexedVec, NodeFeatures, ScheduledCore, SessionIndex, SessionInfo, ValidationCode,
-	ValidatorIndex,
+	node_features, ApprovalVotingParams, AsyncBackingParams, CandidateEvent,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, CoreState, GroupIndex, GroupRotationInfo,
+	Id as ParaId, IndexedVec, NodeFeatures, OccupiedCore, ScheduledCore, SessionIndex, SessionInfo,
+	ValidationCode, ValidatorIndex,
 };
 use sp_consensus_babe::Epoch as BabeEpoch;
 use sp_core::H256;

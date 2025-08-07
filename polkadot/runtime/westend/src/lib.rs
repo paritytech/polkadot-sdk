@@ -54,15 +54,14 @@ use pallet_staking_async_rc_client as rc_client;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_primitives::{
-	async_backing::Constraints,
-	slashing,
-	vstaging::{CoreState, ScrapedOnChainVotes},
-	AccountId, AccountIndex, ApprovalVotingParams, Balance, BlockNumber, CandidateEvent,
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
+	async_backing::Constraints, slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance,
+	BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
+	ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
 	InboundHrmpMessage, Moment, NodeFeatures, Nonce, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, SessionInfo, Signature, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature, PARACHAIN_KEY_TYPE_ID,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionInfo, Signature,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,

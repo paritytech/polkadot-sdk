@@ -145,7 +145,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 	) -> Result<
-		Vec<polkadot_primitives::vstaging::CoreState<Hash, polkadot_core_primitives::BlockNumber>>,
+		Vec<polkadot_primitives::CoreState<Hash, polkadot_core_primitives::BlockNumber>>,
 		sp_api::ApiError,
 	> {
 		Ok(self.rpc_client.parachain_host_availability_cores(at).await?)
@@ -270,8 +270,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn on_chain_votes(
 		&self,
 		at: Hash,
-	) -> Result<Option<polkadot_primitives::vstaging::ScrapedOnChainVotes<Hash>>, sp_api::ApiError>
-	{
+	) -> Result<Option<polkadot_primitives::ScrapedOnChainVotes<Hash>>, sp_api::ApiError> {
 		Ok(self.rpc_client.parachain_host_on_chain_votes(at).await?)
 	}
 
