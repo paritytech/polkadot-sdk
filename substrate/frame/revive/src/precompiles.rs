@@ -51,7 +51,8 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, ISystem, NoInfo as BenchmarkNoInfo, WithInfo as BenchmarkWithInfo,
+	IBenchmarking, ISystem, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
+	WithInfo as BenchmarkWithInfo,
 };
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";

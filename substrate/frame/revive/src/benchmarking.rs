@@ -1973,7 +1973,7 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::ISystem;
+		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
 		use alloy_core::sol_types::SolInterface;
 
 		let input = vec![0u8; n as usize];
@@ -1990,7 +1990,7 @@ mod benchmarks {
 		{
 			result = run_builtin_precompile(
 				&mut ext,
-				H160::from_low_u64_be(901).as_fixed_bytes(),
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
 				input_bytes,
 			);
 		}
