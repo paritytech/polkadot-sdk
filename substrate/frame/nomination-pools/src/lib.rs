@@ -4026,7 +4026,7 @@ impl<T: Config> Pallet<T> {
 
 		// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
-		Self::check_ed_imbalance()?;
+		let _needs_adjust = Self::check_ed_imbalance()?;
 
 		Ok(())
 	}
@@ -4041,7 +4041,8 @@ impl<T: Config> Pallet<T> {
 		test,
 		debug_assertions
 	))]
-	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
+	pub fn check_ed_imbalance() -> Result<u32, DispatchError> {
+		let mut needs_adjust = 0;
 		BondedPools::<T>::iter_keys().for_each(|id| {
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
@@ -4049,9 +4050,10 @@ impl<T: Config> Pallet<T> {
 
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
+				needs_adjust += 1;
 				log!(
 					warn,
-					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}",
+					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
 					frozen_balance,
@@ -4059,7 +4061,7 @@ impl<T: Config> Pallet<T> {
 			}
 		});
 
-		Ok(())
+		Ok(needs_adjust)
 	}
 	/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
