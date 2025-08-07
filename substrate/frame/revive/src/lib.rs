@@ -578,6 +578,14 @@ pub mod pallet {
 		// We need this to place the substrate block
 		// hash into the logs of the receipts.
 		T::Hash: frame_support::traits::IsType<H256>,
+
+		// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
+		<T as frame_system::Config>::RuntimeCall:
+			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		MomentOf<T>: Into<U256>,
 	{
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
@@ -597,6 +605,7 @@ pub mod pallet {
 			let base_gas_price = GAS_PRICE.into();
 
 			let mut logs_bloom = Bytes256::default();
+			let mut total_gas_used = U256::zero();
 			let tx_and_receipts: Vec<(TransactionSigned, ReceiptInfo)> = transactions
 				.into_iter()
 				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
@@ -658,6 +667,9 @@ pub mod pallet {
 						None
 					};
 
+					// TODO: Could it be possible that the gas exceeds the u64::MAX?
+					total_gas_used += gas.ref_time().into();
+
 					// The receipt only encodes the status code, gas used,
 					// logs bloom and logs. An encoded log only contains the
 					// contract address, topics and data.
@@ -713,13 +725,21 @@ pub mod pallet {
 			let state_root = T::StateRoot::get();
 
 			let block_header = BlockHeader {
+				// TODO: This is not the correct parent hash.
 				parent_hash: Default::default(),
+				// Ommers are set to default in pallet frontier.
 				ommers_hash: Default::default(),
 				beneficiary: block_author.into(),
 
 				state_root,
 				transactions_root,
 				receipts_root,
+
+				difficulty: U256::zero(),
+				number: block_number.into(),
+
+				gas_limit: Self::evm_block_gas_limit(),
+				gas_used: total_gas_used,
 
 				logs_bloom,
 				..Default::default() /* // TODO: Compute this correctly.
