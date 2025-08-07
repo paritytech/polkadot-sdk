@@ -25,7 +25,7 @@ use sp_runtime::{
 	StateVersion,
 };
 use sp_state_machine::{
-	backend::{AsTrieBackend, Backend as StateBackend},
+	backend::{AsTrieBackend, Backend as StateBackend, BackendSnapshot},
 	BackendTransaction, IterArgs, StorageIterator, StorageKey, StorageValue, TrieBackend,
 };
 use sp_trie::MerkleValue;
@@ -201,21 +201,21 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		self.state.child_storage_root(child_info, delta, state_version)
 	}
 
-	fn storage_root2<'a>(
+	fn storage_root2<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<HashingFor<B>>, B::Hash)>,
+		xxx: Option<BackendSnapshot<'b, HashingFor<B>>>,
 	) -> (B::Hash, BackendTransaction<HashingFor<B>>) {
 		self.state.storage_root2(delta, state_version, xxx)
 	}
 
-	fn child_storage_root2<'a>(
+	fn child_storage_root2<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<HashingFor<B>>, B::Hash)>,
+		xxx: Option<BackendSnapshot<'b, HashingFor<B>>>,
 	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
 		self.state.child_storage_root2(child_info, delta, state_version, xxx)
 	}

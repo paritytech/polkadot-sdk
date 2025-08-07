@@ -20,7 +20,7 @@
 #[cfg(feature = "std")]
 use crate::backend::AsTrieBackend;
 use crate::{
-	backend::{IterArgs, StorageIterator},
+	backend::{BackendSnapshot, IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence, TrieBackendStorage},
 	Backend, BackendTransaction, StorageKey, StorageValue,
 };
@@ -507,11 +507,11 @@ where
 		self.essence.raw_iter(args)
 	}
 
-	fn storage_root2<'a>(
+	fn storage_root2<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<H>, H::Out)>,
+		xxx: Option<BackendSnapshot<'b, H>>,
 	) -> (H::Out, PrefixedMemoryDB<H>)
 	where
 		H::Out: Ord,
@@ -519,12 +519,12 @@ where
 		self.essence.storage_root(delta, state_version, xxx)
 	}
 
-	fn child_storage_root2<'a>(
+	fn child_storage_root2<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<H>, H::Out)>,
+		xxx: Option<BackendSnapshot<'b, H>>,
 	) -> (H::Out, bool, PrefixedMemoryDB<H>)
 	where
 		H::Out: Ord,

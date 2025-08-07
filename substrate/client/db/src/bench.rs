@@ -29,8 +29,9 @@ use sp_core::{
 };
 use sp_runtime::{traits::Hash, StateVersion, Storage};
 use sp_state_machine::{
-	backend::Backend as StateBackend, BackendTransaction, ChildStorageCollection, DBValue,
-	IterArgs, StorageCollection, StorageIterator, StorageKey, StorageValue,
+	backend::{Backend as StateBackend, BackendSnapshot},
+	BackendTransaction, ChildStorageCollection, DBValue, IterArgs, StorageCollection,
+	StorageIterator, StorageKey, StorageValue,
 };
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
@@ -464,11 +465,11 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
-	fn storage_root2<'a>(
+	fn storage_root2<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<Hasher>, Hasher::Output)>,
+		xxx: Option<BackendSnapshot<'b, Hasher>>,
 	) -> (Hasher::Output, BackendTransaction<Hasher>) {
 		self.state
 			.borrow()
@@ -476,12 +477,12 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.storage_root2(delta, state_version, xxx))
 	}
 
-	fn child_storage_root2<'a>(
+	fn child_storage_root2<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<Hasher>, Hasher::Output)>,
+		xxx: Option<BackendSnapshot<'b, Hasher>>,
 	) -> (Hasher::Output, bool, BackendTransaction<Hasher>) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
 			s.child_storage_root2(child_info, delta, state_version, xxx)

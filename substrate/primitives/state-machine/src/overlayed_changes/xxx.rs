@@ -41,7 +41,7 @@ pub struct Changeset<K> {
 
 impl<K> Default for Changeset<K> {
 	fn default() -> Self {
-		Self { transactions: Default::default() }
+		Changeset { transactions: vec![vec![Default::default()]] }
 	}
 }
 
@@ -173,7 +173,7 @@ pub struct BackendSnapshots<T: BackendTransaction> {
 	// Stack of BackendTransactions.
 	//
 	// For every single storage transcation, multiple backend transactions are consolidated.
-	// When storage transaction is rolled back, snapshto
+	// When storage transaction is rolled back, snapshot is simply removed.
 	transactions: Vec<Option<T>>,
 }
 
@@ -227,12 +227,41 @@ impl<T: BackendTransaction> BackendSnapshots<T> {
 			}
 		}
 	}
+
+	pub fn get_snapshots(&self) -> &Vec<Option<T>> {
+		&self.transactions
+	}
+
+	pub fn take_and_consolidate(&mut self) -> Option<T> {
+		let result = self
+			.transactions
+			.drain(..)
+			.reduce(|a, i| match (a, i) {
+				(Some(a), None) => Some(a),
+				(Some(mut a), Some(i)) => {
+					a.consolidate(i);
+					Some(a)
+				},
+				(None, Some(i)) => Some(i),
+				(None, None) => None,
+			})
+			.expect("there is at least one root element. qed");
+
+		// root element
+		self.transactions.push(None);
+		result
+	}
+
+	pub fn recent_item(&self) -> &Option<T> {
+		self.transactions.iter().rev().find(|x| x.is_some()).unwrap_or(&None)
+	}
 }
 
 impl<T: BackendTransaction + Clone> BackendSnapshots<T> {
 	//better name: take last snapshot ?
-	pub fn pop(&mut self) -> Option<T> {
-		self.transactions
+	//test only?
+	pub fn clone_and_consolidate(&mut self) -> Option<T> {
+		self.get_snapshots()
 			.iter()
 			.cloned()
 			.reduce(|a, i| match (a, i) {
@@ -255,7 +284,7 @@ mod tests {
 	macro_rules! delta_assert_eq {
         ($delta:expr, [$($val:expr),* $(,)?]) => {
             {
-                let expected: ::std::collections::Set<String> =
+                let expected: ::std::collections::HashSet<String> =
                     [$($val),*].iter().cloned().map(String::from).collect();
                 assert_eq!($delta, expected);
             }
@@ -460,11 +489,23 @@ mod tests2 {
 	}
 
 	#[test]
+	fn test_empty() {
+		let mut snapshots = Snapshots::new();
+		assert_eq!(snapshots.clone_and_consolidate(), None);
+
+		let mut snapshots = Snapshots::new();
+		assert_eq!(snapshots.take_and_consolidate(), None);
+		assert_eq!(*snapshots.recent_item(), None);
+	}
+
+	#[test]
 	fn test_basic() {
 		let mut snapshots = Snapshots::new();
-		assert_eq!(snapshots.pop(), None);
+		assert_eq!(snapshots.take_and_consolidate(), None);
+
 		snapshots.push("x".to_string());
-		assert_eq!(snapshots.pop(), Some("x".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("x".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), None);
 	}
 
 	#[test]
@@ -472,36 +513,35 @@ mod tests2 {
 		let mut snapshots = Snapshots::new();
 		snapshots.push("x".to_string());
 		snapshots.push("y".to_string());
-		assert_eq!(snapshots.pop(), Some("xy".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("xy".to_string()));
 	}
 
 	#[test]
 	fn test_commit() {
 		let mut snapshots = Snapshots::new();
-		snapshots.pop();
 		snapshots.push("x".to_string());
 		snapshots.push("y".to_string());
 		snapshots.start_transaction();
 		snapshots.push("z".to_string());
 		snapshots.commit_transaction();
-		assert_eq!(snapshots.pop(), Some("xyz".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("xyz".to_string()));
 	}
 
 	#[test]
 	fn test_rollback() {
 		let mut snapshots = Snapshots::new();
-		snapshots.pop();
+		snapshots.clone_and_consolidate();
 		snapshots.push("x".to_string());
 		snapshots.push("y".to_string());
 		snapshots.start_transaction();
 		snapshots.push("z".to_string());
 		snapshots.rollback_transaction();
-		assert_eq!(snapshots.pop(), Some("xy".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("xy".to_string()));
 	}
 	#[test]
 	fn test_nested01() {
 		let mut snapshots = Snapshots::new();
-		snapshots.pop();
+		snapshots.clone_and_consolidate();
 		snapshots.push("a".to_string());
 		snapshots.push("b".to_string());
 		snapshots.start_transaction();
@@ -519,13 +559,13 @@ mod tests2 {
 			snapshots.push("e".to_string());
 		}
 		snapshots.rollback_transaction();
-		assert_eq!(snapshots.pop(), Some("ab".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("ab".to_string()));
 	}
 
 	#[test]
 	fn test_nested02() {
 		let mut snapshots = Snapshots::new();
-		snapshots.pop();
+		snapshots.clone_and_consolidate();
 		snapshots.push("a".to_string());
 		snapshots.push("b".to_string());
 		snapshots.start_transaction();
@@ -538,19 +578,18 @@ mod tests2 {
 					snapshots.push("d".to_string());
 				}
 				snapshots.commit_transaction();
-				assert_eq!(snapshots.pop(), Some("abcd".to_string()));
+				assert_eq!(snapshots.clone_and_consolidate(), Some("abcd".to_string()));
 			}
 			snapshots.rollback_transaction();
 			snapshots.push("e".to_string());
 		}
 		snapshots.rollback_transaction();
-		assert_eq!(snapshots.pop(), Some("ab".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("ab".to_string()));
 	}
 
 	#[test]
 	fn test_nested03() {
 		let mut snapshots = Snapshots::new();
-		snapshots.pop();
 		snapshots.push("a".to_string());
 		snapshots.push("b".to_string());
 		snapshots.start_transaction();
@@ -563,12 +602,54 @@ mod tests2 {
 					snapshots.push("d".to_string());
 				}
 				snapshots.commit_transaction();
-				assert_eq!(snapshots.pop(), Some("abcd".to_string()));
+				assert_eq!(snapshots.clone_and_consolidate(), Some("abcd".to_string()));
 			}
 			snapshots.commit_transaction();
 			snapshots.push("e".to_string());
 		}
 		snapshots.commit_transaction();
-		assert_eq!(snapshots.pop(), Some("abcde".to_string()));
+		assert_eq!(snapshots.take_and_consolidate(), Some("abcde".to_string()));
+	}
+
+	#[test]
+	fn test_recent_item() {
+		let mut snapshots = Snapshots::new();
+		snapshots.push("a".to_string());
+		snapshots.push("b".to_string());
+		snapshots.start_transaction();
+		assert_eq!(*snapshots.recent_item(), Some("ab".to_string()));
+		{
+			snapshots.start_transaction();
+			{
+				snapshots.start_transaction();
+				{
+					snapshots.push("x".to_string());
+					assert_eq!(*snapshots.recent_item(), Some("x".to_string()));
+					snapshots.start_transaction();
+					{
+						snapshots.push("y".to_string());
+						assert_eq!(*snapshots.recent_item(), Some("y".to_string()));
+					}
+					snapshots.rollback_transaction();
+					assert_eq!(snapshots.clone_and_consolidate(), Some("abx".to_string()));
+				}
+				snapshots.rollback_transaction();
+				assert_eq!(*snapshots.recent_item(), Some("ab".to_string()));
+
+				snapshots.push("c".to_string());
+				assert_eq!(*snapshots.recent_item(), Some("c".to_string()));
+				snapshots.start_transaction();
+				{
+					snapshots.push("d".to_string());
+					assert_eq!(*snapshots.recent_item(), Some("d".to_string()));
+				}
+				snapshots.commit_transaction();
+				assert_eq!(snapshots.clone_and_consolidate(), Some("abcd".to_string()));
+			}
+			snapshots.commit_transaction();
+			snapshots.push("e".to_string());
+		}
+		snapshots.commit_transaction();
+		assert_eq!(snapshots.take_and_consolidate(), Some("abcde".to_string()));
 	}
 }

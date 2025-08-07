@@ -19,7 +19,8 @@
 //! from storage.
 
 use crate::{
-	backend::{IterArgs, StorageIterator},
+	backend::{BackendSnapshot, IterArgs, StorageIterator},
+	debug,
 	trie_backend::TrieCacheProvider,
 	warn, BackendTransaction, StorageKey, StorageValue,
 };
@@ -626,35 +627,36 @@ where
 	}
 
 	/// Return the storage root after applying the given `delta`.
-	pub fn storage_root<'a>(
+	pub fn storage_root<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<H>, H::Out)>,
+		xxx: Option<BackendSnapshot<'b, H>>,
 	) -> (H::Out, PrefixedMemoryDB<H>) {
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
 
 		let root = self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
 			let res = if let Some(xxx) = xxx {
+				let ll = xxx.0.len();
 				let mut tmp_eph =
-					TrieBackendStorageWithReadOnlyOverlay::new(self.backend_storage(), &xxx.0);
+					TrieBackendStorageWithReadOnlyOverlay::new(self.backend_storage(), xxx.0);
 
 				let mut tmp_eph2 = Ephemeral::new(&tmp_eph, &mut write_overlay);
 				#[cfg(feature = "std")]
 				{
-					debug!(target: "trie", "using read-only overlay for: {:?}", xxx.1);
+					debug!(target: "trie", "using read-only overlay for: {:?} snapshots len:{}", xxx.1, ll);
 				}
 				match state_version {
 					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
 						&mut tmp_eph2,
-						xxx.1,
+						xxx.1.unwrap_or(self.root),
 						delta,
 						recorder,
 						cache,
 					),
 					StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
 						&mut tmp_eph2,
-						xxx.1,
+						xxx.1.unwrap_or(self.root),
 						delta,
 						recorder,
 						cache,
@@ -686,12 +688,12 @@ where
 
 	/// Returns the child storage root for the child trie `child_info` after applying the given
 	/// `delta`.
-	pub fn child_storage_root<'a>(
+	pub fn child_storage_root<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: &Option<(BackendTransaction<H>, H::Out)>,
+		xxx: Option<BackendSnapshot<'b, H>>,
 	) -> (H::Out, bool, PrefixedMemoryDB<H>) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
@@ -745,20 +747,41 @@ where
 
 pub(crate) struct TrieBackendStorageWithReadOnlyOverlay<
 	'a,
+	'b,
 	S: 'a + TrieBackendStorage<H>,
-	H: 'a + Hasher,
+	H: 'b + Hasher,
 > {
 	storage: &'a S,
-	overlay: &'a PrefixedMemoryDB<H>,
+	overlay: Vec<Option<&'b PrefixedMemoryDB<H>>>,
 }
 
-impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> TrieBackendStorage<H>
-	for TrieBackendStorageWithReadOnlyOverlay<'a, S, H>
+// impl<'a, S: 'a + HashDBRef<H>, H: 'a + Hasher> TrieBackendStorage<H>
+// 	for Option<&'a S> {
+//     fn get(&self, key: &<H as Hasher>::Out, prefix: Prefix) -> Result<Option<DBValue>> {
+// 		Ok(self.map(|x| x.get(key, prefix)))
+//     }
+// }
+//
+// impl<'a, S: 'a + HashDBRef<H>, H: 'a + Hasher> TrieBackendStorage<H>
+// 	for Vec<Option<&'a S>> {
+//     fn get(&self, key: &<H as Hasher>::Out, prefix: Prefix) -> Result<Option<DBValue>> {
+// 		Ok(self.iter().rev().find(|s| s.get(key, prefix)))
+//     }
+// }
+
+impl<'a, 'b, S: 'a + TrieBackendStorage<H>, H: 'b + Hasher> TrieBackendStorage<H>
+	for TrieBackendStorageWithReadOnlyOverlay<'a, 'b, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Result<Option<DBValue>> {
 		// Ok(hash_db::HashDBRef::<H, DBValue>::get(self, key, prefix))
 		// todo!()
-		Ok(HashDBRef::get(self.overlay, key, prefix).or_else(|| {
+		// Ok(HashDBRef::get(self.overlay, key, prefix).or_else(|| {
+		let from_overlay = self
+			.overlay
+			.iter()
+			.rev()
+			.find_map(|x| x.map(|x| HashDBRef::get(x, key, prefix)).flatten());
+		Ok(from_overlay.or_else(|| {
 			self.storage.get(key, prefix).unwrap_or_else(|e| {
 				warn!(target: "trie", "Failed to read from DB: {}", e);
 				None
@@ -767,8 +790,10 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> TrieBackendStorage<H>
 	}
 }
 
-impl<'a, S: TrieBackendStorage<H>, H: Hasher> TrieBackendStorageWithReadOnlyOverlay<'a, S, H> {
-	pub fn new(storage: &'a S, overlay: &'a PrefixedMemoryDB<H>) -> Self {
+impl<'a, 'b, S: TrieBackendStorage<H>, H: Hasher>
+	TrieBackendStorageWithReadOnlyOverlay<'a, 'b, S, H>
+{
+	pub fn new(storage: &'a S, overlay: Vec<Option<&'b PrefixedMemoryDB<H>>>) -> Self {
 		TrieBackendStorageWithReadOnlyOverlay { storage, overlay }
 	}
 }
