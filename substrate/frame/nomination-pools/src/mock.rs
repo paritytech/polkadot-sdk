@@ -231,7 +231,7 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_active_era(_era: EraIndex) {
+	fn set_active_era(_era: EraIndex, _start: Option<u64>) {
 		unimplemented!("method currently not used in testing")
 	}
 

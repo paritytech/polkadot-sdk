@@ -1515,7 +1515,6 @@ pub mod pallet {
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
 
-				// Note: in case there is no current era it is fine to bond one era more.
 				let era =
 					Rotator::<T>::active_era().defensive_saturating_add(T::BondingDuration::get());
 				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
