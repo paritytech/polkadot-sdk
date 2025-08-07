@@ -792,31 +792,19 @@ pub mod pallet {
 				})
 				.collect();
 
-			// Tx and Receipts must be encoded via: encode_2718
-			// TODO: We need to extend `TransactionSigned` with a new `encode()` fn similar to
-			// decode.
-
-			// TODO:
-			// Calculate tx root:
-			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L16-L24
-			// We might need: `(rlp(index), encoded(tx))` pairs instead.
 			let tx_blobs = tx_and_receipts
 				.iter()
 				.map(|(tx, _)| tx.transaction_signed.encode_2718())
 				.collect::<Vec<_>>();
-
-			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let transactions_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
-
-			// TODO:
-			// Calculate receipt root:
-			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L49-L54
 			let receipt_blobs = tx_and_receipts
 				.iter()
 				.map(|(_, receipt)| receipt.encode_2718())
 				.collect::<Vec<_>>();
 
-			let receipts_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipts_blobs);
+			use sp_trie::TrieConfiguration;
+			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
+			let transactions_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+			let receipts_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
 
 			let state_root = T::StateRoot::get();
 
