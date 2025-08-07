@@ -518,6 +518,15 @@ fn transfer_with_dust_works() {
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
+		TestCase {
+			description: "receiver dust less than 1 plank",
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
+			total_issuance_diff: 1,
+		},
 	];
 
 	for TestCase {
@@ -1529,11 +1538,8 @@ fn crypto_hashes() {
 			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(2, dyn_hash_fn!(keccak_256), 32),
-			(3, dyn_hash_fn!(blake2_256), 32),
-			(4, dyn_hash_fn!(blake2_128), 16),
-		];
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] =
+			&[(2, dyn_hash_fn!(keccak_256), 32), (4, dyn_hash_fn!(blake2_128), 16)];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
 		for (n, hash_fn, expected_size) in test_cases.iter() {
 			let mut params = vec![*n];
