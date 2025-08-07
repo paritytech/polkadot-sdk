@@ -44,7 +44,6 @@ pub extern "C" fn deploy() {}
 /// | value | Algorithm | Bit Width |
 /// |-------|-----------|-----------|
 /// |     2 |    KECCAK |       256 |
-/// |     4 |    BLAKE2 |       128 |
 /// ---------------------------------
 
 #[no_mangle]
@@ -60,11 +59,6 @@ pub extern "C" fn call() {
 		2 => {
 			let mut output = [0u8; 32];
 			api::hash_keccak_256(input, &mut output);
-			api::return_value(uapi::ReturnFlags::empty(), &output);
-		},
-		4 => {
-			let mut output = [0u8; 16];
-			api::hash_blake2_128(input, &mut output);
 			api::return_value(uapi::ReturnFlags::empty(), &output);
 		},
 		_ => panic!("unknown crypto hash function identifier"),
