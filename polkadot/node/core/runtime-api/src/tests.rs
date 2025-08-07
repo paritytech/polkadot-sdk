@@ -20,7 +20,7 @@ use polkadot_node_primitives::{BabeAllowedSlots, BabeEpoch, BabeEpochConfigurati
 use polkadot_node_subsystem::SpawnGlue;
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 use polkadot_primitives::{
-	async_backing, async_backing::Constraints, slashing, vstaging, ApprovalVotingParams,
+	async_backing, async_backing::Constraints, slashing, ApprovalVotingParams,
 	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupRotationInfo, Id as ParaId, InboundDownwardMessage, InboundHrmpMessage,
