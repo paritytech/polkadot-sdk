@@ -424,10 +424,15 @@ where
 	pub fn try_runtime_upgrade(checks: UpgradeCheckSelect) -> Result<Weight, TryRuntimeError> {
 		let before_all_weight =
 			<AllPalletsWithSystem as BeforeAllRuntimeMigrations>::before_all_runtime_migrations();
+
 		let try_on_runtime_upgrade_weight =
-			<(COnRuntimeUpgrade, AllPalletsWithSystem) as OnRuntimeUpgrade>::try_on_runtime_upgrade(
-				checks.pre_and_post(),
-			)?;
+			<(
+				COnRuntimeUpgrade,
+				<System as frame_system::Config>::SingleBlockMigrations,
+				// We want to run the migrations before we call into the pallets as they may
+				// access any state that would then not be migrated.
+				AllPalletsWithSystem,
+			) as OnRuntimeUpgrade>::try_on_runtime_upgrade(checks.pre_and_post())?;
 
 		frame_system::LastRuntimeUpgrade::<System>::put(
 			frame_system::LastRuntimeUpgradeInfo::from(
