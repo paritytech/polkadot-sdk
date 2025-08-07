@@ -558,8 +558,11 @@ pub mod pallet {
 	/// The last block transaction details.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type LastBlockTransactionsDetails<T> =
-		StorageValue<_, Vec<(PartialSignedTransactionInfo, ReceiptInfo)>, ValueQuery>;
+	pub(crate) type LastBlockDetails<T> = StorageValue<
+		_,
+		(BlockHeader, Vec<(PartialSignedTransactionInfo, ReceiptInfo)>),
+		ValueQuery,
+	>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -772,9 +775,7 @@ pub mod pallet {
 				nonce: Default::default(),
 			};
 
-			let _block_hash = block_header.hash();
-
-			LastBlockTransactionsDetails::<T>::put(tx_and_receipts);
+			LastBlockDetails::<T>::put((block_header, tx_and_receipts));
 		}
 
 		fn integrity_test() {
