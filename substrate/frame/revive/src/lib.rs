@@ -46,7 +46,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction, Log,
-		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
+		PartialSignedTransactionInfo, PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -554,6 +555,12 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// The last block transaction details.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type LastBlockTransactionsDetails<T> =
+		StorageValue<_, Vec<(PartialSignedTransactionInfo, ReceiptInfo)>, ValueQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -606,7 +613,7 @@ pub mod pallet {
 
 			let mut logs_bloom = Bytes256::default();
 			let mut total_gas_used = U256::zero();
-			let tx_and_receipts: Vec<(TransactionSigned, ReceiptInfo)> = transactions
+			let tx_and_receipts: Vec<(PartialSignedTransactionInfo, ReceiptInfo)> = transactions
 				.into_iter()
 				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
 					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
@@ -691,7 +698,14 @@ pub mod pallet {
 
 					logs_bloom.combine(&receipt.logs_bloom);
 
-					Some((signed_tx, receipt))
+					let tx = PartialSignedTransactionInfo {
+						from: from.into(),
+						hash: transaction_hash,
+						transaction_index: transaction_index.into(),
+						transaction_signed: signed_tx,
+					};
+
+					Some((tx, receipt))
 				})
 				.collect();
 
@@ -703,8 +717,10 @@ pub mod pallet {
 			// Calculate tx root:
 			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L16-L24
 			// We might need: `(rlp(index), encoded(tx))` pairs instead.
-			let tx_blobs =
-				tx_and_receipts.iter().map(|(tx, _)| tx.encode_2718()).collect::<Vec<_>>();
+			let tx_blobs = tx_and_receipts
+				.iter()
+				.map(|(tx, _)| tx.transaction_signed.encode_2718())
+				.collect::<Vec<_>>();
 
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
@@ -757,6 +773,8 @@ pub mod pallet {
 			};
 
 			let _block_hash = block_header.hash();
+
+			LastBlockTransactionsDetails::<T>::put(tx_and_receipts);
 		}
 
 		fn integrity_test() {

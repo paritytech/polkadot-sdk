@@ -354,7 +354,9 @@ pub struct GenericTransaction {
 }
 
 /// Receipt information
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct ReceiptInfo {
 	/// blob gas price
 	/// The actual value per gas deducted from the sender's account for blob gas. Only specified
@@ -459,6 +461,20 @@ pub struct TransactionInfo {
 	pub transaction_signed: TransactionSigned,
 }
 
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
+pub struct PartialSignedTransactionInfo {
+	/// from address
+	pub from: Address,
+	/// transaction hash
+	pub hash: H256,
+	/// transaction index
+	pub transaction_index: U256,
+	/// transaction signed
+	pub transaction_signed: TransactionSigned,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum TransactionUnsigned {
@@ -539,7 +555,9 @@ impl Default for HashesOrTransactionInfos {
 }
 
 /// log
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 pub struct Log {
 	/// address
 	pub address: Address,
