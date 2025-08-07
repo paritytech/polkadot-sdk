@@ -648,7 +648,7 @@ mod test {
 	}
 
 	#[test]
-	fn encode_2718_is_compatible_with_ethereum() {
+	fn transaction_encode_2718_is_compatible_with_ethereum() {
 		// RLP encoded transactions
 		let test_cases = [
 			// Legacy
