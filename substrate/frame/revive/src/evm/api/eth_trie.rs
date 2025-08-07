@@ -259,9 +259,11 @@ mod test {
 				"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 			))
 		);
-		assert_eq!(root, root_ethereum,);
+		assert_eq!(root, root_ethereum);
 	}
 
+	// Below tests should assure compatibility with Ethereum trie.
+	// As a reference we use `ethereum` crate
 	#[test]
 	fn test_trie_root_single_item() {
 		let input = vec![(b"key".to_vec(), b"value".to_vec())];
@@ -274,7 +276,7 @@ mod test {
 				"98021eec76a352d4214ee9d22f2670f3abe01d5805441249f4b70dda75a0e07a"
 			))
 		);
-		assert_eq!(root, root_ethereum,);
+		assert_eq!(root, root_ethereum);
 	}
 
 	#[test]
