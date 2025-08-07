@@ -19,7 +19,7 @@ use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{BlockNumberOrTag, ReceiptInfo, TransactionInfo, H256, U256};
 use pallet_revive_eth_rpc::EthRpcClient;
-use serde::{de::Error, Deserialize, Deserializer, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -33,10 +33,25 @@ struct Args {
 	/// Block number (if not provided, uses latest block)
 	#[arg(short, long)]
 	block_number: Option<u64>,
+
+	/// Include transaction infos in the JSON output
+	#[arg(long)]
+	with_transactions: bool,
+
+	/// Include receipt infos in the JSON output
+	#[arg(long)]
+	with_receipts: bool,
+}
+
+#[derive(Serialize)]
+struct TestDataInfo {
+	rpc_url: String,
+	block_number_requested: String,
 }
 
 #[derive(Serialize)]
 struct TestData {
+	info: TestDataInfo,
 	block_number: U256,
 	block_hash: H256,
 	transactions: Option<Vec<TransactionInfo>>,
@@ -118,12 +133,19 @@ async fn main() -> anyhow::Result<()> {
 
 	// Create test data structure
 	let test_data = TestData {
+		info: TestDataInfo {
+			rpc_url: args.rpc_url.clone(),
+			block_number_requested: match args.block_number {
+				Some(num) => num.to_string(),
+				None => "latest".to_string(),
+			},
+		},
 		block_number: block.number,
 		block_hash: block.hash,
-		transactions: transaction_infos,
+		transactions: if args.with_transactions { Some(transaction_infos) } else { None },
 		transactions_rlp,
 		transactions_root: block.transactions_root,
-		receipts,
+		receipts: if args.with_receipts { Some(receipts) } else { None },
 		receipts_rlp,
 		receipts_root: block.receipts_root,
 	};
