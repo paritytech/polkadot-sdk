@@ -16,11 +16,10 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer, paras};
+use crate::{initializer, paras};
 use alloc::vec::Vec;
 
-use frame_system::pallet_prelude::*;
-use polkadot_primitives::{async_backing::Constraints, Id as ParaId};
+use polkadot_primitives::Id as ParaId;
 
 pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
 	paras::Heads::<T>::iter_keys().collect()
