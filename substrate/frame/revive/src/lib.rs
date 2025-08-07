@@ -47,7 +47,7 @@ use crate::{
 	evm::{
 		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
 		HashesOrTransactionInfos, Log, PartialSignedTransactionInfo, PrestateTracer, Trace, Tracer,
-		TracerType, TransactionInfo, TransactionSigned, TYPE_EIP1559,
+		TracerType, TransactionInfo, TransactionSigned, TYPE_EIP1559, EthTrieLayout
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -805,10 +805,8 @@ pub mod pallet {
 				.map(|(tx, _)| tx.transaction_signed.encode_2718())
 				.collect::<Vec<_>>();
 
-			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let transactions_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+			let transactions_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
 
 			// TODO:
 			// Calculate receipt root:
@@ -818,8 +816,7 @@ pub mod pallet {
 				.map(|(_, receipt)| receipt.encode_2718())
 				.collect::<Vec<_>>();
 
-			let receipts_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
+			let receipts_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipts_blobs);
 
 			let state_root = T::StateRoot::get();
 
