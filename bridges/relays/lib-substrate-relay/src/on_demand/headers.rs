@@ -449,7 +449,7 @@ where
 		source=%P::SourceChain::NAME,
 		%best_finalized_source_header_at_target,
 		at_source=%range.1,
-		mandatory_source_header_number,
+		%mandatory_source_header_number,
 		"Too many headers missing at target. Going to sync up to the mandatory"
 	);
 
