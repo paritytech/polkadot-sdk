@@ -729,28 +729,34 @@ pub mod pallet {
 				parent_hash: Default::default(),
 				// Ommers are set to default in pallet frontier.
 				ommers_hash: Default::default(),
+				// The author of the block.
 				beneficiary: block_author.into(),
 
+				// Trie roots.
 				state_root,
 				transactions_root,
 				receipts_root,
 				logs_bloom,
 
+				// Difficulty is set to zero and not used.
 				difficulty: U256::zero(),
+				// The block number is the current substrate block number.
 				number: block_number.into(),
 
+				// The gas limit is set to the EVM block gas limit.
 				gas_limit: Self::evm_block_gas_limit(),
+				// The total gas used by the transactions in this block.
 				gas_used: total_gas_used,
-
+				// The timestamp is set to the current time.
 				timestamp: T::Time::now().into(),
 
-				..Default::default() /* // TODO: Compute this correctly.
-				                      * logs_bloom: Default::default(),
-				                      * difficulty: U256::zero(),
-				                      * extra_data: Vec::new(),
-				                      * mix_hash: H256::default(),
-				                      * nonce: Default::default(), */
+				// Default fields (not used).
+				extra_data: Default::default(),
+				mix_hash: Default::default(),
+				nonce: Default::default(),
 			};
+
+			let _block_hash = block_header.hash();
 		}
 
 		fn integrity_test() {
