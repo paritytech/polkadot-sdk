@@ -515,9 +515,17 @@ pub mod pallet {
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+
 	#[pallet::storage]
 	/// The modifiable EVM gas price, used by the EVM RPC.
-	pub type GasPrice<T> = StorageValue<_, u64, ValueQuery>;
+	pub(crate) type GasPrice<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+	#[pallet::storage]
+	/// The modifiable EVM gas limit, used by the EVM RPC.
+	pub(crate) type GasLimit<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
+
+	#[pallet::storage]
+	pub(crate) type ImpersonatedAccounts<T: Config> = StorageMap<_, Identity, H160, ()>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -1141,6 +1149,30 @@ pub mod pallet {
 			ModifiedPrevrandao::<T>::insert(U256::from(next_block_number), prev_randao);
 			Ok(())
 		}
+
+		#[pallet::call_index(17)]
+		#[pallet::weight(10_000)]
+		pub fn set_block_gas_limit(origin: OriginFor<T>, block_gas_limit: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			GasLimit::<T>::put(Some(block_gas_limit));
+			Ok(())
+		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(10_000)]
+		pub fn impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::insert(account, ());
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(10_000)]
+		pub fn stop_impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::remove(account);
+			Ok(())
+		}
 	}
 }
 
@@ -1620,17 +1652,21 @@ where
 		T: pallet_transaction_payment::Config,
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 	{
-		let max_block_weight = T::BlockWeights::get()
-			.get(DispatchClass::Normal)
-			.max_total
-			.unwrap_or_else(|| T::BlockWeights::get().max_block);
+		if let Some(gas_limit) = GasLimit::<T>::get() {
+			return U256::from(gas_limit);
+		} else {
+			let max_block_weight = T::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
-			5 * 1024 * 1024, // 5 MB
-		);
+			let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
+				5 * 1024 * 1024, // 5 MB
+			);
 
-		Self::evm_gas_from_weight(max_block_weight)
-			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
+			return Self::evm_gas_from_weight(max_block_weight)
+				.saturating_add(Self::evm_fee_to_gas(length_fee.into()));
+		};
 	}
 
 	/// Get the gas price.

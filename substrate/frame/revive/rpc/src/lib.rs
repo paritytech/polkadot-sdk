@@ -166,33 +166,32 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_storage_at(address, storage_slot, value).await?)
 	}
 
-	async fn set_code(
-		&self,
-		dest: H160,
-		code_hash: H256,
-	) -> RpcResult<Option<H256>> {
+	async fn set_code(&self, dest: H160, code_hash: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_code(dest, code_hash).await?)
 	}
 
-	async fn set_coinbase(
-		&self,
-		coinbase: H160,
-	) -> RpcResult<Option<H160>> {
+	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>> {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
 
-	async fn set_next_block_timestamp(
-		&self,
-		next_timestamp: U256,
-	) -> RpcResult<()> {
+	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()> {
 		Ok(self.client.set_next_block_timestamp(next_timestamp).await?)
 	}
 
-	async fn set_prev_randao(
-		&self,
-		prev_randao: H256,
-	) -> RpcResult<Option<H256>> {
+	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_prev_randao(prev_randao).await?)
+	}
+
+	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>> {
+		Ok(self.client.set_block_gas_limit(block_gas_limit).await?)
+	}
+
+	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
+		Ok(self.client.impersonate_account(account).await?)
+	}
+
+	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
+		Ok(self.client.stop_impersonate_account(account).await?)
 	}
 }
 
@@ -268,12 +267,16 @@ impl EthRpcServer for EthRpcServerImpl {
 			log::debug!(target: LOG_TARGET, "Transaction must have a sender");
 			return Err(EthRpcError::InvalidTransaction.into());
 		};
+		let impersonated = self.client.is_impersonated_account(from).await.unwrap();
 
-		let account = self
-			.accounts
-			.iter()
-			.find(|account| account.address() == from)
-			.ok_or(EthRpcError::AccountNotFound(from))?;
+		let account = match impersonated {
+			true => &self.accounts[0],
+			_ => self
+				.accounts
+				.iter()
+				.find(|account| account.address() == from)
+				.ok_or(EthRpcError::AccountNotFound(from))?,
+		};
 
 		if transaction.gas.is_none() {
 			transaction.gas = Some(self.estimate_gas(transaction.clone(), None).await?);
