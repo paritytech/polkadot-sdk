@@ -19,9 +19,10 @@ use core::marker::PhantomData;
 use hash_db::Hasher;
 use sp_trie::{NodeCodec, TrieConfiguration, TrieLayout};
 use trie_root::{self, Value as TrieStreamValue};
+use alloc::vec::Vec;
 
-// Backported from
-// https://github.com/rust-ethereum/ethereum/blob/cf3076f07e61102eec686f6816da668f97d94f1f/src/util.rs#L26
+/// Backported from
+/// https://github.com/rust-ethereum/ethereum/blob/cf3076f07e61102eec686f6816da668f97d94f1f/src/util.rs#L26
 #[derive(Default)]
 pub struct Hash256RlpTrieStream {
 	stream: rlp::RlpStream,
