@@ -14,7 +14,7 @@
 //! A module exporting runtime API implementation functions for all runtime APIs using `v5`
 //! primitives.
 //!
-//! Runtimes implementing the v11 runtime API are recommended to forward directly to these
+//! Runtimes implementing the v13 runtime API are recommended to forward directly to these
 //! functions.
 
 use crate::{
