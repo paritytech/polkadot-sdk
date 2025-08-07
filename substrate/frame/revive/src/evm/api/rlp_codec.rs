@@ -61,7 +61,9 @@ impl TransactionSigned {
 				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
 		}
 	}
+}
 
+impl TransactionSigned {
 	/// Encode the Ethereum transaction into bytes.
 	pub fn signed_payload(&self) -> Vec<u8> {
 		use TransactionSigned::*;
@@ -589,7 +591,6 @@ mod test {
 			),
 			// type 3: EIP4844
 			(
-
 				"03f8bf018002018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 				r#"
 				{
@@ -644,5 +645,45 @@ mod test {
 		let dummy_signed_payload = tx.clone().dummy_signed_payload();
 		let payload = Account::default().sign_transaction(tx).signed_payload();
 		assert_eq!(dummy_signed_payload.len(), payload.len());
+	}
+
+	#[test]
+	fn encode_2718_is_compatible_with_ethereum() {
+		// RLP encoded transactions
+		let test_cases = [
+			// Legacy
+			"f86080808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d87808025a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-2930
+			"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// EIP-1559
+			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
+			// TODO: ethereum crate does not support EIP4844, but it supports EIP7702
+		];
+
+		for hex_tx in test_cases {
+			let rlp_encoded_tx = alloy_core::hex::decode(hex_tx).unwrap();
+
+			// RLP decode using this implementation
+			let tx_revive = TransactionSigned::decode(&rlp_encoded_tx).unwrap();
+
+			// RLP encode using this implementation
+			let rlp_encoded_revive = tx_revive.encode_2718();
+
+			// Verify round-trip: our encoding should decode back to the same transaction
+			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
+
+			// RLP decode using ethereum crate's EnvelopedDecodable
+			let tx_ethereum: ethereum::TransactionV3 =
+				ethereum::EnvelopedDecodable::decode(&rlp_encoded_tx).unwrap();
+
+			// RLP Encode using ethereum crate's EnvelopedEncodable
+			let rlp_encoded_ethereum = ethereum::EnvelopedEncodable::encode(&tx_ethereum).to_vec();
+
+			assert_eq!(
+				rlp_encoded_revive,
+				rlp_encoded_ethereum,
+				"encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
+			);
+		}
 	}
 }
