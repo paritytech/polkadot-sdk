@@ -1977,7 +1977,7 @@ mod benchmarks {
 		use alloy_core::sol_types::SolInterface;
 
 		let input = vec![0u8; n as usize];
-		let input_bytes = ISystem::ISystemCalls::hash_blake2_256(ISystem::hash_blake2_256Call {
+		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
 			input: input.clone().into(),
 		})
 		.abi_encode();

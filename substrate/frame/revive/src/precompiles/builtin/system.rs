@@ -30,7 +30,7 @@ pub struct System<T>(PhantomData<T>);
 sol! {
 	interface ISystem {
 		/// Computes the BLAKE2 256-bit hash on the given input.
-		function hash_blake2_256(bytes memory input) external pure returns (bytes32 digest);
+		function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
 	}
 }
 
@@ -47,7 +47,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 		use ISystem::ISystemCalls;
 		match input {
-			ISystemCalls::hash_blake2_256(ISystem::hash_blake2_256Call { input }) => {
+			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
 				Ok(output.to_vec())
