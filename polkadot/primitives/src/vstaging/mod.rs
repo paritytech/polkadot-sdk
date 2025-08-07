@@ -51,33 +51,6 @@ use sp_staking::SessionIndex;
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
 
-impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v9::LegacyCandidateEvent<H> {
-	fn from(value: CandidateEvent<H>) -> Self {
-		match value {
-			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
-				super::v9::LegacyCandidateEvent::CandidateBacked(
-					receipt.into(),
-					head_data,
-					core_index,
-					group_index,
-				),
-			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
-				super::v9::LegacyCandidateEvent::CandidateIncluded(
-					receipt.into(),
-					head_data,
-					core_index,
-					group_index,
-				),
-			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v9::LegacyCandidateEvent::CandidateTimedOut(
-					receipt.into(),
-					head_data,
-					core_index,
-				),
-		}
-	}
-}
-
 impl<H> CandidateReceiptV2<H> {
 	/// Get a reference to the candidate descriptor.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
