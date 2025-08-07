@@ -44,7 +44,6 @@ pub extern "C" fn deploy() {}
 /// | value | Algorithm | Bit Width |
 /// |-------|-----------|-----------|
 /// |     2 |    KECCAK |       256 |
-/// |     3 |    BLAKE2 |       256 |
 /// |     4 |    BLAKE2 |       128 |
 /// ---------------------------------
 
@@ -61,11 +60,6 @@ pub extern "C" fn call() {
 		2 => {
 			let mut output = [0u8; 32];
 			api::hash_keccak_256(input, &mut output);
-			api::return_value(uapi::ReturnFlags::empty(), &output);
-		},
-		3 => {
-			let mut output = [0u8; 32];
-			api::hash_blake2_256(input, &mut output);
 			api::return_value(uapi::ReturnFlags::empty(), &output);
 		},
 		4 => {
