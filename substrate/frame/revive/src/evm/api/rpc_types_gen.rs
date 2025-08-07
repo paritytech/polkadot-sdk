@@ -175,7 +175,7 @@ pub struct BlockHeader {
 	pub number: U256,
 	pub gas_limit: U256,
 	pub gas_used: U256,
-	pub timestamp: u64,
+	pub timestamp: U256,
 	pub extra_data: Bytes,
 	pub mix_hash: H256,
 	pub nonce: Bytes8,

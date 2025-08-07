@@ -734,6 +734,7 @@ pub mod pallet {
 				state_root,
 				transactions_root,
 				receipts_root,
+				logs_bloom,
 
 				difficulty: U256::zero(),
 				number: block_number.into(),
@@ -741,7 +742,8 @@ pub mod pallet {
 				gas_limit: Self::evm_block_gas_limit(),
 				gas_used: total_gas_used,
 
-				logs_bloom,
+				timestamp: T::Time::now().into(),
+
 				..Default::default() /* // TODO: Compute this correctly.
 				                      * logs_bloom: Default::default(),
 				                      * difficulty: U256::zero(),
