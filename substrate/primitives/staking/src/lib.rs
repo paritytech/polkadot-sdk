@@ -314,9 +314,9 @@ pub trait StakingInterface {
 	/// Unsafe sets the current and active era index in the staking system.
 	///
 	/// Note: This may break some invariance. Only to be used in tests where era transition can be
-	/// unsafe. Use [`Self::activate_next_era`] where possible.
+	/// unsafe. Use [`Self::activate_next_era`] when possible.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_active_era(era: EraIndex);
+	fn set_active_era(era: EraIndex, start: Option<u64>);
 
 	/// Activates the next era by ending the active era and starting a new one.
 	///
