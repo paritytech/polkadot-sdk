@@ -606,7 +606,8 @@ mod benchmarks {
 				.map_err(|_| {
 					tracing::error!(
 						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
-						"try_origin with origin {:?} failed", origin,
+						?origin,
+						"try_origin failed", 
 					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?
@@ -630,8 +631,10 @@ mod benchmarks {
 		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
 			tracing::error!(
 				target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
-				"could not create ticket for {:?} footprint {:?}, error: {:?}",
-				who, footprint,	e,
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
 			);
 			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 		})?;
@@ -658,7 +661,8 @@ mod benchmarks {
 			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
 				tracing::error!(
 					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
-					"try_origin with origin {:?} failed", origin,
+					?origin,
+					"try_origin failed",
 				);
 				error.clone()
 			})?;
@@ -670,7 +674,8 @@ mod benchmarks {
 			_ => {
 				tracing::error!(
 					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
-					"unexpected origin {:?} failed", origin_location,
+					?origin_location,
+					"unexpected origin failed",
 				);
 				return Err(error.clone())
 			},
@@ -691,11 +696,13 @@ mod benchmarks {
 			existing_aliases.try_push(aliaser).unwrap()
 		}
 		let footprint = aliasers_footprint(existing_aliases.len());
-		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|_| {
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
 			tracing::error!(
 				target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
-				"could not create ticket for {:?} footprint {:?}, error: {:?}",
-				who, footprint, error,
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
 			);
 			error
 		})?;
