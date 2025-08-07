@@ -6045,6 +6045,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum"
+version = "0.18.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ee371ebb7479ed3258617557ab0b3247e741075cb6b02b820d188f68da44441"
+dependencies = [
+ "bytes",
+ "ethereum-types",
+ "hash-db",
+ "hash256-std-hasher",
+ "k256",
+ "parity-scale-codec",
+ "rlp 0.6.1",
+ "scale-info",
+ "sha3",
+ "trie-root",
+]
+
+[[package]]
 name = "ethereum-standards"
 version = "0.1.0"
 dependencies = [
@@ -12844,11 +12862,13 @@ dependencies = [
  "assert_matches",
  "derive_more 0.99.17",
  "environmental",
+ "ethereum",
  "ethereum-standards",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hash-db",
  "hex-literal",
  "humantime-serde",
  "impl-trait-for-tuples",
@@ -12891,6 +12911,7 @@ dependencies = [
  "sp-version",
  "substrate-bn",
  "subxt-signer 0.41.0",
+ "trie-root",
 ]
 
 [[package]]
