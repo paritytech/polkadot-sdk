@@ -64,6 +64,6 @@ mod tests {
 
 	#[test]
 	fn test_system_precompile() {
-		run_test_vectors::<System<Test>>(include_str!("./testdata/901-blake2_256.json"));
+		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
 	}
 }
