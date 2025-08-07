@@ -222,9 +222,6 @@ impl<T: Config<I>, I: 'static> Restore<WithConfig<ConfigValue<Owner<T::AccountId
 		(collection, item): &Self::Id,
 		strategy: WithConfig<ConfigValue<Owner<T::AccountId>>>,
 	) -> DispatchResult {
-		let item_exists = ItemStorage::<T, I>::contains_key(collection, item);
-		ensure!(!item_exists, Error::<T, I>::InUse);
-
 		Self::create(WithConfig::new(
 			strategy.config,
 			PredefinedId::from((collection.clone(), *item)),
