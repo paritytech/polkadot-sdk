@@ -518,11 +518,14 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// The modifiable EVM gas price, used by the EVM RPC.
-	pub type GasPrice<T> = StorageValue<_, u64, ValueQuery>;
+	pub(crate) type GasPrice<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	/// The modifiable EVM gas limit, used by the EVM RPC.
-	pub type GasLimit<T> = StorageValue<_, Option<u64>, ValueQuery>;
+	pub(crate) type GasLimit<T: Config> = StorageValue<_, Option<u64>, ValueQuery>;
+
+	#[pallet::storage]
+	pub(crate) type ImpersonatedAccounts<T: Config> = StorageMap<_, Identity, H160, ()>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -1154,6 +1157,22 @@ pub mod pallet {
 			GasLimit::<T>::put(Some(block_gas_limit));
 			Ok(())
 		}
+
+		#[pallet::call_index(18)]
+		#[pallet::weight(10_000)]
+		pub fn impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::insert(account, ());
+			Ok(())
+		}
+
+		#[pallet::call_index(19)]
+		#[pallet::weight(10_000)]
+		pub fn stop_impersonate_account(origin: OriginFor<T>, account: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ImpersonatedAccounts::<T>::remove(account);
+			Ok(())
+		}
 	}
 }
 
@@ -1634,7 +1653,7 @@ where
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 	{
 		if let Some(gas_limit) = GasLimit::<T>::get() {
-			return U256::from(gas_limit)
+			return U256::from(gas_limit);
 		} else {
 			let max_block_weight = T::BlockWeights::get()
 				.get(DispatchClass::Normal)
@@ -1646,7 +1665,7 @@ where
 			);
 
 			return Self::evm_gas_from_weight(max_block_weight)
-				.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
+				.saturating_add(Self::evm_fee_to_gas(length_fee.into()));
 		};
 	}
 

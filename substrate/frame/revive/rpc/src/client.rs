@@ -994,4 +994,58 @@ impl Client {
 
 		Ok(Some(block_gas_limit))
 	}
+
+	pub async fn impersonate_account(
+		&self,
+		account: H160
+	) -> Result<Option<H160>, ClientError> {
+		let alice = dev::alice();
+
+		let call =
+			RuntimeCall::Revive(ReviveCall::impersonate_account { account });
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(account))
+	}
+
+	pub async fn stop_impersonate_account(
+		&self,
+		account: H160
+	) -> Result<Option<H160>, ClientError> {
+		let alice = dev::alice();
+
+		let call =
+			RuntimeCall::Revive(ReviveCall::stop_impersonate_account { account });
+
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+
+		Ok(Some(account))
+	}
+
+	pub async fn is_impersonated_account(
+		&self,
+		account: H160
+	) -> Result<bool, ClientError> {
+		let query = subxt_client::storage()
+			.revive()
+			.impersonated_accounts(account);
+		let maybe_impersonated = self
+			.api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&query)
+			.await
+			.unwrap();
+		
+		match maybe_impersonated {
+			Some(_) => return Ok(true),
+			None => return Ok(false)
+		}
+
+	}
 }

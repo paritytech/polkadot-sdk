@@ -87,4 +87,16 @@ pub trait HardhatRpc {
 		&self,
 		block_gas_limit: U128,
 	) -> RpcResult<Option<U128>>;
+
+	#[method(name = "hardhat_impersonateAccount")]
+	async fn impersonate_account(
+		&self,
+		account: H160,
+	) -> RpcResult<Option<H160>>;
+
+	#[method(name = "hardhat_stopImpersonatingAccount")]
+	async fn stop_impersonate_account(
+		&self,
+		account: H160,
+	) -> RpcResult<Option<H160>>;
 }
