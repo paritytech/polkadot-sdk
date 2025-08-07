@@ -45,8 +45,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction, Log, PrestateTracer,
-		ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
+		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction, Log,
+		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -586,7 +586,7 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			let Some(_block_author) = Self::block_author() else {
+			let Some(block_author) = Self::block_author() else {
 				Self::kill_inflight_data();
 				return;
 			};
@@ -596,6 +596,7 @@ pub mod pallet {
 
 			let base_gas_price = GAS_PRICE.into();
 
+			let mut logs_bloom = Bytes256::default();
 			let tx_and_receipts: Vec<(TransactionSigned, ReceiptInfo)> = transactions
 				.into_iter()
 				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
@@ -676,6 +677,8 @@ pub mod pallet {
 						tx_info.r#type.unwrap_or_default(),
 					);
 
+					logs_bloom.combine(&receipt.logs_bloom);
+
 					Some((signed_tx, receipt))
 				})
 				.collect();
@@ -693,7 +696,7 @@ pub mod pallet {
 
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let _transaction_root =
+			let transactions_root =
 				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
 
 			// TODO:
@@ -704,10 +707,28 @@ pub mod pallet {
 				.map(|(_, receipt)| receipt.encode_2718())
 				.collect::<Vec<_>>();
 
-			let _receipts_root =
+			let receipts_root =
 				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
 
-			let _storage_root = T::StateRoot::get();
+			let state_root = T::StateRoot::get();
+
+			let block_header = BlockHeader {
+				parent_hash: Default::default(),
+				ommers_hash: Default::default(),
+				beneficiary: block_author.into(),
+
+				state_root,
+				transactions_root,
+				receipts_root,
+
+				logs_bloom,
+				..Default::default() /* // TODO: Compute this correctly.
+				                      * logs_bloom: Default::default(),
+				                      * difficulty: U256::zero(),
+				                      * extra_data: Vec::new(),
+				                      * mix_hash: H256::default(),
+				                      * nonce: Default::default(), */
+			};
 		}
 
 		fn integrity_test() {
