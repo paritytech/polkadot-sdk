@@ -6,8 +6,6 @@ doc:
 crates:
 - name: snowbridge-core
   bump: minor
-- name: snowbridge-ethereum
-  bump: none
 - name: snowbridge-inbound-queue-primitives
   bump: minor
 - name: snowbridge-outbound-queue-primitives
