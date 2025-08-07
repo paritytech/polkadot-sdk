@@ -89,54 +89,45 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
 
+	// TODO: what gas do we asign to this instruction?
 
 	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
-    let code = crate::PristineCode::<E::T>::get(&code_hash)
+    let Some(code) = crate::PristineCode::<E::T>::get(&code_hash)
         .map(|bounded_vec| bounded_vec.into_inner())
-        .unwrap_or_default();
-
-    let memory_len = len_u256.try_into().unwrap_or(0usize);
-    if memory_len == 0 {
+    else {
+        context.interpreter.halt(InstructionResult::Revert);
         return;
-    }
+    };
 
-    let memory_offset = memory_offset.try_into().unwrap_or(0usize);
-    let code_offset = core::cmp::min(code_offset.try_into().unwrap_or(0usize), code.len());
-    let copy_len = core::cmp::min(memory_len, code.len().saturating_sub(code_offset));
-
-    if copy_len > 0 {
-        context.interpreter.memory.set_data(memory_offset, code_offset, copy_len, &code);
-    }
-
-	// let address = address.into_address();
-	// let Some(code) = context.host.load_account_code(address) else {
-	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 	return;
-	// };
-
-	// let len = as_usize_or_fail!(context.interpreter, len_u256);
-	// gas_or_fail!(
-	// 	context.interpreter,
-	// 	gas::extcodecopy_cost(context.interpreter.runtime_flag.spec_id(), len, code.is_cold)
-	// );
-	// if len == 0 {
-	// 	return;
-	// }
-	// let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
-	// let code_offset = min(as_usize_saturated!(code_offset), code.len());
-	// resize_memory!(context.interpreter, memory_offset, len);
-
-	// // Note: This can't panic because we resized memory to fit.
-	// context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
+	let Ok(code_offset) = code_offset.try_into() else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+	if code_offset >= code.len() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+    let Ok(memory_len) = len_u256.try_into() else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+	if memory_len > code.len().saturating_sub(code_offset) {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+    let Ok(memory_offset) = memory_offset.try_into() else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+    context.interpreter.memory.set_data(memory_offset, code_offset, memory_len, &code);
 }
 
 /// Implements the BLOCKHASH instruction.
 ///
 /// Gets the hash of one of the 256 most recent complete blocks.
 pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	println!(">>>>>>>> blockhash");
 	gas!(context.interpreter, RuntimeCosts::BlockHash);
 	popn_top!([], number, context.interpreter);
 
@@ -146,15 +137,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 
 	let block_number = context.interpreter.extend.block_number();
-	println!("block_number: {:?}", block_number);
-	println!("requested_number: {:?}", requested_number);
 
 	let Some(diff) = block_number.checked_sub(requested_number) else {
-		*number = U256::ZERO;
+		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
 
-	// let diff = as_u64_saturated!(diff);
 	let diff = if diff > sp_core::U256::from(u64::MAX) {
     	u64::MAX
 	} else {
@@ -169,12 +157,13 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	*number = if diff <= BLOCK_HASH_HISTORY {
 		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
-			context.interpreter.halt(InstructionResult::FatalExternalError);
+			context.interpreter.halt(InstructionResult::Revert);
 			return;
 		};
 		U256::from_be_bytes(hash.0)
 	} else {
-		U256::ZERO
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
 	}
 }
 
@@ -194,7 +183,8 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
         bytes[32 - len..].copy_from_slice(&storage_value[..len]);
         U256::from_be_bytes(bytes)
     } else {
-        U256::ZERO
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
     };
 }
 
@@ -211,9 +201,22 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
     let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-    let _value = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old);
+    let Ok(write_outcome) = context.interpreter.extend.set_storage(&key, Some(write_outcome.to_be_bytes::<32>().to_vec()), take_old) else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
 
-	// TODO: what to do with returned value?
+	// TODO: what to do with returned write_outcome?
+	// /// No value existed at the specified key.
+	// New,
+	// /// A value of the returned length was overwritten.
+	// Overwritten(u32),
+	// /// The returned value was taken out of storage before being overwritten.
+	// ///
+	// /// This is only returned when specifically requested because it causes additional work
+	// /// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
+	// /// is returned instead.
+	// Taken(Vec<u8>),
 	
 	// let Some(state_load) =
 	// 	context.host.sstore(context.interpreter.input.target_address(), index, value)
