@@ -2179,15 +2179,15 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn backing_constraints(para_id: ParaId) -> Option<Constraints> {
-			parachains_staging_runtime_api_impl::backing_constraints::<Runtime>(para_id)
+			parachains_runtime_api_impl::backing_constraints::<Runtime>(para_id)
 		}
 
 		fn scheduling_lookahead() -> u32 {
-			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
+			parachains_runtime_api_impl::scheduling_lookahead::<Runtime>()
 		}
 
 		fn validation_code_bomb_limit() -> u32 {
-			parachains_staging_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
+			parachains_runtime_api_impl::validation_code_bomb_limit::<Runtime>()
 		}
 
 		fn para_ids() -> Vec<ParaId> {

@@ -30,8 +30,8 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, BackingState, CandidatePendingAvailability, InboundHrmpLimitations,
-		LegacyConstraints, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
+		InboundHrmpLimitations, LegacyConstraints, OutboundHrmpChannelLimitations,
 	},
 	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
@@ -398,7 +398,7 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 }
 
 // Helper function that returns the backing constraints given a parachain id.
-pub(crate) fn backing_constraints<T: initializer::Config>(
+fn legacy_backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<LegacyConstraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
@@ -478,7 +478,7 @@ pub(crate) fn backing_constraints<T: initializer::Config>(
 pub fn backing_state<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<BackingState<T::Hash, BlockNumberFor<T>>> {
-	let constraints = backing_constraints::<T>(para_id)?;
+	let constraints = legacy_backing_constraints::<T>(para_id)?;
 
 	let pending_availability = {
 		crate::inclusion::PendingAvailability::<T>::get(&para_id)
@@ -551,4 +551,41 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Vec<CommittedCandidateReceipt<T::Hash>> {
 	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
+}
+
+/// Implementation for `validation_code_bomb_limit` function from the runtime API
+pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_code_size *
+		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+}
+
+/// Implementation for `constraints` function from the runtime API
+pub fn backing_constraints<T: initializer::Config>(
+	para_id: ParaId,
+) -> Option<Constraints<BlockNumberFor<T>>> {
+	let config = configuration::ActiveConfig::<T>::get();
+	let constraints_v13 = legacy_backing_constraints::<T>(para_id)?;
+
+	Some(Constraints {
+		min_relay_parent_number: constraints_v13.min_relay_parent_number,
+		max_pov_size: constraints_v13.max_pov_size,
+		max_code_size: constraints_v13.max_code_size,
+		max_head_data_size: config.max_head_data_size,
+		ump_remaining: constraints_v13.ump_remaining,
+		ump_remaining_bytes: constraints_v13.ump_remaining_bytes,
+		max_ump_num_per_candidate: constraints_v13.max_ump_num_per_candidate,
+		dmp_remaining_messages: constraints_v13.dmp_remaining_messages,
+		hrmp_inbound: constraints_v13.hrmp_inbound,
+		hrmp_channels_out: constraints_v13.hrmp_channels_out,
+		max_hrmp_num_per_candidate: constraints_v13.max_hrmp_num_per_candidate,
+		required_parent: constraints_v13.required_parent,
+		validation_code_hash: constraints_v13.validation_code_hash,
+		upgrade_restriction: constraints_v13.upgrade_restriction,
+		future_validation_code: constraints_v13.future_validation_code,
+	})
+}
+
+/// Implementation for `scheduling_lookahead` function from the runtime API
+pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
 }
