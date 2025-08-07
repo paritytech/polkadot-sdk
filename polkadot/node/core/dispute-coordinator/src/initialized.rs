@@ -852,9 +852,7 @@ impl Initialized {
 				};
 				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
-				let _ = tx.send(
-					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
-				);
+				let _ = tx.send(recent_disputes);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
@@ -866,10 +864,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {

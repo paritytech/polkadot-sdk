@@ -22,6 +22,7 @@
 /// should be thrown out and which ones should be kept.
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
+use cumulus_primitives_core::{CumulusDigestItem, RelayBlockIdentifier};
 use parking_lot::Mutex;
 use polkadot_primitives::Hash as RHash;
 use sc_consensus::{
@@ -168,14 +169,13 @@ where
 					// We need some kind of identifier for the relay parent, in the worst case we
 					// take the all `0` hash.
 					let relay_parent =
-						cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-							pre_header.digest(),
-						)
-						.map(|r| r.0)
-						.unwrap_or_else(|| {
-							cumulus_primitives_core::extract_relay_parent(pre_header.digest())
-								.unwrap_or_default()
-						});
+						match CumulusDigestItem::find_relay_block_identifier(pre_header.digest()) {
+							None => Default::default(),
+							Some(RelayBlockIdentifier::ByHash(h)) |
+							Some(RelayBlockIdentifier::ByStorageRoot {
+								storage_root: h, ..
+							}) => h,
+						};
 
 					block_params.header = pre_header;
 					block_params.post_digests.push(seal_digest);
