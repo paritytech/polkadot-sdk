@@ -87,6 +87,7 @@ impl trie_root::TrieStream for Hash256RlpTrieStream {
 		self.stream.out().freeze().into()
 	}
 }
+
 fn hex_prefix_encode(nibbles: &[u8], leaf: bool) -> impl Iterator<Item = u8> + '_ {
 	let inlen = nibbles.len();
 	let oddness_factor = inlen % 2;
@@ -140,31 +141,186 @@ where
 mod test {
 	use super::*;
 	use sp_core::H256;
+	use trie_root::TrieStream;
 
 	#[test]
-	fn trie_root_is_ethereum_compatible() {
-		let test_data = [
-            (
-                "1f64201e2af914014247a6f033f44ae4a36bdb49031a020e1a83d431fccf1dd4",
-                "f86c80843b9aca0082520894ff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb893635c9adc5dea000008077a0883980438421ed0516088291915e01bebcd4240ddb9e709a710b7172ef6a9262a055bba5741dd52c3d43ff11b77ad9ba4b6e43afd8f61f6395da6ddaf933ea822e",
-            )
-        ];
+	fn test_hex_prefix_encode_even_length_leaf() {
+		let nibbles = &[0x1, 0x2, 0x3, 0x4];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, true).collect();
+		// Even length leaf: first byte = 0x20 (0010 0000), then pairs
+		assert_eq!(result, vec![0x20, 0x12, 0x34]);
+	}
 
-		for (tx_root, rlp_encoded_tx) in test_data {
-			use std::str::FromStr;
-			let expected_txs_root = H256::from_str(tx_root).unwrap();
-			let txs_blob = vec![alloy_core::hex::decode(&rlp_encoded_tx).unwrap()];
+	#[test]
+	fn test_hex_prefix_encode_odd_length_leaf() {
+		let nibbles = &[0x1, 0x2, 0x3];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, true).collect();
+		// Odd length leaf: first byte = 0x31 (0011 0001), then pairs
+		assert_eq!(result, vec![0x31, 0x23]);
+	}
 
-			use sp_trie::TrieConfiguration;
-			// Transactions root using this implementation
-			let txs_root_revive =
-				EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(txs_blob.iter());
+	#[test]
+	fn test_hex_prefix_encode_even_length_extension() {
+		let nibbles = &[0x1, 0x2, 0x3, 0x4];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, false).collect();
+		// Even length extension: first byte = 0x00 (0000 0000), then pairs
+		assert_eq!(result, vec![0x00, 0x12, 0x34]);
+	}
 
-			// Transactions root using ethereum crate's
-			let txs_root_ethereum = ethereum::util::ordered_trie_root(txs_blob.iter());
+	#[test]
+	fn test_hex_prefix_encode_odd_length_extension() {
+		let nibbles = &[0x1, 0x2, 0x3];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, false).collect();
+		// Odd length extension: first byte = 0x11 (0001 0001), then pairs
+		assert_eq!(result, vec![0x11, 0x23]);
+	}
 
-			assert_eq!(expected_txs_root, txs_root_ethereum);
-			assert_eq!(expected_txs_root, txs_root_revive);
+	#[test]
+	fn test_hex_prefix_encode_empty() {
+		let nibbles = &[];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, true).collect();
+		// Empty leaf: first byte = 0x20 (0010 0000)
+		assert_eq!(result, vec![0x20]);
+	}
+
+	#[test]
+	fn test_hex_prefix_encode_single_nibble() {
+		let nibbles = &[0xa];
+		let result: Vec<u8> = hex_prefix_encode(nibbles, false).collect();
+		// Single nibble extension: first byte = 0x1a (0001 1010)
+		assert_eq!(result, vec![0x1a]);
+	}
+
+	#[test]
+	fn test_hash256_rlp_trie_stream_new() {
+		let stream = Hash256RlpTrieStream::new();
+		assert_eq!(stream.out(), Vec::<u8>::new());
+	}
+
+	#[test]
+	fn test_hash256_rlp_trie_stream_append_empty_data() {
+		let mut stream = Hash256RlpTrieStream::new();
+		stream.append_empty_data();
+		assert_eq!(stream.out(), vec![0x80]); // RLP encoding of empty data
+	}
+
+	#[test]
+	fn test_hash256_rlp_trie_stream_append_leaf() {
+		let mut stream = Hash256RlpTrieStream::new();
+		let key = &[0x1, 0x2];
+		let value = TrieStreamValue::Inline(b"test");
+		stream.append_leaf(key, value);
+
+		let result = stream.out();
+		// Should be RLP list with 2 items: hex-prefix encoded key and value
+		assert!(result.len() > 0);
+		assert_eq!(result[0], 0xc0 + result.len() as u8 - 1); // RLP list marker
+	}
+
+	#[test]
+	fn test_hash256_rlp_trie_stream_begin_end_branch() {
+		let mut stream = Hash256RlpTrieStream::new();
+		stream.begin_branch(None, None, [false; 16].iter().copied());
+
+		// Add 16 empty children
+		for _ in 0..16 {
+			stream.append_empty_child();
 		}
+
+		stream.end_branch(Some(TrieStreamValue::Inline(b"value")));
+
+		let result = stream.out();
+		// Should be RLP list with 17 items (16 children + 1 value)
+		assert!(result.len() > 0);
+	}
+
+	#[test]
+	fn test_eth_trie_layout_encode_index() {
+		let encoded = EthTrieLayout::<sp_core::KeccakHasher>::encode_index(0);
+		assert_eq!(encoded, vec![0x80]); // RLP encoding of 0
+
+		let encoded = EthTrieLayout::<sp_core::KeccakHasher>::encode_index(1);
+		assert_eq!(encoded, vec![0x01]); // RLP encoding of 1
+
+		let encoded = EthTrieLayout::<sp_core::KeccakHasher>::encode_index(255);
+		assert_eq!(encoded, vec![0x81, 0xff]); // RLP encoding of 255
+	}
+
+	#[test]
+	fn test_trie_root_empty() {
+		let empty_input: Vec<(Vec<u8>, Vec<u8>)> = vec![];
+		let root = EthTrieLayout::<sp_core::KeccakHasher>::trie_root(empty_input.clone());
+		let root_ethereum = ethereum::util::trie_root(empty_input);
+
+		// Empty trie should have a specific root hash
+		assert_eq!(
+			root,
+			H256(hex_literal::hex!(
+				"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+			))
+		);
+		assert_eq!(root, root_ethereum,);
+	}
+
+	#[test]
+	fn test_trie_root_single_item() {
+		let input = vec![(b"key".to_vec(), b"value".to_vec())];
+		let root = EthTrieLayout::<sp_core::KeccakHasher>::trie_root(input.clone());
+		let root_ethereum = ethereum::util::trie_root(input);
+
+		assert_eq!(
+			root,
+			H256(hex_literal::hex!(
+				"98021eec76a352d4214ee9d22f2670f3abe01d5805441249f4b70dda75a0e07a"
+			))
+		);
+		assert_eq!(root, root_ethereum,);
+	}
+
+	#[test]
+	fn test_trie_root_multiple_items() {
+		let input = vec![
+			(b"key1".to_vec(), b"value1".to_vec()),
+			(b"key2".to_vec(), b"value2".to_vec()),
+			(b"key3".to_vec(), b"value3".to_vec()),
+		];
+		let root = EthTrieLayout::<sp_core::KeccakHasher>::trie_root(input.clone());
+		let root_ethereum = ethereum::util::trie_root(input);
+
+		assert_eq!(
+			root,
+			H256(hex_literal::hex!(
+				"7ed101460e293510184889c18501b03f553342c13d50235290fb707360c46ef5"
+			))
+		);
+		assert_eq!(root, root_ethereum);
+	}
+
+	#[test]
+	fn test_ordered_trie_root_deterministic() {
+		let input1 = vec![b"value1".to_vec(), b"value2".to_vec(), b"value3".to_vec()];
+		let input2 = vec![b"value1".to_vec(), b"value2".to_vec(), b"value3".to_vec()];
+
+		let root1 = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(input1.iter());
+		let root2 = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(input2.iter());
+		let root1_ethereum = ethereum::util::ordered_trie_root(input1);
+		let root2_ethereum = ethereum::util::ordered_trie_root(input2);
+
+		assert_eq!(
+			root1,
+			H256(hex_literal::hex!(
+				"8f0bd34adc1414631673dac4e396ec419d5d7884267c4ebaf22e219286c3b1b5"
+			))
+		);
+		assert_eq!(root1, root2);
+		assert_eq!(root1_ethereum, root2_ethereum);
+		assert_eq!(root1, root1_ethereum);
+	}
+
+	#[test]
+	fn test_trie_layout_constants() {
+		assert_eq!(EthTrieLayout::<sp_core::KeccakHasher>::USE_EXTENSION, false);
+		assert_eq!(EthTrieLayout::<sp_core::KeccakHasher>::ALLOW_EMPTY, true);
+		assert_eq!(EthTrieLayout::<sp_core::KeccakHasher>::MAX_INLINE_VALUE, None);
 	}
 }
