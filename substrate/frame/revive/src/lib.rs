@@ -45,9 +45,10 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction, Log,
-		PartialSignedTransactionInfo, PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType,
-		TransactionSigned, TYPE_EIP1559,
+		runtime::GAS_PRICE, Block, BlockHeader, Bytes256, CallTracer, GasEncoder,
+		GenericTransaction, HashesOrTransactionInfos, Log, PartialSignedTransactionInfo,
+		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionInfo, TransactionSigned,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -601,6 +602,66 @@ pub mod pallet {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
 			meter.consumed()
+		}
+
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			// Previous state root is needed to calculate the ETH block hash.
+			// TODO: Other on_initialize hooks might alter the state.
+			let version = T::Version::get().state_version();
+			let state_root = H256::decode(&mut &sp_io::storage::root(version)[..])
+				.expect("Node is configured to use the same hash; qed");
+
+			let (mut header, tx_and_receipts) = LastBlockDetails::<T>::get();
+			LastBlockDetails::<T>::kill();
+
+			header.state_root = state_root;
+			let block_hash = header.hash();
+			let block_number = header.number;
+
+			// Adjust stored transactions and receipts to the block hash.
+			let (transactions, receipts): (Vec<_>, Vec<_>) = tx_and_receipts
+				.into_iter()
+				.map(|(tx, mut receipt)| {
+					let tx_info = TransactionInfo {
+						block_hash,
+						block_number,
+						from: tx.from,
+						hash: tx.hash,
+						transaction_index: tx.transaction_index,
+						transaction_signed: tx.transaction_signed,
+					};
+
+					receipt.block_hash = block_hash;
+
+					(tx_info, receipt)
+				})
+				.unzip();
+
+			let block = Block {
+				parent_hash: header.parent_hash,
+				sha_3_uncles: header.ommers_hash,
+				miner: header.beneficiary,
+				state_root: header.state_root,
+				transactions_root: header.transactions_root,
+				receipts_root: header.receipts_root,
+				logs_bloom: header.logs_bloom,
+				total_difficulty: Some(header.difficulty),
+				number: header.number,
+				gas_limit: header.gas_limit,
+				gas_used: header.gas_used,
+				timestamp: header.timestamp,
+				extra_data: header.extra_data,
+				mix_hash: header.mix_hash,
+				nonce: header.nonce,
+
+				transactions: HashesOrTransactionInfos::TransactionInfos(transactions),
+
+				..Default::default()
+			};
+
+			// Anything that needs to be done at the start of the block.
+			// We don't do anything here.
+			Weight::zero()
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
