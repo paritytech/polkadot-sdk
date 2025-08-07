@@ -37,7 +37,7 @@ sol! {
 impl<T: Config> BuiltinPrecompile for System<T> {
 	type T = T;
 	type Interface = ISystem::ISystemCalls;
-	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(901).unwrap());
+	const MATCHER: BuiltinAddressMatcher = BuiltinAddressMatcher::Fixed(NonZero::new(0x900).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
 	fn call(
