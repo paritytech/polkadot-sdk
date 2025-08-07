@@ -607,7 +607,7 @@ mod benchmarks {
 					tracing::error!(
 						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
 						?origin,
-						"try_origin failed", 
+						"try_origin failed",
 					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?
