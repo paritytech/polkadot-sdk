@@ -45,10 +45,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, Block as EthBlock, BlockHeader, Bytes256, CallTracer, GasEncoder,
-		GenericTransaction, HashesOrTransactionInfos, Log, PartialSignedTransactionInfo,
-		PrestateTracer, ReceiptInfo, Trace, Tracer, TracerType, TransactionInfo, TransactionSigned,
-		TYPE_EIP1559,
+		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
+		HashesOrTransactionInfos, Log, PartialSignedTransactionInfo, PrestateTracer, Trace, Tracer,
+		TracerType, TransactionInfo, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -91,6 +90,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
+	evm::{Block as EthBlock, ReceiptInfo},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -568,7 +568,12 @@ pub mod pallet {
 	/// The previous ETH block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type PreviousBlock<T> = StorageValue<_, (EthBlock, Vec<ReceiptInfo>), ValueQuery>;
+	pub(crate) type PreviousBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+
+	/// The previous receipt info.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type PreviousReceiptInfo<T> = StorageValue<_, Vec<ReceiptInfo>, ValueQuery>;
 
 	// Mapping for block number and hashes.
 	#[pallet::storage]
@@ -670,7 +675,8 @@ pub mod pallet {
 
 			// TODO: Prune older blocks.
 			BlockHash::<T>::insert(block_number, block_hash);
-			PreviousBlock::<T>::put((block.clone(), receipts));
+			PreviousBlock::<T>::put(block);
+			PreviousReceiptInfo::<T>::put(receipts);
 
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
@@ -1753,6 +1759,23 @@ where
 		Self::convert_native_to_evm(balance)
 	}
 
+	pub fn eth_block() -> EthBlock {
+		PreviousBlock::<T>::get()
+	}
+
+	pub fn eth_receipt_info() -> Vec<ReceiptInfo> {
+		PreviousReceiptInfo::<T>::get()
+	}
+
+	pub fn eth_block_number(number: U256) -> Option<H256> {
+		let hash = <BlockHash<T>>::get(number);
+		if hash == H256::zero() {
+			None
+		} else {
+			Some(hash)
+		}
+	}
+
 	/// Get the nonce for the given `address`.
 	pub fn evm_nonce(address: &H160) -> u32
 	where
@@ -2003,6 +2026,19 @@ sp_api::decl_runtime_apis! {
 		Nonce: Codec,
 		BlockNumber: Codec,
 	{
+		/// Returns the current ETH block.
+		///
+		/// This is one block behind the substrate block.
+		fn eth_block() -> EthBlock;
+
+		/// Returns the ETH block receipt infos.
+		///
+		/// These are one block behind the substrate block.
+		fn eth_receipt_info() -> Vec<ReceiptInfo>;
+
+		/// Returns the ETH block hash for the given block number.
+		fn eth_block_hash(number: U256) -> Option<H256>;
+
 		/// Returns the block gas limit.
 		fn block_gas_limit() -> U256;
 
@@ -2132,6 +2168,18 @@ macro_rules! impl_runtime_apis_plus_revive {
 			$($rest)*
 
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
+				fn eth_block() -> $crate::EthBlock {
+					$crate::Pallet::<Self>::eth_block()
+				}
+
+				fn eth_receipt_info() -> Vec<$crate::ReceiptInfo> {
+					$crate::Pallet::<Self>::eth_receipt_info()
+				}
+
+				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
+					$crate::Pallet::<Self>::eth_block_number(number)
+				}
+
 				fn balance(address: $crate::H160) -> $crate::U256 {
 					$crate::Pallet::<Self>::evm_balance(&address)
 				}
