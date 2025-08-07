@@ -1,0 +1,40 @@
+title: Ignore trie nodes while recording a proof
+doc:
+- audience: Node Dev
+  description: |-
+    This pull requests implements support for ignoring trie nodes while recording a proof. It directly includes the feature into `basic-authorship` to later make use of it in Cumulus for multi-block PoVs.
+
+    The idea behind this is when you have multiple blocks per PoV that trie nodes accessed or produced by a block before (in the same `PoV`), are not required to be added to the storage proof again. So, all the blocks in one `PoV` basically share the same storage proof. 
+    This also impacts things like storage weight reclaim, because ignored trie node do not contribute a to the storage proof size (similar to when this would happen in the same block).
+
+    In your node you only need to do the following change:
+    ```diff
+    -let proposer = Proposer::new(proposer_factory);
+    +
+    ```
+
+    The `cumulus_client_consensus_proposer::Proposer` type was removed.
+
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor
+  validate: false
+- name: polkadot-primitives
+  bump: patch
+- name: cumulus-client-consensus-proposer
+  bump: major
+- name: sc-basic-authorship
+  bump: major
+- name: sc-block-builder
+  bump: major
+- name: sp-api-proc-macro
+  bump: major
+- name: sp-api
+  bump: major
+- name: sp-trie
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: patch
+  validate: false
+- name: sc-consensus
+  bump: minor

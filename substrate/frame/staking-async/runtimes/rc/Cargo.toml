@@ -8,6 +8,7 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 repository.workspace = true
+publish = false
 
 [lints]
 workspace = true
@@ -76,11 +77,13 @@ pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
+pallet-root-offences = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-async-ah-client = { workspace = true }
+pallet-staking-async-preset-store = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true }
 pallet-staking-async-rc-runtime-constants = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -167,11 +170,13 @@ std = [
 	"pallet-proxy/std",
 	"pallet-recovery/std",
 	"pallet-referenda/std",
+	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
 	"pallet-staking-async-ah-client/std",
+	"pallet-staking-async-preset-store/std",
 	"pallet-staking-async-rc-client/std",
 	"pallet-staking-async-rc-runtime-constants/std",
 	"pallet-staking/std",
@@ -249,6 +254,7 @@ runtime-benchmarks = [
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
+	"pallet-root-offences/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-staking-async-ah-client/runtime-benchmarks",
@@ -305,6 +311,7 @@ try-runtime = [
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-root-offences/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",

@@ -50,7 +50,10 @@ use frame_system::{EnsureRoot, EnsureSigned};
 pub use pallet_balances::Call as BalancesCall;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
-use pallet_session::historical as session_historical;
+use pallet_session::{
+	disabling::{DisablingDecision, DisablingStrategy},
+	historical as session_historical,
+};
 use pallet_staking_async_ah_client::{self as ah_client};
 use pallet_staking_async_rc_client::{self as rc_client};
 pub use pallet_timestamp::Call as TimestampCall;
@@ -111,7 +114,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -343,7 +346,7 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		1 * MINUTES as u64
+		MINUTES as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 = 256 * EpochDuration::get();
@@ -526,16 +529,21 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 /// A testing type that implements SessionManager, it receives a new validator set from
 /// `StakingAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
-pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
+pub struct MaybeUsePreviousValidatorsElse<I>(core::marker::PhantomData<I>);
 
 impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>
-	for AckButPreviousSessionValidatorsPersist<I>
+	for MaybeUsePreviousValidatorsElse<I>
 {
 	fn end_session(end_index: SessionIndex) {
 		<I as pallet_session::SessionManager<_>>::end_session(end_index);
 	}
 	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
-		match <I as pallet_session::SessionManager<_>>::new_session(new_index) {
+		let force_use_previous = UsePreviousValidators::get();
+		let actual_session_manager =
+			<I as pallet_session::SessionManager<_>>::new_session(new_index);
+
+		match actual_session_manager {
+			Some(new_used) if !force_use_previous => Some(new_used),
 			Some(_new_ignored) => {
 				let current_validators = pallet_session::Validators::<Runtime>::get();
 				log::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
@@ -552,18 +560,57 @@ impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManage
 	}
 }
 
+parameter_types! {
+	pub DisablingLimit: Perbill = Perbill::from_percent(25);
+	pub storage UsePreviousValidators: bool = false;
+}
+
+/// A naive disabling strategy that always disables the offender for any slash more than `S`
+/// severity.
+///
+/// Only useful for testing.
+///
+/// Never re-enables any validators.
+pub struct AlwaysDisableForSlashGreaterThan<S>(core::marker::PhantomData<S>);
+impl<S: Get<Perbill>> DisablingStrategy<Runtime> for AlwaysDisableForSlashGreaterThan<S> {
+	fn decision(
+		offender_stash: &AccountId,
+		offender_slash_severity: OffenceSeverity,
+		_currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision {
+		let meets_threshold = offender_slash_severity.0 >= S::get();
+		let offender_index = pallet_session::Validators::<Runtime>::get()
+			.iter()
+			.position(|v| v == offender_stash)
+			.map(|i| i as u32);
+		let disable = match offender_index {
+			Some(index) if meets_threshold => Some(index),
+			_ => {
+				log::warn!(
+					target: "runtime",
+					"Offender {:?} (index = {:?}) with severity {:?} does not meet the threshold of {:?}, or index not found",
+					offender_stash, offender_index, offender_slash_severity, S::get()
+				);
+				None
+			},
+		};
+
+		DisablingDecision { disable, reenable: None }
+	}
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = IdentityValidatorIdeOf;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = AckButPreviousSessionValidatorsPersist<
+	type SessionManager = MaybeUsePreviousValidatorsElse<
 		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
 	>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
+	type DisablingStrategy = AlwaysDisableForSlashGreaterThan<DisablingLimit>;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
 	type KeyDeposit = ();
@@ -573,6 +620,11 @@ impl session_historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
+}
+
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
 }
 
 pub struct AssetHubLocation;
@@ -685,7 +737,7 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type SendToAssetHub = StakingXcmToAssetHub;
-	type MinimumValidatorSetSize = ConstU32<10>;
+	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
@@ -1672,6 +1724,8 @@ impl OnSwap for SwapLeases {
 	}
 }
 
+impl pallet_staking_async_preset_store::Config for Runtime {}
+
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {
 	#[runtime::runtime]
@@ -1834,6 +1888,8 @@ mod runtime {
 
 	#[runtime::pallet_index(67)]
 	pub type StakingAhClient = pallet_staking_async_ah_client;
+	#[runtime::pallet_index(68)]
+	pub type PresetStore = pallet_staking_async_preset_store;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -1854,6 +1910,10 @@ mod runtime {
 	// Root testing pallet.
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
+
+	// Root offences pallet
+	#[runtime::pallet_index(103)]
+	pub type RootOffences = pallet_root_offences;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
@@ -2855,7 +2915,38 @@ sp_api::impl_runtime_apis! {
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_state::<RuntimeGenesisConfig>(config)
+			let res = build_state::<RuntimeGenesisConfig>(config);
+
+			match PresetStore::preset().unwrap().as_str() {
+				"real-m" => {
+					log::info!(target: "runtime", "detected real-m preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 4,
+						"incorrect validator count for real-m preset"
+					);
+				},
+				"real-s" => {
+					log::info!(target: "runtime", "detected real-s preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 2,
+						"incorrect validator count for real-s preset"
+					);
+				},
+				"fake-s" => {
+					log::info!(target: "runtime", "detected fake-s preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 2,
+						"incorrect validator count for fake-s preset"
+					);
+					UsePreviousValidators::set(&true);
+				},
+				_ => {
+					panic!("unrecognized min nominator bond in genesis config: {}",
+						pallet_staking::MinNominatorBond::<Runtime>::get()
+					);
+				}
+			}
+			res
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {

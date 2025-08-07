@@ -33,7 +33,7 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchError, FixedPointNumber, FixedU128,
+	DispatchError, DispatchResult, FixedPointNumber, FixedU128,
 };
 
 /// Deposit that uses the native fungible's balance type.
@@ -104,6 +104,10 @@ pub struct RawMeter<T: Config, E, S: State + Default + Debug> {
 	/// We only have one charge per contract hence the size of this vector is
 	/// limited by the maximum call depth.
 	charges: Vec<Charge<T>>,
+	/// True if this is the root meter.
+	///
+	/// Sometimes we cannot know at compile time.
+	is_root: bool,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -308,8 +312,18 @@ where
 	///
 	/// This will not perform a charge. It just records it to reflect it in the
 	/// total amount of storage required for a transaction.
-	pub fn record_charge(&mut self, amount: &DepositOf<T>) {
-		self.total_deposit = self.total_deposit.saturating_add(&amount);
+	pub fn record_charge(&mut self, amount: &DepositOf<T>) -> DispatchResult {
+		let total_deposit = self.total_deposit.saturating_add(&amount);
+
+		// Limits are enforced at the end of each frame. But plain balance transfers
+		// do not sapwn a frame. This is specifically to enforce the limit for those.
+		if self.is_root && total_deposit.charge_or_zero() > self.limit {
+			log::debug!( target: LOG_TARGET, "Storage deposit limit exhausted: {:?} > {:?}", amount, self.limit);
+			return Err(<Error<T>>::StorageDepositLimitExhausted.into())
+		}
+
+		self.total_deposit = total_deposit;
+		Ok(())
 	}
 
 	/// The amount of balance that is still available from the original `limit`.
@@ -338,12 +352,7 @@ where
 	/// If the limit larger then what the origin can afford we will just fail
 	/// when collecting the deposits in `try_into_deposit`.
 	pub fn new(limit: BalanceOf<T>) -> Self {
-		Self { limit, ..Default::default() }
-	}
-
-	/// Create new storage meter without checking the limit.
-	pub fn new_unchecked(limit: BalanceOf<T>) -> Self {
-		return Self { limit, ..Default::default() }
+		Self { limit, is_root: true, ..Default::default() }
 	}
 
 	/// The total amount of deposit that should change hands as result of the execution
@@ -401,7 +410,8 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 	/// If this functions is used the amount of the charge has to be stored by the caller somewhere
 	/// alese in order to be able to refund it.
 	pub fn charge_deposit(&mut self, contract: T::AccountId, amount: DepositOf<T>) {
-		self.record_charge(&amount);
+		// will not fail in a nested meter
+		self.record_charge(&amount).ok();
 		self.charges.push(Charge { contract, amount, state: ContractState::Alive });
 	}
 

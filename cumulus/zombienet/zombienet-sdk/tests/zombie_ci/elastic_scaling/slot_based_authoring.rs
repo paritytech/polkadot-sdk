@@ -20,7 +20,6 @@ use zombienet_sdk::{
 const PARA_ID_1: u32 = 2100;
 const PARA_ID_2: u32 = 2000;
 
-// TODO
 #[tokio::test(flavor = "multi_thread")]
 async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -60,10 +59,11 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());
-		assert!(node
-			.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= block_cnt, 225u64)
+		node.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= block_cnt, 225u64)
 			.await
-			.is_ok());
+			.unwrap_or_else(|e| {
+				panic!("Failed to reach {block_cnt} blocks with node {}: {e}", node.name())
+			});
 	}
 
 	// We want to make sure that none of the consensus hook checks fail, even if the chain makes
