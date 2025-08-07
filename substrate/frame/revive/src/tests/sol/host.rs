@@ -22,7 +22,6 @@ use crate::{
 	tests::{builder, ExtBuilder, Test, test_utils},
 	Code, Config,
     address::AddressMapper,
-    PristineCode,
     H256,
     Key,
     System,
@@ -191,12 +190,58 @@ fn extcodehash_works() {
 }
 
 #[test]
-#[ignore]
 fn extcodecopy_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        todo!("implement this test");
-    }
+    use pallet_revive_fixtures::HostSelfDestructEvm::extcodecopyOpCall;
+    use pallet_revive_fixtures::HostSelfDestructEvm::HostSelfDestructEvmCalls;
+    use pallet_revive_fixtures::HostSelfDestructEvm;
+    let fixture_type = FixtureType::Solc;
+
+    let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
+    let (dummy_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+
+    let code_start = 3;
+    let code_len = 17;
+    
+    ExtBuilder::default().build().execute_with(|| {
+        <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+        let Contract { addr, .. } =
+            builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+        let Contract { addr: dummy_addr, .. } =
+            builder::bare_instantiate(Code::Upload(dummy_code.clone())).build_and_unwrap_contract();
+        
+        let expected_code = {
+            let contract_info = test_utils::get_contract(&dummy_addr);
+            let code_hash = contract_info.code_hash;
+            let expected_code = crate::PristineCode::<Test>::get(&code_hash)
+                .map(|bounded_vec| bounded_vec.into_inner())
+                .unwrap_or_default();
+            expected_code[code_start..code_start + code_len].to_vec()
+        };
+        
+        let result = builder::bare_call(addr)
+            .gas_limit(1_000_000_000.into())
+            .data(
+                HostSelfDestructEvmCalls::extcodecopyOp(HostSelfDestructEvm::extcodecopyOpCall {        
+                    account: dummy_addr.0.into(),
+                    offset: U256::from(code_start),
+                    size: U256::from(code_len),
+                })
+                    .abi_encode(),
+            )
+            .build_and_unwrap_result();
+        let actual_code = {
+            let length = u32::from_be_bytes([result.data[60], result.data[61], result.data[62], result.data[63]]) as usize;
+            &result.data[64..64+length]
+        };
+
+        assert_eq!(expected_code.len(), actual_code.len(), "EXTCODECOPY should return the correct code length for {:?}", fixture_type);
+
+        assert_eq!(
+            &expected_code,
+            actual_code,
+            "EXTCODECOPY should return the correct code for {:?}", fixture_type
+        );
+    });
 }
 
 #[test]

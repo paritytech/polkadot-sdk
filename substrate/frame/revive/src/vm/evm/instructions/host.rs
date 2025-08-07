@@ -88,26 +88,48 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
-	let address = address.into_address();
-	let Some(code) = context.host.load_account_code(address) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
 
-	let len = as_usize_or_fail!(context.interpreter, len_u256);
-	gas_or_fail!(
-		context.interpreter,
-		gas::extcodecopy_cost(context.interpreter.runtime_flag.spec_id(), len, code.is_cold)
-	);
-	if len == 0 {
-		return;
-	}
-	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
-	let code_offset = min(as_usize_saturated!(code_offset), code.len());
-	resize_memory!(context.interpreter, memory_offset, len);
 
-	// Note: This can't panic because we resized memory to fit.
-	context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
+	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
+	let code_hash = context.interpreter.extend.code_hash(&h160);
+
+    let code = crate::PristineCode::<E::T>::get(&code_hash)
+        .map(|bounded_vec| bounded_vec.into_inner())
+        .unwrap_or_default();
+
+    let memory_len = len_u256.try_into().unwrap_or(0usize);
+    if memory_len == 0 {
+        return;
+    }
+
+    let memory_offset = memory_offset.try_into().unwrap_or(0usize);
+    let code_offset = core::cmp::min(code_offset.try_into().unwrap_or(0usize), code.len());
+    let copy_len = core::cmp::min(memory_len, code.len().saturating_sub(code_offset));
+
+    if copy_len > 0 {
+        context.interpreter.memory.set_data(memory_offset, code_offset, copy_len, &code);
+    }
+
+	// let address = address.into_address();
+	// let Some(code) = context.host.load_account_code(address) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
+
+	// let len = as_usize_or_fail!(context.interpreter, len_u256);
+	// gas_or_fail!(
+	// 	context.interpreter,
+	// 	gas::extcodecopy_cost(context.interpreter.runtime_flag.spec_id(), len, code.is_cold)
+	// );
+	// if len == 0 {
+	// 	return;
+	// }
+	// let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
+	// let code_offset = min(as_usize_saturated!(code_offset), code.len());
+	// resize_memory!(context.interpreter, memory_offset, len);
+
+	// // Note: This can't panic because we resized memory to fit.
+	// context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
 }
 
 /// Implements the BLOCKHASH instruction.
