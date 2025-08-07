@@ -4042,7 +4042,6 @@ impl<T: Config> Pallet<T> {
 		debug_assertions
 	))]
 	pub fn check_ed_imbalance() -> Result<(), DispatchError> {
-		// TODO: we need a poke_pool_deposit etc here too.
 		BondedPools::<T>::iter_keys().for_each(|id| {
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
