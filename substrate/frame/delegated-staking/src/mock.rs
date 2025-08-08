@@ -46,6 +46,9 @@ pub const GENESIS_VALIDATOR: AccountId = 1;
 pub const GENESIS_NOMINATOR_ONE: AccountId = 101;
 pub const GENESIS_NOMINATOR_TWO: AccountId = 102;
 
+// Additional validators for pool integration tests
+pub const EXTRA_VALIDATORS: [AccountId; 5] = [18, 19, 20, 21, 22];
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
@@ -192,33 +195,32 @@ impl ExtBuilder {
 		let mut storage =
 			frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
-		let _ = pallet_balances::GenesisConfig::<T> {
-			balances: vec![
-				(GENESIS_VALIDATOR, 10000),
-				(GENESIS_NOMINATOR_ONE, 1000),
-				(GENESIS_NOMINATOR_TWO, 2000),
-				// Additional validators for tests
-				(18, 10000),
-				(19, 10000),
-				(20, 10000),
-				(21, 10000),
-				(22, 10000),
-			],
-			..Default::default()
-		}
-		.assimilate_storage(&mut storage);
+		let balances = vec![
+			(GENESIS_VALIDATOR, 10000),
+			(GENESIS_NOMINATOR_ONE, 1000),
+			(GENESIS_NOMINATOR_TWO, 2000),
+		]
+		.into_iter()
+		// Additional validators for tests
+		.chain(EXTRA_VALIDATORS.iter().map(|&v| (v, 10000)))
+		.collect::<Vec<_>>();
+
+		let _ = pallet_balances::GenesisConfig::<T> { balances, ..Default::default() }
+			.assimilate_storage(&mut storage);
 
 		let stakers = vec![
 			(GENESIS_VALIDATOR, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
 			(GENESIS_NOMINATOR_ONE, 100, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
 			(GENESIS_NOMINATOR_TWO, 200, sp_staking::StakerStatus::<AccountId>::Nominator(vec![1])),
-			// Additional validators for pool integration tests
-			(18, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
-			(19, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
-			(20, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
-			(21, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
-			(22, 1000, sp_staking::StakerStatus::<AccountId>::Validator),
-		];
+		]
+		.into_iter()
+		// Additional validators for pool integration tests
+		.chain(
+			EXTRA_VALIDATORS
+				.iter()
+				.map(|&v| (v, 1000, sp_staking::StakerStatus::<AccountId>::Validator)),
+		)
+		.collect::<Vec<_>>();
 
 		let _ = pallet_staking_async::GenesisConfig::<T> {
 			stakers: stakers.clone(),

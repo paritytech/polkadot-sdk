@@ -46,6 +46,9 @@ pub(crate) type T = Runtime;
 pub(crate) const POOL1_BONDED: AccountId = 20318131474730217858575332831085u128;
 pub(crate) const POOL1_REWARD: AccountId = 20397359637244482196168876781421u128;
 
+// Test validators
+pub(crate) const TEST_VALIDATORS: [AccountId; 3] = [1, 2, 3];
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Nonce = Nonce;
@@ -315,7 +318,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100), (1, 1000), (2, 1000), (3, 1000)],
+		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)]
+			.into_iter()
+			.chain(TEST_VALIDATORS.iter().map(|&v| (v, 1000)))
+			.collect::<Vec<_>>(),
 		..Default::default()
 	}
 	.assimilate_storage(&mut storage)
@@ -342,38 +348,17 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		));
 
 		// Set up validators that tests can nominate
-		// Create validator 1
-		assert_ok!(Staking::bond(
-			RuntimeOrigin::signed(1),
-			500,
-			pallet_staking_async::RewardDestination::Staked
-		));
-		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(1),
-			pallet_staking_async::ValidatorPrefs::default()
-		));
-
-		// Create validator 2
-		assert_ok!(Staking::bond(
-			RuntimeOrigin::signed(2),
-			500,
-			pallet_staking_async::RewardDestination::Staked
-		));
-		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(2),
-			pallet_staking_async::ValidatorPrefs::default()
-		));
-
-		// Create validator 3
-		assert_ok!(Staking::bond(
-			RuntimeOrigin::signed(3),
-			500,
-			pallet_staking_async::RewardDestination::Staked
-		));
-		assert_ok!(Staking::validate(
-			RuntimeOrigin::signed(3),
-			pallet_staking_async::ValidatorPrefs::default()
-		));
+		TEST_VALIDATORS.iter().for_each(|&validator| {
+			assert_ok!(Staking::bond(
+				RuntimeOrigin::signed(validator),
+				500,
+				pallet_staking_async::RewardDestination::Staked
+			));
+			assert_ok!(Staking::validate(
+				RuntimeOrigin::signed(validator),
+				pallet_staking_async::ValidatorPrefs::default()
+			));
+		});
 
 		// Clear events from validator setup to avoid test interference
 		frame_system::Pallet::<Runtime>::reset_events();
