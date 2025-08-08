@@ -45,9 +45,10 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
-		HashesOrTransactionInfos, Log, PartialSignedTransactionInfo, PrestateTracer, Trace, Tracer,
-		TracerType, TransactionInfo, TransactionSigned, TYPE_EIP1559, EthTrieLayout
+		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, EthTrieLayout, GasEncoder,
+		GenericTransaction, HashesOrTransactionInfos, Log, PartialSignedTransactionInfo,
+		PrestateTracer, Trace, Tracer, TracerType, TransactionInfo, TransactionSigned,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -803,8 +804,10 @@ pub mod pallet {
 
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let transactions_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
-			let receipts_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
+			let transactions_root =
+				EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+			let receipts_root =
+				EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
 
 			let state_root = T::StateRoot::get();
 
