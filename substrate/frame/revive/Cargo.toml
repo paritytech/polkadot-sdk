@@ -72,7 +72,6 @@ pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
 ethereum = { version = "0.18.2", default-features = false, features = ["with-scale"] }
-rlp = {version = "0.6.1", default-features = false }
 
 # Polkadot SDK Dependencies
 pallet-balances = { workspace = true, default-features = true }
