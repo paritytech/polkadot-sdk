@@ -73,17 +73,17 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use super::{ISystem, *};
 	use crate::{
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
+		evm::Account,
 		pallet,
-		precompiles::{tests::run_test_vectors, BuiltinPrecompile, ISystem},
+		precompiles::{tests::run_test_vectors, BuiltinPrecompile},
 		tests::{ExtBuilder, Test},
 		H160,
 	};
 	use codec::Decode;
-	use frame_benchmarking::account;
 	use frame_support::traits::fungible::Mutate;
 
 	#[test]
@@ -120,7 +120,7 @@ mod tests {
 	fn test_system_precompile_mapped_account() {
 		ExtBuilder::default().build().execute_with(|| {
 			// given
-			let account_id = account("precompile_to_account_id", 0, 0);
+			let account_id = Account::default().substrate_account();
 			let mapped_address = {
 				<Test as pallet::Config>::Currency::set_balance(
 					&account_id,

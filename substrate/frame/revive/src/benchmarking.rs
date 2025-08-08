@@ -23,7 +23,9 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	precompiles::{self, run::builtin as run_builtin_precompile, BuiltinPrecompile},
+	precompiles::{
+		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+	},
 	storage::WriteOutcome,
 	Pallet as Contracts, *,
 };
@@ -554,9 +556,6 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn to_account_id() {
-		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
-		use alloy_core::sol_types::SolInterface;
-
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
 		let account_id = account("precompile_to_account_id", 0, 0);
@@ -1982,8 +1981,6 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::{BenchmarkSystem, ISystem};
-
 		let input = vec![0u8; n as usize];
 		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
 			input: input.clone().into(),
