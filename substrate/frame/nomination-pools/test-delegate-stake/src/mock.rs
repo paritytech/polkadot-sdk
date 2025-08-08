@@ -94,18 +94,6 @@ parameter_types! {
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-// Mock RC client interface
-pub struct MockRcClient;
-impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
-	type AccountId = AccountId;
-	fn validator_set(
-		_new_validator_set: Vec<Self::AccountId>,
-		_id: u32,
-		_prune_up_to: Option<u32>,
-	) {
-	}
-}
-
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
@@ -118,7 +106,7 @@ impl pallet_staking_async::Config for Runtime {
 	type VoterList = VoterList;
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
-	type RcClientInterface = MockRcClient;
+	type RcClientInterface = ();
 }
 
 parameter_types! {

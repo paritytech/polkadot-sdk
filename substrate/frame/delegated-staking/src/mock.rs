@@ -24,7 +24,6 @@ use frame_support::{
 	PalletId,
 };
 
-use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{traits::IdentityLookup, Perbill};
 
 use frame_election_provider_support::{
@@ -107,18 +106,6 @@ impl onchain::Config for OnChainSeqPhragmen {
 	type Bounds = ElectionsBoundsOnChain;
 }
 
-// Mock RC client interface
-pub struct MockRcClient;
-impl rc_client::RcClientInterface for MockRcClient {
-	type AccountId = AccountId;
-	fn validator_set(
-		_new_validator_set: Vec<Self::AccountId>,
-		_id: u32,
-		_prune_up_to: Option<u32>,
-	) {
-	}
-}
-
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
@@ -131,7 +118,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
 	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
-	type RcClientInterface = MockRcClient;
+	type RcClientInterface = ();
 }
 
 parameter_types! {

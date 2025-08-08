@@ -22,7 +22,6 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, Nothing, VariantCountOf},
 	PalletId,
 };
-use pallet_staking_async_rc_client;
 use sp_runtime::{
 	traits::{BlockNumberProvider, Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
@@ -79,18 +78,6 @@ parameter_types! {
 	pub static EraPayout: (Balance, Balance) = (1000, 100);
 }
 
-// Mock RC client interface
-pub struct MockRcClient;
-impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
-	type AccountId = AccountId;
-	fn validator_set(
-		_new_validator_set: Vec<Self::AccountId>,
-		_id: u32,
-		_prune_up_to: Option<u32>,
-	) {
-	}
-}
-
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
@@ -102,7 +89,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = pallet_staking_async::UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
-	type RcClientInterface = MockRcClient;
+	type RcClientInterface = ();
 	type EventListeners = (Pools, DelegatedStaking);
 }
 

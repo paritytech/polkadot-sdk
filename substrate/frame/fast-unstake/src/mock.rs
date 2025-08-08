@@ -29,7 +29,6 @@ use pallet_staking_async::{
 	session_rotation::Eras, Exposure, IndividualExposure, StakerStatus,
 	UseNominatorsAndValidatorsMap, UseValidatorsMap,
 };
-use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
@@ -126,18 +125,6 @@ impl frame_election_provider_support::ElectionProvider for MockElection {
 	}
 }
 
-// Mock RC client interface
-pub struct MockRcClient;
-impl rc_client::RcClientInterface for MockRcClient {
-	type AccountId = AccountId;
-	fn validator_set(
-		_new_validator_set: Vec<Self::AccountId>,
-		_id: u32,
-		_prune_up_to: Option<u32>,
-	) {
-	}
-}
-
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
@@ -148,7 +135,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = UseValidatorsMap<Self>;
 	type CurrencyToVote = SaturatingCurrencyToVote;
 	type EraPayout = pallet_staking_async_testing_utils::TestEraPayout<Balance, EraPayout>;
-	type RcClientInterface = MockRcClient;
+	type RcClientInterface = ();
 }
 
 parameter_types! {
