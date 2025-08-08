@@ -17,6 +17,7 @@
 
 mod pallet_dummy;
 mod precompiles;
+mod trie_roots;
 
 use self::test_utils::{ensure_stored, expected_deposit};
 use crate::{
