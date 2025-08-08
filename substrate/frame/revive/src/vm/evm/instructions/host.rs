@@ -39,11 +39,9 @@ use revm::{
 /// Implements the BALANCE instruction.
 ///
 /// Gets the balance of the given account.
-pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) 
-{
+pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	popn_top!([], top, context.interpreter);
-
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
 	let balance = context.interpreter.extend.balance_of(&h160);
 	let bytes: [u8; 32] = balance.to_big_endian();
@@ -52,10 +50,8 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>)
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	println!("selfbalance_works");
 	check!(context.interpreter, ISTANBUL);
 	gas!(context.interpreter, RuntimeCosts::Balance);
-
 	let balance = context.interpreter.extend.balance();
 	println!("selfbalance: {:?}", balance);
 	let bytes: [u8; 32] = balance.to_big_endian();
@@ -121,7 +117,6 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	// TODO: what gas do we asign to this instruction?
 	// Copy cost: 3 gas per 32-byte word
     let copy_gas = (((memory_len + 31) / 32) * 3) as u64; // Round up to nearest 32-byte boundary
 	// static gas for this instruction 100
@@ -183,10 +178,13 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
     let value = context.interpreter.extend.get_storage(&key);
 
     *index = if let Some(storage_value) = value {
-		// TODO: Should we enforce constant size here? Can return only 32 bytes.
+		if storage_value.len() != 32 {
+			// sload always reads a word
+			context.interpreter.halt(InstructionResult::Revert);
+			return;
+		}
 		let mut bytes = [0u8; 32];
-        let len = core::cmp::min(storage_value.len(), 32);
-        bytes[32 - len..].copy_from_slice(&storage_value[..len]);
+        bytes.copy_from_slice(&storage_value);
         U256::from_be_bytes(bytes)
     } else {
 		context.interpreter.halt(InstructionResult::Revert);
