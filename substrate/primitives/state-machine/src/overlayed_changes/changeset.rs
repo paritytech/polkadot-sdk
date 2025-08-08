@@ -134,6 +134,14 @@ impl StorageEntry {
 		}
 	}
 
+	/// todo.... -> think abou this?
+	fn as_option_xxx(&self) -> Option<&StorageValue> {
+		match self {
+			StorageEntry::Append { data, .. } | StorageEntry::Set(data) => Some(data),
+			StorageEntry::Remove => None,
+		}
+	}
+
 	/// Return as an [`Option<StorageValue>`].
 	fn as_option(&mut self) -> Option<&StorageValue> {
 		self.materialize_in_place();
@@ -723,6 +731,26 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 }
 
 impl OverlayedChangeSet {
+	pub fn changes_mut2(
+		&mut self,
+		keys: &Set<StorageKey>,
+	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
+		for key in keys {
+			if let Some(entry) = self.changes.get_mut(key) {
+				// materialize...
+				let _trigger = entry.value();
+			}
+		}
+
+		keys.iter()
+			.filter_map(|key| {
+				self.changes
+					.get_key_value(key)
+					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_xxx())))
+			})
+			.collect()
+	}
+
 	/// Rollback the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if

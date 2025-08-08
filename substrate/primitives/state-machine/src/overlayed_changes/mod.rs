@@ -693,9 +693,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let root = {
 			let delta = self
 				.top
-				.changes_mut()
-				.filter(|(k, v)| snapshot.contains(*k))
-				.map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+				.changes_mut2(&snapshot)
+				.into_iter()
+				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
 			let child_delta = self.children.values_mut().map(|v| {
 				(&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
