@@ -451,6 +451,10 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
