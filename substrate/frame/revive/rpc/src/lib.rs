@@ -150,6 +150,10 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_balance(who, new_free).await?)
 	}
 
+	async fn hardhat_metadata(&self) -> RpcResult<Option<HardhatMetadata>> {
+		Ok(self.client.hardhat_metadata().await?)
+	}
+
 	async fn set_next_block_base_fee_per_gas(
 		&self,
 		base_fee_per_gas: U128,

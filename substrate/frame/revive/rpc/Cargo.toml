@@ -33,8 +33,9 @@ sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 serde_json = { workspace = true }
+serde = { features = ["derive"], workspace = true, default-features = false }
 sp-arithmetic = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true, features = ["serde"] }
 sp-crypto-hashing = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }

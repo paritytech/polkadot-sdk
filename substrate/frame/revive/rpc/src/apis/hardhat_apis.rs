@@ -21,6 +21,24 @@
 use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_consensus_manual_seal::rpc::CreatedBlock;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardhatForkedNetwork {
+	pub chain_id: U256,
+	pub block_number: U256,
+	pub block_hash: H256,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardhatMetadata {
+	pub client_version: String,
+	pub chain_id: U256,
+	pub instance_id: H256,
+	pub last_block_number: U256,
+	pub last_block_hash: H256,
+	pub forked_network: Option<HardhatForkedNetwork>,
+}
 
 #[rpc(server, client)]
 pub trait HardhatRpc {
@@ -42,6 +60,9 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_setBalance")]
 	async fn set_balance(&self, who: H160, new_free: U256) -> RpcResult<Option<U256>>;
+
+	#[method(name = "hardhat_metadata")]
+	async fn hardhat_metadata(&self) -> RpcResult<Option<HardhatMetadata>>;
 
 	#[method(name = "hardhat_setNextBlockBaseFeePerGas")]
 	async fn set_next_block_base_fee_per_gas(

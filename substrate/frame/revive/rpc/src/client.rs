@@ -28,9 +28,7 @@ use crate::{
 			pallet_revive::pallet::Call as ReviveCall, revive_dev_runtime::RuntimeCall,
 		},
 		SrcChainConfig,
-	},
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo, LOG_TARGET,
+	}, BlockInfoProvider, BlockTag, FeeHistoryProvider, HardhatMetadata, ReceiptProvider, SubxtBlockInfoProvider, TracerType, TransactionInfo, LOG_TARGET
 };
 use jsonrpsee::{
 	core::traits::ToRpcParams,
@@ -881,6 +879,24 @@ impl Client {
 		Ok(Some(new_free))
 	}
 
+	pub async fn hardhat_metadata(&self) -> Result<Option<HardhatMetadata>, ClientError> {
+		let block_hash = self
+			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
+			.await?;
+		let block = self.tracing_block(block_hash).await?;
+
+
+		let metadata = HardhatMetadata {
+			client_version: "0.1.0-stubbed".to_string(),
+			chain_id: self.chain_id.into(),
+			instance_id: self.api.genesis_hash(),
+			last_block_number: block.header.number.into(),
+			last_block_hash: block.hash(),
+			forked_network: None, // TODO: add forked network from chopsticks
+		};
+		Ok(Some(metadata))
+	}
+
 	pub async fn set_next_block_base_fee_per_gas(
 		&self,
 		base_fee_per_gas: U128,
@@ -1041,7 +1057,7 @@ impl Client {
 			.fetch(&query)
 			.await
 			.unwrap();
-		
+
 		match maybe_impersonated {
 			Some(_) => return Ok(true),
 			None => return Ok(false)
