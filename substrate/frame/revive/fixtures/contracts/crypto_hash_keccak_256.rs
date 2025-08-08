@@ -27,40 +27,21 @@ pub extern "C" fn deploy() {}
 
 /// Called by the tests.
 ///
-/// The `call` function expects data in a certain format in the input buffer.
+/// The input bytes encode the data that is directly fed into the Keccak-256 bit
+/// crypto hash function. The result is put into the output buffer.
 ///
-/// 1. The first byte encodes an identifier for the crypto hash function under test. (*)
-/// 2. The rest encodes the input data that is directly fed into the crypto hash function chosen in
-///    1.
-///
-/// The `deploy` function then computes the chosen crypto hash function
-/// given the input and puts the result into the output buffer.
 /// After contract execution the test driver then asserts that the returned
-/// values are equal to the expected bytes for the input and chosen hash
-/// function.
-///
-/// (*) The possible value for the crypto hash identifiers can be found below:
-///
-/// | value | Algorithm | Bit Width |
-/// |-------|-----------|-----------|
-/// |     2 |    KECCAK |       256 |
-/// ---------------------------------
+/// values are equal to the expected bytes for the input and hash function.
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
 		256,
-		chosen_hash_fn: u8,
 		input: [u8],
 	);
 
-	match chosen_hash_fn {
-		2 => {
-			let mut output = [0u8; 32];
-			api::hash_keccak_256(input, &mut output);
-			api::return_value(uapi::ReturnFlags::empty(), &output);
-		},
-		_ => panic!("unknown crypto hash function identifier"),
-	}
+	let mut output = [0u8; 32];
+	api::hash_keccak_256(input, &mut output);
+	api::return_value(uapi::ReturnFlags::empty(), &output);
 }
