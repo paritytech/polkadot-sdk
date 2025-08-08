@@ -35,7 +35,7 @@ use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+use sp_io::hashing::{blake2_128, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 /// Abstraction over the memory access within syscalls.
@@ -353,7 +353,8 @@ pub enum RuntimeCosts {
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
-	/// Weight of calling `seal_hash_blake2_256` for the given input size.
+	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// size.
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
@@ -508,7 +509,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
-			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
+			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
@@ -1980,21 +1981,6 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
 			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 
