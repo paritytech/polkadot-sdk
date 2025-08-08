@@ -13814,6 +13814,7 @@ dependencies = [
  "pallet-balances",
  "pallet-revive",
  "pallet-timestamp",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
