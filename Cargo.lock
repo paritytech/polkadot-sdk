@@ -11885,6 +11885,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-derivatives"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+ "staging-xcm",
+ "staging-xcm-builder",
+ "staging-xcm-executor",
+]
+
+[[package]]
 name = "pallet-dev-mode"
 version = "10.0.0"
 dependencies = [
@@ -16047,6 +16067,7 @@ dependencies = [
  "pallet-core-fellowship",
  "pallet-delegated-staking",
  "pallet-democracy",
+ "pallet-derivatives",
  "pallet-dev-mode",
  "pallet-dummy-dim",
  "pallet-election-provider-multi-block",

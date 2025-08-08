@@ -25,12 +25,13 @@ use asset_hub_westend_runtime::{
 	governance, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
-		TrustBackedAssetsPalletLocation, WestendLocation, XcmConfig,
+		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
+		WestendLocation, XcmConfig,
 	},
 	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, XcmpQueue,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -45,6 +46,10 @@ use frame_support::{
 		fungibles::{
 			self, Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 		},
+		tokens::asset_ops::{
+			common_strategies::{Bytes, Owner},
+			Inspect as InspectUniqueAsset,
+		},
 		ContainsPair,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
@@ -55,10 +60,11 @@ use pallet_revive::{
 	Code, DepositLimit,
 };
 use pallet_revive_fixtures::compile_module;
+use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::MaybeEquivalence, Either};
+use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS, fee::WeightToFee};
 use xcm::{
@@ -68,8 +74,11 @@ use xcm::{
 	},
 	VersionedXcm,
 };
-use xcm_builder::WithLatestLocationConverter;
-use xcm_executor::traits::{ConvertLocation, JustTry, WeightTrader};
+use xcm_builder::{
+	unique_instances::UniqueInstancesAdapter as NewNftAdapter, MatchInClassInstances, NoChecking,
+	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
+};
+use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
@@ -501,6 +510,166 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 			// We also need to ensure the total supply NOT increased
 			assert_eq!(Assets::total_supply(1), minimum_asset_balance);
 		});
+}
+
+fn test_nft_asset_transactor_works<T: TransactAsset>() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let collection_id = 42;
+			let item_id = 101;
+
+			let alice = AccountId::from(ALICE);
+			let bob = AccountId::from(BOB);
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+			assert_ok!(Balances::mint_into(&alice, 2 * UNITS));
+
+			assert_ok!(Uniques::create(
+				RuntimeHelper::origin_of(alice.clone()),
+				collection_id,
+				MultiAddress::Id(alice.clone()),
+			));
+
+			assert_ok!(Uniques::mint(
+				RuntimeHelper::origin_of(alice.clone()),
+				collection_id,
+				item_id,
+				MultiAddress::Id(bob.clone()),
+			));
+
+			let attr_key = vec![0xA, 0xA, 0xB, 0xB];
+			let attr_value = vec![0xC, 0x0, 0x0, 0x1, 0xF, 0x0, 0x0, 0xD];
+
+			assert_ok!(Uniques::set_attribute(
+				RuntimeHelper::origin_of(alice.clone()),
+				collection_id,
+				Some(item_id),
+				attr_key.clone().try_into().unwrap(),
+				attr_value.clone().try_into().unwrap(),
+			));
+
+			let collection_location = UniquesPalletLocation::get()
+				.appended_with(GeneralIndex(collection_id.into()))
+				.unwrap();
+			let item_asset: Asset =
+				(collection_location, AssetInstance::Index(item_id.into())).into();
+
+			let alice_account_location: Location = alice.clone().into();
+			let bob_account_location: Location = bob.clone().into();
+
+			// Can't deposit the token that isn't withdrawn
+			assert_err!(
+				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),),
+				XcmError::FailedToTransactAsset("AlreadyExists")
+			);
+
+			// Alice isn't the owner, she can't withdraw the token
+			assert_noop!(
+				T::withdraw_asset(&item_asset, &alice_account_location, Some(&ctx),),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Bob, the owner, can withdraw the token
+			assert_ok!(T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx),));
+
+			// The token is withdrawn
+			assert_eq!(
+				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				Err(pallet_uniques::Error::<Runtime>::UnknownItem.into()),
+			);
+
+			// But the attribute data is preserved as the pallet-uniques works that way.
+			assert_eq!(
+				Item::<Uniques>::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(attr_key.as_slice()))
+				),
+				Ok(attr_value.clone()),
+			);
+
+			// Can't withdraw the already withdrawn token
+			assert_err!(
+				T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx),),
+				XcmError::FailedToTransactAsset("UnknownCollection")
+			);
+
+			// Deposit the token to alice
+			assert_ok!(T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),));
+
+			// The token is deposited
+			assert_eq!(
+				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				Ok(alice.clone()),
+			);
+
+			// The attribute data is the same
+			assert_eq!(
+				Item::<Uniques>::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(attr_key.as_slice()))
+				),
+				Ok(attr_value.clone()),
+			);
+
+			// Can't deposit the token twice
+			assert_err!(
+				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx),),
+				XcmError::FailedToTransactAsset("AlreadyExists")
+			);
+
+			// Transfer the token directly
+			assert_ok!(T::transfer_asset(
+				&item_asset,
+				&alice_account_location,
+				&bob_account_location,
+				&ctx,
+			));
+
+			// The token's owner has changed
+			assert_eq!(
+				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				Ok(bob.clone()),
+			);
+
+			// The attribute data is the same
+			assert_eq!(
+				Item::<Uniques>::inspect(
+					&(collection_id, item_id),
+					Bytes(Attribute(attr_key.as_slice()))
+				),
+				Ok(attr_value.clone()),
+			);
+		});
+}
+
+#[test]
+fn test_new_nft_config_works_as_the_old_one() {
+	type OldNftTransactor = OldNftAdapter<
+		Uniques,
+		UniquesConvertedConcreteId,
+		LocationToAccountId,
+		AccountId,
+		NoChecking,
+		CheckingAccount,
+	>;
+
+	type NewNftTransactor = NewNftAdapter<
+		AccountId,
+		LocationToAccountId,
+		MatchInClassInstances<UniquesConvertedConcreteId>,
+		Item<Uniques>,
+	>;
+
+	test_nft_asset_transactor_works::<OldNftTransactor>();
+	test_nft_asset_transactor_works::<NewNftTransactor>();
 }
 
 #[test]
