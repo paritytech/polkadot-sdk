@@ -23,20 +23,25 @@ use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use serde::{Deserialize, Serialize};
 
+///https://github.com/NomicFoundation/edr/blob/1644ccc5e99847eb561f79aca5fd38b70387f30c/crates/edr_provider/src/requests/hardhat/rpc_types/metadata.rs#L31
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HardhatForkedNetwork {
-	pub chain_id: U256,
-	pub block_number: U256,
+	pub chain_id: u64,
+	pub block_number: u64,
 	pub block_hash: H256,
 }
 
+/// https://github.com/NomicFoundation/edr/blob/1644ccc5e99847eb561f79aca5fd38b70387f30c/crates/edr_provider/src/requests/hardhat/rpc_types/metadata.rs#L6
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HardhatMetadata {
 	pub client_version: String,
-	pub chain_id: U256,
+	pub chain_id: u64,
 	pub instance_id: H256,
-	pub last_block_number: U256,
+	pub last_block_number: u64,
 	pub last_block_hash: H256,
+    #[serde(skip_serializing_if = "Option::is_none")]
 	pub forked_network: Option<HardhatForkedNetwork>,
 }
 
