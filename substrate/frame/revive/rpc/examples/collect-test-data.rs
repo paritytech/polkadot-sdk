@@ -61,6 +61,16 @@ struct TestData {
 	receipts_rlp: Vec<String>,
 	receipts_root: H256,
 }
+// TODO
+// below command fails
+//   target/debug/examples/collect-test-data -b 23094898 -r https://ethereum-rpc.publicnode.com
+// with such message:
+//   Fetching block data for: U256(23094898)
+//   Error: Parse error: data did not match any variant of untagged enum HashesOrTransactionInfos at
+// line 1 column 520458
+//   Caused by:
+//     data did not match any variant of untagged enum HashesOrTransactionInfos at line 1 column
+// 520458
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
