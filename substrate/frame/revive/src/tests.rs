@@ -32,7 +32,7 @@ use crate::{
 	weights::WeightInfo,
 	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code,
 	CodeInfoOf, Config, ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Origin, Pallet, PristineCode, H160,
+	HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -518,6 +518,15 @@ fn transfer_with_dust_works() {
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
+		TestCase {
+			description: "receiver dust less than 1 plank",
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
+			total_issuance_diff: 1,
+		},
 	];
 
 	for TestCase {
@@ -600,6 +609,41 @@ fn contract_call_transfer_with_dust_works() {
 		assert_ok!(builder::call(addr_caller).data((balance, addr_callee).encode()).build());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr_callee), balance);
+	});
+}
+
+#[test]
+fn deposit_limit_enforced_on_plain_transfer() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		// sending balance to a new account should fail when the limit is lower than the ed
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(190.into())
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositLimitExhausted);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(test_utils::get_balance(&CHARLIE), 0);
+
+		// works when the account is prefunded
+		let result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(0.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(test_utils::get_balance(&BOB), 1_000_001);
+
+		// also works allowing enough deposit
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(200.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(200));
+		assert_eq!(test_utils::get_balance(&CHARLIE), 201);
 	});
 }
 
@@ -1494,11 +1538,8 @@ fn crypto_hashes() {
 			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(2, dyn_hash_fn!(keccak_256), 32),
-			(3, dyn_hash_fn!(blake2_256), 32),
-			(4, dyn_hash_fn!(blake2_128), 16),
-		];
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] =
+			&[(2, dyn_hash_fn!(keccak_256), 32), (4, dyn_hash_fn!(blake2_128), 16)];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
 		for (n, hash_fn, expected_size) in test_cases.iter() {
 			let mut params = vec![*n];
