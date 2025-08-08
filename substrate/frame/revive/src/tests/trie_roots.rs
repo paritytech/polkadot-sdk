@@ -44,7 +44,6 @@ fn load_test_data(filename: &str) -> TestData {
 	let test_data_json = std::fs::read_to_string(&test_data_path)
 		.unwrap_or_else(|_| panic!("Failed to read test data file: {}", test_data_path));
 	serde_json::from_str(&test_data_json).unwrap()
-	// .unwrap_or_else(|_| panic!("Failed to parse test data JSON from: {}", test_data_path))
 }
 
 fn hex_to_h256(hex_str: &str) -> H256 {

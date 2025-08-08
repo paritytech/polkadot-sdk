@@ -61,9 +61,7 @@ impl TransactionSigned {
 				TransactionLegacyUnsigned(tx.transaction_legacy_unsigned),
 		}
 	}
-}
 
-impl TransactionSigned {
 	/// Encode the Ethereum transaction into bytes.
 	pub fn signed_payload(&self) -> Vec<u8> {
 		use TransactionSigned::*;
