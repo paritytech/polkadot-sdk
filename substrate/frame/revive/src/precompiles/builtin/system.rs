@@ -31,6 +31,12 @@ sol! {
 	interface ISystem {
 		/// Computes the BLAKE2 256-bit hash on the given input.
 		function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
+		/// Retrieve the account id for a specified `H160` address.
+		///
+		/// # Note
+		///
+		/// If no mapping exists for `addr`, the fallback account id will be returned.
+		function toAccountId(address input) external pure returns (bytes32 account_id);
 	}
 }
 
@@ -53,6 +59,14 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
 				Ok(output.to_vec())
 			},
+			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
+				use crate::address::AddressMapper;
+				use codec::Encode;
+				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+				let account_id =
+					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
+				Ok(account_id.encode())
+			},
 		}
 	}
 }
@@ -60,10 +74,83 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{precompiles::tests::run_test_vectors, tests::Test};
+	use crate::{
+		address::AddressMapper,
+		call_builder::{caller_funding, CallSetup},
+		pallet,
+		precompiles::{tests::run_test_vectors, BuiltinPrecompile, ISystem},
+		tests::{ExtBuilder, Test},
+		H160,
+	};
+	use codec::Decode;
+	use frame_benchmarking::account;
+	use frame_support::traits::fungible::Mutate;
 
 	#[test]
 	fn test_system_precompile() {
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
+	}
+
+	#[test]
+	fn test_system_precompile_unmapped_account() {
+		ExtBuilder::default().build().execute_with(|| {
+			// given
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+			let unmapped_address = H160::zero();
+
+			// when
+			let input = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
+				input: unmapped_address.0.into(),
+			});
+			let expected_fallback_account_id =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap();
+
+			// then
+			assert_eq!(
+				expected_fallback_account_id[20..32],
+				[0xEE; 12],
+				"no fallback suffix found where one should be"
+			);
+		})
+	}
+
+	#[test]
+	fn test_system_precompile_mapped_account() {
+		ExtBuilder::default().build().execute_with(|| {
+			// given
+			let account_id = account("precompile_to_account_id", 0, 0);
+			let mapped_address = {
+				<Test as pallet::Config>::Currency::set_balance(
+					&account_id,
+					caller_funding::<Test>(),
+				);
+				<Test as pallet::Config>::AddressMapper::map(&account_id).unwrap();
+				<Test as pallet::Config>::AddressMapper::to_address(&account_id)
+			};
+
+			let mut call_setup = CallSetup::<Test>::default();
+			let (mut ext, _) = call_setup.ext();
+
+			// when
+			let input = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
+				input: mapped_address.0.into(),
+			});
+			let data =
+				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
+					.unwrap();
+
+			// then
+			assert_ne!(
+				data.as_slice()[20..32],
+				[0xEE; 12],
+				"fallback suffix found where none should be"
+			);
+			assert_eq!(
+				<Test as frame_system::Config>::AccountId::decode(&mut data.as_slice()),
+				Ok(account_id),
+			);
+		})
 	}
 }
