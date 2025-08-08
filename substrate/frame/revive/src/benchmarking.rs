@@ -23,11 +23,14 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	precompiles::{self, run::builtin as run_builtin_precompile},
+	precompiles::{
+		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+	},
 	storage::WriteOutcome,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
+use alloy_core::sol_types::SolInterface;
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -1973,9 +1976,6 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
-		use alloy_core::sol_types::SolInterface;
-
 		let input = vec![0u8; n as usize];
 		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
 			input: input.clone().into(),
@@ -2000,9 +2000,6 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
-		use alloy_core::sol_types::SolInterface;
-
 		let input = vec![0u8; n as usize];
 		let input_bytes = ISystem::ISystemCalls::hashBlake128(ISystem::hashBlake128Call {
 			input: input.clone().into(),
