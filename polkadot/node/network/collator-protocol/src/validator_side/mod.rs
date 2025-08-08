@@ -1743,6 +1743,12 @@ async fn run_inner<Context>(
 	let mut network_error_freq = gum::Freq::new();
 	let mut canceled_freq = gum::Freq::new();
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?eviction_policy,
+		"starting up"
+	);
+
 	loop {
 		select! {
 			_ = reputation_delay => {
@@ -1768,7 +1774,12 @@ async fn run_inner<Context>(
 				}
 			},
 			_ = next_inactivity_stream.next() => {
-				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
+				disconnect_inactive_peers(
+					ctx.sender(),
+					&eviction_policy,
+					&state.peer_data,
+					&HashSet::from_iter(state.ah_held_off_collations .iter().cloned().map(|(_, _, peer_id, _)| peer_id))
+				).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.relay_parent;
@@ -2121,9 +2132,11 @@ async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
+	peers_with_held_off_collations: &HashSet<PeerId>,
 ) {
 	for (peer, peer_data) in peers {
-		if peer_data.is_inactive(&eviction_policy) {
+		if peer_data.is_inactive(&eviction_policy) && !peers_with_held_off_collations.contains(peer)
+		{
 			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}
