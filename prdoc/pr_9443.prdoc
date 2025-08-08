@@ -1,6 +1,6 @@
 title: move released primitives and APIs out of staging
 doc:
-- audience: Node Dev
+- audience: [Node Dev, Runtime Dev]
   description: |-
     Solves https://github.com/paritytech/polkadot-sdk/issues/9400
 
