@@ -1083,9 +1083,7 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+		let runtime_upgrade_weight = Executive::execute_on_runtime_upgrade();
 		let on_initialize_weight =
 			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
@@ -1093,10 +1091,7 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			runtime_upgrade_weight + on_initialize_weight + base_block_weight,
 		);
 	});
 }
