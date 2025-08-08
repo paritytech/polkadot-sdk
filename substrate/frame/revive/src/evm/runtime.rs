@@ -541,7 +541,8 @@ mod test {
 
 		fn check(
 			self,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Vec<u8>), TransactionValidityError>
+		{
 			self.mutate_estimate_and_check(Box::new(|_| ()))
 		}
 
@@ -549,7 +550,8 @@ mod test {
 		fn mutate_estimate_and_check(
 			mut self,
 			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
-		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction), TransactionValidityError> {
+		) -> Result<(RuntimeCall, SignedExtra, GenericTransaction, Vec<u8>), TransactionValidityError>
+		{
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
 			f(&mut self.tx);
 			ExtBuilder::default().build().execute_with(|| {
@@ -565,7 +567,8 @@ mod test {
 				let payload = account
 					.sign_transaction(tx.clone().try_into_unsigned().unwrap())
 					.signed_payload();
-				let call = RuntimeCall::Contracts(crate::Call::eth_transact { payload });
+				let call =
+					RuntimeCall::Contracts(crate::Call::eth_transact { payload: payload.clone() });
 
 				let encoded_len = call.encoded_size();
 				let uxt: Ex = generic::UncheckedExtrinsic::new_bare(call).into();
@@ -584,7 +587,7 @@ mod test {
 					0,
 				)?;
 
-				Ok((result.function, extra, tx))
+				Ok((result.function, extra, tx, payload))
 			})
 		}
 	}
@@ -592,7 +595,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (call, _, tx) = builder.check().unwrap();
+		let (call, _, tx, payload) = builder.check().unwrap();
 		let (gas_limit, storage_deposit_limit) =
 			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
 
@@ -604,7 +607,7 @@ mod test {
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit,
-				payload: vec![],
+				payload,
 			}
 			.into()
 		);
@@ -615,7 +618,7 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		let data = vec![];
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
-		let (call, _, tx) = builder.check().unwrap();
+		let (call, _, tx, payload) = builder.check().unwrap();
 		let (gas_limit, storage_deposit_limit) =
 			<<Test as Config>::EthGasEncoder as GasEncoder<_>>::decode(tx.gas.unwrap()).unwrap();
 
@@ -627,7 +630,7 @@ mod test {
 				data,
 				gas_limit,
 				storage_deposit_limit,
-				payload: vec![],
+				payload,
 			}
 			.into()
 		);
@@ -707,7 +710,7 @@ mod test {
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
 		let data = vec![];
-		let (_, extra, tx) =
+		let (_, extra, tx, _) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
 					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
@@ -726,7 +729,7 @@ mod test {
 
 		let builder =
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
-		let (call, _, _) = builder.check().unwrap();
+		let (call, _, _, _) = builder.check().unwrap();
 
 		assert_eq!(call, remark);
 	}
