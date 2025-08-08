@@ -38,7 +38,7 @@ type HostFunctions = sp_io::SubstrateHostFunctions;
 pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-type FullBackend = sc_service::TFullBackend<Block>;
+pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
@@ -297,17 +297,19 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	// Set up RPC
 	let rpc_extensions_builder = {
 		let client = client.clone();
+		let backend = backend.clone();
 		let pool = transaction_pool.clone();
 		let sink = sink.clone(); // captured from above
 
 		Box::new(move |_| {
-			let deps = crate::rpc::FullDeps {
+			let dependencies = crate::rpc::Dependencies {
 				client: client.clone(),
+				backend: backend.clone(),
 				pool: pool.clone(),
 				manual_seal_sink: sink.clone(),
 				consensus_type: consensus_type.clone(),
 			};
-			crate::rpc::create_full(deps).map_err(Into::into)
+			crate::rpc::create_full(dependencies).map_err(Into::into)
 		})
 	};
 
