@@ -27,7 +27,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use frame_benchmarking::account;
-use frame_support::traits::{fungible::Mutate, Get, LockIdentifier};
+use frame_support::traits::{fungible::Mutate, Get};
 use frame_system::RawOrigin;
 use pallet_staking_async::{
 	ActiveEra, ActiveEraInfo, BalanceOf, Bonded, BondedEras, Config, CurrentEra,
@@ -47,9 +47,6 @@ pub use pallet_staking_async::testing_utils::{
 	create_validators_with_nominators_for_era, create_validators_with_seed,
 	migrate_to_old_currency, set_active_era, AccountIdLookupOf,
 };
-
-// STAKING_ID constant
-pub const STAKING_ID: LockIdentifier = *b"staking ";
 
 const SEED: u32 = 0;
 
