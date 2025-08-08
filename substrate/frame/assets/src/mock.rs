@@ -38,6 +38,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		Revive: pallet_revive,
+		TransactionPayment: pallet_transaction_payment,
 	}
 );
 
@@ -114,6 +115,18 @@ impl Config for Test {
 	type Freezer = TestFreezer;
 	type Holder = TestHolder;
 	type CallbackHandle = (AssetsCallbackHandle, AutoIncAssetId<Test>);
+}
+
+parameter_types! {
+	   pub FeeMultiplier: pallet_transaction_payment::Multiplier = pallet_transaction_payment::Multiplier::one();
+}
+
+#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
+impl pallet_transaction_payment::Config for Test {
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
+	type WeightToFee = IdentityFee<<Self as pallet_balances::Config>::Balance>;
+	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
+	type FeeMultiplierUpdate = pallet_transaction_payment::ConstFeeMultiplier<FeeMultiplier>;
 }
 
 use std::collections::HashMap;
