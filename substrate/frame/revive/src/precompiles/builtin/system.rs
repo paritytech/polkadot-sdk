@@ -89,6 +89,7 @@ mod tests {
 	#[test]
 	fn test_system_precompile() {
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
+		run_test_vectors::<System<Test>>(include_str!("testdata/900-to_account_id.json"));
 	}
 
 	#[test]
@@ -118,16 +119,13 @@ mod tests {
 
 	#[test]
 	fn test_system_precompile_mapped_account() {
+		use crate::test_utils::EVE;
 		ExtBuilder::default().build().execute_with(|| {
 			// given
-			let account_id = Account::default().substrate_account();
 			let mapped_address = {
-				<Test as pallet::Config>::Currency::set_balance(
-					&account_id,
-					caller_funding::<Test>(),
-				);
-				<Test as pallet::Config>::AddressMapper::map(&account_id).unwrap();
-				<Test as pallet::Config>::AddressMapper::to_address(&account_id)
+				<Test as pallet::Config>::Currency::set_balance(&EVE, caller_funding::<Test>());
+				let _ = <Test as pallet::Config>::AddressMapper::map(&EVE);
+				<Test as pallet::Config>::AddressMapper::to_address(&EVE)
 			};
 
 			let mut call_setup = CallSetup::<Test>::default();
@@ -149,7 +147,7 @@ mod tests {
 			);
 			assert_eq!(
 				<Test as frame_system::Config>::AccountId::decode(&mut data.as_slice()),
-				Ok(account_id),
+				Ok(EVE),
 			);
 		})
 	}
