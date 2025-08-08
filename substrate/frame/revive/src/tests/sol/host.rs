@@ -445,6 +445,7 @@ fn selfdestruct_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                log::info!("BOB_ADDR: {BOB_ADDR:?}");
                 
                 let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
                 assert_eq!(bobs_balance, expected_bobs_balance,

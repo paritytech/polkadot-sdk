@@ -23,6 +23,7 @@ use crate::{
 	vm::Ext,
 	RuntimeCosts,
 	Key,
+	storage::WriteOutcome,
 };
 use core::cmp::min;
 use revm::{
@@ -88,9 +89,7 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
-
-	// TODO: what gas do we asign to this instruction?
-
+    
 	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
@@ -121,6 +120,13 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
+
+	// TODO: what gas do we asign to this instruction?
+	// Copy cost: 3 gas per 32-byte word
+    let copy_gas = (((memory_len + 31) / 32) * 3) as u64; // Round up to nearest 32-byte boundary
+	// static gas for this instruction 100
+    gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
+
     context.interpreter.memory.set_data(memory_offset, code_offset, memory_len, &code);
 }
 
@@ -195,48 +201,24 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
-
-	// TODO: need to check if there is already data at the location because it affects the gas.
-	gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
-
+	
     let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-    let Ok(write_outcome) = context.interpreter.extend.set_storage(&key, Some(write_outcome.to_be_bytes::<32>().to_vec()), take_old) else {
+    let Ok(write_outcome) = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old) else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-
-	// TODO: what to do with returned write_outcome?
-	// /// No value existed at the specified key.
-	// New,
-	// /// A value of the returned length was overwritten.
-	// Overwritten(u32),
-	// /// The returned value was taken out of storage before being overwritten.
-	// ///
-	// /// This is only returned when specifically requested because it causes additional work
-	// /// depending on the size of the pre-existing value. When not requested [`Self::Overwritten`]
-	// /// is returned instead.
-	// Taken(Vec<u8>),
-	
-	// let Some(state_load) =
-	// 	context.host.sstore(context.interpreter.input.target_address(), index, value)
-	// else {
-	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 	return;
-	// };
-
-	// // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-	// if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL) &&
-	// 	context.interpreter.gas.remaining() <= CALL_STIPEND
-	// {
-	// 	context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
-	// 	return;
-	// }
-
-	// context.interpreter.gas.record_refund(gas::sstore_refund(
-	// 	context.interpreter.runtime_flag.spec_id(),
-	// 	&state_load.data,
-	// ));
+	match write_outcome {
+		WriteOutcome::New => {
+			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
+		}
+		WriteOutcome::Overwritten(overwritten_bytes) => {
+			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: overwritten_bytes, new_bytes: 32});
+		}
+		WriteOutcome::Taken(_) => {
+			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 32, new_bytes: 32});
+		}
+	}
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -303,21 +285,14 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
-	popn!([target], context.interpreter);
+	popn!([beneficiary], context.interpreter);
 	gas!(context.interpreter, RuntimeCosts::Terminate);
 
-	let h160 = sp_core::H160::from_slice(&target.to_be_bytes::<32>()[12..]);
-
+	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
 
 	let _contract_info = context.interpreter.extend.terminate(&h160);
 
 	// TODO: what to do with return contract info?
-
-	// let Some(res) = context.host.selfdestruct(context.interpreter.input.target_address(), target)
-	// else {
-	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 	return;
-	// };
 
 	// EIP-3529: Reduction in refunds
 	// if !context.interpreter.runtime_flag.spec_id().is_enabled_in(LONDON) &&
@@ -326,5 +301,5 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	// 	context.interpreter.gas.record_refund(gas::SELFDESTRUCT)
 	// }
 
-	// context.interpreter.halt(InstructionResult::SelfDestruct);
+	context.interpreter.halt(InstructionResult::SelfDestruct);
 }
