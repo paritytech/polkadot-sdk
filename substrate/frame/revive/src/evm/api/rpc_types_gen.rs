@@ -107,7 +107,10 @@ pub struct Block {
 	/// Coinbase
 	pub miner: Address,
 	/// Mix hash
-	#[serde(rename = "mixHash")]
+	// TODO This field is not exposed by frontier implementation.
+	// Frontier's rpc node is useful when testing this implementation, so let's assign default
+	// value for now.
+	#[serde(default, rename = "mixHash")]
 	pub mix_hash: H256,
 	/// Nonce
 	pub nonce: Bytes8,
