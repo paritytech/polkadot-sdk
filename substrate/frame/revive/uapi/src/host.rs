@@ -441,31 +441,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_hash(block_number: &[u8; 32], output: &mut [u8; 32]);
 
-	/// Call into the chain extension provided by the chain if any.
-	///
-	/// Handling of the input values is up to the specific chain extension and so is the
-	/// return value. The extension can decide to use the inputs as primitive inputs or as
-	/// in/out arguments by interpreting them as pointers. Any caller of this function
-	/// must therefore coordinate with the chain that it targets.
-	///
-	/// # Note
-	///
-	/// If no chain extension exists the contract will trap with the `NoChainExtension`
-	/// module error.
-	///
-	/// # Parameters
-	///
-	/// - `func_id`: The function id of the chain extension.
-	/// - `input`: The input data buffer.
-	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
-	///   is provided then the output buffer is not copied.
-	///
-	/// # Return
-	///
-	/// The chain extension returned value, if executed successfully.
-	#[unstable_hostfn]
-	fn call_chain_extension(func_id: u32, input: &[u8], output: Option<&mut &mut [u8]>) -> u32;
-
 	/// Checks whether the caller of the current contract is the origin of the whole call stack.
 	///
 	///
