@@ -445,7 +445,10 @@ impl HostFn for HostFnImpl {
 		unsafe { sys::ref_time_left() }
 	}
 
-	#[unstable_hostfn]
+	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
+		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
+	}
+
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
