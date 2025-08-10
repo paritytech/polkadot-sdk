@@ -17,8 +17,10 @@
 
 mod instructions;
 
+use core::cmp::min;
+use revm::interpreter::interpreter_types::MemoryTr;
 use crate::{
-	precompiles::{All as AllPrecompiles, Precompiles}, vm::{ExecResult, Ext, RuntimeCosts}, AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256, LOG_TARGET, U256
+	vm::{ExecResult, Ext}, AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256, LOG_TARGET, U256
 };
 use alloc::vec::Vec;
 use instructions::instruction_table;
@@ -86,14 +88,6 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 	}
 }
 
-fn out_of_gas_result() -> InterpreterResult {
-	InterpreterResult {
-			result: InstructionResult::OutOfGas,
-			gas: Gas::default(),
-			output: Bytes::new(),
-	}
-}
-
 /// Runs the EVM interpreter until it returns an action.
 fn run<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
@@ -104,68 +98,65 @@ fn run<'a, E: Ext>(
 		let action = interpreter.run_plain(table, host);
 		match action {
 			InterpreterAction::Return(result) => {
-				// To check what to do with refunded gas
-				if interpreter.extend.gas_meter_mut().sync_from_executor(interpreter.gas.remaining() as i64).is_err() {
-					return out_of_gas_result();
-				}
+				log::info!("Return {:?}", result);
 				return result
 			},
 			InterpreterAction::NewFrame(frame_input) => {
 				match frame_input {
 					FrameInput::Call(call_input) => {
 						let callee: H160 = call_input.target_address.0.0.into();
-						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.0);
-						match &precompile {
-							Some(precompile) if precompile.has_contract_info() => {
-								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
-									return out_of_gas_result();
-								}
-							},
-							Some(_) => { 
-								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::PrecompileBase).is_err() {
-									return out_of_gas_result();
-								}
-							},
-							None => {
-								if interpreter.extend.gas_meter_mut().charge(RuntimeCosts::CallBase).is_err() {
-								return out_of_gas_result();
-							}
-						},
-						};
 
 						let input = match &call_input.input {
-							CallInput::Bytes(bytes) => bytes.clone(),
+							CallInput::Bytes(bytes) => bytes.to_vec(),
 							// Consider the usage fo SharedMemory as REVM is doing
-							_ => unimplemented!(),	
+							CallInput::SharedBuffer(range) => {
+								interpreter.memory.global_slice(range.clone()).to_vec()
+							},	
 						};
 
 						// Interpreter call
 						let call_result = interpreter.extend.call(
-							Weight::from_parts(call_input.gas_limit, call_input.gas_limit),
-							U256::zero(),
+							Weight::from_parts(u64::MAX, u64::MAX),
+							U256::MAX,
 							&callee,
 							U256::from_little_endian(call_input.call_value().as_le_slice()),
-							input.to_vec(),
-							// EVM doesn't have an explicit `allows_reentry` flag like pallet-contracts.
-							// Re-entrancy is managed by the logic of the contract itself.
+							input,
 							true,
 							call_input.is_static,
 						);
 
-						let (success, return_data) = match call_result {
-							Ok(()) => {
-								let return_value = interpreter.extend.last_frame_output();
-								(!return_value.did_revert(), return_value.data.clone().into())
-							},
-							Err(_) => (false, primitives::Bytes::new()),
-						};
+						let return_value = interpreter.extend.last_frame_output();
+						let return_data: Bytes = return_value.data.clone().into();
 
+						let mem_length = call_input.return_memory_offset.len();
+						let mem_start = call_input.return_memory_offset.start;
+						let returned_len = return_data.len();
+						let target_len = min(mem_length, returned_len);
 						// Set the interpreter with the nested frame result
 						interpreter.return_data.set_buffer(return_data);
-						let _ = interpreter.stack.push(primitives::U256::from(success as u8));
 
+						match call_result {
+							Ok(()) => {
+								// success or revert
+								interpreter
+								.memory
+								.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
+								let _ = interpreter.stack.push(primitives::U256::from(!return_value.did_revert() as u8));
+							}
+							Err(err) => {
+								// Map error into an appropriate InstructionResult
+								let halt_reason = match err {
+									_ => InstructionResult::OutOfGas,
+								};
+						
+								interpreter.halt(halt_reason);
+								let _ = interpreter.stack.push(primitives::U256::ZERO);
+							}
+						}
 					},
-					FrameInput::Create(create_input) => unimplemented!(),
+					FrameInput::Create(_create_input) => {
+					unimplemented!()
+					},
 					FrameInput::Empty => unreachable!(),
 				}	
 			},
