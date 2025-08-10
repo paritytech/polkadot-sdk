@@ -504,6 +504,11 @@ pub trait SteppedMigration {
 		None
 	}
 
+	/// The prefixes that are being migrated.
+	fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
+		core::iter::empty()
+	}
+
 	/// Try to migrate as much as possible with the given weight.
 	///
 	/// **ANY STORAGE CHANGES MUST BE ROLLED-BACK BY THE CALLER UPON ERROR.** This is necessary
@@ -719,6 +724,13 @@ pub trait SteppedMigrations {
 		meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
+	/// Get the storage prefixes modified by the `n`th migration.
+    ///
+    /// Returns `None` if the index is out of bounds.
+    /// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
+    fn nth_migrating_prefixes(n: u32)
+        -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>>;
+
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
@@ -793,6 +805,11 @@ impl SteppedMigrations for () {
 		_meter: &mut WeightMeter,
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>> {
 		None
+	}
+
+	fn nth_migrating_prefixes(_n: usize) 
+	-> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+		None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -879,6 +896,15 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 			T::transactional_step(cursor, meter).map(|cursor| cursor.map(|cursor| cursor.encode())),
 		)
 	}
+
+	fn nth_migrating_prefixes(n: usize) 
+    -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+    if n == 0 {
+        Some(Ok(T::migrating_prefixes()))
+    } else {
+        None
+    }
+}
 
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
