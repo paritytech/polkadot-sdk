@@ -728,8 +728,8 @@ pub trait SteppedMigrations {
     ///
     /// Returns `None` if the index is out of bounds.
     /// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
-    fn nth_migrating_prefixes(n: u32)
-        -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>>;
+    fn nth_migrating_prefixes(n: usize)
+        -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>>;
 
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
@@ -808,7 +808,7 @@ impl SteppedMigrations for () {
 	}
 
 	fn nth_migrating_prefixes(_n: usize) 
-	-> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
+	-> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
 		None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
 	}
 
@@ -898,13 +898,13 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 	}
 
 	fn nth_migrating_prefixes(n: usize) 
-    -> Option<Result<impl IntoIterator<Item = Vec<u8>>, SteppedMigrationError>> {
-    if n == 0 {
-        Some(Ok(T::migrating_prefixes()))
-    } else {
-        None
-    }
-}
+    -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+		if n == 0 {
+            Some(Ok(T::migrating_prefixes().into_iter().collect()))
+        } else {
+            None
+        }
+	}
 
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
@@ -987,6 +987,19 @@ impl SteppedMigrations for Tuple {
 
 		None
 	}
+
+	fn nth_migrating_prefixes(n: usize)
+    -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+        let mut i = 0;
+        for_tuples!( #(
+            let len = Tuple::len() as usize;
+            if n < i + len {
+                return Tuple::nth_migrating_prefixes(n - i);
+            }
+            i += len;
+        )* );
+        None
+    }
 
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
