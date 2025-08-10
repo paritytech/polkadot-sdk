@@ -15,22 +15,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This tests that the correct output data is written when the provided
+//! output buffer length is smaller than what was actually returned during
+//! calls and instantiations.
+//!
+//! To not need an additional callee fixture, we call ourself recursively
+//! and also instantiate our own code hash (constructor and recursive calls
+//! always return `BUF_SIZE` bytes of data).
+
+#![allow(unused_imports)]
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api, solidity_selector};
+use core::num::NonZero;
+use uapi::{HostFn, HostFnImpl as api, u256_bytes};
+use hex_literal::hex;
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
+pub extern "C" fn deploy() { }
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let balance = u64_output!(api::balance,);
-
-	let mut output_buf1 = [0u8; 8];
+	let mut output_buf1 = [0u8; 32];
 	let output1 = &mut &mut output_buf1[..];
 	let _ = api::call(
 		uapi::CallFlags::empty(),
@@ -38,27 +47,10 @@ pub extern "C" fn call() {
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
-		&u256_bytes(0),
-		&solidity_selector("minimumBalance()"),
+		&u256_bytes(0), // Value transferred to the contract.
+		&uapi::solidity_selector("ownCodeHash()"),
 		Some(output1),
 	).unwrap();
-	assert_ne!(output_buf1, [0u8; 8]);
-	let minimum_balance = u64::from_le_bytes(output_buf1);
-
-	// Make the transferred value exceed the balance by adding the minimum balance.
-	let balance = balance + minimum_balance;
-
-	// Try to self-destruct by sending more balance to the 0 address.
-	// The call will fail because a contract transfer has a keep alive requirement.
-	let res = api::call(
-		uapi::CallFlags::empty(),
-		&[0u8; 20],
-		0,
-		0,
-		&[u8::MAX; 32],
-		&u256_bytes(balance),
-		&[],
-		None,
-	);
-	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
+	assert_ne!(output_buf1, [0u8; 32]);
+	api::return_value(uapi::ReturnFlags::empty(), &output_buf1);
 }

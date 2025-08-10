@@ -15,11 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! This fixture calls caller_is_origin `n` times.
+
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api, solidity_selector};
+use uapi::{HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,37 +30,16 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let balance = u64_output!(api::balance,);
-
-	let mut output_buf1 = [0u8; 8];
-	let output1 = &mut &mut output_buf1[..];
-	let _ = api::call(
+	let mut output = [0u8; 1];
+	let _ = api::delegate_call(
 		uapi::CallFlags::empty(),
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
-		&u256_bytes(0),
-		&solidity_selector("minimumBalance()"),
-		Some(output1),
+		&uapi::solidity_selector("callerIsRoot()"),
+		Some(&mut &mut output[..]),
 	).unwrap();
-	assert_ne!(output_buf1, [0u8; 8]);
-	let minimum_balance = u64::from_le_bytes(output_buf1);
 
-	// Make the transferred value exceed the balance by adding the minimum balance.
-	let balance = balance + minimum_balance;
-
-	// Try to self-destruct by sending more balance to the 0 address.
-	// The call will fail because a contract transfer has a keep alive requirement.
-	let res = api::call(
-		uapi::CallFlags::empty(),
-		&[0u8; 20],
-		0,
-		0,
-		&[u8::MAX; 32],
-		&u256_bytes(balance),
-		&[],
-		None,
-	);
-	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
+	api::return_value(uapi::ReturnFlags::empty(), &output);
 }

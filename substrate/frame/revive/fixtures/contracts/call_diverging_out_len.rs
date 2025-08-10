@@ -23,17 +23,24 @@
 //! and also instantiate our own code hash (constructor and recursive calls
 //! always return `BUF_SIZE` bytes of data).
 
+#![allow(unused_imports)]
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{HostFn, HostFnImpl as api};
+use core::num::NonZero;
+//use uapi::{HostFn, HostFnImpl as api};
+//use alloy_sol_macro::sol;
+//use alloy_core::sol_types::SolInterface;
+use uapi::{HostFn, HostFnImpl as api, u256_bytes};
+use hex_literal::hex;
 
 const BUF_SIZE: usize = 8;
 static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /// Call `callee_address` with an output buf of size `N`
 /// and expect the call output to match `expected_output`.
+#[allow(dead_code)]
 fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf = [0u8; BUF_SIZE];
 	let output_buf_capped = &mut &mut output_buf[..N];
@@ -55,11 +62,39 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 	assert_eq!(output_buf, expected_output);
 }
 
+/*
+use alloy_sol_types::sol;
+sol! {
+	//interface ISystem {
+		/// Returns the code hash of the currently executing contract.
+		function ownCodeHash() external pure returns (bytes32);
+	//}
+}
+
+ */
+
+//use alloy_primitives::const_keccak256;
+
+//const TRANSFER_SELECTOR: [u8; 4] =
+	//const_keccak256!("transfer(address,uint256)").truncate();
+
 /// Instantiate this contract with an output buf of size `N`
 /// and expect the instantiate output to match `expected_output`.
+#[allow(dead_code)]
 fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
-	let mut code_hash = [0; 32];
-	api::own_code_hash(&mut code_hash);
+	let mut output_buf1 = [0u8; 32];
+	let output1 = &mut &mut output_buf1[..];
+	let _ = api::call(
+		uapi::CallFlags::empty(),
+		&uapi::SYSTEM_PRECOMPILE_ADDR,
+		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
+		&[u8::MAX; 32], // No deposit limit.
+		&u256_bytes(0),
+		&uapi::solidity_selector("ownCodeHash()"),
+		Some(output1),
+	).unwrap();
+	assert_ne!(output_buf1, [0u8; 32]);
 
 	let mut output_buf = [0u8; BUF_SIZE];
 	let output_buf_capped = &mut &mut output_buf[..N];
@@ -68,8 +103,8 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 		u64::MAX,
 		u64::MAX,
 		&[u8::MAX; 32],
-		&[0; 32],
-		&code_hash,
+		&u256_bytes(0),
+		output_buf1.clone().as_slice(),
 		None,
 		Some(output_buf_capped),
 		None,

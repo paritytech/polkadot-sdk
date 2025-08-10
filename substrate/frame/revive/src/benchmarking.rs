@@ -606,6 +606,7 @@ mod benchmarks {
 		);
 	}
 
+	/*
 	#[benchmark(pov_mode = Measured)]
 	fn seal_own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
@@ -622,6 +623,7 @@ mod benchmarks {
 			contract.info().unwrap().code_hash
 		);
 	}
+	*/
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_code_size() {
@@ -637,6 +639,7 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), VmBinaryModule::dummy().code.len() as u64);
 	}
 
+	/*
 	#[benchmark(pov_mode = Measured)]
 	fn seal_caller_is_origin() {
 		build_runtime!(runtime, memory: []);
@@ -663,6 +666,7 @@ mod benchmarks {
 		}
 		assert_eq!(result.unwrap(), 1u32);
 	}
+	*/
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
@@ -678,8 +682,9 @@ mod benchmarks {
 		assert_eq!(<H160 as Decode>::decode(&mut &memory[..]).unwrap(), runtime.ext().address());
 	}
 
+	/*
 	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_left() {
+	fn weight_left() {
 		// use correct max_encoded_len when new version of parity-scale-codec is released
 		let len = 18u32;
 		assert!(<Weight as MaxEncodedLen>::max_encoded_len() as u32 != len);
@@ -696,6 +701,7 @@ mod benchmarks {
 			runtime.ext().gas_meter().gas_left()
 		);
 	}
+	*/
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_ref_time_left() {
@@ -817,6 +823,7 @@ mod benchmarks {
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().value_transferred());
 	}
 
+	/*
 	#[benchmark(pov_mode = Measured)]
 	fn seal_minimum_balance() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
@@ -828,6 +835,7 @@ mod benchmarks {
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
 	}
+	*/
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_return_data_size() {

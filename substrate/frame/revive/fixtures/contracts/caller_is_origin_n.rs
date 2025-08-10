@@ -21,7 +21,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, HostFnImpl as api, u256_bytes, solidity_selector, solidity_address};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -32,7 +32,26 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	input!(n: u32, );
 
+	const SELECTOR_BYTES: [u8; 4] = solidity_selector("callerIsOrigin(address)");
+
+	let mut caller = [0; 20];
+	api::caller(&mut caller);
+	let address_bytes = solidity_address(&caller);
+
+	let mut data = [0u8; 4 + 32];
+	data[..4].copy_from_slice(&SELECTOR_BYTES[..4]);
+	data[4..36].copy_from_slice(&address_bytes[..32]);
+
 	for _ in 0..n {
-		let _ = api::caller_is_origin();
+		let _ = api::call(
+			uapi::CallFlags::empty(),
+			&uapi::SYSTEM_PRECOMPILE_ADDR,
+			u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
+			u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
+			&[u8::MAX; 32], // No deposit limit.
+			&u256_bytes(0),
+			data.as_slice(),
+			None,
+		).unwrap();
 	}
 }

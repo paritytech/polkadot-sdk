@@ -16,13 +16,16 @@
 // limitations under the License.
 
 use crate::{
+	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config,
+	Config, Origin, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol;
+use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
+use frame_support::traits::fungible::Inspect;
 use sp_core::hexdisplay::AsBytesRef;
 
 pub struct System<T>(PhantomData<T>);
@@ -31,8 +34,10 @@ sol! {
 	interface ISystem {
 		/// Computes the BLAKE2 256-bit hash on the given input.
 		function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
+
 		/// Computes the BLAKE2 128-bit hash on the given input.
 		function hashBlake128(bytes memory input) external pure returns (bytes32 digest);
+
 		/// Retrieve the account id for a specified `H160` address.
 		///
 		/// Calling this function on a native `H160` chain (`type AccountId = H160`)
@@ -43,6 +48,32 @@ sol! {
 		///
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
 		function toAccountId(address input) external view returns (bytes memory account_id);
+
+		/// Check whether the `caller` is the origin of the whole call stack.
+		///
+		/// todo If there is no address associated with the caller (e.g. because the caller is root) then
+		/// todo it traps with `BadOrigin`.
+		function callerIsOrigin() external pure returns (bool);
+
+		/// Checks whether the caller of the current contract is root.
+		///
+		/// Note that only the origin of the call stack can be root. Hence this function returning
+		/// `true` implies that the contract is being called by the origin.
+		///
+		/// A return value of `true` indicates that this contract is being called by a root origin,
+		/// and `false` indicates that the caller is a signed origin.
+		function callerIsRoot() external pure returns (bool);
+
+		/// Returns the minimum balance that is required for creating an account
+		/// (the existential deposit).
+		function minimumBalance() external pure returns (uint);
+
+		/// Returns the code hash of the currently executing contract.
+		function ownCodeHash() external pure returns (bytes32);
+
+		/// Returns the amount of weight left.
+		/// The data is encoded as `Weight`.
+		function weightLeft() external pure returns (uint);
 	}
 }
 
@@ -77,6 +108,48 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let account_id =
 					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
 				Ok(account_id.encode())
+			},
+			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall { }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
+				let is_origin = match env.origin() {
+					Origin::Root => {
+						// `Root` does not have an address
+						false
+					},
+					Origin::Signed(account_id) => {
+						let origin_address = T::AddressMapper::to_address(&account_id).0;
+						let origin_address = T::AddressMapper::to_address(&env.caller()).0;
+						origin_address == caller_address
+					},
+				};
+				Ok(vec![is_origin as u8])
+			},
+			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
+				let caller_is_root = match env.caller() {
+					Origin::Root => true,
+					Origin::Signed(_) => false,
+				};
+				Ok(vec![caller_is_root as u8])
+			},
+			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
+				let caller = env.caller();
+				let address = caller.account_id().unwrap().encode();
+				let address = H160::from_slice(&address[..20]);
+				let output = env.code_hash(&address).encode();
+				Ok(output)
+			},
+			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
+				let minimum_balance = T::Currency::minimum_balance();
+				let output = minimum_balance.encode();
+				Ok(output)
+			},
+			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
+				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
+				let gas_left = env.gas_meter().gas_left().encode();
+				Ok(gas_left)
 			},
 		}
 	}
