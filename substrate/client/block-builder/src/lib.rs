@@ -286,7 +286,8 @@ where
 		let extrinsics = &mut self.extrinsics;
 		let version = self.version;
 
-		self.api.execute_in_transaction(|api| {
+		let start = std::time::Instant::now();
+		let result = self.api.execute_in_transaction(|api| {
 			let res = if version < 6 {
 				#[allow(deprecated)]
 				api.apply_extrinsic_before_version_6(parent_hash, xt.clone())
@@ -305,7 +306,9 @@ where
 				)),
 				Err(e) => TransactionOutcome::Rollback(Err(Error::from(e))),
 			}
-		})
+		});
+		tracing::debug!(target: "durations", "block_builder::push: duration: {:?}", start.elapsed());
+		result
 	}
 
 	/// Consume the builder to build a valid `Block` containing all pushed extrinsics.
