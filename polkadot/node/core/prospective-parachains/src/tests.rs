@@ -26,8 +26,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	async_backing::{
-		BackingState, CandidatePendingAvailability, Constraints as ConstraintsV2, Constraints,
-		InboundHrmpLimitations,
+		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
 	},
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Header,
 	MutateDescriptorV2, PersistedValidationData, ValidationCodeHash, DEFAULT_SCHEDULING_LOOKAHEAD,
@@ -48,13 +47,13 @@ const MAX_POV_SIZE: u32 = 1_000_000;
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ProspectiveParachainsMessage>;
 
-fn dummy_constraints_v2(
+fn dummy_constraints(
 	min_relay_parent_number: BlockNumber,
 	valid_watermarks: Vec<BlockNumber>,
 	required_parent: HeadData,
 	validation_code_hash: ValidationCodeHash,
-) -> ConstraintsV2 {
-	ConstraintsV2 {
+) -> Constraints {
+	Constraints {
 		min_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
 		max_head_data_size: 20480,
@@ -327,7 +326,7 @@ async fn handle_leaf_activation(
 				let PerParaData { min_relay_parent, head_data, pending_availability } =
 					leaf.para_data(p_id);
 
-				let constraints = dummy_constraints_v2(
+				let constraints = dummy_constraints(
 					*min_relay_parent,
 					vec![*number],
 					head_data.clone(),
@@ -350,7 +349,7 @@ async fn handle_leaf_activation(
 			{
 				let PerParaData { min_relay_parent, head_data, pending_availability: _ } =
 					leaf.para_data(p_id);
-				let constraints = dummy_constraints_v2(
+				let constraints = dummy_constraints(
 					*min_relay_parent,
 					vec![*number],
 					head_data.clone(),
