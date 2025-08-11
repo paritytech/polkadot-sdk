@@ -1009,41 +1009,6 @@ impl<N: Saturating + BaseArithmetic + Copy> GroupRotationInfo<N> {
 /// Information about a core which is currently occupied.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
-pub struct LegacyOccupiedCore<H = Hash, N = BlockNumber> {
-	// NOTE: this has no ParaId as it can be deduced from the candidate descriptor.
-	/// If this core is freed by availability, this is the assignment that is next up on this
-	/// core, if any. None if there is nothing queued for this core.
-	pub next_up_on_available: Option<ScheduledCore>,
-	/// The relay-chain block number this began occupying the core at.
-	pub occupied_since: N,
-	/// The relay-chain block this will time-out at, if any.
-	pub time_out_at: N,
-	/// If this core is freed by being timed-out, this is the assignment that is next up on this
-	/// core. None if there is nothing queued for this core or there is no possibility of timing
-	/// out.
-	pub next_up_on_time_out: Option<ScheduledCore>,
-	/// A bitfield with 1 bit for each validator in the set. `1` bits mean that the corresponding
-	/// validators has attested to availability on-chain. A 2/3+ majority of `1` bits means that
-	/// this will be available.
-	pub availability: BitVec<u8, bitvec::order::Lsb0>,
-	/// The group assigned to distribute availability pieces of this candidate.
-	pub group_responsible: GroupIndex,
-	/// The hash of the candidate occupying the core.
-	pub candidate_hash: CandidateHash,
-	/// The descriptor of the candidate occupying the core.
-	pub candidate_descriptor: CandidateDescriptor<H>,
-}
-
-impl<H, N> LegacyOccupiedCore<H, N> {
-	/// Get the Para currently occupying this core.
-	pub fn para_id(&self) -> Id {
-		self.candidate_descriptor.para_id
-	}
-}
-
-/// Information about a core which is currently occupied.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
 pub struct ScheduledCore {
 	/// The ID of a para scheduled.
 	pub para_id: Id,
@@ -1051,49 +1016,6 @@ pub struct ScheduledCore {
 	///
 	/// Will be removed in a future version.
 	pub collator: Option<CollatorId>,
-}
-
-/// The state of a particular availability core.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-pub enum LegacyCoreState<H = Hash, N = BlockNumber> {
-	/// The core is currently occupied.
-	#[codec(index = 0)]
-	Occupied(LegacyOccupiedCore<H, N>),
-	/// The core is currently free, with a para scheduled and given the opportunity
-	/// to occupy.
-	///
-	/// If a particular Collator is required to author this block, that is also present in this
-	/// variant.
-	#[codec(index = 1)]
-	Scheduled(ScheduledCore),
-	/// The core is currently free and there is nothing scheduled. This can be the case for
-	/// parathread cores when there are no parathread blocks queued. Parachain cores will never be
-	/// left idle.
-	#[codec(index = 2)]
-	Free,
-}
-
-impl<N> LegacyCoreState<N> {
-	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
-	///
-	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
-	/// for each core.
-	#[deprecated(
-		note = "`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
-	)]
-	pub fn para_id(&self) -> Option<Id> {
-		match self {
-			Self::Occupied(ref core) => core.next_up_on_available.as_ref().map(|n| n.para_id),
-			Self::Scheduled(core) => Some(core.para_id),
-			Self::Free => None,
-		}
-	}
-
-	/// Is this core state `Self::Occupied`?
-	pub fn is_occupied(&self) -> bool {
-		matches!(self, Self::Occupied(_))
-	}
 }
 
 /// An assumption being made about the state of an occupied core.
@@ -3090,32 +3012,6 @@ impl<N> CoreState<N> {
 	/// Is this core state `Self::Occupied`?
 	pub fn is_occupied(&self) -> bool {
 		matches!(self, Self::Occupied(_))
-	}
-}
-
-impl<H: Copy> From<OccupiedCore<H>> for super::v9::LegacyOccupiedCore<H> {
-	fn from(value: OccupiedCore<H>) -> Self {
-		Self {
-			next_up_on_available: value.next_up_on_available,
-			occupied_since: value.occupied_since,
-			time_out_at: value.time_out_at,
-			next_up_on_time_out: value.next_up_on_time_out,
-			availability: value.availability,
-			group_responsible: value.group_responsible,
-			candidate_hash: value.candidate_hash,
-			candidate_descriptor: value.candidate_descriptor.into(),
-		}
-	}
-}
-
-impl<H: Copy> From<CoreState<H>> for super::v9::LegacyCoreState<H> {
-	fn from(value: CoreState<H>) -> Self {
-		match value {
-			CoreState::Free => super::v9::LegacyCoreState::Free,
-			CoreState::Scheduled(core) => super::v9::LegacyCoreState::Scheduled(core),
-			CoreState::Occupied(occupied_core) =>
-				super::v9::LegacyCoreState::Occupied(occupied_core.into()),
-		}
 	}
 }
 
