@@ -22,6 +22,31 @@ use sp_runtime::Perbill;
 use std::collections::BTreeMap;
 
 #[test]
+fn setting_invalid_min_unbond_period_fails() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(<Test as Config>::MaxUnbondingDuration::get(), 3);
+		assert_noop!(
+			Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(UnbondingQueueConfig {
+					min_slashable_share: Perbill::from_percent(50),
+					lowest_ratio: Perbill::from_percent(34),
+					unbond_period_lower_bound: 4,
+				})
+			),
+			Error::<Test>::InvalidConfiguration
+		);
+	});
+}
+
+#[test]
 fn get_min_lowest_stake_works() {
 	ExtBuilder::default()
 		.set_stake(11, 10_000)

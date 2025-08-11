@@ -1301,6 +1301,8 @@ pub mod pallet {
 		/// Unapplied slashes in the recently concluded era is blocking this operation.
 		/// See `Call::apply_slash` to apply them.
 		UnappliedSlashesInPreviousEra,
+		/// The configuration is invalid and cannot be applied.
+		InvalidConfiguration,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2202,6 +2204,13 @@ pub mod pallet {
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
 			config_op_exp!(UnbondingQueueParams<T>, unbonding_queue_params);
+
+			if let ConfigOp::Set(params) = unbonding_queue_params {
+				ensure!(
+					params.unbond_period_lower_bound <= T::MaxUnbondingDuration::get(),
+					Error::<T>::InvalidConfiguration
+				);
+			}
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
