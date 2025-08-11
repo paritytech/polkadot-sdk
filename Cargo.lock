@@ -22018,6 +22018,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-utility",
  "pallet-xcm",
+ "parachains-common",
  "parachains-runtimes-test-utils",
  "parity-scale-codec",
  "snowbridge-core",

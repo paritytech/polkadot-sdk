@@ -40,6 +40,7 @@ xcm-executor = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
 pallet-collator-selection = { workspace = true }
 parachain-info = { workspace = true }
+parachains-common = { workspace = true }
 parachains-runtimes-test-utils = { workspace = true }
 
 # Ethereum Bridge (Snowbridge)
@@ -64,6 +65,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
+	"parachains-common/std",
 	"parachains-runtimes-test-utils/std",
 	"snowbridge-core/std",
 	"snowbridge-pallet-ethereum-client-fixtures/std",
@@ -88,6 +90,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
 	"snowbridge-pallet-ethereum-client/runtime-benchmarks",

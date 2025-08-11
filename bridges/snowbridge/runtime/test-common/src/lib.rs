@@ -7,6 +7,7 @@ use frame_support::{
 	traits::{fungible::Mutate, OnFinalize, OnInitialize},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use parachains_common::AccountId;
 use parachains_runtimes_test_utils::{
 	AccountIdOf, BalanceOf, CollatorSessionKeys, ExtBuilder, ValidatorIdOf, XcmReceivedFrom,
 };
@@ -514,6 +515,9 @@ pub fn ethereum_extrinsic<Runtime>(
 			assert_ok!(update_outcome);
 			let balance_after_update =
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
+
+			// All the extrinsics in this test do no fit into 1 block
+			let _ = RuntimeHelper::<Runtime>::run_to_block(2, AccountId::from(alice).into());
 
 			// Invalid finalized header update
 			let invalid_update_outcome =
