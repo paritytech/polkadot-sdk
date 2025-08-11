@@ -71,3 +71,4 @@
 302 (prlimit64)
 309 (getcpu)
 318 (getrandom)
+319 (memfd_create)

@@ -39,10 +39,7 @@ use frame_support::{
 	PalletId,
 };
 use sp_core::{H160, H256, U256};
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	DispatchError,
-};
+use sp_runtime::{traits::AccountIdConversion, DispatchError};
 
 use super::{
 	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, DepositLimit,
@@ -78,7 +75,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			BalanceOf::<T>::zero(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -114,7 +111,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(account_id.clone()),
 			asset_id,
-			BalanceOf::<T>::zero(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -189,7 +186,7 @@ where
 		let ContractResult { result, gas_consumed, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(who.clone()),
 			asset_id,
-			BalanceOf::<T>::zero(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -226,7 +223,7 @@ where
 		let ContractResult { result, .. } = Self::bare_call(
 			T::RuntimeOrigin::signed(Self::checking_account()),
 			asset_id,
-			BalanceOf::<T>::zero(),
+			U256::zero(),
 			GAS_LIMIT,
 			DepositLimit::Balance(
 				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
@@ -302,7 +299,7 @@ mod tests {
 	use crate::{
 		test_utils::{builder::*, ALICE},
 		tests::{Contracts, ExtBuilder, RuntimeOrigin, Test},
-		Code, ContractInfoOf,
+		AccountInfoOf, Code,
 	};
 	use frame_support::assert_ok;
 
@@ -327,7 +324,7 @@ mod tests {
 				EU256::abi_decode_validate(&result.data).expect("Failed to decode ABI response");
 			assert_eq!(balance, EU256::from(amount));
 			// Contract is uploaded.
-			assert_eq!(ContractInfoOf::<Test>::contains_key(&addr), true);
+			assert_eq!(AccountInfoOf::<Test>::contains_key(&addr), true);
 		});
 	}
 

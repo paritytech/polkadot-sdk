@@ -1818,8 +1818,8 @@ pub fn show_benchmark_debug_info(
 #[macro_export]
 macro_rules! add_benchmark {
 	( $params:ident, $batches:ident, $name:path, $location:ty ) => {
-		let name_string = stringify!($name).as_bytes();
-		let instance_string = stringify!($location).as_bytes();
+		let pallet_string = stringify!($name).replace(" ", "").into_bytes();
+		let instance_string = stringify!($location).replace(" ", "").into_bytes();
 		let (config, whitelist) = $params;
 		let $crate::BenchmarkConfig {
 			pallet,
@@ -1829,7 +1829,7 @@ macro_rules! add_benchmark {
 			verify,
 			internal_repeats,
 		} = config;
-		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
+		if &pallet[..] == &pallet_string[..] && &instance[..] == &instance_string[..] {
 			let benchmark_result = <$location as $crate::Benchmarking>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],
@@ -1852,7 +1852,7 @@ macro_rules! add_benchmark {
 				},
 				Err($crate::BenchmarkError::Stop(e)) => {
 					$crate::show_benchmark_debug_info(
-						instance_string,
+						&instance_string,
 						benchmark,
 						selected_components,
 						verify,
@@ -1883,8 +1883,8 @@ macro_rules! add_benchmark {
 
 			if let Some(final_results) = final_results {
 				$batches.push($crate::BenchmarkBatch {
-					pallet: name_string.to_vec(),
-					instance: instance_string.to_vec(),
+					pallet: pallet_string,
+					instance: instance_string,
 					benchmark: benchmark.clone(),
 					results: final_results,
 				});
@@ -1915,12 +1915,12 @@ macro_rules! add_benchmark {
 #[macro_export]
 macro_rules! list_benchmark {
 	( $list:ident, $extra:ident, $name:path, $location:ty ) => {
-		let pallet_string = stringify!($name).as_bytes();
-		let instance_string = stringify!($location).as_bytes();
+		let pallet_string = stringify!($name).replace(" ", "").into_bytes();
+		let instance_string = stringify!($location).replace(" ", "").into_bytes();
 		let benchmarks = <$location as $crate::Benchmarking>::benchmarks($extra);
 		let pallet_benchmarks = $crate::BenchmarkList {
-			pallet: pallet_string.to_vec(),
-			instance: instance_string.to_vec(),
+			pallet: pallet_string,
+			instance: instance_string,
 			benchmarks: benchmarks.to_vec(),
 		};
 		$list.push(pallet_benchmarks)

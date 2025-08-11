@@ -29,8 +29,8 @@
 use codec::Encode;
 
 use sp_api::{
-	ApiExt, ApiRef, CallApiAt, Core, ProvideRuntimeApi, StorageChanges, StorageProof,
-	TransactionOutcome,
+	ApiExt, ApiRef, CallApiAt, Core, ProofRecorder, ProvideRuntimeApi, StorageChanges,
+	StorageProof, TransactionOutcome,
 };
 use sp_blockchain::{ApplyExtrinsicFailed, Error, HeaderBackend};
 use sp_core::traits::CallContext;
@@ -99,7 +99,7 @@ where
 
 		Ok(BlockBuilderBuilderStage2 {
 			call_api_at: self.call_api_at,
-			enable_proof_recording: false,
+			proof_recorder: None,
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -116,7 +116,7 @@ where
 	) -> BlockBuilderBuilderStage2<'a, B, C> {
 		BlockBuilderBuilderStage2 {
 			call_api_at: self.call_api_at,
-			enable_proof_recording: false,
+			proof_recorder: None,
 			inherent_digests: Default::default(),
 			parent_block: self.parent_block,
 			parent_number,
@@ -130,7 +130,7 @@ where
 /// [`BlockBuilderBuilder::new`] needs to be used.
 pub struct BlockBuilderBuilderStage2<'a, B: BlockT, C> {
 	call_api_at: &'a C,
-	enable_proof_recording: bool,
+	proof_recorder: Option<ProofRecorder<B>>,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor<B>,
@@ -139,13 +139,19 @@ pub struct BlockBuilderBuilderStage2<'a, B: BlockT, C> {
 impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 	/// Enable proof recording for the block builder.
 	pub fn enable_proof_recording(mut self) -> Self {
-		self.enable_proof_recording = true;
+		self.proof_recorder = Some(Default::default());
 		self
 	}
 
 	/// Enable/disable proof recording for the block builder.
 	pub fn with_proof_recording(mut self, enable: bool) -> Self {
-		self.enable_proof_recording = enable;
+		self.proof_recorder = enable.then(|| Default::default());
+		self
+	}
+
+	/// Enable/disable proof recording for the block builder using the given proof recorder.
+	pub fn with_proof_recorder(mut self, proof_recorder: Option<ProofRecorder<B>>) -> Self {
+		self.proof_recorder = proof_recorder;
 		self
 	}
 
@@ -165,7 +171,7 @@ impl<'a, B: BlockT, C> BlockBuilderBuilderStage2<'a, B, C> {
 			self.call_api_at,
 			self.parent_block,
 			self.parent_number,
-			self.enable_proof_recording,
+			self.proof_recorder,
 			self.inherent_digests,
 		)
 	}
@@ -221,7 +227,7 @@ where
 		call_api_at: &'a C,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor<Block>,
-		record_proof: bool,
+		proof_recorder: Option<ProofRecorder<Block>>,
 		inherent_digests: Digest,
 	) -> Result<Self, Error> {
 		let header = <<Block as BlockT>::Header as HeaderT>::new(
@@ -236,11 +242,8 @@ where
 
 		let mut api = call_api_at.runtime_api();
 
-		if record_proof {
-			api.record_proof();
-			let recorder = api
-				.proof_recorder()
-				.expect("Proof recording is enabled in the line above; qed.");
+		if let Some(recorder) = proof_recorder {
+			api.record_proof_with_recorder(recorder.clone());
 			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
