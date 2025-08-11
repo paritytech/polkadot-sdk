@@ -39,7 +39,10 @@ use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index, request_backable_candidates,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
-use polkadot_primitives::{vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, Hash, SessionIndex};
+use polkadot_primitives::{
+	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex,
+	GroupRotationInfo, Hash, SessionIndex, ValidatorIndex,
+};
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
 
@@ -52,7 +55,9 @@ use session_cache::SessionCache;
 
 /// A task fetching a particular chunk.
 mod fetch_task;
+use crate::error::Error::{CanceledValidatorGroups, FailedValidatorGroups};
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
+use polkadot_node_subsystem::messages::RuntimeApiRequest;
 use polkadot_node_subsystem_util::runtime::get_availability_cores;
 use polkadot_primitives::vstaging::OccupiedCore;
 
@@ -90,7 +95,7 @@ struct CoreInfo {
 	candidate_hash: CandidateHash,
 	/// The relay parent of the candidate.
 	relay_parent: Hash,
-	/// The occupied cores for the candidate.
+	/// The root hash of the erasure coded chunks for the candidate.
 	erasure_root: Hash,
 	/// The group index of the group responsible for the candidate.
 	group_responsible: GroupIndex,
@@ -193,7 +198,8 @@ impl Requester {
 			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
 		}
 
-		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index).await?;
+		let groups = get_validator_groups(sender, new_head.hash).await?;
+		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups).await;
 		Ok(())
 	}
 
@@ -203,49 +209,77 @@ impl Requester {
 		runtime: &mut RuntimeInfo,
 		activated_leaf: ActivatedLeaf,
 		leaf_session_index: SessionIndex,
-	) -> Result<()> {
+		validator_groups: &(Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
+	) {
 		let sender = &mut ctx.sender().clone();
 
-		let availability_cores = get_availability_cores(sender, activated_leaf.hash).await?;
-		gum::trace!(
-			target: LOG_TARGET,
-			availability_cores = ?availability_cores,
-			"Query availability cores"
-		);
+		let availability_cores = match get_availability_cores(sender, activated_leaf.hash).await {
+			Ok(cores) => cores,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Failed to get availability cores for leaf {:?}",
+					activated_leaf.hash
+				);
+				return;
+			},
+		};
 
-		// TODO: return error.
-		let backable_candidates =
-			request_backable_candidates(&availability_cores, &[], &activated_leaf, sender) // TODO: figure out the correct bitfields.
-				.await
-				.unwrap();
+		let backable_candidate_hashes = match request_backable_candidates(
+			&availability_cores,
+			&[],
+			&activated_leaf,
+			sender,
+			true,
+		)
+		.await
+		{
+			Ok(hashes) => hashes,
+			Err(_) => {
+				gum::warn!(target: LOG_TARGET, "Canceled backable candidates request");
+				return;
+			},
+		};
+
 		let (tx, rx) = oneshot::channel();
 		sender
-			.send_message(CandidateBackingMessage::GetBackableCandidates(backable_candidates, tx))
+			.send_message(CandidateBackingMessage::GetBackableCandidates(
+				backable_candidate_hashes,
+				tx,
+			))
 			.await;
-		let backable_candidates = rx.await?;
+		let backable_candidates = match rx.await {
+			Ok(candidates) => candidates,
+			Err(_) => {
+				gum::warn!(target: LOG_TARGET, "Canceled backable candidates request");
+				return;
+			},
+		};
 
+		let total_cores = validator_groups.0.len(); // TODO: Ask parity if this is correct.
 		let mut cores: Vec<(CoreIndex, CoreInfo)> = Vec::new();
+
 		for (para, candidates) in backable_candidates {
 			for candidate in candidates {
 				let receipt = candidate.candidate();
 
-				if let Some(core_index) = candidate.candidate().descriptor.core_index() {
-					let core = availability_cores.get(core_index.0 as usize).unwrap(); //TODO: handle None case
-					match core {
-						CoreState::Free => {}
-						CoreState::Scheduled(s) => {
+				if let Some(core_index) = receipt.descriptor.core_index() {
+					match availability_cores.get(core_index.0 as usize) {
+						Some(CoreState::Free) => {},
+						Some(CoreState::Scheduled(s)) => {
 							if para == s.para_id {
-								let core_info = CoreInfo{
+								let core_info = CoreInfo {
 									candidate_hash: receipt.hash(),
 									relay_parent: receipt.descriptor.relay_parent(),
 									erasure_root: receipt.descriptor.erasure_root(),
-									group_responsible: GroupIndex(0), // TODO: find actual group index
+									group_responsible: validator_groups.1.group_for_core(core_index, total_cores),
 								};
 
 								cores.push((core_index, core_info));
 							}
-						}
-						CoreState::Occupied(o) => {
+						},
+						Some(CoreState::Occupied(o)) => {
 							if para == o.candidate_descriptor.para_id() {
 								let core_info = CoreInfo {
 									candidate_hash: o.candidate_hash,
@@ -256,14 +290,31 @@ impl Requester {
 
 								cores.push((core_index, core_info));
 							}
-						}
+						},
+						None => {
+							gum::warn!(
+								target: LOG_TARGET,
+								"Core index {} is not available in availability cores",
+								core_index.0
+							);
+						},
 					};
 				}
 			}
 		}
 
-		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores).await?;
-		Ok(())
+		if let Some(err) = self
+			.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores)
+			.await
+			.err()
+		{
+			gum::warn!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Failed to start fetch task for activated leaf {:?}",
+				activated_leaf.hash
+			);
+		}
 	}
 
 	/// Stop requesting chunks for obsolete heads.
@@ -447,4 +498,27 @@ where
 		.map_err(FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApi)?;
 	Ok(ancestors)
+}
+
+async fn get_validator_groups<Sender>(
+	sender: &mut Sender,
+	leaf: Hash,
+) -> Result<(Vec<Vec<ValidatorIndex>>, GroupRotationInfo)>
+where
+	Sender: overseer::SubsystemSender<RuntimeApiMessage>,
+{
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(RuntimeApiMessage::Request(
+			leaf,
+			RuntimeApiRequest::ValidatorGroups(tx),
+		))
+		.await;
+
+	let groups = rx
+		.await
+		.map_err(|err| CanceledValidatorGroups(err))?
+		.map_err(|err| FailedValidatorGroups(err))?;
+
+	Ok(groups)
 }
