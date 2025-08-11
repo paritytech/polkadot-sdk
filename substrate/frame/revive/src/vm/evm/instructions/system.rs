@@ -68,7 +68,7 @@ pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			push!(context.interpreter, address.into_word().into());
 		},
 		Err(_) => {
-			context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
+			context.interpreter.halt(revm::interpreter::InstructionResult::FatalExternalError);
 		},
 	}
 }

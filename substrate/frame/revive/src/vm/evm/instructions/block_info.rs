@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::Context;
-use crate::{vm::{evm::DIFFICULTY, Ext}, RuntimeCosts};
+use crate::{vm::{evm::{BASE_FEE, DIFFICULTY}, Ext}, RuntimeCosts};
 use revm::{
 	interpreter::gas as revm_gas,
 	primitives::{Address, U256},
@@ -77,7 +77,7 @@ pub fn gaslimit<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BaseFee);
-	push!(context.interpreter, U256::ZERO);
+	push!(context.interpreter, U256::from_limbs(BASE_FEE.0));
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported

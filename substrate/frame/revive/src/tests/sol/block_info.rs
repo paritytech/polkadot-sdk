@@ -20,7 +20,7 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::DIFFICULTY,
+	vm::evm::{BASE_FEE, DIFFICULTY},
 	Code, Config,
 };
 
@@ -161,7 +161,7 @@ fn basefee_works() {
 			let result = builder::bare_call(addr)
 				.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
 				.build_and_unwrap_result();
-			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+			assert_eq!(U256::from_limbs(BASE_FEE.0), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 		});
 	}
 }

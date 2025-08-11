@@ -5,7 +5,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
 use alloy_core::{primitives::U256, sol, sol_types::SolInterface};

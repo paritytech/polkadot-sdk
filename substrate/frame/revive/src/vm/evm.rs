@@ -50,6 +50,11 @@ use sp_runtime::Weight;
 /// The value is aligned with the difficulty hardcoded for PVM contracts.
 pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
+/// The base fee per gas used in the network as defined by EIP-1559.
+///
+/// For `pallet-revive`, this is hardcoded to 0
+pub(crate) const BASE_FEE: U256 = U256::zero();
+
 impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -161,13 +166,13 @@ fn run<'a, E: Ext>(
 									.push(primitives::U256::from(!return_value.did_revert() as u8));
 							},
 							Err(err) => {
+								let _ = interpreter.stack.push(primitives::U256::ZERO);
 								// Map error into an appropriate InstructionResult
 								let halt_reason = match err {
 									_ => InstructionResult::OutOfGas,
 								};
 
 								interpreter.halt(halt_reason);
-								let _ = interpreter.stack.push(primitives::U256::ZERO);
 							},
 						}
 					},
