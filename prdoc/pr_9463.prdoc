@@ -8,6 +8,5 @@ doc:
 crates:
 - name: snowbridge-runtime-test-common
   bump: patch
-crates:
 - name: bridge-hub-westend-runtime
   bump: patch
