@@ -217,7 +217,7 @@ fn create_inherent_data<Client: UsageProvider<Block> + HeaderBackend<Block>, Blo
 	}
 
 	// Parachain inherent that is used on relay chains to perform parachain validation.
-	let para_inherent = polkadot_primitives::LegacyInherentData {
+	let para_inherent = polkadot_primitives::InherentData {
 		bitfields: Vec::new(),
 		backed_candidates: Vec::new(),
 		disputes: Vec::new(),

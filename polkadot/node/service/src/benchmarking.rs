@@ -261,7 +261,7 @@ pub fn benchmark_inherent_data(
 	let timestamp = sp_timestamp::InherentDataProvider::new(d.into());
 	futures::executor::block_on(timestamp.provide_inherent_data(&mut inherent_data))?;
 
-	let para_data = polkadot_primitives::LegacyInherentData {
+	let para_data = polkadot_primitives::InherentData {
 		bitfields: Vec::new(),
 		backed_candidates: Vec::new(),
 		disputes: Vec::new(),

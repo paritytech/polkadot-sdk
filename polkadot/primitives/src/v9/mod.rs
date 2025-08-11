@@ -770,103 +770,6 @@ pub type SignedAvailabilityBitfields = Vec<SignedAvailabilityBitfield>;
 /// ascending.
 pub type UncheckedSignedAvailabilityBitfields = Vec<UncheckedSignedAvailabilityBitfield>;
 
-/// A backed (or backable, depending on context) candidate.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-pub struct LegacyBackedCandidate<H = Hash> {
-	/// The candidate referred to.
-	candidate: CommittedCandidateReceipt<H>,
-	/// The validity votes themselves, expressed as signatures.
-	validity_votes: Vec<ValidityAttestation>,
-	/// The indices of the validators within the group, expressed as a bitfield. Is extended
-	/// beyond the backing group size to contain the assigned core index.
-	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-}
-
-impl<H> LegacyBackedCandidate<H> {
-	/// Constructor
-	pub fn new(
-		candidate: CommittedCandidateReceipt<H>,
-		validity_votes: Vec<ValidityAttestation>,
-		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: CoreIndex,
-	) -> Self {
-		let mut instance = Self { candidate, validity_votes, validator_indices };
-		instance.inject_core_index(core_index);
-		instance
-	}
-
-	/// Get a reference to the descriptor of the candidate.
-	pub fn descriptor(&self) -> &CandidateDescriptor<H> {
-		&self.candidate.descriptor
-	}
-
-	/// Get a reference to the committed candidate receipt of the candidate.
-	pub fn candidate(&self) -> &CommittedCandidateReceipt<H> {
-		&self.candidate
-	}
-
-	/// Get a reference to the validity votes of the candidate.
-	pub fn validity_votes(&self) -> &[ValidityAttestation] {
-		&self.validity_votes
-	}
-
-	/// Get a mutable reference to validity votes of the para.
-	pub fn validity_votes_mut(&mut self) -> &mut Vec<ValidityAttestation> {
-		&mut self.validity_votes
-	}
-
-	/// Compute this candidate's hash.
-	pub fn hash(&self) -> CandidateHash
-	where
-		H: Clone + Encode,
-	{
-		self.candidate.hash()
-	}
-
-	/// Get this candidate's receipt.
-	pub fn receipt(&self) -> CandidateReceipt<H>
-	where
-		H: Clone,
-	{
-		self.candidate.to_plain()
-	}
-
-	/// Get a copy of the validator indices and the assumed core index, if any.
-	pub fn validator_indices_and_core_index(
-		&self,
-	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
-		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-		if core_idx_offset > 0 {
-			let (validator_indices_slice, core_idx_slice) =
-				self.validator_indices.split_at(core_idx_offset);
-			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
-		}
-
-		(&self.validator_indices, None)
-	}
-
-	/// Inject a core index in the validator_indices bitvec.
-	fn inject_core_index(&mut self, core_index: CoreIndex) {
-		let core_index_to_inject: BitVec<u8, bitvec::order::Lsb0> =
-			BitVec::from_vec(vec![core_index.0 as u8]);
-		self.validator_indices.extend(core_index_to_inject);
-	}
-
-	/// Update the validator indices and core index in the candidate.
-	pub fn set_validator_indices_and_core_index(
-		&mut self,
-		new_indices: BitVec<u8, bitvec::order::Lsb0>,
-		maybe_core_index: Option<CoreIndex>,
-	) {
-		self.validator_indices = new_indices;
-
-		if let Some(core_index) = maybe_core_index {
-			self.inject_core_index(core_index);
-		}
-	}
-}
-
 /// Verify the backing of the given candidate.
 ///
 /// Provide a lookup from the index of a validator within the group assigned to this para,
@@ -1688,19 +1591,6 @@ pub struct DisputeState<N = BlockNumber> {
 	pub start: N,
 	/// The block number at which the dispute concluded on-chain.
 	pub concluded_at: Option<N>,
-}
-
-/// Parachains inherent-data passed into the runtime by a block author
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct LegacyInherentData<HDR: HeaderT = Header> {
-	/// Signed bitfields by validators about availability.
-	pub bitfields: UncheckedSignedAvailabilityBitfields,
-	/// Backed candidates for inclusion in the block.
-	pub backed_candidates: Vec<LegacyBackedCandidate<HDR::Hash>>,
-	/// Sets of dispute votes for inclusion,
-	pub disputes: MultiDisputeStatementSet,
-	/// The parent block header. Used for checking state proofs.
-	pub parent_header: HDR,
 }
 
 /// An either implicit or explicit attestation to the validity of a parachain
