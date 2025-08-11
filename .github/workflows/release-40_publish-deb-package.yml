@@ -103,7 +103,7 @@ jobs:
           import_gpg_keys
 
       - name: Download artifacts
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@de96f4613b77ec03b5cf633e7c350c32bd3c5660 # v4.1.8
         with:
           name: release-artifacts
           path: release-artifacts

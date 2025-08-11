@@ -134,12 +134,12 @@ jobs:
         env:
           REF_NAME: ${{ github.head_ref || github.ref_name }}
       - name: Download rustdocs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ github.sha }}-doc
           path: ${{ github.head_ref || github.ref_name }}
       - name: Download guide
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ github.sha }}-guide
           path: /tmp

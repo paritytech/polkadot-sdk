@@ -479,7 +479,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -505,7 +505,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -531,7 +531,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-test-collators-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -557,7 +557,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-malus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -583,7 +583,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-linux-substrate-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
@@ -617,7 +617,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-linux-stable-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -625,7 +625,7 @@ jobs:
           tar -xvf artifacts.tar
           rm artifacts.tar
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -633,7 +633,7 @@ jobs:
           tar -xvf artifacts.tar
           rm artifacts.tar
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: prepare-bridges-zombienet-artifacts-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
       - name: tar
@@ -660,7 +660,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v5
         with:
           name: build-linux-stable-cumulus-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
