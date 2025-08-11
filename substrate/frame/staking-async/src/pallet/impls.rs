@@ -980,8 +980,8 @@ impl<T: Config> Pallet<T> {
 		for chunk in ledger.unlocking.into_iter() {
 			let max_release_era =
 				chunk.era.defensive_saturating_add(T::MaxUnbondingDuration::get());
-			let has_offense = last_offence_era <= chunk.era;
-			if current_era >= max_release_era && !has_offense {
+			let has_offence = last_offence_era <= chunk.era;
+			if current_era >= max_release_era && !has_offence {
 				// We can immediately withdraw these funds.
 				free.saturating_accrue(chunk.value);
 			} else {
@@ -1009,7 +1009,7 @@ impl<T: Config> Pallet<T> {
 						break;
 					}
 				}
-				if final_era <= current_era && !has_offense {
+				if final_era <= current_era && !has_offence {
 					free.saturating_accrue(chunk.value);
 				} else {
 					if let Some(elem) = result.get_mut(&final_era) {
