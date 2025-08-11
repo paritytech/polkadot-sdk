@@ -168,6 +168,7 @@ pub mod code {
 		// was already checked above.
 		let mut max_block_size: u32 = 0;
 		let mut block_size: u32 = 0;
+		let mut basic_block_count: u32 = 0;
 		let mut instruction_count: u32 = 0;
 		for inst in program.instructions(ISA) {
 			use polkavm::program::Instruction;
@@ -176,6 +177,7 @@ pub mod code {
 			if inst.kind.opcode().starts_new_basic_block() {
 				max_block_size = max_block_size.max(block_size);
 				block_size = 0;
+				basic_block_count += 1;
 			}
 			match inst.kind {
 				Instruction::invalid => {
@@ -208,11 +210,12 @@ pub mod code {
 			max_cache_size_bytes: INTERPRETER_CACHE_BYTES,
 			instruction_count,
 			max_block_size,
+			basic_block_count,
 			page_size: PAGE_SIZE,
 		};
 
 		let program_info =
-			program.estimate_interpreter_memory_usage::<ISA>(&usage_args).map_err(|err| {
+			program.estimate_interpreter_memory_usage(usage_args).map_err(|err| {
 				log::debug!(target: LOG_TARGET, "failed to estimate memory usage of program: {err:?}");
 				Error::<T>::CodeRejected
 			})?;
