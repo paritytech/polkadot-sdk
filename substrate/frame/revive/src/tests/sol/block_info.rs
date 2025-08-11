@@ -19,7 +19,8 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, System, Test, Contracts, Timestamp},
+	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
+	vm::evm::DIFFICULTY,
 	Code, Config,
 };
 
@@ -66,10 +67,7 @@ fn block_author_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {})
-						.abi_encode(),
-				)
+				.data(BlockInfo::BlockInfoCalls::coinbase(BlockInfo::coinbaseCall {}).abi_encode())
 				.build_and_unwrap_result();
 			assert_eq!(
 				Contracts::block_author().unwrap(),
@@ -91,10 +89,7 @@ fn chainid_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {})
-						.abi_encode(),
-				)
+				.data(BlockInfo::BlockInfoCalls::chainid(BlockInfo::chainidCall {}).abi_encode())
 				.build_and_unwrap_result();
 			assert_eq!(
 				U256::from(<Test as Config>::ChainId::get()),
@@ -117,13 +112,13 @@ fn timestamp_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-					BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {})
-						.abi_encode(),
+					BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert_eq!(
-				// Solidity expects timestamps in seconds, whereas pallet_timestamp uses milliseconds.
-				U256::from(Timestamp::get()/1000),
+				// Solidity expects timestamps in seconds, whereas pallet_timestamp uses
+				// milliseconds.
+				U256::from(Timestamp::get() / 1000),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});
@@ -141,13 +136,12 @@ fn gaslimit_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {})
-					.abi_encode(),
-				)
+				.data(BlockInfo::BlockInfoCalls::gaslimit(BlockInfo::gaslimitCall {}).abi_encode())
 				.build_and_unwrap_result();
 			assert_eq!(
-				U256::from(<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()),
+				U256::from(
+					<Test as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+				),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});
@@ -165,15 +159,9 @@ fn basefee_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data(
-					BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {})
-					.abi_encode(),
-				)
+				.data(BlockInfo::BlockInfoCalls::basefee(BlockInfo::basefeeCall {}).abi_encode())
 				.build_and_unwrap_result();
-			assert_eq!(
-				U256::ZERO,
-				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
-			);
+			assert_eq!(U256::ZERO, U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
 		});
 	}
 }
@@ -191,12 +179,12 @@ fn difficulty_works() {
 			let result = builder::bare_call(addr)
 				.data(
 					BlockInfo::BlockInfoCalls::difficulty(BlockInfo::difficultyCall {})
-					.abi_encode(),
+						.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert_eq!(
 				// Alligned with the value set for PVM
-				U256::from(2500000000000000u64),
+				U256::from(DIFFICULTY),
 				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
 			);
 		});

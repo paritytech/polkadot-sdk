@@ -16,15 +16,12 @@
 // limitations under the License.
 
 use super::Context;
-use crate::{vm::Ext, RuntimeCosts};
+use crate::{vm::{evm::DIFFICULTY, Ext}, RuntimeCosts};
 use revm::{
-	interpreter::{gas as revm_gas},
+	interpreter::gas as revm_gas,
 	primitives::{Address, U256},
 };
 use sp_core::H160;
-
-// Aligned with the difficulty hardcoded for PVM
-pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
@@ -37,7 +34,8 @@ pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Pushes the current block's beneficiary address onto the stack.
 pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BlockAuthor);
-	let coinbase: Address = context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
+	let coinbase: Address =
+		context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
 	push!(context.interpreter, coinbase.into_word().into());
 }
 

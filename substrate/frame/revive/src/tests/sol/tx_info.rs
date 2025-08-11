@@ -18,10 +18,10 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
+	evm::runtime::GAS_PRICE,
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
-    evm::runtime::GAS_PRICE
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -42,8 +42,10 @@ fn gasprice_works() {
 
 			let result = builder::bare_call(addr)
 				.data(
-					TransactionInfo::TransactionInfoCalls::gasprice(TransactionInfo::gaspriceCall {})
-						.abi_encode(),
+					TransactionInfo::TransactionInfoCalls::gasprice(
+						TransactionInfo::gaspriceCall {},
+					)
+					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 			assert_eq!(

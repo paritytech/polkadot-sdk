@@ -23,7 +23,9 @@ use super::{utility::IntoAddress, Context};
 use crate::vm::Ext;
 use alloc::boxed::Box;
 use revm::{
-	context::journaled_state::AccountLoad, context_interface::CreateScheme, interpreter::{
+	context::journaled_state::AccountLoad,
+	context_interface::CreateScheme,
+	interpreter::{
 		gas as revm_gas,
 		host::Host,
 		interpreter_action::{
@@ -31,7 +33,8 @@ use revm::{
 		},
 		interpreter_types::{InputsTr, LoopControl, RuntimeFlag, StackTr},
 		CallInput, InstructionResult, StateLoad,
-	}, primitives::{hardfork::SpecId, Address, Bytes, B256, U256}
+	},
+	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
 
 /// Implements the CREATE/CREATE2 instruction.
@@ -168,7 +171,7 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	else {
 		return;
 	};
-	let mut load: StateLoad<AccountLoad> = StateLoad::new( Default::default(),true);
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
 
 	// let Some(mut load) = context.host.load_account_delegated(to) else {
 	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
@@ -268,7 +271,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 
 	// TODO: Handle the cold/warm storage correctly
-	let mut load: StateLoad<AccountLoad> = StateLoad::new( Default::default(),true);
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
 	// let Some(mut load) = context.interpreter.ex.load_account_delegated(to) else {
 	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
 	// 	return;
@@ -280,7 +283,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 	gas_legacy!(context.interpreter, gas_limit);
-	
+
 	let caller: Address = context.interpreter.extend.address().0.into();
 
 	// Call host to interact with target contract

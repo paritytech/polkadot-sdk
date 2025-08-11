@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use super::Context;
-use crate::{vm::{Ext, RuntimeCosts}, Config, address::AddressMapper};
+use crate::{
+	address::AddressMapper,
+	vm::{Ext, RuntimeCosts},
+	Config,
+};
 use core::ptr;
 use revm::{
 	interpreter::{
@@ -63,7 +67,9 @@ pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			let address: Address = <E::T as Config>::AddressMapper::to_address(account_id).0.into();
 			push!(context.interpreter, address.into_word().into());
 		},
-		Err(_) => { context.interpreter.halt(revm::interpreter::InstructionResult::Revert); }
+		Err(_) => {
+			context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
+		},
 	}
 }
 

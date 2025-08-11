@@ -15,13 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{address::AddressMapper, evm::runtime::GAS_PRICE, vm::RuntimeCosts};
 use revm::{
-	interpreter::{
-		gas as revm_gas,
-	},
+	interpreter::gas as revm_gas,
 	primitives::{Address, U256},
 };
-use crate::{address::AddressMapper, evm::runtime::GAS_PRICE, vm::RuntimeCosts};
 
 use super::Context;
 use crate::{vm::Ext, Config};
@@ -40,11 +38,13 @@ pub fn gasprice<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn origin<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Origin);
 	match context.interpreter.extend.origin().account_id() {
-		Ok(account_id) => { 
+		Ok(account_id) => {
 			let address: Address = <E::T as Config>::AddressMapper::to_address(account_id).0.into();
 			push!(context.interpreter, address.into_word().into());
 		},
-		Err(_) => { context.interpreter.halt(revm::interpreter::InstructionResult::Revert); }
+		Err(_) => {
+			context.interpreter.halt(revm::interpreter::InstructionResult::Revert);
+		},
 	}
 }
 

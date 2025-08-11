@@ -17,23 +17,38 @@
 
 mod instructions;
 
-use core::cmp::min;
-use revm::interpreter::interpreter_types::MemoryTr;
 use crate::{
-	vm::{ExecResult, Ext}, AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256, LOG_TARGET, U256
+	vm::{ExecResult, Ext},
+	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
+	ExecReturnValue, H256, LOG_TARGET, U256,
 };
 use alloc::vec::Vec;
+use core::cmp::min;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
 	interpreter::{
-		host::DummyHost, interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags}, interpreter_action::InterpreterAction, interpreter_types::{InputsTr, ReturnData}, CallInput, FrameInput, Gas, InstructionResult, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack
+		host::DummyHost,
+		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
+		interpreter_action::InterpreterAction,
+		interpreter_types::{InputsTr, MemoryTr, ReturnData},
+		CallInput, FrameInput, Gas, InstructionResult, Interpreter, InterpreterResult,
+		InterpreterTypes, SharedMemory, Stack,
 	},
 	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
 use sp_core::H160;
 use sp_runtime::Weight;
+
+
+/// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
+///
+/// After Ethereum's Merge (Sept 2022), the `DIFFICULTY` opcode was redefined to return
+/// `prevrandao`, a randomness value from the beacon chain. In Substrate pallet-revive 
+/// a fixed constant is returned instead for compatibility with contracts that still read this opcode.
+/// The value is aligned with the difficulty hardcoded for PVM contracts.
+pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
 impl<T: Config> ContractBlob<T>
 where
@@ -104,14 +119,13 @@ fn run<'a, E: Ext>(
 			InterpreterAction::NewFrame(frame_input) => {
 				match frame_input {
 					FrameInput::Call(call_input) => {
-						let callee: H160 = call_input.target_address.0.0.into();
+						let callee: H160 = call_input.target_address.0 .0.into();
 
 						let input = match &call_input.input {
 							CallInput::Bytes(bytes) => bytes.to_vec(),
 							// Consider the usage fo SharedMemory as REVM is doing
-							CallInput::SharedBuffer(range) => {
-								interpreter.memory.global_slice(range.clone()).to_vec()
-							},	
+							CallInput::SharedBuffer(range) =>
+								interpreter.memory.global_slice(range.clone()).to_vec(),
 						};
 
 						// Interpreter call
@@ -138,27 +152,30 @@ fn run<'a, E: Ext>(
 						match call_result {
 							Ok(()) => {
 								// success or revert
-								interpreter
-								.memory
-								.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
-								let _ = interpreter.stack.push(primitives::U256::from(!return_value.did_revert() as u8));
-							}
+								interpreter.memory.set(
+									mem_start,
+									&interpreter.return_data.buffer()[..target_len],
+								);
+								let _ = interpreter
+									.stack
+									.push(primitives::U256::from(!return_value.did_revert() as u8));
+							},
 							Err(err) => {
 								// Map error into an appropriate InstructionResult
 								let halt_reason = match err {
 									_ => InstructionResult::OutOfGas,
 								};
-						
+
 								interpreter.halt(halt_reason);
 								let _ = interpreter.stack.push(primitives::U256::ZERO);
-							}
+							},
 						}
 					},
 					FrameInput::Create(_create_input) => {
-					unimplemented!()
+						unimplemented!()
 					},
 					FrameInput::Empty => unreachable!(),
-				}	
+				}
 			},
 		}
 	}

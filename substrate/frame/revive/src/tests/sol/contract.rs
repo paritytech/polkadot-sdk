@@ -5,19 +5,19 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, System, Test, Contracts, Timestamp},
+	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
 	Code, Config,
 };
 use alloy_core::{primitives::U256, sol, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Caller};
+use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType};
 use pretty_assertions::assert_eq;
 
 /// Tests that the `CALL` opcode works as expected by having one contract call another.
 #[test]
 fn call_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-        let _ = sp_tracing::try_init_simple();
+		let _ = sp_tracing::try_init_simple();
 
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
@@ -41,8 +41,11 @@ fn call_works() {
 			log::info!("Calling callee from caller");
 			let result = builder::bare_call(caller_addr)
 				.data(
-					Caller::CallerCalls::do_call(Caller::do_callCall { callee: callee_addr.0.into(), value: magic_number })
-						.abi_encode(),
+					Caller::CallerCalls::do_call(Caller::do_callCall {
+						callee: callee_addr.0.into(),
+						value: magic_number,
+					})
+					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 
@@ -51,4 +54,3 @@ fn call_works() {
 		});
 	}
 }
-
