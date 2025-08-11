@@ -207,7 +207,7 @@ pub mod pallet {
 
 		/// Number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
-		type BondingDuration: Get<EraIndex>;
+		type MaxUnbondingDuration: Get<EraIndex>;
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
@@ -360,7 +360,7 @@ pub mod pallet {
 
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
-			pub const BondingDuration: EraIndex = 3;
+			pub const MaxBondingDuration: EraIndex = 3;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -375,7 +375,7 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
-			type BondingDuration = BondingDuration;
+			type MaxUnbondingDuration = MaxBondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
 			type MaxExposurePageSize = ConstU32<64>;
@@ -506,11 +506,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
-	/// Custom bound for [`BondedEras`] which is equal to [`Config::BondingDuration`] + 1.
+	/// Custom bound for [`BondedEras`] which is equal to [`Config::MaxUnbondingDuration`] + 1.
 	pub struct BondedErasBound<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<u32> for BondedErasBound<T> {
 		fn get() -> u32 {
-			T::BondingDuration::get().saturating_add(1)
+			T::MaxUnbondingDuration::get().saturating_add(1)
 		}
 	}
 
@@ -737,7 +737,8 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> =
+		StorageValue<_, WeakBoundedVec<u32, T::MaxUnbondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///
@@ -826,10 +827,10 @@ pub mod pallet {
 	>;
 
 	/// The total amount of stake backed by [UnbondingQueueParams.lowest_ratio] of
-	/// validators for the last [Config::BondingDuration] eras.
+	/// validators for the last [Config::MaxUnbondingDuration] eras.
 	///
 	/// This is used to determine the maximum amount of stake that can be unbonded for a period
-	/// potentially lower than [Config::BondingDuration].
+	/// potentially lower than [Config::MaxUnbondingDuration].
 	#[pallet::storage]
 	pub type ErasLowestRatioTotalStake<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
@@ -1379,10 +1380,10 @@ pub mod pallet {
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
 			assert!(
-				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
+				T::SlashDeferDuration::get() < T::MaxUnbondingDuration::get() || T::MaxUnbondingDuration::get() == 0,
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
-				T::BondingDuration::get(),
+				T::MaxUnbondingDuration::get(),
 			);
 		}
 
@@ -1584,10 +1585,10 @@ pub mod pallet {
 
 		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
-		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
-		/// have been reported but not yet processed—withdrawal is restricted to eras for which
-		/// all offences have been processed.
+		/// Stake is considered fully unbonded once [`Config::MaxUnbondingDuration`] has elapsed
+		/// since the unbonding was initiated. In rare cases—such as when offences for the
+		/// unbonded era have been reported but not yet processed—withdrawal is restricted to eras
+		/// for which all offences have been processed.
 		///
 		/// The unlocked stake will be returned as free balance in the stash account.
 		///

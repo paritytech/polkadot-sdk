@@ -121,7 +121,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
-							prune_up_to: active_era.checked_sub(BondingDuration::get()),
+							prune_up_to: active_era.checked_sub(MaxUnbondingDuration::get()),
 						})
 					)
 				);
@@ -312,7 +312,7 @@ impl multi_block::signed::Config for Runtime {
 }
 
 parameter_types! {
-	pub static BondingDuration: u32 = 3;
+	pub static MaxUnbondingDuration: u32 = 3;
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
@@ -323,7 +323,7 @@ impl pallet_staking_async::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 
 	type AdminOrigin = EnsureRoot<AccountId>;
-	type BondingDuration = BondingDuration;
+	type MaxUnbondingDuration = MaxUnbondingDuration;
 	type SessionsPerEra = SessionsPerEra;
 	type PlanningEraOffset = PlanningEraOffset;
 

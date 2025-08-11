@@ -440,7 +440,7 @@ impl<T: Config> StakingLedger<T> {
 
 		// for a `slash_era = x`, any chunk that is scheduled to be unlocked at era `x + 28`
 		// (assuming 28 is the bonding duration) onwards should be slashed.
-		let slashable_chunks_start = slash_era.saturating_add(T::BondingDuration::get());
+		let slashable_chunks_start = slash_era.saturating_add(T::MaxUnbondingDuration::get());
 
 		// `Some(ratio)` if this is proportional, with `ratio`, `None` otherwise. In both cases, we
 		// slash first the active chunk, and then `slash_chunks_priority`.

@@ -84,7 +84,7 @@ parameter_types! {
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
-	pub static BondingDuration: EraIndex = 3;
+	pub static MaxUnbondingDuration: EraIndex = 3;
 	pub static HistoryDepth: u32 = 80;
 	pub static MaxExposurePageSize: u32 = 64;
 	pub static MaxUnlockingChunks: u32 = 32;
@@ -444,7 +444,7 @@ impl crate::pallet::pallet::Config for Test {
 	type NominationsQuota = WeightedNominationsQuota<16>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
-	type BondingDuration = BondingDuration;
+	type MaxUnbondingDuration = MaxUnbondingDuration;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
@@ -541,7 +541,7 @@ impl ExtBuilder {
 		self
 	}
 	pub(crate) fn bonding_duration(self, bonding_duration: EraIndex) -> Self {
-		BondingDuration::set(bonding_duration);
+		MaxUnbondingDuration::set(bonding_duration);
 		self
 	}
 	pub(crate) fn planning_era_offset(self, offset: SessionIndex) -> Self {

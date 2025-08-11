@@ -536,7 +536,8 @@ impl<T: Config> Rotator<T> {
 		let bonded = BondedEras::<T>::get();
 		ensure!(
 			bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
-				(active.saturating_sub(T::BondingDuration::get())..=active).collect::<Vec<_>>(),
+				(active.saturating_sub(T::MaxUnbondingDuration::get())..=active)
+					.collect::<Vec<_>>(),
 			"BondedEras range incorrect"
 		);
 
@@ -724,7 +725,7 @@ impl<T: Config> Rotator<T> {
 	}
 
 	fn start_era_update_bonded_eras(starting_era: EraIndex, start_session: SessionIndex) {
-		let bonding_duration = T::BondingDuration::get();
+		let bonding_duration = T::MaxUnbondingDuration::get();
 
 		BondedEras::<T>::mutate(|bonded| {
 			if bonded.is_full() {
@@ -836,7 +837,7 @@ impl<T: Config> Rotator<T> {
 	fn cleanup_old_era(starting_era: EraIndex) {
 		EraElectionPlanner::<T>::cleanup();
 
-		let diff = T::BondingDuration::get();
+		let diff = T::MaxUnbondingDuration::get();
 		if starting_era >= diff {
 			let target_era = starting_era - diff;
 			Eras::<T>::remove_total_unbond_for_era(target_era);

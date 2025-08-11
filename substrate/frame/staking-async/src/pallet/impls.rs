@@ -970,15 +970,16 @@ impl<T: Config> Pallet<T> {
 			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
 		};
 		let earliest_considered_era =
-			current_era.saturating_add(1).saturating_sub(T::BondingDuration::get());
+			current_era.saturating_add(1).saturating_sub(T::MaxUnbondingDuration::get());
 		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
-			None => (T::BondingDuration::get(), Zero::zero()),
+			None => (T::MaxUnbondingDuration::get(), Zero::zero()),
 			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
 		};
 		let mut result: BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>> = BTreeMap::new();
 		let mut free = BalanceOf::<T>::zero();
 		for chunk in ledger.unlocking.into_iter() {
-			let max_release_era = chunk.era.defensive_saturating_add(T::BondingDuration::get());
+			let max_release_era =
+				chunk.era.defensive_saturating_add(T::MaxUnbondingDuration::get());
 			let has_offense = last_offence_era <= chunk.era;
 			if current_era >= max_release_era && !has_offense {
 				// We can immediately withdraw these funds.
@@ -1003,8 +1004,8 @@ impl<T: Config> Pallet<T> {
 					let threshold =
 						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
 					if total_unbond >= threshold {
-						final_era =
-							final_era.max(era.defensive_saturating_add(T::BondingDuration::get()));
+						final_era = final_era
+							.max(era.defensive_saturating_add(T::MaxUnbondingDuration::get()));
 						break;
 					}
 				}
@@ -1282,7 +1283,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
 			// this implies that slashes are applied immediately, so we can accept any offence up to
 			// bonding duration old.
-			active_era.index.saturating_sub(T::BondingDuration::get())
+			active_era.index.saturating_sub(T::MaxUnbondingDuration::get())
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the
 			// defferal duration.
@@ -1645,7 +1646,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bonding_duration() -> EraIndex {
-		T::BondingDuration::get()
+		T::MaxUnbondingDuration::get()
 	}
 
 	fn current_era() -> EraIndex {
@@ -2122,7 +2123,7 @@ impl<T: Config> Pallet<T> {
 			active_era.saturating_sub(oldest_unprocessed_offence_era);
 
 		// warn if less than 26 eras old.
-		if oldest_unprocessed_offence_age > 2.min(T::BondingDuration::get()) {
+		if oldest_unprocessed_offence_age > 2.min(T::MaxUnbondingDuration::get()) {
 			log!(
 				warn,
 				"Offence queue has unprocessed offences from older than 2 eras: oldest offence era in queue {:?} (active era: {:?})",
@@ -2133,7 +2134,7 @@ impl<T: Config> Pallet<T> {
 
 		// error if the oldest unprocessed offence era closer to bonding duration.
 		ensure!(
-			oldest_unprocessed_offence_age < T::BondingDuration::get() - 1,
+			oldest_unprocessed_offence_age < T::MaxUnbondingDuration::get() - 1,
 			"offences from era less than 3 eras old from active era not processed yet"
 		);
 
@@ -2147,7 +2148,7 @@ impl<T: Config> Pallet<T> {
 		// (4) Ensure all slashes older than (active era - 1) are applied.
 		// We will look at all eras before the active era as it can take 1 era for slashes
 		// to be applied.
-		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
+		for era in (active_era.saturating_sub(T::MaxUnbondingDuration::get()))..(active_era) {
 			// all unapplied slashes are expected to be applied until the active era. If this is not
 			// the case, then we need to use a permissionless call to apply all of them.
 			// See `Call::apply_slash` for more details.

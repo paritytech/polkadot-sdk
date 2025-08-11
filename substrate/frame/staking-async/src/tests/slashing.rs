@@ -400,7 +400,7 @@ fn deferred_slashes_are_deferred() {
 #[test]
 fn retroactive_deferred_slashes_two_eras_before() {
 	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
-		assert_eq!(BondingDuration::get(), 3);
+		assert_eq!(MaxUnbondingDuration::get(), 3);
 		assert_eq!(Nominators::<T>::get(101).unwrap().targets, vec![11, 21]);
 
 		Session::roll_until_active_era(2);
@@ -454,7 +454,7 @@ fn retroactive_deferred_slashes_one_before() {
 		.slash_defer_duration(2)
 		.nominate(false)
 		.build_and_execute(|| {
-			assert_eq!(BondingDuration::get(), 3);
+			assert_eq!(MaxUnbondingDuration::get(), 3);
 
 			// unbond at slash era.
 			Session::roll_until_active_era(2);
@@ -908,7 +908,7 @@ fn garbage_collection_on_window_pruning() {
 		assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 
 		// + 1 because we have to exit the bonding window.
-		for era in (0..(BondingDuration::get() + 1)).map(|offset| offset + now + 1) {
+		for era in (0..(MaxUnbondingDuration::get() + 1)).map(|offset| offset + now + 1) {
 			assert!(ValidatorSlashInEra::<T>::get(&now, &11).is_some());
 			Session::roll_until_active_era(era);
 		}
@@ -1314,7 +1314,7 @@ fn proportional_slash_stop_slashing_if_remaining_zero() {
 		ledger.total = 40;
 		ledger.unlocking = unlocking;
 
-		assert_eq!(BondingDuration::get(), 3);
+		assert_eq!(MaxUnbondingDuration::get(), 3);
 
 		// should not slash more than the amount requested, by accidentally slashing the first
 		// chunk.
@@ -1328,7 +1328,7 @@ fn proportional_ledger_slash_works() {
 		let c = |era, value| UnlockChunk::<Balance> { era, value, previous_unbonded_stake: 0 };
 		// Given
 		let mut ledger = StakingLedger::<T>::new(123, 10);
-		assert_eq!(BondingDuration::get(), 3);
+		assert_eq!(MaxUnbondingDuration::get(), 3);
 
 		// When we slash a ledger with no unlocking chunks
 		assert_eq!(ledger.slash(5, 1, 0), 5);

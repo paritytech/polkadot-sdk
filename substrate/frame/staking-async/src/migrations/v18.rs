@@ -121,7 +121,7 @@ impl<T: Config + Debug> LazyMigrationV17ToV18<T> {
 			v17::Ledger::<T>::iter()
 		};
 
-		let max_bonding_duration = <T as Config>::BondingDuration::get();
+		let max_bonding_duration = <T as Config>::MaxUnbondingDuration::get();
 		while meter.can_consume(required) {
 			if let Some((acc, old_ledger)) = iter.next() {
 				meter.consume(<T as Config>::WeightInfo::migration_from_v17_to_v18_migrate_staking_ledger_step(old_ledger.unlocking.len() as u32));
@@ -304,7 +304,9 @@ impl<T: Config + Debug> SteppedMigration for LazyMigrationV17ToV18<T> {
 					let old_chunk = &prev_ledger.unlocking[i];
 					ensure!(
 						chunk.era ==
-							old_chunk.era.saturating_sub(<T as Config>::BondingDuration::get()),
+							old_chunk
+								.era
+								.saturating_sub(<T as Config>::MaxUnbondingDuration::get()),
 						"Migration failed: mismatch in chunk's era"
 					);
 					ensure!(
@@ -336,7 +338,7 @@ mod tests {
 	fn migration_of_many_elements_should_work() {
 		ExtBuilder::default().try_state(false).has_stakers(false).build_and_execute(|| {
 			let users = 1000;
-			assert_eq!(<T as Config>::BondingDuration::get(), 3);
+			assert_eq!(<T as Config>::MaxUnbondingDuration::get(), 3);
 
 			StorageVersion::new(17).put::<Pallet<Test>>();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), 17);

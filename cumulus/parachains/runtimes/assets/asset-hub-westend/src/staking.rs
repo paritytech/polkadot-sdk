@@ -256,7 +256,7 @@ parameter_types! {
 	/// Duration of a relay session in our blocks. Needs to be hardcoded per-runtime.
 	pub const RelaySessionDuration: BlockNumber = 1 * HOURS;
 	// 2 eras for unbonding (12 hours).
-	pub const BondingDuration: sp_staking::EraIndex = 2;
+	pub const MaxUnbondingDuration: sp_staking::EraIndex = 2;
 	// 1 era in which slashes can be cancelled (6 hours).
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
@@ -276,7 +276,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = SessionsPerEra;
-	type BondingDuration = BondingDuration;
+	type MaxUnbondingDuration = MaxUnbondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = EraPayout;
