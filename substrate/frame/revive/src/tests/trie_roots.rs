@@ -95,6 +95,7 @@ fn test_receipts_root_verification() {
 		"test_data_localnet_block_7.json",
 		"test_data_ethereum_block_5094851.json",
 		"test_data_ethereum_block_22094877.json",
+		"test_data_ethereum_sepolia_block_8867251.json", // This one includes EIP-4844
 	] {
 		let test_data = load_test_data(test_file);
 

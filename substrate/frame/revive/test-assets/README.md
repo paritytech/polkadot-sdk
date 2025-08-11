@@ -47,14 +47,14 @@ Test data was collected from a local Frontier node with test transactions. This 
    # Collect minimal data (RLP only)
    cargo run -p pallet-revive-eth-rpc --example collect-test-data --block-number 1
    cargo run -p pallet-revive-eth-rpc --example collect-test-data --block-number 2
-   
+
    # Collect full data including transaction and receipt details
    cargo run -p pallet-revive-eth-rpc --example collect-test-data --block-number 3 --with-transactions --with-receipts
    ```
 
-### Ethereum Mainnet
+### Ethereum networks
 
-Test data was also collected from Ethereum mainnet to verify compatibility with real-world data.
+Test data was also collected from Ethereum Mainnet and Sepolia to verify compatibility with real-world data.
 
 #### Collection Commands
 
@@ -67,6 +67,10 @@ cargo run -p pallet-revive-eth-rpc --example collect-test-data \
 cargo run -p pallet-revive-eth-rpc --example collect-test-data \
   --rpc-url https://ethereum-rpc.publicnode.com \
   --block-number 22094877
+
+cargo run -p pallet-revive-eth-rpc --example collect-test-data \
+  --rpc-url https://eth-sepolia.public.blastapi.io \
+  --block-number 8867251
 ```
 
 ## File Structure

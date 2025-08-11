@@ -614,7 +614,7 @@ mod test {
 					"s": "0x6de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 					"yParity": "0x0"
 				}
-				"#
+				"#,
 			)
 		];
 
@@ -656,7 +656,8 @@ mod test {
 			"01f89b0180808301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 			// EIP-1559
 			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
-			// TODO: ethereum crate does not support EIP4844, but it supports EIP7702
+			// EIP4844
+      "03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
 		];
 
 		for hex_tx in test_cases {
@@ -671,18 +672,24 @@ mod test {
 			// Verify round-trip: our encoding should decode back to the same transaction
 			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
 
-			// RLP decode using ethereum crate's EnvelopedDecodable
-			let tx_ethereum: ethereum::TransactionV3 =
-				ethereum::EnvelopedDecodable::decode(&rlp_encoded_tx).unwrap();
+			let is_eip4844 = matches!(tx_revive, TransactionSigned::Transaction4844Signed(..));
 
-			// RLP Encode using ethereum crate's EnvelopedEncodable
-			let rlp_encoded_ethereum = ethereum::EnvelopedEncodable::encode(&tx_ethereum).to_vec();
+			// ethereum crate used below does not support EIP4844
+			if !is_eip4844 {
+				// RLP decode using ethereum crate's EnvelopedDecodable
+				let tx_ethereum: ethereum::TransactionV3 =
+					ethereum::EnvelopedDecodable::decode(&rlp_encoded_tx).unwrap();
 
-			assert_eq!(
-				rlp_encoded_revive,
-				rlp_encoded_ethereum,
-				"encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
-			);
+				// RLP Encode using ethereum crate's EnvelopedEncodable
+				let rlp_encoded_ethereum =
+					ethereum::EnvelopedEncodable::encode(&tx_ethereum).to_vec();
+
+				assert_eq!(
+            rlp_encoded_revive,
+            rlp_encoded_ethereum,
+            "encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
+			  );
+			}
 		}
 	}
 
@@ -744,8 +751,29 @@ mod test {
 				"type": "0x2"
 			}
 			"#,
-			// TODO: ethereum crate does not support EIP4844, but it supports EIP7702
+			// EIP4844
+			r#"
+      {
+        "blobGasPrice": "0x1",
+        "blobGasUsed": "0x20000",
+        "blockHash": "0x1ba63760e6fbfcff361e4bb9f6073e50706a8dcf57c69653f1eaaba543636e24",
+        "blockNumber": "0x874db3",
+        "contractAddress": null,
+        "cumulativeGasUsed": "0x32f2156",
+        "effectiveGasPrice": "0x72eb3a",
+        "from": "0xe7c43e9b22c67a318f3e03f73fcc63072106f20f",
+        "gasUsed": "0x5208",
+        "logs": [],
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "status": "0x1",
+        "to": "0x7f8b1ca29f95274e06367b60fc4a539e4910fd0c",
+        "transactionHash": "0xfd044e8bccdba170a8afd3ec9248cb97fb4ebce49adbe392c47385c23ea82c3b",
+        "transactionIndex": "0xbf",
+        "type": "0x3"
+      }
+      "#,
 		];
+		let eip4844_rlp_encoded = alloy_core::hex::decode("03f9010a0184032f2156b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0").unwrap();
 
 		for receipt in test_data {
 			let receipt: ReceiptInfo = serde_json::from_str(receipt).unwrap();
@@ -753,20 +781,27 @@ mod test {
 			// RLP encode using this implementation
 			let rlp_encoded_revive = receipt.encode_2718();
 
-			// ReceiptInfo does not have decoder implemented.
-			// So let's try to decode its RLP-encoded format using ethereum crate'
-			// EnvelopedDecodable
-			let receipt_ethereum: ethereum::ReceiptV3 =
-				ethereum::EnvelopedDecodable::decode(&rlp_encoded_revive).unwrap();
+			let is_eip4844 = receipt.r#type.is_some_and(|t| t.0 == TYPE_EIP4844);
 
-			// RLP encode using ethereum crate's EnvelopedEncodable
-			let rlp_encoded_ethereum =
-				ethereum::EnvelopedEncodable::encode(&receipt_ethereum).to_vec();
+			// ethereum crate used below does not support EIP4844
+			if !is_eip4844 {
+				// ReceiptInfo does not have decoder implemented.
+				// So let's try to decode its RLP-encoded format using ethereum crate'
+				// EnvelopedDecodable
+				let receipt_ethereum: ethereum::ReceiptV3 =
+					ethereum::EnvelopedDecodable::decode(&rlp_encoded_revive).unwrap();
 
-			assert_eq!(
-				rlp_encoded_revive, rlp_encoded_ethereum,
-				"encode_2718() output differs from ethereum crate EnvelopedEncodable for receipt"
-			);
+				// RLP encode using ethereum crate's EnvelopedEncodable
+				let rlp_encoded_ethereum =
+					ethereum::EnvelopedEncodable::encode(&receipt_ethereum).to_vec();
+
+				assert_eq!(
+          rlp_encoded_revive, rlp_encoded_ethereum,
+          "encode_2718() output differs from ethereum crate EnvelopedEncodable for receipt"
+        );
+			} else {
+				assert_eq!(rlp_encoded_revive, eip4844_rlp_encoded);
+			}
 		}
 	}
 }
