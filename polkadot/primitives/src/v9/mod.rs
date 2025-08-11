@@ -1033,25 +1033,6 @@ pub enum OccupiedCoreAssumption {
 	Free,
 }
 
-/// An event concerning a candidate.
-#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-pub enum LegacyCandidateEvent<H = Hash> {
-	/// This candidate receipt was backed in the most recent block.
-	/// This includes the core index the candidate is now occupying.
-	#[codec(index = 0)]
-	CandidateBacked(CandidateReceipt<H>, HeadData, CoreIndex, GroupIndex),
-	/// This candidate receipt was included and became a parablock at the most recent block.
-	/// This includes the core index the candidate was occupying as well as the group responsible
-	/// for backing the candidate.
-	#[codec(index = 1)]
-	CandidateIncluded(CandidateReceipt<H>, HeadData, CoreIndex, GroupIndex),
-	/// This candidate receipt was not made available in time and timed out.
-	/// This includes the core index the candidate was occupying.
-	#[codec(index = 2)]
-	CandidateTimedOut(CandidateReceipt<H>, HeadData, CoreIndex),
-}
-
 /// A vote of approval on a candidate.
 #[derive(Clone, RuntimeDebug)]
 pub struct ApprovalVote(pub CandidateHash);
@@ -2388,33 +2369,6 @@ pub enum CandidateEvent<H = Hash> {
 	/// This includes the core index the candidate was occupying.
 	#[codec(index = 2)]
 	CandidateTimedOut(CandidateReceiptV2<H>, HeadData, CoreIndex),
-}
-
-impl<H: Encode + Copy> From<CandidateEvent<H>> for super::v9::LegacyCandidateEvent<H> {
-	fn from(value: CandidateEvent<H>) -> Self {
-		match value {
-			CandidateEvent::CandidateBacked(receipt, head_data, core_index, group_index) =>
-				super::v9::LegacyCandidateEvent::CandidateBacked(
-					receipt.into(),
-					head_data,
-					core_index,
-					group_index,
-				),
-			CandidateEvent::CandidateIncluded(receipt, head_data, core_index, group_index) =>
-				super::v9::LegacyCandidateEvent::CandidateIncluded(
-					receipt.into(),
-					head_data,
-					core_index,
-					group_index,
-				),
-			CandidateEvent::CandidateTimedOut(receipt, head_data, core_index) =>
-				super::v9::LegacyCandidateEvent::CandidateTimedOut(
-					receipt.into(),
-					head_data,
-					core_index,
-				),
-		}
-	}
 }
 
 impl<H> CandidateReceiptV2<H> {
