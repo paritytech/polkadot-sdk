@@ -18,8 +18,16 @@ on:
           - glutton-westend
           - people-westend
       runtime_dir:
-        description: The runtime_dir to be used (this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
+        description: The runtime dir to be used (⚠️ this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
         default: polkadot/runtime/westend
+        type: choice
+        options:
+          - polkadot/runtime/westend
+          - cumulus/parachains/runtimes/assets/asset-hub-westend
+          - cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
+          - cumulus/parachains/runtimes/collectives/collectives-westend
+          - cumulus/parachains/runtimes/coretime/coretime-westend
+          - cumulus/parachains/runtimes/glutton/glutton-westend
       binary:
         description: Binary to be built for the release candidate
         default: all
