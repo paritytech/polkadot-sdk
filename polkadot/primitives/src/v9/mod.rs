@@ -1052,22 +1052,6 @@ pub enum LegacyCandidateEvent<H = Hash> {
 	CandidateTimedOut(CandidateReceipt<H>, HeadData, CoreIndex),
 }
 
-/// Scraped runtime backing votes and resolved disputes.
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
-pub struct LegacyScrapedOnChainVotes<H: Encode + Decode = Hash> {
-	/// The session in which the block was included.
-	pub session: SessionIndex,
-	/// Set of backing validators for each candidate, represented by its candidate
-	/// receipt.
-	pub backing_validators_per_candidate:
-		Vec<(CandidateReceipt<H>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
-	/// On-chain-recorded set of disputes.
-	/// Note that the above `backing_validators` are
-	/// unrelated to the backers of the disputes candidates.
-	pub disputes: MultiDisputeStatementSet,
-}
-
 /// A vote of approval on a candidate.
 #[derive(Clone, RuntimeDebug)]
 pub struct ApprovalVote(pub CandidateHash);
@@ -2919,22 +2903,6 @@ pub struct ScrapedOnChainVotes<H: Encode + Decode = Hash> {
 	/// Note that the above `backing_validators` are
 	/// unrelated to the backers of the disputes candidates.
 	pub disputes: MultiDisputeStatementSet,
-}
-
-impl<H: Encode + Decode + Copy> From<ScrapedOnChainVotes<H>>
-	for super::v9::LegacyScrapedOnChainVotes<H>
-{
-	fn from(value: ScrapedOnChainVotes<H>) -> Self {
-		Self {
-			session: value.session,
-			backing_validators_per_candidate: value
-				.backing_validators_per_candidate
-				.into_iter()
-				.map(|(receipt, validators)| (receipt.into(), validators))
-				.collect::<Vec<_>>(),
-			disputes: value.disputes,
-		}
-	}
 }
 
 /// Information about a core which is currently occupied.
