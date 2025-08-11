@@ -208,6 +208,23 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 	<Block as BlockT>::Hash: Unpin,
 {
+	// Injects a view for the given block to self.
+	//
+	// Helper for the pool new methods.
+	fn inject_initial_view(self, initial_view_hash: Block::Hash) -> Self {
+		if let Some(block_number) =
+			self.api.block_id_to_number(&BlockId::Hash(initial_view_hash)).ok().flatten()
+		{
+			let at_best = HashAndNumber { number: block_number, hash: initial_view_hash };
+			let tree_route =
+				&TreeRoute::new(vec![at_best.clone()], 0).expect("tree route is correct; qed");
+			let view = self.build_and_plug_view(None, &at_best, &tree_route);
+			self.view_store.insert_new_view_sync(view.into(), &tree_route);
+			trace!(target: LOG_TARGET, ?block_number, ?initial_view_hash, "fatp::injected initial view");
+		};
+		self
+	}
+
 	/// Create new fork aware transaction pool with provided shared instance of `ChainApi` intended
 	/// for tests.
 	pub fn new_test(
@@ -304,7 +321,8 @@ where
 				submit_and_watch_stats: DurationSlidingStats::new(Duration::from_secs(
 					STAT_SLIDING_WINDOW,
 				)),
-			},
+			}
+			.inject_initial_view(best_block_hash),
 			[combined_tasks, mempool_task],
 		)
 	}
@@ -461,6 +479,7 @@ where
 				STAT_SLIDING_WINDOW,
 			)),
 		}
+		.inject_initial_view(best_block_hash)
 	}
 
 	/// Get access to the underlying api
@@ -1207,7 +1226,7 @@ where
 		}
 
 		let best_view = self.view_store.find_best_view(tree_route);
-		let new_view = self.build_new_view(best_view, hash_and_number, tree_route).await;
+		let new_view = self.build_and_update_view(best_view, hash_and_number, tree_route).await;
 
 		if let Some(view) = new_view {
 			{
@@ -1298,26 +1317,17 @@ where
 	/// If `origin_view` is provided, the new view will be cloned from it. Otherwise an empty view
 	/// will be created.
 	///
-	/// The new view will be updated with transactions from the tree_route and the mempool, all
-	/// required events will be triggered, it will be inserted to the view store.
-	///
 	/// This method will also update multi-view listeners with newly created view.
-	async fn build_new_view(
+	///
+	/// The new view will not be inserted into the view store.
+	fn build_and_plug_view(
 		&self,
 		origin_view: Option<Arc<View<ChainApi>>>,
 		at: &HashAndNumber<Block>,
 		tree_route: &TreeRoute<Block>,
-	) -> Option<Arc<View<ChainApi>>> {
+	) -> View<ChainApi> {
 		let enter = Instant::now();
-		debug!(
-			target: LOG_TARGET,
-			?at,
-			origin_view_at = ?origin_view.as_ref().map(|v| v.at.clone()),
-			?tree_route,
-			"build_new_view"
-		);
-
-		let (mut view, view_dropped_stream, view_aggregated_stream) =
+		let (view, view_dropped_stream, view_aggregated_stream) =
 			if let Some(origin_view) = origin_view {
 				let (mut view, view_dropped_stream, view_aggragated_stream) =
 					View::new_from_other(&origin_view, at);
@@ -1346,7 +1356,6 @@ where
 			"build_new_view::clone_view"
 		);
 
-		let start = Instant::now();
 		// 1. Capture all import notification from the very beginning, so first register all
 		//the listeners.
 		self.import_notification_sink.add_view(
@@ -1361,6 +1370,34 @@ where
 		self.view_store
 			.listener
 			.add_view_aggregated_stream(view.at.hash, view_aggregated_stream.boxed());
+
+		view
+	}
+
+	/// Builds and updates a new view.
+	///
+	/// This functio uses [`Self::build_new_view`] to create or clone new view.
+	///
+	/// The new view will be updated with transactions from the tree_route and the mempool, all
+	/// required events will be triggered, it will be inserted to the view store (respecting all
+	/// pre-insertion actions).
+	async fn build_and_update_view(
+		&self,
+		origin_view: Option<Arc<View<ChainApi>>>,
+		at: &HashAndNumber<Block>,
+		tree_route: &TreeRoute<Block>,
+	) -> Option<Arc<View<ChainApi>>> {
+		let start = Instant::now();
+		debug!(
+			target: LOG_TARGET,
+			?at,
+			origin_view_at = ?origin_view.as_ref().map(|v| v.at.clone()),
+			?tree_route,
+			"build_new_view"
+		);
+
+		let mut view = self.build_and_plug_view(origin_view, at, tree_route);
+
 		// sync the transactions statuses and referencing views in all the listeners with newly
 		// cloned view.
 		view.pool.validated_pool().retrigger_notifications();
@@ -1396,7 +1433,7 @@ where
 
 		debug!(
 			target: LOG_TARGET,
-			duration = ?enter.elapsed(),
+			duration = ?start.elapsed(),
 			?at,
 			"build_new_view"
 		);
