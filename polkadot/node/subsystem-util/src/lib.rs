@@ -560,6 +560,7 @@ pub async fn request_backable_candidates(
 	bitfields: &[SignedAvailabilityBitfield],
 	relay_parent: &ActivatedLeaf,
 	sender: &mut impl overseer::SubsystemSender<ProspectiveParachainsMessage>,
+	is_early_request: bool,
 ) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
 	let block_number_under_construction = relay_parent.number + 1;
 
@@ -577,11 +578,15 @@ pub async fn request_backable_candidates(
 				*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
 			},
 			CoreState::Occupied(occupied_core) => {
-				let is_available = bitfields_indicate_availability(
+				let is_available = if is_early_request {
+					true
+				} else {
+					bitfields_indicate_availability(
 					core_idx.0 as usize,
 					bitfields,
 					&occupied_core.availability,
-				);
+				)
+				};
 
 				if is_available {
 					ancestors
@@ -643,7 +648,8 @@ pub async fn request_backable_candidates(
 	Ok(selected_candidates)
 }
 
-type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
+/// The availability bitfield for a given core.
+pub type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
 
 /// The availability bitfield for a given core is the transpose
 /// of a set of signed availability bitfields. It goes like this:
@@ -688,7 +694,7 @@ fn bitfields_indicate_availability(
 
 /// Requests backable candidates from Prospective Parachains based on
 /// the given ancestors in the fragment chain. The ancestors may not be ordered.
-pub async fn get_backable_candidates(
+async fn get_backable_candidates(
 	relay_parent: Hash,
 	para_id: ParaId,
 	ancestors: Ancestors,
