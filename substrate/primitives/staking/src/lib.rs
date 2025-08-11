@@ -197,7 +197,7 @@ pub trait StakingInterface {
 	/// possible.
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
 
-	/// Maximum number of eras that staked funds must remain bonded for.
+	/// Maximum duration, in eras, that staked funds must remain bonded for.
 	fn bonding_duration() -> EraIndex;
 
 	/// The current era index.
