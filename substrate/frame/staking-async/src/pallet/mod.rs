@@ -2637,5 +2637,39 @@ pub mod pallet {
 			result.extend(rest);
 			result
 		}
+
+		/// Returns the estimated duration, in eras, that would be required to unbond the given
+		/// amount of funds.
+		///
+		/// The duration in eras may vary based on the amount being unbonded and current queue
+		/// parameters. For instance, larger amounts may need to wait longer due to the unbonding
+		/// queue mechanism.
+		///
+		/// ## Parameters
+		///
+		/// - `value`: The amount of funds to be unbonded.
+		///
+		/// Returns the estimated number of eras until the funds are fully unbonded and available
+		/// for withdrawal.
+		pub fn estimate_unbonding_duration(value: BalanceOf<T>) -> EraIndex {
+			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
+			let earliest_considered_era = Self::calculate_earliest_withdrawal_era(active_era);
+			let previous_unbonded_stake = Eras::<T>::get_total_unbond_for_era(active_era);
+			let chunks = vec![UnlockChunk { value, era: active_era, previous_unbonded_stake }];
+			let (_, curated_chunks) = Self::curate_unlocking_chunks_inner(
+				active_era,
+				earliest_considered_era,
+				chunks.into_iter(),
+			);
+			if let Some((era, _)) = curated_chunks.into_iter().next() {
+				era.defensive_saturating_sub(active_era)
+			} else {
+				if let Some(config) = UnbondingQueueParams::<T>::get() {
+					config.unbond_period_lower_bound
+				} else {
+					T::MaxUnbondingDuration::get()
+				}
+			}
+		}
 	}
 }

@@ -197,6 +197,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 		assert_eq!(Staking::unbonding_duration(11), vec![]);
 
 		// First unbond
+		assert_eq!(Staking::estimate_unbonding_duration(10), 3);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -210,6 +211,7 @@ fn correct_unbond_era_is_being_calculated_without_config_set() {
 
 		// Second unbond
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
+		assert_eq!(Staking::estimate_unbonding_duration(10), 3);
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
 				.unwrap()
@@ -241,6 +243,7 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 		assert_eq!(Staking::unbonding_duration(11), vec![]);
 		assert_eq!(Eras::<T>::get_total_unbond_for_era(2), 0);
 
+		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -254,6 +257,7 @@ fn rebonding_after_one_era_and_unbonding_should_place_the_new_unbond_era_in_the_
 
 		// Second unbond
 		Session::roll_until_active_era(11);
+		assert_eq!(Staking::estimate_unbonding_duration(500), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 500));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -312,6 +316,7 @@ fn test_withdrawing_with_favorable_global_stake_threshold_should_work() {
 				.into_inner(),
 			vec![]
 		);
+		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -380,6 +385,7 @@ fn test_withdrawing_over_global_stake_threshold_should_not_work() {
 				.into_inner(),
 			vec![]
 		);
+		assert_eq!(Staking::estimate_unbonding_duration(10), 3);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -449,6 +455,7 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 		assert_eq!(Staking::unbonding_duration(11), vec![]);
 		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
 
+		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -461,6 +468,7 @@ fn old_unbonding_chunks_should_be_withdrawable_in_current_era() {
 		assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
 
 		Session::roll_until_active_era(11);
+		assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 		assert_eq!(
 			StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -514,6 +522,7 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 			assert_eq!(Staking::unbonding_duration(11), vec![]);
 			assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 0);
 
+			assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 10));
 			assert_eq!(
 				StakingLedger::<Test>::get(StakingAccount::Stash(11))
@@ -526,7 +535,9 @@ fn increasing_unbond_amount_should_delay_expected_withdrawal() {
 			assert_eq!(Eras::<T>::get_total_unbond_for_era(10), 10);
 
 			// Unbond a huge amount of stake.
+			assert_eq!(Staking::estimate_unbonding_duration(10), 2);
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 8000 - 10));
+			assert_eq!(Staking::estimate_unbonding_duration(10), 3);
 			assert_eq!(
 				StakingLedger::<Test>::get(StakingAccount::Stash(11))
 					.unwrap()

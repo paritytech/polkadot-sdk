@@ -36,7 +36,12 @@ use crate::{
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
 	UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
-use alloc::{boxed::Box, collections::btree_map::BTreeMap, vec, vec::Vec};
+use alloc::{
+	boxed::Box,
+	collections::btree_map::BTreeMap,
+	vec,
+	vec::{IntoIter, Vec},
+};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, ElectionProvider,
 	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
@@ -952,23 +957,24 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Curates the unlocking chunks for a stash account by:
-	/// - Calculating immediately withdrawable balance.
-	/// - Determining new unlock eras based on queue parameters.
-	/// - Organizing remaining chunks by era.
+	/// Internal implementation of unlocking chunks curation that:
+	/// - Processes provided unlock chunks to determine which can be immediately withdrawn.
+	/// - Recalculates unlock eras based on current unbonding queue parameters.
+	/// - Groups remaining chunks by their final unlock era.
 	///
-	/// Returns a tuple of:
-	/// - Amount that can be immediately withdrawn.
-	/// - Map of era to remaining unlock chunks expected to be released in that era.
-	pub(crate) fn curate_unlocking_chunks(
-		stash: T::AccountId,
+	/// Parameters:
+	/// - `current_era`: The current era index.
+	/// - `last_offence_era`: The era index of the last offence.
+	/// - `chunks`: Iterator over unlocking chunks to be curated.
+	///
+	/// Returns a tuple containing:
+	/// - First element: Tuple of (current era, immediately withdrawable amount)
+	/// - Second element: Map of era -> unlocking chunks that will be available in that era
+	pub(crate) fn curate_unlocking_chunks_inner(
+		current_era: EraIndex,
 		last_offence_era: EraIndex,
+		chunks: IntoIter<UnlockChunk<BalanceOf<T>>>,
 	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
-		let current_era = Rotator::<T>::planned_era();
-		let ledger = match Self::ledger(Stash(stash)) {
-			Ok(l) => l,
-			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
-		};
 		let earliest_considered_era =
 			current_era.saturating_add(1).saturating_sub(T::MaxUnbondingDuration::get());
 		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
@@ -977,7 +983,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let mut result: BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>> = BTreeMap::new();
 		let mut free = BalanceOf::<T>::zero();
-		for chunk in ledger.unlocking.into_iter() {
+		for chunk in chunks {
 			let max_release_era =
 				chunk.era.defensive_saturating_add(T::MaxUnbondingDuration::get());
 			let has_offence = last_offence_era <= chunk.era;
@@ -1021,6 +1027,27 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		((current_era, free), result)
+	}
+
+	/// Curates the unlocking chunks for a stash account by:
+	/// - Calculating immediately withdrawable balance.
+	/// - Determining new unlock eras based on queue parameters.
+	/// - Organizing remaining chunks by era.
+	///
+	/// Returns a tuple of:
+	/// - Amount that can be immediately withdrawn.
+	/// - Map of era to remaining unlock chunks expected to be released in that era.
+	pub(crate) fn curate_unlocking_chunks(
+		stash: T::AccountId,
+		last_offence_era: EraIndex,
+	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
+		let current_era = Rotator::<T>::planned_era();
+		let ledger = match Self::ledger(Stash(stash)) {
+			Ok(l) => l,
+			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
+		};
+		let chunks = ledger.unlocking.into_iter();
+		Self::curate_unlocking_chunks_inner(current_era, last_offence_era, chunks)
 	}
 }
 

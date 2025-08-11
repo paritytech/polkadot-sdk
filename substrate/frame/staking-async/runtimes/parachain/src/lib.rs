@@ -1796,6 +1796,10 @@ impl_runtime_apis! {
 		fn unbonding_duration(account: AccountId) -> Vec<(sp_staking::EraIndex, Balance)> {
 			Staking::unbonding_duration(account)
 		}
+
+		fn estimate_unbonding_duration(amount: Balance) -> sp_staking::EraIndex {
+			Staking::estimate_unbonding_duration(amount)
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
