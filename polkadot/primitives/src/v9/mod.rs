@@ -3252,6 +3252,8 @@ impl TryFrom<DisputeProof> for super::v9::slashing::LegacyDisputeProof {
 #[cfg(test)]
 /// Test helpers
 pub mod tests {
+	use crate::v9::candidate_receipt_tests::dummy_committed_candidate_receipt_v2;
+
 	use super::*;
 	use bitvec::bitvec;
 	use sp_core::sr25519;
@@ -3360,8 +3362,8 @@ pub mod tests {
 	#[test]
 	fn test_backed_candidate_injected_core_index() {
 		let initial_validator_indices = bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1];
-		let mut candidate = LegacyBackedCandidate::new(
-			dummy_committed_candidate_receipt(),
+		let mut candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt_v2(),
 			vec![],
 			initial_validator_indices.clone(),
 			CoreIndex(10),
@@ -3386,8 +3388,8 @@ pub mod tests {
 		assert!(core_index.is_some());
 
 		// Core index supplied.
-		let mut candidate = LegacyBackedCandidate::new(
-			dummy_committed_candidate_receipt(),
+		let mut candidate = BackedCandidate::new(
+			dummy_committed_candidate_receipt_v2(),
 			vec![],
 			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
 			CoreIndex(10),
