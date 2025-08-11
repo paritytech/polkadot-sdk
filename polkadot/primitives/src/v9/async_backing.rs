@@ -148,21 +148,6 @@ pub struct Constraints<N = BlockNumber> {
 
 /// A candidate pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
-pub struct LegacyCandidatePendingAvailability<H = Hash, N = BlockNumber> {
-	/// The hash of the candidate.
-	pub candidate_hash: CandidateHash,
-	/// The candidate's descriptor.
-	pub descriptor: CandidateDescriptor<H>,
-	/// The commitments of the candidate.
-	pub commitments: CandidateCommitments,
-	/// The candidate's relay parent's number.
-	pub relay_parent_number: N,
-	/// The maximum Proof-of-Validity size allowed, in bytes.
-	pub max_pov_size: u32,
-}
-
-/// A candidate pending availability.
-#[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
@@ -174,20 +159,6 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	pub relay_parent_number: N,
 	/// The maximum Proof-of-Validity size allowed, in bytes.
 	pub max_pov_size: u32,
-}
-
-impl<H: Copy> From<CandidatePendingAvailability<H>>
-	for crate::v9::async_backing::LegacyCandidatePendingAvailability<H>
-{
-	fn from(value: CandidatePendingAvailability<H>) -> Self {
-		Self {
-			candidate_hash: value.candidate_hash,
-			descriptor: value.descriptor.into(),
-			commitments: value.commitments,
-			relay_parent_number: value.relay_parent_number,
-			max_pov_size: value.max_pov_size,
-		}
-	}
 }
 
 /// The per-parachain state of the backing system, including
