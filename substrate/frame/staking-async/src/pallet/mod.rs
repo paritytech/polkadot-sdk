@@ -23,7 +23,7 @@ use crate::{
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
-use alloc::{format, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 use codec::Codec;
 use core::iter::Sum;
 use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
