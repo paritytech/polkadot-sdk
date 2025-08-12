@@ -19,38 +19,39 @@ use super::{
 	i256::{i256_div, i256_mod},
 	Context,
 };
-use crate::{vm::Ext, RuntimeCosts};
+use crate::vm::Ext;
 use revm::{
 	interpreter::{
-		interpreter_types::StackTr,
+		gas as revm_gas,
+		interpreter_types::{RuntimeFlag, StackTr},
 	},
 	primitives::U256,
 };
 
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(3));
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_add(*op2);
 }
 
 /// Implements the MUL instruction - multiplies two values from stack.
 pub fn mul<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_mul(*op2);
 }
 
 /// Implements the SUB instruction - subtracts two values from stack.
 pub fn sub<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(3));
+	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = op1.wrapping_sub(*op2);
 }
 
 /// Implements the DIV instruction - divides two values from stack.
 pub fn div<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	if !op2.is_zero() {
 		*op2 = op1.wrapping_div(*op2);
@@ -61,7 +62,7 @@ pub fn div<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Performs signed division of two values from stack.
 pub fn sdiv<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = i256_div(op1, *op2);
 }
@@ -70,7 +71,7 @@ pub fn sdiv<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops two values from stack and pushes the remainder of their division.
 pub fn rem<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	if !op2.is_zero() {
 		*op2 = op1.wrapping_rem(*op2);
@@ -81,7 +82,7 @@ pub fn rem<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Performs signed modulo of two values from stack.
 pub fn smod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([op1], op2, context.interpreter);
 	*op2 = i256_mod(op1, *op2)
 }
@@ -90,7 +91,7 @@ pub fn smod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops three values from stack and pushes (a + b) % n.
 pub fn addmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(8));
+	gas_legacy!(context.interpreter, revm_gas::MID);
 	popn_top!([op1, op2], op3, context.interpreter);
 	*op3 = op1.add_mod(op2, *op3)
 }
@@ -99,26 +100,16 @@ pub fn addmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pops three values from stack and pushes (a * b) % n.
 pub fn mulmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(8));
+	gas_legacy!(context.interpreter, revm_gas::MID);
 	popn_top!([op1, op2], op3, context.interpreter);
 	*op3 = op1.mul_mod(op2, *op3)
 }
 
 /// Implements the EXP instruction - exponentiates two values from stack.
 pub fn exp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	let spec_id = context.interpreter.runtime_flag.spec_id();
 	popn_top!([op1], op2, context.interpreter);
-	
-	// Calculate gas cost for EXP: 10 (base) + 50 * byte_length_of_exponent
-	// For zero exponent, byte length is 1. For non-zero, calculate based on significant bits.
-	let exp_byte_len = if op2.is_zero() {
-		1u64
-	} else {
-		let significant_bits = 256 - op2.leading_zeros() as u64;
-		(significant_bits + 7) / 8  // Round up to nearest byte
-	};
-	let gas_cost = 10u64.saturating_add(50u64.saturating_mul(exp_byte_len));
-	gas!(context.interpreter, RuntimeCosts::EVMGas(gas_cost));
-	
+	gas_or_fail!(context.interpreter, revm_gas::exp_cost(spec_id, *op2));
 	*op2 = op1.pow(*op2);
 }
 
@@ -152,7 +143,7 @@ pub fn exp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Similarly, if `b == 0` then the yellow paper says the output should start with all zeros,
 /// then end with bits from `b`; this is equal to `y & mask` where `&` is bitwise `AND`.
 pub fn signextend<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::EVMGas(5));
+	gas_legacy!(context.interpreter, revm_gas::LOW);
 	popn_top!([ext], x, context.interpreter);
 	// For 31 we also don't need to do anything.
 	if ext < U256::from(31) {

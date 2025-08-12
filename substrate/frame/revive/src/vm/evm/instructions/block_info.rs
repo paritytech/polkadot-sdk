@@ -18,8 +18,8 @@
 use super::Context;
 use crate::{vm::{evm::{BASE_FEE, DIFFICULTY}, Ext}, RuntimeCosts};
 use revm::{
-	interpreter::gas as revm_gas,
-	primitives::{Address, U256},
+	interpreter::{gas as revm_gas, host::Host, interpreter_types::RuntimeFlag},
+	primitives::{Address, hardfork::SpecId::*, U256},
 };
 use sp_core::H160;
 
@@ -33,7 +33,7 @@ pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current block's beneficiary address onto the stack.
 pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BlockAuthor);
+	gas_legacy!(context.interpreter, revm_gas::BASE);
 	let coinbase: Address =
 		context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
 	push!(context.interpreter, coinbase.into_word().into());

@@ -182,7 +182,7 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 	let build_res = build_command.output().expect("failed to execute process");
 
 	if build_res.status.success() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
@@ -271,6 +271,21 @@ fn compile_with_standard_json(
 	// Parse JSON output
 	let compiler_json: serde_json::Value = serde_json::from_slice(&compiler_result.stdout)
 		.with_context(|| format!("Failed to parse {} JSON output", compiler))?;
+
+	// Abort on errors
+	if let Some(errors) = compiler_json.get("errors") {
+		if errors
+			.as_array()
+			.unwrap()
+			.iter()
+			.any(|object| object.get("severity").unwrap().as_str().unwrap() == "error")
+		{
+			bail!(
+				"failed to compile the Solidity fixtures: {}",
+				serde_json::to_string_pretty(errors)?
+			);
+		}
+	}
 
 	Ok(compiler_json)
 }
@@ -476,7 +491,7 @@ pub fn main() -> Result<()> {
 
 	let entries = collect_entries(&contracts_dir);
 	if entries.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	// Compile Rust contracts
