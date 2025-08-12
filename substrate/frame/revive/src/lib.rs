@@ -71,7 +71,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
-	weights::WeightMeter,
+	weights::{WeightMeter, WeightToFee},
 	BoundedVec, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -180,6 +180,10 @@ pub mod pallet {
 		/// Describes the weights of the dispatchables of this module and is also used to
 		/// construct a default cost schedule.
 		type WeightInfo: WeightInfo;
+
+		/// Convert a length value into a deductible fee based on the currency type.
+		#[pallet::no_default]
+		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
 		///
