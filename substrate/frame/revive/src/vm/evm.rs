@@ -18,9 +18,10 @@
 mod instructions;
 
 use crate::{
+	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{ExecResult, Ext},
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, H256, LOG_TARGET, U256,
+	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
 };
 use alloc::vec::Vec;
 use core::cmp::min;
@@ -41,11 +42,10 @@ use revm::{
 use sp_core::H160;
 use sp_runtime::Weight;
 
-
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
 ///
 /// After Ethereum's Merge (Sept 2022), the `DIFFICULTY` opcode was redefined to return
-/// `prevrandao`, a randomness value from the beacon chain. In Substrate pallet-revive 
+/// `prevrandao`, a randomness value from the beacon chain. In Substrate pallet-revive
 /// a fixed constant is returned instead for compatibility with contracts that still read this opcode.
 /// The value is aligned with the difficulty hardcoded for PVM contracts.
 pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
@@ -119,18 +119,50 @@ fn run<'a, E: Ext>(
 		match action {
 			InterpreterAction::Return(result) => {
 				log::info!("Return {:?}", result);
-				return result
+				return result;
 			},
 			InterpreterAction::NewFrame(frame_input) => {
 				match frame_input {
 					FrameInput::Call(call_input) => {
 						let callee: H160 = call_input.target_address.0 .0.into();
+						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+						let meter = interpreter.extend.gas_meter_mut();
+
+						match &precompile {
+							Some(precompile) if precompile.has_contract_info() => {
+								if meter.charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
+									interpreter
+										.halt(revm::interpreter::InstructionResult::OutOfGas);
+									continue;
+								}
+							},
+							Some(_) => {
+								if meter.charge(RuntimeCosts::PrecompileBase).is_err() {
+									interpreter
+										.halt(revm::interpreter::InstructionResult::OutOfGas);
+									continue;
+								}
+							},
+							None => {
+								let costs = if call_input.scheme.is_delegate_call() {
+									RuntimeCosts::DelegateCallBase
+								} else {
+									RuntimeCosts::CallBase
+								};
+								if meter.charge(costs).is_err() {
+									interpreter
+										.halt(revm::interpreter::InstructionResult::OutOfGas);
+									continue;
+								}
+							},
+						};
 
 						let input = match &call_input.input {
 							CallInput::Bytes(bytes) => bytes.to_vec(),
 							// Consider the usage fo SharedMemory as REVM is doing
-							CallInput::SharedBuffer(range) =>
-								interpreter.memory.global_slice(range.clone()).to_vec(),
+							CallInput::SharedBuffer(range) => {
+								interpreter.memory.global_slice(range.clone()).to_vec()
+							},
 						};
 
 						// Interpreter call
