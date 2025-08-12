@@ -1,6 +1,6 @@
 title: '[Staking] Configurable window for offence reporting'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     ## What
     Introduces a new configuration parameter `OffenceReportableWindow`:
