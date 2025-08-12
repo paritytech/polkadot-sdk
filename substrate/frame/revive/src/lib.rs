@@ -46,8 +46,8 @@ pub mod weights;
 use crate::{
 	evm::{
 		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
-		HashesOrTransactionInfos, Log, PartialSignedTransactionInfo, PrestateTracer, Trace, Tracer,
-		TracerType, TransactionSigned, TYPE_EIP1559,
+		HashesOrTransactionInfos, Log, PrestateTracer, Trace, Tracer, TracerType,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -574,15 +574,15 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// The last block transaction details.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type LastBlockDetails<T> = StorageValue<_, (BlockHeader, Vec<H256>), ValueQuery>;
+	// /// The last block transaction details.
+	// #[pallet::storage]
+	// #[pallet::unbounded]
+	// pub(crate) type LastBlockDetails<T> = StorageValue<_, (BlockHeader, Vec<H256>), ValueQuery>;
 
 	/// The previous ETH block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type PreviousBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+	pub(crate) type LastBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
 
 	// Mapping for block number and hashes.
 	#[pallet::storage]
@@ -628,44 +628,44 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// Previous state root is needed to calculate the ETH block hash.
-			// TODO: Other on_initialize hooks might alter the state.
-			let version = T::Version::get().state_version();
-			let state_root = H256::decode(&mut &sp_io::storage::root(version)[..])
-				.expect("Node is configured to use the same hash; qed");
+			// // Previous state root is needed to calculate the ETH block hash.
+			// // TODO: Other on_initialize hooks might alter the state.
+			// let version = T::Version::get().state_version();
+			// let state_root = H256::decode(&mut &sp_io::storage::root(version)[..])
+			// 	.expect("Node is configured to use the same hash; qed");
 
-			let (mut header, tx_hashes) = LastBlockDetails::<T>::get();
-			LastBlockDetails::<T>::kill();
+			// let (mut header, tx_hashes) = LastBlockDetails::<T>::get();
+			// LastBlockDetails::<T>::kill();
 
-			header.state_root = state_root;
-			let block_hash = header.hash();
-			let block_number = header.number;
+			// header.state_root = state_root;
+			// let block_hash = header.hash();
+			// let block_number = header.number;
 
-			let block = EthBlock {
-				parent_hash: header.parent_hash,
-				sha_3_uncles: header.ommers_hash,
-				miner: header.beneficiary,
-				state_root: header.state_root,
-				transactions_root: header.transactions_root,
-				receipts_root: header.receipts_root,
-				logs_bloom: header.logs_bloom,
-				total_difficulty: Some(header.difficulty),
-				number: header.number,
-				gas_limit: header.gas_limit,
-				gas_used: header.gas_used,
-				timestamp: header.timestamp,
-				extra_data: header.extra_data,
-				mix_hash: header.mix_hash,
-				nonce: header.nonce,
+			// let block = EthBlock {
+			// 	parent_hash: header.parent_hash,
+			// 	sha_3_uncles: header.ommers_hash,
+			// 	miner: header.beneficiary,
+			// 	state_root: header.state_root,
+			// 	transactions_root: header.transactions_root,
+			// 	receipts_root: header.receipts_root,
+			// 	logs_bloom: header.logs_bloom,
+			// 	total_difficulty: Some(header.difficulty),
+			// 	number: header.number,
+			// 	gas_limit: header.gas_limit,
+			// 	gas_used: header.gas_used,
+			// 	timestamp: header.timestamp,
+			// 	extra_data: header.extra_data,
+			// 	mix_hash: header.mix_hash,
+			// 	nonce: header.nonce,
 
-				transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
+			// 	transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
-				..Default::default()
-			};
+			// 	..Default::default()
+			// };
 
-			// TODO: Prune older blocks.
-			BlockHash::<T>::insert(block_number, block_hash);
-			PreviousBlock::<T>::put(block);
+			// // TODO: Prune older blocks.
+			// BlockHash::<T>::insert(block_number, block_hash);
+			// LastBlock::<T>::put(block);
 
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
@@ -676,6 +676,14 @@ pub mod pallet {
 			let Some(block_author) = Self::block_author() else {
 				Self::kill_inflight_data();
 				return;
+			};
+
+			// Note: This read should be accounted for.
+			let eth_block_num: U256 = block_number.into();
+			let parent_hash = if eth_block_num > U256::zero() {
+				BlockHash::<T>::get(eth_block_num - 1)
+			} else {
+				H256::default()
 			};
 
 			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
@@ -817,7 +825,7 @@ pub mod pallet {
 
 			let block_header = BlockHeader {
 				// TODO: This is not the correct parent hash.
-				parent_hash: Default::default(),
+				parent_hash: parent_hash.into(),
 				// Ommers are set to default in pallet frontier.
 				ommers_hash: Default::default(),
 				// The author of the block.
@@ -847,7 +855,35 @@ pub mod pallet {
 				nonce: Default::default(),
 			};
 
-			LastBlockDetails::<T>::put((block_header, tx_hashes));
+			let block_hash = block_header.hash();
+
+			BlockHash::<T>::insert(eth_block_num, block_hash);
+
+			let block = EthBlock {
+				parent_hash: block_header.parent_hash,
+				sha_3_uncles: block_header.ommers_hash,
+				miner: block_header.beneficiary,
+				state_root: block_header.state_root,
+				transactions_root: block_header.transactions_root,
+				receipts_root: block_header.receipts_root,
+				logs_bloom: block_header.logs_bloom,
+				total_difficulty: Some(block_header.difficulty),
+				number: block_header.number,
+				gas_limit: block_header.gas_limit,
+				gas_used: block_header.gas_used,
+				timestamp: block_header.timestamp,
+				extra_data: block_header.extra_data,
+				mix_hash: block_header.mix_hash,
+				nonce: block_header.nonce,
+
+				transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
+
+				..Default::default()
+			};
+
+			LastBlock::<T>::put(block);
+
+			// LastBlockDetails::<T>::put((block_header, tx_hashes));
 		}
 
 		fn integrity_test() {
@@ -1752,7 +1788,7 @@ where
 	}
 
 	pub fn eth_block() -> EthBlock {
-		PreviousBlock::<T>::get()
+		LastBlock::<T>::get()
 	}
 
 	pub fn eth_block_number(number: U256) -> Option<H256> {
