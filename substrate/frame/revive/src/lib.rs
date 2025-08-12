@@ -372,6 +372,9 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
+
+		/// Receipt information of an Ethereum transaction.
+		Receipt { receipt: ReceiptInfo },
 	}
 
 	#[pallet::error]
@@ -764,6 +767,7 @@ pub mod pallet {
 					// logs bloom and logs. An encoded log only contains the
 					// contract address, topics and data.
 					let receipt: ReceiptInfo = ReceiptInfo::new(
+						// This represents the substrate block hash.
 						block_hash.into(),
 						block_number.into(),
 						contract_address,
@@ -780,6 +784,8 @@ pub mod pallet {
 					);
 
 					logs_bloom.combine(&receipt.logs_bloom);
+
+					Self::deposit_event(Event::Receipt { receipt: receipt.clone() });
 
 					let tx = PartialSignedTransactionInfo {
 						from: from.into(),
