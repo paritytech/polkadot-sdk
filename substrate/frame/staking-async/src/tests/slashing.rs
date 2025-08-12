@@ -807,6 +807,22 @@ fn offence_reportable_window_governance_protection() {
 			// Verify slash is scheduled for era 107
 			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 1);
 
+			// Roll to next era.
+			Session::roll_until_active_era(101);
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// Offences for era 80 cannot be reported anymore
+			add_slash_in_era(11, 80, Perbill::from_percent(60));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceTooOld {
+					offence_era: 80,
+					validator: 11,
+					fraction: Perbill::from_percent(60)
+				},]
+			);
+
 			// Move to era 106 (one era before slash application)
 			Session::roll_until_active_era(106);
 
@@ -814,11 +830,30 @@ fn offence_reportable_window_governance_protection() {
 			// and can still cancel the slash before it's applied in era 107
 
 			// Verify the slash is still pending and can be cancelled
+
+			// Attempt to cancel the slash scheduled for era 107 for validator 11 upto 50%
+			assert_ok!(Staking::cancel_deferred_slash(
+				RuntimeOrigin::root(),
+				107,
+				vec![(11, Perbill::from_percent(50))]
+			));
+
+			// Roll to era 107
+			Session::roll_until_active_era(107);
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// slashes still pending, but not applied.
 			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 1);
 
-			// This demonstrates that with OffenceReportableWindow=20 and SlashDeferDuration=27,
-			// even offences reported at the last moment (era 80 when current is 100)
-			// still give governance 7 full eras to intervene before the slash is applied.
+			// Roll to the next block to remove the slash without applying it (as it was cancelled)
+			Session::roll_next();
+			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 0);
+			assert_eq!(
+				staking_events_since_last_call(),
+				// no slash applied
+				vec![]
+			);
 		});
 }
 
