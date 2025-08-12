@@ -721,6 +721,51 @@ fn really_old_offences_are_ignored() {
 }
 
 #[test]
+fn offence_reportable_window_disabled() {
+	// Verify when `OffenceReportableWindow` is set to 0, it should behave as if it is disabled.
+	ExtBuilder::default()
+		.slash_defer_duration(27)
+		.bonding_duration(28)
+		.build_and_execute(|| {
+			// Setup
+			Session::roll_until_active_era(100);
+			staking_events_since_last_call();
+
+			// Given: OffenceReportableWindow is disabled (set to 0)
+			assert_eq!(OffenceReportableWindow::get(), 0);
+
+			// When: Reporting an offence for era 72 (more than slash defer duration ago)
+			add_slash_in_era(11, 72, Perbill::from_percent(50));
+
+			// Then: Offence ignored.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceTooOld {
+					offence_era: 72,
+					validator: 11,
+					fraction: Perbill::from_percent(50)
+				}]
+			);
+
+			// When: Reporting an offence for era 73 (within slash defer duration)
+			add_slash_in_era(11, 73, Perbill::from_percent(50));
+
+			// Then: Offence reported.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceReported {
+					offence_era: 73,
+					validator: 11,
+					fraction: Perbill::from_percent(50)
+				}]
+			);
+
+			// progress a block to compute the slash and keep try state checks happy.
+			Session::roll_next();
+		});
+}
+
+#[test]
 fn offence_reportable_window_governance_protection() {
 	// This test verifies that OffenceReportableWindow provides governance
 	// with enough time to review and cancel slashes before they are applied.

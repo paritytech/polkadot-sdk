@@ -224,6 +224,9 @@ pub mod pallet {
 		///
 		/// This prevents late offence reports from being processed too close to when
 		/// slashes would be applied, ensuring governance has adequate time to respond.
+		///
+		/// When set to `0`, this acts as a no-op, meaning that any offence can be reported
+		/// until the end of the `SlashDeferDuration` window.
 		#[pallet::constant]
 		type OffenceReportableWindow: Get<EraIndex>;
 

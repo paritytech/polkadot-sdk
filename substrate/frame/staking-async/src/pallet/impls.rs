@@ -1198,9 +1198,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			// bonding duration old.
 			active_era.index.saturating_sub(T::BondingDuration::get())
 		} else {
-			// slashes are deferred, so we only accept offences that are not older than the
-			// offence reportable window.
-			active_era.index.saturating_sub(T::OffenceReportableWindow::get())
+			let reporting_window = match T::OffenceReportableWindow::get() {
+				// reporting window is disabled, so we can accept any offence up to the era for
+				// which slashes can still be applied.
+				0 => T::SlashDeferDuration::get(),
+				w => w,
+			};
+
+			active_era.index.saturating_sub(reporting_window)
 		};
 
 		let invulnerables = Invulnerables::<T>::get();
