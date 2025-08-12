@@ -19,10 +19,7 @@ use super::Context;
 use crate::{vm::Ext, RuntimeCosts};
 use revm::{
 	interpreter::{gas as revm_gas, host::Host, interpreter_types::RuntimeFlag},
-	primitives::{hardfork::SpecId::*, U256, Address, },
-};
-use crate::{
-	evm::H160,
+	primitives::{hardfork::SpecId::*, U256},
 };
 
 /// EIP-1344: ChainID opcode
@@ -36,9 +33,8 @@ pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current block's beneficiary address onto the stack.
 pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas!(context.interpreter, RuntimeCosts::BlockAuthor);
-	let coinbase: Address = context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
-	push!(context.interpreter, coinbase.into_word().into());
+	gas_legacy!(context.interpreter, revm_gas::BASE);
+	push!(context.interpreter, context.host.beneficiary().into_word().into());
 }
 
 /// Implements the TIMESTAMP instruction.
