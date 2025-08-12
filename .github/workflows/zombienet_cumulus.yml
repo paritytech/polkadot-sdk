@@ -9,8 +9,8 @@ on:
         default: ""
         required: false
   push:
-   branches:
-     - master
+    branches:
+      - master
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -33,15 +33,14 @@ env:
 
 # only run if we have changes in [subtrate, cumulus, polkadot] directories or this workflow.
 jobs:
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
+  # isdraft:
+  #   uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
+    # needs: isdraft
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
     with:
       tests_yaml: .github/zombienet-tests/zombienet_cumulus_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
-
 
   zombienet-cumulus-tests:
     name: ${{ matrix.test.job-name }}
@@ -92,3 +91,6 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+
+      - name: sleep
+        run: sleep 600

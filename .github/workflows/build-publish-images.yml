@@ -18,10 +18,10 @@ jobs:
   #
   #
   #
-  isdraft:
-    uses: ./.github/workflows/reusable-isdraft.yml
+  # isdraft:
+  #   uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
-    needs: isdraft
+    # needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   ### Build ########################
@@ -345,7 +345,6 @@ jobs:
         with:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
-
 
   ### Build zombienet test artifacts ########################
 
