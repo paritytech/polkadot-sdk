@@ -232,6 +232,8 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old
 	);
+
+	// TODO: decide if we need to handle this outcome
 	// match write_outcome {
 	// 	WriteOutcome::New => {
 	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
