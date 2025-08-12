@@ -837,9 +837,7 @@ impl<T: Config> Rotator<T> {
 	fn cleanup_old_era(starting_era: EraIndex) {
 		EraElectionPlanner::<T>::cleanup();
 
-		let diff = T::MaxUnbondingDuration::get();
-		if starting_era >= diff {
-			let target_era = starting_era - diff;
+		if let Some(target_era) = starting_era.checked_sub(T::MaxUnbondingDuration::get()) {
 			Eras::<T>::remove_total_unbond_for_era(target_era);
 			Eras::<T>::clean_up_lowest_stake(target_era);
 		}
