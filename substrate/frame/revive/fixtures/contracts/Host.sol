@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 contract Host {
     function balance(address account) public view returns (uint256) {
@@ -42,21 +42,6 @@ contract Host {
         assembly {
             sstore(slot, value)
         }
-    }
-
-    function tloadOp(uint256 slot) public view returns (uint256) {
-        uint256 value;
-        assembly {
-            value := tload(slot)
-        }
-        return value;
-    }
-
-    function tstoreOp(uint256 slot, uint256 value) public returns (uint256) {
-        assembly {
-            tstore(slot, value)
-        }
-        return value;
     }
 
     function log0Op(bytes32 data) public {

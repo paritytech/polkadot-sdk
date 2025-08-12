@@ -15,17 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{
-	utility::IntoAddress,
-	Context,
-};
+use super::Context;
+
 use crate::{
 	vm::Ext,
 	RuntimeCosts,
 	Key,
 	storage::WriteOutcome,
 };
-use core::cmp::min;
 use revm::{
 	interpreter::{
 		gas::self,
@@ -33,7 +30,7 @@ use revm::{
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
 	},
-	primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
+	primitives::{Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
 };
 
 /// Implements the BALANCE instruction.
@@ -228,9 +225,28 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
-	// let ts = context.interpreter.extend.transient_storage();
+    let account_id32 = context.interpreter.extend.account_id().clone();
+	let ts = context.interpreter.extend.transient_storage();
 
-	context.host.tstore(context.interpreter.input.target_address(), index, value);
+    let key = Key::Fix(index.to_be_bytes());
+	let take_old = false;
+	let _write_outcome = ts.write(
+		&account_id32,
+		&key,
+		Some(value.to_be_bytes::<32>().to_vec()),
+		take_old
+	);
+	// match write_outcome {
+	// 	WriteOutcome::New => {
+	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
+	// 	}
+	// 	WriteOutcome::Overwritten(overwritten_bytes) => {
+	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: overwritten_bytes, new_bytes: 32});
+	// 	}
+	// 	WriteOutcome::Taken(_) => {
+	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 32, new_bytes: 32});
+	// 	}
+	// }
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -241,7 +257,23 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn_top!([], index, context.interpreter);
 
-	*index = context.host.tload(context.interpreter.input.target_address(), *index);
+    let account_id32 = context.interpreter.extend.account_id().clone();
+	let ts = context.interpreter.extend.transient_storage();
+	let key = Key::Fix(index.to_be_bytes());
+	let bytes = ts.read(&account_id32, &key);
+	*index = if let Some(storage_value) = bytes {
+		if storage_value.len() != 32 {
+			// tload always reads a word
+			context.interpreter.halt(InstructionResult::Revert);
+			return;
+		}
+		let mut bytes = [0u8; 32];
+		bytes.copy_from_slice(&storage_value);
+		U256::from_be_bytes(bytes)
+	} else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
 }
 
 /// Implements the LOG0-LOG4 instructions.

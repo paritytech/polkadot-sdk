@@ -31,13 +31,12 @@ use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Host, FixtureType};
 use pretty_assertions::assert_eq;
-use frame_support::traits::fungible::Inspect;
 use frame_support::traits::Get;
 
 fn convert_to_free_balance(total_balance: u128) -> U256 {
     let existential_deposit_planck = <Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
     let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
-    U256::from((100_000_000_000u128 - existential_deposit_planck) * native_to_eth)
+    U256::from((total_balance - existential_deposit_planck) * native_to_eth)
 }
 
 #[test]
@@ -191,9 +190,8 @@ fn extcodehash_works() {
 
 #[test]
 fn extcodecopy_works() {
-    use pallet_revive_fixtures::HostSelfDestructEvm::extcodecopyOpCall;
-    use pallet_revive_fixtures::HostSelfDestructEvm::HostSelfDestructEvmCalls;
     use pallet_revive_fixtures::HostSelfDestructEvm;
+    use pallet_revive_fixtures::HostSelfDestructEvm::HostSelfDestructEvmCalls;
     let fixture_type = FixtureType::Solc;
 
     let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
@@ -386,20 +384,33 @@ fn sstore_works() {
 }
 
 #[test]
-#[ignore] // TODO: find a way to test transient storage
-fn tstore_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        todo!("implement this test");
-    }
-}
+fn transient_storage_works() {
+    use pallet_revive_fixtures::HostTransientMemory;
+    for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+        let (code, _) = compile_module_with_type("HostTransientMemory", fixture_type).unwrap();
+       
+        ExtBuilder::default().build().execute_with(|| {
+            let slot = U256::from(0);
+            
+            let value = U256::from(13);
 
-#[test]
-#[ignore] // TODO: find a way to test transient storage
-fn tload_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-        todo!("implement this test");
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+            let result = builder::bare_call(addr)
+                .data(
+                    HostTransientMemory::HostTransientMemoryCalls::transientMemoryTest(HostTransientMemory::transientMemoryTestCall { slot: slot, a: value })
+                        .abi_encode(),
+                )
+                .build_and_unwrap_result();
+            assert_eq!(
+                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                U256::from(0),
+                "transient storage should return zero for {:?}", fixture_type
+            );
+        });
     }
 }
 
@@ -415,8 +426,6 @@ fn log_works() {
 #[test]
 fn selfdestruct_works() {
     {
-        use pallet_revive_fixtures::HostSelfDestructEvm::selfdestructOpCall;
-        use pallet_revive_fixtures::HostSelfDestructEvm::HostSelfDestructEvmCalls;
         use pallet_revive_fixtures::HostSelfDestructEvm;
         let fixture_type = FixtureType::Solc;
 		let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
