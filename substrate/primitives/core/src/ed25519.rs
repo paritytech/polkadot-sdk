@@ -69,6 +69,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
+    type ProofOfPossession = Signature;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.

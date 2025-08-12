@@ -17,7 +17,7 @@
 
 //! Utilities for proving possession of a particular public key
 
-use crate::crypto::{CryptoType, Pair};
+use crate::crypto::{CryptoType, Pair, Signature};
 use sp_std::vec::Vec;
 
 /// Pair which is able to generate proof of possession.
@@ -108,7 +108,7 @@ where
 	/// non-aggregatable schemes
     fn verify_proof_of_possession(
 	        owner: &[u8],
-		proof_of_possession: &Self::Signature,
+		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
 		let proof_of_possession_statement =
@@ -131,7 +131,7 @@ where
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::Signature {
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
 		let proof_of_possession_statement = Self::proof_of_possession_statement(&self.public());
 		self.sign(proof_of_possession_statement.as_slice())
 	}

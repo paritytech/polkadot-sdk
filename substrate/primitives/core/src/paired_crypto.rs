@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 
 use crate::crypto::{
 	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
-	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
+	PublicBytes, SecretStringError, Signature as SignatureT, ProofOfPossession as ProofOfPossessionT, SignatureBytes, UncheckedFrom,
 };
 
 use crate::proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
@@ -256,16 +256,17 @@ impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
-		const SIGNATURE_LEN: usize,
+	const SIGNATURE_LEN: usize,
+    const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>>
+	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>>
 	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
 	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>:
 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
 	fn from(
-		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>,
+		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>,
 	) -> Self {
 		x.public()
 	}
@@ -275,12 +276,17 @@ where
 pub type Signature<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
 	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
 
+/// A pair of proof of possession of different types
+pub type ProofOfPossession<const LEFT_PLUS_RIGHT_LEN: usize, SubTag> =
+	SignatureBytes<LEFT_PLUS_RIGHT_LEN, (PairedCryptoTag, SubTag)>;
+
 /// A key pair.
 pub struct Pair<
 	LeftPair: PairT,
 	RightPair: PairT,
 	const PUBLIC_KEY_LEN: usize,
 	const SIGNATURE_LEN: usize,
+	const POP_LEN: usize,
 	SubTag,
 > {
 	left: LeftPair,
@@ -305,19 +311,22 @@ impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
-		const SIGNATURE_LEN: usize,
+	    const SIGNATURE_LEN: usize,
+        const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
 	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+ProofOfPossession<POP_LEN, SubTag>: ProofOfPossessionT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
 	type Signature = Signature<SIGNATURE_LEN, SubTag>;
+    type ProofOfPossession = ProofOfPossession<POP_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
