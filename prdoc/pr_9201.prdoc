@@ -7,6 +7,10 @@ doc:
     - removes comments/deprecation notices throughout the code that introduce para-id flag removal (from chain-spec-builder and support for parsing it from chain specifications)
 crates:
 - name: polkadot-parachain-bin
-  bump: minor 
+  bump: patch 
 - name: polkadot-omni-node-lib
-  bump: minor 
+  bump: major
+- name: polkadot-omni-node
+  bump: patch
+- name: staging-chain-spec-builder
+  bump: patch
