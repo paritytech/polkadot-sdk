@@ -312,7 +312,7 @@ where
 			.ok_or_else(|| "Empty proof".to_string())?;
 		let (next_set_id, next_authorities) =
 			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
-		let proofs = proof
+		let justifications = proof
 			.proofs
 			.into_iter()
 			.map(|p| {
@@ -326,14 +326,14 @@ where
 				next_set_id,
 				next_authorities,
 				last_header,
-				proofs,
+				justifications,
 			))
 		} else {
 			Ok(VerificationResult::<Block>::Partial(
 				next_set_id,
 				next_authorities,
 				last_header.hash(),
-				proofs,
+				justifications,
 			))
 		}
 	}
