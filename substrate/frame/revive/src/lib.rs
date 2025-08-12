@@ -685,165 +685,16 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
-			let Some(block_author) = Self::block_author() else {
-				Self::kill_inflight_data();
-				return;
-			};
-
-			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
-			let transactions = InflightTransactions::<T>::drain().collect::<Vec<_>>();
-
-			let base_gas_price = GAS_PRICE.into();
-
-			let mut logs_bloom = Bytes256::default();
-			let mut total_gas_used = U256::zero();
-			let tx_and_receipts: Vec<(PartialSignedTransactionInfo, ReceiptInfo)> = transactions
-				.into_iter()
-				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
-					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
-							log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
-						}).ok()?;
-
-					let from = signed_tx.recover_eth_address()
-						.inspect_err(|err| {
-							log::error!(target: LOG_TARGET, "Failed to recover sender address at index {transaction_index}: {err:?}");
-						})
-						.ok()?;
-
-					let transaction_hash = H256(keccak_256(&payload));
-
-					let tx_info = GenericTransaction::from_signed(
-						signed_tx.clone(),
-						base_gas_price,
-						Some(from),
-					);
-
-					let _gas_price = tx_info.gas_price;
-
-					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
-						if let Event::ContractEmitted { contract, data, topics } = event {
-							Some(Log {
-								// The address, topics and data are the only fields that
-								// get encoded while building the receipt root.
-								address: contract,
-								topics,
-								data: Some(data.into()),
-
-								transaction_hash,
-								transaction_index: transaction_index.into(),
-
-								// We use the substrate block number and hash as the eth block number and hash.
-								block_number: block_number.into(),
-								block_hash: block_hash.into(),
-								log_index: index.into(),
-
-								..Default::default()
-							})
-						} else {
-							None
-						}
-					}).collect();
-
-					// Could this be extracted from the Call itself?
-					let contract_address = if tx_info.to.is_none() {
-						let nonce = tx_info.nonce.unwrap_or_default().try_into();
-						match nonce {
-							Ok(nonce) => Some(create1(&from, nonce)),
-							Err(err) => {
-								log::error!(target: LOG_TARGET, "Failed to convert nonce at index {transaction_index}: {err:?}");
-								None
-							}
-						}
-					} else {
-						None
-					};
-
-					// TODO: Could it be possible that the gas exceeds the u64::MAX?
-					total_gas_used += gas.ref_time().into();
-
-					// The receipt only encodes the status code, gas used,
-					// logs bloom and logs. An encoded log only contains the
-					// contract address, topics and data.
-					let receipt: ReceiptInfo = ReceiptInfo::new(
-						block_hash.into(),
-						block_number.into(),
-						contract_address,
-						from,
-						logs,
-						tx_info.to,
-						base_gas_price.into(),
-						// TODO: Is this conversion correct / appropriate for prod use-case?
-						gas.ref_time().into(),
-						success,
-						transaction_hash,
-						transaction_index.into(),
-						tx_info.r#type.unwrap_or_default(),
-					);
-
-					logs_bloom.combine(&receipt.logs_bloom);
-
-					let tx = PartialSignedTransactionInfo {
-						from: from.into(),
-						hash: transaction_hash,
-						transaction_index: transaction_index.into(),
-						transaction_signed: signed_tx,
-					};
-
-					Some((tx, receipt))
-				})
-				.collect();
-
-			let tx_blobs = tx_and_receipts
-				.iter()
-				.map(|(tx, _)| tx.transaction_signed.encode_2718())
-				.collect::<Vec<_>>();
-			let receipt_blobs = tx_and_receipts
-				.iter()
-				.map(|(_, receipt)| receipt.encode_2718())
-				.collect::<Vec<_>>();
-
-			use sp_trie::TrieConfiguration;
-			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let transactions_root =
-				EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
-			let receipts_root =
-				EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
-
-			let state_root = T::StateRoot::get();
-
-			let block_header = BlockHeader {
-				// TODO: This is not the correct parent hash.
-				parent_hash: Default::default(),
-				// Ommers are set to default in pallet frontier.
-				ommers_hash: Default::default(),
-				// The author of the block.
-				beneficiary: block_author.into(),
-
-				// Trie roots.
-				state_root,
-				transactions_root,
-				receipts_root,
-				logs_bloom,
-
-				// Difficulty is set to zero and not used.
-				difficulty: U256::zero(),
-				// The block number is the current substrate block number.
-				number: block_number.into(),
-
-				// The gas limit is set to the EVM block gas limit.
-				gas_limit: Self::evm_block_gas_limit(),
-				// The total gas used by the transactions in this block.
-				gas_used: total_gas_used,
-				// The timestamp is set to the current time.
-				timestamp: T::Time::now().into(),
-
-				// Default fields (not used).
-				extra_data: Default::default(),
-				mix_hash: Default::default(),
-				nonce: Default::default(),
-			};
-
-			LastBlockDetails::<T>::put((block_header, tx_and_receipts));
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
+				DispatchClass::Normal,
+			);
+			log::info!(
+				"Finalize fixed={} per_tx={}",
+				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
+				<T as pallet::Config>::WeightInfo::finalize_block_per_tx()
+			);
+			Self::on_finalize_internal(block_number);
 		}
 
 		fn integrity_test() {
@@ -1915,6 +1766,178 @@ where
 			.into()
 			.saturating_mul(T::NativeToEthRatio::get().into())
 			.saturating_add(dust.into())
+	}
+}
+
+impl<T: Config> Pallet<T>
+where
+	T::Hash: frame_support::traits::IsType<H256>,
+	// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
+	<T as frame_system::Config>::RuntimeCall:
+		Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+	T: pallet_transaction_payment::Config,
+	OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>,
+	MomentOf<T>: Into<U256>,
+{
+	fn on_finalize_internal(block_number: BlockNumberFor<T>) {
+		let Some(block_author) = Self::block_author() else {
+			Self::kill_inflight_data();
+			return;
+		};
+		let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
+		let transactions = InflightTransactions::<T>::drain().collect::<Vec<_>>();
+
+		let base_gas_price = GAS_PRICE.into();
+
+		let mut logs_bloom = Bytes256::default();
+		let mut total_gas_used = U256::zero();
+		let tx_and_receipts: Vec<(PartialSignedTransactionInfo, ReceiptInfo)> = transactions
+				.into_iter()
+				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
+					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
+						}).ok()?;
+
+					let from = signed_tx.recover_eth_address()
+						.inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to recover sender address at index {transaction_index}: {err:?}");
+						})
+						.ok()?;
+
+					let transaction_hash = H256(keccak_256(&payload));
+
+					let tx_info = GenericTransaction::from_signed(
+						signed_tx.clone(),
+						base_gas_price,
+						Some(from),
+					);
+
+					let _gas_price = tx_info.gas_price;
+
+					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
+						if let Event::ContractEmitted { contract, data, topics } = event {
+							Some(Log {
+								// The address, topics and data are the only fields that
+								// get encoded while building the receipt root.
+								address: contract,
+								topics,
+								data: Some(data.into()),
+
+								transaction_hash,
+								transaction_index: transaction_index.into(),
+
+								// We use the substrate block number and hash as the eth block number and hash.
+								block_number: block_number.into(),
+								block_hash: block_hash.into(),
+								log_index: index.into(),
+
+								..Default::default()
+							})
+						} else {
+							None
+						}
+					}).collect();
+
+					// Could this be extracted from the Call itself?
+					let contract_address = if tx_info.to.is_none() {
+						let nonce = tx_info.nonce.unwrap_or_default().try_into();
+						match nonce {
+							Ok(nonce) => Some(create1(&from, nonce)),
+							Err(err) => {
+								log::error!(target: LOG_TARGET, "Failed to convert nonce at index {transaction_index}: {err:?}");
+								None
+							}
+						}
+					} else {
+						None
+					};
+
+					// TODO: Could it be possible that the gas exceeds the u64::MAX?
+					total_gas_used += gas.ref_time().into();
+
+					// The receipt only encodes the status code, gas used,
+					// logs bloom and logs. An encoded log only contains the
+					// contract address, topics and data.
+					let receipt: ReceiptInfo = ReceiptInfo::new(
+						block_hash.into(),
+						block_number.into(),
+						contract_address,
+						from,
+						logs,
+						tx_info.to,
+						base_gas_price.into(),
+						// TODO: Is this conversion correct / appropriate for prod use-case?
+						gas.ref_time().into(),
+						success,
+						transaction_hash,
+						transaction_index.into(),
+						tx_info.r#type.unwrap_or_default(),
+					);
+
+					logs_bloom.combine(&receipt.logs_bloom);
+
+					let tx = PartialSignedTransactionInfo {
+						from: from.into(),
+						hash: transaction_hash,
+						transaction_index: transaction_index.into(),
+						transaction_signed: signed_tx,
+					};
+
+					Some((tx, receipt))
+				})
+				.collect();
+
+		let tx_blobs = tx_and_receipts
+			.iter()
+			.map(|(tx, _)| tx.transaction_signed.encode_2718())
+			.collect::<Vec<_>>();
+		let receipt_blobs = tx_and_receipts
+			.iter()
+			.map(|(_, receipt)| receipt.encode_2718())
+			.collect::<Vec<_>>();
+
+		use sp_trie::TrieConfiguration;
+		// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
+		let transactions_root = EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+		let receipts_root =
+			EthTrieLayout::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
+
+		let state_root = T::StateRoot::get();
+
+		let block_header = BlockHeader {
+			// TODO: This is not the correct parent hash.
+			parent_hash: Default::default(),
+			// Ommers are set to default in pallet frontier.
+			ommers_hash: Default::default(),
+			// The author of the block.
+			beneficiary: block_author.into(),
+
+			// Trie roots.
+			state_root,
+			transactions_root,
+			receipts_root,
+			logs_bloom,
+
+			// Difficulty is set to zero and not used.
+			difficulty: U256::zero(),
+			// The block number is the current substrate block number.
+			number: block_number.into(),
+
+			// The gas limit is set to the EVM block gas limit.
+			gas_limit: Self::evm_block_gas_limit(),
+			// The total gas used by the transactions in this block.
+			gas_used: total_gas_used,
+			// The timestamp is set to the current time.
+			timestamp: T::Time::now().into(),
+
+			// Default fields (not used).
+			extra_data: Default::default(),
+			mix_hash: Default::default(),
+			nonce: Default::default(),
+		};
+
+		LastBlockDetails::<T>::put((block_header, tx_and_receipts));
 	}
 }
 
