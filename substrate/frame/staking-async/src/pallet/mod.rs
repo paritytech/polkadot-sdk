@@ -1301,8 +1301,6 @@ pub mod pallet {
 		/// Unapplied slashes in the recently concluded era is blocking this operation.
 		/// See `Call::apply_slash` to apply them.
 		UnappliedSlashesInPreviousEra,
-		/// The configuration is invalid and cannot be applied.
-		InvalidConfiguration,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -2208,7 +2206,7 @@ pub mod pallet {
 			if let ConfigOp::Set(params) = unbonding_queue_params {
 				ensure!(
 					params.unbond_period_lower_bound <= T::MaxUnbondingDuration::get(),
-					Error::<T>::InvalidConfiguration
+					Error::<T>::BoundNotMet
 				);
 			}
 			Ok(())

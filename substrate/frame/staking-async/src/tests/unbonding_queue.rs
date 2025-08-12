@@ -41,7 +41,7 @@ fn setting_invalid_min_unbond_period_fails() {
 					unbond_period_lower_bound: 4,
 				})
 			),
-			Error::<Test>::InvalidConfiguration
+			Error::<Test>::BoundNotMet
 		);
 	});
 }
