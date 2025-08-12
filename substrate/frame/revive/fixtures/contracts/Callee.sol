@@ -2,7 +2,7 @@
 pragma solidity >=0.8.0;
 
 contract Callee {
-    function echo(uint256 value) external pure returns (uint256) {
-        return value;
+    function echo(uint _data) external pure returns (uint data) {
+        data = _data;
     }
 }

@@ -124,10 +124,11 @@ fn run<'a, E: Ext>(
 			InterpreterAction::NewFrame(frame_input) => {
 				match frame_input {
 					FrameInput::Call(call_input) => {
-						let callee: H160 = call_input.target_address.0 .0.into();
-						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 						let meter = interpreter.extend.gas_meter_mut();
 
+						let callee: H160 = call_input.target_address.0 .0.into();
+
+						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 						match &precompile {
 							Some(precompile) if precompile.has_contract_info() => {
 								if meter.charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {

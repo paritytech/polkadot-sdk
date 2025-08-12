@@ -2,11 +2,30 @@
 pragma solidity >=0.8.0;
 
 contract Caller {
-    function do_call(address callee, uint256 value) external view returns (uint256) {
-        (bool success, bytes memory data) = callee.staticcall(
-            abi.encodeWithSignature("echo(uint256)", value)
+    function normal(
+        address _callee,
+        uint _value,
+        bytes memory _data,
+        uint _gas
+    ) external returns (bool success, bytes memory output) {
+        (success, output) = _callee.call{value: _value, gas: _gas}(_data);
+    }
+
+    function delegate(
+        address _callee,
+        bytes memory _data,
+        uint _gas
+    ) external returns (bool success, bytes memory output) {
+        (success, output) = _callee.delegatecall{gas: _gas}(
+            _data
         );
-        require(success, "call to Callee failed");
-        return abi.decode(data, (uint256));
+    }
+
+    function staticCall( // Don't rename to `static` (it's a Rust keyword).
+        address _callee,
+        bytes memory _data,
+        uint _gas
+    ) external returns (bool success, bytes memory output) {
+        (success, output) = _callee.staticcall{gas: _gas}(_data);
     }
 }

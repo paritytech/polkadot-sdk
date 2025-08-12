@@ -8,9 +8,12 @@ use crate::{
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
-use alloy_core::{primitives::U256, sol, sol_types::SolInterface};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, Caller, FixtureType};
+use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
 use pretty_assertions::assert_eq;
 
 /// Tests that the `CALL` opcode works as expected by having one contract call another.
@@ -41,16 +44,22 @@ fn call_works() {
 			log::info!("Calling callee from caller");
 			let result = builder::bare_call(caller_addr)
 				.data(
-					Caller::CallerCalls::do_call(Caller::do_callCall {
-						callee: callee_addr.0.into(),
-						value: magic_number,
-					})
+					Caller::staticCallCall {
+						_callee: callee_addr.0.into(),
+						_data: Callee::echoCall { _data: magic_number }.abi_encode().into(),
+						_gas: U256::MAX,
+					}
 					.abi_encode(),
 				)
 				.build_and_unwrap_result();
 
-			let returned_value = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
-			assert_eq!(returned_value, magic_number);
+			let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+			assert!(result.success, "the call must succeed");
+			assert_eq!(
+				magic_number,
+				U256::from_be_bytes::<32>(result.output.as_ref().try_into().unwrap()),
+				"the call must reproduce the magic number"
+			);
 		});
 	}
 }
