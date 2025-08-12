@@ -1054,7 +1054,13 @@ pub mod pallet {
 		/// Same as [`Self::call`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into()).saturating_add(*gas_limit))]
+		#[pallet::weight(T::WeightInfo::eth_call(
+				Pallet::<T>::has_dust(*value).into()
+			)
+			.saturating_add(*gas_limit)
+			.saturating_add(T::WeightInfo::finalize_block_per_tx())
+		)
+		]
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
@@ -1204,6 +1210,26 @@ pub mod pallet {
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+		}
+	}
+
+	pub trait FinalizeBlockParts {
+		/// Returns the fixed part `a` of finalize_block weight.
+		fn finalize_block_fixed() -> Weight;
+
+		/// Returns the per-transaction part `b` of finalize_block weight.
+		fn finalize_block_per_tx() -> Weight;
+	}
+
+	impl<W: WeightInfo> FinalizeBlockParts for W {
+		fn finalize_block_fixed() -> Weight {
+			// Call finalize_block with tx_count = 0 → only `a`
+			W::finalize_block(0)
+		}
+
+		fn finalize_block_per_tx() -> Weight {
+			// Call with 1 tx and subtract the fixed part → gives `b`
+			W::finalize_block(1).saturating_sub(W::finalize_block(0))
 		}
 	}
 }

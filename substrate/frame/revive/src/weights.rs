@@ -160,6 +160,7 @@ pub trait WeightInfo {
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
+	fn finalize_block(tx_count: u32) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1225,6 +1226,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+
+    fn finalize_block(tx_count: u32) -> Weight {
+        Weight::from_parts(200_000, 0) // a
+            .saturating_add(Weight::from_parts(50_000, 0) // b
+                .saturating_mul(tx_count.into()))
+    }
 }
 
 // For backwards compatibility and tests.
@@ -2289,4 +2296,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
+
+    fn finalize_block(tx_count: u32) -> Weight {
+        Weight::from_parts(200_000, 0) // a
+            .saturating_add(Weight::from_parts(50_000, 0) // b
+                .saturating_mul(tx_count.into()))
+    }
 }
