@@ -623,8 +623,8 @@ pub mod pallet {
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 
-		T: pallet_transaction_payment::Config,
-		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
+		// T: pallet_transaction_payment::Config,
+		// OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	{
