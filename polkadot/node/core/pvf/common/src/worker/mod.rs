@@ -736,7 +736,13 @@ pub mod thread {
 
 	/// Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
 	/// returns `None`.
-	#[cfg_attr(not(any(target_os = "linux", feature = "jemalloc-allocator")), allow(dead_code))]
+	#[cfg_attr(
+		not(any(
+			all(target_os = "linux", not(feature = "x-shadow")),
+			feature = "jemalloc-allocator"
+		)),
+		allow(dead_code)
+	)]
 	pub fn wait_for_threads_with_timeout(cond: &Cond, dur: Duration) -> Option<WaitOutcome> {
 		let (lock, cvar) = &**cond;
 		let result = cvar

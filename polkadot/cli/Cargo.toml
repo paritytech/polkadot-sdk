@@ -82,3 +82,5 @@ runtime-metrics = [
 	"polkadot-node-metrics/runtime-metrics",
 	"polkadot-service/runtime-metrics",
 ]
+
+x-shadow = ["sc-service/x-shadow","polkadot-service/x-shadow"]

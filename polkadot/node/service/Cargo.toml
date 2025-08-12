@@ -230,3 +230,4 @@ runtime-metrics = [
 	"rococo-runtime?/runtime-metrics",
 	"westend-runtime?/runtime-metrics",
 ]
+x-shadow = ["polkadot-node-core-pvf/x-shadow"]

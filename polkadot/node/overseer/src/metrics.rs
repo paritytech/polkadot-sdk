@@ -38,9 +38,15 @@ struct MetricsInner {
 	signals_sent: prometheus::GaugeVec<prometheus::U64>,
 	signals_received: prometheus::GaugeVec<prometheus::U64>,
 
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		all(target_os = "linux", not(feature = "x-shadow")),
+		feature = "jemalloc-allocator"
+	))]
 	memory_stats_resident: prometheus::Gauge<prometheus::U64>,
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		all(target_os = "linux", not(feature = "x-shadow")),
+		feature = "jemalloc-allocator"
+	))]
 	memory_stats_allocated: prometheus::Gauge<prometheus::U64>,
 }
 
@@ -67,7 +73,10 @@ impl Metrics {
 		}
 	}
 
-	#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+	#[cfg(any(
+		all(target_os = "linux", not(feature = "x-shadow")),
+		feature = "jemalloc-allocator"
+	))]
 	pub(crate) fn memory_stats_snapshot(
 		&self,
 		memory_stats: memory_stats::MemoryAllocationSnapshot,
@@ -258,7 +267,10 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+			#[cfg(any(
+				all(target_os = "linux", not(feature = "x-shadow")),
+				feature = "jemalloc-allocator"
+			))]
 			memory_stats_allocated: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_allocated",
@@ -266,7 +278,10 @@ impl MetricsTrait for Metrics {
 				)?,
 				registry,
 			)?,
-			#[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
+			#[cfg(any(
+				all(target_os = "linux", not(feature = "x-shadow")),
+				feature = "jemalloc-allocator"
+			))]
 			memory_stats_resident: prometheus::register(
 				prometheus::Gauge::<prometheus::U64>::new(
 					"polkadot_memory_resident",

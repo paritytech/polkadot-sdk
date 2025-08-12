@@ -29,3 +29,4 @@ sp-maybe-compressed-blob = { workspace = true, default-features = true }
 
 [features]
 builder = []
+x-shadow = []

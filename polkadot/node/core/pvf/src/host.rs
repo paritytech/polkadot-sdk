@@ -284,12 +284,12 @@ pub async fn start(
 
 	// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	#[cfg(target_os = "linux")]
+	#[cfg(all(target_os = "linux", not(feature = "x-shadow")))]
 	let security_status = match crate::security::check_security_status(&config).await {
 		Ok(ok) => ok,
 		Err(err) => return Err(SubsystemError::Context(err)),
 	};
-	#[cfg(not(target_os = "linux"))]
+    #[cfg(all(not(target_os = "linux"), not(feature = "x-shadow")))]
 	let security_status = if config.secure_validator_mode {
 		gum::error!(
 			target: LOG_TARGET,
@@ -307,6 +307,19 @@ pub async fn start(
 			"{}{}",
 			crate::SECURE_MODE_WARNING,
 			crate::SECURE_LINUX_NOTE,
+		);
+		SecurityStatus::default()
+	};
+    #[cfg(feature = "x-shadow")]
+	let security_status = if config.secure_validator_mode {
+		return Err(SubsystemError::Context(
+			"could not enable Secure Validator Mode for shadow simulation; check logs".into(),
+		));
+	} else {
+		gum::warn!(
+			target: LOG_TARGET,
+			"{}",
+			crate::SECURE_MODE_WARNING,
 		);
 		SecurityStatus::default()
 	};

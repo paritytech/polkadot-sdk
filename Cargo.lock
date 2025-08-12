@@ -20351,6 +20351,7 @@ version = "0.29.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
+ "cfg-if",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",

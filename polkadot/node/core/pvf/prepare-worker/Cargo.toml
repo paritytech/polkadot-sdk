@@ -46,3 +46,6 @@ jemalloc-allocator = [
 	"dep:tikv-jemallocator",
 	"polkadot-node-core-pvf-common/jemalloc-allocator",
 ]
+x-shadow = [
+	"polkadot-node-core-pvf-common/x-shadow",
+]
