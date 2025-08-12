@@ -1308,12 +1308,12 @@ mod benchmarks {
 		clear_validators_and_nominators::<T>();
 		let mut meter = frame_support::weights::WeightMeter::new();
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
-
+		let max_bonding_duration = <T as Config>::MaxUnbondingDuration::get();
 		let mut unlocking = vec![];
 		for era in 0..c {
 			unlocking.push(crate::migrations::v18::v17::UnlockChunk {
 				value: 100_u32.into(),
-				era: 10 + era,
+				era: max_bonding_duration + era,
 			});
 		}
 		crate::migrations::v18::v17::Ledger::<T>::insert(
@@ -1345,7 +1345,7 @@ mod benchmarks {
 					.into_iter()
 					.map(|u| UnlockChunk {
 						value: u.value,
-						era: u.era.saturating_sub(T::BondingDuration::get()),
+						era: u.era.saturating_sub(T::MaxUnbondingDuration::get()),
 						previous_unbonded_stake: u32::MAX.into()
 					})
 					.collect::<Vec<_>>()
