@@ -18,6 +18,7 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
 pallet-revive = { workspace = true }
 pallet-timestamp = { workspace = true }
@@ -31,7 +32,6 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 xcm-runtime-apis = { workspace = true }
-hex-literal = { workspace = true, default-features = false }
 
 [dev-dependencies]
 pallet-assets = { default-features = true, workspace = true }
