@@ -232,6 +232,9 @@ impl<T: Config> Pallet<T> {
 			.copied()
 			// if nothing in queue, use the active era.
 			.unwrap_or(active_era)
+			// above returns earliest era for which offences are NOT processed yet, so we subtract
+			// one from it which gives us the oldest era for which all offences are processed.
+			.saturating_sub(1)
 	}
 
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
@@ -986,7 +989,7 @@ impl<T: Config> Pallet<T> {
 		for chunk in chunks {
 			let max_release_era =
 				chunk.era.defensive_saturating_add(T::MaxUnbondingDuration::get());
-			let has_offence = last_offence_era <= chunk.era;
+			let has_offence = last_offence_era < chunk.era;
 			if current_era >= max_release_era && !has_offence {
 				// We can immediately withdraw these funds.
 				free.saturating_accrue(chunk.value);
