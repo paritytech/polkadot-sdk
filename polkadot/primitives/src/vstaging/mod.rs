@@ -15,6 +15,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
+use core::fmt::Formatter;
+
 use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
@@ -66,7 +68,7 @@ pub enum CandidateDescriptorVersion {
 }
 
 /// A unique descriptor of the candidate receipt.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
@@ -98,6 +100,57 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	para_head: Hash,
 	/// The blake2-256 hash of the validation code bytes.
 	validation_code_hash: ValidationCodeHash,
+}
+impl<H> CandidateDescriptorV2<H> {
+	/// Returns the candidate descriptor version.
+	///
+	/// The candidate is at version 2 if the reserved fields are zeroed out
+	/// and the internal `version` field is 0.
+	pub fn version(&self) -> CandidateDescriptorVersion {
+		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
+			return CandidateDescriptorVersion::V1
+		}
+
+		match self.version.0 {
+			0 => CandidateDescriptorVersion::V2,
+			_ => CandidateDescriptorVersion::Unknown,
+		}
+	}
+}
+
+impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
+where
+	H: core::fmt::Debug,
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		match self.version() {
+			CandidateDescriptorVersion::V1 => f
+				.debug_struct("CandidateDescriptorV1")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("persisted_validation_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.erasure_root)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::V2 => f
+				.debug_struct("CandidateDescriptorV2")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("core_index", &self.core_index)
+				.field("session_index", &self.session_index)
+				.field("persisted_validation_data_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.pov_hash)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::Unknown => {
+				write!(f, "Invalid CandidateDescriptorVersion")
+			},
+		}
+	}
 }
 
 impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
@@ -434,7 +487,7 @@ pub struct ClaimQueueOffset(pub u8);
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum UMPSignal {
 	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
@@ -541,9 +594,14 @@ pub enum CommittedCandidateReceiptError {
 	/// The core index in commitments doesn't match the one in descriptor
 	#[cfg_attr(
 		feature = "std",
-		error("The core index in commitments doesn't match the one in descriptor")
+		error("The core index in commitments ({commitments:?}) doesn't match the one in descriptor ({descriptor:?})")
 	)]
-	CoreIndexMismatch,
+	CoreIndexMismatch {
+		/// The core index as found in the descriptor.
+		descriptor: CoreIndex,
+		/// The core index as found in the commitments.
+		commitments: CoreIndex,
+	},
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
@@ -588,20 +646,6 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(persisted_validation_data_hash, Hash);
 	impl_getter!(pov_hash, Hash);
 	impl_getter!(validation_code_hash, ValidationCodeHash);
-
-	/// Returns the candidate descriptor version.
-	/// The candidate is at version 2 if the reserved fields are zeroed out
-	/// and the internal `version` field is 0.
-	pub fn version(&self) -> CandidateDescriptorVersion {
-		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
-			return CandidateDescriptorVersion::V1
-		}
-
-		match self.version.0 {
-			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
-		}
-	}
 
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = Vec::with_capacity(32);
@@ -748,7 +792,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.copied()?;
 
 		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+				descriptor: descriptor_core_index,
+				commitments: core_index,
+			})
 		}
 
 		Ok(())
@@ -1329,7 +1376,10 @@ mod candidate_receipt_tests {
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+					descriptor: CoreIndex(1),
+					commitments: CoreIndex(0),
+				})
 			);
 		}
 

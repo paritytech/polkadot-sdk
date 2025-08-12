@@ -17,33 +17,32 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use crate::parachain_inherent::BasicParachainInherentData;
-use cumulus_primitives_core::{
-	relay_chain::Hash as RHash, ParachainBlockData, PersistedValidationData,
-};
-
-use polkadot_parachain_primitives::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationResult,
-};
-
+use crate::{parachain_inherent::BasicParachainInherentData, ClaimQueueOffset, CoreSelector};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-
-use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+use cumulus_primitives_core::{
+	relay_chain::{
+		vstaging::{UMPSignal, UMP_SEPARATOR},
+		Hash as RHash,
+	},
+	ParachainBlockData, PersistedValidationData,
+};
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
+};
+use polkadot_parachain_primitives::primitives::{
+	HeadData, RelayChainBlockNumber, ValidationResult,
 };
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, ExtrinsicLike, HashingFor, Header as HeaderT,
+	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
 };
-
 use sp_state_machine::OverlayedChanges;
-use sp_trie::ProofSizeProvider;
-use trie_recorder::SizeOnlyRecorderProvider;
+use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
+use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 type Ext<'a, Block, Backend> = sp_state_machine::Ext<'a, HashingFor<Block>, Backend>;
 
@@ -174,7 +173,7 @@ where
 	let num_blocks = blocks.len();
 
 	// Create the db
-	let db = match proof.to_memory_db(Some(parent_header.state_root())) {
+	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
 		Ok((db, _)) => db,
 		Err(_) => panic!("Compact proof decoding failure."),
 	};
@@ -182,29 +181,32 @@ where
 	core::mem::drop(proof);
 
 	let cache_provider = trie_cache::CacheProvider::new();
-	// We use the storage root of the `parent_head` to ensure that it is the correct root.
-	// This is already being done above while creating the in-memory db, but let's be paranoid!!
-	let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
-		db,
-		*parent_header.state_root(),
-		cache_provider,
-	)
-	.build();
-
-	// We use the same recorder when executing all blocks. So, each node only contributes once to
-	// the total size of the storage proof. This recorder should only be used for `execute_block`.
-	let mut execute_recorder = SizeOnlyRecorderProvider::default();
-	// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be used
-	// for `execute_block`.
-	let execute_backend = sp_state_machine::TrieBackendBuilder::wrap(&backend)
-		.with_recorder(execute_recorder.clone())
-		.build();
-
-	// We let all blocks contribute to the same overlay. Data written by a previous block will be
-	// directly accessible without going to the db.
-	let mut overlay = OverlayedChanges::default();
+	let seen_nodes = SeenNodes::<HashingFor<B>>::default();
 
 	for (block_index, block) in blocks.into_iter().enumerate() {
+		// We use the storage root of the `parent_head` to ensure that it is the correct root.
+		// This is already being done above while creating the in-memory db, but let's be paranoid!!
+		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
+			&db,
+			*parent_header.state_root(),
+			&cache_provider,
+		)
+		.build();
+
+		// We use the same recorder when executing all blocks. So, each node only contributes once
+		// to the total size of the storage proof. This recorder should only be used for
+		// `execute_block`.
+		let mut execute_recorder = SizeOnlyRecorderProvider::with_seen_nodes(seen_nodes.clone());
+		// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be
+		// used for `execute_block`.
+		let execute_backend = sp_state_machine::TrieBackendBuilder::wrap(&backend)
+			.with_recorder(execute_recorder.clone())
+			.build();
+
+		// We let all blocks contribute to the same overlay. Data written by a previous block will
+		// be directly accessible without going to the db.
+		let mut overlay = OverlayedChanges::default();
+
 		parent_header = block.header().clone();
 		let inherent_data = extract_parachain_inherent_data(&block);
 
@@ -308,11 +310,33 @@ where
 					);
 				}
 			},
-		)
+		);
+
+		if block_index + 1 != num_blocks {
+			let mut changes = overlay
+				.drain_storage_changes(
+					&backend,
+					<PSC as frame_system::Config>::Version::get().state_version(),
+				)
+				.expect("Failed to get drain storage changes from the overlay.");
+
+			drop(backend);
+
+			// We just forward the changes directly to our db.
+			changes.transaction.drain().into_iter().for_each(|(_, (value, count))| {
+				// We only care about inserts and not deletes.
+				if count > 0 {
+					db.insert(EMPTY_PREFIX, &value);
+
+					let hash = HashingFor::<B>::hash(&value);
+					seen_nodes.borrow_mut().insert(hash);
+				}
+			});
+		}
 	}
 
 	if !upward_message_signals.is_empty() {
-		let mut selected_core = None;
+		let mut selected_core: Option<(CoreSelector, ClaimQueueOffset)> = None;
 		let mut approved_peer = None;
 
 		upward_message_signals.iter().for_each(|s| {

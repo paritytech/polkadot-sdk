@@ -20,9 +20,10 @@
 //! Provides an implementation of the [`TrieRecorder`](trie_db::TrieRecorder) trait. It can be used
 //! to record storage accesses to the state to generate a [`StorageProof`].
 
-use crate::{NodeCodec, StorageProof};
+use crate::{GenericMemoryDB, NodeCodec, StorageProof};
 use codec::Encode;
 use hash_db::Hasher;
+use memory_db::KeyFunction;
 use parking_lot::{Mutex, MutexGuard};
 use std::{
 	collections::{HashMap, HashSet},
@@ -37,6 +38,56 @@ use std::{
 use trie_db::{RecordedForKey, TrieAccess};
 
 const LOG_TARGET: &str = "trie-recorder";
+
+/// A list of ignored nodes for [`Recorder`].
+///
+/// These nodes when passed to a recorder will be ignored and not recorded by the recorder.
+#[derive(Clone)]
+pub struct IgnoredNodes<H> {
+	nodes: HashSet<H>,
+}
+
+impl<H> Default for IgnoredNodes<H> {
+	fn default() -> Self {
+		Self { nodes: HashSet::default() }
+	}
+}
+
+impl<H: Eq + std::hash::Hash + Clone> IgnoredNodes<H> {
+	/// Initialize from the given storage proof.
+	///
+	/// So, all recorded nodes of the proof will be the ignored nodes.
+	pub fn from_storage_proof<Hasher: trie_db::Hasher<Out = H>>(proof: &StorageProof) -> Self {
+		Self { nodes: proof.iter_nodes().map(|n| Hasher::hash(&n)).collect() }
+	}
+
+	/// Initialize from the given memory db.
+	///
+	/// All nodes that have a reference count > 0 will be used as ignored nodes.
+	pub fn from_memory_db<Hasher: trie_db::Hasher<Out = H>, KF: KeyFunction<Hasher>>(
+		mut memory_db: GenericMemoryDB<Hasher, KF>,
+	) -> Self {
+		Self {
+			nodes: memory_db
+				.drain()
+				.into_iter()
+				// We do not want to add removed nodes.
+				.filter(|(_, (_, counter))| *counter > 0)
+				.map(|(_, (data, _))| Hasher::hash(&data))
+				.collect(),
+		}
+	}
+
+	/// Extend `self` with the other instance of ignored nodes.
+	pub fn extend(&mut self, other: Self) {
+		self.nodes.extend(other.nodes.into_iter());
+	}
+
+	/// Returns `true` if the node is ignored.
+	pub fn is_ignored(&self, node: &H) -> bool {
+		self.nodes.contains(node)
+	}
+}
 
 /// Stores all the information per transaction.
 #[derive(Default)]
@@ -66,6 +117,9 @@ struct RecorderInner<H> {
 	///
 	/// Mapping: `Hash(Node) -> Node`.
 	accessed_nodes: HashMap<H, Vec<u8>>,
+
+	/// Nodes that should be ignored and not recorded.
+	ignored_nodes: IgnoredNodes<H>,
 }
 
 impl<H> Default for RecorderInner<H> {
@@ -74,6 +128,7 @@ impl<H> Default for RecorderInner<H> {
 			recorded_keys: Default::default(),
 			accessed_nodes: Default::default(),
 			transactions: Vec::new(),
+			ignored_nodes: Default::default(),
 		}
 	}
 }
@@ -107,10 +162,20 @@ impl<H: Hasher> Clone for Recorder<H> {
 }
 
 impl<H: Hasher> Recorder<H> {
+	/// Create a new instance with the given `ingored_nodes`.
+	///
+	/// These ignored nodes are not recorded when accessed.
+	pub fn with_ignored_nodes(ignored_nodes: IgnoredNodes<H::Out>) -> Self {
+		Self {
+			inner: Arc::new(Mutex::new(RecorderInner { ignored_nodes, ..Default::default() })),
+			..Default::default()
+		}
+	}
+
 	/// Returns [`RecordedForKey`] per recorded key per trie.
 	///
 	/// There are multiple tries when working with e.g. child tries.
-	pub fn recorded_keys(&self) -> HashMap<<H as Hasher>::Out, HashMap<Arc<[u8]>, RecordedForKey>> {
+	pub fn recorded_keys(&self) -> HashMap<H::Out, HashMap<Arc<[u8]>, RecordedForKey>> {
 		self.inner.lock().recorded_keys.clone()
 	}
 
@@ -316,13 +381,22 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 
 		match access {
 			TrieAccess::NodeOwned { hash, node_owned } => {
+				let inner = self.inner.deref_mut();
+
+				if inner.ignored_nodes.is_ignored(&hash) {
+					tracing::trace!(
+						target: LOG_TARGET,
+						?hash,
+						"Ignoring node",
+					);
+					return
+				}
+
 				tracing::trace!(
 					target: LOG_TARGET,
-					hash = ?hash,
+					?hash,
 					"Recording node",
 				);
-
-				let inner = self.inner.deref_mut();
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let node = node_owned.to_encoded::<NodeCodec<H>>();
@@ -337,13 +411,22 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 				});
 			},
 			TrieAccess::EncodedNode { hash, encoded_node } => {
+				let inner = self.inner.deref_mut();
+
+				if inner.ignored_nodes.is_ignored(&hash) {
+					tracing::trace!(
+						target: LOG_TARGET,
+						?hash,
+						"Ignoring node",
+					);
+					return
+				}
+
 				tracing::trace!(
 					target: LOG_TARGET,
 					hash = ?hash,
 					"Recording node",
 				);
-
-				let inner = self.inner.deref_mut();
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let node = encoded_node.into_owned();
@@ -358,14 +441,24 @@ impl<'a, H: Hasher> trie_db::TrieRecorder<H::Out> for TrieRecorder<'a, H> {
 				});
 			},
 			TrieAccess::Value { hash, value, full_key } => {
+				let inner = self.inner.deref_mut();
+
+				// A value is also just a node.
+				if inner.ignored_nodes.is_ignored(&hash) {
+					tracing::trace!(
+						target: LOG_TARGET,
+						?hash,
+						"Ignoring value",
+					);
+					return
+				}
+
 				tracing::trace!(
 					target: LOG_TARGET,
 					hash = ?hash,
 					key = ?sp_core::hexdisplay::HexDisplay::from(&full_key),
 					"Recording value",
 				);
-
-				let inner = self.inner.deref_mut();
 
 				inner.accessed_nodes.entry(hash).or_insert_with(|| {
 					let value = value.into_owned();
@@ -729,5 +822,62 @@ mod tests {
 			let trie_recorder = recorder.as_trie_recorder(root);
 			assert!(matches!(trie_recorder.trie_nodes_recorded_for_key(key), RecordedForKey::None));
 		}
+	}
+
+	#[test]
+	fn recorder_ignoring_nodes_works() {
+		let (db, root) = create_trie::<Layout>(TEST_DATA);
+
+		let recorder = Recorder::default();
+
+		{
+			let mut trie_recorder = recorder.as_trie_recorder(root);
+			let trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut trie_recorder)
+				.build();
+
+			for (key, data) in TEST_DATA.iter().take(3) {
+				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
+			}
+		}
+
+		assert!(recorder.estimate_encoded_size() > 10);
+		let mut ignored_nodes = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
+			&recorder.drain_storage_proof(),
+		);
+
+		let recorder = Recorder::with_ignored_nodes(ignored_nodes.clone());
+
+		{
+			let mut trie_recorder = recorder.as_trie_recorder(root);
+			let trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut trie_recorder)
+				.build();
+
+			for (key, data) in TEST_DATA {
+				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
+			}
+		}
+
+		assert!(recorder.estimate_encoded_size() > TEST_DATA[3].1.len());
+		let ignored_nodes2 = IgnoredNodes::from_storage_proof::<sp_core::Blake2Hasher>(
+			&recorder.drain_storage_proof(),
+		);
+
+		ignored_nodes.extend(ignored_nodes2);
+
+		let recorder = Recorder::with_ignored_nodes(ignored_nodes);
+
+		{
+			let mut trie_recorder = recorder.as_trie_recorder(root);
+			let trie = TrieDBBuilder::<Layout>::new(&db, &root)
+				.with_recorder(&mut trie_recorder)
+				.build();
+
+			for (key, data) in TEST_DATA {
+				assert_eq!(data.to_vec(), trie.get(&key).unwrap().unwrap());
+			}
+		}
+		assert_eq!(0, recorder.estimate_encoded_size());
 	}
 }
