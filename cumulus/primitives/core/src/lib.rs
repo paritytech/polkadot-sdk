@@ -214,6 +214,15 @@ pub enum ServiceQuality {
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
+/// Identifier for a relay chain block used by [`CumulusDigestItem`].
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum RelayBlockIdentifier {
+	/// The block is identified using its block hash.
+	ByHash(relay_chain::Hash),
+	/// The block is identified using its storage root and block number.
+	ByStorageRoot { storage_root: relay_chain::Hash, block_number: relay_chain::BlockNumber },
+}
+
 /// Consensus header digests for Cumulus parachains.
 #[derive(Clone, RuntimeDebug, Decode, Encode, PartialEq)]
 pub enum CumulusDigestItem {
@@ -254,9 +263,38 @@ impl CumulusDigestItem {
 			_ => None,
 		})
 	}
+
+	/// Returns the [`RelayBlockIdentifier`] from the given `digest`.
+	///
+	/// The identifier corresponds to the relay parent used to build the parachain block.
+	pub fn find_relay_block_identifier(digest: &Digest) -> Option<RelayBlockIdentifier> {
+		digest.convert_first(|d| match d {
+			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::RelayParent(hash)) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some(RelayBlockIdentifier::ByHash(hash))
+			},
+			DigestItem::Consensus(id, val) if id == &rpsr_digest::RPSR_CONSENSUS_ID => {
+				let Ok((storage_root, block_number)) =
+					rpsr_digest::RpsrType::decode_all(&mut &val[..])
+				else {
+					return None
+				};
+
+				Some(RelayBlockIdentifier::ByStorageRoot {
+					storage_root,
+					block_number: block_number.into(),
+				})
+			},
+			_ => None,
+		})
+	}
 }
 
-/// Extract the relay-parent from the provided header digest. Returns `None` if none were found.
 ///
 /// If there are multiple valid digests, this returns the value of the first one, although
 /// well-behaving runtimes should not produce headers with more than one.
@@ -289,8 +327,11 @@ pub fn extract_relay_parent(digest: &Digest) -> Option<relay_chain::Hash> {
 /// blocks in low-value scenarios such as performance optimizations.
 #[doc(hidden)]
 pub mod rpsr_digest {
-	use super::{relay_chain, ConsensusEngineId, Decode, Digest, DigestItem, Encode};
+	use super::{relay_chain, ConsensusEngineId, DecodeAll, Digest, DigestItem, Encode};
 	use codec::Compact;
+
+	/// The type used to store the relay-parent storage root and number.
+	pub type RpsrType = (relay_chain::Hash, Compact<relay_chain::BlockNumber>);
 
 	/// A consensus engine ID for relay-parent storage root digests.
 	pub const RPSR_CONSENSUS_ID: ConsensusEngineId = *b"RPSR";
@@ -300,7 +341,10 @@ pub mod rpsr_digest {
 		storage_root: relay_chain::Hash,
 		number: impl Into<Compact<relay_chain::BlockNumber>>,
 	) -> DigestItem {
-		DigestItem::Consensus(RPSR_CONSENSUS_ID, (storage_root, number.into()).encode())
+		DigestItem::Consensus(
+			RPSR_CONSENSUS_ID,
+			RpsrType::from((storage_root, number.into())).encode(),
+		)
 	}
 
 	/// Extract the relay-parent storage root and number from the provided header digest. Returns
@@ -310,8 +354,7 @@ pub mod rpsr_digest {
 	) -> Option<(relay_chain::Hash, relay_chain::BlockNumber)> {
 		digest.convert_first(|d| match d {
 			DigestItem::Consensus(id, val) if id == &RPSR_CONSENSUS_ID => {
-				let (h, n): (relay_chain::Hash, Compact<relay_chain::BlockNumber>) =
-					Decode::decode(&mut &val[..]).ok()?;
+				let (h, n) = RpsrType::decode_all(&mut &val[..]).ok()?;
 
 				Some((h, n.0))
 			},
