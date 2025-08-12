@@ -1,4 +1,4 @@
-title: Cumulus: Remove --relay-chain-light-client
+title: "Cumulus: Remove --relay-chain-light-client"
 
 doc:
   - audience: Node Operator
