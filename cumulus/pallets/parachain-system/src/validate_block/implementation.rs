@@ -39,6 +39,7 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
+	LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -130,11 +131,11 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
-	sp_trie::add_extra_randomness(build_seed_from_head_data(
+	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
 		&block_data,
 		relay_parent_storage_root,
 	));
@@ -217,7 +218,7 @@ where
 			&mut execute_recorder,
 			&mut overlay,
 			|| {
-				E::execute_block(block.into_lazy_block());
+				E::execute_block(block);
 			},
 		);
 
@@ -349,19 +350,18 @@ where
 }
 
 /// Extract the [`BasicParachainInherentData`].
-fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
+fn extract_parachain_inherent_data<B: LazyBlock, PSC: crate::Config>(
 	block: &B,
-) -> &BasicParachainInherentData
+) -> BasicParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	block
 		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
+		.map(|e| e.expect("extract_parachain_inherent_data(): Could not decode extrinsic"))
 		.take_while(|e| e.is_bare())
-		.filter_map(|e| e.call().is_sub_type())
+		.filter_map(|e| e.into_call().try_into_sub_type())
 		.find_map(|c| match c {
 			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
 			_ => None,
@@ -393,7 +393,7 @@ fn validate_validation_data(
 /// in the block data, to make sure the seed changes every block and that
 /// the user cannot find about it ahead of time.
 fn build_seed_from_head_data<B: BlockT>(
-	block_data: &ParachainBlockData<B>,
+	block_data: &ParachainBlockData<B::LazyBlock>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
 ) -> [u8; 16] {
 	let mut bytes_to_hash = Vec::with_capacity(

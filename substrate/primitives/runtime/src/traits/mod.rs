@@ -1307,7 +1307,7 @@ pub trait LazyExtrinsic: Sized {
 }
 
 /// A Substrate block that allows us to lazily decode its extrinsics.
-pub trait LazyBlock: Debug + Encode + Sized {
+pub trait LazyBlock: Debug + Encode + Decode + Sized {
 	/// Type for the decoded extrinsics.
 	type Extrinsic: LazyExtrinsic;
 	/// Header type.
@@ -1450,8 +1450,11 @@ pub trait ExtrinsicCall: ExtrinsicLike {
 	/// The type of the call.
 	type Call;
 
-	/// Get the call of the extrinsic.
+	/// Get a reference to the call of the extrinsic.
 	fn call(&self) -> &Self::Call;
+
+	/// Convert the extrinsic into its call.
+	fn into_call(self) -> Self::Call;
 }
 
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
