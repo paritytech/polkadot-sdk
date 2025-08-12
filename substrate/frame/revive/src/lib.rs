@@ -774,7 +774,7 @@ pub mod pallet {
 					// The receipt only encodes the status code, gas used,
 					// logs bloom and logs. An encoded log only contains the
 					// contract address, topics and data.
-					let receipt: ReceiptInfo = ReceiptInfo::new(
+					let mut receipt: ReceiptInfo = ReceiptInfo::new(
 						// This represents the substrate block hash.
 						block_hash.into(),
 						block_number.into(),
@@ -790,6 +790,8 @@ pub mod pallet {
 						transaction_index.into(),
 						tx_info.r#type.unwrap_or_default(),
 					);
+
+					receipt.cumulative_gas_used = total_gas_used.clone();
 
 					logs_bloom.combine(&receipt.logs_bloom);
 
