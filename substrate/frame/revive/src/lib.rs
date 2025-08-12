@@ -47,7 +47,7 @@ use crate::{
 	evm::{
 		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
 		HashesOrTransactionInfos, Log, PartialSignedTransactionInfo, PrestateTracer, Trace, Tracer,
-		TracerType, TransactionInfo, TransactionSigned, TYPE_EIP1559,
+		TracerType, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -573,11 +573,7 @@ pub mod pallet {
 	/// The last block transaction details.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type LastBlockDetails<T> = StorageValue<
-		_,
-		(BlockHeader, Vec<(PartialSignedTransactionInfo, ReceiptInfo)>),
-		ValueQuery,
-	>;
+	pub(crate) type LastBlockDetails<T> = StorageValue<_, (BlockHeader, Vec<H256>), ValueQuery>;
 
 	/// The previous ETH block.
 	#[pallet::storage]
@@ -634,34 +630,12 @@ pub mod pallet {
 			let state_root = H256::decode(&mut &sp_io::storage::root(version)[..])
 				.expect("Node is configured to use the same hash; qed");
 
-			let (mut header, tx_and_receipts) = LastBlockDetails::<T>::get();
+			let (mut header, tx_hashes) = LastBlockDetails::<T>::get();
 			LastBlockDetails::<T>::kill();
 
 			header.state_root = state_root;
 			let block_hash = header.hash();
 			let block_number = header.number;
-
-			// Adjust stored transactions and receipts to the block hash.
-			let (transactions, receipts): (Vec<_>, Vec<_>) = tx_and_receipts
-				.into_iter()
-				.map(|(tx, mut receipt)| {
-					let tx_info = TransactionInfo {
-						block_hash,
-						block_number,
-						from: tx.from,
-						hash: tx.hash,
-						transaction_index: tx.transaction_index,
-						transaction_signed: tx.transaction_signed,
-					};
-
-					receipt.block_hash = block_hash;
-					for log in &mut receipt.logs {
-						log.block_hash = block_hash;
-					}
-
-					(tx_info, receipt)
-				})
-				.unzip();
 
 			let block = EthBlock {
 				parent_hash: header.parent_hash,
@@ -680,7 +654,7 @@ pub mod pallet {
 				mix_hash: header.mix_hash,
 				nonce: header.nonce,
 
-				transactions: HashesOrTransactionInfos::TransactionInfos(transactions),
+				transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
 				..Default::default()
 			};
@@ -707,7 +681,10 @@ pub mod pallet {
 
 			let mut logs_bloom = Bytes256::default();
 			let mut total_gas_used = U256::zero();
-			let tx_and_receipts: Vec<(PartialSignedTransactionInfo, ReceiptInfo)> = transactions
+
+			let mut tx_hashes = Vec::with_capacity(transactions.len());
+
+			let (signed_tx, receipt): (Vec<_>, Vec<_>) = transactions
 				.into_iter()
 				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
 					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
@@ -721,6 +698,7 @@ pub mod pallet {
 						.ok()?;
 
 					let transaction_hash = H256(keccak_256(&payload));
+					tx_hashes.push(transaction_hash);
 
 					let tx_info = GenericTransaction::from_signed(
 						signed_tx.clone(),
@@ -800,16 +778,16 @@ pub mod pallet {
 						gas_used: gas.ref_time().into(),
 					});
 
-					let tx = PartialSignedTransactionInfo {
-						from: from.into(),
-						hash: transaction_hash,
-						transaction_index: transaction_index.into(),
-						transaction_signed: signed_tx,
-					};
+					// let tx = PartialSignedTransactionInfo {
+					// 	from: from.into(),
+					// 	hash: transaction_hash,
+					// 	transaction_index: transaction_index.into(),
+					// 	transaction_signed: signed_tx,
+					// };
 
-					Some((tx, receipt))
+					Some((signed_tx.encode_2718(), receipt.encode_2718()))
 				})
-				.collect();
+				.unzip();
 
 			// Tx and Receipts must be encoded via: encode_2718
 			// TODO: We need to extend `TransactionSigned` with a new `encode()` fn similar to
@@ -819,26 +797,17 @@ pub mod pallet {
 			// Calculate tx root:
 			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L16-L24
 			// We might need: `(rlp(index), encoded(tx))` pairs instead.
-			let tx_blobs = tx_and_receipts
-				.iter()
-				.map(|(tx, _)| tx.transaction_signed.encode_2718())
-				.collect::<Vec<_>>();
 
 			use sp_trie::TrieConfiguration;
 			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
 			let transactions_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(tx_blobs);
+				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(signed_tx);
 
 			// TODO:
 			// Calculate receipt root:
 			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L49-L54
-			let receipt_blobs = tx_and_receipts
-				.iter()
-				.map(|(_, receipt)| receipt.encode_2718())
-				.collect::<Vec<_>>();
-
 			let receipts_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt_blobs);
+				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt);
 
 			let state_root = T::StateRoot::get();
 
@@ -874,7 +843,7 @@ pub mod pallet {
 				nonce: Default::default(),
 			};
 
-			LastBlockDetails::<T>::put((block_header, tx_and_receipts));
+			LastBlockDetails::<T>::put((block_header, tx_hashes));
 		}
 
 		fn integrity_test() {
