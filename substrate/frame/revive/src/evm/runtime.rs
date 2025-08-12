@@ -117,6 +117,10 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 	fn call(&self) -> &Self::Call {
 		self.0.call()
 	}
+
+	fn into_call(self) -> Self::Call {
+		self.0.into_call()
+	}
 }
 
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>

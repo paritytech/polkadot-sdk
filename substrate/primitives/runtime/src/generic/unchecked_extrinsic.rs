@@ -384,6 +384,10 @@ impl<Address, Call, Signature, Extra> ExtrinsicCall
 	fn call(&self) -> &Call {
 		&self.function
 	}
+
+	fn into_call(self) -> Self::Call {
+		self.function
+	}
 }
 
 // TODO: Migrate existing extension pipelines to support current `Signed` transactions as `General`
