@@ -333,6 +333,22 @@ impl TestState {
 							tx.send(Ok(self.node_features.clone()))
 								.expect("Receiver should still be alive");
 						},
+						RuntimeApiRequest::ValidatorGroups(tx) => {
+							// Provide the mocked validator groups and a default GroupRotationInfo.
+							let groups: Vec<Vec<ValidatorIndex>> = self
+								.session_info
+								.validator_groups
+								.iter()
+								.map(|g| g.clone())
+								.collect();
+							let group_rotation_info = polkadot_primitives::GroupRotationInfo {
+								session_start_block: 0,
+								group_rotation_frequency: 10,
+								now: 1,
+							};
+							tx.send(Ok((groups, group_rotation_info)))
+								.expect("Receiver should still be alive");
+						},
 						_ => {
 							panic!("Unexpected runtime request: {:?}", req);
 						},
@@ -345,6 +361,14 @@ impl TestState {
 						.map(|idx| chain[..idx].iter().rev().take(k).copied().collect())
 						.unwrap_or_default();
 					response_channel.send(Ok(ancestors)).expect("Receiver is expected to be alive");
+				},
+
+				AllMessages::CandidateBacking(
+					polkadot_node_subsystem::messages::CandidateBackingMessage::GetBackableCandidates(
+						_, tx,
+					),
+				) => {
+					let _ = tx.send(HashMap::new());
 				},
 
 				_ => {
