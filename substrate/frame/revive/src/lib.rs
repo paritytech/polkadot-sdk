@@ -649,6 +649,9 @@ pub mod pallet {
 					};
 
 					receipt.block_hash = block_hash;
+					for log in &mut receipt.logs {
+						log.block_hash = block_hash;
+					}
 
 					(tx_info, receipt)
 				})
