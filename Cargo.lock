@@ -11226,7 +11226,6 @@ dependencies = [
  "log",
  "pallet-balances",
  "pallet-revive",
- "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
