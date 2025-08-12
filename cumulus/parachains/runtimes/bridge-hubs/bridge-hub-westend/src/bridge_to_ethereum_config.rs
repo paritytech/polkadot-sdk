@@ -25,6 +25,7 @@ use crate::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
+use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -60,7 +61,6 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
 >;
-use hex_literal::hex;
 
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	UniversalLocation,
