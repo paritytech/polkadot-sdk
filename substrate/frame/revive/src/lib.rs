@@ -1857,20 +1857,16 @@ where
 	where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
-		T: pallet_transaction_payment::Config,
-		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 	{
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		let length_fee = pallet_transaction_payment::Pallet::<T>::length_to_fee(
-			5 * 1024 * 1024, // 5 MB
-		);
+		// 5 MiB.
+		let length_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(5 * 1024 * 1024, 0));
 
-		Self::evm_gas_from_weight(max_block_weight)
-			.saturating_add(Self::evm_fee_to_gas(length_fee.into()))
+		Self::evm_gas_from_weight(max_block_weight).saturating_add(Self::evm_fee_to_gas(length_fee))
 	}
 
 	/// Get the gas price.
