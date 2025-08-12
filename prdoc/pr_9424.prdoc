@@ -2,9 +2,7 @@ title: 'feat(warp sync): store headers and justifications during warp sync'
 doc:
 - audience: Node Operator
   description: |-
-    Closes https://github.com/paritytech/polkadot-sdk/issues/2738.
-
-    Still need to add tests for this - but I think the easiest way might be after the zombienet tests are converted to Rust, in the warp sync test maybe we can just request the headers (and justifications?) from JSON-RPC? Though I'm not sure there is an API for the justifications. But in any case we can in theory make a P2P justifications request as well and the node should be able to respond. Let me know if anybody has some better ideas.
+    Store justifications and headers for authorty set changes blocks during warp sync to be able to respond to warp sync requests from peers even without gap sync. In a follow-up PR, gap sync will be disabled if block pruning is enabled. This PR ensures that warp sync still works across the network, even on pruned nodes.
 crates:
 - name: cumulus-client-pov-recovery
   bump: patch
