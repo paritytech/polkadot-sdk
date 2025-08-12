@@ -101,7 +101,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-    let Ok(memory_len) = len_u256.try_into() else {
+    let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
@@ -115,7 +115,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 
 	// Copy cost: 3 gas per 32-byte word
-    let copy_gas = (((memory_len + 31) / 32) * 3) as u64; // Round up to nearest 32-byte boundary
+    let copy_gas = (memory_len.div_ceil(32) * 3) as u64; // Round up to nearest 32-byte boundary
 	// static gas for this instruction 100
     gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
 
@@ -225,13 +225,9 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
-    let account_id32 = context.interpreter.extend.account_id().clone();
-	let ts = context.interpreter.extend.transient_storage();
-
     let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-	let _write_outcome = ts.write(
-		&account_id32,
+	let _write_outcome = context.interpreter.extend.set_transient_storage(
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old
@@ -257,10 +253,8 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn_top!([], index, context.interpreter);
 
-    let account_id32 = context.interpreter.extend.account_id().clone();
-	let ts = context.interpreter.extend.transient_storage();
 	let key = Key::Fix(index.to_be_bytes());
-	let bytes = ts.read(&account_id32, &key);
+	let bytes = context.interpreter.extend.get_transient_storage(&key);
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
