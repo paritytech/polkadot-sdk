@@ -767,14 +767,14 @@ fn offence_reportable_window_disabled() {
 
 #[test]
 fn offence_reportable_window_governance_protection() {
-	// This test verifies that OffenceReportableWindow provides governance
-	// with enough time to review and cancel slashes before they are applied.
+	// This test verifies that OffenceReportableWindow provides governance with enough time to
+	// review and cancel slashes before they are applied.
 	ExtBuilder::default()
 		.slash_defer_duration(27)
 		.bonding_duration(28)
 		.build_and_execute(|| {
-			// Set OffenceReportableWindow to 20, leaving 7 eras (27-20)
-			// exclusively for governance review
+			// Set OffenceReportableWindow to 20, leaving 7 eras (27-20) exclusively for governance
+			// review
 			OffenceReportableWindow::set(20);
 
 			Session::roll_until_active_era(100);
@@ -826,19 +826,15 @@ fn offence_reportable_window_governance_protection() {
 			// Move to era 106 (one era before slash application)
 			Session::roll_until_active_era(106);
 
-			// At this point, governance has had 6 eras (101-106) to review
-			// and can still cancel the slash before it's applied in era 107
-
-			// Verify the slash is still pending and can be cancelled
-
-			// Attempt to cancel the slash scheduled for era 107 for validator 11 upto 50%
+			// At this point, governance has had 6 eras (101-106) to review and can still cancel the
+			// slash before it's applied in era 107
 			assert_ok!(Staking::cancel_deferred_slash(
 				RuntimeOrigin::root(),
 				107,
 				vec![(11, Perbill::from_percent(50))]
 			));
 
-			// Roll to era 107
+			// Roll to era 107 (era of slashing)
 			Session::roll_until_active_era(107);
 			// clear staking events until now
 			staking_events_since_last_call();
@@ -846,14 +842,14 @@ fn offence_reportable_window_governance_protection() {
 			// slashes still pending, but not applied.
 			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 1);
 
-			// Roll to the next block to remove the slash without applying it (as it was cancelled)
+			// Roll to the next block
 			Session::roll_next();
+
+			// This will remove the slash without applying it (as it was canceled)
 			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 0);
-			assert_eq!(
-				staking_events_since_last_call(),
-				// no slash applied
-				vec![]
-			);
+
+			// Verify no slashing events were emitted
+			assert_eq!(staking_events_since_last_call(), vec![]);
 		});
 }
 
