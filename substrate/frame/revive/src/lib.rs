@@ -82,7 +82,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedInto},
 	AccountId32, DispatchError,
 };
 
@@ -285,6 +285,11 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
+
+		/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+		#[pallet::constant]
+		#[pallet::no_default_bounds]
+		type BlockHashCount: Get<BlockNumberFor<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -357,6 +362,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
+			type BlockHashCount = ConstU32<256>;
 		}
 	}
 
@@ -616,6 +622,7 @@ pub mod pallet {
 		// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+
 		T: pallet_transaction_payment::Config,
 		OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -858,6 +865,16 @@ pub mod pallet {
 			let block_hash = block_header.hash();
 
 			BlockHash::<T>::insert(eth_block_num, block_hash);
+
+			let block_hash_count = <T as pallet::Config>::BlockHashCount::get();
+			let to_remove =
+				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
+			// keep genesis hash
+			if !to_remove.is_zero() {
+				<BlockHash<T>>::remove(U256::from(
+					UniqueSaturatedInto::<u32>::unique_saturated_into(to_remove),
+				));
+			}
 
 			let block = EthBlock {
 				parent_hash: block_header.parent_hash,
