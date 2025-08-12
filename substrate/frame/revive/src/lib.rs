@@ -90,7 +90,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	evm::{Block as EthBlock, ReceiptInfo},
+	evm::{Address as EthAddress, Block as EthBlock, ReceiptInfo},
 	exec::{MomentOf, Origin},
 	pallet::*,
 };
@@ -373,8 +373,19 @@ pub mod pallet {
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
 
-		/// Receipt information of an Ethereum transaction.
-		Receipt { receipt: ReceiptInfo },
+		/// Mandatory receipt information of an Ethereum transaction.
+		///
+		/// This contains the minimal information needed to reconstruct the receipt information
+		/// without losing accuracy.
+		Receipt {
+			/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
+			/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
+			/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
+			effective_gas_price: U256,
+
+			/// The amount of gas used for this specific transaction alone.
+			gas_used: U256,
+		},
 	}
 
 	#[pallet::error]
@@ -782,7 +793,10 @@ pub mod pallet {
 
 					logs_bloom.combine(&receipt.logs_bloom);
 
-					Self::deposit_event(Event::Receipt { receipt: receipt.clone() });
+					Self::deposit_event(Event::Receipt {
+						effective_gas_price: base_gas_price.into(),
+						gas_used: gas.ref_time().into(),
+					});
 
 					let tx = PartialSignedTransactionInfo {
 						from: from.into(),
