@@ -257,7 +257,7 @@ impl Requester {
 			},
 		};
 
-		let total_cores = validator_groups.0.len(); // TODO: Ask parity if this is correct.
+		let total_cores = validator_groups.0.len();
 		let mut cores: Vec<(CoreIndex, CoreInfo)> = Vec::new();
 
 		for (para, candidates) in backable_candidates {
