@@ -573,11 +573,6 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type PreviousBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
 
-	/// The previous receipt info.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type PreviousReceiptInfo<T> = StorageValue<_, Vec<ReceiptInfo>, ValueQuery>;
-
 	// Mapping for block number and hashes.
 	#[pallet::storage]
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
@@ -682,7 +677,6 @@ pub mod pallet {
 			// TODO: Prune older blocks.
 			BlockHash::<T>::insert(block_number, block_hash);
 			PreviousBlock::<T>::put(block);
-			PreviousReceiptInfo::<T>::put(receipts);
 
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
@@ -1772,10 +1766,6 @@ where
 		PreviousBlock::<T>::get()
 	}
 
-	pub fn eth_receipt_info() -> Vec<ReceiptInfo> {
-		PreviousReceiptInfo::<T>::get()
-	}
-
 	pub fn eth_block_number(number: U256) -> Option<H256> {
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
@@ -2040,11 +2030,6 @@ sp_api::decl_runtime_apis! {
 		/// This is one block behind the substrate block.
 		fn eth_block() -> EthBlock;
 
-		/// Returns the ETH block receipt infos.
-		///
-		/// These are one block behind the substrate block.
-		fn eth_receipt_info() -> Vec<ReceiptInfo>;
-
 		/// Returns the ETH block hash for the given block number.
 		fn eth_block_hash(number: U256) -> Option<H256>;
 
@@ -2179,10 +2164,6 @@ macro_rules! impl_runtime_apis_plus_revive {
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for $Runtime {
 				fn eth_block() -> $crate::EthBlock {
 					$crate::Pallet::<Self>::eth_block()
-				}
-
-				fn eth_receipt_info() -> Vec<$crate::ReceiptInfo> {
-					$crate::Pallet::<Self>::eth_receipt_info()
 				}
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
