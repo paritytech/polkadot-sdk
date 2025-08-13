@@ -39,6 +39,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+pub use pallet_transaction_payment;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
@@ -85,6 +86,10 @@ macro_rules! build_runtime(
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,
 		MomentOf<T>: Into<U256>,
+	    <T as frame_system::Config>::RuntimeCall:
+		    Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
+		T: pallet_transaction_payment::Config,
+	    OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		<T as frame_system::Config>::RuntimeEvent: From<pallet::Event<T>>,
 		<T as Config>::RuntimeCall: From<frame_system::Call<T>>,
 		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
@@ -412,17 +417,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `tx_count`: number of transactions to fit in the block
+	// `c`: number of transactions to fit in the block
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block(tx_count: Linear<0, 100>) -> Result<(), BenchmarkError> {
+	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let current_block: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
 
-		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 
 		let value = Pallet::<T>::min_balance();
-		let dust = 42u32 * d;
+		let dust = 0;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
@@ -434,22 +438,23 @@ mod benchmarks {
 		#[block]
 		{
 			// on_initialize
-			let _ = Pallet::<T>::on_initialize(current_block);
+			let _ = Pallet::<T>::on_initialize_internal(current_block);
 			// eth_call for each tx
-			for _ in 0..tx_count {
-				Pallet::<T>::eth_call(
-					origin,
+			for _ in 0..c {
+				let _ = Pallet::<T>::eth_call(
+					origin.clone().into(),
 					instance.address,
 					evm_value,
 					Weight::MAX,
 					storage_deposit,
-					data,
+					vec![42u8; 1024],
 					vec![],
 				);
 			}
 			// on_finalize
 			let _ = Pallet::<T>::on_finalize_internal(current_block);
 		}
+		Ok(())
 	}
 
 	// This constructs a contract that is maximal expensive to instrument.
