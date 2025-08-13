@@ -412,6 +412,46 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// `tx_count`: number of transactions to fit in the block
+	#[benchmark(pov_mode = Measured)]
+	fn finalize_block(tx_count: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let current_block: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+
+		let data = vec![42u8; 1024];
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 42u32 * d;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+
+		let caller_addr = T::AddressMapper::to_address(&instance.caller);
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let before = Pallet::<T>::evm_balance(&instance.address);
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			// on_initialize
+			let _ = Pallet::<T>::on_initialize(current_block);
+			// eth_call for each tx
+			for _ in 0..tx_count {
+				Pallet::<T>::eth_call(
+					origin,
+					instance.address,
+					evm_value,
+					Weight::MAX,
+					storage_deposit,
+					data,
+					vec![],
+				);
+			}
+			// on_finalize
+			let _ = Pallet::<T>::on_finalize_internal(current_block);
+		}
+	}
+
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
