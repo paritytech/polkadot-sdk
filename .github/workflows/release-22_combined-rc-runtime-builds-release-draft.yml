@@ -103,27 +103,3 @@ jobs:
       build_run_id: ${{ github.run_id }}
       runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
     secrets: inherit
-  # trigger-release-draft:
-  #   needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Generate content write token for the release automation
-  #       id: generate_write_token
-  #       uses: actions/create-github-app-token@v2
-  #       with:
-  #         app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
-  #         private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
-  #         owner: EgorPopelyaev
-  #         repositories: polkadot-sdk
-
-  #     - name: Trigger publish_release_draft workflow
-  #       env:
-  #         GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
-  #       run: |
-  #         # Note: The 'published_runtimes' output is now directly from the 'build-runtimes-flow' job.
-  #         gh workflow run .github/workflows/release-30_publish_release_draft.yml \
-  #           --repo ${{ github.repository }} \
-  #           --ref ${{ github.ref }} \
-  #           -f release_tag=${{ needs.validate-inputs.outputs.release_tag }} \
-  #           -f build_run_id=${{ github.run_id }} \
-  #           -f runtimes='${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
