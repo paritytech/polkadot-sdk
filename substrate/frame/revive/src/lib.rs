@@ -789,7 +789,7 @@ pub mod pallet {
 						tx_info.r#type.unwrap_or_default(),
 					);
 
-					receipt.cumulative_gas_used = total_gas_used.clone();
+					receipt.cumulative_gas_used = total_gas_used;
 
 					logs_bloom.combine(&receipt.logs_bloom);
 
