@@ -837,7 +837,7 @@ parameter_types! {
 	pub const DepositPerItem: Balance = 0;
 	pub const DepositPerByte: Balance = 0;
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const BlockHashCountRevive: u64 = 256;
+	pub const BlockHashCountRevive: u32 = 256;
 }
 
 impl pallet_revive::Config for Runtime {
