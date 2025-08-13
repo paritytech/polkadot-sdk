@@ -189,16 +189,16 @@ jobs:
           fi
 
           # fail if no artifacts
-          if [ ! -d ./artifacts/stabel2506 ] || [ ! -d ./artifacts/current ]; then
+          if [ ! -d ./artifacts/stable2506 ] || [ ! -d ./artifacts/current ]; then
             echo "No artifacts found"
             exit 1
           fi
 
           docker run --rm \
-          -v $PWD/artifacts/stabel2506:/artifacts/stabel2506 \
+          -v $PWD/artifacts/stable2506:/artifacts/stable2506 \
           -v $PWD/artifacts/current:/artifacts/current \
           paritytech/node-bench-regression-guard:latest \
-          node-bench-regression-guard --reference /artifacts/stabel2506 --compare-with /artifacts/current
+          node-bench-regression-guard --reference /artifacts/stable2506 --compare-with /artifacts/current
 
           if [ $? -ne 0 ]; then
             FAILED_MSG='### node-bench-regression-guard failed ❌, check the regression in *cargo-check-benches* job'
