@@ -378,7 +378,7 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as polkadot_sdk::polkadot_sdk_frame::traits::Block>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)

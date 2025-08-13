@@ -564,7 +564,7 @@ impl_runtime_apis! {
 			vec![]
 		}
 
-		fn check_inherents(_block: Block, _data: InherentData) -> CheckInherentsResult {
+		fn check_inherents(_block: <Block as BlockT>::LazyBlock, _data: InherentData) -> CheckInherentsResult {
 			CheckInherentsResult::new()
 		}
 	}

@@ -78,7 +78,7 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn check_inherents(_: Block, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
+		fn check_inherents(_: <Block as BlockT>::LazyBlock, _: sp_inherents::InherentData) -> sp_inherents::CheckInherentsResult {
 			unimplemented!()
 		}
 	}

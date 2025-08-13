@@ -258,7 +258,7 @@ impl_runtime_apis! {
 		}
 
 		fn check_inherents(
-			block: Block,
+			block: <Block as frame::traits::Block>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
 			data.check_extrinsics(&block)
