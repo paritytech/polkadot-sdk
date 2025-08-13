@@ -21,6 +21,7 @@ use polkadot_node_subsystem::errors::{ChainApiError, RuntimeApiError, SubsystemE
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::Hash;
 
+
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -56,6 +57,9 @@ pub enum Error {
 	#[error("failed to get votes on dispute")]
 	CanceledCandidateVotes(#[source] oneshot::Canceled),
 
+	#[error("failed to get backable candidates from prospective parachains")]
+	CanceledBackableCandidates(#[source] oneshot::Canceled),
+
 	#[error(transparent)]
 	ChainApi(#[from] ChainApiError),
 
@@ -84,10 +88,6 @@ pub enum Error {
 	#[fatal]
 	#[error(transparent)]
 	OverseerExited(SubsystemError),
-
-	/// Attempted to get backable candidates from prospective parachains but the request was canceled.
-	#[error("failed to get backable candidates from prospective parachains")]
-	CanceledBackableCandidates(#[source] oneshot::Canceled),
 }
 
 /// Used by `get_onchain_disputes` to represent errors related to fetching on-chain disputes from
