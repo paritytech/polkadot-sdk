@@ -33,6 +33,7 @@ pub mod pallet_assets_pool;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
 pub mod pallet_bridge_messages;
+pub mod pallet_bridge_proof_root_store;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
 pub mod pallet_conviction_voting;

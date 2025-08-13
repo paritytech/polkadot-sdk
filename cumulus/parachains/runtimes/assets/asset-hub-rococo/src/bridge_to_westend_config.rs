@@ -22,7 +22,7 @@ use crate::{
 	xcm_config::UniversalLocation,
 	AccountId, AssetHubWestendProofRootStore, Balance, Balances, BridgeWestendMessages,
 	PolkadotXcm, Runtime, RuntimeEvent, RuntimeHoldReason, ToWestendOverAssetHubWestendXcmRouter,
-	XcmOverAssetHubWestend,
+	XcmOverAssetHubWestend, XcmRouter,
 };
 use alloc::{vec, vec::Vec};
 use bp_messages::HashedLaneId;
@@ -127,6 +127,15 @@ impl pallet_bridge_messages::Config<WithAssetHubWestendMessagesInstance> for Run
 	type OnMessagesDelivered = XcmOverAssetHubWestend;
 }
 
+// Utility for syncing AHW headers with state roots to the AHR.
+pub(crate) type AssetHubWestendHeadersStore = bridge_hub_common::header_store::StoreParaHeadersFor<
+	Runtime,
+	AssetHubWestendProofRootStoreInstance,
+	bp_asset_hub_westend::AssetHubWestend,
+	XcmRouter,
+	bp_asset_hub_rococo::Call,
+>;
+
 /// Add support for storing bridged AssetHubWestend state roots.
 pub type AssetHubWestendProofRootStoreInstance = pallet_bridge_proof_root_store::Instance1;
 impl pallet_bridge_proof_root_store::Config<AssetHubWestendProofRootStoreInstance> for Runtime {
@@ -148,6 +157,10 @@ impl pallet_bridge_proof_root_store::Config<AssetHubWestendProofRootStoreInstanc
 	>;
 	// Configured according to the BHR's `ParachainHeadsToKeep`
 	type RootsToKeep = ConstU32<64>;
+
+	/// Helper type for benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetHubWestendHeadersStore;
 }
 
 /// Adapter `bp_header_chain::HeaderChain` implementation which resolves AssetHubWestend
@@ -202,8 +215,8 @@ impl pallet_xcm_bridge::Config<XcmOverAssetHubWestendInstance> for Runtime {
 	/// - Message size fee (if configured)
 	/// - Dynamic fee factor (if congested)
 	///
-	/// This price is calculated either for local routing with `ToWestendOverAssetHubWestendXcmRouter`
-	/// or executing `ExportMessage` from a sibling chain.
+	/// This price is calculated either for local routing with
+	/// `ToWestendOverAssetHubWestendXcmRouter` or executing `ExportMessage` from a sibling chain.
 	type MessageExportPrice = GetPriceForBridge<
 		Runtime,
 		ToWestendOverAssetHubWestendXcmRouterInstance,
