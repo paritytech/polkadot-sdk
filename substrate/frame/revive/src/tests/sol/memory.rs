@@ -106,7 +106,6 @@ fn msize_works() {
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
-            log::info!("result: {result:?}");
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(offset+32),
@@ -118,5 +117,33 @@ fn msize_works() {
 
 #[test]
 fn mcopy_works() {
-    
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+
+        let expected_value = U256::from(0xBE);
+
+        ExtBuilder::default().build().execute_with(|| {
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
+            let result = builder::bare_call(addr)
+                .gas_limit(1_000_000_000.into())
+                .data(
+                    Memory::MemoryCalls::testMcopy(Memory::testMcopyCall { 
+                        dstOffset: U256::from(512),
+                        offset: U256::from(0),
+                        size: U256::from(32),
+                        value: expected_value,
+                    })
+                        .abi_encode(),
+                )
+                .build_and_unwrap_result();
+            assert_eq!(
+                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                expected_value,
+                "memory test should return 0"
+            );
+        });
+    }
 }

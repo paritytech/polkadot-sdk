@@ -38,10 +38,23 @@ contract Memory {
 		return value;
 	}
 
-	function mcopyOp(uint256 dstOffset, uint256 offset, uint256 size) public {
+	function testMcopy(uint256 dstOffset, uint256 offset, uint256 size, uint256 value) public returns (uint256) {
+        assembly {
+            mstore(dstOffset, 0)
+        }
+        for (uint256 i = 0; i < size; i += 32) {
+            assembly {
+                mstore(add(offset, i), value)
+            }
+        }
         assembly {
             mcopy(dstOffset, offset, size)
         }
+        uint256 result = 123;
+        assembly {
+            result := mload(dstOffset)
+        }
+        return result;
 	}
 
 
