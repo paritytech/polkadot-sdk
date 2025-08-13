@@ -1310,7 +1310,7 @@ fn try_execute_block_works() {
 
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]),
+			Block::new(header, vec![xt1, xt2]).into_lazy_block(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1369,7 +1369,7 @@ fn try_execute_tx_forbidden_errors() {
 	new_test_ext(1).execute_with(|| {
 		MbmActive::set(true);
 		Executive::try_execute_block(
-			Block::new(header, vec![xt1, xt2]),
+			Block::new(header, vec![xt1, xt2]).into_lazy_block(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1564,7 +1564,7 @@ fn post_inherent_called_after_all_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into_lazy_block(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,
@@ -1604,7 +1604,7 @@ fn post_inherent_called_after_all_optional_inherents() {
 	#[cfg(feature = "try-runtime")]
 	new_test_ext(1).execute_with(|| {
 		Executive::try_execute_block(
-			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]),
+			Block::new(header.clone(), vec![in1.clone(), xt1.clone()]).into_lazy_block(),
 			true,
 			true,
 			frame_try_runtime::TryStateSelect::All,

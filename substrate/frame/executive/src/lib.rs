@@ -303,7 +303,7 @@ where
 	///
 	/// Should only be used for testing ONLY.
 	pub fn try_execute_block(
-		block: Block,
+		block: Block::LazyBlock,
 		state_root_check: bool,
 		signature_check: bool,
 		select: frame_try_runtime::TryStateSelect,
@@ -319,7 +319,6 @@ where
 
 		let mode = Self::initialize_block(block.header());
 		Self::initial_checks(block.header());
-		let (header, extrinsics) = block.deconstruct();
 
 		// Apply extrinsics:
 		let signature_check = if signature_check {
@@ -327,11 +326,9 @@ where
 		} else {
 			Block::Extrinsic::unchecked_into_checked_i_know_what_i_am_doing
 		};
-		Self::apply_extrinsics(
-			mode,
-			extrinsics.into_iter().map(|uxt| Ok(uxt)),
-			|uxt, is_inherent| Self::do_apply_extrinsic(uxt, is_inherent, signature_check),
-		)?;
+		Self::apply_extrinsics(mode, block.extrinsics(), |uxt, is_inherent| {
+			Self::do_apply_extrinsic(uxt, is_inherent, signature_check)
+		})?;
 
 		// In this case there were no transactions to trigger this state transition:
 		if !<frame_system::Pallet<System>>::inherents_applied() {
@@ -342,6 +339,7 @@ where
 		<frame_system::Pallet<System>>::note_finished_extrinsics();
 		<System as frame_system::Config>::PostTransactions::post_transactions();
 
+		let header = block.header();
 		Self::on_idle_hook(*header.number());
 		Self::on_finalize_hook(*header.number());
 

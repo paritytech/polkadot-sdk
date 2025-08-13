@@ -183,7 +183,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn execute_block(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: bool,
 					_: bool,
 					_: frame_try_runtime::TryStateSelect,
