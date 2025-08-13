@@ -310,7 +310,7 @@ where
 				Err(e) => TransactionOutcome::Rollback(Err(Error::from(e))),
 			}
 		});
-		tracing::debug!(target: "durations", "block_builder::push: duration: {:?}", start.elapsed());
+		tracing::debug!(target: "durations", "block_builder::push: duration: {:?} result: {:?}", start.elapsed(), result);
 		result
 	}
 
