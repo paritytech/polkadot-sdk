@@ -171,7 +171,7 @@ jobs:
         continue-on-error: true
         with:
           name: cargo-check-benches-stable2506-${{ github.sha }}
-          path: ./artifacts/master
+          path: ./artifacts/stable2506
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
