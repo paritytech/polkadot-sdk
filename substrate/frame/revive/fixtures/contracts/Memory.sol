@@ -14,20 +14,6 @@ contract Memory {
         return result - value;
 	}
 
-	function mloadOp(uint256 offset) public view returns (uint256) {
-        uint256 value;
-        assembly {
-            value := mload(offset)
-        }
-		return value;
-	}
-
-	function mstoreOp(uint256 offset, uint256 value) public {
-        assembly {
-            mstore(offset, value)
-        }
-	}
-
 	function mstore8Op(uint256 offset, uint256 value) public {
         assembly {
             mstore8(offset, value)
