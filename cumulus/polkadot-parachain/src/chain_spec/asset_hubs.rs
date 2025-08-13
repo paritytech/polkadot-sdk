@@ -71,7 +71,7 @@ pub fn asset_hub_westend_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		Extensions::new_with_relay_chain("westend-local".into()),
+		Extensions::new_with_relay_chain("westend".into()),
 	)
 	.with_name("Westend Asset Hub")
 	.with_id("asset-hub-westend")
