@@ -2,7 +2,7 @@ title: 'feat(warp sync): store headers and justifications during warp sync'
 doc:
 - audience: Node Operator
   description: |-
-    Store justifications and headers for authorty set changes blocks during warp sync to be able to respond to warp sync requests from peers even without gap sync. In a follow-up PR, gap sync will be disabled if block pruning is enabled. This PR ensures that warp sync still works across the network, even on pruned nodes.
+    Store justifications and headers for authority set changes blocks during warp sync to be able to respond to warp sync requests from peers even without gap sync. In a follow-up PR, gap sync will be disabled if block pruning is enabled. This PR ensures that warp sync still works across the network, even on pruned nodes.
 crates:
 - name: cumulus-client-pov-recovery
   bump: patch
