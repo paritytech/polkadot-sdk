@@ -338,12 +338,11 @@ impl RunCmd {
 
 	/// Create [`CollatorOptions`] representing options only relevant to parachain collator nodes
 	pub fn collator_options(&self) -> CollatorOptions {
-		let relay_chain_mode =
-			if self.relay_chain_rpc_urls.is_empty() {
-				RelayChainMode::Embedded
-			} else {
-				RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone())
-			};
+		let relay_chain_mode = if self.relay_chain_rpc_urls.is_empty() {
+			RelayChainMode::Embedded
+		} else {
+			RelayChainMode::ExternalRpc(self.relay_chain_rpc_urls.clone())
+		};
 
 		CollatorOptions {
 			relay_chain_mode,
