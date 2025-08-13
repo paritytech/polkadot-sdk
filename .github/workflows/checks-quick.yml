@@ -192,7 +192,7 @@ jobs:
       options: --user root
     steps:
       - name: Fetch latest code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Check
         run: |
           set +e
@@ -212,7 +212,7 @@ jobs:
     needs: isdraft
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install prerequisites
         run: |
