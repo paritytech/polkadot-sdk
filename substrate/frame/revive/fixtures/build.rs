@@ -217,7 +217,7 @@ fn compile_with_standard_json(
 		"sources": {},
 		"settings": {
 			"optimizer": {
-				"enabled": true,
+				"enabled": false,
 				"runs": 200
 			},
 			"outputSelection":

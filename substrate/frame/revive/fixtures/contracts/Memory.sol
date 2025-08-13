@@ -27,11 +27,14 @@ contract Memory {
         return result;
 	}
 
-	function msizeOp() public view returns (uint256) {
+	function testMsize(uint256 offset) public returns (uint256) {
+        assembly {
+            mstore(offset, 123)
+        }
         uint256 value;
-        //assembly {
-        //    value := msize()
-        //}
+        assembly {
+            value := msize()
+        }
 		return value;
 	}
 
