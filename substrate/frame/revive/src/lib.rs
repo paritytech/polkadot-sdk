@@ -627,6 +627,11 @@ pub mod pallet {
 				.expect("Node is configured to use the same hash; qed");
 
 			let (mut header, tx_and_receipts) = LastBlockDetails::<T>::get();
+
+			// TODO: remove eventually
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			log::info!("[on_initialize] LastBlockDetails header: {:?}", header,);
+
 			LastBlockDetails::<T>::kill();
 
 			header.state_root = state_root;
@@ -679,6 +684,10 @@ pub mod pallet {
 			PreviousBlock::<T>::put(block);
 			PreviousReceiptInfo::<T>::put(receipts);
 
+			// TODO: remove eventually
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			log::info!("[on_initialize] block_number: {block_number:?} block_hash: {block_hash:?}");
+
 			// Anything that needs to be done at the start of the block.
 			// We don't do anything here.
 			Weight::zero()
@@ -689,8 +698,11 @@ pub mod pallet {
 				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
 				DispatchClass::Normal,
 			);
+			// TODO: remove eventually
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			log::info!(
-				"Finalize fixed={} per_tx={}",
+				"[on_finalize] block: {:?} fixed={} per_tx={}",
+				block_number,
 				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
 				<T as pallet::Config>::WeightInfo::finalize_block_per_tx()
 			);
@@ -1070,6 +1082,11 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			// TODO: remove eventually
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			log::info!("[eth_call] dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} data: {} bytes payload: {} bytes",
+			    data.len(), payload.len());
+
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -2005,6 +2022,10 @@ impl<T: Config> Pallet<T> {
 		});
 
 		let transactions_count = InflightTransactions::<T>::count();
+		// TODO: remove eventually
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		log::info!("[store_transaction] transactions_count: {transactions_count} extrinsic_index: {extrinsic_index} events: {} sucess: {success} gas_consumed: {gas_consumed:?}", events.len() );
+
 		InflightTransactions::<T>::insert(
 			transactions_count,
 			(payload, extrinsic_index, events, success, gas_consumed),
