@@ -287,6 +287,8 @@ where
 			CheckInherentsError::CheckInherents(e) => Error::CheckInherents(e),
 			CheckInherentsError::CheckInherentsUnknownError(id) =>
 				Error::CheckInherentsUnknownError(id),
+			CheckInherentsError::VersionInvalid(e) =>
+				Error::Client(sp_blockchain::Error::VersionInvalid(e)),
 		})?;
 
 		Ok(())

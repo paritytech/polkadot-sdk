@@ -32,7 +32,7 @@ use sp_runtime::{traits::Block as BlockT, ApplyExtrinsicResult};
 
 sp_api::decl_runtime_apis! {
 	/// The `BlockBuilder` api trait that provides the required functionality for building a block.
-	#[api_version(6)]
+	#[api_version(7)]
 	pub trait BlockBuilder {
 		/// Apply the given extrinsic.
 		///
@@ -55,6 +55,8 @@ sp_api::decl_runtime_apis! {
 		) -> alloc::vec::Vec<<Block as BlockT>::Extrinsic>;
 
 		/// Check that the inherents are valid. The inherent data will vary from chain to chain.
+		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult;
+		#[changed_in(7)]
 		fn check_inherents(block: Block, data: InherentData) -> CheckInherentsResult;
 	}
 }
