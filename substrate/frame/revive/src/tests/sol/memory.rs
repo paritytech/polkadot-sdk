@@ -32,7 +32,7 @@ use pretty_assertions::assert_eq;
 use frame_support::traits::Get;
 
 #[test]
-fn mload_works() {
+fn mload_and_mstore_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
@@ -58,13 +58,33 @@ fn mload_works() {
 }
 
 #[test]
-fn mstore_works() {
-    
-}
-
-#[test]
 fn mstore8_works() {
-    
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+
+        let expected_byte = 0xBE_u8;
+
+        ExtBuilder::default().build().execute_with(|| {
+            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+            
+            let result = builder::bare_call(addr)
+                .gas_limit(1_000_000_000.into())
+                .data(
+                    Memory::MemoryCalls::testMstore8(Memory::testMstore8Call { offset: U256::from(0), value: U256::from(expected_byte) })
+                        .abi_encode(),
+                )
+                .build_and_unwrap_result();
+            let expected_bytes = [expected_byte; 32];
+            let expected = U256::from_be_bytes(expected_bytes);
+            assert_eq!(
+                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+                expected,
+                "memory test should return 0"
+            );
+        });
+    }
 }
 
 #[test]

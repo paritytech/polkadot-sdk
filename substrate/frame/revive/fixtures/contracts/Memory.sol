@@ -14,10 +14,17 @@ contract Memory {
         return result - value;
 	}
 
-	function mstore8Op(uint256 offset, uint256 value) public {
-        assembly {
-            mstore8(offset, value)
+	function testMstore8(uint256 offset, uint256 value) public returns (uint256) {
+        for (uint256 i = 0; i < 32; i++) {
+            assembly {
+                mstore8(add(offset, i), value)
+            }
         }
+        uint256 result = 123;
+        assembly {
+            result := mload(offset)
+        }
+        return result;
 	}
 
 	function msizeOp() public view returns (uint256) {
