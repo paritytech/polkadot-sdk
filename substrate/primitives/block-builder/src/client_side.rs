@@ -82,7 +82,7 @@ where
 		},
 		7.. => client
 			.runtime_api()
-			.check_inherents(at_hash, block, inherent_data)
+			.check_inherents(at_hash, block.into_lazy_block(), inherent_data)
 			.map_err(CheckInherentsError::Client)?,
 	};
 

@@ -100,7 +100,7 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn check_inherents(
-					_: $block,
+					_: <$block as BlockT>::LazyBlock,
 					_: sp_inherents::InherentData
 				) -> sp_inherents::CheckInherentsResult {
 					unimplemented!()
