@@ -971,13 +971,7 @@ where
 			"fatp::submit_at"
 		);
 		log_xt_trace!(target: LOG_TARGET, xts.iter().map(|xt| self.tx_hash(xt)), "fatp::submit_at");
-<<<<<<< HEAD
-
-		let result = self.submit_at_inner(source, xts).await;
-
-=======
 		let result = self.submit_at_inner(at, source, xts).await;
->>>>>>> 7ef0275 (`fatxpool`: avoid premature revalidation of transactions (#9189))
 		insert_and_log_throttled!(
 			Level::DEBUG,
 			target:LOG_TARGET_STAT,
