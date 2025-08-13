@@ -92,5 +92,5 @@ jobs:
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
 
-      # - name: sleep
-      #   run: sleep 600
+      - name: sleep
+        run: sleep 600
