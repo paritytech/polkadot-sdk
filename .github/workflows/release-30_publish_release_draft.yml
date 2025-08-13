@@ -126,6 +126,11 @@ jobs:
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
 
+          echo "Version: $VERSION"
+
+          ls -la ${{ github.workspace}}/runtimes
+          ls -la ${{ github.workspace}}/prdoc/stable2556
+
           ./scripts/release/build-changelogs.sh
 
       - name: Archive artifact context.json
