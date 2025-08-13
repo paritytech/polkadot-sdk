@@ -2,31 +2,10 @@ title: '[pallet-revive] expose `exec::Key`'
 doc:
 - audience: Runtime Dev
   description: |-
-    # Description
-
     This is a fix for the fact that `exec::Key` is exposed from within `pallet_revive::tracing::Tracing` interface, but not from the crate itself making custom tracers effectively unimplementable outside said crate.
 
     In my case it's useful for implementing custom tracers for integration with `foundry`
 
-    ## Integration
-
-    Requires no downstream changes
-
-    ## Review Notes
-
-    This is a fix for the fact that `exec::Key` is exposed from within `pallet_revive::tracing::Tracing` interface, but not from the crate itself making custom tracers effectively unimplementable outside said crate.
-
-    see here for one of the methods: [`exec::Key` exposed to the implementor, despite not being exported by the `crate`](https://github.com/paritytech/polkadot-sdk/blob/pkhry/expose_key_pallet_revive/substrate/frame/revive/src/tracing.rs#L68)
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](
-    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
-    ) of this project (at minimum one label for `T` required)
-        * External contributors: ask maintainers to put the right label on your PR.
-    * [x] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: pallet-revive
   bump: patch
