@@ -218,7 +218,7 @@ fn runtime_metadata() {
 					name: "execute_block",
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "block",
-						ty: meta_type::<Block>(),
+						ty: meta_type::<<Block as BlockT>::LazyBlock>(),
 					}],
 					output: meta_type::<()>(),
 					docs: maybe_docs(vec![" Execute the given block."]),
@@ -240,7 +240,7 @@ fn runtime_metadata() {
 				" The `Core` runtime api that every Substrate runtime needs to implement.",
 			]),
 			deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
-			version: codec::Compact(5),
+			version: codec::Compact(6),
 		},
 	];
 
