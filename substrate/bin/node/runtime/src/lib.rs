@@ -1468,7 +1468,7 @@ impl pallet_contracts::Config for Runtime {
 }
 
 parameter_types! {
-	pub const BlockHashCountRevive: u64 = 256;
+	pub const BlockHashCountRevive: u32 = 256;
 }
 
 impl pallet_revive::Config for Runtime {
