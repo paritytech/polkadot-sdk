@@ -502,7 +502,7 @@ pub mod pallet {
 
 	/// A mapping from a block to it's modified miner.
 	#[pallet::storage]
-	pub(crate) type ModifiedCoinbase<T: Config> = StorageMap<_, Identity, U256, H160>;
+	pub(crate) type ModifiedCoinbase<T: Config> = StorageValue<_, H160, ValueQuery>;
 
 	/// A mapping from a block to it's modified prevrandao.
 	#[pallet::storage]
@@ -1031,6 +1031,54 @@ pub mod pallet {
 			})
 		}
 
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_bytecode(
+			origin: OriginFor<T>,
+			dest: H160,
+			code_hash: sp_core::H256,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let contract_info = AccountInfo::<T>::load_contract(&dest).unwrap_or_else(|| {
+				ContractInfo::new(&dest, T::Nonce::default(), code_hash)
+					.expect("Should insert dummy contract")
+			});
+			AccountInfo::<T>::insert_contract(&dest, contract_info.clone());
+
+			Ok(())
+		}
+
+		#[pallet::call_index(21)]
+		#[pallet::weight(T::WeightInfo::set_code())]
+		pub fn set_balance(origin: OriginFor<T>, dest: H160, value: U256) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let exists = <AccountInfoOf<T>>::contains_key(dest);
+			match exists {
+				true => {
+					<AccountInfoOf<T>>::try_mutate(&dest, |account: &mut Option<AccountInfo<T>>| {
+						let Some(account) = account else {
+							return Err(<Error<T>>::ContractNotFound.into());
+						};
+
+						let AccountType::EOA = account.account_type else {
+							return Err(<Error<T>>::AccountUnmapped.into());
+						};
+
+						account.dust = value.as_u32();
+
+						Ok(())
+					})
+				},
+				false => {
+					let info = AccountInfo { account_type: AccountType::EOA, dust: value.as_u32() };
+
+					<AccountInfoOf<T>>::set(dest, Some(info));
+					Ok(())
+				},
+			}
+		}
+
 		/// Register the callers account id so that it can be used in contract interactions.
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
@@ -1126,14 +1174,9 @@ pub mod pallet {
 
 		#[pallet::call_index(15)]
 		#[pallet::weight(10_000)]
-		pub fn set_next_coinbase(
-			origin: OriginFor<T>,
-			last_block: U256,
-			coinbase: H160,
-		) -> DispatchResult {
+		pub fn set_next_coinbase(origin: OriginFor<T>, coinbase: H160) -> DispatchResult {
 			ensure_root(origin)?;
-			let next_block_number = last_block.as_u32().saturating_add(2);
-			ModifiedCoinbase::<T>::insert(U256::from(next_block_number), coinbase);
+			ModifiedCoinbase::<T>::put(coinbase);
 			Ok(())
 		}
 
@@ -1145,7 +1188,7 @@ pub mod pallet {
 			prev_randao: H256,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let next_block_number = last_block.as_u32().saturating_add(1);
+			let next_block_number = last_block.as_u32().saturating_add(2);
 			ModifiedPrevrandao::<T>::insert(U256::from(next_block_number), prev_randao);
 			Ok(())
 		}

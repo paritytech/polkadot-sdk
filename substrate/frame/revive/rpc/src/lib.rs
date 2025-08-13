@@ -134,6 +134,10 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.mine(number_of_blocks, interval).await?)
 	}
 
+	async fn evm_mine(&self, timestamp: Option<U256>) -> RpcResult<CreatedBlock<H256>> {
+		Ok(self.client.evm_mine(timestamp).await?)
+	}
+
 	async fn get_automine(&self) -> RpcResult<bool> {
 		Ok(self.client.get_automine().await?)
 	}
@@ -166,10 +170,6 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 		Ok(self.client.set_storage_at(address, storage_slot, value).await?)
 	}
 
-	async fn set_code(&self, dest: H160, code_hash: H256) -> RpcResult<Option<H256>> {
-		Ok(self.client.set_code(dest, code_hash).await?)
-	}
-
 	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>> {
 		Ok(self.client.set_coinbase(coinbase).await?)
 	}
@@ -192,6 +192,18 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 
 	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>> {
 		Ok(self.client.stop_impersonate_account(account).await?)
+	}
+
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<H256>>> {
+		Ok(self.client.pending_transactions().await?)
+	}
+
+	async fn get_coinbase(&self) -> RpcResult<Option<H160>> {
+		Ok(self.client.get_coinbase().await?)
+	}
+
+	async fn set_code(&self, dest: H160, code: Bytes) -> RpcResult<Option<H256>> {
+		Ok(self.client.set_code(dest, code).await?)
 	}
 }
 
@@ -248,8 +260,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256> {
 		let hash = H256(keccak_256(&transaction.0));
-		// println!("hash {:?}", hash);
-		// println!("transaction.-0 {:?}", &transaction.0);
+
 		let call = subxt_client::tx().revive().eth_transact(transaction.0);
 		self.client.submit(call).await.map_err(|err| {
 			log::debug!(target: LOG_TARGET, "submit call failed: {err:?}");
@@ -270,7 +281,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		let impersonated = self.client.is_impersonated_account(from).await.unwrap();
 
 		let account = match impersonated {
-			true => &self.accounts[0],
+			Some(true) => &self.accounts[0],
 			_ => self
 				.accounts
 				.iter()
@@ -297,6 +308,7 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
 		let payload = account.sign_transaction(tx).signed_payload();
+		let pay_clone = Bytes(payload.clone()).0; 
 		self.send_raw_transaction(Bytes(payload)).await
 	}
 
@@ -460,10 +472,11 @@ impl EthRpcServer for EthRpcServerImpl {
 	}
 
 	async fn web3_client_version(&self) -> RpcResult<String> {
-		let git_revision = env!("GIT_REVISION");
-		let rustc_version = env!("RUSTC_VERSION");
-		let target = env!("TARGET");
-		Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+		// let git_revision = env!("GIT_REVISION");
+		// let rustc_version = env!("RUSTC_VERSION");
+		// let target = env!("TARGET");
+		// Ok(format!("eth-rpc/{git_revision}/{target}/{rustc_version}"))
+		Ok(format!("anvil"))
 	}
 
 	async fn fee_history(

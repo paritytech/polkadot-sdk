@@ -24,12 +24,15 @@ use sc_consensus_manual_seal::rpc::CreatedBlock;
 
 #[rpc(server, client)]
 pub trait HardhatRpc {
-	#[method(name = "hardhat_mine", aliases = ["evm_mine"])]
+	#[method(name = "hardhat_mine")]
 	async fn mine(
 		&self,
 		number_of_blocks: Option<U256>,
 		interval: Option<U256>,
 	) -> RpcResult<CreatedBlock<H256>>;
+
+	#[method(name = "evm_mine")]
+	async fn evm_mine(&self, timestamp: Option<U256>) -> RpcResult<CreatedBlock<H256>>;
 
 	#[method(name = "hardhat_getAutomine")]
 	async fn get_automine(&self) -> RpcResult<bool>;
@@ -57,46 +60,30 @@ pub trait HardhatRpc {
 		value: U256,
 	) -> RpcResult<Option<U256>>;
 
-	#[method(name = "hardhat_setCode")]
-	async fn set_code(
-		&self,
-		dest: H160,
-		code_hash: H256,
-	) -> RpcResult<Option<H256>>;
-
 	#[method(name = "hardhat_setCoinbase")]
-	async fn set_coinbase(
-		&self,
-		coinbase: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>>;
 
 	#[method(name = "hardhat_setPrevRandao")]
-	async fn set_prev_randao(
-		&self,
-		prev_randao: H256,
-	) -> RpcResult<Option<H256>>;
+	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>>;
 
 	#[method(name = "evm_setNextBlockTimestamp")]
-	async fn set_next_block_timestamp(
-		&self,
-		next_timestamp: U256,
-	) -> RpcResult<()>;
+	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()>;
 
 	#[method(name = "evm_setBlockGasLimit")]
-	async fn set_block_gas_limit(
-		&self,
-		block_gas_limit: U128,
-	) -> RpcResult<Option<U128>>;
+	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>>;
 
 	#[method(name = "hardhat_impersonateAccount")]
-	async fn impersonate_account(
-		&self,
-		account: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
 
 	#[method(name = "hardhat_stopImpersonatingAccount")]
-	async fn stop_impersonate_account(
-		&self,
-		account: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
+
+	#[method(name = "eth_pendingTransactions")]
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<H256>>>;
+
+	#[method(name = "eth_coinbase")]
+	async fn get_coinbase(&self) -> RpcResult<Option<H160>>;
+
+	#[method(name = "hardhat_setCode")]
+	async fn set_code(&self, dest: H160, code: Bytes) -> RpcResult<Option<H256>>;
 }
