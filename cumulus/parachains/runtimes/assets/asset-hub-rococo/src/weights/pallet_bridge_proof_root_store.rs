@@ -46,6 +46,7 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 #![allow(missing_docs)]
+#![allow(dead_code)]
 
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;

@@ -30,29 +30,22 @@ pub trait BenchmarkHelper<Key, Value> {
 
 #[instance_benchmarks]
 mod benchmarks {
-	// use frame_system::Pallet;
 
 	use super::*;
-	use crate::MaybeRootsToKeep;
 
 	#[benchmark]
 	fn note_new_roots() {
-		let mut roots_store: BoundedVec<(T::Key, T::Value), T::RootsToKeep> = BoundedVec::new();
-
-		// create data
+		// prepare data to store
+		let mut roots_to_store: BoundedVec<(T::Key, T::Value), T::RootsToKeep> = BoundedVec::new();
 		for id in 0..T::RootsToKeep {
 			let (key, value) = T::BenchmarkHelper::create_key_value_for(id);
-			let _ = roots_store.try_push((key, value));
+			let _ = roots_to_store.try_push((key, value));
 		}
 
-		let caller = whitelisted_caller();
-		#[block]
-		{
-			assert_ok!(Pallet::<T, I>::note_new_roots(
-				RawOrigin::Signed(caller).into(),
-				roots_store
-			));
-		}
+		#[extrinsic_call]
+		_(RawOrigin::Signed(whitelisted_caller()), roots_to_store.clone());
+		
+		// TODO: add separate assert for iterating `roots_to_store` and check for all `Pallet::<T, I>::get_root(...)`
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
