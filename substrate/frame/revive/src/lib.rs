@@ -314,6 +314,7 @@ pub mod pallet {
 			pub const DepositPerItem: Balance = deposit(1, 0);
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
+			pub const BlockHashCount: u64 = 256;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -362,7 +363,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
-			type BlockHashCount = ConstU32<256>;
+			type BlockHashCount = BlockHashCount;
 		}
 	}
 
