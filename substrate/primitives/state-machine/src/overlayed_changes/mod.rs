@@ -715,7 +715,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			let (root2, transaction) =
 				backend.full_storage_root2(delta, child_delta, state_version, xxx);
 
-			transcation_nodes = transaction.keys().len();
+			// transcation_nodes = transaction.keys().len();
 
 			// crate::debug!(target: "overlayed_changes", "XXXXXXX: {:?} delta: {} snapshot_len:
 			// {}", root2, delta_count, snapshot_len);
