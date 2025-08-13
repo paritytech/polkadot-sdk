@@ -424,8 +424,9 @@ impl State {
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
-	// 2. Collations waiting for validation from backing subsystem.
-	// 3. Collations blocked from seconding due to parent not being known by backing subsystem.
+	// 2. Collations queued for fetching.
+	// 3. Collations waiting for validation from backing subsystem.
+	// 4. Collations blocked from seconding due to parent not being known by backing subsystem.
 	fn seconded_and_pending_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
 		let seconded = self
 			.per_relay_parent
@@ -433,10 +434,12 @@ impl State {
 			.map_or(0, |per_relay_parent| per_relay_parent.collations.seconded_for_para(para_id));
 
 		let pending_fetch = self.per_relay_parent.get(relay_parent).map_or(0, |rp_state| {
-			match rp_state.collations.status {
+			let fetching = match rp_state.collations.status {
 				CollationStatus::Fetching(pending_para_id) if pending_para_id == *para_id => 1,
 				_ => 0,
-			}
+			};
+			let queued = rp_state.collations.queued_for_para(para_id);
+			fetching + queued
 		});
 
 		let waiting_for_validation = self

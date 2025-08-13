@@ -319,6 +319,10 @@ impl Collations {
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default()
 	}
+
+	pub(super) fn queued_for_para(&self, para_id: &ParaId) -> usize {
+		self.waiting_queue.get(para_id).map(|queue| queue.len()).unwrap_or_default()
+	}
 }
 
 // Any error that can occur when awaiting a collation fetch response.
