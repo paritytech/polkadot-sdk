@@ -316,9 +316,24 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
 
-	let _contract_info = context.interpreter.extend.terminate(&h160);
+    // Check if beneficiary address is valid (not zero address for safety)
+    if h160 == sp_core::H160::zero() {
+        log::warn!("Self-destructing to zero address: {:?}", h160);
+    }
 
-	// TODO: what to do with return contract info?
+	let dispatch_result = context.interpreter.extend.terminate(&h160);
+
+	match dispatch_result {
+		Ok(_) => {
+			context.interpreter.halt(InstructionResult::SelfDestruct);
+			return;
+		}
+		Err(e) => {
+			log::error!("Selfdestruct failed: {:?}", e);
+			context.interpreter.halt(InstructionResult::Revert);
+			return;
+		}
+	}
 
 	// EIP-3529: Reduction in refunds
 	// if !context.interpreter.runtime_flag.spec_id().is_enabled_in(LONDON) &&
@@ -327,5 +342,5 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	// 	context.interpreter.gas.record_refund(gas::SELFDESTRUCT)
 	// }
 
-	context.interpreter.halt(InstructionResult::SelfDestruct);
+	
 }
