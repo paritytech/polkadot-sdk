@@ -89,7 +89,7 @@ pub use crate::{
 	address::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
-	exec::{MomentOf, Origin, Key},
+	exec::{Key, MomentOf, Origin},
 	pallet::*,
 };
 pub use codec;
