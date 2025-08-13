@@ -40,7 +40,8 @@ mod trie_stream;
 pub mod proof_size_extension;
 
 #[cfg(feature = "std")]
-pub use std::hash::RandomState;
+pub use foldhash::quality::RandomState;
+// pub use std::hash::RandomState;
 
 #[cfg(not(feature = "std"))]
 pub use hasher_random_state::{add_extra_randomness, RandomState};

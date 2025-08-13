@@ -31,6 +31,7 @@ sp-trie = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
+foldhash = { workspace = true }
 
 [dev-dependencies]
 arbitrary = { features = ["derive"], workspace = true }
@@ -45,6 +46,7 @@ default = ["std"]
 fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
 	"log/std",
 	"parking_lot",

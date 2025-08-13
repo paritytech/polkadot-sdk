@@ -173,7 +173,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 				child_delta,
 				state_version,
 			);
-		state.genesis = transaction.clone().drain();
+		state.genesis = transaction.clone().drain().into_iter().collect();
 		state.genesis_root = root;
 		state.commit(root, transaction, Vec::new(), Vec::new())?;
 		state.record.take();
