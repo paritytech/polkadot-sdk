@@ -417,46 +417,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// `c`: number of transactions to fit in the block
-	#[benchmark(pov_mode = Measured)]
-	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		let current_block: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
-
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
-
-		let value = Pallet::<T>::min_balance();
-		let dust = 0;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
-		let caller_addr = T::AddressMapper::to_address(&instance.caller);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		let before = Pallet::<T>::evm_balance(&instance.address);
-		let storage_deposit = default_deposit_limit::<T>();
-
-		#[block]
-		{
-			// on_initialize
-			let _ = Pallet::<T>::on_initialize_internal(current_block);
-			// eth_call for each tx
-			for _ in 0..c {
-				let _ = Pallet::<T>::eth_call(
-					origin.clone().into(),
-					instance.address,
-					evm_value,
-					Weight::MAX,
-					storage_deposit,
-					vec![42u8; 1024],
-					vec![],
-				);
-			}
-			// on_finalize
-			let _ = Pallet::<T>::on_finalize_internal(current_block);
-		}
-		Ok(())
-	}
-
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
@@ -2339,6 +2299,46 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	// `c`: number of transactions to fit in the block
+	#[benchmark(pov_mode = Measured)]
+	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let current_block: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 0;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+
+		let caller_addr = T::AddressMapper::to_address(&instance.caller);
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let before = Pallet::<T>::evm_balance(&instance.address);
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[block]
+		{
+			// on_initialize
+			let _ = Pallet::<T>::on_initialize_internal(current_block);
+			// eth_call for each tx
+			for _ in 0..c {
+				let _ = Pallet::<T>::eth_call(
+					origin.clone().into(),
+					instance.address,
+					evm_value,
+					Weight::MAX,
+					storage_deposit,
+					vec![42u8; 1024],
+					vec![],
+				);
+			}
+			// on_finalize
+			let _ = Pallet::<T>::on_finalize_internal(current_block);
+		}
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(
