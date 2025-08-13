@@ -1764,7 +1764,11 @@ where
 
 		// TODO: remove eventually
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		log::info!("[on_initialize_internal] LastBlockDetails header: {:?}", header,);
+		log::info!(
+			"[on_initialize_internal] LastBlockDetails header: {:?} tx_and_receipts: {}",
+			header,
+			tx_and_receipts.len()
+		);
 
 		LastBlockDetails::<T>::kill();
 
@@ -1821,7 +1825,8 @@ where
 		// TODO: remove eventually
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		log::info!(
-			"[on_initialize_internal] block_number: {block_number:?} block_hash: {block_hash:?}"
+			"[on_finalize_internal] header = {block_header:?} tx_and_receipts: {}",
+			tx_and_receipts.len()
 		);
 
 		// Anything that needs to be done at the start of the block.
@@ -1985,6 +1990,12 @@ where
 			mix_hash: Default::default(),
 			nonce: Default::default(),
 		};
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		log::info!(
+			"[on_finalize_internal] header = {block_header:?} tx_and_receipts: {}",
+			tx_and_receipts.len()
+		);
 
 		LastBlockDetails::<T>::put((block_header, tx_and_receipts));
 	}
