@@ -26,6 +26,7 @@ cumulus-client-parachain-inherent.default-features = true
 cumulus-client-parachain-inherent.workspace = true
 cumulus-primitives-proof-size-hostfunction.default-features = true
 cumulus-primitives-proof-size-hostfunction.workspace = true
+env_filter = { workspace = true }
 frame-benchmarking.default-features = true
 frame-benchmarking.workspace = true
 frame-storage-access-test-runtime.default-features = true
@@ -86,6 +87,8 @@ sp-io.default-features = true
 sp-io.workspace = true
 sp-keystore.default-features = true
 sp-keystore.workspace = true
+sp-runtime-interface.default-features = true
+sp-runtime-interface.workspace = true
 sp-runtime.default-features = true
 sp-runtime.workspace = true
 sp-state-machine.default-features = true
