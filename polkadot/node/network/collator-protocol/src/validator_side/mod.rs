@@ -1139,13 +1139,6 @@ fn ensure_seconding_limit_is_respected(
 		}
 
 		if cq_state.can_claim_at(relay_parent, &para_id) {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				?path,
-				"Seconding limit respected at path",
-			);
 			has_claim_at_some_path = true;
 			break
 		}
