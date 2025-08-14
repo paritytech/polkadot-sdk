@@ -32,8 +32,6 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
-	/// cost of an EVM gas unit.
-	EVMGas(u64),
 	/// Base Weight of calling a host function.
 	HostFn,
 	/// Weight charged for copying data from the sandbox.
@@ -311,10 +309,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
-			EVMGas(gas) => {
-				// TODO replace this by a proper benchmark value
-				Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0)
-			},
 		}
 	}
 }

@@ -66,6 +66,8 @@ where
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
+	ext.gas_meter_mut().charge_evm_init_cost()?;
+
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
@@ -96,12 +98,18 @@ fn run<WIRE: InterpreterTypes>(
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
-	loop {
-		let action = interpreter.run_plain(table, host);
-		match action {
-			InterpreterAction::Return(result) => return result,
-			InterpreterAction::NewFrame(_) => unimplemented!(),
-		}
+	let action = interpreter.run_plain(table, host);
+	match action {
+		InterpreterAction::Return(result) => return result,
+		InterpreterAction::NewFrame(_) => {
+			// We should never hit this as creating a new frame should be handled by the opcode
+			// directly
+			InterpreterResult::new(
+				revm::interpreter::InstructionResult::FatalExternalError,
+				Default::default(),
+				interpreter.gas,
+			)
+		},
 	}
 }
 
