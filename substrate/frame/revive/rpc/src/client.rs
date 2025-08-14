@@ -810,6 +810,14 @@ impl Client {
 			latest_block = Some(serde_json::from_str(res.get()).unwrap());
 		}
 
+		let mut blocks_sub =  self.api.blocks().subscribe_finalized().await.unwrap();
+
+		while let Some(block) = blocks_sub.next().await {
+			let hash = block.unwrap().hash();
+			if hash.eq(&latest_block.clone().unwrap().hash) {
+				break
+			}
+		}
 		Ok(latest_block.unwrap())
 	}
 
