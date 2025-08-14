@@ -9,8 +9,10 @@ doc:
       Closes https://github.com/paritytech/polkadot-sdk/issues/9013
 crates:
 - name: cumulus-client-cli
-  bump: minor
+  bump: major
+- name: cumulus-client-service
+  bump: major
 - name: cumulus-relay-chain-minimal-node
-  bump: minor
+  bump: major
 - name: cumulus-relay-chain-rpc-interface
-  bump: minor
+  bump: major
