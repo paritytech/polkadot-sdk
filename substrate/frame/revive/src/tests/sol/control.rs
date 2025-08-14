@@ -80,7 +80,6 @@ fn jump_works() {
             .data(vec![])
             .build_and_unwrap_result();
         
-        log::info!("Result: {:?}", result);
         assert_eq!(
             U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
             U256::from(expected_value),
@@ -130,7 +129,6 @@ fn jumpi_works() {
                 .data(argument)
                 .build_and_unwrap_result();
             
-            log::info!("Result: {:?}", result);
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(expected_value),
@@ -147,7 +145,6 @@ fn jumpi_works() {
                 .data(argument)
                 .build_and_unwrap_result();
             
-            log::info!("Result: {:?}", result);
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(0xdeadbeef_u64),
