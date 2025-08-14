@@ -21,7 +21,6 @@ use polkadot_node_subsystem::errors::{ChainApiError, RuntimeApiError, SubsystemE
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::Hash;
 
-
 pub type FatalResult<T> = std::result::Result<T, FatalError>;
 pub type Result<T> = std::result::Result<T, Error>;
 

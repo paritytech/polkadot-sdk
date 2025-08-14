@@ -30,18 +30,18 @@ use futures::{
 };
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
-use polkadot_node_subsystem::SubsystemSender;
 use polkadot_node_subsystem::{
 	messages::{CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	availability_chunks::availability_chunk_index, request_backable_candidates,
+	availability_chunks::availability_chunk_index,
+	request_backable_candidates,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex,
-	GroupRotationInfo, Hash, SessionIndex, ValidatorIndex,
+	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
+	SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -199,7 +199,8 @@ impl Requester {
 		}
 
 		let groups = get_validator_groups(sender, new_head.hash).await?;
-		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups).await;
+		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups)
+			.await;
 		Ok(())
 	}
 
@@ -267,18 +268,19 @@ impl Requester {
 				if let Some(core_index) = receipt.descriptor.core_index() {
 					match availability_cores.get(core_index.0 as usize) {
 						Some(CoreState::Free) => {},
-						Some(CoreState::Scheduled(s)) => {
+						Some(CoreState::Scheduled(s)) =>
 							if para == s.para_id {
 								let core_info = CoreInfo {
 									candidate_hash: receipt.hash(),
 									relay_parent: receipt.descriptor.relay_parent(),
 									erasure_root: receipt.descriptor.erasure_root(),
-									group_responsible: validator_groups.1.group_for_core(core_index, total_cores),
+									group_responsible: validator_groups
+										.1
+										.group_for_core(core_index, total_cores),
 								};
 
 								cores.push((core_index, core_info));
-							}
-						},
+							},
 						Some(CoreState::Occupied(o)) => {
 							if para == o.candidate_descriptor.para_id() {
 								let core_info = CoreInfo {
@@ -509,10 +511,7 @@ where
 {
 	let (tx, rx) = oneshot::channel();
 	sender
-		.send_message(RuntimeApiMessage::Request(
-			leaf,
-			RuntimeApiRequest::ValidatorGroups(tx),
-		))
+		.send_message(RuntimeApiMessage::Request(leaf, RuntimeApiRequest::ValidatorGroups(tx)))
 		.await;
 
 	let groups = rx

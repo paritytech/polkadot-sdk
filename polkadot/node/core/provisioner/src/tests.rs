@@ -16,12 +16,12 @@
 
 use super::*;
 use bitvec::bitvec;
+use polkadot_node_subsystem_util::CoreAvailability;
 use polkadot_primitives::{
 	vstaging::{MutateDescriptorV2, OccupiedCore},
 	ScheduledCore,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
-use polkadot_node_subsystem_util::CoreAvailability;
 
 const MOCK_GROUP_SIZE: usize = 5;
 
@@ -65,8 +65,8 @@ pub fn scheduled_core(id: u32) -> ScheduledCore {
 
 mod select_availability_bitfields {
 	use super::{super::*, default_bitvec, occupied_core};
-	use polkadot_primitives::{ScheduledCore, SigningContext, ValidatorId, ValidatorIndex};
 	use polkadot_node_subsystem_util::CoreAvailability;
+	use polkadot_primitives::{ScheduledCore, SigningContext, ValidatorId, ValidatorIndex};
 	use sp_application_crypto::AppCrypto;
 	use sp_keystore::{testing::MemoryKeystore, Keystore, KeystorePtr};
 	use std::sync::Arc;
@@ -251,9 +251,10 @@ mod select_candidates {
 	};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
-		AllMessages, Ancestors, ProspectiveParachainsMessage, RuntimeApiMessage, RuntimeApiRequest::{
+		AllMessages, Ancestors, ProspectiveParachainsMessage, RuntimeApiMessage,
+		RuntimeApiRequest::{
 			AvailabilityCores, PersistedValidationData as PersistedValidationDataReq,
-		}
+		},
 	};
 	use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 	use polkadot_primitives::{
@@ -261,8 +262,8 @@ mod select_candidates {
 			CandidateReceiptV2 as CandidateReceipt,
 			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
 		},
-		BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, PersistedValidationData,
-		Id as ParaId,
+		BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, Id as ParaId,
+		PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 	use std::ops::Not;

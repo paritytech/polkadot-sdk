@@ -27,13 +27,14 @@ use futures_timer::Delay;
 
 use polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, ProvisionableData,
-		ProvisionerInherentData, ProvisionerMessage,
+		CandidateBackingMessage, ProvisionableData, ProvisionerInherentData, ProvisionerMessage,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemError,
 };
-use polkadot_node_subsystem_util::{request_availability_cores, request_backable_candidates, TimeoutExt};
+use polkadot_node_subsystem_util::{
+	request_availability_cores, request_backable_candidates, TimeoutExt,
+};
 use polkadot_primitives::{
 	vstaging::{BackedCandidate, CoreState},
 	Hash, SignedAvailabilityBitfield, ValidatorIndex,

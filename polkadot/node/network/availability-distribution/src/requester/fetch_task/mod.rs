@@ -35,15 +35,18 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_primitives::{
-	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex,
-	GroupIndex, Hash, HashT, SessionIndex,
+	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
+	SessionIndex,
 };
 use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
 	metrics::{Metrics, FAILED, SUCCEEDED},
-	requester::{session_cache::{BadValidators, SessionInfo}, CoreInfo},
+	requester::{
+		session_cache::{BadValidators, SessionInfo},
+		CoreInfo,
+	},
 	LOG_TARGET,
 };
 
