@@ -499,8 +499,6 @@ pub trait Public: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync 
 /// Trait suitable for cryptographic signatures.
 pub trait Signature: CryptoType + ByteArray + PartialEq + Eq + Clone + Send + Sync {}
 
-/// Trait suitable for cryptographic proof of possession
-pub trait ProofOfPossession: Signature {}
 
 /// An opaque 32-byte cryptographic identifier.
 #[derive(
@@ -844,7 +842,7 @@ pub trait Pair: CryptoType + Sized {
     /// The type used to represent proof of possession and ownership of private key is usually
     /// one or a set of signatures. Can be created from a key pair and message (owner id) and
     /// and verified with the owner id and public key.
-    type ProofOfPossession;
+    type ProofOfPossession: Signature;
 
 	/// Generate new secure (random) key pair.
 	///

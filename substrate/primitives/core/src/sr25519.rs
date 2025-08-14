@@ -203,7 +203,8 @@ type Seed = [u8; MINI_SECRET_KEY_LENGTH];
 impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
-	type Signature = Signature;
+    type Signature = Signature;
+    type ProofOfPossession = Signature;
 
 	/// Get the public key.
 	fn public(&self) -> Public {

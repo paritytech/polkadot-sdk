@@ -25,7 +25,8 @@ use sp_std::vec::Vec;
 /// This is implemented in different trait to provide default behavior.
 pub trait ProofOfPossessionGenerator: Pair
 where
-	Self::Public: CryptoType,
+    Self::Public: CryptoType,
+    Self::ProofOfPossession: Signature,
 {
     /// Generate proof of possession.
     ///
@@ -57,7 +58,8 @@ where
 /// This is implemented in different trait (than Public Key) to provide default behavior.
 pub trait ProofOfPossessionVerifier: Pair
 where
-	Self::Public: CryptoType,
+    Self::Public: CryptoType,
+Self::ProofOfPossession: Signature,
 {
 	/// Verify proof of possession.
 	///
@@ -99,7 +101,7 @@ pub trait NonAggregatable: Pair {
 
 impl<T> ProofOfPossessionVerifier for T
 where
-	T: NonAggregatable,
+    T: NonAggregatable<ProofOfPossession = Self::Signature>
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
@@ -123,7 +125,7 @@ where
 
 impl<T> ProofOfPossessionGenerator for T
 where
-	T: NonAggregatable,
+	T: NonAggregatable<ProofOfPossession = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
@@ -132,7 +134,7 @@ where
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
-		let proof_of_possession_statement = Self::proof_of_possession_statement(&self.public());
+		let proof_of_possession_statement = Self::proof_of_possession_statement(owner);
 		self.sign(proof_of_possession_statement.as_slice())
 	}
 }

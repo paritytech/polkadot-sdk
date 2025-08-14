@@ -21,7 +21,7 @@ use core::marker::PhantomData;
 
 use crate::crypto::{
 	ByteArray, CryptoType, DeriveError, DeriveJunction, Pair as PairT, Public as PublicT,
-	PublicBytes, SecretStringError, Signature as SignatureT, ProofOfPossession as ProofOfPossessionT, SignatureBytes, UncheckedFrom,
+	PublicBytes, SecretStringError, Signature as SignatureT, SignatureBytes, UncheckedFrom,
 };
 
 use crate::proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier};
@@ -44,6 +44,9 @@ pub mod ecdsa_bls377 {
 	const PUBLIC_KEY_LEN: usize =
 		ecdsa::PUBLIC_KEY_SERIALIZED_SIZE + bls377::PUBLIC_KEY_SERIALIZED_SIZE;
 	const SIGNATURE_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
+
+    	const POP_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
@@ -147,7 +150,11 @@ pub mod ecdsa_bls381 {
 
 	/// Aggregate signature serialized size.
 	pub const SIGNATURE_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
+	ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
+
+    const POP_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
+
 
 	#[doc(hidden)]
 	pub struct EcdsaBls381Tag(ecdsa::EcdsaTag, bls381::Bls381Tag);
@@ -256,13 +263,13 @@ impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
-	const SIGNATURE_LEN: usize,
+    const SIGNATURE_LEN: usize,    
     const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
 	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>>
 	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, SubTag>:
+	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>:
 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
 	fn from(
@@ -294,19 +301,22 @@ pub struct Pair<
 	_phantom: PhantomData<fn() -> SubTag>,
 }
 
+///Implementation of Clone for PairedCrypto
 impl<
 		LeftPair: PairT + Clone,
 		RightPair: PairT + Clone,
 		const PUBLIC_KEY_LEN: usize,
-		const SIGNATURE_LEN: usize,
+    const SIGNATURE_LEN: usize,
+    const POP_LEN: usize,
 		SubTag,
-	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 {
 	fn clone(&self) -> Self {
 		Self { left: self.left.clone(), right: self.right.clone(), _phantom: PhantomData }
 	}
 }
 
+///Implementation of keypair for paired cryptographic keys
 impl<
 		LeftPair: PairT,
 		RightPair: PairT,
@@ -316,17 +326,17 @@ impl<
 		SubTag: PairedCryptoSubTagBound,
 	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN,SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
 Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-ProofOfPossession<POP_LEN, SubTag>: ProofOfPossessionT,
+ProofOfPossession<POP_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
 	type Signature = Signature<SIGNATURE_LEN, SubTag>;
-    type ProofOfPossession = ProofOfPossession<POP_LEN, SubTag>;
+        type ProofOfPossession = Signature<POP_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -405,29 +415,32 @@ impl<
 		LeftPair: PairT + ProofOfPossessionGenerator,
 		RightPair: PairT + ProofOfPossessionGenerator,
 		const PUBLIC_KEY_LEN: usize,
-		const SIGNATURE_LEN: usize,
+    const SIGNATURE_LEN: usize,
+    const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> ProofOfPossessionGenerator for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+	> ProofOfPossessionGenerator for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN,SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+ProofOfPossession<POP_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
-	RightPair::Seed: From<Seed> + Into<Seed>,
+    RightPair::Seed: From<Seed> + Into<Seed>,
+
 {
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self) -> Self::Signature {
-		let mut raw: [u8; SIGNATURE_LEN] = [0u8; SIGNATURE_LEN];
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
+		let mut raw: [u8; POP_LEN] = [0u8; POP_LEN];
 
 		raw.copy_from_slice(
 			[
-				self.left.generate_proof_of_possession().to_raw_vec(),
-				self.right.generate_proof_of_possession().to_raw_vec(),
+				self.left.generate_proof_of_possession(owner).to_raw_vec(),
+				self.right.generate_proof_of_possession(owner).to_raw_vec(),
 			]
 			.concat()
 			.as_slice(),
 		);
-		Self::Signature::unchecked_from(raw)
+		Self::ProofOfPossession::unchecked_from(raw)
 	}
 }
 
@@ -438,30 +451,34 @@ impl<
 		LeftPair: PairT + ProofOfPossessionVerifier,
 		RightPair: PairT + ProofOfPossessionVerifier,
 		const PUBLIC_KEY_LEN: usize,
-		const SIGNATURE_LEN: usize,
+    const SIGNATURE_LEN: usize,
+    const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> ProofOfPossessionVerifier for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>
+
+    > ProofOfPossessionVerifier for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+        Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+        ProofOfPossession<POP_LEN, SubTag>: SignatureT, 
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
-	fn verify_proof_of_possession(
-		proof_of_possession: &Self::Signature,
+    fn verify_proof_of_possession(
+	        owner: &[u8],
+		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessed_pubkey: &Self::Public,
-	) -> bool {
+    ) -> bool {
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
 		let Ok(left_proof_of_possession) =
-			proof_of_possession.0[0..LeftPair::Signature::LEN].try_into()
+			proof_of_possession.0[0..LeftPair::ProofOfPossession::LEN].try_into()
 		else {
 			return false
 		};
 
-		if !LeftPair::verify_proof_of_possession(&left_proof_of_possession, &left_pub) {
+		if !LeftPair::verify_proof_of_possession(owner, &left_proof_of_possession, &left_pub) {
 			return false
 		}
 
@@ -469,11 +486,11 @@ where
 			return false
 		};
 		let Ok(right_proof_of_possession) =
-			proof_of_possession.0[LeftPair::Signature::LEN..].try_into()
+			proof_of_possession.0[LeftPair::ProofOfPossession::LEN..].try_into()
 		else {
 			return false
 		};
-		RightPair::verify_proof_of_possession(&right_proof_of_possession, &right_pub)
+		RightPair::verify_proof_of_possession(owner, &right_proof_of_possession, &right_pub)
 	}
 }
 
