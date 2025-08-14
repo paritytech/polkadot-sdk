@@ -122,6 +122,12 @@ const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(100);
 #[cfg(test)]
 const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 
+// How long to hold off AssetHub advertisements from permissionless collators.
+#[cfg(not(test))]
+const HOLD_OFF_DURATION: Duration = Duration::from_secs(1);
+#[cfg(test)]
+const HOLD_OFF_DURATION: Duration = Duration::from_millis(100);
+
 #[derive(Debug)]
 struct CollatingPeerState {
 	collator_id: CollatorId,
@@ -1734,7 +1740,7 @@ async fn run_inner<Context>(
 						gum::trace!(target: LOG_TARGET, "AssetHub held off ticker shutdown");
 						return;
 					},
-					_ = futures_timer::Delay::new(Duration::from_millis(500)).fuse() => {
+					_ = futures_timer::Delay::new(HOLD_OFF_DURATION / 3).fuse() => {
 						if let Err(err) = ah_held_off_ticker_tx.try_send(()) {
 							gum::warn!(
 								target: LOG_TARGET,
@@ -1889,10 +1895,10 @@ async fn run_inner<Context>(
 								"SystemTime went backwards, this should not happen, but we will continue processing",
 							);
 							// In case of an error better make sure the request is processed.
-							Duration::from_secs(2)
+							HOLD_OFF_DURATION * 2
 						});
 
-						hold_off_duration > Duration::from_secs(1)
+						hold_off_duration > HOLD_OFF_DURATION
 					}).unwrap_or(false);
 
 					if !should_process {
