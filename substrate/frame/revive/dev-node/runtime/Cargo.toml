@@ -6,7 +6,6 @@ authors.workspace = true
 homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
-publish = false
 
 [dependencies]
 array-bytes = { workspace = true }
@@ -14,6 +13,7 @@ codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = ["pallet-balances", "pallet-revive", "pallet-sudo", "pallet-timestamp", "pallet-transaction-payment", "pallet-transaction-payment-rpc-runtime-api", "parachains-common", "runtime", "with-tracing"] }
 scale-info = { workspace = true }
 serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+sp-debug-derive = { workspace = true, features = ["force-debug"] }
 
 [build-dependencies]
 polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
@@ -25,4 +25,5 @@ std = [
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
+	"sp-debug-derive/std",
 ]

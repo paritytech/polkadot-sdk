@@ -18,18 +18,16 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	Code, DispatchError, Weight,
+	Code, DispatchError,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
 
 /// A Tracer that reports logs and nested call traces transactions.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct CallTracer<Gas, GasMapper> {
-	/// Map Weight to Gas equivalent.
-	gas_mapper: GasMapper,
+pub struct CallTracer {
 	/// Store all in-progress CallTrace instances.
-	traces: Vec<CallTrace<Gas>>,
+	traces: Vec<CallTrace<U256>>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
 	/// The code and salt used to instantiate the next contract.
@@ -38,48 +36,67 @@ pub struct CallTracer<Gas, GasMapper> {
 	config: CallTracerConfig,
 }
 
-impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
+impl CallTracer {
 	/// Create a new [`CallTracer`] instance.
-	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
-		Self {
-			gas_mapper,
-			traces: Vec::new(),
-			code_with_salt: None,
-			current_stack: Vec::new(),
-			config,
-		}
+	pub fn new(config: CallTracerConfig) -> Self {
+		Self { traces: Vec::new(), code_with_salt: None, current_stack: Vec::new(), config }
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<CallTrace<Gas>> {
-		core::mem::take(&mut self.traces).pop()
+	pub fn collect_trace(mut self) -> Option<CallTrace> {
+		self.traces.pop()
 	}
 }
 
-impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, GasMapper> {
+impl Tracing for CallTracer {
 	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
 		self.code_with_salt = Some((code.clone(), salt.is_some()));
+	}
+
+	fn terminate(
+		&mut self,
+		contract_address: H160,
+		beneficiary_address: H160,
+		gas_left: U256,
+		value: U256,
+	) {
+		self.traces.last_mut().unwrap().calls.push(CallTrace {
+			from: contract_address,
+			to: beneficiary_address,
+			call_type: CallType::Selfdestruct,
+			gas: gas_left,
+			value: Some(value),
+			..Default::default()
+		});
 	}
 
 	fn enter_child_span(
 		&mut self,
 		from: H160,
 		to: H160,
-		is_delegate_call: bool,
+		delegate_call: Option<H160>,
 		is_read_only: bool,
 		value: U256,
 		input: &[u8],
-		gas_left: Weight,
+		gas_limit: U256,
 	) {
+		// Increment parent's child call count.
+		if let Some(&index) = self.current_stack.last() {
+			if let Some(trace) = self.traces.get_mut(index) {
+				trace.child_call_count += 1;
+			}
+		}
+
 		if self.traces.is_empty() || !self.config.only_top_call {
 			let (call_type, input) = match self.code_with_salt.take() {
-				Some((Code::Upload(v), salt)) => (
+				Some((Code::Upload(code), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+					code.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
 				),
-				Some((Code::Existing(v), salt)) => (
+				Some((Code::Existing(code_hash), salt)) => (
 					if salt { CallType::Create2 } else { CallType::Create },
-					v.to_fixed_bytes()
+					code_hash
+						.to_fixed_bytes()
 						.into_iter()
 						.chain(input.to_vec().into_iter())
 						.collect::<Vec<_>>(),
@@ -87,7 +104,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 				None => {
 					let call_type = if is_read_only {
 						CallType::StaticCall
-					} else if is_delegate_call {
+					} else if delegate_call.is_some() {
 						CallType::DelegateCall
 					} else {
 						CallType::Call
@@ -102,7 +119,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
 				input: input.into(),
-				gas: (self.gas_mapper)(gas_left),
+				gas: gas_limit,
 				..Default::default()
 			});
 
@@ -121,15 +138,20 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		}
 
 		let current_index = self.current_stack.last().unwrap();
-		let position = self.traces[*current_index].calls.len() as u32;
-		let log =
-			CallLog { address, topics: topics.to_vec(), data: data.to_vec().into(), position };
 
-		let current_index = *self.current_stack.last().unwrap();
-		self.traces[current_index].logs.push(log);
+		if let Some(trace) = self.traces.get_mut(*current_index) {
+			let log = CallLog {
+				address,
+				topics: topics.to_vec(),
+				data: data.to_vec().into(),
+				position: trace.child_call_count,
+			};
+
+			trace.logs.push(log);
+		}
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: U256) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
@@ -137,7 +159,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
 			trace.output = output.data.clone().into();
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = gas_used;
 
 			if output.did_revert() {
 				trace.revert_reason = decode_revert_reason(&output.data);
@@ -155,14 +177,14 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 			}
 		}
 	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: U256) {
 		self.code_with_salt = None;
 
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
 		if let Some(trace) = self.traces.get_mut(current_index) {
-			trace.gas_used = (self.gas_mapper)(gas_used);
+			trace.gas_used = gas_used;
 
 			trace.error = match error {
 				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>

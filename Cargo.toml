@@ -241,6 +241,7 @@ members = [
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
 	"polkadot/xcm/pallet-xcm-benchmarks",
+	"polkadot/xcm/pallet-xcm/precompiles",
 	"polkadot/xcm/procedural",
 	"polkadot/xcm/xcm-builder",
 	"polkadot/xcm/xcm-executor",
@@ -330,6 +331,7 @@ members = [
 	"substrate/frame/assets",
 	"substrate/frame/assets-freezer",
 	"substrate/frame/assets-holder",
+	"substrate/frame/assets/precompiles",
 	"substrate/frame/atomic-swap",
 	"substrate/frame/aura",
 	"substrate/frame/authority-discovery",
@@ -628,7 +630,9 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
-alloy-core = { version = "1.1.0", default-features = false }
+alloy-consensus = { version = "1.0.41", default-features = false }
+alloy-core = { version = "1.2.1", default-features = false }
+alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
@@ -926,7 +930,7 @@ node-rpc = { path = "substrate/bin/node/rpc" }
 node-testing = { path = "substrate/bin/node/testing" }
 nohash-hasher = { version = "0.2.0" }
 novelpoly = { version = "2.0.0", package = "reed-solomon-novelpoly" }
-num-bigint = { version = "0.4.3", default-features = false }
+num-bigint = { version = "0.4.6", default-features = false }
 num-format = { version = "0.4.3" }
 num-integer = { version = "0.1.46", default-features = false }
 num-rational = { version = "0.4.1" }
@@ -944,6 +948,7 @@ pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
+pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }
 pallet-atomic-swap = { default-features = false, path = "substrate/frame/atomic-swap" }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }
@@ -1080,6 +1085,7 @@ pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
@@ -1155,9 +1161,9 @@ polkadot-subsystem-bench = { path = "polkadot/node/subsystem-bench" }
 polkadot-test-client = { path = "polkadot/node/test/client" }
 polkadot-test-runtime = { path = "polkadot/runtime/test-runtime" }
 polkadot-test-service = { path = "polkadot/node/test/service" }
-polkavm = { version = "0.26.0", default-features = false }
-polkavm-derive = "0.26.0"
-polkavm-linker = "0.26.0"
+polkavm = { version = "0.30.0", default-features = false }
+polkavm-derive = "0.30.0"
+polkavm-linker = "0.30.0"
 portpicker = { version = "0.1.1" }
 pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = ["num-traits"] }
@@ -1168,6 +1174,7 @@ procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
 prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint" }
 prometheus-parse = { version = "0.2.2" }
+proptest = { version = "1" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
 pyroscope = { version = "0.5.8" }
@@ -1186,6 +1193,7 @@ regex = { version = "1.10.2" }
 relay-substrate-client = { path = "bridges/relays/client-substrate" }
 relay-utils = { path = "bridges/relays/utils" }
 remote-externalities = { path = "substrate/utils/frame/remote-externalities", default-features = false, package = "frame-remote-externalities" }
+revm = { version = "27.0.2", default-features = false }
 ripemd = { version = "0.1.3", default-features = false }
 rlp = { version = "0.6.1", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo" }
@@ -1403,6 +1411,8 @@ syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
+# pinned test-case to 3.3.1 because they support only the latest stable version of rust
+test-case = { version = "=3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
 test-parachain-adder = { path = "polkadot/parachain/test-parachains/adder" }
