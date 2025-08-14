@@ -730,23 +730,30 @@ pub mod pallet {
 
 					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
 						if let Event::ContractEmitted { contract, data, topics } = event {
-							Some(Log {
-								// The address, topics and data are the only fields that
-								// get encoded while building the receipt root.
-								address: contract,
-								topics,
-								data: Some(data.into()),
 
-								transaction_hash,
-								transaction_index: transaction_index.into(),
+							let log = alloy_primitives::Log::new_unchecked(contract.0.into(),
+								topics.into_iter().map(|h| alloy_primitives::FixedBytes::from(h.0)).collect::<Vec<_>>(),
+    						alloy_primitives::Bytes::from(data));
 
-								// We use the substrate block number and hash as the eth block number and hash.
-								block_number: block_number.into(),
-								block_hash: block_hash.into(),
-								log_index: index.into(),
+							Some(log)
 
-								..Default::default()
-							})
+							// Some(Log {
+							// 	// The address, topics and data are the only fields that
+							// 	// get encoded while building the receipt root.
+							// 	address: contract,
+							// 	topics,
+							// 	data: Some(data.into()),
+
+							// 	transaction_hash,
+							// 	transaction_index: transaction_index.into(),
+
+							// 	// We use the substrate block number and hash as the eth block number and hash.
+							// 	block_number: block_number.into(),
+							// 	block_hash: block_hash.into(),
+							// 	log_index: index.into(),
+
+							// 	..Default::default()
+							// })
 						} else {
 							None
 						}
@@ -772,27 +779,33 @@ pub mod pallet {
 					// The receipt only encodes the status code, gas used,
 					// logs bloom and logs. An encoded log only contains the
 					// contract address, topics and data.
-					let mut receipt: ReceiptInfo = ReceiptInfo::new(
-						// This represents the substrate block hash.
-						block_hash.into(),
-						block_number.into(),
-						contract_address,
-						from,
+					// let mut receipt: ReceiptInfo = ReceiptInfo::new(
+					// 	// This represents the substrate block hash.
+					// 	block_hash.into(),
+					// 	block_number.into(),
+					// 	contract_address,
+					// 	from,
+					// 	logs,
+					// 	tx_info.to,
+					// 	base_gas_price.into(),
+					// 	// TODO: Is this conversion correct / appropriate for prod use-case?
+					// 	gas.ref_time().into(),
+					// 	success,
+					// 	transaction_hash,
+					// 	transaction_index.into(),
+					// 	tx_info.r#type.unwrap_or_default(),
+					// );
+
+					let receipt = alloy_consensus::Receipt {
+						status: success.into(),
+						cumulative_gas_used: total_gas_used.as_u64(),
 						logs,
-						tx_info.to,
-						base_gas_price.into(),
-						// TODO: Is this conversion correct / appropriate for prod use-case?
-						gas.ref_time().into(),
-						success,
-						transaction_hash,
-						transaction_index.into(),
-						tx_info.r#type.unwrap_or_default(),
-					);
+					};
 
-					receipt.cumulative_gas_used = total_gas_used;
-
-					logs_bloom.combine(&receipt.logs_bloom);
-
+					// receipt.cumulative_gas_used = total_gas_used;
+					let receipt_bloom = receipt.bloom_slow();
+					logs_bloom.combine(&(*receipt_bloom.0).into());
+			
 					Self::deposit_event(Event::Receipt {
 						effective_gas_price: base_gas_price.into(),
 						gas_used: gas.ref_time().into(),
@@ -804,30 +817,24 @@ pub mod pallet {
 					// 	transaction_index: transaction_index.into(),
 					// 	transaction_signed: signed_tx,
 					// };
+					
+					use alloy_consensus::RlpEncodableReceipt;
+					let mut encoded_receipt = Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+					receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-					Some((signed_tx.encode_2718(), receipt.encode_2718()))
+					Some((signed_tx.encode_2718(), encoded_receipt))
 				})
 				.unzip();
 
-			// Tx and Receipts must be encoded via: encode_2718
-			// TODO: We need to extend `TransactionSigned` with a new `encode()` fn similar to
-			// decode.
-
-			// TODO:
-			// Calculate tx root:
-			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L16-L24
-			// We might need: `(rlp(index), encoded(tx))` pairs instead.
-
-			use sp_trie::TrieConfiguration;
-			// The KeccakHasher is guarded against a #[cfg(not(substrate_runtime))].
-			let transactions_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(signed_tx);
-
-			// TODO:
-			// Calculate receipt root:
-			// https://github.com/alloy-rs/alloy/blob/32ffb79c52caa3d54bb81b8fc5b1815bb45d30d8/crates/consensus/src/proofs.rs#L49-L54
-			let receipts_root =
-				sp_trie::LayoutV0::<sp_core::KeccakHasher>::ordered_trie_root(receipt);
+			use alloy_core::primitives::bytes::BufMut;
+			let transactions_root = alloy_consensus::proofs::ordered_trie_root_with_encoder(
+				signed_tx.as_ref(),
+				|item, buf| buf.put_slice(item),
+			);
+			let receipts_root = alloy_consensus::proofs::ordered_trie_root_with_encoder(
+				receipt.as_ref(),
+				|item, buf| buf.put_slice(item),
+			);
 
 			let state_root = T::StateRoot::get();
 
@@ -841,8 +848,8 @@ pub mod pallet {
 
 				// Trie roots.
 				state_root,
-				transactions_root,
-				receipts_root,
+				transactions_root: transactions_root.0.into(),
+				receipts_root: receipts_root.0.into(),
 				logs_bloom,
 
 				// Difficulty is set to zero and not used.
