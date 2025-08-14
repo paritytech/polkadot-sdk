@@ -33,6 +33,10 @@ sol! {
 		function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
 		/// Retrieve the account id for a specified `H160` address.
 		///
+		/// Calling this function on a native `H160` chain (`type AccountId = H160`)
+		/// does not make sense, as it would just return the `address` that it was 
+		/// called with.
+		///
 		/// # Note
 		///
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
