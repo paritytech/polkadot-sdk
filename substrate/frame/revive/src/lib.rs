@@ -475,6 +475,8 @@ pub mod pallet {
 		RefcountOverOrUnderflow = 0x2E,
 		/// Unsupported precompile address
 		UnsupportedPrecompileAddress = 0x2F,
+		/// Can't set an evm nonce lower than current.
+		NonceTooLow = 0x30,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -1132,7 +1134,7 @@ pub mod pallet {
 			nonce: U256,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::set_evm_nonce(&address, nonce.as_u32());
+			Self::set_evm_nonce(&address, nonce.as_u32())?;
 			Ok(())
 		}
 
@@ -1634,10 +1636,14 @@ where
 		}
 	}
 
-	pub fn set_evm_nonce(address: &H160, nonce: u32) -> u32 {
+	pub fn set_evm_nonce(address: &H160, nonce: u32) -> Result<u32, Error<T>> {
 		let account = T::AddressMapper::to_account_id(&address);
 		let substrate_nonce: u32 = System::<T>::account_nonce(account).try_into().ok().unwrap();
 		let evm_nonce_u32 = nonce;
+
+		if evm_nonce_u32 < substrate_nonce {
+			return Err(<Error<T>>::NonceTooLow.into())
+		}
 
 		// Use mutate_exists because the key might not exist yet
 		EvmNonceOf::<T>::mutate_exists(&address, |maybe_evm_nonce| {
@@ -1658,7 +1664,7 @@ where
 			}
 		});
 
-		evm_nonce_u32
+		Ok(evm_nonce_u32)
 	}
 
 	/// Convert a substrate fee into a gas value, using the fixed `GAS_PRICE`.

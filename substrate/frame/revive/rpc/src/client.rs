@@ -49,9 +49,7 @@ use pallet_revive::{
 use runtime_api::RuntimeApi;
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use sc_rpc_api::author::hash::ExtrinsicOrHash;
-use sp_core::{
-	keccak_256,
-};
+use sp_core::keccak_256;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::{Block as BlockT, Zero};
 use sp_weights::Weight;
@@ -879,7 +877,6 @@ impl Client {
 		}
 		Ok(None)
 	}
-
 	pub async fn set_evm_nonce(
 		&self,
 		account: H160,
@@ -901,7 +898,6 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
-
 		Ok(Some(nonce))
 	}
 
@@ -1293,7 +1289,11 @@ impl Client {
 	}
 
 	pub async fn reset(&self) -> Result<Option<bool>, ClientError> {
-		let res = self.rpc_client.request("hardhat_reset".to_string(), Default::default()).await.unwrap();
+		let res = self
+			.rpc_client
+			.request("hardhat_reset".to_string(), Default::default())
+			.await
+			.unwrap();
 
 		let raw_value = res.get();
 		let result: bool = serde_json::from_str(raw_value).unwrap();
