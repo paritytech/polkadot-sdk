@@ -14,3 +14,5 @@ crates:
     bump: major
   - name: sc-storage-monitor
     bump: minor
+  - name: sp-keystore
+    bump: minor
