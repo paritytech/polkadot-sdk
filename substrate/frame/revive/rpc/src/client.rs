@@ -19,11 +19,14 @@
 
 mod runtime_api;
 mod storage_api;
+use futures::future::join_all;
+
 use crate::{
 	subxt_client::{
 		self,
 		revive::calls::types::EthTransact,
 		runtime_types::{
+			frame_system::pallet::Call as SystemCall,
 			pallet_balances::pallet::Call as BalancesCall,
 			pallet_revive::pallet::Call as ReviveCall, revive_dev_runtime::RuntimeCall,
 		},
@@ -43,14 +46,17 @@ use pallet_revive::{
 		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
 		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256, U128, U256,
 	},
-	EthTransactError,
+	BalanceWithDust, EthTransactError,
 };
 use runtime_api::RuntimeApi;
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use sc_rpc_api::author::hash::ExtrinsicOrHash;
-use sp_core::keccak_256;
+use sp_core::{
+	keccak_256,
+	storage::{StorageData, StorageKey},
+};
 use sp_crypto_hashing::blake2_256;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, Zero};
 use sp_weights::Weight;
 use std::{
 	collections::HashMap,
@@ -180,6 +186,7 @@ pub struct Client {
 	chain_id: u64,
 	max_block_weight: Weight,
 	ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
+	block_offset: Arc<RwLock<u64>>,
 }
 
 /// Fetch the chain ID from the substrate chain.
@@ -235,6 +242,7 @@ impl Client {
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
 		ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
+		block_offset: Arc<RwLock<u64>>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api))?;
@@ -249,6 +257,7 @@ impl Client {
 			chain_id,
 			max_block_weight,
 			ephemeral_store,
+			block_offset,
 		})
 	}
 
@@ -425,8 +434,13 @@ impl Client {
 		call: subxt::tx::DefaultPayload<EthTransact>,
 	) -> Result<H256, ClientError> {
 		let ext = self.api.tx().create_unsigned(&call).map_err(ClientError::from)?;
-		let hash = ext.submit().await?;
-		Ok(hash)
+		if self.get_automine().await? {
+			let hash = ext.submit().await?;
+			return Ok(hash);
+		} else {
+			let _ = ext.submit_and_watch().await?;
+			return Ok(H256::zero());
+		}
 	}
 
 	/// Get an EVM transaction receipt by hash.
@@ -650,11 +664,10 @@ impl Client {
 	) -> Block {
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
-
 		let header = block.header();
 		let maybe_timestamp = {
 			let store = self.ephemeral_store.read().unwrap();
-			store.get(&header.number).copied() // copy the u64 out here
+			store.get(&header.number).cloned()
 		};
 
 		let timestamp = match maybe_timestamp {
@@ -683,9 +696,7 @@ impl Client {
 				.into()
 		};
 
-		let coinbase_query = subxt_client::storage()
-			.revive()
-			.modified_coinbase(subxt::utils::Static(U256::from(header.number)));
+		let coinbase_query = subxt_client::storage().revive().modified_coinbase();
 		let maybe_coinbase = self
 			.api
 			.storage()
@@ -722,13 +733,15 @@ impl Client {
 			Some(value) => prev_randao = value,
 		}
 
+		let block_number = self.adjust_block(header.number.into()).unwrap();
+
 		Block {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
 			miner: block_author,
 			transactions_root: extrinsics_root,
-			number: header.number.into(),
+			number: block_number.into(),
 			timestamp: timestamp.into(),
 			difficulty: Some(0u32.into()),
 			base_fee_per_gas: runtime_api.gas_price().await.ok(),
@@ -781,16 +794,42 @@ impl Client {
 	) -> Result<CreatedBlock<H256>, ClientError> {
 		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
 		let mut latest_block: Option<CreatedBlock<H256>> = None;
-		for _ in 0..number_of_blocks {
-			if let Some(interval) = interval {
-				futures_timer::Delay::new(std::time::Duration::from_secs(interval.as_u64())).await;
-			}
-			let params = rpc_params![true, true].to_rpc_params().unwrap_or_default();
+		let last_block = number_of_blocks.saturating_sub(1);
+
+		for i in 0..number_of_blocks {
+			let interval: Option<u64> = match (i, interval) {
+				(0, _) => None,
+				(_, Some(time)) => Some(time.as_u64()),
+				_ => None,
+			};
+
+			let params = rpc_params![true, true, None::<H256>, interval]
+				.to_rpc_params()
+				.unwrap_or_default();
 			let res =
 				self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
 
 			latest_block = Some(serde_json::from_str(res.get()).unwrap());
 		}
+
+		Ok(latest_block.unwrap())
+	}
+
+	pub async fn evm_mine(
+		&self,
+		timestamp: Option<U256>,
+	) -> Result<CreatedBlock<H256>, ClientError> {
+		match timestamp {
+			Some(t) => self.set_next_block_timestamp(t).await?,
+			None => (),
+		}
+
+		let params = rpc_params![true, true, None::<H256>, None::<u64>]
+			.to_rpc_params()
+			.unwrap_or_default();
+		let res = self.rpc_client.request("engine_createBlock".to_string(), params).await.unwrap();
+
+		let latest_block = Some(serde_json::from_str(res.get()).unwrap());
 
 		Ok(latest_block.unwrap())
 	}
@@ -820,7 +859,7 @@ impl Client {
 		let bytes_pending_transactions: Vec<Bytes> = serde_json::from_str(raw_value).unwrap();
 
 		for transaction in bytes_pending_transactions {
-			match H256(keccak_256(&transaction.0[11..])).eq(&hash) {
+			match H256(keccak_256(&transaction.0[7..])).eq(&hash) {
 				true => {
 					let hash: H256 = blake2_256(&transaction.0).into();
 
@@ -830,6 +869,9 @@ impl Client {
 					let _ =
 						self.rpc_client.request("author_removeExtrinsic".to_string(), params).await;
 
+					if !self.get_automine().await? {
+						let _ = self.mine(None, None).await?;
+					}
 					return Ok(Some(hash));
 				},
 				_ => continue,
@@ -850,7 +892,15 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(nonce))
 	}
@@ -861,17 +911,53 @@ impl Client {
 		new_free: U256,
 	) -> Result<Option<U256>, ClientError> {
 		let alice = dev::alice();
+		let ed_query = subxt_client::constants().balances().existential_deposit();
+		let ed: u128 = self.api.constants().at(&ed_query)?;
+
+		let ratio_query = subxt_client::constants().revive().native_to_eth_ratio();
+
+		let ratio: u32 = self.api.constants().at(&ratio_query)?;
+
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at_latest().await?);
 
 		let account = runtime_api.account_or_fallback(who).await?;
 
+		let native_value = new_free.as_u128().saturating_div(ratio.into()).saturating_add(ed);
+
 		let call = RuntimeCall::Balances(BalancesCall::force_set_balance {
 			who: subxt::utils::MultiAddress::Id(account),
-			new_free: new_free.as_u128(),
+			new_free: native_value,
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		} else {
+			let _ = self.mine(Some(U256::from(1)), None).await?;
+		}
+
+		let (_, remainder) = new_free.div_mod(U256::from(ratio));
+
+		let call = RuntimeCall::Revive(ReviveCall::set_balance {
+			dest: who,
+			value: subxt::utils::Static(remainder),
+		});
+		let sudo_call = subxt_client::tx().sudo().sudo(call);
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(new_free))
 	}
@@ -903,7 +989,15 @@ impl Client {
 			RuntimeCall::Revive(ReviveCall::set_gas_price { new_price: base_fee_per_gas.as_u64() });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(base_fee_per_gas))
 	}
@@ -923,18 +1017,46 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(value))
 	}
 
-	pub async fn set_code(&self, dest: H160, code_hash: H256) -> Result<Option<H256>, ClientError> {
+	pub async fn set_code(&self, dest: H160, code: Bytes) -> Result<Option<H256>, ClientError> {
 		let alice = dev::alice();
+		let code_hash = H256(keccak_256(&code.0));
 
-		let call = RuntimeCall::Revive(ReviveCall::set_code { dest, code_hash });
+		let upload_call = subxt_client::tx().revive().upload_code(code.0, u128::MAX);
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&upload_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
+
+		let call = RuntimeCall::Revive(ReviveCall::set_bytecode { dest, code_hash });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(code_hash))
 	}
@@ -947,13 +1069,18 @@ impl Client {
 
 		let alice = dev::alice();
 
-		let call = RuntimeCall::Revive(ReviveCall::set_next_coinbase {
-			last_block: subxt::utils::Static(U256::from(block.header.number)),
-			coinbase,
-		});
+		let call = RuntimeCall::Revive(ReviveCall::set_next_coinbase { coinbase });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(coinbase))
 	}
@@ -972,12 +1099,23 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(1)), None).await?;
+		}
 
 		Ok(Some(prev_randao))
 	}
 
 	pub async fn set_next_block_timestamp(&self, next_timestamp: U256) -> Result<(), ClientError> {
+		if next_timestamp.is_zero() {
+			return Err(ClientError::ConversionFailed);
+		}
 		let block_hash = self
 			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
 			.await?;
@@ -987,7 +1125,9 @@ impl Client {
 
 		let next_timestamp = next_timestamp.as_u64();
 
-		self.ephemeral_store.write().unwrap().insert(next_block_number, next_timestamp);
+		{
+			self.ephemeral_store.write().unwrap().insert(next_block_number, next_timestamp);
+		}
 
 		Ok(())
 	}
@@ -1003,7 +1143,15 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(block_gas_limit))
 	}
@@ -1014,7 +1162,15 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(account))
 	}
@@ -1028,19 +1184,87 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::stop_impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
+		let _ = self
+			.api
+			.tx()
+			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
+			.await?;
+
+		if !self.get_automine().await? {
+			let _ = self.mine(Some(U256::from(2)), None).await?;
+		}
 
 		Ok(Some(account))
 	}
 
-	pub async fn is_impersonated_account(&self, account: H160) -> Result<bool, ClientError> {
+	pub async fn is_impersonated_account(
+		&self,
+		account: H160,
+	) -> Result<Option<bool>, ClientError> {
 		let query = subxt_client::storage().revive().impersonated_accounts(account);
 		let maybe_impersonated =
 			self.api.storage().at_latest().await.unwrap().fetch(&query).await.unwrap();
 
 		match maybe_impersonated {
-			Some(_) => return Ok(true),
-			None => return Ok(false),
+			Some(_) => return Ok(Some(true)),
+			None => return Ok(Some(false)),
 		}
+	}
+
+	fn adjust_block(&self, block_number: u64) -> Result<u64, ClientError> {
+		let offset = self.block_offset.read().unwrap();
+
+		match offset.is_zero() {
+			true => return Ok(block_number),
+			false => return Ok(block_number.saturating_sub(*offset)),
+		}
+	}
+
+	pub async fn pending_transactions(&self) -> Result<Option<Vec<H256>>, ClientError> {
+		let res = self
+			.rpc_client
+			.request("author_pendingExtrinsics".to_string(), Default::default())
+			.await
+			.unwrap();
+
+		let raw_value = res.get();
+		let bytes_pending_transactions: Vec<Bytes> = serde_json::from_str(raw_value).unwrap();
+
+		let pending_eth_transactions: Vec<H256> = bytes_pending_transactions
+			.into_iter()
+			.map(|tx| {
+				let full = &tx.0;
+				let data = &tx.0[7..];
+				let hash = H256(keccak_256(data));
+				hash
+			})
+			.collect();
+
+		Ok(Some(pending_eth_transactions))
+	}
+
+	pub async fn get_coinbase(&self) -> Result<Option<H160>, ClientError> {
+		let runtime_api = RuntimeApi::new(self.api.runtime_api().at_latest().await?);
+
+		let coinbase_query = subxt_client::storage().revive().modified_coinbase();
+		let maybe_coinbase = self
+			.api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&coinbase_query)
+			.await
+			.unwrap();
+		let block_author: H160;
+
+		match maybe_coinbase {
+			None => {
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
+			},
+			Some(author) => block_author = author,
+		}
+
+		Ok(Some(block_author))
 	}
 }

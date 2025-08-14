@@ -29,7 +29,6 @@ use polkadot_sdk::{
 	*,
 };
 use revive_dev_runtime::{OpaqueBlock as Block, RuntimeApi};
-use std::sync::Arc;
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
@@ -39,6 +38,12 @@ pub(crate) type FullClient =
 
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+use std::sync::{
+	atomic::{AtomicU64, Ordering},
+	Arc, Mutex,
+};
+
+pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = sc_service::PartialComponents<
@@ -178,12 +183,24 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	let (sink, manual_trigger_stream) =
 		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
 
+	let timestamp_delta_override: SharedDelta = Arc::new(Mutex::new(None));
+	let delta_for_inherent = timestamp_delta_override.clone();
+
 	match consensus {
 		Consensus::InstantSeal => {
 			consensus_type = Consensus::InstantSeal;
 
-			let create_inherent_data_providers =
-				|_, ()| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
+			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
+
+			let create_inherent_data_providers = move |_, ()| {
+				let delta_for_inherent = delta_for_inherent.clone();
+				async move {
+					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
+
+					let next_timestamp = NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+				}
+			};
 
 			let mut client_mut = client.clone();
 			let seal_params = SealBlockParams {
@@ -268,6 +285,17 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(None) => {
+			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
+
+			let create_inherent_data_providers = move |_, ()| {
+				let delta_for_inherent = delta_for_inherent.clone();
+				async move {
+					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
+					let next_timestamp = NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+				}
+			};
+
 			consensus_type = Consensus::ManualSeal(None);
 
 			let params = sc_consensus_manual_seal::ManualSealParams {
@@ -278,9 +306,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				select_chain: select_chain.clone(),
 				commands_stream: Box::pin(manual_trigger_stream),
 				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
+				create_inherent_data_providers,
 			};
 
 			task_manager.spawn_essential_handle().spawn_blocking(
@@ -296,7 +322,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
-		let sink = sink.clone(); // captured from above
+		let sink = sink.clone();
+		let timestamp_delta = timestamp_delta_override.clone(); // <-- include this
 
 		Box::new(move |_| {
 			let deps = crate::rpc::FullDeps {
@@ -304,6 +331,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				pool: pool.clone(),
 				manual_seal_sink: sink.clone(),
 				consensus_type: consensus_type.clone(),
+				timestamp_delta: timestamp_delta.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

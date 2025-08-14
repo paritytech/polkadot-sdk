@@ -47,12 +47,15 @@ pub struct HardhatMetadata {
 
 #[rpc(server, client)]
 pub trait HardhatRpc {
-	#[method(name = "hardhat_mine", aliases = ["evm_mine"])]
+	#[method(name = "hardhat_mine")]
 	async fn mine(
 		&self,
 		number_of_blocks: Option<U256>,
 		interval: Option<U256>,
 	) -> RpcResult<CreatedBlock<H256>>;
+
+	#[method(name = "evm_mine")]
+	async fn evm_mine(&self, timestamp: Option<U256>) -> RpcResult<CreatedBlock<H256>>;
 
 	#[method(name = "hardhat_getAutomine")]
 	async fn get_automine(&self) -> RpcResult<bool>;
@@ -83,9 +86,6 @@ pub trait HardhatRpc {
 		value: U256,
 	) -> RpcResult<Option<U256>>;
 
-	#[method(name = "hardhat_setCode")]
-	async fn set_code(&self, dest: H160, code_hash: H256) -> RpcResult<Option<H256>>;
-
 	#[method(name = "hardhat_setCoinbase")]
 	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>>;
 
@@ -103,4 +103,13 @@ pub trait HardhatRpc {
 
 	#[method(name = "hardhat_stopImpersonatingAccount")]
 	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
+
+	#[method(name = "eth_pendingTransactions")]
+	async fn pending_transactions(&self) -> RpcResult<Option<Vec<H256>>>;
+
+	#[method(name = "eth_coinbase")]
+	async fn get_coinbase(&self) -> RpcResult<Option<H160>>;
+
+	#[method(name = "hardhat_setCode")]
+	async fn set_code(&self, dest: H160, code: Bytes) -> RpcResult<Option<H256>>;
 }
