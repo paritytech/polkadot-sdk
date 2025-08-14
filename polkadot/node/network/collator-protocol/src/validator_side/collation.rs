@@ -296,6 +296,7 @@ impl Collations {
 			target: LOG_TARGET,
 			waiting_queue=?self.waiting_queue,
 			candidates_state=?self.candidates_state,
+			?unfulfilled_claim_queue_entries,
 			"Pick a collation to fetch."
 		);
 

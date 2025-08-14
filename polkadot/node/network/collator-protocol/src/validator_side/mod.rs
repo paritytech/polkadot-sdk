@@ -1147,8 +1147,20 @@ fn ensure_seconding_limit_is_respected(
 	// If there is a place in the claim queue for the candidate at at least one path we will accept
 	// it.
 	if has_claim_at_some_path {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			"Seconding limit respected",
+		);
 		Ok(())
 	} else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			"Seconding limit not respected",
+		);
 		Err(AdvertisementError::SecondedLimitReached)
 	}
 }
@@ -1897,6 +1909,14 @@ async fn run_inner<Context>(
 						peer_id,
 						prospective_candidate,
 					).await {
+						gum::debug!(
+								target: LOG_TARGET,
+								?err,
+								?relay_parent,
+								?peer_id,
+								?prospective_candidate,
+								"Failed to handle held off advertisement",
+							);
 						if let Some(rep) = err.reputation_changes() {
 							modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
 						}
