@@ -18,8 +18,8 @@
 use super::Context;
 use crate::{vm::{evm::{BASE_FEE, DIFFICULTY}, Ext}, RuntimeCosts};
 use revm::{
-	interpreter::{gas as revm_gas, host::Host, interpreter_types::RuntimeFlag},
-	primitives::{Address, hardfork::SpecId::*, U256},
+	interpreter::{gas as revm_gas},
+	primitives::{Address, U256},
 };
 use sp_core::H160;
 

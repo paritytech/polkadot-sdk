@@ -269,6 +269,21 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError>;
+
+	/// Instantiate a contract from the given bytecode.
+	///
+	/// Returns the original code size of the called contract.
+	/// The newly created account will be associated with `code`. `value` specifies the amount of
+	/// value transferred from the caller to the newly created account.
+	fn instantiate_with_code(
+		&mut self,
+		gas_limit: Weight,
+		deposit_limit: U256,
+		code: Vec<u8>,
+		value: U256,
+		input_data: Vec<u8>,
+		salt: Option<&[u8; 32]>,
+	) -> Result<H160, ExecError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -460,6 +475,9 @@ pub trait Executable<T: Config>: Sized {
 	/// # Note
 	/// Charges size base load weight from the gas meter.
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+
+	/// Load the executable from EVM bytecode
+	fn from_bytecode(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -1812,6 +1830,45 @@ where
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
+		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
+			.map(|_| address)
+	}
+
+	fn instantiate_with_code(
+		&mut self,
+		gas_limit: Weight,
+		deposit_limit: U256,
+		code: Vec<u8>,
+		value: U256,
+		input_data: Vec<u8>,
+		salt: Option<&[u8; 32]>,
+	) -> Result<H160, ExecError> {
+		// We reset the return data now, so it is cleared out even if no new frame was executed.
+		// This is for example the case when creating the frame fails.
+		*self.last_frame_output_mut() = Default::default();
+		if !T::AllowEVMBytecode::get() {
+			return Err(<Error<T>>::CodeRejected.into());
+		}
+
+		let sender = &self.top_frame().account_id;
+		let executable = E::from_bytecode(code.clone(), sender.clone())?;
+
+		let executable = self.push_frame(
+			FrameArgs::Instantiate {
+				sender: sender.clone(),
+				executable,
+				salt,
+				input_data: input_data.as_ref(),
+			},
+			value,
+			gas_limit,
+			deposit_limit.saturated_into::<BalanceOf<T>>(),
+			self.is_read_only(),
+		)?;
+
+		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
+
+		if_tracing(|t| t.instantiate_code(&crate::Code::Upload(code), salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}

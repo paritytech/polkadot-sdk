@@ -148,6 +148,10 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
+	fn from_bytecode(_code: Vec<u8>, _owner: AccountIdOf<Test>) -> Result<Self, DispatchError> {
+		unimplemented!()
+	}
+
 	fn execute<E: Ext<T = Test>>(
 		self,
 		ext: &mut E,

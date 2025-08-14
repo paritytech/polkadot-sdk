@@ -20,7 +20,7 @@ mod call_helpers;
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 
 use super::{utility::IntoAddress, Context};
-use crate::vm::Ext;
+use crate::vm::{evm::EVM_INITCODE_LIMIT, Ext};
 use alloc::boxed::Box;
 use revm::{
 	context::journaled_state::AccountLoad,
@@ -56,7 +56,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		// EIP-3860: Limit and meter initcode
 		if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::SHANGHAI) {
 			// Limit is set as double of max contract bytecode size
-			if len > context.host.max_initcode_size() {
+			if len > 2 * EVM_INITCODE_LIMIT {
 				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
 				return;
 			}
@@ -88,13 +88,14 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		gas_limit -= gas_limit / 64
 	}
 	gas_legacy!(context.interpreter, gas_limit);
+	let caller: Address = context.interpreter.extend.address().0.into();
 
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Create(Box::new(CreateInputs {
-			caller: context.interpreter.input.target_address(),
+			caller,
 			scheme,
 			value,
 			init_code: code,

@@ -19,6 +19,7 @@ mod instructions;
 
 use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
+	vec,
 	vm::{ExecResult, Ext},
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
@@ -29,6 +30,7 @@ use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
 	bytecode::Bytecode,
+	context::CreateScheme,
 	interpreter::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
@@ -54,6 +56,14 @@ pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 ///
 /// For `pallet-revive`, this is hardcoded to 0
 pub(crate) const BASE_FEE: U256 = U256::zero();
+
+/// EVM max deployed runtime code size (EIP-170).
+/// 24,576 bytes (0x6000).
+pub const EVM_BYTECODE_LIMIT: usize = 24_576;
+
+/// EVM max initcode size (EIP-3860).
+/// 49,152 bytes (0xC000).
+pub const EVM_INITCODE_LIMIT: usize = EVM_BYTECODE_LIMIT * 2;
 
 impl<T: Config> ContractBlob<T>
 where
@@ -209,8 +219,54 @@ fn run<'a, E: Ext>(
 							},
 						}
 					},
-					FrameInput::Create(_create_input) => {
-						unimplemented!()
+					FrameInput::Create(create_input) => {
+						let salt = match create_input.scheme {
+							CreateScheme::Create => None,
+							CreateScheme::Create2 { salt } => {
+								let mut arr = [0u8; 32];
+								arr.copy_from_slice(salt.as_le_slice());
+								Some(arr)
+							},
+							CreateScheme::Custom { .. } => None, // To check
+						};
+
+						let call_result = interpreter.extend.instantiate_with_code(
+							Weight::from_parts(u64::MAX, u64::MAX),
+							U256::MAX,
+							create_input.init_code.to_vec(),
+							U256::from_little_endian(create_input.value.as_le_slice()),
+							vec![],
+							salt.as_ref(),
+						);
+
+						let return_value = interpreter.extend.last_frame_output();
+						let return_data: Bytes = return_value.data.clone().into();
+
+						match call_result {
+							Ok(address) => {
+								if return_value.did_revert() {
+									// Contract creation reverted — return data must be propagated
+									interpreter.return_data.set_buffer(return_data);
+									let _ = interpreter.stack.push(primitives::U256::ZERO);
+								} else {
+									// Otherwise clear it. Note that RETURN opcode should abort.
+									// OK
+									interpreter.return_data.clear();
+									let stack_item: Address = address.0.into();
+									let _ = interpreter.stack.push(stack_item.into_word().into());
+								}
+							},
+							Err(err) => {
+								let _ = interpreter.stack.push(primitives::U256::ZERO);
+								interpreter.return_data.clear();
+								// Map error into an appropriate InstructionResult
+								let halt_reason = match err {
+									_ => InstructionResult::OutOfGas,
+								};
+
+								interpreter.halt(halt_reason);
+							},
+						}
 					},
 					FrameInput::Empty => unreachable!(),
 				}

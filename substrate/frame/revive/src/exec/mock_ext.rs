@@ -238,6 +238,18 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 	) -> Result<H160, ExecError> {
 		panic!("MockExt::instantiate")
 	}
+
+	fn instantiate_with_code(
+		&mut self,
+		_gas_limit: Weight,
+		_deposit_limit: U256,
+		_code: Vec<u8>,
+		_value: U256,
+		_input_data: Vec<u8>,
+		_salt: Option<&[u8; 32]>,
+	) -> Result<H160, ExecError> {
+		panic!("MockExt::instantiate_with_code")
+	}
 }
 
 impl<T: Config> Ext for MockExt<T> {
