@@ -182,14 +182,6 @@ where
 								.unwrap_or_default()
 						});
 
-					self.authorities_tracker.import(&pre_header).map_err(|e| {
-						format!(
-							"Could not import authorities for block {:?} at number {}: {e}",
-							pre_header.hash(),
-							pre_header.number(),
-						)
-					})?;
-
 					block_params.header = pre_header;
 					block_params.post_digests.push(seal_digest);
 					block_params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
@@ -210,6 +202,14 @@ where
 							post_hash,
 						))
 					}
+
+					self.authorities_tracker.import(&block_params.header).map_err(|e| {
+						format!(
+							"Could not import authorities for block {:?} at number {}: {e}",
+							block_params.header.hash(),
+							block_params.header.number(),
+						)
+					})?;
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
 					telemetry!(
