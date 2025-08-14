@@ -100,10 +100,11 @@ where
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	let _guard = (
+		// FIXME: `host_get`s are still needed for backward compatibility
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
-		sp_io::storage::host_get.replace_implementation(host_storage_get),
+		// sp_io::storage::host_get.replace_implementation(host_storage_get),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
 		sp_io::storage::host_root.replace_implementation(host_storage_root),
@@ -116,8 +117,8 @@ where
 			.replace_implementation(host_storage_rollback_transaction),
 		sp_io::storage::host_commit_transaction
 			.replace_implementation(host_storage_commit_transaction),
-		sp_io::default_child_storage::host_get
-			.replace_implementation(host_default_child_storage_get),
+		// sp_io::default_child_storage::host_get
+		// 	.replace_implementation(host_default_child_storage_get),
 		sp_io::default_child_storage::host_read
 			.replace_implementation(host_default_child_storage_read),
 		sp_io::default_child_storage::host_set

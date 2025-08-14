@@ -17,6 +17,7 @@
 
 use core::{
 	alloc::{GlobalAlloc, Layout},
+	arch::wasm32,
 	cell::UnsafeCell,
 	ptr::NonNull,
 };
@@ -27,39 +28,57 @@ struct RuntimeAllocator;
 #[global_allocator]
 static ALLOCATOR: RuntimeAllocator = RuntimeAllocator;
 
-/// The size of the local heap.
-///
-/// This should be as big as possible, but it should still leave enough space
-/// under the maximum memory usage limit to allow the host allocator to service the host calls.
-const LOCAL_HEAP_SIZE: usize = 64 * 1024 * 1024;
-const LOCAL_HEAP_S: picoalloc::Size = picoalloc::Size::from_bytes_usize(LOCAL_HEAP_SIZE).unwrap();
+const WASM_PAGE_SIZE: usize = 64 * 1024;
 
-#[repr(align(32))] // `picoalloc` requires 32-byte alignment of the heap
-struct LocalHeap(UnsafeCell<[u8; LOCAL_HEAP_SIZE]>);
+extern "C" {
+	static __heap_base: u8;
+}
 
-// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
-unsafe impl Send for LocalHeap {}
-
-// SAFETY: This is runtime-only, and runtimes are single-threaded, so this is safe.
-unsafe impl Sync for LocalHeap {}
-
-// Preallocate a bunch of space statically for use by the local allocator.
-//
-// This should be relatively cheap as long as all of this space is full of zeros,
-// since none of this memory will be physically paged-in until it's actually used.
-static LOCAL_HEAP: LocalHeap = LocalHeap(UnsafeCell::new([0; LOCAL_HEAP_SIZE]));
+#[inline(always)]
+fn aligned_heap_base() -> *mut u8 {
+	let base = unsafe { &__heap_base as *const u8 as usize };
+	((base + 31) & !31) as *mut u8
+}
 
 impl picoalloc::Env for RuntimeAllocator {
 	fn total_space(&self) -> picoalloc::Size {
-		LOCAL_HEAP_S
+		// Compute the maximum virtual space available for the heap.
+		// We do not pre-grow memory here; we only advertise a virtual cap. Actual memory
+		// is grown on demand in `expand_memory_until` and will be clamped by the VM's
+		// configured maximum.
+		let base = aligned_heap_base() as usize;
+		// Keep the end strictly below 4GiB and aligned to 32 bytes.
+		let end = usize::MAX & !31;
+		if base >= end {
+			return picoalloc::Size::from_bytes_usize(0)
+				.expect("Conversion from u32 to Size never fails on wasm32");
+		}
+		let total = (end - base) & !31;
+		picoalloc::Size::from_bytes_usize(total)
+			.expect("Conversion from u32 to Size never fails on wasm32")
 	}
 
 	unsafe fn allocate_address_space(&mut self) -> *mut u8 {
-		LOCAL_HEAP.0.get().cast()
+		aligned_heap_base()
 	}
 
-	unsafe fn expand_memory_until(&mut self, _base: *mut u8, size: picoalloc::Size) -> bool {
-		size <= LOCAL_HEAP_S
+	unsafe fn expand_memory_until(&mut self, base: *mut u8, size: picoalloc::Size) -> bool {
+		let base_offset = base as usize;
+		let Some(requested_end) = base_offset.checked_add(size.bytes() as usize) else {
+			return false;
+		};
+
+		let current_pages = wasm32::memory_size(0) as usize;
+		let current_end = current_pages * WASM_PAGE_SIZE;
+
+		if requested_end <= current_end {
+			return true;
+		}
+
+		let grow_bytes = requested_end - current_end;
+		let grow_pages = (grow_bytes + WASM_PAGE_SIZE - 1) / WASM_PAGE_SIZE;
+
+		wasm32::memory_grow(0, grow_pages) != usize::MAX
 	}
 
 	unsafe fn free_address_space(&mut self, _base: *mut u8) {}
@@ -144,4 +163,49 @@ unsafe impl GlobalAlloc for RuntimeAllocator {
 			core::ptr::null_mut()
 		}
 	}
+}
+
+// FIXME: Remove after debugging is done
+#[inline(always)]
+pub fn write_u32_decimal(mut value: u32, out: &mut [u8]) -> usize {
+	if value == 0 {
+		out[0] = b'0';
+		return 1;
+	}
+
+	let digits: usize = if value >= 1_000_000_000 {
+		10
+	} else if value >= 100_000_000 {
+		9
+	} else if value >= 10_000_000 {
+		8
+	} else if value >= 1_000_000 {
+		7
+	} else if value >= 100_000 {
+		6
+	} else if value >= 10_000 {
+		5
+	} else if value >= 1_000 {
+		4
+	} else if value >= 100 {
+		3
+	} else if value >= 10 {
+		2
+	} else {
+		1
+	};
+
+	if out.len() < digits {
+		return 0;
+	}
+
+	let mut idx = digits;
+	while value != 0 {
+		let digit = (value % 10) as u8;
+		value /= 10;
+		idx -= 1;
+		out[idx] = b'0' + digit;
+	}
+
+	digits
 }

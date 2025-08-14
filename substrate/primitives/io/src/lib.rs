@@ -561,12 +561,12 @@ impl<R: TryFrom<i64> + LessThan64BitPositiveInteger, E: TryFrom<i64> + strum::En
 #[runtime_interface]
 pub trait Storage {
 	/// Returns the data for `key` in the storage or `None` if the key can not be found.
-	fn get(
-		&mut self,
-		key: PassFatPointerAndRead<&[u8]>,
-	) -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
-		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
-	}
+	// fn get(
+	// 	&mut self,
+	// 	key: PassFatPointerAndRead<&[u8]>,
+	// ) -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
+	// 	self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
+	// }
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of
 	/// bytes that the entry in storage has beyond the offset or `None` if the storage entry
@@ -607,6 +607,18 @@ pub trait Storage {
 			value_out[..written].copy_from_slice(&data[..written]);
 			data.len() as u32
 		})
+	}
+
+	#[wrapper]
+	fn get(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read(key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read(key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
 	}
 
 	/// Set `key` to `value` in the storage.
@@ -805,12 +817,12 @@ pub trait Storage {
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
-	fn changes_root(
-		&mut self,
-		_parent_hash: PassFatPointerAndRead<&[u8]>,
-	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
-		None
-	}
+	// fn changes_root(
+	// 	&mut self,
+	// 	_parent_hash: PassFatPointerAndRead<&[u8]>,
+	// ) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
+	// 	None
+	// }
 
 	/// Get the next key in storage after the given one in lexicographic order.
 	fn next_key(
@@ -903,14 +915,14 @@ pub trait DefaultChildStorage {
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result is `None` if the value for `key` in the child storage can not be found.
-	fn get(
-		&mut self,
-		storage_key: PassFatPointerAndRead<&[u8]>,
-		key: PassFatPointerAndRead<&[u8]>,
-	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
-		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage(&child_info, key).map(|s| s.to_vec())
-	}
+	// fn get(
+	// 	&mut self,
+	// 	storage_key: PassFatPointerAndRead<&[u8]>,
+	// 	key: PassFatPointerAndRead<&[u8]>,
+	// ) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
+	// 	let child_info = ChildInfo::new_default(storage_key);
+	// 	self.child_storage(&child_info, key).map(|s| s.to_vec())
+	// }
 
 	/// Allocation efficient variant of `get`.
 	///
@@ -961,6 +973,18 @@ pub trait DefaultChildStorage {
 				data.len() as u32
 			})
 			.into()
+	}
+
+	#[wrapper]
+	fn get(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
+		let mut value_out = vec![0u8; 256];
+		let len = read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		if len as usize > value_out.len() {
+			value_out.resize(len as usize, 0);
+			read(storage_key.as_ref(), key.as_ref(), &mut value_out[..], 0)?;
+		}
+		value_out.truncate(len as usize);
+		Some(value_out)
 	}
 
 	/// Set a child storage value.
@@ -2854,11 +2878,11 @@ pub trait Offchain {
 	}
 
 	/// Returns information about the local node's network state.
-	fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
-		self.extension::<OffchainWorkerExt>()
-			.expect("network_state can be called only in the offchain worker context")
-			.network_state()
-	}
+	// fn network_state(&mut self) -> AllocateAndReturnByCodec<Result<OpaqueNetworkState, ()>> {
+	// 	self.extension::<OffchainWorkerExt>()
+	// 		.expect("network_state can be called only in the offchain worker context")
+	// 		.network_state()
+	// }
 
 	/// Returns the peer ID of the local node.
 	fn network_peer_id(
