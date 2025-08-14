@@ -28,4 +28,16 @@ contract Caller {
     ) external returns (bool success, bytes memory output) {
         (success, output) = _callee.staticcall{gas: _gas}(_data);
     }
+
+    function create(bytes memory initcode
+    ) external returns (address addr) {
+        assembly {
+            // CREATE with no value
+            addr := create(0, add(initcode, 0x20), mload(initcode))
+            if iszero(addr) {
+                // bubble failure
+                revert(0, 0)
+            }
+        }
+    }
 }

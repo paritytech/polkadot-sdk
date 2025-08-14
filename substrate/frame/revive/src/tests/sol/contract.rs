@@ -9,8 +9,8 @@ use crate::{
 	Code, Config,
 };
 use alloy_core::{
-	primitives::U256,
-	sol_types::{SolCall, SolInterface},
+	primitives::{Bytes, U256},
+	sol_types::SolCall,
 };
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
@@ -62,4 +62,38 @@ fn call_works() {
 			);
 		});
 	}
+}
+
+#[test]
+fn create_works() {
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let create_call_data =
+			Caller::createCall { initcode: Bytes::from(callee_code.clone()) }.abi_encode();
+
+		let result =
+			builder::bare_call(caller_addr).data(create_call_data).build_and_unwrap_result();
+
+		let callee_addr = Caller::createCall::abi_decode_returns(&result.data).unwrap();
+
+		log::info!("Created  addr: {:?}", callee_addr);
+
+		let magic_number = U256::from(42);
+
+		// Check if the created contract is working
+		let echo_result = builder::bare_call(callee_addr.0 .0.into())
+			.data(Callee::echoCall { _data: magic_number }.abi_encode())
+			.build_and_unwrap_result();
+
+		let echo_output = Callee::echoCall::abi_decode_returns(&echo_result.data).unwrap();
+
+		assert_eq!(echo_output, magic_number, "Callee.echo must return 42");
+	});
 }
