@@ -5,8 +5,8 @@ doc:
     `System` pre-compile.
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: patch
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
 - name: pallet-revive-uapi
   bump: major
