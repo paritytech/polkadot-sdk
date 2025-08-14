@@ -51,8 +51,9 @@ use polkadot_primitives::{
 	},
 	AsyncBackingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, EncodeAs, ExecutorParams,
 	GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex, SessionInfo, Signed, SignedAvailabilityBitfield, SigningContext, ValidationCode,
-	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, SessionIndex, SessionInfo, Signed, SignedAvailabilityBitfield,
+	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;
@@ -103,8 +104,10 @@ mod determine_new_blocks;
 
 mod controlled_validator_indices;
 pub use controlled_validator_indices::ControlledValidatorIndices;
-use polkadot_node_subsystem_types::messages::{Ancestors, ProspectiveParachainsMessage};
-use polkadot_node_subsystem_types::ActivatedLeaf;
+use polkadot_node_subsystem_types::{
+	messages::{Ancestors, ProspectiveParachainsMessage},
+	ActivatedLeaf,
+};
 
 #[cfg(test)]
 mod tests;
@@ -146,7 +149,8 @@ pub enum Error {
 	/// Data that are supposed to be there a not there
 	#[error("Data are not available")]
 	DataNotAvailable,
-	/// Attempted to get backable candidates from prospective parachains but the request was canceled.
+	/// Attempted to get backable candidates from prospective parachains but the request was
+	/// canceled.
 	#[error("failed to get backable candidates from prospective parachains")]
 	CanceledBackableCandidates(#[source] oneshot::Canceled),
 }
@@ -582,10 +586,10 @@ pub async fn request_backable_candidates(
 					true
 				} else {
 					bitfields_indicate_availability(
-					core_idx.0 as usize,
-					bitfields,
-					&occupied_core.availability,
-				)
+						core_idx.0 as usize,
+						bitfields,
+						&occupied_core.availability,
+					)
 				};
 
 				if is_available {
@@ -630,7 +634,7 @@ pub async fn request_backable_candidates(
 			core_count as u32,
 			sender,
 		)
-			.await?;
+		.await?;
 
 		if response.is_empty() {
 			gum::debug!(
@@ -690,7 +694,6 @@ fn bitfields_indicate_availability(
 
 	3 * availability.count_ones() >= 2 * availability.len()
 }
-
 
 /// Requests backable candidates from Prospective Parachains based on
 /// the given ancestors in the fragment chain. The ancestors may not be ordered.

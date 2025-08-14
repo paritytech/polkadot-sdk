@@ -21,15 +21,16 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::CoreState, BlockNumber, ChunkIndex, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId,
-	ScheduledCore, SessionIndex, SessionInfo,
+	vstaging::CoreState, BlockNumber, ChunkIndex, ExecutorParams, GroupIndex, GroupRotationInfo,
+	Hash, Id as ParaId, ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage, CandidateBackingMessage,
-		ChainApiMessage, NetworkBridgeTxMessage, RuntimeApiMessage, RuntimeApiRequest,
+		AllMessages, AvailabilityDistributionMessage, AvailabilityStoreMessage,
+		CandidateBackingMessage, ChainApiMessage, NetworkBridgeTxMessage, RuntimeApiMessage,
+		RuntimeApiRequest,
 	},
 	ActiveLeavesUpdate, SpawnGlue,
 };
@@ -164,8 +165,9 @@ fn spawn_virtual_overseer(
 									group_rotation_frequency: 12,
 									now: 1,
 								};
-								tx.send(Ok((groups, group_rotation_info))).expect("Receiver should be alive.");
-							}
+								tx.send(Ok((groups, group_rotation_info)))
+									.expect("Receiver should be alive.");
+							},
 							_ => {
 								panic!("Unexpected runtime request: {:?}", req);
 							},
@@ -185,7 +187,9 @@ fn spawn_virtual_overseer(
 							.send(Ok(ancestors))
 							.expect("Receiver is expected to be alive");
 					},
-					AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(_, tx)) => {
+					AllMessages::CandidateBacking(
+						CandidateBackingMessage::GetBackableCandidates(_, tx),
+					) => {
 						tx.send(Default::default()).expect("Receiver should be alive");
 					},
 					msg => panic!("Unexpected overseer message: {:?}", msg),
