@@ -1972,16 +1972,29 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
+		use alloy_core::sol_types::SolInterface;
+
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_256(memory.as_mut_slice(), 32, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes

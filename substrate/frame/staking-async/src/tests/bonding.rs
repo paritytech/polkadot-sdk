@@ -1387,8 +1387,6 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
-				// Note: Even though the stash is a validator, the threshold to reap is min of
-				// nominator and validator bond
 				// no easy way to cause an account to go below ED, we tweak their staking ledger
 				// instead.
 
@@ -1401,8 +1399,8 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
-				// WHEN: set ledger to below min nominator bond.
-				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 999));
+				// WHEN: set ledger to below ED
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 9));
 
 				// THEN: reap-able
 				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -1551,9 +1549,9 @@ mod staking_bounds_chill_other {
 			.min_nominator_bond(1_000)
 			.min_validator_bond(1_500)
 			.build_and_execute(|| {
-				// 500 is not enough for any role
+				// 50 is not enough for any role (less than ED)
 				assert_noop!(
-					Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash),
+					Staking::bond(RuntimeOrigin::signed(3), 50, RewardDestination::Stash),
 					Error::<Test>::InsufficientBond
 				);
 				// 1000 is enough for nominator but not for validator.

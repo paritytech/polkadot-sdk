@@ -356,6 +356,7 @@ members = [
 	"substrate/frame/core-fellowship",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
+	"substrate/frame/derivatives",
 	"substrate/frame/dummy-dim",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
@@ -1051,6 +1052,7 @@ pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", def
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
+pallet-derivatives = { path = "polkadot/xcm/pallet-derivatives", default-features = false }
 pallet-staking-async = { path = "substrate/frame/staking-async", default-features = false }
 pallet-staking-async-ah-client = { path = "substrate/frame/staking-async/ah-client", default-features = false }
 pallet-staking-async-parachain-runtime = { path = "substrate/frame/staking-async/runtimes/parachain" }
