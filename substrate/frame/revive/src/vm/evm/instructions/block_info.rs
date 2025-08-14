@@ -16,9 +16,15 @@
 // limitations under the License.
 
 use super::Context;
-use crate::{vm::{evm::{BASE_FEE, DIFFICULTY}, Ext}, RuntimeCosts};
+use crate::{
+	vm::{
+		evm::{BASE_FEE, DIFFICULTY},
+		Ext,
+	},
+	RuntimeCosts,
+};
 use revm::{
-	interpreter::{gas as revm_gas},
+	interpreter::gas as revm_gas,
 	primitives::{Address, U256},
 };
 use sp_core::H160;
@@ -33,7 +39,7 @@ pub fn chainid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current block's beneficiary address onto the stack.
 pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
+	gas!(context.interpreter, RuntimeCosts::BlockAuthor);
 	let coinbase: Address =
 		context.interpreter.extend.block_author().unwrap_or(H160::zero()).0.into();
 	push!(context.interpreter, coinbase.into_word().into());
@@ -82,6 +88,5 @@ pub fn basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported
 pub fn blob_basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
 	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
 }

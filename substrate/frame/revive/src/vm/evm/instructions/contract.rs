@@ -172,8 +172,9 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	else {
 		return;
 	};
-	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
 
+	// TODO: Handle the cold/warm storage correctly
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
 	// let Some(mut load) = context.host.load_account_delegated(to) else {
 	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
 	// 	return;
@@ -273,7 +274,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	// TODO: Handle the cold/warm storage correctly
 	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
-	// let Some(mut load) = context.interpreter.ex.load_account_delegated(to) else {
+	// let Some(mut load) = context.host.load_account_delegated(to) else {
 	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
 	// 	return;
 	// };
