@@ -143,7 +143,6 @@ impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
 		sink.send(command).await?;
 		receiver.await.map(|_| true).map_err(Into::into)
 	}
-	
 }
 
 /// report any errors or successes encountered by the authorship task back

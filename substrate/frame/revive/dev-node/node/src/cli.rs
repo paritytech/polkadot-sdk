@@ -35,8 +35,7 @@ impl std::str::FromStr for Consensus {
 			Consensus::ManualSeal(Some(block_time.parse().map_err(|_| "invalid block time")?))
 		} else if s == "manual-seal" {
 			Consensus::ManualSeal(None)
-		} 
-		else if s.to_lowercase() == "none" {
+		} else if s.to_lowercase() == "none" {
 			Consensus::None
 		} else {
 			return Err("incorrect consensus identifier".into());

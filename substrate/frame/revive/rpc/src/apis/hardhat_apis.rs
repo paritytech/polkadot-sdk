@@ -41,7 +41,7 @@ pub struct HardhatMetadata {
 	pub instance_id: H256,
 	pub last_block_number: u64,
 	pub last_block_hash: H256,
-    #[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub forked_network: Option<HardhatForkedNetwork>,
 }
 
@@ -84,45 +84,23 @@ pub trait HardhatRpc {
 	) -> RpcResult<Option<U256>>;
 
 	#[method(name = "hardhat_setCode")]
-	async fn set_code(
-		&self,
-		dest: H160,
-		code_hash: H256,
-	) -> RpcResult<Option<H256>>;
+	async fn set_code(&self, dest: H160, code_hash: H256) -> RpcResult<Option<H256>>;
 
 	#[method(name = "hardhat_setCoinbase")]
-	async fn set_coinbase(
-		&self,
-		coinbase: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn set_coinbase(&self, coinbase: H160) -> RpcResult<Option<H160>>;
 
 	#[method(name = "hardhat_setPrevRandao")]
-	async fn set_prev_randao(
-		&self,
-		prev_randao: H256,
-	) -> RpcResult<Option<H256>>;
+	async fn set_prev_randao(&self, prev_randao: H256) -> RpcResult<Option<H256>>;
 
 	#[method(name = "evm_setNextBlockTimestamp")]
-	async fn set_next_block_timestamp(
-		&self,
-		next_timestamp: U256,
-	) -> RpcResult<()>;
+	async fn set_next_block_timestamp(&self, next_timestamp: U256) -> RpcResult<()>;
 
 	#[method(name = "evm_setBlockGasLimit")]
-	async fn set_block_gas_limit(
-		&self,
-		block_gas_limit: U128,
-	) -> RpcResult<Option<U128>>;
+	async fn set_block_gas_limit(&self, block_gas_limit: U128) -> RpcResult<Option<U128>>;
 
 	#[method(name = "hardhat_impersonateAccount")]
-	async fn impersonate_account(
-		&self,
-		account: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
 
 	#[method(name = "hardhat_stopImpersonatingAccount")]
-	async fn stop_impersonate_account(
-		&self,
-		account: H160,
-	) -> RpcResult<Option<H160>>;
+	async fn stop_impersonate_account(&self, account: H160) -> RpcResult<Option<H160>>;
 }

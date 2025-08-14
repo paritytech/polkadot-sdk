@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	subxt_client::{self, runtime_types::pallet_revive::storage::{ContractInfo, AccountType}, SrcChainConfig},
+	subxt_client::{
+		self,
+		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+		SrcChainConfig,
+	},
 	ClientError, H160,
 };
 use subxt::{storage::Storage, OnlineClient};

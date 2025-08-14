@@ -28,19 +28,20 @@ use crate::{
 			pallet_revive::pallet::Call as ReviveCall, revive_dev_runtime::RuntimeCall,
 		},
 		SrcChainConfig,
-	}, BlockInfoProvider, BlockTag, FeeHistoryProvider, HardhatMetadata, ReceiptProvider, SubxtBlockInfoProvider, TracerType, TransactionInfo, LOG_TARGET
+	},
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, HardhatMetadata, ReceiptProvider,
+	SubxtBlockInfoProvider, TracerType, TransactionInfo, LOG_TARGET,
 };
 use jsonrpsee::{
 	core::traits::ToRpcParams,
 	rpc_params,
 	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
 };
-use pallet_revive::evm::Bytes;
 use pallet_revive::{
 	evm::{
-		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H160, H256, U128, U256,
+		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
+		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256, U128, U256,
 	},
 	EthTransactError,
 };
@@ -51,8 +52,8 @@ use sp_core::keccak_256;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use std::collections::HashMap;
 use std::{
+	collections::HashMap,
 	ops::Range,
 	sync::{Arc, RwLock},
 	time::Duration,
@@ -147,10 +148,9 @@ impl From<ClientError> for ErrorObjectOwned {
 		match err {
 			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
 				subxt::ext::subxt_rpcs::Error::User(err),
-			)))
-			| ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) => {
-				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None)
-			},
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -160,12 +160,10 @@ impl From<ClientError> for ErrorObjectOwned {
 				let data = format!("0x{}", hex::encode(data));
 				ErrorObjectOwned::owned::<String>(REVERT_CODE, msg, Some(data))
 			},
-			ClientError::TransactError(EthTransactError::Message(msg)) => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None)
-			},
-			_ => {
-				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None)
-			},
+			ClientError::TransactError(EthTransactError::Message(msg)) =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, msg, None),
+			_ =>
+				ErrorObjectOwned::owned::<String>(CALL_EXECUTION_FAILED_CODE, err.to_string(), None),
 		}
 	}
 }
@@ -700,9 +698,8 @@ impl Client {
 		let block_author: H160;
 
 		match maybe_coinbase {
-			None => {
-				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default()
-			},
+			None =>
+				block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default(),
 			Some(author) => block_author = author,
 		}
 
@@ -885,7 +882,6 @@ impl Client {
 			.await?;
 		let block = self.tracing_block(block_hash).await?;
 
-
 		let metadata = HardhatMetadata {
 			client_version: "0.1.0-stubbed".to_string(),
 			chain_id: self.chain_id.into(),
@@ -1002,8 +998,9 @@ impl Client {
 	) -> Result<Option<U128>, ClientError> {
 		let alice = dev::alice();
 
-		let call =
-			RuntimeCall::Revive(ReviveCall::set_block_gas_limit { block_gas_limit: block_gas_limit.as_u64() });
+		let call = RuntimeCall::Revive(ReviveCall::set_block_gas_limit {
+			block_gas_limit: block_gas_limit.as_u64(),
+		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
@@ -1011,14 +1008,10 @@ impl Client {
 		Ok(Some(block_gas_limit))
 	}
 
-	pub async fn impersonate_account(
-		&self,
-		account: H160
-	) -> Result<Option<H160>, ClientError> {
+	pub async fn impersonate_account(&self, account: H160) -> Result<Option<H160>, ClientError> {
 		let alice = dev::alice();
 
-		let call =
-			RuntimeCall::Revive(ReviveCall::impersonate_account { account });
+		let call = RuntimeCall::Revive(ReviveCall::impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
@@ -1028,12 +1021,11 @@ impl Client {
 
 	pub async fn stop_impersonate_account(
 		&self,
-		account: H160
+		account: H160,
 	) -> Result<Option<H160>, ClientError> {
 		let alice = dev::alice();
 
-		let call =
-			RuntimeCall::Revive(ReviveCall::stop_impersonate_account { account });
+		let call = RuntimeCall::Revive(ReviveCall::stop_impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
 		let _ = self.api.tx().sign_and_submit_default(&sudo_call, &alice).await?;
@@ -1041,27 +1033,14 @@ impl Client {
 		Ok(Some(account))
 	}
 
-	pub async fn is_impersonated_account(
-		&self,
-		account: H160
-	) -> Result<bool, ClientError> {
-		let query = subxt_client::storage()
-			.revive()
-			.impersonated_accounts(account);
-		let maybe_impersonated = self
-			.api
-			.storage()
-			.at_latest()
-			.await
-			.unwrap()
-			.fetch(&query)
-			.await
-			.unwrap();
+	pub async fn is_impersonated_account(&self, account: H160) -> Result<bool, ClientError> {
+		let query = subxt_client::storage().revive().impersonated_accounts(account);
+		let maybe_impersonated =
+			self.api.storage().at_latest().await.unwrap().fetch(&query).await.unwrap();
 
 		match maybe_impersonated {
 			Some(_) => return Ok(true),
-			None => return Ok(false)
+			None => return Ok(false),
 		}
-
 	}
 }

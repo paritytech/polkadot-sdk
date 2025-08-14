@@ -16,8 +16,7 @@
 // limitations under the License.
 
 use crate::cli::Consensus;
-use futures::FutureExt;
-use futures::SinkExt;
+use futures::{FutureExt, SinkExt};
 use polkadot_sdk::{
 	parachains_common::Hash,
 	sc_client_api::backend::Backend,
@@ -179,7 +178,6 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	let (sink, manual_trigger_stream) =
 		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
 
-
 	match consensus {
 		Consensus::InstantSeal => {
 			consensus_type = Consensus::InstantSeal;
@@ -203,8 +201,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			};
 			seal_block(seal_params).await;
 
-			/// This is needed to finish opening both channels, otherwise block production won't start
-			/// until we send an rpc call to create a block.
+			/// This is needed to finish opening both channels, otherwise block production won't
+			/// start until we send an rpc call to create a block.
 			let command = sc_consensus_manual_seal::EngineCommand::SealNewBlock {
 				sender: None,
 				parent_hash: None,

@@ -39,7 +39,6 @@ use crate::cli::Consensus;
 pub trait HardhatRpc {
 	#[method(name = "hardhat_getAutomine")]
 	fn get_automine(&self) -> RpcResult<bool>;
-
 }
 
 pub struct HardhatRpcServerImpl {
@@ -92,8 +91,10 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<OpaqueBlock, AccountId, Nonce>,
 	P: TransactionPool + 'static,
 {
-	use polkadot_sdk::sc_rpc::dev::{Dev, DevApiServer};
-	use polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
+	use polkadot_sdk::{
+		sc_rpc::dev::{Dev, DevApiServer},
+		substrate_frame_rpc_system::{System, SystemApiServer},
+	};
 	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 
 	let mut module = RpcModule::new(());

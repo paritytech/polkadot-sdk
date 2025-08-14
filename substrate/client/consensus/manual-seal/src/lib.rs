@@ -239,15 +239,15 @@ pub async fn run_instant_seal<B, BI, CB, E, C, TP, SC, CIDP, P, MTS>(
 {
 	// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
-	let instant_commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: true,
-		finalize: true,
-		parent_hash: None,
-		sender: None,
-	});
+	let instant_commands_stream =
+		pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
+			create_empty: true,
+			finalize: true,
+			parent_hash: None,
+			sender: None,
+		});
 
 	let commands_stream = futures::stream::select(instant_commands_stream, manual_trigger_stream);
-
 
 	run_manual_seal(ManualSealParams {
 		block_import,
@@ -294,12 +294,13 @@ pub async fn run_instant_seal_and_finalize<B, BI, CB, E, C, TP, SC, CIDP, P, MTS
 {
 	// Creates and finalizes blocks as soon as transactions are imported
 	// into the transaction pool.
-	let instant_commands_stream = pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
-		create_empty: false,
-		finalize: true,
-		parent_hash: None,
-		sender: None,
-	});
+	let instant_commands_stream =
+		pool.import_notification_stream().map(|_| EngineCommand::SealNewBlock {
+			create_empty: false,
+			finalize: true,
+			parent_hash: None,
+			sender: None,
+		});
 
 	let commands_stream = futures::stream::select(instant_commands_stream, manual_trigger_stream);
 

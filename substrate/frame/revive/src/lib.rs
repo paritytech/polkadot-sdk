@@ -643,8 +643,8 @@ pub mod pallet {
 					.len() as u32;
 
 			let max_immutable_key_size = T::AccountId::max_encoded_len() as u32;
-			let max_immutable_size: u32 = ((max_block_ref_time
-				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
+			let max_immutable_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetImmutableData(
 					limits::IMMUTABLE_BYTES,
 				))
 				.ref_time()))
@@ -654,8 +654,8 @@ pub mod pallet {
 
 			// We can use storage to store items using the available block ref_time with the
 			// `set_storage` host function.
-			let max_storage_size: u32 = ((max_block_ref_time
-				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
+			let max_storage_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::SetStorage {
 					new_bytes: max_payload_size,
 					old_bytes: 0,
 				})
@@ -678,8 +678,8 @@ pub mod pallet {
 			// We can use storage to store events using the available block ref_time with the
 			// `deposit_event` host function. The overhead of stored events, which is around 100B,
 			// is not taken into account to simplify calculations, as it does not change much.
-			let max_events_size: u32 = ((max_block_ref_time
-				/ (<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
+			let max_events_size: u32 = ((max_block_ref_time /
+				(<RuntimeCosts as gas::Token<T>>::weight(&RuntimeCosts::DepositEvent {
 					num_topic: 0,
 					len: max_payload_size,
 				})
@@ -1219,9 +1219,8 @@ where
 			let origin = Origin::from_runtime_origin(origin)?;
 			let mut storage_meter = match storage_deposit_limit {
 				DepositLimit::Balance(limit) => StorageMeter::new(limit),
-				DepositLimit::UnsafeOnlyForDryRun => {
-					StorageMeter::new_unchecked(BalanceOf::<T>::max_value())
-				},
+				DepositLimit::UnsafeOnlyForDryRun =>
+					StorageMeter::new_unchecked(BalanceOf::<T>::max_value()),
 			};
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
@@ -1298,9 +1297,8 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Existing(code_hash) => {
-					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default())
-				},
+				Code::Existing(code_hash) =>
+					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
 			let instantiate_origin = Origin::from_account_id(instantiate_account.clone());
 			let mut storage_meter = if unchecked_deposit_limit {
@@ -1398,9 +1396,9 @@ where
 		let input = tx.input.clone().to_vec();
 
 		let extract_error = |err| {
-			if err == Error::<T>::TransferFailed.into()
-				|| err == Error::<T>::StorageDepositNotEnoughFunds.into()
-				|| err == Error::<T>::StorageDepositLimitExhausted.into()
+			if err == Error::<T>::TransferFailed.into() ||
+				err == Error::<T>::StorageDepositNotEnoughFunds.into() ||
+				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
 				return Err(EthTransactError::Message(
@@ -1685,9 +1683,8 @@ where
 				Self::evm_gas_from_weight as fn(Weight) -> U256,
 			)
 			.into(),
-			TracerType::PrestateTracer(config) => {
-				PrestateTracer::new(config.unwrap_or_default()).into()
-			},
+			TracerType::PrestateTracer(config) =>
+				PrestateTracer::new(config.unwrap_or_default()).into(),
 		}
 	}
 
