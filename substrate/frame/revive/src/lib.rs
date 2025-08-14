@@ -734,7 +734,6 @@ pub mod pallet {
 				|item, buf| buf.put_slice(item),
 			);
 
-			let state_root = T::StateRoot::get();
 			let number: U256 = block_number.into();
 			let now: U256 = T::Time::now().into();
 			let alloy_header = alloy_consensus::Header {
@@ -759,39 +758,6 @@ pub mod pallet {
 			};
 
 			let block_hash = alloy_header.hash_slow();
-
-			let block_header = BlockHeader {
-				// TODO: This is not the correct parent hash.
-				parent_hash: parent_hash.into(),
-				// Ommers are set to default in pallet frontier.
-				ommers_hash: Default::default(),
-				// The author of the block.
-				beneficiary: block_author.into(),
-
-				// Trie roots.
-				state_root,
-				transactions_root: transactions_root.0.into(),
-				receipts_root: receipts_root.0.into(),
-				logs_bloom,
-
-				// Difficulty is set to zero and not used.
-				difficulty: U256::zero(),
-				// The block number is the current substrate block number.
-				number: block_number.into(),
-
-				// The gas limit is set to the EVM block gas limit.
-				gas_limit: Self::evm_block_gas_limit(),
-				// The total gas used by the transactions in this block.
-				gas_used: total_gas_used,
-				// The timestamp is set to the current time.
-				timestamp: T::Time::now().into(),
-
-				// Default fields (not used).
-				extra_data: Default::default(),
-				mix_hash: Default::default(),
-				nonce: Default::default(),
-			};
-
 			let block_hash: H256 = block_hash.0.into();
 
 			BlockHash::<T>::insert(eth_block_num, block_hash);
@@ -807,21 +773,20 @@ pub mod pallet {
 			}
 
 			let block = EthBlock {
-				parent_hash: block_header.parent_hash,
-				sha_3_uncles: block_header.ommers_hash,
-				miner: block_header.beneficiary,
-				state_root: block_header.state_root,
-				transactions_root: block_header.transactions_root,
-				receipts_root: block_header.receipts_root,
-				logs_bloom: block_header.logs_bloom,
-				total_difficulty: Some(block_header.difficulty),
-				number: block_header.number,
-				gas_limit: block_header.gas_limit,
-				gas_used: block_header.gas_used,
-				timestamp: block_header.timestamp,
-				extra_data: block_header.extra_data,
-				mix_hash: block_header.mix_hash,
-				nonce: block_header.nonce,
+				parent_hash: parent_hash.into(),
+				miner: block_author.into(),
+
+				state_root: transactions_root.0.into(),
+				transactions_root: transactions_root.0.into(),
+				receipts_root: receipts_root.0.into(),
+
+				logs_bloom,
+				total_difficulty: Some(U256::zero()),
+				number: block_number.into(),
+
+				gas_limit: Self::evm_block_gas_limit(),
+				gas_used: total_gas_used,
+				timestamp: now,
 
 				transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
@@ -829,8 +794,6 @@ pub mod pallet {
 			};
 
 			LastBlock::<T>::put(block);
-
-			// LastBlockDetails::<T>::put((block_header, tx_hashes));
 		}
 
 		fn integrity_test() {
