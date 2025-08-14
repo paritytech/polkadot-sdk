@@ -16,20 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, ExtBuilder, Test, test_utils},
+	test_utils::{builder::Contract, ALICE},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
-    address::AddressMapper,
-    H256,
-    Key,
-    System,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Memory, FixtureType};
 use pretty_assertions::assert_eq;
-use frame_support::traits::Get;
 
 #[test]
 fn mload_and_mstore_works() {

@@ -16,19 +16,13 @@
 // limitations under the License.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, ExtBuilder, Test, test_utils},
+	test_utils::{builder::Contract, ALICE,},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
-    address::AddressMapper,
-    H256,
-    Key,
-    System,
 };
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::primitives::U256;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
 use pretty_assertions::assert_eq;
-use frame_support::traits::Get;
 
 fn make_evm_bytecode_from_runtime_code(runtime_code: &str) -> Vec<u8> {
     let runtime_code_len = runtime_code.len() / 2;

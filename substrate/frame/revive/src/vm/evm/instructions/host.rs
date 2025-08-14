@@ -115,9 +115,10 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 
 	// Copy cost: 3 gas per 32-byte word
-    let copy_gas = (memory_len.div_ceil(32) * 3) as u64; // Round up to nearest 32-byte boundary
+    let copy_gas = (memory_len.div_ceil(32) * 3) as u32; // Round up to nearest 32-byte boundary
 	// static gas for this instruction 100
-    gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
+    // gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
+	gas!(context.interpreter, RuntimeCosts::CallDataCopy(100 + copy_gas));
 
     context.interpreter.memory.set_data(memory_offset, code_offset, memory_len, &code);
 }
