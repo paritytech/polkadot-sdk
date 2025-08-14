@@ -172,14 +172,13 @@ where
 	P: Pair,
 	P::Public: Codec,
 {
-	let mut authorities_change_digest: Option<_> = None;
 	for log in header.digest().logs() {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
 		let log = log
 			.try_to::<ConsensusLog<AuthorityId<P>>>(OpaqueDigestItemId::Consensus(&AURA_ENGINE_ID));
 		if let Some(ConsensusLog::AuthoritiesChange(authorities)) = log {
-			authorities_change_digest = Some(authorities);
+			return Some(authorities);
 		}
 	}
-	authorities_change_digest
+	None
 }
