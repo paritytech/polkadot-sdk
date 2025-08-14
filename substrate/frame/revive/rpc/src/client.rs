@@ -19,21 +19,19 @@
 
 mod runtime_api;
 mod storage_api;
-use futures::future::join_all;
 
 use crate::{
 	subxt_client::{
 		self,
 		revive::calls::types::EthTransact,
 		runtime_types::{
-			frame_system::pallet::Call as SystemCall,
 			pallet_balances::pallet::Call as BalancesCall,
 			pallet_revive::pallet::Call as ReviveCall, revive_dev_runtime::RuntimeCall,
 		},
 		SrcChainConfig,
 	},
-	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo, LOG_TARGET,
+	BlockInfoProvider, BlockTag, FeeHistoryProvider, HardhatMetadata, ReceiptProvider,
+	SubxtBlockInfoProvider, TracerType, TransactionInfo, LOG_TARGET,
 };
 use jsonrpsee::{
 	core::traits::ToRpcParams,
@@ -44,16 +42,15 @@ use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, Bytes,
 		FeeHistoryResult, Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256, U128, U256,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H160, H256, U128, U256, U64,
 	},
-	BalanceWithDust, EthTransactError,
+	EthTransactError,
 };
 use runtime_api::RuntimeApi;
 use sc_consensus_manual_seal::rpc::CreatedBlock;
 use sc_rpc_api::author::hash::ExtrinsicOrHash;
 use sp_core::{
 	keccak_256,
-	storage::{StorageData, StorageKey},
 };
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -798,7 +795,6 @@ impl Client {
 	) -> Result<CreatedBlock<H256>, ClientError> {
 		let number_of_blocks = number_of_blocks.unwrap_or("0x1".into()).as_u64();
 		let mut latest_block: Option<CreatedBlock<H256>> = None;
-		let last_block = number_of_blocks.saturating_sub(1);
 
 		for i in 0..number_of_blocks {
 			let interval: Option<u64> = match (i, interval) {
@@ -1220,9 +1216,7 @@ impl Client {
 		let pending_eth_transactions: Vec<H256> = bytes_pending_transactions
 			.into_iter()
 			.map(|tx| {
-				let full = &tx.0;
-				let data = &tx.0[7..];
-				let hash = H256(keccak_256(data));
+				let hash = H256(keccak_256(&tx.0[7..]));
 				hash
 			})
 			.collect();
@@ -1253,5 +1247,60 @@ impl Client {
 		}
 
 		Ok(Some(block_author))
+	}
+
+	pub async fn hardhat_metadata(&self) -> Result<Option<HardhatMetadata>, ClientError> {
+		let block_hash = self
+			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
+			.await?;
+		let block = self.tracing_block(block_hash).await?;
+
+		let metadata = HardhatMetadata {
+			client_version: "0.1.0-stubbed".to_string(),
+			chain_id: self.chain_id.into(),
+			instance_id: self.api.genesis_hash(),
+			last_block_number: block.header.number.into(),
+			last_block_hash: block.hash(),
+			forked_network: None, // TODO: add forked network from chopsticks
+		};
+		Ok(Some(metadata))
+	}
+
+	pub async fn snapshot(&self) -> Result<Option<U64>, ClientError> {
+		let res = self
+			.rpc_client
+			.request("evm_snapshot".to_string(), Default::default())
+			.await
+			.unwrap();
+
+		let raw_value = res.get();
+		let snaphsot_id: u64 = serde_json::from_str(raw_value).unwrap();
+
+		Ok(Some(U64::from(snaphsot_id)))
+	}
+
+	pub async fn revert(&self, id: U64) -> Result<Option<bool>, ClientError> {
+		let params = rpc_params![id.as_u64()].to_rpc_params().unwrap_or_default();
+		let res = self.rpc_client.request("evm_revert".to_string(), params).await.unwrap();
+
+		let raw_value = res.get();
+		let result: bool = serde_json::from_str(raw_value).unwrap();
+
+		let block = self.api.blocks().at_latest().await?;
+		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
+
+		Ok(Some(result))
+	}
+
+	pub async fn reset(&self) -> Result<Option<bool>, ClientError> {
+		let res = self.rpc_client.request("hardhat_reset".to_string(), Default::default()).await.unwrap();
+
+		let raw_value = res.get();
+		let result: bool = serde_json::from_str(raw_value).unwrap();
+
+		let block = self.api.blocks().at_latest().await?;
+		let _ = self.block_provider.update_latest(block, SubscriptionType::BestBlocks).await;
+
+		Ok(Some(result))
 	}
 }

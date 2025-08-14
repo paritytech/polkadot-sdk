@@ -31,7 +31,9 @@ use polkadot_sdk::{
 	*,
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex},collections::BTreeMap,  time::Instant};
+use crate::snapshot::{SnapshotManager, SnapshotRpcServer};
+use crate::service::FullBackend;
 
 pub type SharedTimestampDelta = Arc<Mutex<Option<u64>>>;
 
@@ -66,6 +68,8 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 pub struct FullDeps<C, P> {
 	/// The client instance to use.
 	pub client: Arc<C>,
+	/// The backend instance to use.
+	pub backend: Arc<FullBackend>,
 	/// Transaction pool instance.
 	pub pool: Arc<P>,
 	/// Connection to allow RPC triggers for block production.
@@ -98,14 +102,15 @@ where
 	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 
 	let mut module = RpcModule::new(());
-	let FullDeps { client, pool, manual_seal_sink, consensus_type, timestamp_delta } = deps;
+	let FullDeps { client,backend, pool, manual_seal_sink, consensus_type, timestamp_delta } = deps;
 
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
-	module.merge(Dev::new(client).into_rpc())?;
+	module.merge(Dev::new(client.clone()).into_rpc())?;
 	module.merge(
 		ManualSeal::<Hash>::new(manual_seal_sink.clone(), timestamp_delta.clone()).into_rpc(),
 	)?;
 	module.merge(HardhatRpcServerImpl::new(consensus_type).into_rpc())?;
+	module.merge(SnapshotManager::new(client, backend).into_rpc())?;
 
 	Ok(module)
 }

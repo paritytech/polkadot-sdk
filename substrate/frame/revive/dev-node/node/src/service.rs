@@ -37,7 +37,7 @@ type HostFunctions = sp_io::SubstrateHostFunctions;
 pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-type FullBackend = sc_service::TFullBackend<Block>;
+pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 use std::sync::{
 	atomic::{AtomicU64, Ordering},
@@ -198,7 +198,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				async move {
 					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
 
-					let next_timestamp = NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					let next_timestamp =
+						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
 					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
 				}
 			};
@@ -292,7 +293,8 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				let delta_for_inherent = delta_for_inherent.clone();
 				async move {
 					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
-					let next_timestamp = NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					let next_timestamp =
+						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
 					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
 				}
 			};
@@ -322,6 +324,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 	// Set up RPC
 	let rpc_extensions_builder = {
 		let client = client.clone();
+		let backend = backend.clone();
 		let pool = transaction_pool.clone();
 		let sink = sink.clone();
 		let timestamp_delta = timestamp_delta_override.clone(); // <-- include this
@@ -329,6 +332,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		Box::new(move |_| {
 			let deps = crate::rpc::FullDeps {
 				client: client.clone(),
+				backend: backend.clone(),
 				pool: pool.clone(),
 				manual_seal_sink: sink.clone(),
 				consensus_type: consensus_type.clone(),

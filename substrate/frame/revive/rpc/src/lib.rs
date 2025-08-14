@@ -205,6 +205,22 @@ impl HardhatRpcServer for HardhatRpcServerImpl {
 	async fn set_code(&self, dest: H160, code: Bytes) -> RpcResult<Option<H256>> {
 		Ok(self.client.set_code(dest, code).await?)
 	}
+
+	async fn hardhat_metadata(&self) -> RpcResult<Option<HardhatMetadata>> {
+		Ok(self.client.hardhat_metadata().await?)
+	}
+
+	async fn snapshot(&self) -> RpcResult<Option<U64>> {
+		Ok(self.client.snapshot().await?)
+	}
+
+	async fn revert(&self, id: U64) -> RpcResult<Option<bool>> {
+		Ok(self.client.revert(id).await?)
+	}
+
+	async fn reset(&self) -> RpcResult<Option<bool>> {
+		Ok(self.client.reset().await?)
+	}
 }
 
 #[async_trait]
@@ -308,7 +324,6 @@ impl EthRpcServer for EthRpcServerImpl {
 
 		let tx = transaction.try_into_unsigned().map_err(|_| EthRpcError::InvalidTransaction)?;
 		let payload = account.sign_transaction(tx).signed_payload();
-		let pay_clone = Bytes(payload.clone()).0; 
 		self.send_raw_transaction(Bytes(payload)).await
 	}
 
