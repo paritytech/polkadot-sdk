@@ -36,8 +36,8 @@ use revm::{
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
 		interpreter_types::{InputsTr, MemoryTr, ReturnData},
-		CallInput, FrameInput, Gas, InstructionResult, Interpreter, InterpreterResult,
-		InterpreterTypes, SharedMemory, Stack,
+		CallInput, CallInputs, CreateInputs, FrameInput, Gas, InstructionResult, Interpreter,
+		InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
 	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
@@ -48,8 +48,8 @@ use sp_runtime::Weight;
 ///
 /// After Ethereum's Merge (Sept 2022), the `DIFFICULTY` opcode was redefined to return
 /// `prevrandao`, a randomness value from the beacon chain. In Substrate pallet-revive
-/// a fixed constant is returned instead for compatibility with contracts that still read this opcode.
-/// The value is aligned with the difficulty hardcoded for PVM contracts.
+/// a fixed constant is returned instead for compatibility with contracts that still read this
+/// opcode. The value is aligned with the difficulty hardcoded for PVM contracts.
 pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 
 /// The base fee per gas used in the network as defined by EIP-1559.
@@ -95,7 +95,7 @@ where
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
-		gas: Gas::new(ext.gas_meter_mut().evm_engine_fuel_left()),
+		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
 		stack: Stack::new(),
 		return_data: Default::default(),
@@ -131,147 +131,147 @@ fn run<'a, E: Ext>(
 				log::info!("Return {:?}", result);
 				return result;
 			},
-			InterpreterAction::NewFrame(frame_input) => {
-				match frame_input {
-					FrameInput::Call(call_input) => {
-						let meter = interpreter.extend.gas_meter_mut();
-
-						let callee: H160 = call_input.target_address.0 .0.into();
-
-						let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
-						match &precompile {
-							Some(precompile) if precompile.has_contract_info() => {
-								if meter.charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
-									interpreter
-										.halt(revm::interpreter::InstructionResult::OutOfGas);
-									continue;
-								}
-							},
-							Some(_) => {
-								if meter.charge(RuntimeCosts::PrecompileBase).is_err() {
-									interpreter
-										.halt(revm::interpreter::InstructionResult::OutOfGas);
-									continue;
-								}
-							},
-							None => {
-								let costs = if call_input.scheme.is_delegate_call() {
-									RuntimeCosts::DelegateCallBase
-								} else {
-									RuntimeCosts::CallBase
-								};
-								if meter.charge(costs).is_err() {
-									interpreter
-										.halt(revm::interpreter::InstructionResult::OutOfGas);
-									continue;
-								}
-							},
-						};
-
-						let input = match &call_input.input {
-							CallInput::Bytes(bytes) => bytes.to_vec(),
-							// Consider the usage fo SharedMemory as REVM is doing
-							CallInput::SharedBuffer(range) => {
-								interpreter.memory.global_slice(range.clone()).to_vec()
-							},
-						};
-
-						// Interpreter call
-						let call_result = interpreter.extend.call(
-							Weight::from_parts(u64::MAX, u64::MAX),
-							U256::MAX,
-							&callee,
-							U256::from_little_endian(call_input.call_value().as_le_slice()),
-							input,
-							true,
-							call_input.is_static,
-						);
-
-						let return_value = interpreter.extend.last_frame_output();
-						let return_data: Bytes = return_value.data.clone().into();
-
-						let mem_length = call_input.return_memory_offset.len();
-						let mem_start = call_input.return_memory_offset.start;
-						let returned_len = return_data.len();
-						let target_len = min(mem_length, returned_len);
-						// Set the interpreter with the nested frame result
-						interpreter.return_data.set_buffer(return_data);
-
-						match call_result {
-							Ok(()) => {
-								// success or revert
-								interpreter.memory.set(
-									mem_start,
-									&interpreter.return_data.buffer()[..target_len],
-								);
-								let _ = interpreter
-									.stack
-									.push(primitives::U256::from(!return_value.did_revert() as u8));
-							},
-							Err(err) => {
-								let _ = interpreter.stack.push(primitives::U256::ZERO);
-								// Map error into an appropriate InstructionResult
-								let halt_reason = match err {
-									_ => InstructionResult::OutOfGas,
-								};
-
-								interpreter.halt(halt_reason);
-							},
-						}
-					},
-					FrameInput::Create(create_input) => {
-						let salt = match create_input.scheme {
-							CreateScheme::Create => None,
-							CreateScheme::Create2 { salt } => {
-								let mut arr = [0u8; 32];
-								arr.copy_from_slice(salt.as_le_slice());
-								Some(arr)
-							},
-							CreateScheme::Custom { .. } => None, // To check
-						};
-
-						let call_result = interpreter.extend.instantiate_with_code(
-							Weight::from_parts(u64::MAX, u64::MAX),
-							U256::MAX,
-							create_input.init_code.to_vec(),
-							U256::from_little_endian(create_input.value.as_le_slice()),
-							vec![],
-							salt.as_ref(),
-						);
-
-						let return_value = interpreter.extend.last_frame_output();
-						let return_data: Bytes = return_value.data.clone().into();
-
-						match call_result {
-							Ok(address) => {
-								if return_value.did_revert() {
-									// Contract creation reverted — return data must be propagated
-									interpreter.return_data.set_buffer(return_data);
-									let _ = interpreter.stack.push(primitives::U256::ZERO);
-								} else {
-									// Otherwise clear it. Note that RETURN opcode should abort.
-									// OK
-									interpreter.return_data.clear();
-									let stack_item: Address = address.0.into();
-									let _ = interpreter.stack.push(stack_item.into_word().into());
-								}
-							},
-							Err(err) => {
-								let _ = interpreter.stack.push(primitives::U256::ZERO);
-								interpreter.return_data.clear();
-								// Map error into an appropriate InstructionResult
-								let halt_reason = match err {
-									_ => InstructionResult::OutOfGas,
-								};
-
-								interpreter.halt(halt_reason);
-							},
-						}
-					},
-					FrameInput::Empty => unreachable!(),
-				}
+			InterpreterAction::NewFrame(frame_input) => match frame_input {
+				FrameInput::Call(call_input) => run_call(interpreter, call_input),
+				FrameInput::Create(create_input) => run_create(interpreter, create_input),
+				FrameInput::Empty => unreachable!(),
 			},
 		}
+	}
+}
+
+fn run_call<'a, E: Ext>(
+	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
+	call_input: Box<CallInputs>,
+) {
+	let meter = interpreter.extend.gas_meter_mut();
+
+	let callee: H160 = call_input.target_address.0 .0.into();
+
+	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+	match &precompile {
+		Some(precompile) if precompile.has_contract_info() => {
+			if meter.charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
+				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
+				return;
+			}
+		},
+		Some(_) =>
+			if meter.charge(RuntimeCosts::PrecompileBase).is_err() {
+				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
+				return;
+			},
+		None => {
+			let costs = if call_input.scheme.is_delegate_call() {
+				RuntimeCosts::DelegateCallBase
+			} else {
+				RuntimeCosts::CallBase
+			};
+			if meter.charge(costs).is_err() {
+				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
+				return;
+			}
+		},
+	};
+
+	let input = match &call_input.input {
+		CallInput::Bytes(bytes) => bytes.to_vec(),
+		// Consider the usage fo SharedMemory as REVM is doing
+		CallInput::SharedBuffer(range) => interpreter.memory.global_slice(range.clone()).to_vec(),
+	};
+
+	// Interpreter call
+	let call_result = interpreter.extend.call(
+		Weight::from_parts(u64::MAX, u64::MAX),
+		U256::MAX,
+		&callee,
+		U256::from_little_endian(call_input.call_value().as_le_slice()),
+		input,
+		true,
+		call_input.is_static,
+	);
+
+	let return_value = interpreter.extend.last_frame_output();
+	let return_data: Bytes = return_value.data.clone().into();
+
+	let mem_length = call_input.return_memory_offset.len();
+	let mem_start = call_input.return_memory_offset.start;
+	let returned_len = return_data.len();
+	let target_len = min(mem_length, returned_len);
+	// Set the interpreter with the nested frame result
+	interpreter.return_data.set_buffer(return_data);
+
+	match call_result {
+		Ok(()) => {
+			// success or revert
+			interpreter
+				.memory
+				.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
+			let _ =
+				interpreter.stack.push(primitives::U256::from(!return_value.did_revert() as u8));
+		},
+		Err(err) => {
+			let _ = interpreter.stack.push(primitives::U256::ZERO);
+			// Map error into an appropriate InstructionResult
+			let halt_reason = match err {
+				_ => InstructionResult::OutOfGas,
+			};
+
+			interpreter.halt(halt_reason);
+		},
+	}
+}
+
+fn run_create<'a, E: Ext>(
+	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
+	create_input: Box<CreateInputs>,
+) {
+	let salt = match create_input.scheme {
+		CreateScheme::Create => None,
+		CreateScheme::Create2 { salt } => {
+			let mut arr = [0u8; 32];
+			arr.copy_from_slice(salt.as_le_slice());
+			Some(arr)
+		},
+		CreateScheme::Custom { .. } => None, // To check
+	};
+
+	let call_result = interpreter.extend.instantiate_with_code(
+		Weight::from_parts(u64::MAX, u64::MAX),
+		U256::MAX,
+		create_input.init_code.to_vec(),
+		U256::from_little_endian(create_input.value.as_le_slice()),
+		vec![],
+		salt.as_ref(),
+	);
+
+	let return_value = interpreter.extend.last_frame_output();
+	let return_data: Bytes = return_value.data.clone().into();
+
+	match call_result {
+		Ok(address) => {
+			if return_value.did_revert() {
+				// Contract creation reverted — return data must be propagated
+				interpreter.return_data.set_buffer(return_data);
+				let _ = interpreter.stack.push(primitives::U256::ZERO);
+			} else {
+				// Otherwise clear it. Note that RETURN opcode should abort.
+				// OK
+				interpreter.return_data.clear();
+				let stack_item: Address = address.0.into();
+				let _ = interpreter.stack.push(stack_item.into_word().into());
+			}
+		},
+		Err(err) => {
+			let _ = interpreter.stack.push(primitives::U256::ZERO);
+			interpreter.return_data.clear();
+			// Map error into an appropriate InstructionResult
+			let halt_reason = match err {
+				_ => InstructionResult::OutOfGas,
+			};
+
+			interpreter.halt(halt_reason);
+		},
 	}
 }
 
