@@ -105,7 +105,7 @@ pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
 	compatibility_mode: CompatibilityMode<NumberFor<B>>,
-	authorities_tracker: AuthoritiesTracker<P, B>,
+	authorities_tracker: AuthoritiesTracker<P, B, C>,
 }
 
 impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
@@ -117,12 +117,12 @@ impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
 		compatibility_mode: CompatibilityMode<NumberFor<B>>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers,
 			check_for_equivocation,
 			telemetry,
 			compatibility_mode,
-			authorities_tracker: Default::default(),
+			authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -166,7 +166,7 @@ where
 
 		let authorities = self
 			.authorities_tracker
-			.fetch_or_update(&block.header, &*self.client, &self.compatibility_mode)
+			.fetch_or_update(&block.header, &self.compatibility_mode)
 			.map_err(|e| {
 				format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
 			})?;
@@ -229,7 +229,7 @@ where
 					block.body = Some(inner_body);
 				}
 
-				self.authorities_tracker.import(&pre_header, &*self.client).map_err(|e| {
+				self.authorities_tracker.import(&pre_header).map_err(|e| {
 					format!(
 						"Could not import authorities for block {hash:?} at number {number}: {e}"
 					)

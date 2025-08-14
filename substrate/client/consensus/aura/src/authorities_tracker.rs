@@ -18,7 +18,7 @@
 
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use codec::Codec;
 use fork_tree::ForkTree;
@@ -38,32 +38,33 @@ const LOG_TARGET: &str = "aura::authorities_tracker";
 
 /// AURA authorities tracker. Updates authorities based on the AURA authorities change
 /// digest in the block header.
-pub struct AuthoritiesTracker<P: Pair, B: Block>(
-	RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
-);
+pub struct AuthoritiesTracker<P: Pair, B: Block, C> {
+	authorities: RwLock<ForkTree<B::Hash, NumberFor<B>, Vec<AuthorityId<P>>>>,
+	client: Arc<C>,
+}
 
-impl<P: Pair, B: Block> Default for AuthoritiesTracker<P, B> {
-	fn default() -> Self {
-		Self(RwLock::new(ForkTree::new()))
+impl<P: Pair, B: Block, C> AuthoritiesTracker<P, B, C> {
+	/// Create a new `AuthoritiesTracker`.
+	pub fn new(client: Arc<C>) -> Self {
+		Self { authorities: RwLock::new(ForkTree::new()), client }
 	}
 }
 
-impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
+impl<P, B, C> AuthoritiesTracker<P, B, C>
+where
+	P: Pair,
+	B: Block,
+	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
+	P::Public: Codec + Debug,
+	C::Api: AuraApi<B, AuthorityId<P>>,
+{
 	/// Fetch authorities from the tracker, if available. If not available, fetch from the client
 	/// and update the tracker.
-	pub fn fetch_or_update<C>(
+	pub fn fetch_or_update(
 		&self,
 		header: &B::Header,
-		client: &C,
 		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
-	) -> Result<Vec<AuthorityId<P>>, String>
-	where
-		C: HeaderBackend<B>
-			+ HeaderMetadata<B, Error = sp_blockchain::Error>
-			+ ProvideRuntimeApi<B>,
-		P::Public: Codec + Debug,
-		C::Api: AuraApi<B, AuthorityId<P>>,
-	{
+	) -> Result<Vec<AuthorityId<P>>, String> {
 		let hash = header.hash();
 		let number = *header.number();
 		let parent_hash = *header.parent_hash();
@@ -71,8 +72,8 @@ impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 		// Fetch authorities from cache, if available.
 		let authorities = {
 			let is_descendent_of =
-				sc_client_api::utils::is_descendent_of(client, Some((hash, parent_hash)));
-			let authorities_cache = self.0.read();
+				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
+			let authorities_cache = self.authorities.read();
 			authorities_cache
 				.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
 				.map_err(|e| {
@@ -100,13 +101,15 @@ impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 					hash,
 					number
 				);
-				let authorities =
-					fetch_authorities_from_runtime(client, parent_hash, number, compatibility_mode)
-						.map_err(|e| {
-							format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
-						})?;
-				let is_descendent_of = sc_client_api::utils::is_descendent_of(client, None);
-				let mut authorities_cache = self.0.write();
+				let authorities = fetch_authorities_from_runtime(
+					&*self.client,
+					parent_hash,
+					number,
+					compatibility_mode,
+				)
+				.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
+				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+				let mut authorities_cache = self.authorities.write();
 				authorities_cache
 					.import(
 						parent_hash,
@@ -123,11 +126,7 @@ impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.
-	pub fn import<C>(&self, header: &B::Header, client: &C) -> Result<(), String>
-	where
-		C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
-		P::Public: Codec,
-	{
+	pub fn import(&self, header: &B::Header) -> Result<(), String> {
 		if let Some(authorities_change) = find_authorities_change_digest::<B, P>(header) {
 			let hash = header.hash();
 			let number = *header.number();
@@ -137,9 +136,9 @@ impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 				hash,
 				number,
 			);
-			self.prune_finalized(client)?;
-			let is_descendent_of = sc_client_api::utils::is_descendent_of(client, None);
-			let mut authorities_cache = self.0.write();
+			self.prune_finalized()?;
+			let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+			let mut authorities_cache = self.authorities.write();
 			authorities_cache
 				.import(hash, number, authorities_change, &is_descendent_of)
 				.map_err(|e| {
@@ -151,13 +150,10 @@ impl<P: Pair, B: Block> AuthoritiesTracker<P, B> {
 		Ok(())
 	}
 
-	fn prune_finalized<C>(&self, client: &C) -> Result<(), String>
-	where
-		C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error>,
-	{
-		let is_descendent_of = sc_client_api::utils::is_descendent_of(client, None);
-		let info = client.info();
-		let mut authorities_cache = self.0.write();
+	fn prune_finalized(&self) -> Result<(), String> {
+		let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
+		let info = self.client.info();
+		let mut authorities_cache = self.authorities.write();
 		let _pruned = authorities_cache
 			.prune(&info.finalized_hash, &info.finalized_number, &is_descendent_of, &|_| true)
 			.map_err(|e| e.to_string())?;

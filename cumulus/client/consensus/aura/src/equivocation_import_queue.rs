@@ -78,7 +78,7 @@ pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	authorities_tracker: AuthoritiesTracker<P, Block>,
+	authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -100,11 +100,11 @@ where
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			authorities_tracker: Default::default(),
+			authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -145,7 +145,7 @@ where
 		{
 			let authorities = self
 				.authorities_tracker
-				.fetch_or_update(&block_params.header, &*self.client, &CompatibilityMode::None)
+				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
 				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
 
 			let slot_duration = self
@@ -182,7 +182,7 @@ where
 								.unwrap_or_default()
 						});
 
-					self.authorities_tracker.import(&pre_header, &*self.client).map_err(|e| {
+					self.authorities_tracker.import(&pre_header).map_err(|e| {
 						format!(
 							"Could not import authorities for block {:?} at number {}: {e}",
 							pre_header.hash(),
@@ -298,11 +298,11 @@ where
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {
-		client,
+		client: client.clone(),
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker: Default::default(),
+		authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
@@ -337,7 +337,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			authorities_tracker: Default::default(),
+			authorities_tracker: AuthoritiesTracker::new(client.clone()),
 		};
 
 		let genesis = client.info().best_hash;
