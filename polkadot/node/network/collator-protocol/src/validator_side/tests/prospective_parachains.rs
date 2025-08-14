@@ -2686,4 +2686,286 @@ mod ah_stop_gap {
 			},
 		);
 	}
+
+	#[test]
+	fn permissionless_claims_the_whole_cq() {
+		let mut test_state = TestState::with_one_scheduled_para();
+		let permissionless_collator = PeerId::random();
+		let invulnerable_collator = PeerId::random();
+		let invulnerables = HashSet::from_iter([invulnerable_collator.clone()]);
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID].into_iter(),
+			),
+		);
+		test_state.claim_queue = claim_queue;
+		test_state.chain_ids = vec![ASSET_HUB_PARA_ID];
+
+		test_harness(
+			ReputationAggregator::new(|_| true),
+			invulnerables,
+			|test_harness| async move {
+				let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+				let head = test_state.relay_parent;
+				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 1)]).await;
+
+				connect_and_declare_collator(
+					&mut virtual_overseer,
+					permissionless_collator,
+					CollatorPair::generate().0,
+					ASSET_HUB_PARA_ID,
+					CollationVersion::V2,
+				)
+				.await;
+
+				connect_and_declare_collator(
+					&mut virtual_overseer,
+					invulnerable_collator,
+					CollatorPair::generate().0,
+					ASSET_HUB_PARA_ID,
+					CollationVersion::V2,
+				)
+				.await;
+
+				let mut permissionless_candidates = VecDeque::new();
+
+				// permissionless makes three advertisements, aiming to claim all the slots from CQ
+				for i in 0..3 {
+					let permissionless_head_data = HeadData(vec![i as u8]);
+					let permissionless_head_data_hash = permissionless_head_data.hash();
+					let (permissionless_candidate, permissionless_commitments) =
+						create_dummy_candidate_and_commitments(
+							ASSET_HUB_PARA_ID,
+							permissionless_head_data,
+							head,
+						);
+
+					advertise_collation(
+						&mut virtual_overseer,
+						permissionless_collator,
+						head,
+						Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+					)
+					.await;
+
+					permissionless_candidates.push_back((
+						permissionless_candidate.hash(),
+						permissionless_candidate,
+						permissionless_head_data_hash,
+						permissionless_commitments,
+						head,
+					));
+				}
+
+				// nothing happens because the advertisements are held off
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				// invulnerable makes an advertisement and it's fetched
+				submit_second_and_assert(
+					&mut virtual_overseer,
+					keystore.clone(),
+					ASSET_HUB_PARA_ID,
+					head,
+					invulnerable_collator,
+					HeadData(vec![3 as u8]),
+				)
+				.await;
+
+				// sleep to kick off held off processing
+				std::thread::sleep(std::time::Duration::from_secs(1));
+
+				let mut can_second_count = 0;
+				let mut collation_fetching_count = 0;
+				let mut response_chan = None;
+				// We should get two `CanSecond` (for the first and second candidates) messages and
+				// one `CollationFetchingV2` (for the first candidate). Note that there is only one
+				// fetch request because the fetches are sequential. The third candidate is ignored
+				// because there is no free slot in the claim queue.
+				loop {
+					match overseer_recv(&mut virtual_overseer).await {
+						AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(
+							request,
+							tx,
+						)) => {
+							let (_, _, permissionless_head_data_hash, _, _) =
+								permissionless_candidates
+									.get(can_second_count)
+									.expect("there are three candidates")
+									.clone();
+							assert_eq!(request.candidate_para_id, ASSET_HUB_PARA_ID);
+							assert_eq!(
+								request.parent_head_data_hash,
+								permissionless_head_data_hash
+							);
+							assert_eq!(
+								request.candidate_hash,
+								permissionless_candidates
+									.get(can_second_count)
+									.cloned()
+									.map(|(candidate_hash, _, _, _, _)| candidate_hash)
+									.expect("there should be three candidates")
+							);
+							tx.send(true).expect("receiving side should be alive");
+							can_second_count += 1;
+						},
+						AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(
+							reqs,
+							IfDisconnected::ImmediateError,
+						)) => {
+							let relay_parent = head;
+							let req = reqs
+								.into_iter()
+								.next()
+								.expect("there should be exactly one request");
+
+							assert_matches!(
+								req,
+								Requests::CollationFetchingV2(req) => {
+									let payload = req.payload;
+									assert_eq!(payload.relay_parent, relay_parent);
+									assert_eq!(payload.para_id, ASSET_HUB_PARA_ID);
+									assert_eq!(
+										payload.candidate_hash,
+										permissionless_candidates
+										.get(collation_fetching_count)
+										.cloned()
+										.map(|(candidate_hash, _, _, _, _)| candidate_hash)
+										.expect("there should be three candidates")
+									);
+									response_chan = Some(req.pending_response);
+									collation_fetching_count += 1;
+								}
+							);
+						},
+						msg => {
+							assert!(false, "Unexpected message received: {:?}", msg);
+						},
+					}
+
+					if collation_fetching_count > 1 || can_second_count > 2 {
+						assert!(
+							false,
+							"Unexpected message count: {:?} {:?}",
+							collation_fetching_count, can_second_count
+						);
+					}
+					if collation_fetching_count == 1 && can_second_count == 2 {
+						break;
+					}
+				}
+
+				// Respond to the `CollationFetchingV2` made in the loop above
+				{
+					let response_channel =
+						response_chan.expect("there should be a response channel");
+					let pov = PoV { block_data: BlockData(vec![1]) };
+					let (_, permissionless_candidate, _, permissionless_commitments, head) =
+						permissionless_candidates.pop_front().expect("supe").clone();
+
+					send_collation_and_assert_processing(
+						&mut virtual_overseer,
+						keystore.clone(),
+						head,
+						ASSET_HUB_PARA_ID,
+						permissionless_collator,
+						response_channel,
+						permissionless_candidate,
+						permissionless_commitments,
+						pov,
+					)
+					.await;
+				}
+
+				// Since the first fetch request is complete, the second candidate will be fetched
+				// now. Handle it.
+				{
+					let (
+						permissionless_candidate_hash,
+						permissionless_candidate,
+						_,
+						permissionless_commitments,
+						head,
+					) = permissionless_candidates.pop_front().expect("supe").clone();
+
+					let response_channel = assert_fetch_collation_request(
+						&mut virtual_overseer,
+						head,
+						ASSET_HUB_PARA_ID,
+						Some(permissionless_candidate_hash),
+					)
+					.await;
+
+					let pov = PoV { block_data: BlockData(vec![1]) };
+
+					send_collation_and_assert_processing(
+						&mut virtual_overseer,
+						keystore.clone(),
+						head,
+						ASSET_HUB_PARA_ID,
+						permissionless_collator,
+						response_channel,
+						permissionless_candidate,
+						permissionless_commitments,
+						pov,
+					)
+					.await;
+				}
+
+				// activate new relay parent
+				let head = Hash::from_low_u64_be(head.to_low_u64_be() - 1);
+				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 2)]).await;
+
+				// The race begins again. The permissionless sends another advertisement, which
+				// will get held off. Sending more advertisements is pointless since there is
+				// just one free slot in CQ.
+				{
+					let permissionless_head_data = HeadData(vec![4u8]);
+					let permissionless_head_data_hash = permissionless_head_data.hash();
+					let (permissionless_candidate, _) = create_dummy_candidate_and_commitments(
+						ASSET_HUB_PARA_ID,
+						permissionless_head_data,
+						head,
+					);
+
+					advertise_collation(
+						&mut virtual_overseer,
+						permissionless_collator,
+						head,
+						Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+					)
+					.await;
+				}
+
+				// nothing happens because the advertisements are heldoff
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				// invulnerable makes an advertisement and it's fetched
+				submit_second_and_assert(
+					&mut virtual_overseer,
+					keystore.clone(),
+					ASSET_HUB_PARA_ID,
+					head,
+					invulnerable_collator,
+					HeadData(vec![5 as u8]),
+				)
+				.await;
+
+				// This pattern can continue indefinitely but for brevity let's stop here. The
+				// takeaway is that initially a permissionless collator might manage to fill in the
+				// claim queue but after that invulnerable one will be preferred thanks to the hold
+				// off mechanism. For claim queue with size 3 this is harmless.
+
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				virtual_overseer
+			},
+		);
+	}
 }
