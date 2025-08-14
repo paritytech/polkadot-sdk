@@ -583,6 +583,11 @@ pub use pallet_offences_benchmarking;
 #[cfg(feature = "pallet-origin-restriction")]
 pub use pallet_origin_restriction;
 
+/// Optimist Project Funding - pallet allowing users to nominate projects to be funded, by
+/// locking their DOTS.
+#[cfg(feature = "pallet-opf")]
+pub use pallet_opf;
+
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
