@@ -877,6 +877,7 @@ impl Client {
 		}
 		Ok(None)
 	}
+
 	pub async fn set_evm_nonce(
 		&self,
 		account: H160,
@@ -889,7 +890,7 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -898,6 +899,9 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
+
 		Ok(Some(nonce))
 	}
 
@@ -945,7 +949,7 @@ impl Client {
 			value: subxt::utils::Static(remainder),
 		});
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -954,6 +958,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(new_free))
 	}
@@ -968,7 +974,7 @@ impl Client {
 			RuntimeCall::Revive(ReviveCall::set_gas_price { new_price: base_fee_per_gas.as_u64() });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -977,6 +983,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(base_fee_per_gas))
 	}
@@ -996,7 +1004,7 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1005,6 +1013,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(value))
 	}
@@ -1014,7 +1024,7 @@ impl Client {
 		let code_hash = H256(keccak_256(&code.0));
 
 		let upload_call = subxt_client::tx().revive().upload_code(code.0, u128::MAX);
-		let _ = self
+		let upload_tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&upload_call, &alice, Default::default())
@@ -1023,11 +1033,12 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+		upload_tx.wait_for_finalized_success().await?;
 
 		let call = RuntimeCall::Revive(ReviveCall::set_bytecode { dest, code_hash });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1036,6 +1047,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(code_hash))
 	}
@@ -1051,7 +1064,7 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::set_next_coinbase { coinbase });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1060,6 +1073,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(coinbase))
 	}
@@ -1078,7 +1093,7 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1087,6 +1102,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(1)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(prev_randao))
 	}
@@ -1122,7 +1139,7 @@ impl Client {
 		});
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1131,6 +1148,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(block_gas_limit))
 	}
@@ -1141,7 +1160,7 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1150,6 +1169,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(account))
 	}
@@ -1163,7 +1184,7 @@ impl Client {
 		let call = RuntimeCall::Revive(ReviveCall::stop_impersonate_account { account });
 
 		let sudo_call = subxt_client::tx().sudo().sudo(call);
-		let _ = self
+		let tx = self
 			.api
 			.tx()
 			.sign_and_submit_then_watch(&sudo_call, &alice, Default::default())
@@ -1172,6 +1193,8 @@ impl Client {
 		if !self.get_automine().await? {
 			let _ = self.mine(Some(U256::from(2)), None).await?;
 		}
+
+		tx.wait_for_finalized_success().await?;
 
 		Ok(Some(account))
 	}
