@@ -158,6 +158,7 @@ pub trait WeightInfo {
 	fn seal_ecdsa_to_eth_address() -> Weight;
 	fn seal_set_code_hash() -> Weight;
 	fn instr(r: u32, ) -> Weight;
+	fn evm_opcode(_r: u32) -> Weight { Weight::zero() }
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 }
