@@ -395,7 +395,7 @@ pub mod pallet {
 		DecodingFailed = 0x0A,
 		/// Contract trapped during execution.
 		ContractTrapped = 0x0B,
-		/// The size defined in `T::MaxValueSize` was exceeded.
+		/// Event body or storage item exceeds [`limits::PAYLOAD_BYTES`].
 		ValueTooLarge = 0x0C,
 		/// Termination of a contract is not allowed while the contract is already
 		/// on the call stack. Can be triggered by `seal_terminate`.
@@ -434,8 +434,7 @@ pub mod pallet {
 		CodeRejected = 0x1B,
 		/// The code blob supplied is larger than [`limits::code::BLOB_BYTES`].
 		BlobTooLarge = 0x1C,
-		/// The static memory consumption of the blob will be larger than
-		/// [`limits::code::STATIC_MEMORY_BYTES`].
+		/// The contract declares too much memory (ro + rw + stack).
 		StaticMemoryTooLarge = 0x1D,
 		/// The program contains a basic block that is larger than allowed.
 		BasicBlockTooLarge = 0x1E,
@@ -472,8 +471,12 @@ pub mod pallet {
 		InvalidGenericTransaction = 0x2D,
 		/// The refcount of a code either over or underflowed.
 		RefcountOverOrUnderflow = 0x2E,
-		/// Unsupported precompile address
+		/// Unsupported precompile address.
 		UnsupportedPrecompileAddress = 0x2F,
+		/// The calldata exceeds [`limits::CALLDATA_BYTES`].
+		CallDataTooLarge = 0x30,
+		/// The return data exceeds [`limits::CALLDATA_BYTES`].
+		ReturnDataTooLarge = 0x31,
 	}
 
 	/// A reason for the pallet contracts placing a hold on funds.
@@ -552,51 +555,29 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			use limits::code::STATIC_MEMORY_BYTES;
-
 			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
-			// The root frame is not accounted in CALL_STACK_DEPTH
-			let max_call_depth =
-				limits::CALL_STACK_DEPTH.checked_add(1).expect("CallStack size is too big");
-			// Transient storage uses a BTreeMap, which has overhead compared to the raw size of
-			// key-value data. To ensure safety, a margin of 2x the raw key-value size is used.
-			let max_transient_storage_size = limits::TRANSIENT_STORAGE_BYTES
-				.checked_mul(2)
-				.expect("MaxTransientStorageSize is too large");
 
 			// We only allow 50% of the runtime memory to be utilized by the contracts call
 			// stack, keeping the rest for other facilities, such as PoV, etc.
 			const TOTAL_MEMORY_DEVIDER: u32 = 2;
 
-			// The inefficiencies of the freeing-bump allocator
-			// being used in the client for the runtime memory allocations, could lead to possible
-			// memory allocations grow up to `x4` times in some extreme cases.
-			const MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER: u32 = 4;
+			// Check that the configured memory limits fit into runtime memory.
+			//
+			// Dynamic allocations are not available, yet. Hence they are not taken into
+			// consideration here.
+			let memory_left = i64::from(max_runtime_mem)
+				.saturating_div(TOTAL_MEMORY_DEVIDER.into())
+				.saturating_sub(limits::MEMORY_REQUIRED.into());
 
-			// Check that the configured `STATIC_MEMORY_BYTES` fits into runtime memory.
-			//
-			// `STATIC_MEMORY_BYTES` is the amount of memory that a contract can consume
-			// in memory and is enforced at upload time.
-			//
-			// Dynamic allocations are not available, yet. Hence are not taken into consideration
-			// here.
-			let static_memory_limit = max_runtime_mem
-				.saturating_div(TOTAL_MEMORY_DEVIDER)
-				.saturating_sub(max_transient_storage_size)
-				.saturating_div(max_call_depth)
-				.saturating_sub(STATIC_MEMORY_BYTES)
-				.saturating_div(MEMORY_ALLOCATOR_INEFFICENCY_DEVIDER);
+			log::debug!(target: LOG_TARGET, "Integrity check: memory_left={} KB", memory_left / 1024);
 
 			assert!(
-				STATIC_MEMORY_BYTES < static_memory_limit,
-				"Given `CallStack` height {:?}, `STATIC_MEMORY_LIMIT` should be set less than {:?} \
-				 (current value is {:?}), to avoid possible runtime oom issues.",
-				max_call_depth,
-				static_memory_limit,
-				STATIC_MEMORY_BYTES,
+				memory_left >= 0,
+				"Runtime does not have enough memory for current limits. Additional runtime memory required: {} KB",
+				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
 			// Validators are configured to be able to use more memory than block builders. This is

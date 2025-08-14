@@ -21,7 +21,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+use uapi::{input, HostFn, ReturnFlags, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -36,19 +36,20 @@ pub extern "C" fn call() {
 	let mut addr = [0u8; 20];
 	api::address(&mut addr);
 
-	if calls_left == 0 {
-		return
+	let mut return_buffer = calls_left.to_le_bytes();
+
+	if calls_left > 0 {
+		let _ = api::call(
+			uapi::CallFlags::ALLOW_REENTRY,
+			&addr,
+			u64::MAX, // How much ref_time to devote for the execution. u64::MAX = use all resources.
+			u64::MAX, // How much proof_size to devote for the execution. u64::MAX = use all resources.
+			&[u8::MAX; 32], // No deposit limit.
+			&[0u8; 32], // Value transferred to the contract.
+			&(calls_left - 1).to_le_bytes(),
+			Some(&mut &mut return_buffer[..]),
+		);
 	}
 
-	api::call(
-		uapi::CallFlags::ALLOW_REENTRY,
-		&addr,
-		u64::MAX, // How much ref_time to devote for the execution. u64::MAX = use all resources.
-		u64::MAX, // How much proof_size to devote for the execution. u64::MAX = use all resources.
-		&[u8::MAX; 32], // No deposit limit.
-		&[0u8; 32], // Value transferred to the contract.
-		&(calls_left - 1).to_le_bytes(),
-		None,
-	)
-	.unwrap();
+	api::return_value(ReturnFlags::empty(), &return_buffer);
 }
