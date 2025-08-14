@@ -688,7 +688,7 @@ pub mod pallet {
 
 					let _gas_price = tx_info.gas_price;
 
-					let logs = events.into_iter().filter_map(|events| {
+					let logs = events.into_iter().filter_map(|event| {
 						if let Event::ContractEmitted { contract, data, topics } = event {
 							let log = alloy_primitives::Log::new_unchecked(contract.0.into(),
 								topics.into_iter().map(|h| alloy_primitives::FixedBytes::from(h.0)).collect::<Vec<_>>(),
@@ -735,6 +735,30 @@ pub mod pallet {
 			);
 
 			let state_root = T::StateRoot::get();
+			let number: U256 = block_number.into();
+			let now: U256 = T::Time::now().into();
+			let alloy_header = alloy_consensus::Header {
+				parent_hash: parent_hash.0.into(),
+				beneficiary: block_author.0.into(),
+
+				state_root: transactions_root.clone(),
+				transactions_root,
+				receipts_root,
+
+				number: number.as_u64(),
+
+				logs_bloom: logs_bloom.0.into(),
+
+				gas_limit: Self::evm_block_gas_limit().as_u64(),
+				// The total gas used by the transactions in this block.
+				gas_used: total_gas_used.as_u64(),
+				// The timestamp is set to the current time.
+				timestamp: now.as_u64(),
+
+				..alloy_consensus::Header::default()
+			};
+
+			let block_hash = alloy_header.hash_slow();
 
 			let block_header = BlockHeader {
 				// TODO: This is not the correct parent hash.
@@ -768,7 +792,7 @@ pub mod pallet {
 				nonce: Default::default(),
 			};
 
-			let block_hash = block_header.hash();
+			let block_hash: H256 = block_hash.0.into();
 
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
