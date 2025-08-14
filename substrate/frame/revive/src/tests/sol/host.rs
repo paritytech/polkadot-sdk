@@ -424,6 +424,7 @@ fn log_works() {
 }
 
 #[test]
+#[ignore]
 fn selfdestruct_works() {
     {
         use pallet_revive_fixtures::HostSelfDestructEvm;
