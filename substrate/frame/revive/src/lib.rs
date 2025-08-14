@@ -636,47 +636,7 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// // Previous state root is needed to calculate the ETH block hash.
-			// // TODO: Other on_initialize hooks might alter the state.
-			// let version = T::Version::get().state_version();
-			// let state_root = H256::decode(&mut &sp_io::storage::root(version)[..])
-			// 	.expect("Node is configured to use the same hash; qed");
-
-			// let (mut header, tx_hashes) = LastBlockDetails::<T>::get();
-			// LastBlockDetails::<T>::kill();
-
-			// header.state_root = state_root;
-			// let block_hash = header.hash();
-			// let block_number = header.number;
-
-			// let block = EthBlock {
-			// 	parent_hash: header.parent_hash,
-			// 	sha_3_uncles: header.ommers_hash,
-			// 	miner: header.beneficiary,
-			// 	state_root: header.state_root,
-			// 	transactions_root: header.transactions_root,
-			// 	receipts_root: header.receipts_root,
-			// 	logs_bloom: header.logs_bloom,
-			// 	total_difficulty: Some(header.difficulty),
-			// 	number: header.number,
-			// 	gas_limit: header.gas_limit,
-			// 	gas_used: header.gas_used,
-			// 	timestamp: header.timestamp,
-			// 	extra_data: header.extra_data,
-			// 	mix_hash: header.mix_hash,
-			// 	nonce: header.nonce,
-
-			// 	transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
-
-			// 	..Default::default()
-			// };
-
-			// // TODO: Prune older blocks.
-			// BlockHash::<T>::insert(block_number, block_hash);
-			// LastBlock::<T>::put(block);
-
-			// Anything that needs to be done at the start of the block.
-			// We don't do anything here.
+			// TODO: Account for future transactions here in the on_finalize.
 			Weight::zero()
 		}
 
@@ -728,73 +688,24 @@ pub mod pallet {
 
 					let _gas_price = tx_info.gas_price;
 
-					let logs = events.into_iter().enumerate().filter_map(|(index, event)| {
+					let logs = events.into_iter().filter_map(|events| {
 						if let Event::ContractEmitted { contract, data, topics } = event {
-
 							let log = alloy_primitives::Log::new_unchecked(contract.0.into(),
 								topics.into_iter().map(|h| alloy_primitives::FixedBytes::from(h.0)).collect::<Vec<_>>(),
     						alloy_primitives::Bytes::from(data));
 
 							Some(log)
-
-							// Some(Log {
-							// 	// The address, topics and data are the only fields that
-							// 	// get encoded while building the receipt root.
-							// 	address: contract,
-							// 	topics,
-							// 	data: Some(data.into()),
-
-							// 	transaction_hash,
-							// 	transaction_index: transaction_index.into(),
-
-							// 	// We use the substrate block number and hash as the eth block number and hash.
-							// 	block_number: block_number.into(),
-							// 	block_hash: block_hash.into(),
-							// 	log_index: index.into(),
-
-							// 	..Default::default()
-							// })
 						} else {
 							None
 						}
 					}).collect();
 
-					// Could this be extracted from the Call itself?
-					let contract_address = if tx_info.to.is_none() {
-						let nonce = tx_info.nonce.unwrap_or_default().try_into();
-						match nonce {
-							Ok(nonce) => Some(create1(&from, nonce)),
-							Err(err) => {
-								log::error!(target: LOG_TARGET, "Failed to convert nonce at index {transaction_index}: {err:?}");
-								None
-							}
-						}
-					} else {
-						None
-					};
-
-					// TODO: Could it be possible that the gas exceeds the u64::MAX?
 					total_gas_used += gas.ref_time().into();
 
-					// The receipt only encodes the status code, gas used,
-					// logs bloom and logs. An encoded log only contains the
-					// contract address, topics and data.
-					// let mut receipt: ReceiptInfo = ReceiptInfo::new(
-					// 	// This represents the substrate block hash.
-					// 	block_hash.into(),
-					// 	block_number.into(),
-					// 	contract_address,
-					// 	from,
-					// 	logs,
-					// 	tx_info.to,
-					// 	base_gas_price.into(),
-					// 	// TODO: Is this conversion correct / appropriate for prod use-case?
-					// 	gas.ref_time().into(),
-					// 	success,
-					// 	transaction_hash,
-					// 	transaction_index.into(),
-					// 	tx_info.r#type.unwrap_or_default(),
-					// );
+					Self::deposit_event(Event::Receipt {
+						effective_gas_price: base_gas_price.into(),
+						gas_used: gas.ref_time().into(),
+					});
 
 					let receipt = alloy_consensus::Receipt {
 						status: success.into(),
@@ -802,22 +713,9 @@ pub mod pallet {
 						logs,
 					};
 
-					// receipt.cumulative_gas_used = total_gas_used;
 					let receipt_bloom = receipt.bloom_slow();
 					logs_bloom.combine(&(*receipt_bloom.0).into());
-			
-					Self::deposit_event(Event::Receipt {
-						effective_gas_price: base_gas_price.into(),
-						gas_used: gas.ref_time().into(),
-					});
 
-					// let tx = PartialSignedTransactionInfo {
-					// 	from: from.into(),
-					// 	hash: transaction_hash,
-					// 	transaction_index: transaction_index.into(),
-					// 	transaction_signed: signed_tx,
-					// };
-					
 					use alloy_consensus::RlpEncodableReceipt;
 					let mut encoded_receipt = Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 					receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
@@ -1995,6 +1893,7 @@ impl<T: Config> Pallet<T> {
 	fn deposit_event(event: Event<T>) {
 		let events_count = InflightEvents::<T>::count();
 		// TODO: ensure we don't exceed a maximum number of events per tx.
+		// TODO: Only store contract events.
 		InflightEvents::<T>::insert(events_count, event.clone());
 
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
