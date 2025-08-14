@@ -3558,6 +3558,35 @@ fn balance_api_returns_free_balance() {
 }
 
 #[test]
+fn call_depth_is_enforced() {
+	let (binary, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let extra_recursions = 1024;
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary.to_vec())).build_and_unwrap_contract();
+
+		// takes the number of recursions
+		// returns the number of left over recursions
+		assert_eq!(
+			u32::from_le_bytes(
+				builder::bare_call(addr)
+					.data((limits::CALL_STACK_DEPTH + extra_recursions).encode())
+					.build_and_unwrap_result()
+					.data
+					.try_into()
+					.unwrap()
+			),
+			// + 1 because when the call depth is reached the caller contract is trapped without
+			// the ability to return any data. hence the last call frame is untracked.
+			extra_recursions + 1,
+		);
+	});
+}
+
+#[test]
 fn gas_consumed_is_linear_for_nested_calls() {
 	let (code, _code_hash) = compile_module("recurse").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -3571,7 +3600,10 @@ fn gas_consumed_is_linear_for_nested_calls() {
 				.iter()
 				.map(|i| {
 					let result = builder::bare_call(addr).data(i.encode()).build();
-					assert_ok!(result.result);
+					assert_eq!(
+						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
+						0
+					);
 					result.gas_consumed
 				})
 				.collect::<Vec<_>>()
@@ -4986,6 +5018,38 @@ fn precompiles_work() {
 			Panic::from(PanicKind::ResourceError).abi_encode(),
 			RuntimeReturnCode::CalleeReverted,
 		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::CalleeTrapped,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES - 4,
+			})
+			.abi_encode(),
+			vec![42u8; limits::CALLDATA_BYTES as usize - 4],
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			vec![],
+			RuntimeReturnCode::CalleeTrapped,
+		),
 	];
 
 	for (input, output, error_code) in cases {
@@ -5135,5 +5199,143 @@ fn code_size_for_precompiles_works() {
 		builder::bare_call(addr)
 			.data((&builtin_precompile, 5u64).encode())
 			.build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn call_data_limit_is_enforced_subcalls() {
+	let (code, _code_hash) = compile_module("call_with_input_size").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+		];
+
+		for (callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(callee_input_size.encode()).build().result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn call_data_limit_is_enforced_root_call() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(H160, u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				addr,
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+			(
+				// limit is not enforced when tx calls EOA
+				BOB_ADDR,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+		];
+
+		for (addr, callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr)
+				.data(vec![42; callee_input_size as usize])
+				.build()
+				.result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn return_data_limit_is_enforced() {
+	let (code, _code_hash) = compile_module("return_sized").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::ReturnDataTooLarge);
+				}),
+			),
+		];
+
+		for (return_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
+			assert_result(result);
+		}
 	});
 }

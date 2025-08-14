@@ -66,6 +66,13 @@ pub trait Memory<T: Config> {
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
 
+	/// This will reset all compilation artifacts of the currently executing instance.
+	///
+	/// This is used before we call into a new contract to free up some memory. Doing
+	/// so we make sure that we only ever have to hold one compilation cache at a time
+	/// independtently of of our call stack depth.
+	fn reset_interpreter_cache(&mut self);
+
 	/// Read designated chunk from the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -150,6 +157,8 @@ impl<T: Config> Memory<T> for [u8] {
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
+
+	fn reset_interpreter_cache(&mut self) {}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -165,6 +174,10 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
+	}
+
+	fn reset_interpreter_cache(&mut self) {
+		self.reset_interpreter_cache();
 	}
 }
 
@@ -1073,6 +1086,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
+		// we do check this in exec.rs but we want to error out early
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
+
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
 			charge_gas!(self, RuntimeCosts::CallInputCloned(input.len() as u32))?;
@@ -1087,6 +1105,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			}
 			memory.read(input_data_ptr, input_data_len)?
 		};
+
+		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
@@ -1187,6 +1207,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
 			None
@@ -1194,6 +1217,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
+
+		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
 			weight,
@@ -1524,6 +1549,9 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
+		if data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::ReturnDataTooLarge)?;
+		}
 		Err(TrapReason::Return(ReturnData { flags, data: memory.read(data_ptr, data_len)? }))
 	}
 
