@@ -40,7 +40,7 @@ sol! {
 		/// # Note
 		///
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
-		function toAccountId(address input) external view returns (bytes32 account_id);
+		function toAccountId(address input) external view returns (bytes memory account_id);
 	}
 }
 
