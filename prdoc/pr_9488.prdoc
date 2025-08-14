@@ -1,0 +1,17 @@
+title: 'prdoc: add missing crates bumps'
+doc:
+- audience: Todo
+  description: |-
+    # Description
+
+    Adds a few crate bumps associated to PRs which missed to bump them.
+    TODO: link PRs
+
+    ## Integration
+
+    N/A - information should've been already mentioned in the associated PRs (but double-check though).
+
+    ## Review Notes
+
+    - [ ] parity-publish check passes now :)
+crates: []
