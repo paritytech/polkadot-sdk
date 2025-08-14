@@ -34,7 +34,7 @@ sol! {
 		/// Retrieve the account id for a specified `H160` address.
 		///
 		/// Calling this function on a native `H160` chain (`type AccountId = H160`)
-		/// does not make sense, as it would just return the `address` that it was 
+		/// does not make sense, as it would just return the `address` that it was
 		/// called with.
 		///
 		/// # Note
@@ -81,7 +81,6 @@ mod tests {
 	use crate::{
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
-		evm::Account,
 		pallet,
 		precompiles::{tests::run_test_vectors, BuiltinPrecompile},
 		tests::{ExtBuilder, Test},
