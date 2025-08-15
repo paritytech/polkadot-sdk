@@ -3,15 +3,31 @@ pragma solidity ^0.8.24;
 
 contract Memory {
 
-	function testMemory(uint256 offset, uint256 value) public returns (uint256) {
+	function testMemory() public {
+        uint256 value = 0xfe;
         assembly {
-            mstore(offset, value)
+            mstore(0, value)
         }
         uint256 result = 123;
         assembly {
-            result := mload(offset)
+            result := mload(0)
         }
-        return result - value;
+        require(result == value, "Memory test failed");
+
+        for (uint256 i = 0; i < 32; i++) {
+            assembly {
+                mstore8(i, value)
+            }
+        }
+        assembly {
+            result := mload(0)
+        }
+        require(result == 0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe, "Memory test failed");
+
+        assembly {
+            result := msize()
+        }
+        require(result == 61, "Memory size test failed");
 	}
 
 	function testMstore8(uint256 offset, uint256 value) public returns (uint256) {

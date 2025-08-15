@@ -27,7 +27,7 @@ use pallet_revive_fixtures::{compile_module_with_type, Memory, FixtureType};
 use pretty_assertions::assert_eq;
 
 #[test]
-fn mload_and_mstore_works() {
+fn memory_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
@@ -36,18 +36,13 @@ fn mload_and_mstore_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
-            let result = builder::bare_call(addr)
+            builder::bare_call(addr)
                 .gas_limit(1_000_000_000.into())
                 .data(
-                    Memory::MemoryCalls::testMemory(Memory::testMemoryCall { offset: U256::from(0), value: U256::from(13) })
+                    Memory::MemoryCalls::testMemory(Memory::testMemoryCall { })
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
-            assert_eq!(
-                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                U256::from(0),
-                "memory test should return 0"
-            );
         });
     }
 }
