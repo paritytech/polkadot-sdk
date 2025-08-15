@@ -3,7 +3,6 @@ doc:
 - audience: Node Dev
   description: |-
     This PR adjusts the buckets for transactions' event-timings metrics  as requested in #9158 for reliability dashboard.
-    Metrics were initially introduced in #7355.
 
     fixes: #9158
 crates:
