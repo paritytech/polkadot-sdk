@@ -38,9 +38,36 @@ jobs:
 
       - name: install parity-publish
         run: |
-          cargo install parity-publish@0.10.4 --locked -q
+          cargo install parity-publish@0.10.5 --locked -q
+      
+      - name: Checkout to merge base with master
+        run: |
+          commit=$(git merge-base master $GITHUB_REF_NAME)
+          git checkout $commit
 
       - name: parity-publish update plan
+        run: parity-publish --color always plan --skip-check --prdoc prdoc/
+
+      - name: Checkout back to PR's branch
+        run: git checkout $GITHUB_REF_NAME
+
+      - name: parity-publish apply plan here for previous "local release"
+        run: parity-publish --color always apply --registry
+
+      - name: move all prdocs except current one to unstable dir
+        run: |
+          mkdir prdoc/unstable
+          current_pr="pr_${{ github.event.pull_request.number }}.prdoc"
+          if [ -f prdoc/$current_prdoc ]
+            mv prdoc/$current_prdoc .   
+          fi
+          
+          mv prdoc/pr_*.prdoc prdoc/unstable
+          if [ -f prdoc/$current_prdoc ]
+            mv $current_pr prdoc/
+          fi
+
+      - name: parity-publish update plan just for PR's prdoc
         run: parity-publish --color always plan --skip-check --prdoc prdoc/
 
       - name: parity-publish apply plan
