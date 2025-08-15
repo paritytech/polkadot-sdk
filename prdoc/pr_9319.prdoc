@@ -3,20 +3,8 @@ title: 'Collation metrics: exclude drops of fork-based collations to improve met
 doc:
 - audience: Node Dev
   description: |-
-    # Description
-
-    The polkadot_parachain_collation_expired metric is an indicator for parachain block confidence. However, this metric has a critical issue: not every drop should be counted.
-
-    Lookahead collators intentionally build collations on a relay chain block and its forks, so the drop of fork-based collations is an expected behaviour. If we count them, the drop metrics show a picture that is worse than in reality. To improve tracking accuracy, we should exclude legit drops
-
-    The minor issue is also present in the expiry mechanism. It doesn't take into account that collation was moved to a different stage, e.g., from "fetched" to "backed", and can write a drop of fetched collation.
-
-    To solve this issue we should:
-
-    - Track relay parent finalization.
-    - Record expiration metrics only when relay parent was finalized.
-    - Exclude drops of fork-based collation from the metrics.
-    - Send metrics only for collations that either finalized or dropped.
+    Improves the accuracy of the collation metrics excluding drops of fork-based collations expected by design for lookahead collators.
+    Metrics are now only sent for collations that were either finalized or dropped.
 crates:
 - name: polkadot-collator-protocol
   bump: patch
