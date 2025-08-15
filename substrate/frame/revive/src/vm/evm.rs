@@ -24,7 +24,7 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
 };
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
@@ -36,8 +36,8 @@ use revm::{
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
 		interpreter_types::{InputsTr, MemoryTr, ReturnData},
-		CallInput, CallInputs, CreateInputs, FrameInput, Gas, InstructionResult, Interpreter,
-		InterpreterResult, InterpreterTypes, SharedMemory, Stack,
+		CallInput, CallInputs, CallScheme, CreateInputs, FrameInput, Gas, InstructionResult,
+		Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
 	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
@@ -146,8 +146,11 @@ fn run_call<'a, E: Ext>(
 ) {
 	let meter = interpreter.extend.gas_meter_mut();
 
-	let callee: H160 = call_input.target_address.0 .0.into();
-
+	let callee: H160 = if call_input.scheme.is_delegate_call() {
+		call_input.bytecode_address.0 .0.into()
+	} else {
+		call_input.target_address.0 .0.into()
+	};
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 	match &precompile {
 		Some(precompile) if precompile.has_contract_info() => {
@@ -179,17 +182,24 @@ fn run_call<'a, E: Ext>(
 		// Consider the usage fo SharedMemory as REVM is doing
 		CallInput::SharedBuffer(range) => interpreter.memory.global_slice(range.clone()).to_vec(),
 	};
-
-	// Interpreter call
-	let call_result = interpreter.extend.call(
-		Weight::from_parts(u64::MAX, u64::MAX),
-		U256::MAX,
-		&callee,
-		U256::from_little_endian(call_input.call_value().as_le_slice()),
-		input,
-		true,
-		call_input.is_static,
-	);
+	let call_result = match call_input.scheme {
+		CallScheme::Call | CallScheme::StaticCall => interpreter.extend.call(
+			Weight::from_parts(u64::MAX, u64::MAX),
+			U256::MAX,
+			&callee,
+			U256::from_little_endian(call_input.call_value().as_le_slice()),
+			input,
+			true,
+			call_input.is_static,
+		),
+		CallScheme::CallCode => unimplemented!(),
+		CallScheme::DelegateCall => interpreter.extend.delegate_call(
+			Weight::from_parts(u64::MAX, u64::MAX),
+			U256::MAX,
+			callee,
+			input,
+		),
+	};
 
 	let return_value = interpreter.extend.last_frame_output();
 	let return_data: Bytes = return_value.data.clone().into();

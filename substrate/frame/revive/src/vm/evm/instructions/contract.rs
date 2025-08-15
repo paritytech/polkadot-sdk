@@ -27,11 +27,10 @@ use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
 		gas as revm_gas,
-		host::Host,
 		interpreter_action::{
 			CallInputs, CallScheme, CallValue, CreateInputs, FrameInput, InterpreterAction,
 		},
-		interpreter_types::{InputsTr, LoopControl, RuntimeFlag, StackTr},
+		interpreter_types::{LoopControl, RuntimeFlag, StackTr},
 		CallInput, InstructionResult, StateLoad,
 	},
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
@@ -88,14 +87,13 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		gas_limit -= gas_limit / 64
 	}
 	gas_legacy!(context.interpreter, gas_limit);
-	let caller: Address = context.interpreter.extend.address().0.into();
 
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Create(Box::new(CreateInputs {
-			caller,
+			caller: Default::default(),
 			scheme,
 			value,
 			init_code: code,
@@ -123,10 +121,12 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(account_load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let account_load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(account_load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	let Some(mut gas_limit) =
 		calc_call_gas(context.interpreter, account_load, has_transfer, local_gas_limit)
@@ -149,7 +149,7 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
 			target_address: to,
-			caller: context.interpreter.input.target_address(),
+			caller: Address::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(value),
 			scheme: CallScheme::Call,
@@ -202,8 +202,8 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.target_address(),
+			target_address: Default::default(),
+			caller: Default::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(value),
 			scheme: CallScheme::CallCode,
@@ -227,10 +227,12 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(mut load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	// Set is_empty to false as we are not creating this account.
 	load.is_empty = false;
@@ -247,10 +249,10 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.caller_address(),
+			target_address: Default::default(),
+			caller: Default::default(),
 			bytecode_address: to,
-			value: CallValue::Apparent(context.interpreter.input.call_value()),
+			value: CallValue::Apparent(Default::default()),
 			scheme: CallScheme::DelegateCall,
 			is_static: context.interpreter.runtime_flag.is_static(),
 			return_memory_offset,
@@ -286,8 +288,6 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 	gas_legacy!(context.interpreter, gas_limit);
 
-	let caller: Address = context.interpreter.extend.address().0.into();
-
 	// Call host to interact with target contract
 	context
 		.interpreter
@@ -296,7 +296,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
 			target_address: to,
-			caller,
+			caller: Default::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(U256::ZERO),
 			scheme: CallScheme::StaticCall,
