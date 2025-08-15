@@ -1,4 +1,4 @@
-# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel with new runners
 name: tests linux stable experimental
 
 on:
@@ -20,8 +20,7 @@ jobs:
   # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
   test-linux-stable-no-try-runtime-full:
     needs: [preflight]
-    # if: ${{ needs.preflight.outputs.changes_rust }}
-    if: false
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: parity-large-test
     timeout-minutes: 60
     container:
@@ -58,7 +57,7 @@ jobs:
 
   test-linux-stable:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: false
     runs-on: parity-large-test
     timeout-minutes: 60
     strategy:
