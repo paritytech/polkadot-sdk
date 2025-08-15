@@ -24,45 +24,58 @@ use alloy_core::primitives::U256;
 use frame_support::traits::fungible::Mutate;
 use pretty_assertions::assert_eq;
 
-fn make_evm_bytecode_from_runtime_code(runtime_code: &str) -> Vec<u8> {
-    let runtime_code_len = runtime_code.len() / 2;
+use revm::bytecode::opcode::*;
+
+fn make_evm_bytecode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
+    let runtime_code_len = runtime_code.len();
     assert!(runtime_code_len < 256);
-    let init_code = format!(
-        "6080\
-        6040\
-        52\
-        6040\
-        51\
-        60{runtime_code_len:02x}\
-        6013\
-        82\
-        39\
-        60{runtime_code_len:02x}\
-        90\
-        f3\
-        fe"
-    );
-    hex::decode(format!("{init_code}{runtime_code}")).unwrap()
+    println!("runtime_code_len: {runtime_code_len}");
+    let mut init_code: Vec<u8> = vec![
+        vec![PUSH1, 0x80_u8],
+        vec![PUSH1, 0x40_u8],
+        vec![MSTORE],
+        vec![PUSH1, 0x40_u8],
+        vec![MLOAD],
+        vec![PUSH1, runtime_code_len as u8],
+        vec![PUSH1, 0x13_u8],
+        vec![DUP3],
+        vec![CODECOPY],
+        vec![PUSH1, runtime_code_len as u8],
+        vec![SWAP1],
+        vec![RETURN],
+        vec![INVALID],
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    println!("{}", hex::encode(&init_code));
+    init_code.extend(runtime_code);
+    init_code
 }
 
 #[test]
 fn jump_works() {
     let expected_value = 0xfefefefe_u64;
-    let runtime_code = concat!(
-        "63fefefefe",       // PUSH4 0xfefefefe
-        "5f",               // push0
-        "52",               // mstore
-        "6011",             // PUSH1 0x11
-        "56",               // JUMP
-        "63deadbeef",       // PUSH4 0xdeadbeef
-        "5f",               // push0
-        "52",               // mstore
-        "5b",               // JUMPDEST
-        "6020",             // push1 0x20
-        "5f",               // push0
-        "f3"                // RETURN
-    );
-    let code = make_evm_bytecode_from_runtime_code(runtime_code);
+    let runtime_code: Vec<u8> = vec![
+        vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
+        vec![PUSH0],
+        vec![MSTORE],
+        vec![PUSH1, 0x11_u8],
+        vec![JUMP],
+        vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
+        vec![PUSH0],
+        vec![MSTORE],
+        vec![JUMPDEST],
+        vec![PUSH1, 0x20_u8],
+        vec![PUSH0],
+        vec![RETURN],
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    println!("runtime_code: {}", hex::encode(&runtime_code));
+    let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+    println!("code: {}", hex::encode(&code));
 
     ExtBuilder::default().build().execute_with(|| {
         <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -86,28 +99,31 @@ fn jump_works() {
 fn jumpi_works() {
     let expected_value = 0xfefefefe_u64;
     let unexpected_value = 0xaabbccdd_u64;
-    let runtime_code = concat!(
-        "5f",               // push0
-        "35",               // CALLDATALOAD
-        "63fefefefe",       // PUSH4 0xfefefefe
-        "03",               // SUB
-        "6016",             // PUSH1 0x16
-        "57",               // jumpi
-        "63fefefefe",       // PUSH4 0xfefefefe
-        "5f",               // push0
-        "52",               // mstore
-        "6020",             // push1 0x20
-        "5f",               // push0
-        "f3",               // RETURN
-        "5b",               // JUMPDEST
-        "63deadbeef",       // PUSH4 0xdeadbeef
-        "5f",               // push0
-        "52",               // mstore
-        "6020",             // push1 0x20
-        "5f",               // push0
-        "f3"                // RETURN
-    );
-    let code = make_evm_bytecode_from_runtime_code(runtime_code);
+    let runtime_code: Vec<u8> = vec![
+        vec![PUSH0],
+        vec![CALLDATALOAD],
+        vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
+        vec![SUB],
+        vec![PUSH1, 0x16_u8],
+        vec![JUMPI],
+        vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
+        vec![PUSH0],
+        vec![MSTORE],
+        vec![PUSH1, 0x20_u8],
+        vec![PUSH0],
+        vec![RETURN],
+        vec![JUMPDEST],
+        vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
+        vec![PUSH0],
+        vec![MSTORE],
+        vec![PUSH1, 0x20_u8],
+        vec![PUSH0],
+        vec![RETURN],
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let code = make_evm_bytecode_from_runtime_code(&runtime_code);
 
     ExtBuilder::default().build().execute_with(|| {
         <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
