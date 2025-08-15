@@ -15,29 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This creates a large ro section. Even though it is zero
-//! initialized we expect them to be included into the blob.
-//! This means it will fail at the blob size check.
+/// # Multi-Block Migrations Module
 
-#![no_std]
-#![no_main]
-include!("../panic_handler.rs");
+/// Migrations from the old `ContractInfoOf` to the new `AccountInfoOf` storage
+pub mod v1;
 
-use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
-
-static BUFFER: [u8; 1024 * 1024] = [0; 1024 * 1024];
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call_never() {
-	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), &BUFFER);
-}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn deploy() {}
-
-#[no_mangle]
-#[polkavm_derive::polkavm_export]
-pub extern "C" fn call() {}
+/// A unique identifier across all pallets.
+const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";
