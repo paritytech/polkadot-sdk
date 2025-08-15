@@ -91,7 +91,7 @@ Each file contains:
 ## Usage in Tests
 
 The test data is used in `substrate/frame/revive/src/tests/trie_roots.rs` to verify:
-1. Transaction root calculation using `EthTrieLayout::<KeccakHasher>::ordered_trie_root()`
+1. Transaction root calculation using `EthBlockBuilder::compute_trie_root()`
 2. Receipt root calculation using the same method
 3. Compatibility between our implementation and Ethereum's trie structure
 

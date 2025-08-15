@@ -41,6 +41,3 @@ mod account;
 pub use account::*;
 
 mod signature;
-
-mod eth_trie;
-pub use eth_trie::*;

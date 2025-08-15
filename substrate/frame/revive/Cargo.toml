@@ -17,7 +17,9 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+alloy-consensus = { workspace = true, default-features = false }
 alloy-core = { workspace = true, features = ["sol-types"] }
+alloy-primitives = { workspace = true, default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }
@@ -31,14 +33,13 @@ num-bigint = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.26.0", default-features = false }
-polkavm-common = { version = "0.26.0", default-features = false, optional = true }
+polkavm = { version = "0.27.0", default-features = false }
+polkavm-common = { version = "0.27.0", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
-rlp = { workspace = true, features = ["derive"] }
+rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
-sp-trie = { workspace = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }
@@ -55,8 +56,7 @@ sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-# TODO: Is this feature safe? Was it tested? Why experimental? Better to just use alloy-trie/core?
-sp-core = { workspace = true, features = ["bls-experimental", "bandersnatch-experimental"] }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
@@ -67,7 +67,6 @@ trie-root = { workspace = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
-polkavm-common = { version = "0.26.0" }
 pretty_assertions = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
 serde_json = { workspace = true }
@@ -102,7 +101,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"polkavm-common?/std",
+	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
 	"ripemd/std",
@@ -132,7 +131,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",
