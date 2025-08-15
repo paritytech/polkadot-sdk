@@ -20,9 +20,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::{
-		runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned,
-	},
+	evm::{runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
@@ -2304,54 +2302,73 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
-	// `c`: number of transactions to fit in the block
-	#[benchmark(pov_mode = Measured)]
-	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
+	// Helper function to create a test signer for finalize_block benchmark
+	fn create_test_signer<T: Config>() -> (T::AccountId, ecdsa::Pair, H160) {
 		use hex_literal::hex;
 		let (signer_account_id, signer_priv_key) = (
-			// dev::alith(),
+			// dev::alith()
 			hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"),
 			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"),
 		);
 		let signer_keypair = ecdsa::Pair::from_seed(&signer_priv_key);
 		let signer_address = H160::from_slice(&signer_account_id);
 		let signer_caller = T::AddressMapper::to_fallback_account_id(&signer_address);
-		whitelist_account!(signer_caller);
 
-		let instance =
-			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-		let origin = RawOrigin::Signed(signer_caller.clone());
-		let storage_deposit = default_deposit_limit::<T>();
+		(signer_caller, signer_keypair, signer_address)
+	}
 
-		let value = Pallet::<T>::min_balance();
-		let dust = 0;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
-		// build tx
+	// Helper function to create and sign a transaction for finalize_block benchmark
+	fn create_signed_transaction(
+		signer_keypair: &ecdsa::Pair,
+		target_address: H160,
+		value: U256,
+	) -> Vec<u8> {
 		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
-			to: Some(instance.address),
-			value: value.into(),
+			to: Some(target_address),
+			value,
 			chain_id: Some(1.into()),
 			input: vec![].into(),
 			..Default::default()
 		}
 		.into();
 
-		// sign tx
 		let hashed_payload = sp_io::hashing::keccak_256(&unsigned_tx.unsigned_payload());
 		let signature = signer_keypair.sign_prehashed(&hashed_payload);
 		let signed_tx = unsigned_tx.with_signature(signature.into());
-		let signed_payload = signed_tx.signed_payload();
 
+		signed_tx.signed_payload()
+	}
+
+	// `c`: number of transactions to fit in the block
+	#[benchmark(pov_mode = Measured)]
+	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		// Setup test signer
+		let (signer_caller, signer_keypair, _signer_address) = create_test_signer::<T>();
+		whitelist_account!(signer_caller);
+
+		// Setup contract instance
+		let instance =
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let origin = RawOrigin::Signed(signer_caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
+		let value = Pallet::<T>::min_balance();
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+
+		// Create signed transaction
+		let signed_payload =
+			create_signed_transaction(&signer_keypair, instance.address, value.into());
+
+		// Setup block
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
 		#[block]
 		{
-			// on_initialize
+			// Initialize block
 			let _ = Pallet::<T>::on_initialize_internal(current_block);
-			// eth_call for each tx
+
+			// Execute transactions
 			for _ in 0..c {
 				let _ = Pallet::<T>::eth_call(
 					origin.clone().into(),
@@ -2363,13 +2380,17 @@ mod benchmarks {
 					signed_payload.clone(),
 				);
 			}
-			// on_finalize
+
+			// Finalize block
 			let _ = Pallet::<T>::on_finalize_internal(current_block);
 		}
+
+		// Setup next block and verify results
 		let next_block = BlockNumberFor::<T>::from(2u32);
 		frame_system::Pallet::<T>::set_block_number(next_block);
 		let _ = Pallet::<T>::on_initialize_internal(next_block);
 
+		// Verify block was properly finalized
 		let block_author = Pallet::<T>::block_author();
 		assert!(block_author.is_some());
 
