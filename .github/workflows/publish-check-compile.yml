@@ -45,7 +45,7 @@ jobs:
           git fetch origin ${{ github.base_ref}}
           commit=$(git merge-base origin/${{ github.base_ref }} HEAD)
           echo $commit
-          git checkout $commit
+          #git checkout $commit
 
       - name: parity-publish update plan
         run: parity-publish --color always plan --skip-check --prdoc prdoc/
