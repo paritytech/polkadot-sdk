@@ -3733,7 +3733,6 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 		use xcm_executor::traits::LockError::*;
 		let sovereign_account = T::SovereignAccountOf::convert_location(&owner).ok_or(BadOwner)?;
 		let amount = T::CurrencyMatcher::matches_fungible(&asset).ok_or(UnknownAsset)?;
-		ensure!(T::Currency::free_balance(&sovereign_account) >= amount, AssetNotOwned);
 		let locks = LockedFungibles::<T>::get(&sovereign_account).unwrap_or_default();
 		let item_index =
 			locks.iter().position(|x| x.1.try_as::<_>() == Ok(&unlocker)).ok_or(NotLocked)?;

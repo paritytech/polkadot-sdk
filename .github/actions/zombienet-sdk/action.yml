@@ -7,8 +7,11 @@ inputs:
   ref-slug:
     description: "Ref slug (e.g branch-name-short)"
     required: true
-  test:
+  test-filter:
     description: "test filter to pass to nextest (e.g: functional::spam_statement_distribution_requests::spam_statement_distribution_requests_test)"
+    required: true
+  job-name:
+    description: "Job name to use for artifact uploading"
     required: true
   prefix:
     description: "Archive prefix for tests files (e.g polkadot, cumulus or substrate)"
@@ -25,7 +28,7 @@ runs:
     - name: common_vars
       shell: bash
       env:
-        TEST_NAME: ${{ inputs.test }}
+        TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
       run: |
         echo "Vars"
@@ -36,7 +39,7 @@ runs:
         echo "COL_IMAGE: $COL_IMAGE"
         echo "MALUS_IMAGE: $MALUS_IMAGE"
         echo "Inputs"
-        echo "test: $TEST_NAME"
+        echo "test: $TEST_FILTER"
         echo "prefix: $PREFIX"
 
     - name: Download binaries for zombienet native tests
@@ -66,7 +69,7 @@ runs:
       env:
         # don't retry sdk tests
         NEXTEST_RETRIES: 0
-        TEST_NAME: ${{ inputs.test }}
+        TEST_FILTER: ${{ inputs.test-filter }}
         PREFIX: ${{ inputs.prefix }}
       run: |
         # RUN_IN_CI=1 shall be set only for k8s provider
@@ -87,7 +90,7 @@ runs:
         # We want to run tests sequentially, '--no-capture' ensures that.
         # If we want to get rid of '--no-capture' some day, please use '--test-threads 1' or NEXTEST_TEST_THREADS=1
         # Both options cannot coexist for cargo-nextest below v0.9.94
-        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_NAME}
+        cargo nextest run --archive-file ./artifacts/${PREFIX}-zombienet-tests.tar.zst --no-capture -- ${TEST_FILTER}
 
     - name: process_logs
       if: ${{ ! cancelled() }}
@@ -108,7 +111,7 @@ runs:
       uses: actions/upload-artifact@v4
       if: ${{ ! cancelled() }}
       with:
-        name: zombienet-logs-${{ github.job }}-${{ github.sha }}
+        name: zombienet-logs-${{ inputs.job-name }}-${{ github.sha }}
         path: |
           /tmp/zombie*/logs/*
 

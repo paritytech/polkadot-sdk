@@ -38,7 +38,7 @@ use polkadot_runtime_parachains::{
 };
 
 use crate::traits::{OnSwap, Registrar};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
 use scale_info::TypeInfo;
@@ -47,15 +47,26 @@ use sp_runtime::{
 	RuntimeDebug,
 };
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 pub struct ParaInfo<Account, Balance> {
 	/// The account that has placed a deposit for registering this para.
-	pub(crate) manager: Account,
+	pub manager: Account,
 	/// The amount reserved by the `manager` account for the registration.
-	deposit: Balance,
+	pub deposit: Balance,
 	/// Whether the para registration should be locked from being controlled by the manager.
 	/// None means the lock had not been explicitly set, and should be treated as false.
-	locked: Option<bool>,
+	pub locked: Option<bool>,
 }
 
 impl<Account, Balance> ParaInfo<Account, Balance> {
