@@ -45,11 +45,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthBlockBuilder, TransactionDetails},
-		runtime::GAS_PRICE,
-		BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
-		HashesOrTransactionInfos, Log, PrestateTracer, Trace, Tracer, TracerType,
-		TransactionSigned, TYPE_EIP1559,
+		block_hash::EthBlockBuilder, runtime::GAS_PRICE, CallTracer, GasEncoder,
+		GenericTransaction, HashesOrTransactionInfos, PrestateTracer, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -644,8 +642,11 @@ pub mod pallet {
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// If we cannot fetch the block author there's nothing we can do.
+			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
-				Self::kill_inflight_data();
+				// Drain storage in case of errors.
+				InflightEvents::<T>::drain();
+				InflightTransactions::<T>::drain();
 				return;
 			};
 
@@ -1795,13 +1796,6 @@ impl<T: Config> Pallet<T> {
 			transactions_count,
 			(payload, extrinsic_index, events, success, gas_consumed),
 		);
-	}
-
-	/// Kill all inflight data collected during the current block.
-	fn kill_inflight_data() {
-		// TODO: Do they remove the data from the storage?
-		InflightEvents::<T>::drain();
-		InflightTransactions::<T>::drain();
 	}
 
 	/// The address of the validator that produced the current block.
