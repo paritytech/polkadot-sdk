@@ -19,7 +19,7 @@
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
@@ -317,17 +317,7 @@ pub struct GenericTransaction {
 
 /// Receipt information
 #[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
 )]
 pub struct ReceiptInfo {
 	/// blob gas price
@@ -514,17 +504,7 @@ impl Default for HashesOrTransactionInfos {
 
 /// log
 #[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
 )]
 pub struct Log {
 	/// address
