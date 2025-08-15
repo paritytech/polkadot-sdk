@@ -94,31 +94,6 @@ impl Bytes256 {
 	}
 }
 
-// Note: rlp::Encodable derive panics within the `impl_hex!` macro.
-impl rlp::Encodable for Byte {
-	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
-		self.0.rlp_append(stream);
-	}
-}
-
-impl rlp::Encodable for Bytes {
-	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
-		self.0.rlp_append(stream);
-	}
-}
-
-impl rlp::Encodable for Bytes8 {
-	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
-		self.0.as_slice().rlp_append(stream);
-	}
-}
-
-impl rlp::Encodable for Bytes256 {
-	fn rlp_append(&self, stream: &mut rlp::RlpStream) {
-		self.0.as_slice().rlp_append(stream);
-	}
-}
-
 #[test]
 fn serialize_works() {
 	let a = Byte(42);

@@ -466,48 +466,6 @@ impl Decodable for TransactionLegacySigned {
 	}
 }
 
-impl Encodable for ReceiptInfo {
-	fn rlp_append(&self, s: &mut rlp::RlpStream) {
-		s.begin_list(4);
-		let status_code = self.status.unwrap_or_default();
-		s.append(&status_code);
-		s.append(&self.cumulative_gas_used);
-		s.append(&self.logs_bloom.0.as_ref());
-		s.append_list(&self.logs);
-	}
-}
-
-impl Encodable for Log {
-	fn rlp_append(&self, s: &mut rlp::RlpStream) {
-		s.begin_list(3);
-
-		s.append(&self.address);
-		s.append_list(&self.topics);
-		let bytes = self.data.clone().unwrap_or_default();
-		s.append(&bytes.0);
-	}
-}
-
-impl ReceiptInfo {
-	/// Encode the receipt info into bytes.
-	///
-	/// This is needed to compute the receipt root.
-	pub fn encode_2718(&self) -> Vec<u8> {
-		use alloc::vec;
-
-		let u8_ty = self.r#type.clone().map(|t| t.0);
-		match u8_ty {
-			Some(TYPE_EIP2930) =>
-				vec![TYPE_EIP2930].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			Some(TYPE_EIP1559) =>
-				vec![TYPE_EIP1559].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			Some(TYPE_EIP4844) =>
-				vec![TYPE_EIP4844].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			_ => rlp::encode(self).to_vec(),
-		}
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use super::*;
