@@ -21,8 +21,7 @@
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::{
-		runtime::GAS_PRICE, Block as EthBlock, BlockHeader, PartialSignedTransactionInfo,
-		ReceiptInfo, TransactionLegacyUnsigned, TransactionUnsigned,
+		runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned,
 	},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
@@ -2354,7 +2353,7 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_initialize_internal(current_block);
 			// eth_call for each tx
 			for _ in 0..c {
-				let o = Pallet::<T>::eth_call(
+				let _ = Pallet::<T>::eth_call(
 					origin.clone().into(),
 					instance.address,
 					evm_value,
