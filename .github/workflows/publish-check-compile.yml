@@ -42,6 +42,7 @@ jobs:
       
       - name: Checkout to merge base with master
         run: |
+          git fetch origin master
           commit=$(git merge-base master $GITHUB_REF_NAME)
           git checkout $commit
 
