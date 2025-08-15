@@ -234,6 +234,7 @@ fn test_harness<T: Future<Output = VirtualOverseer>>(
 		reputation,
 		REPUTATION_CHANGE_TEST_INTERVAL,
 		ah_invulnerable_collators,
+		HOLD_OFF_DURATION_DEFAULT_VALUE,
 	);
 
 	let test_fut = test(TestHarness { virtual_overseer, keystore });

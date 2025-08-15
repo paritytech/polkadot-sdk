@@ -124,9 +124,9 @@ const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 
 // How long to hold off AssetHub advertisements from permissionless collators.
 #[cfg(not(test))]
-const HOLD_OFF_DURATION: Duration = Duration::from_secs(1);
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_secs(1);
 #[cfg(test)]
-const HOLD_OFF_DURATION: Duration = Duration::from_millis(100);
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(100);
 
 #[derive(Debug)]
 struct CollatingPeerState {
@@ -1701,7 +1701,8 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
-	ah_invulnerables: HashSet<PeerId>,
+	ah_invulnerables: Option<HashSet<PeerId>>,
+	hold_off_duration: Option<Duration>,
 ) -> std::result::Result<(), SubsystemError> {
 	run_inner(
 		ctx,
@@ -1710,7 +1711,8 @@ pub(crate) async fn run<Context>(
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
-		ah_invulnerables,
+		ah_invulnerables.unwrap_or_default(), // todo: replace with the invulns
+		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
 	)
 	.await
 }
@@ -1724,6 +1726,7 @@ async fn run_inner<Context>(
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
+	hold_off_duration: Duration,
 ) -> std::result::Result<(), SubsystemError> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
@@ -1740,7 +1743,7 @@ async fn run_inner<Context>(
 						gum::trace!(target: LOG_TARGET, "AssetHub held off ticker shutdown");
 						return;
 					},
-					_ = futures_timer::Delay::new(HOLD_OFF_DURATION / 3).fuse() => {
+					_ = futures_timer::Delay::new(hold_off_duration / 3).fuse() => {
 						if let Err(err) = ah_held_off_ticker_tx.try_send(()) {
 							gum::warn!(
 								target: LOG_TARGET,
@@ -1889,16 +1892,16 @@ async fn run_inner<Context>(
 
 				loop {
 					let should_process = state.ah_held_off_collations.get(0).map(|head| {
-						let hold_off_duration =  now.duration_since(head.0).unwrap_or_else(|_| {
+						let was_held_off_for =  now.duration_since(head.0).unwrap_or_else(|_| {
 							gum::warn!(
 								target: LOG_TARGET,
 								"SystemTime went backwards, this should not happen, but we will continue processing",
 							);
 							// In case of an error better make sure the request is processed.
-							HOLD_OFF_DURATION * 2
+							hold_off_duration * 2
 						});
 
-						hold_off_duration > HOLD_OFF_DURATION
+						was_held_off_for > hold_off_duration
 					}).unwrap_or(false);
 
 					if !should_process {

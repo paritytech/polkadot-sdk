@@ -79,7 +79,9 @@ pub enum ProtocolSide {
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
 		/// List of invulnerable collators which is handled with a priority.
-		invulnerables: HashSet<PeerId>,
+		invulnerables: Option<HashSet<PeerId>>,
+		/// Override for `HOLD_OFF_DURATION` constant .
+		collator_protocol_hold_off: Option<Duration>,
 	},
 	/// Experimental variant of the validator side. Do not use in production.
 	#[cfg(feature = "experimental-collator-protocol")]
@@ -124,10 +126,30 @@ impl CollatorProtocolSubsystem {
 impl<Context> CollatorProtocolSubsystem {
 	fn start(self, ctx: Context) -> SpawnedSubsystem {
 		let future = match self.protocol_side {
-			ProtocolSide::Validator { keystore, eviction_policy, metrics, invulnerables } =>
-				validator_side::run(ctx, keystore, eviction_policy, metrics, invulnerables)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed(),
+			ProtocolSide::Validator {
+				keystore,
+				eviction_policy,
+				metrics,
+				invulnerables,
+				collator_protocol_hold_off,
+			} => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?invulnerables,
+					?collator_protocol_hold_off,
+					"AH stop-gap params",
+				);
+				validator_side::run(
+					ctx,
+					keystore,
+					eviction_policy,
+					metrics,
+					invulnerables,
+					collator_protocol_hold_off,
+				)
+				.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+				.boxed()
+			},
 			#[cfg(feature = "experimental-collator-protocol")]
 			ProtocolSide::ValidatorExperimental { keystore, metrics } =>
 				validator_side_experimental::run(ctx, keystore, metrics)

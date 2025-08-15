@@ -2777,7 +2777,7 @@ mod ah_stop_gap {
 				.await;
 
 				// sleep to kick off held off processing
-				std::thread::sleep(HOLD_OFF_DURATION);
+				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE);
 
 				let mut can_second_count = 0;
 				let mut collation_fetching_count = 0;
