@@ -2053,6 +2053,7 @@ impl<T: Config> Pallet<T> {
 		InflightTransactions::<T>::drain();
 	}
 
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	/// The address of the validator that produced the current block.
 	pub fn block_author() -> Option<H160> {
 		use frame_support::traits::FindAuthor;
@@ -2062,6 +2063,10 @@ impl<T: Config> Pallet<T> {
 
 		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
 		Some(T::AddressMapper::to_address(&account_id))
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn block_author() -> Option<H160> {
+		Some(H160::default())
 	}
 
 	/// Returns the code at `address`.
