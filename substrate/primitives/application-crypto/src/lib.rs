@@ -142,7 +142,12 @@ macro_rules! app_crypto_pair_common {
 			type Signature = Signature;
 
 			$crate::app_crypto_pair_functions_if_std!($pair);
-			$crate::app_crypto_pair_functions_if_full_crypto!($pair);
+
+			// TODO for some reason below macro does not work if full_crypto enabled
+			// $crate::app_crypto_pair_functions_if_full_crypto!($pair);
+			fn sign(&self, msg: &[u8]) -> Self::Signature {
+				Signature(self.0.sign(msg))
+			}
 
 			fn from_phrase(
 				phrase: &str,
