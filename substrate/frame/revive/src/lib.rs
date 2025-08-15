@@ -1781,18 +1781,21 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Deposit a pallet contracts event.
+	///
+	/// This method will be called by the EVM to deposit events emitted by the contract.
+	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		// Only the contract emitted events are stored since they are needed to reconstruct
-		// the logs of the transaction receipts.
-		match &event {
-			Event::ContractEmitted { .. } => {
-				let events_count = InflightEvents::<T>::count();
-				// TODO: ensure we don't exceed a maximum number of events per tx.
-				InflightEvents::<T>::insert(events_count, event.clone());
-			},
-			_ => {},
-		};
+		let events_count = InflightEvents::<T>::count();
+		// TODO: ensure we don't exceed a maximum number of events per tx.
+		InflightEvents::<T>::insert(events_count, event.clone());
 
+		Self::deposit_event_unstored(event)
+	}
+
+	/// Deposit a pallet event.
+	///
+	/// This does not store the event into storage for Ethereum block processing.
+	fn deposit_event_unstored(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
@@ -1809,13 +1812,11 @@ impl<T: Config> Pallet<T> {
 		});
 
 		// Emit an event for the gas consumed by the transaction.
-		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(
-			Event::Receipt {
-				// TODO: Should this be the GenericTransaction.gas_price field here?
-				effective_gas_price: GAS_PRICE.into(),
-				gas_used: gas_consumed.ref_time().into(),
-			},
-		));
+		Self::deposit_event_unstored(Event::Receipt {
+			// TODO: Should this be the GenericTransaction.gas_price field here?
+			effective_gas_price: GAS_PRICE.into(),
+			gas_used: gas_consumed.ref_time().into(),
+		});
 
 		let transactions_count = InflightTransactions::<T>::count();
 		InflightTransactions::<T>::insert(

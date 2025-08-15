@@ -38,7 +38,7 @@ pub struct EthBlockBuilder {
 	/// Parent block hash.
 	parent_hash: H256,
 	/// The base gas price of the block.
-	base_gas_price: U256,
+	_base_gas_price: U256,
 	/// The timestamp of the block.
 	timestamp: U256,
 	/// The author of the block.
@@ -71,7 +71,7 @@ impl EthBlockBuilder {
 		Self {
 			block_number,
 			parent_hash,
-			base_gas_price,
+			_base_gas_price: base_gas_price,
 			timestamp,
 			block_author,
 			gas_limit,
