@@ -3,60 +3,48 @@ pragma solidity ^0.8.0;
 
 contract Arithmetic {
 
-	function add(uint a, uint b) public view returns (uint) {
-		return a + b;
-	}
+    function testArithmetic() public {
+        // ADD tests
+        require(20 + 22 == 42, "ADD basic");
+        
+        // SUB tests
+        require(42 - 20 == 22, "SUB basic");
 
-    function mul(uint a, uint b) public view returns (uint) {
-		return a * b;
-	}
+        // MUL tests
+        require(20 * 22 == 440, "MUL basic");
 
-    function sub(uint a, uint b) public view returns (uint) {
-		return a - b;
-	}
+        // DIV tests
+        require(100 / 5 == 20, "DIV basic");
 
-    function div(uint a, uint b) public view returns (uint) {
-		return a / b;
-	}
+        // SDIV tests
+        require(int(-100) / 5 == -20, "SDIV neg/pos");
+        require(int(100) / -5 == -20, "SDIV pos/neg");
+        require(int(-100) / -5 == 20, "SDIV neg/neg");
 
-    function sdiv(int a, int b) public view returns (int) {
-		return a / b;
-	}
+        // REM/MOD tests
+        require(100 % 7 == 2, "REM basic");
 
-    function rem(uint a, uint b) public view returns (uint) {
-		return a % b;
-	}
+        // SMOD tests
+        require(int(-100) % 7 == -2, "SMOD neg dividend");
+        require(int(100) % -7 == 2, "SMOD neg divisor");
 
-    function smod(int a, int b) public view returns (int) {
-		return a % b;
-	}
+        // ADDMOD tests
+        require((10 + 15) % 7 == 4, "ADDMOD basic");
+        require((type(uint256).max - 1 + 2) % 10 == 0, "ADDMOD with overflow");
 
-    // MOD instruction - unsigned modulo (alternative name to avoid Rust keyword conflict)
-    function umod(uint a, uint b) public view returns (uint) {
-		return a % b;
-	}
+        // MULMOD tests
+        require((10 * 15) % 7 == 3, "MULMOD basic");
+        require((type(uint128).max * 2) % 13 == 1, "MULMOD large");
 
-    // ADDMOD instruction: (a + b) % n
-    function addmod(uint a, uint b, uint n) public view returns (uint) {
-		return (a + b) % n;
-	}
+        // EXP tests
+        require(2 ** 3 == 8, "EXP basic");
+        require(10 ** 0 == 1, "EXP zero exponent");
+        require(0 ** 5 == 0, "EXP zero base");
 
-    // MULMOD instruction: (a * b) % n  
-    function mulmod(uint a, uint b, uint n) public view returns (uint) {
-		return (a * b) % n;
-	}
-
-    // EXP instruction: a ** b (exponentiation)
-    function exp(uint a, uint b) public view returns (uint) {
-		return a ** b;
-	}
-
-    // SIGNEXTEND instruction: sign-extend value from (i+1)*8 bits to 256 bits
-    function signextend(uint i, uint x) public pure returns (uint) {
-        assembly {
-            x := signextend(i, x)
-        }
-        return x;
+        // SIGNEXTEND tests
+        uint result1; assembly { result1 := signextend(0, 0xff) }
+        require(result1 == type(uint256).max, "SIGNEXTEND negative byte");
+        uint result2; assembly { result2 := signextend(0, 0x7f) }
+        require(result2 == 0x7f, "SIGNEXTEND positive byte");
     }
-
 }
