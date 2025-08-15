@@ -1467,15 +1467,19 @@ impl pallet_contracts::Config for Runtime {
 	type Xcm = ();
 }
 
+parameter_types! {
+	pub const BlockHashCountRevive: u32 = 256;
+}
+
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
-	type StateRoot = pallet_revive::DeterministicStateRoot<Self::Version>;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
+	type LengthToFee = <Runtime as pallet_transaction_payment::Config>::LengthToFee;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles =
 		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
@@ -1491,6 +1495,7 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
+	type BlockHashCount = BlockHashCountRevive;
 }
 
 impl pallet_sudo::Config for Runtime {

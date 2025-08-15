@@ -25,6 +25,7 @@ use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32},
+	weights::FixedFee,
 };
 use sp_io::storage;
 use sp_runtime::BuildStorage;
@@ -61,6 +62,7 @@ impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Currency = Balances;
 	type Precompiles = (ERC20<Self, InlineIdConfig<0x0120>>,);
+	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 }
 
 pub struct AssetsCallbackHandle;

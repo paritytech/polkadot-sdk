@@ -21,7 +21,7 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::{FixedFee, IdentityFee, Weight},
+	weights::{FixedFee, Weight},
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -162,7 +162,6 @@ construct_runtime!(
 		TestNotifier: pallet_test_notifier,
 		Revive: pallet_revive,
 		Timestamp: pallet_timestamp,
-		TransactionPayment: pallet_transaction_payment,
 	}
 );
 
@@ -343,6 +342,7 @@ impl pallet_revive::Config for Test {
 	type Time = Timestamp;
 	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
 	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
+	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
@@ -616,18 +616,6 @@ impl pallet_test_notifier::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
-}
-
-parameter_types! {
-	pub FeeMultiplier: pallet_transaction_payment::Multiplier = pallet_transaction_payment::Multiplier::one();
-}
-
-#[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
-impl pallet_transaction_payment::Config for Test {
-	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = IdentityFee<<Self as pallet_balances::Config>::Balance>;
-	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
-	type FeeMultiplierUpdate = pallet_transaction_payment::ConstFeeMultiplier<FeeMultiplier>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

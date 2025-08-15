@@ -61,7 +61,7 @@ pub use paste;
 mod address_uri;
 pub mod defer;
 pub mod hash;
-// #[cfg(not(substrate_runtime))]
+#[cfg(not(substrate_runtime))]
 mod hasher;
 pub mod offchain;
 pub mod proof_of_possession;
@@ -93,8 +93,7 @@ pub use crypto::{ByteArray, DeriveJunction, Pair, Public};
 
 #[cfg(not(substrate_runtime))]
 pub use self::hasher::blake2::Blake2Hasher;
-// TODO: Is this sane?
-// #[cfg(not(substrate_runtime))]
+#[cfg(not(substrate_runtime))]
 pub use self::hasher::keccak::KeccakHasher;
 pub use hash_db::Hasher;
 

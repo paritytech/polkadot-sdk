@@ -19,7 +19,7 @@
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
@@ -150,44 +150,6 @@ pub struct Block {
 	/// Withdrawals root
 	#[serde(rename = "withdrawalsRoot", skip_serializing_if = "Option::is_none")]
 	pub withdrawals_root: Option<H256>,
-}
-
-/// Block header.
-#[derive(
-	Debug,
-	Default,
-	Clone,
-	Serialize,
-	Deserialize,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	Encode,
-	Decode,
-	rlp::RlpEncodable,
-)]
-pub struct BlockHeader {
-	pub parent_hash: H256,
-	pub ommers_hash: H256,
-	pub beneficiary: H160,
-	pub state_root: H256,
-	pub transactions_root: H256,
-	pub receipts_root: H256,
-	pub logs_bloom: Bytes256,
-	pub difficulty: U256,
-	pub number: U256,
-	pub gas_limit: U256,
-	pub gas_used: U256,
-	pub timestamp: U256,
-	pub extra_data: Bytes,
-	pub mix_hash: H256,
-	pub nonce: Bytes8,
-}
-
-impl BlockHeader {
-	pub fn hash(&self) -> H256 {
-		H256(sp_core::keccak_256(&rlp::encode(self)))
-	}
 }
 
 /// Block number or tag
@@ -358,7 +320,17 @@ pub struct GenericTransaction {
 
 /// Receipt information
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct ReceiptInfo {
 	/// blob gas price
@@ -559,7 +531,17 @@ impl Default for HashesOrTransactionInfos {
 
 /// log
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Log {
 	/// address

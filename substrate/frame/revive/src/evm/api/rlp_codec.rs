@@ -466,49 +466,6 @@ impl Decodable for TransactionLegacySigned {
 	}
 }
 
-// Below approach is applicable for Post-Byzantium (block ≥ 4,370,000)
-impl Encodable for ReceiptInfo {
-	fn rlp_append(&self, s: &mut rlp::RlpStream) {
-		s.begin_list(4);
-		let status_code = self.status.unwrap_or_default();
-		s.append(&status_code);
-		s.append(&self.cumulative_gas_used);
-		s.append(&self.logs_bloom.0.as_ref());
-		s.append_list(&self.logs);
-	}
-}
-
-impl Encodable for Log {
-	fn rlp_append(&self, s: &mut rlp::RlpStream) {
-		s.begin_list(3);
-
-		s.append(&self.address);
-		s.append_list(&self.topics);
-		let bytes = self.data.clone().unwrap_or_default();
-		s.append(&bytes.0);
-	}
-}
-
-impl ReceiptInfo {
-	/// Encode the receipt info into bytes.
-	///
-	/// This is needed to compute the receipt root.
-	pub fn encode_2718(&self) -> Vec<u8> {
-		use alloc::vec;
-
-		let u8_ty = self.r#type.clone().map(|t| t.0);
-		match u8_ty {
-			Some(TYPE_EIP2930) =>
-				vec![TYPE_EIP2930].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			Some(TYPE_EIP1559) =>
-				vec![TYPE_EIP1559].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			Some(TYPE_EIP4844) =>
-				vec![TYPE_EIP4844].into_iter().chain(rlp::encode(self).into_iter()).collect(),
-			_ => rlp::encode(self).to_vec(),
-		}
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -657,7 +614,7 @@ mod test {
 			// EIP-1559
 			"02f89c018080018301e24194095e7baea6a6c7c4c2dfeb977efac326af552d878080f838f7940000000000000000000000000000000000000001e1a0000000000000000000000000000000000000000000000000000000000000000080a0fe38ca4e44a30002ac54af7cf922a6ac2ba11b7d22f548e8ecb3f51f41cb31b0a06de6a5cbae13c0c856e33acf021b51819636cfc009d39eafb9f606d546e305a8",
 			// EIP4844
-      "03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
+      		"03f89783aa36a701832dc6c083fc546c8261a8947f8b1ca29f95274e06367b60fc4a539e4910fd0c865af3107a400080c0831e8480e1a0018fd423d1ad106395f04abac797217d4dece29da3ba649d9aa4da70e98fa6ff80a028d2350a1bfa5043de1533911143eb5c43815a58039121a0ccf124870620fca6a0157eca4963615cd3926538af88e529cfa3baf6c55787a33f79c25babe9f5db2b",
 		];
 
 		for hex_tx in test_cases {
@@ -689,118 +646,6 @@ mod test {
             rlp_encoded_ethereum,
             "encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
 			  );
-			}
-		}
-	}
-
-	#[test]
-	fn receipt_info_encode_2718_is_compatible_with_ethereum() {
-		let test_data = [
-			// Legacy
-			r#"
-			{
-				"blockHash": "0xa4962ada4a882115796d44cd86f6685b3f3e7cd66386f22ada56644d61ce43f1",
-				"blockNumber": "0x1",
-				"cumulativeGasUsed": "0x5208",
-				"effectiveGasPrice": "0x3b9aca00",
-				"from": "0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac",
-				"gasUsed": "0x5208",
-				"logs": [],
-				"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-				"status": "0x1",
-				"to": "0xff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb",
-				"transactionHash": "0xbcc07e3bfa550a0a8b3487c351616b781e639bd3e21b902ec38068d50f73c3a4",
-				"transactionIndex": "0x0",
-				"type": "0x0"
-			}
-			"#,
-			// EIP-2930
-			r#"
-			{
-				"blockHash": "0x64a8546a8bd8522a4bb0b5d33814163be9cac37437db18718e372807bbe0d809",
-				"blockNumber": "0x6",
-				"cumulativeGasUsed": "0x5208",
-				"effectiveGasPrice": "0x1ea4d8dd",
-				"from": "0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac",
-				"gasUsed": "0x5208",
-				"logs": [],
-				"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-				"status": "0x1",
-				"to": "0xff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb",
-				"transactionHash": "0x67888ca048262b0dba2b334b71dd9e4d71c394e9fbafa34fc950723da7624ec1",
-				"transactionIndex": "0x0",
-				"type": "0x1"
-			}
-			"#,
-			// EIP-1559
-			r#"
-			{
-				"blockHash": "0xb7d36aa0a6a4cb3e08bfddc92da1b7e3dab47f6b8f5462ec4318fb57ddd139b0",
-				"blockNumber": "0x7",
-				"cumulativeGasUsed": "0x5208",
-				"effectiveGasPrice": "0x1dcd6500",
-				"from": "0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac",
-				"gasUsed": "0x5208",
-				"logs": [],
-				"logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-				"root": null,
-				"status": "0x1",
-				"to": "0xff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb",
-				"transactionHash": "0x23e916ea001bdd8472256f192f4f868c8346541ca20e1f2cbb70b68a451952df",
-				"transactionIndex": "0x0",
-				"type": "0x2"
-			}
-			"#,
-			// EIP4844
-			r#"
-      {
-        "blobGasPrice": "0x1",
-        "blobGasUsed": "0x20000",
-        "blockHash": "0x1ba63760e6fbfcff361e4bb9f6073e50706a8dcf57c69653f1eaaba543636e24",
-        "blockNumber": "0x874db3",
-        "contractAddress": null,
-        "cumulativeGasUsed": "0x32f2156",
-        "effectiveGasPrice": "0x72eb3a",
-        "from": "0xe7c43e9b22c67a318f3e03f73fcc63072106f20f",
-        "gasUsed": "0x5208",
-        "logs": [],
-        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "status": "0x1",
-        "to": "0x7f8b1ca29f95274e06367b60fc4a539e4910fd0c",
-        "transactionHash": "0xfd044e8bccdba170a8afd3ec9248cb97fb4ebce49adbe392c47385c23ea82c3b",
-        "transactionIndex": "0xbf",
-        "type": "0x3"
-      }
-      "#,
-		];
-		let eip4844_rlp_encoded = alloy_core::hex::decode("03f9010a0184032f2156b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0").unwrap();
-
-		for receipt in test_data {
-			let receipt: ReceiptInfo = serde_json::from_str(receipt).unwrap();
-
-			// RLP encode using this implementation
-			let rlp_encoded_revive = receipt.encode_2718();
-
-			let is_eip4844 = receipt.r#type.is_some_and(|t| t.0 == TYPE_EIP4844);
-
-			// ethereum crate used below does not support EIP4844
-			if !is_eip4844 {
-				// ReceiptInfo does not have decoder implemented.
-				// So let's try to decode its RLP-encoded format using ethereum crate'
-				// EnvelopedDecodable
-				let receipt_ethereum: ethereum::ReceiptV3 =
-					ethereum::EnvelopedDecodable::decode(&rlp_encoded_revive).unwrap();
-
-				// RLP encode using ethereum crate's EnvelopedEncodable
-				let rlp_encoded_ethereum =
-					ethereum::EnvelopedEncodable::encode(&receipt_ethereum).to_vec();
-
-				assert_eq!(
-          rlp_encoded_revive, rlp_encoded_ethereum,
-          "encode_2718() output differs from ethereum crate EnvelopedEncodable for receipt"
-        );
-			} else {
-				assert_eq!(rlp_encoded_revive, eip4844_rlp_encoded);
 			}
 		}
 	}

@@ -105,3 +105,6 @@ jq -r '.paras // .parachains | to_entries[] | "\(.key)"' "$ZOMBIE_JSON" | while 
   done
   echo ""
 done
+
+# sleep for a minute to give alloy time to forward logs
+sleep 60
