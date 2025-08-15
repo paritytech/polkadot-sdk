@@ -231,6 +231,7 @@ pub fn next_intake() {
 		),
 		Period::Claim { more, .. } =>
 			System::run_to_block::<AllPalletsWithSystem>(System::block_number() + more),
+		Period::IntakeDelay { .. } => {},
 	}
 }
 
