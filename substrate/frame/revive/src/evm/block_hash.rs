@@ -75,7 +75,7 @@ impl EthBlockBuilder {
 			timestamp,
 			block_author,
 			gas_limit,
-
+			// The following fields are populated by `process_transaction_details`.
 			tx_hashes: Vec::new(),
 			total_gas_used: U256::zero(),
 			logs_bloom: Bytes256::default(),
@@ -119,17 +119,15 @@ impl EthBlockBuilder {
 		let block_hash = self.header_hash(transactions_root, receipts_root);
 
 		let block = EthBlock {
-			parent_hash: self.parent_hash.into(),
-			miner: self.block_author.into(),
-
 			state_root: transactions_root.0.into(),
 			transactions_root: transactions_root.0.into(),
 			receipts_root: receipts_root.0.into(),
 
+			parent_hash: self.parent_hash.into(),
+			miner: self.block_author.into(),
 			logs_bloom: self.logs_bloom,
 			total_difficulty: Some(U256::zero()),
 			number: self.block_number.into(),
-
 			gas_limit: self.gas_limit,
 			gas_used: self.total_gas_used,
 			timestamp: self.timestamp,
