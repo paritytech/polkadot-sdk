@@ -242,8 +242,6 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 			p.with_id(1005)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				// TODO: Remove the log level, I'm using it only to debug the collator metrics
-				.with_default_args(vec!["-lparachain::collator-protocol-stats=debug".into()])
 				.with_chain("coretime-rococo-local")
 				.with_collator(|n| n.with_name("coretime"))
 		})
@@ -343,39 +341,38 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	// Initialize broker and start sales
 
-	// TODO: Uncoment this. I use this test only to spawn the network and
-	// check collator metrics during PR development para_client
-	// 	.tx()
-	// 	.sign_and_submit_default(
-	// 		&coretime_api::tx().sudo().sudo(CoretimeRuntimeCall::Utility(
-	// 			CoretimeUtilityCall::batch {
-	// 				calls: vec![
-	// 					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::configure {
-	// 						config: BrokerConfigRecord {
-	// 							advance_notice: 5,
-	// 							interlude_length: 1,
-	// 							leadin_length: 1,
-	// 							region_length: 1,
-	// 							ideal_bulk_proportion: Perbill(100),
-	// 							limit_cores_offered: None,
-	// 							renewal_bump: Perbill(10),
-	// 							contribution_timeout: 5,
-	// 						},
-	// 					}),
-	// 					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {
-	// 						task: 1005,
-	// 						until: 1000,
-	// 					}),
-	// 					CoretimeRuntimeCall::Broker(CoretimeBrokerCall::start_sales {
-	// 						end_price: 45_000_000,
-	// 						extra_cores: 2,
-	// 					}),
-	// 				],
-	// 			},
-	// 		)),
-	// 		&alice,
-	// 	)
-	// 	.await?;
+	para_client
+		.tx()
+		.sign_and_submit_default(
+			&coretime_api::tx().sudo().sudo(CoretimeRuntimeCall::Utility(
+				CoretimeUtilityCall::batch {
+					calls: vec![
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::configure {
+							config: BrokerConfigRecord {
+								advance_notice: 5,
+								interlude_length: 1,
+								leadin_length: 1,
+								region_length: 1,
+								ideal_bulk_proportion: Perbill(100),
+								limit_cores_offered: None,
+								renewal_bump: Perbill(10),
+								contribution_timeout: 5,
+							},
+						}),
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::set_lease {
+							task: 1005,
+							until: 1000,
+						}),
+						CoretimeRuntimeCall::Broker(CoretimeBrokerCall::start_sales {
+							end_price: 45_000_000,
+							extra_cores: 2,
+						}),
+					],
+				},
+			)),
+			&alice,
+		)
+		.await?;
 
 	log::info!("Waiting for a full-length sale to begin");
 
