@@ -45,9 +45,11 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::TransactionDetails, runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer,
-		GasEncoder, GenericTransaction, HashesOrTransactionInfos, Log, PrestateTracer, Trace,
-		Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
+		block_hash::{EthBlockBuilder, TransactionDetails},
+		runtime::GAS_PRICE,
+		BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
+		HashesOrTransactionInfos, Log, PrestateTracer, Trace, Tracer, TracerType,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -641,6 +643,7 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
+			// If we cannot fetch the block author there's nothing we can do.
 			let Some(block_author) = Self::block_author() else {
 				Self::kill_inflight_data();
 				return;
@@ -653,148 +656,35 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-
-			let block_hash = frame_system::Pallet::<T>::block_hash(block_number);
-			let transactions = InflightTransactions::<T>::drain().collect::<Vec<_>>();
-
 			let base_gas_price = GAS_PRICE.into();
-
-			let mut logs_bloom = Bytes256::default();
-			let mut total_gas_used = U256::zero();
-
 			let gas_limit = Self::evm_block_gas_limit();
+			// This touches the storage, must account for weights.
+			let transactions = InflightTransactions::<T>::drain().map(|(_index, details)| details);
 
-			let mut tx_hashes = Vec::with_capacity(transactions.len());
-
-			let (signed_tx, receipt): (Vec<_>, Vec<_>) = transactions
-				.into_iter()
-				.filter_map(|(_, (payload, transaction_index, events, success, gas))| {
-					let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
-							log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
-						}).ok()?;
-
-					let from = signed_tx.recover_eth_address()
-						.inspect_err(|err| {
-							log::error!(target: LOG_TARGET, "Failed to recover sender address at index {transaction_index}: {err:?}");
-						})
-						.ok()?;
-
-					let transaction_hash = H256(keccak_256(&payload));
-					tx_hashes.push(transaction_hash);
-
-					let tx_info = GenericTransaction::from_signed(
-						signed_tx.clone(),
-						base_gas_price,
-						Some(from),
-					);
-
-					let _gas_price = tx_info.gas_price;
-
-					let logs = events.into_iter().filter_map(|event| {
-						if let Event::ContractEmitted { contract, data, topics } = event {
-							let log = alloy_primitives::Log::new_unchecked(contract.0.into(),
-								topics.into_iter().map(|h| alloy_primitives::FixedBytes::from(h.0)).collect::<Vec<_>>(),
-    						alloy_primitives::Bytes::from(data));
-
-							Some(log)
-						} else {
-							None
-						}
-					}).collect();
-
-					total_gas_used += gas.ref_time().into();
-
-					Self::deposit_event(Event::Receipt {
-						effective_gas_price: base_gas_price.into(),
-						gas_used: gas.ref_time().into(),
-					});
-
-					let receipt = alloy_consensus::Receipt {
-						status: success.into(),
-						cumulative_gas_used: total_gas_used.as_u64(),
-						logs,
-					};
-
-					let receipt_bloom = receipt.bloom_slow();
-					logs_bloom.combine(&(*receipt_bloom.0).into());
-
-					use alloy_consensus::RlpEncodableReceipt;
-					let mut encoded_receipt = Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
-					receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
-
-					Some((signed_tx.encode_2718(), encoded_receipt))
-				})
-				.unzip();
-
-			use alloy_core::primitives::bytes::BufMut;
-			let transactions_root = alloy_consensus::proofs::ordered_trie_root_with_encoder(
-				signed_tx.as_ref(),
-				|item, buf| buf.put_slice(item),
+			let block_builder = EthBlockBuilder::new(
+				eth_block_num,
+				parent_hash,
+				base_gas_price,
+				T::Time::now().into(),
+				block_author,
+				gas_limit,
 			);
-			let receipts_root = alloy_consensus::proofs::ordered_trie_root_with_encoder(
-				receipt.as_ref(),
-				|item, buf| buf.put_slice(item),
-			);
-
-			let number: U256 = block_number.into();
-			let now: U256 = T::Time::now().into();
-			let alloy_header = alloy_consensus::Header {
-				parent_hash: parent_hash.0.into(),
-				beneficiary: block_author.0.into(),
-
-				state_root: transactions_root.clone(),
-				transactions_root,
-				receipts_root,
-
-				number: number.as_u64(),
-
-				logs_bloom: logs_bloom.0.into(),
-
-				gas_limit: gas_limit.as_u64(),
-				// The total gas used by the transactions in this block.
-				gas_used: total_gas_used.as_u64(),
-				// The timestamp is set to the current time.
-				timestamp: now.as_u64(),
-
-				..alloy_consensus::Header::default()
-			};
-
-			let block_hash = alloy_header.hash_slow();
-			let block_hash: H256 = block_hash.0.into();
-
+			// The most expensive operation of this hook. Please check
+			// the method's documentation for computational details.
+			let (block_hash, block) = block_builder.build(transactions);
+			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
+			// Prune older block hashes.
 			let block_hash_count = <T as pallet::Config>::BlockHashCount::get();
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
-			// keep genesis hash
 			if !to_remove.is_zero() {
 				<BlockHash<T>>::remove(U256::from(
 					UniqueSaturatedInto::<u32>::unique_saturated_into(to_remove),
 				));
 			}
-
-			let block = EthBlock {
-				parent_hash: parent_hash.into(),
-				miner: block_author.into(),
-
-				state_root: transactions_root.0.into(),
-				transactions_root: transactions_root.0.into(),
-				receipts_root: receipts_root.0.into(),
-
-				logs_bloom,
-				total_difficulty: Some(U256::zero()),
-				number: block_number.into(),
-
-				gas_limit,
-				gas_used: total_gas_used,
-				timestamp: now,
-
-				transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
-
-				..Default::default()
-			};
-
+			// Store the ETH block into the last block.
 			LastBlock::<T>::put(block);
 		}
 

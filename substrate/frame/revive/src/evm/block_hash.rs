@@ -32,7 +32,7 @@ use sp_core::{keccak_256, H160, H256, U256};
 pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<crate::pallet::Event<T>>, bool, Weight);
 
 /// Builder of the ETH block.
-struct EthBlockBuilder {
+pub struct EthBlockBuilder {
 	/// Current block number.
 	block_number: U256,
 	/// Parent block hash.
