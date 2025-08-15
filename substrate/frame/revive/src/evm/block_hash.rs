@@ -216,7 +216,7 @@ impl EthBlockBuilder {
 		receipts_root: alloy_primitives::B256,
 	) -> H256 {
 		let alloy_header = alloy_consensus::Header {
-			state_root: transactions_root.clone(),
+			state_root: transactions_root,
 			transactions_root,
 			receipts_root,
 
