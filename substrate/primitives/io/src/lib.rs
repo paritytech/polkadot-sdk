@@ -120,8 +120,8 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassMaybeFatPointerAndRead, PassPointerAndRead, PassPointerAndReadCopy,
-		PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
+		PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead, PassPointerAndRead,
+		PassPointerAndReadCopy, PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -3537,167 +3537,13 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 }
 
-pub mod input {
-	use alloc::{borrow::Cow, string::String, vec, vec::Vec};
-
-	use sp_runtime_interface::{
-		pass_by::PassFatPointerAndReadWrite, unpack_ptr_and_len, Pointer, RIType,
-	};
-
-	#[cfg(not(substrate_runtime))]
-	use sp_runtime_interface::{
-		host,
-		sp_wasm_interface::{
-			if_wasmtime_is_enabled, wasmtime, Function, FunctionContext,
-			HostFunctions as HostFunctionsTrait, IntoValue, Signature, TryFromValue, Value,
-		},
-	};
-
-	#[cfg(substrate_runtime)]
-	use sp_runtime_interface::wasm;
-
-	#[cfg(not(substrate_runtime))]
-	if_wasmtime_is_enabled! {
-		use sp_runtime_interface::sp_wasm_interface::HostFunctionRegistry;
-	}
-
-	#[cfg(substrate_runtime)]
-	pub fn read(buffer: <PassFatPointerAndReadWrite<&mut [u8]> as RIType>::Inner) {
-		extern "C" {
-			pub fn ext_input_read_version_1(
-				buffer: <PassFatPointerAndReadWrite<&mut [u8]> as RIType>::FFIType,
-			);
-		}
-		let mut buffer = buffer;
-		let (ffi_buffer, _) =
-			<PassFatPointerAndReadWrite<&mut [u8]> as wasm::IntoFFIValue>::into_ffi_value(
-				&mut buffer,
-			);
-		// SAFETY: The host-side interface is defined just below; the FFI type correctness is
-		// ensured statically by using the same marchalling strategy on both sides.
-		unsafe { ext_input_read_version_1(ffi_buffer) }
-	}
-
-	#[cfg(not(substrate_runtime))]
-	struct ExtInputReadVersion1;
-	#[cfg(not(substrate_runtime))]
-	impl ExtInputReadVersion1 {
-		fn call(
-			ctx: &mut dyn FunctionContext,
-			buffer_ffi: <PassFatPointerAndReadWrite<&mut [u8]> as RIType>::FFIType,
-		) -> Result<(), String> {
-			let (ptr, size) = unpack_ptr_and_len(buffer_ffi);
-			ctx.fill_input_data(Pointer::new(ptr), size as u32)?;
-			Ok(())
-		}
-	}
-
-	#[cfg(not(substrate_runtime))]
-	impl Function for ExtInputReadVersion1 {
-		fn name(&self) -> &str {
-			"ext_input_read_version_1"
-		}
-		fn signature(&self) -> Signature {
-			Signature {
-                args: Cow::Borrowed(
-                    &[
-                        <<PassFatPointerAndReadWrite<
-                            &mut [u8],
-                        > as RIType>::FFIType as IntoValue>::VALUE_TYPE,
-                    ][..],
-                ),
-                return_value: None,
-            }
-		}
-		fn execute(
-			&self,
-			ctx: &mut dyn FunctionContext,
-			args: &mut dyn Iterator<Item = Value>,
-		) -> Result<Option<Value>, String> {
-			let buffer_val = args
-                .next()
-                .ok_or_else(|| "missing argument 'buffer': number of arguments given to 'read' from interface 'Input' does not match the expected number of arguments".to_owned())?;
-			let buffer_ffi: <PassFatPointerAndReadWrite<
-                &mut [u8],
-            > as RIType>::FFIType = TryFromValue::try_from_value(buffer_val)
-                .ok_or_else(|| "could not marshal the 'buffer' argument through the WASM FFI boundary while executing 'read' from interface 'Input'".to_owned())?;
-			Self::call(ctx, buffer_ffi)?;
-			Ok(None)
-		}
-	}
-	#[cfg(not(substrate_runtime))]
-	pub struct HostFunctions;
-	#[cfg(not(substrate_runtime))]
-	impl HostFunctionsTrait for HostFunctions {
-		fn host_functions() -> Vec<&'static dyn Function> {
-			vec![&ExtInputReadVersion1 as &dyn Function]
-		}
-
-		if_wasmtime_is_enabled! {
-			fn register_static<T>(registry: &mut T) -> Result<(), T::Error>
-			where
-				T: HostFunctionRegistry,
-			{
-				registry
-					.register_static(
-						Function::name(
-							&ExtInputReadVersion1,
-						),
-						|
-							mut caller: wasmtime::Caller<
-								T::State,
-							>,
-							buffer_ffi: <PassFatPointerAndReadWrite<
-								&mut [u8],
-							> as RIType>::FFIType,
-						| -> Result<
-							(),
-							anyhow::Error,
-						> {
-							T::with_function_context(
-								caller,
-								move |ctx| {
-									let result = std::panic::catch_unwind(
-										std::panic::AssertUnwindSafe(|| {
-											ExtInputReadVersion1::call(
-													ctx,
-													buffer_ffi,
-												)
-												.map_err(
-													anyhow::Error::msg,
-												)
-										}),
-									);
-									match result {
-										Ok(result) => result,
-										Err(panic) => {
-											let message = if let Some(message) = panic
-												.downcast_ref::<
-													String,
-												>()
-											{
-												format!("host code panicked while being called by the runtime: {}", message)
-											} else if let Some(message) = panic
-												.downcast_ref::<&'static str>()
-											{
-												format!("host code panicked while being called by the runtime: {}", message)
-											} else {
-												"host code panicked while being called by the runtime".to_owned()
-											};
-											return Err(
-												anyhow::Error::msg(
-													message,
-												),
-											);
-										}
-									}
-								},
-							)
-						},
-					)?;
-				Ok(())
-			}
-		}
+/// Input data handling functions
+#[runtime_interface]
+pub trait Input {
+	/// Read input data into the provided buffer.
+	fn read(_buffer: PassFatPointerAndWriteInputData<&mut [u8]>) {
+		// The body has been deliberately left empty. The logic is handled by a specific marshalling
+		// strategy (see [`PassFatPointerAndWriteInputData`]).
 	}
 }
 

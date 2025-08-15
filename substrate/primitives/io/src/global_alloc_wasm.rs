@@ -36,6 +36,7 @@ extern "C" {
 
 #[inline(always)]
 fn aligned_heap_base() -> *mut u8 {
+	// SAFETY: Wasmtime must export the symbol at correct address (end of data segment)
 	let base = unsafe { &__heap_base as *const u8 as usize };
 	((base + 31) & !31) as *mut u8
 }
