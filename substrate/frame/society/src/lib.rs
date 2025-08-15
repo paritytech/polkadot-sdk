@@ -519,13 +519,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type PeriodSpend: Get<BalanceOf<Self, I>>;
 
-		/// The number of blocks on which new candidates should be voted on. Together with
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates should be
+		/// voted on. Together with
 		/// `ClaimPeriod`, this sums to the number of blocks between candidate intake periods.
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self, I>>;
 
-		/// The number of blocks on which new candidates can claim their membership and be the
-		/// named head.
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates can claim
+		/// their membership and be the named head.
 		#[pallet::constant]
 		type ClaimPeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -536,7 +537,7 @@ pub mod pallet {
 		/// The origin that is allowed to call `found`.
 		type FounderSetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The number of blocks between membership challenges.
+		/// The number of [Config::BlockNumberProvider] blocks between membership challenges.
 		#[pallet::constant]
 		type ChallengePeriod: Get<BlockNumberFor<Self, I>>;
 
