@@ -639,6 +639,55 @@ pub mod pallet {
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// TODO: Account for future transactions here in the on_finalize.
+
+			// The pallet executes the following memory operations:
+			//
+			// For every emitted event of type `Event::ContractEmitted`:
+			//  (I) During collection:
+			// 		- read: InflightEvents::<T>::count()
+			// 		- write: InflightEvents::<T>::insert
+			//
+			//	(II) After transaction is executed:
+			// 		- read: InflightEvents::<T>::count() internally by InflightEvents::<T>::drain()
+			// 		- read: Provide the key, value internally by InflightEvents::<T>::drain()
+			// 		- write: Remove key internally by InflightEvents::<T>::drain()
+			// Therefore, we have 2 reads and 2 writes per event, plus one extra read per total
+			// (count).
+			//
+			// Cost(Events) = (2r + 2w) * N + 1r
+			//
+			// For every transaction:
+			//  (I) Cost incurred by the emitted event
+			//
+			//  (II) After transaction is executed:
+			// 		- read: frame_system::Pallet::<T>::extrinsic_index()
+			//  	- read: InflightTransactions::<T>::count()
+			//  	- write: InflightTransactions::<T>::insert()
+			//
+			// Cost(Txs) = Cost(Events) + (1r + 1r) * M + 1r
+			//
+			// On finalize operations:
+			// (I) Operating with transactions:
+			// 		- read: InflightTransactions::<T>::count() internally by
+			//     InflightTransactions::<T>::drain()
+			// 		- read: Provide key, value internally by InflightTransactions::<T>::drain()
+			// 		- write: Remove key internally by InflightTransactions::<T>::drain()
+			//
+			// (II) Parent hash
+			// 		- read: BlockHash::<T>::get()
+			//
+			// (III) Storage propagation
+			// 		- write: BlockHash::<T>::insert() (insert number to hash mapping)
+			// 		- write EthereumBlock::<T>::put() (insert block into storage)
+			//
+			// Cost(on_finalize) = Cost(Txs) + (1r + 1r) * M + 1r + 1r + 2w
+			//
+			// Total cost:
+			// (2r + 2w) * N + 1r + (1r + 1r) * M + 1r + (1r + 1r) * M + 1r + 1r + 2w
+			// = 4 M (r + w) + 2 N * (r + w) + 4r + 2w
+			//
+			// Note: This does not account for the cost of computing the state tries.
+
 			Weight::zero()
 		}
 
