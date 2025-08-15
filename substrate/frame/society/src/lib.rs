@@ -784,6 +784,16 @@ pub mod pallet {
 	pub type DefenderVotes<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
+	/// Next intake rotation scheduled at the provider block number.
+	#[pallet::storage]
+	pub type NextIntakeAt<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, BlockNumberFor<T, I>>;
+
+	/// Next challenge rotation scheduled at the local system block number.
+	#[pallet::storage]
+	pub type NextChallengeAt<T: Config<I>, I: 'static = ()> =
+		StorageValue<_, SystemBlockNumberFor<T>>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
 		fn on_initialize(n: SystemBlockNumberFor<T>) -> Weight {
@@ -795,24 +805,60 @@ pub mod pallet {
 			// TODO: deal with randomness freshness
 			// https://github.com/paritytech/substrate/issues/8312
 			let (seed, _) = T::Randomness::random(phrase);
-			// seed needs to be guaranteed to be 32 bytes.
 			let seed = <[u8; 32]>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
 				.expect("input is padded with zeroes; qed");
 			let mut rng = ChaChaRng::from_seed(seed);
 
-			// Run a candidate/membership rotation
-			match Self::period() {
-				Period::Voting { elapsed, .. } if elapsed.is_zero() => {
+			// Intake rotation scheduling based on the configured BlockNumberProvider.
+			let now_bn = T::BlockNumberProvider::current_block_number();
+			let voting_period = T::VotingPeriod::get();
+			let claim_period = T::ClaimPeriod::get();
+			let rotation_period = voting_period.saturating_add(claim_period);
+
+			match NextIntakeAt::<T, I>::get() {
+				Some(next) if now_bn >= next => {
 					Self::rotate_intake(&mut rng);
 					weight.saturating_accrue(weights.max_block / 20);
+					NextIntakeAt::<T, I>::put(now_bn.saturating_add(rotation_period));
+				},
+				None => {
+					match Self::period() {
+						Period::Voting { elapsed, .. } if elapsed.is_zero() => {
+							Self::rotate_intake(&mut rng);
+							weight.saturating_accrue(weights.max_block / 20);
+							NextIntakeAt::<T, I>::put(now_bn.saturating_add(rotation_period));
+						},
+						Period::Voting { more, .. } | Period::Claim { more, .. } => {
+							NextIntakeAt::<T, I>::put(now_bn.saturating_add(more));
+						},
+					}
 				},
 				_ => {},
 			}
 
-			// Run a challenge rotation
-			if (n % T::ChallengePeriod::get()).is_zero() {
-				Self::rotate_challenge(&mut rng);
-				weight.saturating_accrue(weights.max_block / 20);
+			// Challenge rotation scheduling based on local system block number.
+			let challenge_period = T::ChallengePeriod::get();
+			match NextChallengeAt::<T, I>::get() {
+				Some(next) if n >= next => {
+					Self::rotate_challenge(&mut rng);
+					weight.saturating_accrue(weights.max_block / 20);
+					NextChallengeAt::<T, I>::put(n.saturating_add(challenge_period));
+				},
+				None => {
+					let rem = n % challenge_period;
+					let mut next = if rem.is_zero() {
+						Self::rotate_challenge(&mut rng);
+						weight.saturating_accrue(weights.max_block / 20);
+						n.saturating_add(challenge_period)
+					} else {
+						n.saturating_add(challenge_period.saturating_sub(rem))
+					};
+					if next <= n {
+						next = n.saturating_add(challenge_period);
+					}
+					NextChallengeAt::<T, I>::put(next);
+				},
+				_ => {},
 			}
 
 			weight
