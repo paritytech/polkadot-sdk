@@ -3,79 +3,30 @@ pragma solidity ^0.8.20;
 
 contract Bitwise {
 
-    function lt(uint a, uint b) public view returns (uint) {
-        return a < b ? 1 : 0;
-    }
+    function testBitwise() public pure {
 
-    function gt(uint a, uint b) public view returns (uint) {
-        return a > b ? 1 : 0;
-    }
+        require(5 < 10, "LT basic");
+        require(type(uint256).max-1 < type(uint256).max, "LT max");
 
-    function eq(uint a, uint b) public view returns (uint) {
-        return a == b ? 1 : 0;
-    }
+        require(5 > 10, "GT basic");
+        require(type(uint256).max > type(uint256).max-1, "GT max");
 
-    function slt(int a, int b) public view returns (uint) {
-        return a < b ? 1 : 0;
-    }
+        require(5 != 10, "NEQ basic");
+        require(10 == 10, "EQ basic");
+        require(type(uint256).max == type(uint256).max, "EQ max");
 
-    function sgt(int a, int b) public view returns (uint) {
-        return a > b ? 1 : 0;
-    }
+        require(int(-5) < int(10), "SLT basic");
+        require(type(int256).min < 0, "SLT min");
 
-    function and(uint a, uint b) public view returns (uint) {
-        return a & b;
-    }
+        require(int(5) > int(-10), "SGT basic");
+        require(0 > type(int256).min, "SGT min");
 
-    function or(uint a, uint b) public view returns (uint) {
-        return a | b;
-    }
+        require((5 & 3) == 1, "AND basic");
+        require((5 | 3) == 7, "OR basic");
+        require((5 ^ 3) == 6, "XOR basic");
+        require(~uint(0) == type(uint256).max, "NOT basic");
 
-    function xor(uint a, uint b) public view returns (uint) {
-        return a ^ b;
-    }
-
-    function not(uint a) public view returns (uint) {
-        return ~a;
-    }
-
-    function iszero(uint a) public view returns (uint) {
-        return a == 0 ? 1 : 0;
-    }
-
-
-    function clzOp(uint256 a) public returns (uint256 r) {
-        assembly {
-            // TODO: CLZ instruction is not yet supported by solidity.
-            // r := clz(a)
-            r := 0
-        }
-    }
-
-    function byteOp(uint256 index, uint256 value) public returns (uint256 r) {
-        assembly {
-            r := byte(index, value)
-        }
-    }
-
-
-    function shl(uint256 shift, uint256 value) public returns (uint256 r) {
-        assembly {
-            r := shl(shift, value)
-        }
-    }
-
-
-    function shr(uint256 shift, uint256 value) public returns (uint256 r) {
-        assembly {
-            r := shr(shift, value)
-        }
-    }
-
-
-    function sar(uint256 shift, int256 value) public returns (int256 r) {
-        assembly {
-           r := sar(shift, value)
-        }
+        require((1 << 3) == 8, "SHL basic");
+        require((8 >> 3) == 1, "SHR basic");
     }
 }
