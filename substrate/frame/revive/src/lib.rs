@@ -45,9 +45,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer, GasEncoder, GenericTransaction,
-		HashesOrTransactionInfos, Log, PrestateTracer, Trace, Tracer, TracerType,
-		TransactionSigned, TYPE_EIP1559,
+		block_hash::TransactionDetails, runtime::GAS_PRICE, BlockHeader, Bytes256, CallTracer,
+		GasEncoder, GenericTransaction, HashesOrTransactionInfos, Log, PrestateTracer, Trace,
+		Tracer, TracerType, TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Key, Stack as ExecStack},
 	gas::GasMeter,
@@ -126,7 +126,7 @@ const SENTINEL: u32 = u32::MAX;
 /// Hence you can use this target to selectively increase the log level for this crate.
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
-const LOG_TARGET: &str = "runtime::revive";
+pub(crate) const LOG_TARGET: &str = "runtime::revive";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -662,6 +662,8 @@ pub mod pallet {
 			let mut logs_bloom = Bytes256::default();
 			let mut total_gas_used = U256::zero();
 
+			let gas_limit = Self::evm_block_gas_limit();
+
 			let mut tx_hashes = Vec::with_capacity(transactions.len());
 
 			let (signed_tx, receipt): (Vec<_>, Vec<_>) = transactions
@@ -748,7 +750,7 @@ pub mod pallet {
 
 				logs_bloom: logs_bloom.0.into(),
 
-				gas_limit: Self::evm_block_gas_limit().as_u64(),
+				gas_limit: gas_limit.as_u64(),
 				// The total gas used by the transactions in this block.
 				gas_used: total_gas_used.as_u64(),
 				// The timestamp is set to the current time.
@@ -784,7 +786,7 @@ pub mod pallet {
 				total_difficulty: Some(U256::zero()),
 				number: block_number.into(),
 
-				gas_limit: Self::evm_block_gas_limit(),
+				gas_limit,
 				gas_used: total_gas_used,
 				timestamp: now,
 
