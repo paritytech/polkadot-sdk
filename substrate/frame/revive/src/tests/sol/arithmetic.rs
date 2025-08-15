@@ -22,6 +22,7 @@ use crate::{
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
 };
+use pallet_revive_uapi::ReturnFlags;
 
 use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
@@ -44,6 +45,10 @@ fn arithmetic_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "arithmetic test reverted"
+                );
             }
 		});
 	}
