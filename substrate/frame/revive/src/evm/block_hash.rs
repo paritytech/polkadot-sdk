@@ -96,7 +96,7 @@ impl EthBlockBuilder {
 	///   - This includes computing the bloom filter for the logs (O(N) to compute)
 	///   - The receipt is 2718 RLP encoded: the cost is O(N) to encode due to the number of logs.
 	///
-	/// (II) Transaction trie roto and receipt trie root are computed.
+	/// (II) Transaction trie root and receipt trie root are computed.
 	///
 	/// (III) Block hash is computed from the provided information.
 	pub fn build<T>(
@@ -216,7 +216,7 @@ impl EthBlockBuilder {
 		receipts_root: alloy_primitives::B256,
 	) -> H256 {
 		let alloy_header = alloy_consensus::Header {
-			state_root: transactions_root.clone(),
+			state_root: transactions_root,
 			transactions_root,
 			receipts_root,
 
