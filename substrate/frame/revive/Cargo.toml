@@ -58,8 +58,7 @@ sp-arithmetic = { workspace = true }
 sp-consensus-aura = { workspace = true, optional = true }
 sp-consensus-babe = { workspace = true, optional = true }
 sp-consensus-slots = { workspace = true, optional = true }
-# TODO: Is this feature safe? Was it tested? Why experimental? Better to just use alloy-trie/core?
-sp-core = { workspace = true, features = ["bls-experimental", "bandersnatch-experimental"] }
+sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-version = { workspace = true }
