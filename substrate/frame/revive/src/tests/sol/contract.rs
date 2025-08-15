@@ -9,12 +9,13 @@ use crate::{
 	Code, Config,
 };
 use alloy_core::{
-	primitives::{Bytes, U256},
+	primitives::{Bytes, FixedBytes, U256},
 	sol_types::SolCall,
 };
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
 use pretty_assertions::assert_eq;
+use sp_core::H160;
 
 /// Tests that the `CALL` opcode works as expected by having one contract call another.
 #[test]
@@ -89,6 +90,51 @@ fn create_works() {
 
 		// Check if the created contract is working
 		let echo_result = builder::bare_call(callee_addr.0 .0.into())
+			.data(Callee::echoCall { _data: magic_number }.abi_encode())
+			.build_and_unwrap_result();
+
+		let echo_output = Callee::echoCall::abi_decode_returns(&echo_result.data).unwrap();
+
+		assert_eq!(echo_output, magic_number, "Callee.echo must return 42");
+	});
+}
+
+#[test]
+fn create2_works() {
+	let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let salt = [42u8; 32];
+
+		let initcode = Bytes::from(callee_code);
+		// Prepare the CREATE2 call
+		let create_call_data =
+			Caller::create2Call { initcode: initcode.clone(), salt: FixedBytes(salt) }.abi_encode();
+
+		let result =
+			builder::bare_call(caller_addr).data(create_call_data).build_and_unwrap_result();
+
+		let callee_addr = Caller::create2Call::abi_decode_returns(&result.data).unwrap();
+
+		log::info!("Created  addr: {:?}", callee_addr);
+
+		// Compute expected CREATE2 address
+		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
+
+		let callee_addr: H160 = callee_addr.0 .0.into();
+
+		assert_eq!(callee_addr, expected_addr, "CREATE2 address should be deterministic");
+
+		let magic_number = U256::from(42);
+
+		// Check if the created contract is working
+		let echo_result = builder::bare_call(callee_addr)
 			.data(Callee::echoCall { _data: magic_number }.abi_encode())
 			.build_and_unwrap_result();
 

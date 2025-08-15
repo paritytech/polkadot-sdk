@@ -40,4 +40,16 @@ contract Caller {
             }
         }
     }
+
+    function create2(bytes memory initcode, bytes32 salt
+    ) external returns (address addr) {
+        assembly {
+            // CREATE2 with no value
+            addr := create2(0, add(initcode, 0x20), mload(initcode), salt)
+            if iszero(addr) {
+                // bubble failure
+                revert(0, 0)
+            }
+        }
+    }
 }
