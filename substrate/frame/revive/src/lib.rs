@@ -1819,15 +1819,12 @@ where
 
 		// TODO: Prune older blocks.
 		BlockHash::<T>::insert(block_number, block_hash);
-		PreviousBlock::<T>::put(block);
+		PreviousBlock::<T>::put(&block);
 		PreviousReceiptInfo::<T>::put(receipts);
 
 		// TODO: remove eventually
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		log::info!(
-			"[on_finalize_internal] header = {block_header:?} tx_and_receipts: {}",
-			tx_and_receipts.len()
-		);
+		log::info!("[on_initialize_internal] header = {block:?} len: {}", block.transactions.len());
 
 		// Anything that needs to be done at the start of the block.
 		// We don't do anything here.
