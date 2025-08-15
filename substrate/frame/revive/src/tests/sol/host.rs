@@ -43,13 +43,14 @@ fn convert_to_free_balance(total_balance: u128) -> U256 {
 fn balance_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 
-        let expected_balance = convert_to_free_balance(100_000_000_000);
+        let bobs_balance = 123_456_789_000u64;
+        let expected_balance = convert_to_free_balance(bobs_balance as u128);
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
 
             <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-            <Test as Config>::Currency::set_balance(&BOB, 100_000_000_000);
+            <Test as Config>::Currency::set_balance(&BOB, bobs_balance);
 
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
