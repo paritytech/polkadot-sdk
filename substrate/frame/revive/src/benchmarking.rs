@@ -20,7 +20,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::runtime::GAS_PRICE,
+	evm::{
+		runtime::GAS_PRICE, Block as EthBlock, BlockHeader, PartialSignedTransactionInfo,
+		ReceiptInfo, TransactionLegacyUnsigned, TransactionUnsigned,
+	},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
@@ -46,6 +49,7 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
+use sp_core::{ecdsa, Pair};
 use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Zero,
@@ -2304,20 +2308,45 @@ mod benchmarks {
 	// `c`: number of transactions to fit in the block
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		let current_block: BlockNumberFor<T> = frame_system::Pallet::<T>::block_number();
+		use hex_literal::hex;
+		let (signer_account_id, signer_priv_key) = (
+			// dev::alith(),
+			hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"),
+			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"),
+		);
+		let signer_keypair = ecdsa::Pair::from_seed(&signer_priv_key);
+		let signer_address = H160::from_slice(&signer_account_id);
+		let signer_caller = T::AddressMapper::to_fallback_account_id(&signer_address);
+		whitelist_account!(signer_caller);
 
 		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let origin = RawOrigin::Signed(signer_caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
 
 		let value = Pallet::<T>::min_balance();
 		let dust = 0;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
 
-		let caller_addr = T::AddressMapper::to_address(&instance.caller);
-		let origin = RawOrigin::Signed(instance.caller.clone());
-		let before = Pallet::<T>::evm_balance(&instance.address);
-		let storage_deposit = default_deposit_limit::<T>();
+		// build tx
+		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
+			to: Some(instance.address),
+			value: value.into(),
+			chain_id: Some(1.into()),
+			input: vec![].into(),
+			..Default::default()
+		}
+		.into();
+
+		// sign tx
+		let hashed_payload = sp_io::hashing::keccak_256(&unsigned_tx.unsigned_payload());
+		let signature = signer_keypair.sign_prehashed(&hashed_payload);
+		let signed_tx = unsigned_tx.with_signature(signature.into());
+		let signed_payload = signed_tx.signed_payload();
+
+		let current_block = BlockNumberFor::<T>::from(1u32);
+		frame_system::Pallet::<T>::set_block_number(current_block);
 
 		#[block]
 		{
@@ -2325,19 +2354,29 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_initialize_internal(current_block);
 			// eth_call for each tx
 			for _ in 0..c {
-				let _ = Pallet::<T>::eth_call(
+				let o = Pallet::<T>::eth_call(
 					origin.clone().into(),
 					instance.address,
 					evm_value,
 					Weight::MAX,
 					storage_deposit,
-					vec![42u8; 1024],
 					vec![],
+					signed_payload.clone(),
 				);
 			}
 			// on_finalize
 			let _ = Pallet::<T>::on_finalize_internal(current_block);
 		}
+		let next_block = BlockNumberFor::<T>::from(2u32);
+		frame_system::Pallet::<T>::set_block_number(next_block);
+		let _ = Pallet::<T>::on_initialize_internal(next_block);
+
+		let block_author = Pallet::<T>::block_author();
+		assert!(block_author.is_some());
+
+		let block = Pallet::<T>::eth_block();
+		assert_eq!(block.transactions.len(), c as usize);
+
 		Ok(())
 	}
 
