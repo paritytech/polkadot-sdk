@@ -29,7 +29,7 @@ use frame_support::weights::Weight;
 use sp_core::{keccak_256, H160, H256, U256};
 
 /// The transaction details captured by the revive pallet.
-pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<crate::pallet::Event<T>>, bool, Weight);
+pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
 
 /// Builder of the ETH block.
 pub struct EthBlockBuilder {
@@ -180,11 +180,11 @@ impl EthBlockBuilder {
 
 		self.total_gas_used += gas.ref_time().into();
 
-		// Note: an event must be emitted here
-		// Self::deposit_event(Event::Receipt {
-		//     effective_gas_price: base_gas_price.into(),
-		//     gas_used: gas.ref_time().into(),
-		// });
+		// Note: an event can be emitted here if we need extra transaction details.
+		// let _event: Event<T> = Event::Receipt {
+		// 	effective_gas_price: self.base_gas_price.into(),
+		// 	gas_used: gas.ref_time().into(),
+		// };
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
