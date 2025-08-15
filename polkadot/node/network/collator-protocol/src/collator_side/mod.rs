@@ -1462,6 +1462,9 @@ fn process_out_of_view_collation(
 	collation_tracker.track(stats);
 }
 
+/// Process collations that were expired
+///
+/// Collations no more tracked after this call.
 fn process_expired_collations(
 	expired_collations: Vec<CollationStats>,
 	removed: Hash,
@@ -1481,13 +1484,20 @@ fn process_expired_collations(
 			"Collation expired",
 		);
 
+		// Report metrics for collations that were expired after being backed.
+		if let Some(latency) = expired_collation.backed() {
+			metrics.on_collation_backed(latency as f64);
+		}
 		metrics.on_collation_expired(age as f64, collation_state);
 	}
 }
 
+/// Process collations that may have been finalized on the relay chain.
+///
+/// Collations no more tracked after this call.
 async fn process_possibly_finalized_collations(
 	collations: Vec<CollationStats>,
-	(hash, number): (Hash, BlockNumber),
+	last_finalized: (Hash, BlockNumber),
 	sender: &mut impl overseer::SubsystemSender<ChainApiMessage>,
 	metrics: &Metrics,
 ) {
@@ -1495,17 +1505,18 @@ async fn process_possibly_finalized_collations(
 		return
 	}
 
+	let (last_hash, last_number) = last_finalized;
 	let mut blocks_to_request = collations
 		.iter()
 		.map(|stats| stats.relay_parent().1)
-		.filter(|n| *n != number) // We already know current (hash, number)
+		.filter(|n| *n != last_number) // No need to request `last_hash` for `last_number`
 		.collect::<Vec<_>>();
 	blocks_to_request.sort_unstable();
 	blocks_to_request.dedup();
 
-	gum::debug!(target: LOG_TARGET_STATS, ?blocks_to_request, "Possibly finalized");
+	gum::debug!(target: LOG_TARGET_STATS, ?blocks_to_request, "Collations possibly finalized on blocks");
 
-	let mut finalized = vec![(hash, number)];
+	let mut finalized = vec![(last_hash, last_number)];
 
 	for chunk in blocks_to_request.as_slice().chunks(MAX_PARALLEL_CHAIN_API_REQUESTS) {
 		let futures = chunk.iter().map(|&bn| {
@@ -1515,16 +1526,8 @@ async fn process_possibly_finalized_collations(
 					sender.send_message(ChainApiMessage::FinalizedBlockHash(bn, tx)).await;
 					match rx.await {
 						Ok(Ok(Some(bh))) => Some((bh, bn)),
-						Ok(Ok(None)) => {
-							gum::warn!(target: LOG_TARGET_STATS, block_number = ?bn, "ChainApi can't get hash for the finalized block");
-							None
-						},
-						Ok(Err(err)) => {
-							gum::warn!(target: LOG_TARGET_STATS, block_number = ?bn, ?err, "ChainApi request failed to get finalized block hash");
-							None
-						},
-						Err(err) => {
-							gum::warn!(target: LOG_TARGET_STATS, block_number = ?bn, ?err, "ChainApi request channel closed");
+						_ => {
+							gum::warn!(target: LOG_TARGET_STATS, block_number = ?bn, "Can't request hash for the finalized block from ChainApi");
 							None
 						},
 					}
@@ -1535,6 +1538,7 @@ async fn process_possibly_finalized_collations(
 
 	for collation in collations {
 		if finalized.contains(&collation.relay_parent()) {
+			// Report metrics for finalized collations
 			if let Some(latency) = collation.backed() {
 				metrics.on_collation_backed(latency as f64);
 			}
