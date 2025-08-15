@@ -559,7 +559,8 @@ pub mod pallet {
 	/// The events emitted by this pallet while executing the current inflight transaction.
 	///
 	/// The events are needed to reconstruct the ReceiptInfo, as they represent the
-	/// logs emitted by the contract.
+	/// logs emitted by the contract. The events are consumed when the transaction is
+	/// completed and moved to the `InflightTransactions` storage object.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type InflightEvents<T: Config> =
@@ -569,8 +570,9 @@ pub mod pallet {
 	///
 	/// The transactions are needed to construct the ETH block.
 	///
-	/// This maps the transaction index to the transaction payload, the events emitted by the
-	/// transaction, the status of the transaction (success or not), and the gas consumed.
+	/// This contains the information about transaction payload, transaction index within the block,
+	/// the events emitted by the transaction, the status of the transaction (success or not), and
+	/// the gas consumed.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type InflightTransactions<T: Config> = CountedStorageMap<
@@ -581,17 +583,22 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	// /// The last block transaction details.
-	// #[pallet::storage]
-	// #[pallet::unbounded]
-	// pub(crate) type LastBlockDetails<T> = StorageValue<_, (BlockHeader, Vec<H256>), ValueQuery>;
-
-	/// The previous ETH block.
+	/// The current Ethereum block that is stored in the `on_finalize` method.
+	///
+	/// # Note
+	///
+	/// This could be further optimized into the future to store only the minimum
+	/// information needed to reconstruct the Ethereum block at the RPC level.
+	///
+	/// Since the block is convenient to have around, and the extra details are capped
+	/// by a few hashes and the vector of transaction hashes, we store the block here.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type LastBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+	pub(crate) type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
 
-	// Mapping for block number and hashes.
+	/// Mapping for block number and hashes.
+	///
+	/// The maximum number of elements stored is capped by the block hash count `BlockHashCount`.
 	#[pallet::storage]
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
@@ -619,13 +626,9 @@ pub mod pallet {
 		// We need this to place the substrate block
 		// hash into the logs of the receipts.
 		T::Hash: frame_support::traits::IsType<H256>,
-
 		// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
-
-		// T: pallet_transaction_payment::Config,
-		// OnChargeTransactionBalanceOf<T>: Into<BalanceOf<T>>,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		MomentOf<T>: Into<U256>,
 	{
@@ -686,7 +689,7 @@ pub mod pallet {
 				));
 			}
 			// Store the ETH block into the last block.
-			LastBlock::<T>::put(block);
+			EthereumBlock::<T>::put(block);
 		}
 
 		fn integrity_test() {
@@ -1590,11 +1593,19 @@ where
 		Self::convert_native_to_evm(balance)
 	}
 
+	/// Get the current Ethereum block from storage.
 	pub fn eth_block() -> EthBlock {
-		LastBlock::<T>::get()
+		EthereumBlock::<T>::get()
 	}
 
-	pub fn eth_block_number(number: U256) -> Option<H256> {
+	/// Convert the Ethereum block number into the Ethereum block hash.
+	///
+	/// # Note
+	///
+	/// The Ethereum block number is identical to the Substrate block number.
+	/// If the provided block number is outside of the pruning window defined by
+	/// `BlockHashCount` constant, then None is returned.
+	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
 			None
@@ -1985,7 +1996,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
-					$crate::Pallet::<Self>::eth_block_number(number)
+					$crate::Pallet::<Self>::eth_block_hash_from_number(number)
 				}
 
 				fn balance(address: $crate::H160) -> $crate::U256 {
