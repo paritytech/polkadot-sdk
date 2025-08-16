@@ -9,7 +9,7 @@ contract Bitwise {
         require(type(uint256).max-1 < type(uint256).max, "LT max");
 
         // REQUIRE IS NOT TRIGGERING FOR SOME REASON
-        require(5 > 10, "GT basic");
+        require(10 > 5, "GT basic");
         require(type(uint256).max > type(uint256).max-1, "GT max");
 
         require(5 != 10, "NEQ basic");

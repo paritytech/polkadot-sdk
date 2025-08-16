@@ -19,9 +19,10 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test},
+	tests::{builder, ExtBuilder, Test, test_utils::decode_revert_message},
 	Code, Config,
 };
+use pallet_revive_uapi::ReturnFlags;
 
 use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface, hex};
 use frame_support::traits::fungible::Mutate;
@@ -44,6 +45,18 @@ fn bitwise_works() {
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
+                if result.flags == ReturnFlags::REVERT {
+                    if let Some(revert_msg) = decode_revert_message(&result.data) {
+                        log::error!("Revert message: {}", revert_msg);
+                    } else {
+                        log::error!("Revert without message, raw data: {:?}", result.data);
+                    }
+                }
+                
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "bitwise test reverted"
+                );
 		});
 	}
 }
