@@ -17,10 +17,9 @@
 use core::marker::PhantomData;
 use frame_support::traits::tokens::asset_ops::{
 	common_strategies::{
-		ChangeOwnerFrom, ConfigValue, DeriveAndReportId, IfOwnedBy, Owner, WithConfig,
-		WithConfigValue,
+		ChangeOwnerFrom, ConfigValue, IfOwnedBy, Owner, WithConfig, WithConfigValue,
 	},
-	AssetDefinition, Create, Restore, Stash, Update,
+	AssetDefinition, Create, IdAssignment as IdAssignmentT, Restore, Stash, Update,
 };
 use xcm::latest::prelude::*;
 use xcm_executor::traits::{ConvertLocation, Error as MatchError, MatchesInstance, TransactAsset};
@@ -128,16 +127,19 @@ where
 /// (NFT-like entities), for which no `Matcher` can deduce the instance ID from the XCM
 /// [`AssetId`]. Instead, this adapter requires the `InstanceCreateOp` to create an instance using
 /// [`NonFungibleAsset`] as ID derivation parameter.
-pub struct UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>(
-	PhantomData<(AccountId, AccountIdConverter, Id, InstanceCreateOp)>,
-);
+pub struct UniqueInstancesDepositAdapter<
+	AccountId,
+	AccountIdConverter,
+	IdAssignment,
+	InstanceCreateOp,
+>(PhantomData<(AccountId, AccountIdConverter, IdAssignment, InstanceCreateOp)>);
 
-impl<AccountId, AccountIdConverter, Id, InstanceCreateOp> TransactAsset
-	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, Id, InstanceCreateOp>
+impl<AccountId, AccountIdConverter, IdAssignment, InstanceCreateOp> TransactAsset
+	for UniqueInstancesDepositAdapter<AccountId, AccountIdConverter, IdAssignment, InstanceCreateOp>
 where
 	AccountIdConverter: ConvertLocation<AccountId>,
-	InstanceCreateOp:
-		Create<WithConfig<ConfigValue<Owner<AccountId>>, DeriveAndReportId<NonFungibleAsset, Id>>>,
+	IdAssignment: IdAssignmentT + From<NonFungibleAsset>,
+	InstanceCreateOp: Create<WithConfig<ConfigValue<Owner<AccountId>>, IdAssignment>>,
 {
 	fn deposit_asset(what: &Asset, who: &Location, context: Option<&XcmContext>) -> XcmResult {
 		tracing::trace!(
@@ -158,7 +160,7 @@ where
 
 		InstanceCreateOp::create(WithConfig::new(
 			Owner::with_config_value(who),
-			DeriveAndReportId::from(asset),
+			IdAssignment::from(asset),
 		))
 		.map(|_reported_id| ())
 		.map_err(|e| XcmError::FailedToTransactAsset(e.into()))

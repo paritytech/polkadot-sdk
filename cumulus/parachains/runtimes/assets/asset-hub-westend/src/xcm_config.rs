@@ -13,12 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::DerivativeNfts;
+
 use super::{
 	governance::TreasuryAccount, AccountId, AllPalletsWithSystem, Assets, Balance, Balances,
-	BaseDeliveryFee, CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId,
-	FellowshipAdmin, ForeignAssets, GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, StakingAdmin,
-	ToRococoXcmRouter, TransactionByteFee, Treasurer, Uniques, WeightToFee, XcmpQueue,
+	BaseDeliveryFee, CollatorSelection, DepositPerByte, DepositPerItem, DerivativeNftCollections,
+	FeeAssetId, FellowshipAdmin, ForeignAssets, GeneralAdmin, Nfts, ParachainInfo, ParachainSystem,
+	PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin,
+	StakingAdmin, ToRococoXcmRouter, TransactionByteFee, Treasurer, Uniques, WeightToFee,
+	XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -28,31 +31,55 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration,
-		tokens::imbalance::{ResolveAssetTo, ResolveTo},
+		tokens::{
+			asset_ops::{
+				common_ops::{DisabledOps, MapId, StashAccountAssetOps},
+				common_strategies::{
+					Admin, DeriveAndReportId, DeriveStrategyThenCreate, Owner, WithConfigValue,
+				},
+			},
+			imbalance::{ResolveAssetTo, ResolveTo},
+		},
 		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
 	},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNone, EnsureRoot};
+use pallet_derivatives::{
+	DerivativesExtra, DerivativesRegistry, EnsureNotDerivativeInstance, MatchDerivativeInstances,
+	RegisterDerivative,
+};
+use pallet_nfts::{
+	asset_strategies::{CollectionConfig, CollectionDeposit, WithCollectionDeposit},
+	CollectionConfigFor, CollectionSetting, CollectionSettings, ItemSetting, ItemSettings,
+	MintSettings,
+};
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
-use parachains_common::xcm_config::{
-	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+use parachains_common::{
+	xcm_config::{
+		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
+	},
+	CollectionId, ItemId,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
+use sp_core::TypedGet;
+use sp_runtime::{
+	traits::{AccountIdConversion, Convert, TryConvertInto, Zero},
+	ArithmeticError, DispatchError,
+};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
 	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
-	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	unique_instances::{UniqueInstancesAdapter, UniqueInstancesDepositAdapter},
+	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
 	NetworkExportTableItem, NoChecking, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
@@ -62,7 +89,7 @@ use xcm_builder::{
 	TrailingSetTopicAsId, UnpaidRemoteExporter, UsingComponents, WeightInfoBounds,
 	WithComputedOrigin, WithLatestLocationConverter, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
-use xcm_executor::XcmExecutor;
+use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
@@ -81,6 +108,8 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
+	pub NftsPalletLocation: Location =
+		PalletInstance(<Nfts as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
@@ -139,16 +168,81 @@ pub type FungiblesTransactor = FungiblesAdapter<
 	CheckingAccount,
 >;
 
-/// Matcher for converting `ClassId`/`InstanceId` into a uniques asset.
+/// Matcher for converting `ClassId`/`InstanceId` into a pallet-uniques asset.
 pub type UniquesConvertedConcreteId =
 	assets_common::UniquesConvertedConcreteId<UniquesPalletLocation>;
 
-/// Means for transacting unique assets.
+/// Means for transacting NFTs from pallet-uniques.
 pub type UniquesTransactor = UniqueInstancesAdapter<
 	AccountId,
 	LocationToAccountId,
 	MatchInClassInstances<UniquesConvertedConcreteId>,
 	pallet_uniques::asset_ops::Item<Uniques>,
+>;
+
+/// Matcher for converting `ClassId`/`InstanceId` into a pallet-nfts asset.
+pub type NftsConvertedConcreteId = assets_common::NftsConvertedConcreteId<NftsPalletLocation>;
+
+type NftsStash = StashAccountAssetOps<TreasuryAccount, pallet_nfts::asset_ops::Item<Nfts>>;
+
+// TODO docs
+type NftsMatcher =
+	EnsureNotDerivativeInstance<DerivativeNfts, MatchInClassInstances<NftsConvertedConcreteId>>;
+
+type DerivativeNftsMatcher = MatchDerivativeInstances<DerivativeNfts>;
+
+/// Means for transacting existing NFTs from pallet-nfts.
+pub type NftsTransactor = UniqueInstancesAdapter<
+	AccountId,
+	LocationToAccountId,
+	(NftsMatcher, DerivativeNftsMatcher),
+	NftsStash,
+>;
+
+pub struct AssetDerivativeNftConvert;
+impl
+	Convert<
+		xcm_builder::unique_instances::NonFungibleAsset,
+		Result<(CollectionId, ItemId), DispatchError>,
+	> for AssetDerivativeNftConvert
+{
+	fn convert(
+		(asset_id, _asset_instance): xcm_builder::unique_instances::NonFungibleAsset,
+	) -> Result<(CollectionId, ItemId), DispatchError> {
+		let derivative_collection_id = DerivativeNftCollections::get_derivative(&asset_id)?;
+
+		let last_item_id =
+			DerivativeNftCollections::get_derivative_extra(&derivative_collection_id)
+				.unwrap_or_default();
+
+		let derivative_nft_id = (derivative_collection_id, last_item_id);
+
+		let new_last_item_id = last_item_id
+			.checked_add(1)
+			.ok_or(DispatchError::Arithmetic(ArithmeticError::Overflow))?;
+
+		DerivativeNftCollections::set_derivative_extra(
+			&derivative_collection_id,
+			Some(new_last_item_id),
+		)?;
+
+		Ok(derivative_nft_id)
+	}
+}
+
+pub type DerivativeNftsMinter = UniqueInstancesDepositAdapter<
+	AccountId,
+	LocationToAccountId,
+	DeriveAndReportId<xcm_builder::unique_instances::NonFungibleAsset, (CollectionId, ItemId)>,
+	RegisterDerivative<
+		DerivativeNfts,
+		MapId<
+			xcm_builder::unique_instances::NonFungibleAsset,
+			(CollectionId, ItemId),
+			AssetDerivativeNftConvert,
+			pallet_nfts::asset_ops::Item<Nfts>,
+		>,
+	>,
 >;
 
 /// `AssetId`/`Balance` converter for `ForeignAssets`.
@@ -236,6 +330,8 @@ pub type AssetTransactors = (
 	ForeignFungiblesTransactor,
 	PoolFungiblesTransactor,
 	UniquesTransactor,
+	NftsTransactor,
+	DerivativeNftsMinter,
 	ERC20Transactor,
 );
 
@@ -591,6 +687,89 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
+}
+
+/// Converts an asset's location to the corresponding sibling parachain sovereign account.
+pub struct SiblingAssetToReserveLocationConvert;
+impl ConvertLocation<AccountId> for SiblingAssetToReserveLocationConvert {
+	fn convert_location(location: &Location) -> Option<AccountId> {
+		match location.unpack() {
+			(1, [Parachain(para_id), ..]) =>
+				LocationToAccountId::convert_location(&Location::new(1, Parachain(*para_id))),
+			_ => None,
+		}
+	}
+}
+
+pub struct AssetIdDerivativeNftCollectionConvert;
+impl Convert<xcm::v5::AssetId, Result<WithCollectionDeposit<Runtime>, DispatchError>>
+	for AssetIdDerivativeNftCollectionConvert
+{
+	fn convert(
+		asset_id: xcm::v5::AssetId,
+	) -> Result<WithCollectionDeposit<Runtime>, DispatchError> {
+		let location = asset_id.0;
+
+		let sovereign_account =
+			SiblingAssetToReserveLocationConvert::convert_location(&location)
+				.ok_or(pallet_derivatives::InvalidAssetError::<DerivativeNftCollections>::get())?;
+
+		let restrictive_config = CollectionConfigFor::<Runtime> {
+			settings: CollectionSettings::from_enabled(CollectionSetting::TransferableItems.into()),
+			max_supply: None,
+			mint_settings: MintSettings {
+				default_item_settings: ItemSettings::from_enabled(ItemSetting::Transferable.into()),
+				..Default::default()
+			},
+		};
+
+		Ok(WithCollectionDeposit::from((
+			Owner::with_config_value(sovereign_account.clone()),
+			Admin::with_config_value(sovereign_account.clone()),
+			CollectionConfig::with_config_value(restrictive_config),
+			CollectionDeposit::with_config_value(Zero::zero()),
+		)))
+	}
+}
+
+impl pallet_derivatives::Config<pallet_derivatives::Instance1> for Runtime {
+	// TODO benchmark
+	type WeightInfo = pallet_derivatives::TestWeightInfo;
+
+	type Original = xcm::v5::AssetId;
+	type Derivative = CollectionId;
+
+	// the last item ID within the derivative collection
+	type DerivativeExtra = ItemId;
+
+	type CreateOrigin = GeneralAdmin;
+	type CreateOp = pallet_derivatives::StoreMapping<
+		DeriveStrategyThenCreate<
+			WithCollectionDeposit<Runtime>,
+			AssetIdDerivativeNftCollectionConvert,
+			pallet_nfts::asset_ops::Collection<Nfts>,
+		>,
+	>;
+
+	type DestroyOrigin = EnsureNone<AccountId>;
+	type DestroyOp = DisabledOps<xcm::v5::AssetId>;
+}
+
+impl pallet_derivatives::Config<pallet_derivatives::Instance2> for Runtime {
+	// TODO benchmark
+	type WeightInfo = pallet_derivatives::TestWeightInfo;
+
+	type Original = xcm_builder::unique_instances::NonFungibleAsset;
+	type Derivative = (CollectionId, ItemId);
+
+	type DerivativeExtra = ();
+
+	// Derivative NFTs can be created only within an XCM transaction.
+	type CreateOrigin = EnsureNone<AccountId>;
+	type CreateOp = DisabledOps<xcm_builder::unique_instances::NonFungibleAsset>;
+
+	type DestroyOrigin = EnsureNone<AccountId>;
+	type DestroyOp = DisabledOps<xcm_builder::unique_instances::NonFungibleAsset>;
 }
 
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.

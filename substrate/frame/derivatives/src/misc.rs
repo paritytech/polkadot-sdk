@@ -25,7 +25,7 @@ use frame_support::{
 			common_strategies::{
 				AutoId, ConfigValue, ConfigValueMarker, DeriveAndReportId, Owner, WithConfig,
 			},
-			Create,
+			AssetDefinition, Create,
 		},
 		Incrementable,
 	},
@@ -82,6 +82,9 @@ impl<Original, Derivative, R: DerivativesRegistry<Original, Derivative>>
 ///
 /// The mapping between them will be registered via the registry `R`.
 pub struct RegisterDerivative<R, CreateOp>(PhantomData<(R, CreateOp)>);
+impl<R, CreateOp: AssetDefinition> AssetDefinition for RegisterDerivative<R, CreateOp> {
+	type Id = CreateOp::Id;
+}
 impl<Original, Derivative, R, CreateOp> Create<DeriveAndReportId<Original, Derivative>>
 	for RegisterDerivative<R, CreateOp>
 where
@@ -303,7 +306,7 @@ where
 		AssetId(location): AssetId,
 	) -> Result<WithConfig<ConfigValue<Owner<AccountId>>, AutoId<ReportedId>>, DispatchError> {
 		CL::convert_location(&location)
-			.map(|account| WithConfig::new(ConfigValue(account), AutoId::auto()))
+			.map(|account| WithConfig::new(ConfigValue(account), AutoId::default()))
 			.ok_or(Err::get().into())
 	}
 }
