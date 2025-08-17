@@ -21,6 +21,7 @@ use super::*;
 use crate::macros::*;
 use alloc::{vec, vec::Vec};
 use codec::{DecodeWithMemTracking, EncodeLike};
+use derive_where::derive_where;
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	pallet_prelude::{BoundedVec, MaxEncodedLen},
@@ -329,6 +330,12 @@ impl CollectionSettings {
 	pub fn from_disabled(settings: BitFlags<CollectionSetting>) -> Self {
 		Self(settings)
 	}
+	// TODO test this
+	pub fn from_enabled(enabled: BitFlags<CollectionSetting>) -> Self {
+		let mut disabled = BitFlags::all();
+		disabled.remove(enabled);
+		Self::from_disabled(disabled)
+	}
 }
 
 impl_codec_bitflags!(CollectionSettings, u64, CollectionSetting);
@@ -453,13 +460,13 @@ pub enum PalletAttributes<CollectionId> {
 	Copy,
 	Decode,
 	DecodeWithMemTracking,
-	Default,
 	Encode,
 	MaxEncodedLen,
 	PartialEq,
 	RuntimeDebug,
 	TypeInfo,
 )]
+#[derive_where(Default)]
 pub struct CollectionConfig<Price, BlockNumber, CollectionId> {
 	/// Collection's settings.
 	pub settings: CollectionSettings,
@@ -513,6 +520,12 @@ impl ItemSettings {
 	}
 	pub fn from_disabled(settings: BitFlags<ItemSetting>) -> Self {
 		Self(settings)
+	}
+	// TODO test this
+	pub fn from_enabled(enabled: BitFlags<ItemSetting>) -> Self {
+		let mut disabled = BitFlags::all();
+		disabled.remove(enabled);
+		Self::from_disabled(disabled)
 	}
 }
 
@@ -653,4 +666,98 @@ pub struct PreSignedAttributes<CollectionId, ItemId, AccountId, Deadline> {
 	pub namespace: AttributeNamespace<AccountId>,
 	/// A deadline for the signature.
 	pub deadline: Deadline,
+}
+
+pub mod asset_strategies {
+	use core::marker::PhantomData;
+
+	use super::*;
+	use frame_support::traits::tokens::asset_ops::{
+		common_strategies::{Admin, AutoId, ConfigValue, Owner, PredefinedId, WithConfig},
+		InspectStrategy, UpdateStrategy,
+	};
+
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+	pub struct RegularAttribute<'a>(pub &'a [u8]);
+
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+	pub struct SystemAttribute<'a>(pub &'a [u8]);
+
+	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
+	pub struct CustomAttribute<'a, AccountId>(pub &'a AccountId, pub &'a [u8]);
+
+	#[derive_where(Default)]
+	pub struct CollectionConfig<Balance, BlockNumber, CollectionId>(
+		PhantomData<(Balance, BlockNumber, CollectionId)>,
+	);
+	impl<Balance, BlockNumber, CollectionId> InspectStrategy
+		for CollectionConfig<Balance, BlockNumber, CollectionId>
+	{
+		type Value = super::CollectionConfig<Balance, BlockNumber, CollectionId>;
+	}
+	impl<Balance, BlockNumber, CollectionId> UpdateStrategy
+		for CollectionConfig<Balance, BlockNumber, CollectionId>
+	{
+		type UpdateValue<'a> = super::CollectionConfig<Balance, BlockNumber, CollectionId>;
+		type Success = ();
+	}
+
+	#[derive_where(Default)]
+	pub struct CollectionDeposit<Balance>(PhantomData<Balance>);
+	impl<Balance> InspectStrategy for CollectionDeposit<Balance> {
+		type Value = Balance;
+	}
+
+	// TODO make good doc comments explaning that WithCollection* are defined in order,
+	// where each next type is a super-type of the previous one
+
+	pub type WithCollectionOwner<AccountId, CollectionId> =
+		WithConfig<ConfigValue<Owner<AccountId>>, AutoId<CollectionId>>;
+
+	pub type WithCollectionManagers<AccountId, CollectionId> = WithConfig<
+		(ConfigValue<Owner<AccountId>>, ConfigValue<Admin<AccountId>>),
+		AutoId<CollectionId>,
+	>;
+
+	pub type WithCollectionConfig<AccountId, Balance, BlockNumber, CollectionId> = WithConfig<
+		(
+			ConfigValue<Owner<AccountId>>,
+			ConfigValue<Admin<AccountId>>,
+			ConfigValue<CollectionConfig<Balance, BlockNumber, CollectionId>>,
+		),
+		AutoId<CollectionId>,
+	>;
+
+	pub type WithCollectionDeposit<AccountId, Balance, BlockNumber, CollectionId> = WithConfig<
+		(
+			ConfigValue<Owner<AccountId>>,
+			ConfigValue<Admin<AccountId>>,
+			ConfigValue<CollectionConfig<Balance, BlockNumber, CollectionId>>,
+			ConfigValue<CollectionDeposit<Balance>>,
+		),
+		AutoId<CollectionId>,
+	>;
+
+	pub struct Roles<'a, AccountId>(pub &'a AccountId);
+	impl<'a, AccountId> InspectStrategy for Roles<'a, AccountId> {
+		type Value = CollectionRoles;
+	}
+
+	#[derive(Default)]
+	pub struct ItemConfig;
+	impl InspectStrategy for ItemConfig {
+		type Value = super::ItemConfig;
+	}
+	impl UpdateStrategy for ItemConfig {
+		type UpdateValue<'a> = &'a super::ItemConfig;
+		type Success = ();
+	}
+
+	pub type WithItemOwner<AccountId, CollectionId, ItemId> =
+		WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<(CollectionId, ItemId)>>;
+
+	pub type WithItemConfig<AccountId, CollectionId, ItemId> = WithConfig<
+		(ConfigValue<Owner<AccountId>>, ConfigValue<ItemConfig>),
+		PredefinedId<(CollectionId, ItemId)>,
+	>;
 }

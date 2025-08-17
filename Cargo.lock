@@ -12509,6 +12509,7 @@ dependencies = [
 name = "pallet-nfts"
 version = "22.0.0"
 dependencies = [
+ "derive-where",
  "enumflags2",
  "frame-benchmarking",
  "frame-support",
