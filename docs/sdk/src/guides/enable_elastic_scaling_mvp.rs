@@ -1,12 +1,12 @@
 //! # Enable elastic scaling MVP for a parachain
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
-//! terminology, as defined in <a href="https://wiki.polkadot.network/docs/maintain-guides-async-backing">the Polkadot Wiki</a>.
+//! terminology, as defined in <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html">the Polkadot SDK Docs</a>.
 //! Furthermore, the parachain should have already been upgraded according to the guide.</div>
 //!
 //! ## Quick introduction to elastic scaling
 //!
-//! [Elastic scaling](https://polkadot.network/blog/elastic-scaling-streamling-growth-on-polkadot)
+//! [Elastic scaling](https://polkadot.com/blog/elastic-scaling-streamling-growth-on-polkadot)
 //! is a feature that will enable parachains to seamlessly scale up/down the number of used cores.
 //! This can be desirable in order to increase the compute or storage throughput of a parachain or
 //! to lower the latency between a transaction being submitted and it getting built in a parachain
@@ -70,10 +70,11 @@
 //! - Ensure enough coretime is assigned to the parachain. For maximum throughput the upper bound is
 //!   3 cores.
 //!
-//! <div class="warning">Phase 1 is not needed if using the <code>polkadot-parachain</code> binary
-//! built from the latest polkadot-sdk release! Simply pass the
-//! <code>--experimental-use-slot-based</code> parameter to the command line and jump to Phase
-//! 2.</div>
+//! <div class="warning">Phase 1 is NOT needed if using the <code>polkadot-parachain</code> or
+//! <code>polkadot-omni-node</code> binary, or <code>polkadot-omni-node-lib</code> built from the
+//! latest polkadot-sdk release! Simply pass the <code>--authoring slot-based</code>
+//! ([`polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based`]) parameter to the command
+//! line and jump to Phase 2.</div>
 //!
 //! The following steps assume using the cumulus parachain template.
 //!
@@ -85,16 +86,16 @@
 //! This phase consists of plugging in the new slot-based collator.
 //!
 //! 1. In `node/src/service.rs` import the slot based collator instead of the lookahead collator.
-#![doc = docify::embed!("../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/nodes/aura.rs", slot_based_colator_import)]
+#![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", slot_based_colator_import)]
 //!
 //! 2. In `start_consensus()`
 //!     - Remove the `overseer_handle` param (also remove the
 //!     `OverseerHandle` type import if it’s not used elsewhere).
 //!     - Rename `AuraParams` to `SlotBasedParams`, remove the `overseer_handle` field and add a
-//!     `slot_drift` field with a   value of `Duration::from_secs(1)`.
+//!     `slot_offset` field with a   value of `Duration::from_secs(1)`.
 //!     - Replace the single future returned by `aura::run` with the two futures returned by it and
 //!     spawn them as separate tasks:
-#![doc = docify::embed!("../../cumulus/polkadot-parachain/polkadot-parachain-lib/src/nodes/aura.rs", launch_slot_based_collator)]
+#![doc = docify::embed!("../../cumulus/polkadot-omni-node/lib/src/nodes/aura.rs", launch_slot_based_collator)]
 //!
 //! 3. In `start_parachain_node()` remove the `overseer_handle` param passed to `start_consensus`.
 //!

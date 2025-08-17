@@ -14,7 +14,7 @@ on:
         required: true
         options:
           - "TODO"
-          - "no change"
+          - "none"
           - "patch"
           - "minor"
           - "major"
@@ -25,18 +25,15 @@ on:
         required: true
         options:
           - "TODO"
-          - "Runtime Dev"
-          - "Runtime User"
-          - "Node Dev"
-          - "Node Operator"
+          - "runtime_dev"
+          - "runtime_user"
+          - "node_dev"
+          - "node_operator"
       overwrite:
-        type: choice
+        type: boolean
         description: Overwrite existing PrDoc
-        default: "true"
+        default: true
         required: true
-        options:
-          - "true"
-          - "false"
 
 concurrency:
   group: command-prdoc
@@ -77,8 +74,8 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_TOKEN: ${{ github.token }}
       - name: Push Commit
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: Add PrDoc (auto generated)
           branch: ${{ steps.gh.outputs.branch }}
-          file_pattern: 'prdoc/*.prdoc'
+          file_pattern: "prdoc/*.prdoc"

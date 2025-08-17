@@ -1,21 +1,21 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 use cumulus_primitives_core::ParaId;
-use polkadot_parachain_lib::chain_spec::GenericChainSpec;
+use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
 
@@ -127,7 +127,7 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 /// Sub-module for Rococo setup
 pub mod rococo {
 	use super::{ChainType, ParaId};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 
 	pub(crate) const BRIDGE_HUB_ROCOCO: &str = "bridge-hub-rococo";
 	pub(crate) const BRIDGE_HUB_ROCOCO_LOCAL: &str = "bridge-hub-rococo-local";
@@ -151,7 +151,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
@@ -161,6 +161,11 @@ pub mod rococo {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}
@@ -175,7 +180,7 @@ pub mod kusama {
 /// Sub-module for Westend setup.
 pub mod westend {
 	use super::{ChainType, ParaId};
-	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 
 	pub(crate) const BRIDGE_HUB_WESTEND: &str = "bridge-hub-westend";
 	pub(crate) const BRIDGE_HUB_WESTEND_LOCAL: &str = "bridge-hub-westend-local";
@@ -195,7 +200,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not build, please build it!"),
-			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+			Extensions { relay_chain: relay_chain.to_string() },
 		)
 		.with_name(chain_name)
 		.with_id(super::ensure_id(id).expect("invalid id"))
@@ -205,6 +210,11 @@ pub mod westend {
 			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
 			_ => panic!("chain_type: {chain_type:?} not supported here!"),
 		})
+		.with_genesis_config_patch(serde_json::json!({
+			"parachainInfo": {
+				"parachainId": para_id,
+			},
+		}))
 		.with_properties(properties)
 		.build()
 	}

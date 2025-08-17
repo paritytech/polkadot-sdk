@@ -30,7 +30,7 @@ use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
 		self as frame,
-		prelude::*,
+		deps::sp_genesis_builder,
 		runtime::{apis, prelude::*},
 	},
 	*,
@@ -38,37 +38,33 @@ use polkadot_sdk::{
 
 /// Provides getters for genesis configuration presets.
 pub mod genesis_config_presets {
+	use super::*;
 	use crate::{
 		interface::{Balance, MinimumBalance},
-		sp_genesis_builder::PresetId,
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		BalancesConfig, RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
-	use polkadot_sdk::{sp_core::Get, sp_genesis_builder};
 	use serde_json::Value;
 
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
 		let endowment = <MinimumBalance as Get<Balance>>::get().max(1) * 1000;
-		let config = RuntimeGenesisConfig {
+		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: AccountKeyring::iter()
+				balances: Sr25519Keyring::iter()
 					.map(|a| (a.to_account_id(), endowment))
 					.collect::<Vec<_>>(),
 			},
-			sudo: SudoConfig { key: Some(AccountKeyring::Alice.to_account_id()) },
-			..Default::default()
-		};
-
-		serde_json::to_value(config).expect("Could not build genesis config.")
+			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+		})
 	}
 
 	/// Get the set of the available genesis config presets.
 	pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-		let patch = match id.try_into() {
-			Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => development_config_genesis(),
+		let patch = match id.as_ref() {
+			sp_genesis_builder::DEV_RUNTIME_PRESET => development_config_genesis(),
 			_ => return None,
 		};
 		Some(
@@ -87,8 +83,8 @@ pub mod genesis_config_presets {
 /// The runtime version.
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("minimal-template-runtime"),
-	impl_name: create_runtime_str!("minimal-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
@@ -103,8 +99,10 @@ pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
-/// The signed extensions that are added to the runtime.
-type SignedExtra = (
+/// The transaction extensions that are added to the runtime.
+type TxExtension = (
+	// Authorize calls that validate themselves.
+	frame_system::AuthorizeCall<Runtime>,
 	// Checks that the sender is not the zero address.
 	frame_system::CheckNonZeroSender<Runtime>,
 	// Checks that the runtime version is correct.
@@ -122,6 +120,10 @@ type SignedExtra = (
 	// Ensures that the sender has enough funds to pay for the transaction
 	// and deducts the fee from the sender's account.
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	// Reclaim the unused weight from the block using post dispatch information.
+	// It must be last in the pipeline in order to catch the refund in previous transaction
+	// extensions
+	frame_system::WeightReclaim<Runtime>,
 );
 
 // Composes the runtime by adding all the used pallets and deriving necessary types.
@@ -138,7 +140,8 @@ mod runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Runtime;
 
@@ -207,7 +210,7 @@ impl pallet_transaction_payment::Config for Runtime {
 // Implements the types required for the template pallet.
 impl pallet_minimal_template::Config for Runtime {}
 
-type Block = frame::runtime::types_common::BlockOf<Runtime, SignedExtra>;
+type Block = frame::runtime::types_common::BlockOf<Runtime, TxExtension>;
 type Header = HeaderFor<Runtime>;
 
 type RuntimeExecutive =
@@ -314,16 +317,16 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+	impl apis::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
 		}
 
-		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {
+		fn get_preset(id: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(id, self::genesis_config_presets::get_preset)
 		}
 
-		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+		fn preset_names() -> Vec<PresetId> {
 			self::genesis_config_presets::preset_names()
 		}
 	}

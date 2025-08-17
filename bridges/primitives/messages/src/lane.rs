@@ -16,7 +16,7 @@
 
 //! Primitives of messages module, that represents lane id.
 
-use codec::{Codec, Decode, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::{RuntimeDebug, TypeId, H256};
@@ -50,6 +50,7 @@ pub trait LaneIdType:
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -108,8 +109,8 @@ impl TypeId for LegacyLaneId {
 /// concatenation (separated by some binary data). I.e.:
 ///
 /// ```nocompile
-/// let endpoint1 = X2(GlobalConsensus(NetworkId::Rococo), Parachain(42));
-/// let endpoint2 = X2(GlobalConsensus(NetworkId::Wococo), Parachain(777));
+/// let endpoint1 = X2(GlobalConsensus(NetworkId::Polkadot), Parachain(42));
+/// let endpoint2 = X2(GlobalConsensus(NetworkId::Kusama), Parachain(777));
 ///
 /// let final_lane_key = if endpoint1 < endpoint2 {
 ///     (endpoint1, VALUES_SEPARATOR, endpoint2)
@@ -121,6 +122,7 @@ impl TypeId for LegacyLaneId {
 	Clone,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,

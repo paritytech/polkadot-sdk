@@ -17,6 +17,7 @@ use crate::imports::*;
 use frame_support::traits::OnInitialize;
 use pallet_broker::{ConfigRecord, Configuration, CoreAssignment, CoreMask, ScheduleItem};
 use rococo_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use sp_runtime::Perbill;
 
 #[test]
@@ -34,6 +35,10 @@ fn transact_hardcoded_weights_are_sane() {
 	type CoretimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
 	type RelayEvent = <Rococo as Chain>::RuntimeEvent;
 
+	Rococo::execute_with(|| {
+		Dmp::make_parachain_reachable(CoretimeRococo::para_id());
+	});
+
 	// Reserve a workload, configure broker and start sales.
 	CoretimeRococo::execute_with(|| {
 		// Hooks don't run in emulated tests - workaround as we need `on_initialize` to tick things
@@ -46,7 +51,7 @@ fn transact_hardcoded_weights_are_sane() {
 
 		// Create and populate schedule with the worst case assignment on this core.
 		let mut schedule = Vec::new();
-		for i in 0..27 {
+		for i in 0..80 {
 			schedule.push(ScheduleItem {
 				mask: CoreMask::void().set(i),
 				assignment: CoreAssignment::Task(2000 + i),

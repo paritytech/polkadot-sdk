@@ -22,6 +22,7 @@
 
 use polkadot_sdk::{
 	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
+	sp_consensus_babe::inherents::BabeCreateInherentDataProviders,
 	sp_consensus_beefy as beefy_primitives, *,
 };
 
@@ -32,7 +33,6 @@ use frame_system_rpc_runtime_api::AccountNonceApi;
 use futures::prelude::*;
 use kitchensink_runtime::RuntimeApi;
 use node_primitives::Block;
-use polkadot_sdk::sc_service::build_polkadot_syncing_strategy;
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_babe::{self, SlotProportion};
 use sc_network::{
@@ -42,6 +42,7 @@ use sc_network_sync::{strategy::warp::WarpSyncConfig, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_statement_store::Store as StatementStore;
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
@@ -80,7 +81,7 @@ type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
 >;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block, FullClient>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -120,8 +121,9 @@ pub fn create_extrinsic(
 		.map(|c| c / 2)
 		.unwrap_or(2) as u64;
 	let tip = 0;
-	let extra: kitchensink_runtime::SignedExtra =
+	let tx_ext: kitchensink_runtime::TxExtension =
 		(
+			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -138,12 +140,14 @@ pub fn create_extrinsic(
 				>::from(tip, None),
 			),
 			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<kitchensink_runtime::Runtime>::new(),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
 		function.clone(),
-		extra.clone(),
+		tx_ext.clone(),
 		(
+			(),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -153,16 +157,18 @@ pub fn create_extrinsic(
 			(),
 			(),
 			None,
+			(),
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
 
-	kitchensink_runtime::UncheckedExtrinsic::new_signed(
+	generic::UncheckedExtrinsic::new_signed(
 		function,
 		sp_runtime::AccountId32::from(sender.public()).into(),
 		kitchensink_runtime::Signature::Sr25519(signature),
-		extra,
+		tx_ext,
 	)
+	.into()
 }
 
 /// Creates a new partial node.
@@ -175,7 +181,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -185,6 +191,8 @@ pub fn new_partial(
 					Block,
 					FullClient,
 					FullBeefyBlockImport<FullGrandpaBlockImport>,
+					BabeCreateInherentDataProviders<Block>,
+					FullSelectChain,
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
@@ -226,12 +234,15 @@ pub fn new_partial(
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
+	let transaction_pool = Arc::from(
+		sc_transaction_pool::Builder::new(
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+			config.role.is_authority().into(),
+		)
+		.with_options(config.transaction_pool.clone())
+		.with_prometheus(config.prometheus_registry())
+		.build(),
 	);
 
 	let (grandpa_block_import, grandpa_link) = grandpa::block_import(
@@ -251,35 +262,35 @@ pub fn new_partial(
 			config.prometheus_registry().cloned(),
 		);
 
+	let babe_config = sc_consensus_babe::configuration(&*client)?;
+	let slot_duration = babe_config.slot_duration();
 	let (block_import, babe_link) = sc_consensus_babe::block_import(
-		sc_consensus_babe::configuration(&*client)?,
+		babe_config,
 		beefy_block_import,
 		client.clone(),
+		Arc::new(move |_, _| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			let slot =
+			sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
+			Ok((slot, timestamp))
+		}) as BabeCreateInherentDataProviders<Block>,
+		select_chain.clone(),
+		OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 	)?;
 
-	let slot_duration = babe_link.config().slot_duration();
 	let (import_queue, babe_worker_handle) =
 		sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
 			link: babe_link.clone(),
 			block_import: block_import.clone(),
 			justification_import: Some(Box::new(justification_import)),
 			client: client.clone(),
-			select_chain: select_chain.clone(),
-			create_inherent_data_providers: move |_, ()| async move {
-				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-				let slot =
-				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-					*timestamp,
-					slot_duration,
-				);
-
-				Ok((slot, timestamp))
-			},
+			slot_duration,
 			spawner: &task_manager.spawn_essential_handle(),
 			registry: config.prometheus_registry(),
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
-			offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool.clone()),
 		})?;
 
 	let import_setup = (block_import, grandpa_link, babe_link, beefy_voter_links);
@@ -385,7 +396,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -400,6 +411,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			Block,
 			FullClient,
 			FullBeefyBlockImport<FullGrandpaBlockImport>,
+			BabeCreateInherentDataProviders<Block>,
+			FullSelectChain,
 		>,
 		&sc_consensus_babe::BabeLink<Block>,
 	),
@@ -415,10 +428,12 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let enable_offchain_worker = config.offchain_worker.enabled;
 
 	let hwbench = (!disable_hardware_benchmarks)
-		.then_some(config.database.path().map(|database_path| {
-			let _ = std::fs::create_dir_all(&database_path);
-			sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
-		}))
+		.then(|| {
+			config.database.path().map(|database_path| {
+				let _ = std::fs::create_dir_all(&database_path);
+				sc_sysinfo::gather_hwbench(Some(database_path), &SUBSTRATE_REFERENCE_HARDWARE)
+			})
+		})
 		.flatten();
 
 	let sc_service::PartialComponents {
@@ -507,17 +522,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		Vec::default(),
 	));
 
-	let syncing_strategy = build_polkadot_syncing_strategy(
-		config.protocol_id(),
-		config.chain_spec.fork_id(),
-		&mut net_config,
-		Some(WarpSyncConfig::WithProvider(warp_sync)),
-		client.clone(),
-		&task_manager.spawn_handle(),
-		config.prometheus_config.as_ref().map(|config| &config.registry),
-	)?;
-
-	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			net_config,
@@ -526,7 +531,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
-			syncing_strategy,
+			warp_sync_config: Some(WarpSyncConfig::WithProvider(warp_sync)),
 			block_relay: None,
 			metrics,
 		})?;
@@ -547,6 +552,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		task_manager.spawn_handle().spawn("mixnet", None, mixnet);
 	}
 
+	let net_config_path = config.network.net_config_path.clone();
 	let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		config,
 		backend: backend.clone(),
@@ -659,6 +665,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				sc_authority_discovery::WorkerConfig {
 					publish_non_global_ips: auth_disc_publish_non_global_ips,
 					public_addresses: auth_disc_public_addresses,
+					persisted_cache_directory: net_config_path,
 					..Default::default()
 				},
 				client.clone(),
@@ -666,6 +673,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				Box::pin(dht_event_stream),
 				authority_discovery_role,
 				prometheus_registry.clone(),
+				task_manager.spawn_handle(),
 			);
 
 		task_manager.spawn_handle().spawn(
@@ -783,9 +791,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	);
 
 	if enable_offchain_worker {
-		task_manager.spawn_handle().spawn(
-			"offchain-workers-runner",
-			"offchain-work",
+		let offchain_workers =
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				keystore: Some(keystore_container.keystore()),
@@ -799,13 +805,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 				custom_extensions: move |_| {
 					vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
 				},
-			})
-			.run(client.clone(), task_manager.spawn_handle())
-			.boxed(),
+			})?;
+		task_manager.spawn_handle().spawn(
+			"offchain-workers-runner",
+			"offchain-work",
+			offchain_workers.run(client.clone(), task_manager.spawn_handle()).boxed(),
 		);
 	}
 
-	network_starter.start_network();
 	Ok(NewFullBase {
 		task_manager,
 		client,
@@ -862,24 +869,24 @@ mod tests {
 	use codec::Encode;
 	use kitchensink_runtime::{
 		constants::{currency::CENTS, time::SLOT_DURATION},
-		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
+		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
-	use polkadot_sdk::*;
+	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
 	use sc_keystore::LocalKeystore;
 	use sc_service_test::TestNetNode;
-	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
+	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;
-	use sp_keyring::AccountKeyring;
+	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
 	use sp_runtime::{
-		generic::{Digest, Era, SignedPayload},
+		generic::{self, Digest, Era, SignedPayload},
 		key_types::BABE,
 		traits::{Block as BlockT, Header as HeaderT, IdentifyAccount, Verify},
 		RuntimeAppPublic,
@@ -911,8 +918,8 @@ mod tests {
 		let mut slot = 1u64;
 
 		// For the extrinsics factory
-		let bob = Arc::new(AccountKeyring::Bob.pair());
-		let charlie = Arc::new(AccountKeyring::Charlie.pair());
+		let bob = Arc::new(Sr25519Keyring::Bob.pair());
+		let charlie = Arc::new(Sr25519Keyring::Charlie.pair());
 		let mut index = 0;
 
 		sc_service_test::sync(
@@ -924,7 +931,7 @@ mod tests {
 						config,
 						None,
 						false,
-						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _>,
+						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
 						},
@@ -985,7 +992,7 @@ mod tests {
 						sc_consensus_babe::authorship::claim_slot(slot.into(), &epoch, &keystore)
 							.map(|(digest, _)| digest)
 					{
-						break (babe_pre_digest, epoch_descriptor)
+						break (babe_pre_digest, epoch_descriptor);
 					}
 
 					slot += 1;
@@ -1005,11 +1012,15 @@ mod tests {
 				digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(babe_pre_digest));
 
 				let new_block = futures::executor::block_on(async move {
-					let proposer = proposer_factory.init(&parent_header).await;
-					proposer
-						.unwrap()
-						.propose(inherent_data, digest, std::time::Duration::from_secs(1), None)
-						.await
+					let proposer = proposer_factory.init(&parent_header).await.unwrap();
+					Proposer::propose(
+						proposer,
+						inherent_data,
+						digest,
+						std::time::Duration::from_secs(1),
+						None,
+					)
+					.await
 				})
 				.expect("Error making test block")
 				.block;
@@ -1055,6 +1066,7 @@ mod tests {
 					value: amount,
 				});
 
+				let authorize_call = frame_system::AuthorizeCall::new();
 				let check_non_zero_sender = frame_system::CheckNonZeroSender::new();
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
@@ -1065,8 +1077,10 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
-				let extra = (
+				let tx_ext: TxExtension = (
+					authorize_call,
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1076,11 +1090,13 @@ mod tests {
 					check_weight,
 					tx_payment,
 					metadata_hash,
+					weight_reclaim,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
-					extra,
+					tx_ext,
 					(
+						(),
 						(),
 						spec_version,
 						transaction_version,
@@ -1090,13 +1106,22 @@ mod tests {
 						(),
 						(),
 						None,
+						(),
 					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
-				let (function, extra, _) = raw_payload.deconstruct();
+				let (function, tx_ext, _) = raw_payload.deconstruct();
 				index += 1;
-				UncheckedExtrinsic::new_signed(function, from.into(), signature.into(), extra)
-					.into()
+				let utx: kitchensink_runtime::UncheckedExtrinsic =
+					generic::UncheckedExtrinsic::new_signed(
+						function,
+						from.into(),
+						signature.into(),
+						tx_ext,
+					)
+					.into();
+
+				utx.into()
 			},
 		);
 	}

@@ -613,14 +613,16 @@ impl<'a, 'b> codec::Input for JoinInput<'a, 'b> {
 mod tests {
 	use super::*;
 	use codec::Input;
-	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
-	type Block = RawBlock<ExtrinsicWrapper<u32>>;
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
+
+	pub type UncheckedXt = TestXt<MockCallU64, ()>;
+	type Block = RawBlock<UncheckedXt>;
 
 	#[cfg(feature = "rocksdb")]
 	#[test]
 	fn database_type_subdir_migration() {
 		use std::path::PathBuf;
-		type Block = RawBlock<ExtrinsicWrapper<u64>>;
+		type Block = RawBlock<UncheckedXt>;
 
 		fn check_dir_for_db_type(
 			db_type: DatabaseType,

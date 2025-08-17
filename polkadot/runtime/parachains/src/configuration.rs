@@ -18,7 +18,7 @@
 //!
 //! Configuration can change only at session boundaries and is buffered until then.
 
-use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use crate::shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -49,6 +49,9 @@ const LOG_TARGET: &str = "runtime::configuration";
 // This value is derived from network layer limits. See `sc_network::MAX_RESPONSE_SIZE` and
 // `polkadot_node_network_protocol::POV_RESPONSE_SIZE`.
 const POV_SIZE_HARD_LIMIT: u32 = 16 * 1024 * 1024;
+
+// The maximum compression ratio that we use to compute the maximum uncompressed code size.
+pub(crate) const MAX_VALIDATION_CODE_COMPRESSION_RATIO: u32 = 10;
 
 /// All configuration of the runtime with respect to paras.
 #[derive(
@@ -323,7 +326,9 @@ pub enum InconsistentError<BlockNumber> {
 	},
 	/// `validation_upgrade_delay` is less than or equal 1.
 	ValidationUpgradeDelayIsTooLow { validation_upgrade_delay: BlockNumber },
-	/// Maximum UMP message size ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`]) exceeded.
+	/// Maximum UMP message size
+	/// ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND))
+	/// exceeded.
 	MaxUpwardMessageSizeExceeded { max_message_size: u32 },
 	/// Maximum HRMP message num ([`MAX_HORIZONTAL_MESSAGE_NUM`]) exceeded.
 	MaxHorizontalMessageNumExceeded { max_message_num: u32 },
@@ -337,8 +342,6 @@ pub enum InconsistentError<BlockNumber> {
 	ZeroMinimumBackingVotes,
 	/// `executor_params` are inconsistent.
 	InconsistentExecutorParams { inner: ExecutorParamError },
-	/// TTL should be bigger than lookahead
-	LookaheadExceedsTTL,
 	/// Lookahead is zero, while it must be at least 1 for parachains to work.
 	LookaheadZero,
 	/// Passed in queue size for on-demand was too large.
@@ -432,10 +435,6 @@ where
 
 		if let Err(inner) = self.executor_params.check_consistency() {
 			return Err(InconsistentExecutorParams { inner })
-		}
-
-		if self.scheduler_params.ttl < self.scheduler_params.lookahead.into() {
-			return Err(LookaheadExceedsTTL)
 		}
 
 		if self.scheduler_params.lookahead == 0 {
@@ -686,18 +685,7 @@ pub mod pallet {
 			Self::set_coretime_cores_unchecked(new)
 		}
 
-		/// Set the max number of times a claim may timeout on a core before it is abandoned
-		#[pallet::call_index(7)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_u32(),
-			DispatchClass::Operational,
-		))]
-		pub fn set_max_availability_timeouts(origin: OriginFor<T>, new: u32) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.max_availability_timeouts = new;
-			})
-		}
+		// Call index 7 used to be `set_max_availability_timeouts`, which was removed.
 
 		/// Set the parachain validator-group rotation frequency
 		#[pallet::call_index(8)]
@@ -890,7 +878,6 @@ pub mod pallet {
 		))]
 		pub fn set_max_upward_queue_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new <= MAX_UPWARD_MESSAGE_SIZE_BOUND, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
 				config.max_upward_queue_size = new;
@@ -1193,18 +1180,8 @@ pub mod pallet {
 				config.scheduler_params.on_demand_target_queue_utilization = new;
 			})
 		}
-		/// Set the on demand (parathreads) ttl in the claimqueue.
-		#[pallet::call_index(51)]
-		#[pallet::weight((
-			T::WeightInfo::set_config_with_block_number(),
-			DispatchClass::Operational
-		))]
-		pub fn set_on_demand_ttl(origin: OriginFor<T>, new: BlockNumberFor<T>) -> DispatchResult {
-			ensure_root(origin)?;
-			Self::schedule_config_update(|config| {
-				config.scheduler_params.ttl = new;
-			})
-		}
+
+		// Call index 51 used to be `set_on_demand_ttl`, which was removed.
 
 		/// Set the minimum backing votes threshold.
 		#[pallet::call_index(52)]
@@ -1371,13 +1348,16 @@ impl<T: Config> Pallet<T> {
 	/// will check if the previous configuration was valid. If it was invalid, we proceed with
 	/// updating the configuration, giving a chance to recover from such a condition.
 	///
-	/// The actual configuration change take place after a couple of sessions have passed. In case
-	/// this function is called more than once in a session, then the pending configuration change
-	/// will be updated and the changes will be applied at once.
-	// NOTE: Explicitly tell rustc not to inline this because otherwise heuristics note the incoming
-	// closure making it's attractive to inline. However, in this case, we will end up with lots of
-	// duplicated code (making this function to show up in the top of heaviest functions) only for
-	// the sake of essentially avoiding an indirect call. Doesn't worth it.
+	/// The actual configuration change takes place after a couple of sessions have passed. In case
+	/// this function is called more than once in the same session, then the pending configuration
+	/// change will be updated.
+	/// In other words, all the configuration changes made in the same session will be folded
+	/// together in the order they were made, and only once the scheduled session is reached will
+	/// the final pending configuration be applied.
+	// NOTE: Explicitly tell rustc not to inline this, because otherwise heuristics note the
+	// incoming closure make it attractive to inline. However, in that case, we will end up with
+	// lots of duplicated code (making this function show up on top of the heaviest functions) only
+	// for the sake of essentially avoiding an indirect call. It is not worth it.
 	#[inline(never)]
 	pub(crate) fn schedule_config_update(
 		updater: impl FnOnce(&mut HostConfiguration<BlockNumberFor<T>>),

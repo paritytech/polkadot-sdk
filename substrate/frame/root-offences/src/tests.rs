@@ -16,15 +16,22 @@
 // limitations under the License.
 
 use super::*;
-use frame_support::{assert_err, assert_ok};
-use mock::{active_era, start_session, Balances, ExtBuilder, RootOffences, RuntimeOrigin, System};
+use frame_support::{assert_err, assert_noop, assert_ok};
+use mock::{
+	active_era, advance_blocks, start_session, ExtBuilder, RootOffences, RuntimeOrigin, System,
+	Test as T,
+};
+use pallet_staking::asset;
 
 #[test]
 fn create_offence_fails_given_signed_origin() {
 	use sp_runtime::traits::BadOrigin;
 	ExtBuilder::default().build_and_execute(|| {
 		let offenders = (&[]).to_vec();
-		assert_err!(RootOffences::create_offence(RuntimeOrigin::signed(1), offenders), BadOrigin);
+		assert_err!(
+			RootOffences::create_offence(RuntimeOrigin::signed(1), offenders, None, None),
+			BadOrigin
+		);
 	})
 }
 
@@ -35,18 +42,27 @@ fn create_offence_works_given_root_origin() {
 
 		assert_eq!(active_era(), 0);
 
-		assert_eq!(Balances::free_balance(11), 1000);
+		assert_eq!(asset::staked::<T>(&11), 1000);
 
 		let offenders = [(11, Perbill::from_percent(50))].to_vec();
-		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone()));
+		assert_ok!(RootOffences::create_offence(
+			RuntimeOrigin::root(),
+			offenders.clone(),
+			None,
+			None
+		));
 
 		System::assert_last_event(Event::OffenceCreated { offenders }.into());
+
+		// offence is processed in the following block.
+		advance_blocks(1);
+
 		// the slash should be applied right away.
-		assert_eq!(Balances::free_balance(11), 500);
+		assert_eq!(asset::staked::<T>(&11), 500);
 
 		// the other validator should keep their balance, because we only created
 		// an offences for the first validator.
-		assert_eq!(Balances::free_balance(21), 1000);
+		assert_eq!(asset::staked::<T>(&21), 1000);
 	})
 }
 
@@ -57,19 +73,13 @@ fn create_offence_wont_slash_non_active_validators() {
 
 		assert_eq!(active_era(), 0);
 
-		// 31 is not an active validator.
-		assert_eq!(Balances::free_balance(31), 500);
-
+		// we cannot even submit an offence for this, because we cannot generate an identification
+		// for them.
 		let offenders = [(31, Perbill::from_percent(20)), (11, Perbill::from_percent(20))].to_vec();
-		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone()));
-
-		System::assert_last_event(Event::OffenceCreated { offenders }.into());
-
-		// so 31 didn't get slashed.
-		assert_eq!(Balances::free_balance(31), 500);
-
-		// but 11 is an active validator so they got slashed.
-		assert_eq!(Balances::free_balance(11), 800);
+		assert_noop!(
+			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None, None),
+			"failed to call FullIdentificationOf"
+		);
 	})
 }
 
@@ -81,14 +91,14 @@ fn create_offence_wont_slash_idle() {
 		assert_eq!(active_era(), 0);
 
 		// 41 is idle.
-		assert_eq!(Balances::free_balance(41), 1000);
+		assert_eq!(asset::staked::<T>(&41), 1000);
 
+		// we cannot even submit an offence for this, because we cannot generate an identification
+		// for them.
 		let offenders = [(41, Perbill::from_percent(50))].to_vec();
-		assert_ok!(RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone()));
-
-		System::assert_last_event(Event::OffenceCreated { offenders }.into());
-
-		// 41 didn't get slashed.
-		assert_eq!(Balances::free_balance(41), 1000);
+		assert_noop!(
+			RootOffences::create_offence(RuntimeOrigin::root(), offenders.clone(), None, None),
+			"failed to call FullIdentificationOf"
+		);
 	})
 }

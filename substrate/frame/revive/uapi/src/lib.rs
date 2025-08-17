@@ -17,12 +17,30 @@
 //! Refer to substrate FRAME contract module for more documentation.
 
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod flags;
 pub use flags::*;
 mod host;
+mod macros;
 
 pub use host::{HostFn, HostFnImpl};
+
+/// Convert a u64 into a [u8; 32].
+pub const fn u256_bytes(value: u64) -> [u8; 32] {
+	let mut buffer = [0u8; 32];
+	let bytes = value.to_le_bytes();
+
+	buffer[0] = bytes[0];
+	buffer[1] = bytes[1];
+	buffer[2] = bytes[2];
+	buffer[3] = bytes[3];
+	buffer[4] = bytes[4];
+	buffer[5] = bytes[5];
+	buffer[6] = bytes[6];
+	buffer[7] = bytes[7];
+	buffer
+}
 
 macro_rules! define_error_codes {
     (
@@ -65,6 +83,12 @@ impl From<ReturnErrorCode> for u32 {
 	}
 }
 
+impl From<ReturnErrorCode> for u64 {
+	fn from(error: ReturnErrorCode) -> Self {
+		u32::from(error).into()
+	}
+}
+
 define_error_codes! {
 	/// The called function trapped and has its state changes reverted.
 	/// In this case no output buffer is returned.
@@ -79,23 +103,15 @@ define_error_codes! {
 	/// Transfer failed for other not further specified reason. Most probably
 	/// reserved or locked balance of the sender that was preventing the transfer.
 	TransferFailed = 4,
-	/// No code could be found at the supplied code hash.
-	CodeNotFound = 5,
-	/// The account that was called is no contract.
-	NotCallable = 6,
-	/// The call to `debug_message` had no effect because debug message
-	/// recording was disabled.
-	LoggingDisabled = 7,
-	/// The call dispatched by `call_runtime` was executed but returned an error.
-	CallRuntimeFailed = 8,
+	/// The subcall ran out of weight or storage deposit.
+	OutOfResources = 5,
 	/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
-	EcdsaRecoveryFailed = 9,
+	EcdsaRecoveryFailed = 7,
 	/// sr25519 signature verification failed.
-	Sr25519VerifyFailed = 10,
-	/// The `xcm_execute` call failed.
-	XcmExecutionFailed = 11,
-	/// The `xcm_send` call failed.
-	XcmSendFailed = 12,
+	Sr25519VerifyFailed = 8,
+	/// Contract instantiation failed because the address already exists.
+	/// Occurs when instantiating the same contract with the same salt more than once.
+	DuplicateContractAddress = 11,
 }
 
 /// The raw return code returned by the host side.
@@ -129,3 +145,14 @@ impl ReturnCode {
 }
 
 type Result = core::result::Result<(), ReturnErrorCode>;
+
+/// Helper to pack two `u32` values into a `u64` register.
+///
+/// Pointers to PVM memory are always 32 bit in size. Thus contracts can pack two
+/// pointers into a single register when calling a syscall API method.
+///
+/// This is done in syscall API methods where the number of arguments is exceeding
+/// the available registers.
+pub fn pack_hi_lo(hi: u32, lo: u32) -> u64 {
+	((hi as u64) << 32) | lo as u64
+}

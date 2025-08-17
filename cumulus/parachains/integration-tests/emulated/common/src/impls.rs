@@ -31,6 +31,7 @@ pub use frame_support::{
 pub use pallet_assets;
 pub use pallet_message_queue;
 pub use pallet_xcm;
+pub use xcm;
 
 // Polkadot
 pub use polkadot_runtime_parachains::{
@@ -233,7 +234,7 @@ macro_rules! impl_assert_events_helpers_for_relay_chain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::XcmPallet(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error: $crate::impls::xcm::prelude::InstructionError { error, .. } } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -370,6 +371,8 @@ macro_rules! impl_send_transact_helpers_for_relay_chain {
 						let destination:  $crate::impls::Location = <Self as RelayChain>::child_location_of(recipient);
 						let xcm = $crate::impls::xcm_transact_unpaid_execution(call, $crate::impls::OriginKind::Superuser);
 
+						$crate::impls::dmp::Pallet::<<Self as $crate::impls::Chain>::Runtime>::make_parachain_reachable(recipient);
+
 						// Send XCM `Transact`
 						$crate::impls::assert_ok!(<Self as [<$chain RelayPallet>]>::XcmPallet::send(
 							root_origin,
@@ -469,7 +472,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Dispatchable is properly executed and XCM message sent
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Incomplete { used: weight, error: $crate::impls::xcm::prelude::InstructionError { error, .. } } }
 							) => {
 								weight: $crate::impls::weight_within_threshold(
 									($crate::impls::REF_TIME_THRESHOLD, $crate::impls::PROOF_SIZE_THRESHOLD),
@@ -489,7 +492,7 @@ macro_rules! impl_assert_events_helpers_for_parachain {
 						vec![
 							// Execution fails in the origin with `Barrier`
 							[<$chain RuntimeEvent>]::<N>::PolkadotXcm(
-								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error { error } }
+								$crate::impls::pallet_xcm::Event::Attempted { outcome: $crate::impls::Outcome::Error($crate::impls::xcm::prelude::InstructionError { error, .. }) }
 							) => {
 								error: *error == expected_error.unwrap_or((*error).into()).into(),
 							},

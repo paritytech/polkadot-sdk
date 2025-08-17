@@ -206,14 +206,17 @@ mod integrity_tests {
 
 			// finally we are able to estimate transaction size and weight
 			let transaction_size = base_tx_size.saturating_add(tx_call_size);
-			let transaction_weight = Runtime::WeightInfo::submit_finality_proof_weight(
+			let transaction_weight = <Runtime as ::pallet_bridge_grandpa::Config<
+				GrandpaInstance,
+			>>::WeightInfo::submit_finality_proof_weight(
 				Runtime::BridgedChain::MAX_AUTHORITIES_COUNT * 2 / 3 + 1,
 				Runtime::BridgedChain::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY,
 			);
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},
@@ -315,7 +318,8 @@ mod integrity_tests {
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},
@@ -385,20 +389,27 @@ mod integrity_tests {
 			// trie nodes to the proof (x0.5 because we expect some nodes to be reused)
 			let estimated_message_size = 512;
 			// let's say all our messages have the same dispatch weight
-			let estimated_message_dispatch_weight =
-				Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
+			let estimated_message_dispatch_weight = <Runtime as pallet_bridge_messages::Config<
+				MessagesInstance,
+			>>::WeightInfo::message_dispatch_weight(
+				estimated_message_size
+			);
 			// messages proof argument size is (for every message) messages size + some additional
 			// trie nodes. Some of them are reused by different messages, so let's take 2/3 of
 			// default "overhead" constant
-			let messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
-				.saturating_mul(2)
-				.saturating_div(3)
-				.saturating_add(estimated_message_size)
-				.saturating_mul(messages as _);
+			let messages_proof_size = <Runtime as pallet_bridge_messages::Config<
+				MessagesInstance,
+			>>::WeightInfo::expected_extra_storage_proof_size()
+			.saturating_mul(2)
+			.saturating_div(3)
+			.saturating_add(estimated_message_size)
+			.saturating_mul(messages as _);
 
 			// finally we are able to estimate transaction size and weight
 			let transaction_size = base_tx_size.saturating_add(messages_proof_size);
-			let transaction_weight = Runtime::WeightInfo::receive_messages_proof_weight(
+			let transaction_weight = <Runtime as pallet_bridge_messages::Config<
+				MessagesInstance,
+			>>::WeightInfo::receive_messages_proof_weight(
 				&PreComputedSize(transaction_size as _),
 				messages as _,
 				estimated_message_dispatch_weight.saturating_mul(messages),
@@ -406,7 +417,8 @@ mod integrity_tests {
 
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
 				&DispatchInfo {
-					weight: transaction_weight,
+					call_weight: transaction_weight,
+					extension_weight: Default::default(),
 					class: DispatchClass::Normal,
 					pays_fee: Pays::Yes,
 				},

@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::u256_bytes;
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{u256_bytes, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -28,7 +28,16 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let ret_code = match api::transfer(&[0u8; 20], &u256_bytes(100u64)) {
+	let ret_code = match api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		0,
+		0,
+		&[u8::MAX; 32],
+		&u256_bytes(100u64),
+		&[],
+		None,
+	) {
 		Ok(_) => 0u32,
 		Err(code) => code as u32,
 	};

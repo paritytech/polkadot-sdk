@@ -36,7 +36,7 @@ use sp_runtime::{
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
-pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -62,6 +62,7 @@ mod mock_democracy {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config + Sized {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 			type ExternalMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -203,7 +204,10 @@ impl ExtBuilder {
 		let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 			system: frame_system::GenesisConfig::default(),
 			// balances: pallet_balances::GenesisConfig::default(),
-			balances: pallet_balances::GenesisConfig { balances: vec![(1, 100), (2, 200)] },
+			balances: pallet_balances::GenesisConfig {
+				balances: vec![(1, 100), (2, 200)],
+				..Default::default()
+			},
 			collective: pallet_collective::GenesisConfig {
 				members: self.collective_members,
 				phantom: Default::default(),
@@ -316,7 +320,7 @@ fn close_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
@@ -346,6 +350,13 @@ fn close_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -388,7 +399,7 @@ fn proposal_weight_limit_works_on_approve() {
 			old_count: MaxMembers::get(),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		// Set 1 as prime voter
 		Prime::<Test, Instance1>::set(Some(1));
@@ -430,7 +441,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 			old_count: MaxMembers::get(),
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 
 		assert_ok!(Collective::propose(
@@ -456,7 +467,7 @@ fn close_with_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
@@ -486,6 +497,13 @@ fn close_with_prime_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -524,7 +542,7 @@ fn close_with_voting_prime_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(Collective::set_members(
 			RuntimeOrigin::root(),
@@ -554,6 +572,13 @@ fn close_with_voting_prime_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -594,7 +619,7 @@ fn close_with_no_prime_but_majority_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash = BlakeTwo256::hash_of(&proposal);
 		assert_ok!(CollectiveMajority::set_members(
 			RuntimeOrigin::root(),
@@ -640,6 +665,13 @@ fn close_with_no_prime_but_majority_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 5,
+					amount: 2,
+				})),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 5,
 					proposal_index: 0,
@@ -678,6 +710,13 @@ fn close_with_no_prime_but_majority_works() {
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Executed {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
+				})),
+				record(RuntimeEvent::Balances(pallet_balances::Event::Released {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 5,
+					amount: 2,
 				})),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::ProposalCostReleased {
 					proposal_hash: hash,
@@ -816,12 +855,21 @@ fn propose_works() {
 
 		assert_eq!(
 			System::events(),
-			vec![record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
-			}))]
+			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
+				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+					account: 1,
+					proposal_index: 0,
+					proposal_hash: hash,
+					threshold: 3
+				}))
+			]
 		);
 	});
 }
@@ -874,7 +922,7 @@ fn correct_validate_and_get_proposal() {
 		));
 
 		let hash = BlakeTwo256::hash_of(&proposal);
-		let weight = proposal.get_dispatch_info().weight;
+		let weight = proposal.get_dispatch_info().call_weight;
 		assert_noop!(
 			Collective::validate_and_get_proposal(
 				&BlakeTwo256::hash_of(&vec![3; 4]),
@@ -1003,6 +1051,13 @@ fn motions_vote_after_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1073,7 +1128,7 @@ fn motions_all_first_vote_free_works() {
 
 		// Test close() Extrinsics | Check DispatchResultWithPostInfo with Pay Info
 
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let close_rval: DispatchResultWithPostInfo =
 			Collective::close(RuntimeOrigin::signed(2), hash, 0, proposal_weight, proposal_len);
 		assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
@@ -1091,7 +1146,7 @@ fn motions_reproposing_disapproved_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1123,7 +1178,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = RuntimeCall::Democracy(mock_democracy::Call::external_propose_majority {});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		// The voting threshold is 2, but the required votes for `ExternalMajorityOrigin` is 3.
 		// The proposal will be executed regardless of the voting threshold
@@ -1148,9 +1203,16 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
-					proposal_index: 0,
+					proposal_index: 0, // 0 is the proposal that failed to execute?
 					proposal_hash: hash,
 					threshold: 2
 				})),
@@ -1203,6 +1265,13 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 1,
@@ -1253,7 +1322,7 @@ fn motions_disapproval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1274,6 +1343,13 @@ fn motions_disapproval_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1312,7 +1388,7 @@ fn motions_approval_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1333,6 +1409,13 @@ fn motions_approval_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1373,7 +1456,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 	ExtBuilder::default().build_and_execute(|| {
 		let proposal = make_proposal(42);
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-		let proposal_weight = proposal.get_dispatch_info().weight;
+		let proposal_weight = proposal.get_dispatch_info().call_weight;
 		let hash: H256 = proposal.blake2_256().into();
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
@@ -1383,11 +1466,12 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		));
 		assert_eq!(
 			System::events()[0],
-			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
-				account: 1,
-				proposal_index: 0,
-				proposal_hash: hash,
-				threshold: 3
+			record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+				reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+					HoldReason::ProposalSubmission,
+				),
+				who: 1,
+				amount: 0,
 			}))
 		);
 
@@ -1413,6 +1497,15 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
 			System::events()[1],
+			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
+				account: 1,
+				proposal_index: 0,
+				proposal_hash: hash,
+				threshold: 3
+			}))
+		);
+		assert_eq!(
+			System::events()[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1420,7 +1513,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()[2],
+			System::events()[3],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1481,6 +1574,13 @@ fn disapprove_proposal_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::Held {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 0,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1617,6 +1717,13 @@ fn kill_proposal_with_deposit() {
 		assert_eq!(
 			System::events(),
 			vec![
+				record(RuntimeEvent::Balances(pallet_balances::Event::BurnedHeld {
+					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
+						HoldReason::ProposalSubmission,
+					),
+					who: 1,
+					amount: 2,
+				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::ProposalCostBurned {
 					proposal_hash: last_hash.unwrap(),
 					who: 1,

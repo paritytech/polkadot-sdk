@@ -4,17 +4,22 @@ on:
   # This trigger can be problematic, see: https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
   # In our case it is fine since we only run it on merged Pull Requests and do not execute any of the repo code itself.
   pull_request_target:
-    types: [ closed, labeled ]
+    types: [closed, labeled]
 
 permissions:
   contents: write # so it can comment
   pull-requests: write # so it can create pull requests
   issues: write
+  actions: write # It may have to backport changes to the CI as well.
 
 jobs:
-  backport:
-    name: Backport pull request
+  check-labels:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      LABELS: ${{ steps.check_labels.outputs.LABELS }}
+      found: ${{ steps.check_labels.outputs.found }}
 
     # The 'github.event.pull_request.merged' ensures that it got into master:
     if: >
@@ -22,24 +27,58 @@ jobs:
       (
         github.event_name == 'pull_request_target' &&
         github.event.pull_request.merged &&
-        github.event.pull_request.base.ref == 'master' &&
-        contains(github.event.pull_request.labels.*.name, 'A4-needs-backport')
+        github.event.pull_request.base.ref == 'master'
       )
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for backport labels
+        id: check_labels
+        run: |
+          LABELS=$(gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
+
+          if echo "$LABELS" | grep -qE '^A4-backport-(stable|unstable)'; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            readarray -t labels_array <<< "$LABELS"
+            echo "LABELS=${labels_array[@]}" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+  backport:
+    name: Backport pull request
+    runs-on: ubuntu-latest
+    needs: [check-labels]
+    if: ${{ needs.check-labels.outputs.found == 'true' }}
+    steps:
+
       - name: Generate token
         id: generate_token
-        uses: tibdex/github-app-token@v2.1.0
+        uses: actions/create-github-app-token@v2
         with:
-          app_id: ${{ secrets.CMD_BOT_APP_ID }}
-          private_key: ${{ secrets.CMD_BOT_APP_KEY }}
+          app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
+
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Get branches to backport to
+        id: branches
+        run: |
+          . ./.github/scripts/common/lib.sh
+
+          LABELS="${{ needs.check-labels.outputs.LABELS }}"
+          BACKPORT_BRANCHES=$(parse_branch_names_from_backport_labels "$LABELS")
+          echo "BACKPORT_BRANCHES=${BACKPORT_BRANCHES}" >> $GITHUB_OUTPUT
+
 
       - name: Create backport pull requests
         uses: korthout/backport-action@v3
         id: backport
         with:
-          target_branches: stable2407 stable2409
+          target_branches: ${{ steps.branches.outputs.BACKPORT_BRANCHES }}
           merge_commits: skip
           github_token: ${{ steps.generate_token.outputs.token }}
           pull_description: |
@@ -58,6 +97,7 @@ jobs:
               "conflict_resolution": "draft_commit_conflicts"
             }
           copy_assignees: true
+          label_pattern: ''
 
       - name: Label Backports
         if: ${{ steps.backport.outputs.created_pull_numbers != '' }}
@@ -65,7 +105,7 @@ jobs:
         with:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
-            
+
             for (const pullNumber of pullNumbers) {
               await github.rest.issues.addLabels({
                 issue_number: parseInt(pullNumber),
@@ -83,13 +123,13 @@ jobs:
           script: |
             const pullNumbers = '${{ steps.backport.outputs.created_pull_numbers }}'.split(' ');
             const reviewer = '${{ github.event.pull_request.user.login }}';
-            
+
             for (const pullNumber of pullNumbers) {
-              await github.pulls.createReviewRequest({
+              await github.rest.pulls.requestReviewers({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: parseInt(pullNumber),
-                reviewers: [ reviewer ]
+                reviewers: [reviewer]
               });
               console.log(`Requested review from ${reviewer} for PR #${pullNumber}`);
             }

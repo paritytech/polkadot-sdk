@@ -236,7 +236,7 @@ impl Collator {
 					if let Ok(res) = recv.await {
 						if !matches!(
 							res.statement.payload(),
-							Statement::Seconded(s) if s.descriptor.pov_hash == compressed_pov.hash(),
+							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
 						) {
 							log::error!(
 								"Seconded statement should match our collation: {:?}",

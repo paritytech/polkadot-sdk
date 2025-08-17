@@ -1,0 +1,12 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix CandidateDescriptor debug logs
+
+doc:
+  - audience: Node Dev
+    description: |
+      Implement core::fmt::Debug by hand and differentiate the output based on CandidateDescriptorVersion.
+crates:
+- name: polkadot-primitives
+  bump: minor

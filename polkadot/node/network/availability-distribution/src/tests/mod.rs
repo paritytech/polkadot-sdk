@@ -22,7 +22,7 @@ use rstest::rstest;
 use polkadot_node_network_protocol::request_response::{
 	IncomingRequest, Protocol, ReqProtocolNames,
 };
-use polkadot_primitives::{node_features, Block, CoreState, Hash, NodeFeatures};
+use polkadot_primitives::{node_features, vstaging::CoreState, Block, Hash, NodeFeatures};
 use sp_keystore::KeystorePtr;
 
 use super::*;

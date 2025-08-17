@@ -26,7 +26,7 @@
 //! communication between the client and the runtime. This includes:
 //!
 //! - A set of traits to declare what any block/header/extrinsic type should provide.
-//! 	- [`traits::Block`], [`traits::Header`], [`traits::Extrinsic`]
+//! 	- [`traits::Block`], [`traits::Header`], [`traits::ExtrinsicLike`]
 //! - A set of types that implement these traits, whilst still providing a high degree of
 //!   configurability via generics.
 //! 	- [`generic::Block`], [`generic::Header`], [`generic::UncheckedExtrinsic`] and
@@ -49,7 +49,7 @@
 extern crate alloc;
 
 #[doc(hidden)]
-pub use alloc::{format, vec::Vec};
+pub use alloc::vec::Vec;
 #[doc(hidden)]
 pub use codec;
 #[doc(hidden)]
@@ -80,7 +80,7 @@ use sp_core::{
 };
 
 use alloc::vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 pub mod curve;
@@ -90,14 +90,11 @@ mod multiaddress;
 pub mod offchain;
 pub mod proving_trie;
 pub mod runtime_logger;
-mod runtime_string;
 #[cfg(feature = "std")]
 pub mod testing;
 pub mod traits;
 pub mod transaction_validity;
 pub mod type_with_default;
-
-pub use crate::runtime_string::*;
 
 // Re-export Multiaddress
 pub use multiaddress::MultiAddress;
@@ -131,6 +128,8 @@ pub use sp_arithmetic::{
 	FixedPointOperand, FixedU128, FixedU64, InnerOf, PerThing, PerU16, Perbill, Percent, Permill,
 	Perquintill, Rational128, Rounding, UpperOf,
 };
+/// Re-export this since it's part of the API of this crate.
+pub use sp_weights::Weight;
 
 pub use either::Either;
 
@@ -157,10 +156,15 @@ pub type EncodedJustification = Vec<u8>;
 /// Collection of justifications for a given block, multiple justifications may
 /// be provided by different consensus engines for the same block.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Justifications(Vec<Justification>);
 
 impl Justifications {
+	/// Create a new `Justifications` instance with the given justifications.
+	pub fn new(justifications: Vec<Justification>) -> Self {
+		Self(justifications)
+	}
+
 	/// Return an iterator over the justifications.
 	pub fn iter(&self) -> impl Iterator<Item = &Justification> {
 		self.0.iter()
@@ -273,7 +277,17 @@ pub type ConsensusEngineId = [u8; 4];
 
 /// Signature verify that can work with any known signature types.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	RuntimeDebug,
+	TypeInfo,
+)]
 pub enum MultiSignature {
 	/// An Ed25519 signature.
 	Ed25519(ed25519::Signature),
@@ -335,7 +349,18 @@ impl TryFrom<MultiSignature> for ecdsa::Signature {
 }
 
 /// Public key for any known crypto algorithm.
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	RuntimeDebug,
+	TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum MultiSigner {
 	/// An Ed25519 identity.
@@ -512,7 +537,9 @@ pub type DispatchResult = core::result::Result<(), DispatchError>;
 pub type DispatchResultWithInfo<T> = core::result::Result<T, DispatchErrorWithPostInfo<T>>;
 
 /// Reason why a pallet call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ModuleError {
 	/// Module index, matching the metadata module index.
@@ -532,7 +559,18 @@ impl PartialEq for ModuleError {
 }
 
 /// Errors related to transactional storage layers.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TransactionalError {
 	/// Too many transactional layers have been spawned.
@@ -557,7 +595,18 @@ impl From<TransactionalError> for DispatchError {
 }
 
 /// Reason why a dispatch call failed.
-#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
+#[derive(
+	Eq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	PartialEq,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DispatchError {
 	/// Some error occurred.
@@ -599,7 +648,7 @@ pub enum DispatchError {
 
 /// Result of a `Dispatchable` which contains the `DispatchResult` and additional information about
 /// the `Dispatchable` that is only known post dispatch.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct DispatchErrorWithPostInfo<Info>
 where
 	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
@@ -644,7 +693,18 @@ impl From<crate::traits::BadOrigin> for DispatchError {
 }
 
 /// Description of what went wrong when trying to complete an operation on a token.
-#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Eq,
+	PartialEq,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TokenError {
 	/// Funds are unavailable.
@@ -911,7 +971,7 @@ macro_rules! assert_eq_error_rate_float {
 
 /// Simple blob to hold an extrinsic without committing to its format and ensure it is serialized
 /// correctly.
-#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct OpaqueExtrinsic(Vec<u8>);
 
 impl OpaqueExtrinsic {
@@ -951,13 +1011,14 @@ impl<'a> ::serde::Deserialize<'a> for OpaqueExtrinsic {
 	{
 		let r = ::sp_core::bytes::deserialize(de)?;
 		Decode::decode(&mut &r[..])
-			.map_err(|e| ::serde::de::Error::custom(format!("Decode error: {}", e)))
+			.map_err(|e| ::serde::de::Error::custom(alloc::format!("Decode error: {}", e)))
 	}
 }
 
-impl traits::Extrinsic for OpaqueExtrinsic {
-	type Call = ();
-	type SignaturePayload = ();
+impl traits::ExtrinsicLike for OpaqueExtrinsic {
+	fn is_bare(&self) -> bool {
+		false
+	}
 }
 
 /// Print something that implements `Printable` from the runtime.
@@ -1033,6 +1094,23 @@ impl OpaqueValue {
 		Decode::decode(&mut &self.0[..]).ok()
 	}
 }
+
+// TODO: Remove in future versions and clean up `parse_str_literal` in `sp-version-proc-macro`
+/// Deprecated `Cow::Borrowed()` wrapper.
+#[macro_export]
+#[deprecated = "Use Cow::Borrowed() instead of create_runtime_str!()"]
+macro_rules! create_runtime_str {
+	( $y:expr ) => {{
+		$crate::Cow::Borrowed($y)
+	}};
+}
+// TODO: Re-export for ^ macro `create_runtime_str`, should be removed once macro is gone
+#[doc(hidden)]
+pub use alloc::borrow::Cow;
+// TODO: Remove in future versions
+/// Deprecated alias to improve upgrade experience
+#[deprecated = "Use String or Cow<'static, str> instead"]
+pub type RuntimeString = alloc::string::String;
 
 #[cfg(test)]
 mod tests {
@@ -1173,16 +1251,17 @@ mod tests {
 mod sp_core_tests {
 	use super::*;
 
+	sp_core::generate_feature_enabled_macro!(if_test, test, $);
+	sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
+
 	#[test]
 	#[should_panic]
 	fn generate_feature_enabled_macro_panics() {
-		sp_core::generate_feature_enabled_macro!(if_test, test, $);
 		if_test!(panic!("This should panic"));
 	}
 
 	#[test]
 	fn generate_feature_enabled_macro_works() {
-		sp_core::generate_feature_enabled_macro!(if_not_test, not(test), $);
 		if_not_test!(panic!("This should not panic"));
 	}
 }

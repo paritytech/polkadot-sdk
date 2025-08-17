@@ -21,20 +21,17 @@
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
-
+use self::error::{Error, Result};
 use crate::{
 	utils::{spawn_subscription_task, BoundedVecDeque, PendingSubscription},
 	SubscriptionTaskExecutor,
 };
-
 use codec::{Decode, Encode};
-use futures::TryFutureExt;
 use jsonrpsee::{core::async_trait, types::ErrorObject, Extensions, PendingSubscriptionSink};
 use sc_rpc_api::check_if_safe;
 use sc_transaction_pool_api::{
 	error::IntoPoolError, BlockHash, InPoolTransaction, TransactionFor, TransactionPool,
-	TransactionSource, TxHash,
+	TransactionSource, TxHash, TxInvalidityReportMap,
 };
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
@@ -42,8 +39,8 @@ use sp_core::Bytes;
 use sp_keystore::{KeystoreExt, KeystorePtr};
 use sp_runtime::traits::Block as BlockT;
 use sp_session::SessionKeys;
+use std::sync::Arc;
 
-use self::error::{Error, Result};
 /// Re-export the API for backward compatibility.
 pub use sc_rpc_api::author::*;
 
@@ -156,7 +153,7 @@ where
 		Ok(self.pool.ready().map(|tx| tx.data().encode().into()).collect())
 	}
 
-	fn remove_extrinsic(
+	async fn remove_extrinsic(
 		&self,
 		ext: &Extensions,
 		bytes_or_hash: Vec<hash::ExtrinsicOrHash<TxHash<P>>>,
@@ -165,17 +162,18 @@ where
 		let hashes = bytes_or_hash
 			.into_iter()
 			.map(|x| match x {
-				hash::ExtrinsicOrHash::Hash(h) => Ok(h),
+				hash::ExtrinsicOrHash::Hash(h) => Ok((h, None)),
 				hash::ExtrinsicOrHash::Extrinsic(bytes) => {
 					let xt = Decode::decode(&mut &bytes[..])?;
-					Ok(self.pool.hash_of(&xt))
+					Ok((self.pool.hash_of(&xt), None))
 				},
 			})
-			.collect::<Result<Vec<_>>>()?;
+			.collect::<Result<TxInvalidityReportMap<TxHash<P>>>>()?;
 
 		Ok(self
 			.pool
-			.remove_invalid(&hashes)
+			.report_invalid(None, hashes)
+			.await
 			.into_iter()
 			.map(|tx| tx.hash().clone())
 			.collect())
@@ -191,14 +189,16 @@ where
 			},
 		};
 
-		let submit = self.pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).map_err(|e| {
-			e.into_pool_error()
-				.map(error::Error::from)
-				.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
-		});
-
+		let pool = self.pool.clone();
 		let fut = async move {
-			let stream = match submit.await {
+			let submit =
+				pool.submit_and_watch(best_block_hash, TX_SOURCE, dxt).await.map_err(|e| {
+					e.into_pool_error()
+						.map(error::Error::from)
+						.unwrap_or_else(|e| error::Error::Verification(Box::new(e)))
+				});
+
+			let stream = match submit {
 				Ok(stream) => stream,
 				Err(err) => {
 					let _ = pending.reject(ErrorObject::from(err)).await;

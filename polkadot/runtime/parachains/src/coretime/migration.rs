@@ -19,8 +19,6 @@
 pub use v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 mod v_coretime {
-	#[cfg(feature = "try-runtime")]
-	use crate::scheduler::common::AssignmentProvider;
 	use crate::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
@@ -44,7 +42,9 @@ mod v_coretime {
 	use sp_arithmetic::traits::SaturatedConversion;
 	use sp_core::Get;
 	use sp_runtime::BoundedVec;
-	use xcm::prelude::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
+	use xcm::prelude::{
+		send_xcm, Instruction, Junction, Location, SendError, SendXcm, WeightLimit, Xcm,
+	};
 
 	/// Return information about a legacy lease of a parachain.
 	pub trait GetLegacyLease<N> {
@@ -64,10 +64,10 @@ mod v_coretime {
 
 	impl<
 			T: Config,
-			SendXcm: xcm::v4::SendXcm,
+			XcmSender: SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
-		> MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
+		> MigrateToCoretime<T, XcmSender, LegacyLease, TIMESLICE_PERIOD>
 	{
 		fn already_migrated() -> bool {
 			// We are using the assigner coretime because the coretime pallet doesn't has any
@@ -97,10 +97,10 @@ mod v_coretime {
 
 	impl<
 			T: Config + crate::dmp::Config,
-			SendXcm: xcm::v4::SendXcm,
+			XcmSender: SendXcm,
 			LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 			const TIMESLICE_PERIOD: u32,
-		> OnRuntimeUpgrade for MigrateToCoretime<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>
+		> OnRuntimeUpgrade for MigrateToCoretime<T, XcmSender, LegacyLease, TIMESLICE_PERIOD>
 	{
 		fn on_runtime_upgrade() -> Weight {
 			if Self::already_migrated() {
@@ -108,7 +108,7 @@ mod v_coretime {
 			}
 
 			log::info!("Migrating existing parachains to coretime.");
-			migrate_to_coretime::<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>()
+			migrate_to_coretime::<T, XcmSender, LegacyLease, TIMESLICE_PERIOD>()
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -142,7 +142,8 @@ mod v_coretime {
 
 			let dmp_queue_size =
 				crate::dmp::Pallet::<T>::dmq_contents(T::BrokerId::get().into()).len() as u32;
-			let new_core_count = assigner_coretime::Pallet::<T>::session_core_count();
+			let config = configuration::ActiveConfig::<T>::get();
+			let new_core_count = config.scheduler_params.num_cores;
 			ensure!(new_core_count == prev_core_count, "Total number of cores need to not change.");
 			ensure!(
 				dmp_queue_size > prev_dmp_queue_size,
@@ -158,7 +159,7 @@ mod v_coretime {
 	// NOTE: Also migrates `num_cores` config value in configuration::ActiveConfig.
 	fn migrate_to_coretime<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		XcmSender: SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> Weight {
@@ -199,9 +200,12 @@ mod v_coretime {
 			c.scheduler_params.num_cores = total_cores;
 		});
 
-		if let Err(err) =
-			migrate_send_assignments_to_coretime_chain::<T, SendXcm, LegacyLease, TIMESLICE_PERIOD>(
-			) {
+		if let Err(err) = migrate_send_assignments_to_coretime_chain::<
+			T,
+			XcmSender,
+			LegacyLease,
+			TIMESLICE_PERIOD,
+		>() {
 			log::error!("Sending legacy chain data to coretime chain failed: {:?}", err);
 		}
 
@@ -216,7 +220,7 @@ mod v_coretime {
 
 	fn migrate_send_assignments_to_coretime_chain<
 		T: Config,
-		SendXcm: xcm::v4::SendXcm,
+		XcmSender: SendXcm,
 		LegacyLease: GetLegacyLease<BlockNumberFor<T>>,
 		const TIMESLICE_PERIOD: u32,
 	>() -> result::Result<(), SendError> {
@@ -246,7 +250,7 @@ mod v_coretime {
 					return None
 				},
 			};
-			let time_slice = (valid_until + TIMESLICE_PERIOD - 1) / TIMESLICE_PERIOD;
+			let time_slice = valid_until.div_ceil(TIMESLICE_PERIOD);
 			log::trace!(target: "coretime-migration", "Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}", p, valid_until, time_slice);
 			Some(mk_coretime_call::<T>(crate::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
@@ -301,7 +305,7 @@ mod v_coretime {
 		};
 
 		for message in messages {
-			send_xcm::<SendXcm>(
+			send_xcm::<XcmSender>(
 				Location::new(0, Junction::Parachain(T::BrokerId::get())),
 				message,
 			)?;

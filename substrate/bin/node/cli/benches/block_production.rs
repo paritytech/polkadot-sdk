@@ -39,6 +39,7 @@ use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed}
 use sp_consensus::BlockOrigin;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{
+	generic,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 	AccountId32, MultiAddress, OpaqueExtrinsic,
 };
@@ -71,6 +72,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
@@ -120,11 +122,11 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 }
 
 fn extrinsic_set_time(now: u64) -> OpaqueExtrinsic {
-	kitchensink_runtime::UncheckedExtrinsic {
-		signature: None,
-		function: kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
-	}
-	.into()
+	let utx: kitchensink_runtime::UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(
+		kitchensink_runtime::RuntimeCall::Timestamp(pallet_timestamp::Call::set { now }),
+	)
+	.into();
+	utx.into()
 }
 
 fn import_block(client: &FullClient, built: BuiltBlock<node_primitives::Block>) {

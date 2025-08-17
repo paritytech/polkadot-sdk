@@ -34,7 +34,8 @@ use crate::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
 		import_single_block_metered, verify_single_block_metered, BlockImportError,
 		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
-		IncomingBlock, Link, RuntimeOrigin, SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
+		IncomingBlock, JustificationImportResult, Link, RuntimeOrigin,
+		SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
@@ -177,7 +178,7 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	}
 
 	/// Poll actions from network.
-	fn poll_actions(&mut self, cx: &mut Context, link: &mut dyn Link<B>) {
+	fn poll_actions(&mut self, cx: &mut Context, link: &dyn Link<B>) {
 		if self.result_port.poll_actions(cx, link).is_err() {
 			log::error!(
 				target: LOG_TARGET,
@@ -190,9 +191,9 @@ impl<B: BlockT> ImportQueue<B> for BasicQueue<B> {
 	///
 	/// Takes an object implementing [`Link`] which allows the import queue to
 	/// influence the synchronization process.
-	async fn run(mut self, mut link: Box<dyn Link<B>>) {
+	async fn run(mut self, link: &dyn Link<B>) {
 		loop {
-			if let Err(_) = self.result_port.next_action(&mut *link).await {
+			if let Err(_) = self.result_port.next_action(link).await {
 				log::error!(target: "sync", "poll_actions: Background import task is no longer alive");
 				return
 			}
@@ -223,7 +224,7 @@ mod worker_messages {
 async fn block_import_process<B: BlockT>(
 	mut block_import: BoxBlockImport<B>,
 	verifier: impl Verifier<B>,
-	mut result_sender: BufferedLinkSender<B>,
+	result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
 ) {
@@ -342,8 +343,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 	) {
 		let started = std::time::Instant::now();
 
-		let success = match self.justification_import.as_mut() {
-			Some(justification_import) => justification_import
+		let import_result = match self.justification_import.as_mut() {
+			Some(justification_import) => {
+				let result = justification_import
 				.import_justification(hash, number, justification)
 				.await
 				.map_err(|e| {
@@ -356,16 +358,22 @@ impl<B: BlockT> BlockImportWorker<B> {
 						e,
 					);
 					e
-				})
-				.is_ok(),
-			None => false,
+				});
+				match result {
+					Ok(()) => JustificationImportResult::Success,
+					Err(sp_consensus::Error::OutdatedJustification) =>
+						JustificationImportResult::OutdatedJustification,
+					Err(_) => JustificationImportResult::Failure,
+				}
+			},
+			None => JustificationImportResult::Failure,
 		};
 
 		if let Some(metrics) = self.metrics.as_ref() {
 			metrics.justification_import_time.observe(started.elapsed().as_secs_f64());
 		}
 
-		self.result_sender.justification_imported(who, &hash, number, success);
+		self.result_sender.justification_imported(who, &hash, number, import_result);
 	}
 }
 
@@ -501,6 +509,7 @@ mod tests {
 		import_queue::Verifier,
 	};
 	use futures::{executor::block_on, Future};
+	use parking_lot::Mutex;
 	use sp_test_primitives::{Block, BlockNumber, Hash, Header};
 
 	#[async_trait::async_trait]
@@ -558,29 +567,29 @@ mod tests {
 
 	#[derive(Default)]
 	struct TestLink {
-		events: Vec<Event>,
+		events: Mutex<Vec<Event>>,
 	}
 
 	impl Link<Block> for TestLink {
 		fn blocks_processed(
-			&mut self,
+			&self,
 			_imported: usize,
 			_count: usize,
 			results: Vec<(Result<BlockImportStatus<BlockNumber>, BlockImportError>, Hash)>,
 		) {
 			if let Some(hash) = results.into_iter().find_map(|(r, h)| r.ok().map(|_| h)) {
-				self.events.push(Event::BlockImported(hash));
+				self.events.lock().push(Event::BlockImported(hash));
 			}
 		}
 
 		fn justification_imported(
-			&mut self,
+			&self,
 			_who: RuntimeOrigin,
 			hash: &Hash,
 			_number: BlockNumber,
-			_success: bool,
+			_import_result: JustificationImportResult,
 		) {
-			self.events.push(Event::JustificationImported(*hash))
+			self.events.lock().push(Event::JustificationImported(*hash))
 		}
 	}
 
@@ -638,7 +647,7 @@ mod tests {
 			hash
 		};
 
-		let mut link = TestLink::default();
+		let link = TestLink::default();
 
 		// we send a bunch of tasks to the worker
 		let block1 = import_block(1);
@@ -653,13 +662,13 @@ mod tests {
 
 		// we poll the worker until we have processed 9 events
 		block_on(futures::future::poll_fn(|cx| {
-			while link.events.len() < 9 {
+			while link.events.lock().len() < 9 {
 				match Future::poll(Pin::new(&mut worker), cx) {
 					Poll::Pending => {},
 					Poll::Ready(()) => panic!("import queue worker should not conclude."),
 				}
 
-				result_port.poll_actions(cx, &mut link).unwrap();
+				result_port.poll_actions(cx, &link).unwrap();
 			}
 
 			Poll::Ready(())
@@ -667,8 +676,8 @@ mod tests {
 
 		// all justification tasks must be done before any block import work
 		assert_eq!(
-			link.events,
-			vec![
+			&*link.events.lock(),
+			&[
 				Event::JustificationImported(justification1),
 				Event::JustificationImported(justification2),
 				Event::JustificationImported(justification3),

@@ -25,8 +25,8 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::input;
 use uapi::{HostFn, HostFnImpl as api};
 
 const BUF_SIZE: usize = 8;
@@ -36,14 +36,14 @@ static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
 /// and expect the call output to match `expected_output`.
 fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf = [0u8; BUF_SIZE];
-	let mut output_buf_capped = &mut &mut output_buf[..N];
+	let output_buf_capped = &mut &mut output_buf[..N];
 
 	api::call(
 		uapi::CallFlags::ALLOW_REENTRY,
 		callee_address,
-		0u64,
-		0u64,
-		None,
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
 		&[0u8; 32],
 		&[],
 		Some(output_buf_capped),
@@ -62,15 +62,14 @@ fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 	api::own_code_hash(&mut code_hash);
 
 	let mut output_buf = [0u8; BUF_SIZE];
-	let mut output_buf_capped = &mut &mut output_buf[..N];
+	let output_buf_capped = &mut &mut output_buf[..N];
 
 	api::instantiate(
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&[0; 32],
 		&code_hash,
-		0u64,
-		0u64,
-		None,
-		&[0; 32],
-		&[0; 32],
 		None,
 		Some(output_buf_capped),
 		None,

@@ -19,7 +19,7 @@
 //! votes.
 
 use crate::dispatch::Parameter;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use codec::{HasCompact, MaxEncodedLen};
 use sp_arithmetic::Perbill;
 use sp_runtime::{traits::Member, DispatchError};
@@ -124,5 +124,51 @@ pub trait Polling<Tally> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn max_ongoing() -> (Self::Class, u32) {
 		(Self::classes().into_iter().next().expect("Always one class"), u32::max_value())
+	}
+}
+
+/// NoOp polling is required if pallet-referenda functionality not needed.
+pub struct NoOpPoll<Moment>(core::marker::PhantomData<Moment>);
+impl<Tally, Moment> Polling<Tally> for NoOpPoll<Moment> {
+	type Index = u8;
+	type Votes = u32;
+	type Class = u16;
+	type Moment = Moment;
+
+	fn classes() -> Vec<Self::Class> {
+		vec![]
+	}
+
+	fn as_ongoing(_index: Self::Index) -> Option<(Tally, Self::Class)> {
+		None
+	}
+
+	fn access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> R,
+	) -> R {
+		f(PollStatus::None)
+	}
+
+	fn try_access_poll<R>(
+		_index: Self::Index,
+		f: impl FnOnce(PollStatus<&mut Tally, Self::Moment, Self::Class>) -> Result<R, DispatchError>,
+	) -> Result<R, DispatchError> {
+		f(PollStatus::None)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn create_ongoing(_class: Self::Class) -> Result<Self::Index, ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn end_ongoing(_index: Self::Index, _approved: bool) -> Result<(), ()> {
+		Err(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_ongoing() -> (Self::Class, u32) {
+		(0, 0)
 	}
 }

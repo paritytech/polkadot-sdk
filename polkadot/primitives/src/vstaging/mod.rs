@@ -15,29 +15,43 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
-use crate::{ValidatorIndex, ValidityAttestation};
+use core::fmt::Formatter;
+
+use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
-	async_backing::Constraints, BlakeTwo256, BlockNumber, CandidateCommitments,
-	CandidateDescriptor, CandidateHash, CollatorId, CollatorSignature, CoreIndex, GroupIndex, Hash,
-	HashT, HeadData, Header, Id, Id as ParaId, MultiDisputeStatementSet, ScheduledCore,
-	UncheckedSignedAvailabilityBitfields, ValidationCodeHash,
+	async_backing::{InboundHrmpLimitations, OutboundHrmpChannelLimitations},
+	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateDescriptor, CandidateHash, CollatorId,
+	CollatorSignature, CoreIndex, GroupIndex, Hash, HashT, HeadData, Header, Id, Id as ParaId,
+	MultiDisputeStatementSet, ScheduledCore, UncheckedSignedAvailabilityBitfields,
+	UpgradeRestriction, ValidationCodeHash,
+};
+use alloc::{
+	collections::{BTreeMap, BTreeSet, VecDeque},
+	vec,
+	vec::Vec,
 };
 use bitvec::prelude::*;
-use sp_application_crypto::ByteArray;
-
-use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use bounded_collections::BoundedVec;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
-use sp_core::RuntimeDebug;
+use sp_application_crypto::ByteArray;
+use sp_core::{ConstU32, RuntimeDebug};
 use sp_runtime::traits::Header as HeaderT;
 use sp_staking::SessionIndex;
+
 /// Async backing primitives
 pub mod async_backing;
 
+/// The default claim queue offset to be used if it's not configured/accessible in the parachain
+/// runtime
+pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
+
 /// A type representing the version of the candidate descriptor and internal version number.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, TypeInfo, RuntimeDebug, Copy)]
+#[derive(
+	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
+)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
@@ -54,7 +68,7 @@ pub enum CandidateDescriptorVersion {
 }
 
 /// A unique descriptor of the candidate receipt.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
@@ -87,6 +101,57 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// The blake2-256 hash of the validation code bytes.
 	validation_code_hash: ValidationCodeHash,
 }
+impl<H> CandidateDescriptorV2<H> {
+	/// Returns the candidate descriptor version.
+	///
+	/// The candidate is at version 2 if the reserved fields are zeroed out
+	/// and the internal `version` field is 0.
+	pub fn version(&self) -> CandidateDescriptorVersion {
+		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
+			return CandidateDescriptorVersion::V1
+		}
+
+		match self.version.0 {
+			0 => CandidateDescriptorVersion::V2,
+			_ => CandidateDescriptorVersion::Unknown,
+		}
+	}
+}
+
+impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
+where
+	H: core::fmt::Debug,
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		match self.version() {
+			CandidateDescriptorVersion::V1 => f
+				.debug_struct("CandidateDescriptorV1")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("persisted_validation_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.erasure_root)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::V2 => f
+				.debug_struct("CandidateDescriptorV2")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("core_index", &self.core_index)
+				.field("session_index", &self.session_index)
+				.field("persisted_validation_data_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.pov_hash)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::Unknown => {
+				write!(f, "Invalid CandidateDescriptorVersion")
+			},
+		}
+	}
+}
 
 impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	fn from(value: CandidateDescriptorV2<H>) -> Self {
@@ -104,14 +169,42 @@ impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
 	}
 }
 
-#[cfg(any(feature = "runtime-benchmarks", feature = "test"))]
-impl<H: Encode + Decode + Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
+fn clone_into_array<A, T>(slice: &[T]) -> A
+where
+	A: Default + AsMut<[T]>,
+	T: Clone,
+{
+	let mut a = A::default();
+	<A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
+	a
+}
+
+impl<H: Copy> From<CandidateDescriptor<H>> for CandidateDescriptorV2<H> {
 	fn from(value: CandidateDescriptor<H>) -> Self {
-		Decode::decode(&mut value.encode().as_slice()).unwrap()
+		let collator = value.collator.as_slice();
+
+		Self {
+			para_id: value.para_id,
+			relay_parent: value.relay_parent,
+			// Use first byte of the `collator` field.
+			version: InternalVersion(collator[0]),
+			// Use next 2 bytes of the `collator` field.
+			core_index: u16::from_ne_bytes(clone_into_array(&collator[1..=2])),
+			// Use next 4 bytes of the `collator` field.
+			session_index: SessionIndex::from_ne_bytes(clone_into_array(&collator[3..=6])),
+			// Use remaing 25 bytes of the `collator` field.
+			reserved1: clone_into_array(&collator[7..]),
+			persisted_validation_data_hash: value.persisted_validation_data_hash,
+			pov_hash: value.pov_hash,
+			erasure_root: value.erasure_root,
+			reserved2: value.signature.into_inner().0,
+			para_head: value.para_head,
+			validation_code_hash: value.validation_code_hash,
+		}
 	}
 }
 
-impl<H> CandidateDescriptorV2<H> {
+impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 	/// Constructor
 	pub fn new(
 		para_id: Id,
@@ -140,21 +233,96 @@ impl<H> CandidateDescriptorV2<H> {
 		}
 	}
 
-	/// Set the PoV size in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_pov_hash(&mut self, pov_hash: Hash) {
+	/// Check the signature of the collator within this descriptor.
+	pub fn check_collator_signature(&self) -> Result<(), ()> {
+		// Return `Ok` if collator signature is not included (v2+ descriptor).
+		let Some(collator) = self.collator() else { return Ok(()) };
+
+		let Some(signature) = self.signature() else { return Ok(()) };
+
+		super::v8::check_collator_signature(
+			&self.relay_parent,
+			&self.para_id,
+			&self.persisted_validation_data_hash,
+			&self.pov_hash,
+			&self.validation_code_hash,
+			&collator,
+			&signature,
+		)
+	}
+}
+
+/// A trait to allow changing the descriptor field values in tests.
+#[cfg(feature = "test")]
+
+pub trait MutateDescriptorV2<H> {
+	/// Set the relay parent of the descriptor.
+	fn set_relay_parent(&mut self, relay_parent: H);
+	/// Set the `ParaId` of the descriptor.
+	fn set_para_id(&mut self, para_id: Id);
+	/// Set the PoV hash of the descriptor.
+	fn set_pov_hash(&mut self, pov_hash: Hash);
+	/// Set the version field of the descriptor.
+	fn set_version(&mut self, version: InternalVersion);
+	/// Set the PVD of the descriptor.
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash);
+	/// Set the validation code hash of the descriptor.
+	fn set_validation_code_hash(&mut self, validation_code_hash: ValidationCodeHash);
+	/// Set the erasure root of the descriptor.
+	fn set_erasure_root(&mut self, erasure_root: Hash);
+	/// Set the para head of the descriptor.
+	fn set_para_head(&mut self, para_head: Hash);
+	/// Set the core index of the descriptor.
+	fn set_core_index(&mut self, core_index: CoreIndex);
+	/// Set the session index of the descriptor.
+	fn set_session_index(&mut self, session_index: SessionIndex);
+}
+
+#[cfg(feature = "test")]
+impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
+	fn set_para_id(&mut self, para_id: Id) {
+		self.para_id = para_id;
+	}
+
+	fn set_relay_parent(&mut self, relay_parent: H) {
+		self.relay_parent = relay_parent;
+	}
+
+	fn set_pov_hash(&mut self, pov_hash: Hash) {
 		self.pov_hash = pov_hash;
 	}
 
-	/// Set the version in the descriptor. Only for tests.
-	#[cfg(feature = "test")]
-	pub fn set_version(&mut self, version: InternalVersion) {
+	fn set_version(&mut self, version: InternalVersion) {
 		self.version = version;
+	}
+
+	fn set_core_index(&mut self, core_index: CoreIndex) {
+		self.core_index = core_index.0 as u16;
+	}
+
+	fn set_session_index(&mut self, session_index: SessionIndex) {
+		self.session_index = session_index;
+	}
+
+	fn set_persisted_validation_data_hash(&mut self, persisted_validation_data_hash: Hash) {
+		self.persisted_validation_data_hash = persisted_validation_data_hash;
+	}
+
+	fn set_validation_code_hash(&mut self, validation_code_hash: ValidationCodeHash) {
+		self.validation_code_hash = validation_code_hash;
+	}
+
+	fn set_erasure_root(&mut self, erasure_root: Hash) {
+		self.erasure_root = erasure_root;
+	}
+
+	fn set_para_head(&mut self, para_head: Hash) {
+		self.para_head = para_head;
 	}
 }
 
 /// A candidate-receipt at version 2.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -164,7 +332,7 @@ pub struct CandidateReceiptV2<H = Hash> {
 }
 
 /// A candidate-receipt with commitments directly included.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CommittedCandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
@@ -230,6 +398,24 @@ impl<H> CandidateReceiptV2<H> {
 	}
 }
 
+impl<H: Copy> From<super::v8::CandidateReceipt<H>> for CandidateReceiptV2<H> {
+	fn from(value: super::v8::CandidateReceipt<H>) -> Self {
+		CandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments_hash: value.commitments_hash,
+		}
+	}
+}
+
+impl<H: Copy> From<super::v8::CommittedCandidateReceipt<H>> for CommittedCandidateReceiptV2<H> {
+	fn from(value: super::v8::CommittedCandidateReceipt<H>) -> Self {
+		CommittedCandidateReceiptV2 {
+			descriptor: value.descriptor.into(),
+			commitments: value.commitments,
+		}
+	}
+}
+
 impl<H: Clone> CommittedCandidateReceiptV2<H> {
 	/// Transforms this into a plain `CandidateReceipt`.
 	pub fn to_plain(&self) -> CandidateReceiptV2<H> {
@@ -288,64 +474,164 @@ impl<H: Copy> From<CandidateReceiptV2<H>> for super::v8::CandidateReceipt<H> {
 
 /// A strictly increasing sequence number, typically this would be the least significant byte of the
 /// block number.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct CoreSelector(pub u8);
 
 /// An offset in the relay chain claim queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug, Copy)]
 pub struct ClaimQueueOffset(pub u8);
 
+/// Approved PeerId type. PeerIds in polkadot should typically be 32 bytes long but for identity
+/// multihash can go up to 64. Cannot reuse the PeerId type definition from the networking code as
+/// it's too generic and extensible.
+pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
+
 /// Signals that a parachain can send to the relay chain via the UMP queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum UMPSignal {
-	/// A message sent by a parachain to select the core the candidate is commited to.
+	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
-	/// `ClaimQueueOffset` to compute the index of the core the candidate has commited to.
+	/// `ClaimQueueOffset` to compute the index of the core the candidate has committed to.
 	SelectCore(CoreSelector, ClaimQueueOffset),
+	/// A message sent by a parachain to promote the reputation of a given peerid.
+	ApprovedPeer(ApprovedPeerId),
 }
-/// Separator between `XCM` and `UMPSignal`.
-pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
-impl CandidateCommitments {
-	/// Returns the core selector and claim queue offset the candidate has committed to, if any.
-	pub fn selected_core(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
-		// We need at least 2 messages for the separator and core selector
-		if self.upward_messages.len() < 2 {
-			return None
-		}
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug, Default)]
+/// User-friendly representation of a candidate's UMP signals.
+pub struct CandidateUMPSignals {
+	select_core: Option<(CoreSelector, ClaimQueueOffset)>,
+	approved_peer: Option<ApprovedPeerId>,
+}
 
-		let separator_pos =
-			self.upward_messages.iter().rposition(|message| message == &UMP_SEPARATOR)?;
+impl CandidateUMPSignals {
+	/// Get the core selector UMP signal.
+	pub fn core_selector(&self) -> Option<(CoreSelector, ClaimQueueOffset)> {
+		self.select_core
+	}
 
-		// Use first commitment
-		let message = self.upward_messages.get(separator_pos + 1)?;
+	/// Get a reference to the approved peer UMP signal.
+	pub fn approved_peer(&self) -> Option<&ApprovedPeerId> {
+		self.approved_peer.as_ref()
+	}
 
-		match UMPSignal::decode(&mut message.as_slice()).ok()? {
-			UMPSignal::SelectCore(core_selector, cq_offset) => Some((core_selector, cq_offset)),
-		}
+	/// Returns `true` if UMP signals are empty.
+	pub fn is_empty(&self) -> bool {
+		self.select_core.is_none() && self.approved_peer.is_none()
+	}
+
+	fn try_decode_signal(
+		&mut self,
+		buffer: &mut impl codec::Input,
+	) -> Result<(), CommittedCandidateReceiptError> {
+		match UMPSignal::decode(buffer)
+			.map_err(|_| CommittedCandidateReceiptError::UmpSignalDecode)?
+		{
+			UMPSignal::ApprovedPeer(approved_peer_id) if self.approved_peer.is_none() => {
+				self.approved_peer = Some(approved_peer_id);
+			},
+			UMPSignal::SelectCore(core_selector, cq_offset) if self.select_core.is_none() => {
+				self.select_core = Some((core_selector, cq_offset));
+			},
+			_ => {
+				// This means that we got duplicate UMP signals.
+				return Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+			},
+		};
+
+		Ok(())
 	}
 }
 
-/// CandidateReceipt construction errors.
+/// Separator between `XCM` and `UMPSignal`.
+pub const UMP_SEPARATOR: Vec<u8> = vec![];
+
+/// Utility function for skipping the ump signals.
+pub fn skip_ump_signals<'a>(
+	upward_messages: impl Iterator<Item = &'a Vec<u8>>,
+) -> impl Iterator<Item = &'a Vec<u8>> {
+	upward_messages.take_while(|message| *message != &UMP_SEPARATOR)
+}
+
+impl CandidateCommitments {
+	/// Returns the ump signals of this candidate, if any, or an error if they violate the expected
+	/// format.
+	pub fn ump_signals(&self) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+		let mut res = CandidateUMPSignals::default();
+
+		let mut signals_iter =
+			self.upward_messages.iter().skip_while(|message| *message != &UMP_SEPARATOR);
+
+		if signals_iter.next().is_none() {
+			// No UMP separator
+			return Ok(res)
+		}
+
+		// Process first signal
+		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
+		res.try_decode_signal(&mut first_signal.as_slice())?;
+
+		// Process second signal
+		let Some(second_signal) = signals_iter.next() else { return Ok(res) };
+		res.try_decode_signal(&mut second_signal.as_slice())?;
+
+		// At most two signals are allowed
+		if signals_iter.next().is_some() {
+			return Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+		}
+
+		Ok(res)
+	}
+}
+
+/// CommittedCandidateReceiptError construction errors.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-pub enum CandidateReceiptError {
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+pub enum CommittedCandidateReceiptError {
 	/// The specified core index is invalid.
+	#[cfg_attr(feature = "std", error("The specified core index is invalid"))]
 	InvalidCoreIndex,
 	/// The core index in commitments doesn't match the one in descriptor
-	CoreIndexMismatch,
+	#[cfg_attr(
+		feature = "std",
+		error("The core index in commitments ({commitments:?}) doesn't match the one in descriptor ({descriptor:?})")
+	)]
+	CoreIndexMismatch {
+		/// The core index as found in the descriptor.
+		descriptor: CoreIndex,
+		/// The core index as found in the commitments.
+		commitments: CoreIndex,
+	},
 	/// The core selector or claim queue offset is invalid.
+	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
+	#[cfg_attr(feature = "std", error("Could not decode UMP signal"))]
+	/// Could not decode UMP signal.
+	UmpSignalDecode,
 	/// The parachain is not assigned to any core at specified claim queue offset.
+	#[cfg_attr(
+		feature = "std",
+		error("The parachain is not assigned to any core at specified claim queue offset")
+	)]
 	NoAssignment,
-	/// No core was selected.
-	NoCoreSelected,
 	/// Unknown version.
+	#[cfg_attr(feature = "std", error("Unknown internal version"))]
 	UnknownVersion(InternalVersion),
+	/// The allowed number of `UMPSignal` messages in the queue was exceeded.
+	#[cfg_attr(feature = "std", error("Too many UMP signals"))]
+	TooManyUMPSignals,
+	/// Duplicated UMP signal.
+	#[cfg_attr(feature = "std", error("Duplicate UMP signal"))]
+	DuplicateUMPSignal,
+	/// If the parachain runtime started sending ump signals, v1 descriptors are no longer
+	/// allowed.
+	#[cfg_attr(feature = "std", error("Version 1 receipt does not support ump signals"))]
+	UMPSignalWithV1Decriptor,
 }
 
 macro_rules! impl_getter {
 	($field:ident, $type:ident) => {
-		/// Returns the value of $field field.
+		/// Returns the value of `$field` field.
 		pub fn $field(&self) -> $type {
 			self.$field
 		}
@@ -360,20 +646,6 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(persisted_validation_data_hash, Hash);
 	impl_getter!(pov_hash, Hash);
 	impl_getter!(validation_code_hash, ValidationCodeHash);
-
-	/// Returns the candidate descriptor version.
-	/// The candidate is at version 2 if the reserved fields are zeroed out
-	/// and the internal `version` field is 0.
-	pub fn version(&self) -> CandidateDescriptorVersion {
-		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
-			return CandidateDescriptorVersion::V1
-		}
-
-		match self.version.0 {
-			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
-		}
-	}
 
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = Vec::with_capacity(32);
@@ -432,34 +704,98 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 }
 
 impl<H: Copy> CommittedCandidateReceiptV2<H> {
-	/// Checks if descriptor core index is equal to the commited core index.
-	/// Input `assigned_cores` must contain the sorted cores assigned to the para at
-	/// the committed claim queue offset.
-	pub fn check(&self, assigned_cores: &[CoreIndex]) -> Result<(), CandidateReceiptError> {
-		// Don't check v1 descriptors.
-		if self.descriptor.version() == CandidateDescriptorVersion::V1 {
-			return Ok(())
+	/// Performs checks on the UMP signals and returns them.
+	///
+	/// Also checks if descriptor core index is equal to the committed core index.
+	///
+	/// Params:
+	/// - `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+	/// a mapping between `ParaId` and the cores assigned per depth.
+	pub fn parse_ump_signals(
+		&self,
+		cores_per_para: &TransposedClaimQueue,
+	) -> Result<CandidateUMPSignals, CommittedCandidateReceiptError> {
+		let signals = self.commitments.ump_signals()?;
+
+		match self.descriptor.version() {
+			CandidateDescriptorVersion::V1 => {
+				// If the parachain runtime started sending ump signals, v1 descriptors are no
+				// longer allowed.
+				if !signals.is_empty() {
+					return Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
+				} else {
+					// Nothing else to check for v1 descriptors.
+					return Ok(CandidateUMPSignals::default())
+				}
+			},
+			CandidateDescriptorVersion::V2 => {},
+			CandidateDescriptorVersion::Unknown =>
+				return Err(CommittedCandidateReceiptError::UnknownVersion(self.descriptor.version)),
 		}
 
-		if self.descriptor.version() == CandidateDescriptorVersion::Unknown {
-			return Err(CandidateReceiptError::UnknownVersion(self.descriptor.version))
-		}
+		// Check the core index
+		let (maybe_core_index_selector, cq_offset) = signals
+			.core_selector()
+			.map(|(selector, offset)| (Some(selector), offset))
+			.unwrap_or_else(|| (None, ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET)));
+
+		self.check_core_index(cores_per_para, maybe_core_index_selector, cq_offset)?;
+
+		// Nothing to further check for the approved peer. If everything passed so far, return the
+		// signals.
+		Ok(signals)
+	}
+
+	/// Checks if descriptor core index is equal to the committed core index.
+	/// Input `cores_per_para` is a claim queue snapshot at the candidate's relay parent, stored as
+	/// a mapping between `ParaId` and the cores assigned per depth.
+	fn check_core_index(
+		&self,
+		cores_per_para: &TransposedClaimQueue,
+		maybe_core_index_selector: Option<CoreSelector>,
+		cq_offset: ClaimQueueOffset,
+	) -> Result<(), CommittedCandidateReceiptError> {
+		let assigned_cores = cores_per_para
+			.get(&self.descriptor.para_id())
+			.ok_or(CommittedCandidateReceiptError::NoAssignment)?
+			.get(&cq_offset.0)
+			.ok_or(CommittedCandidateReceiptError::NoAssignment)?;
 
 		if assigned_cores.is_empty() {
-			return Err(CandidateReceiptError::NoAssignment)
+			return Err(CommittedCandidateReceiptError::NoAssignment)
 		}
 
 		let descriptor_core_index = CoreIndex(self.descriptor.core_index as u32);
 
-		let (core_selector, _cq_offset) =
-			self.commitments.selected_core().ok_or(CandidateReceiptError::NoCoreSelected)?;
+		let core_index_selector = if let Some(core_index_selector) = maybe_core_index_selector {
+			// We have a committed core selector, we can use it.
+			core_index_selector
+		} else if assigned_cores.len() > 1 {
+			// We got more than one assigned core and no core selector. Special care is needed.
+			if !assigned_cores.contains(&descriptor_core_index) {
+				// core index in the descriptor is not assigned to the para. Error.
+				return Err(CommittedCandidateReceiptError::InvalidCoreIndex)
+			} else {
+				// the descriptor core index is indeed assigned to the para. This is the most we can
+				// check for now
+				return Ok(())
+			}
+		} else {
+			// No core selector but there's only one assigned core, use it.
+			CoreSelector(0)
+		};
 
 		let core_index = assigned_cores
-			.get(core_selector.0 as usize % assigned_cores.len())
-			.ok_or(CandidateReceiptError::InvalidCoreIndex)?;
+			.iter()
+			.nth(core_index_selector.0 as usize % assigned_cores.len())
+			.ok_or(CommittedCandidateReceiptError::InvalidSelectedCore)
+			.copied()?;
 
-		if *core_index != descriptor_core_index {
-			return Err(CandidateReceiptError::CoreIndexMismatch)
+		if core_index != descriptor_core_index {
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+				descriptor: descriptor_core_index,
+				commitments: core_index,
+			})
 		}
 
 		Ok(())
@@ -467,7 +803,7 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 }
 
 /// A backed (or backable, depending on context) candidate.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct BackedCandidate<H = Hash> {
 	/// The candidate referred to.
 	candidate: CommittedCandidateReceiptV2<H>,
@@ -480,7 +816,7 @@ pub struct BackedCandidate<H = Hash> {
 }
 
 /// Parachains inherent-data passed into the runtime by a block author
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 pub struct InherentData<HDR: HeaderT = Header> {
 	/// Signed bitfields by validators about availability.
 	pub bitfields: UncheckedSignedAvailabilityBitfields,
@@ -498,12 +834,10 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceiptV2<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> Self {
 		let mut instance = Self { candidate, validity_votes, validator_indices };
-		if let Some(core_index) = core_index {
-			instance.inject_core_index(core_index);
-		}
+		instance.inject_core_index(core_index);
 		instance
 	}
 
@@ -512,6 +846,12 @@ impl<H> BackedCandidate<H> {
 		&self.candidate
 	}
 
+	/// Get a mutable reference to the committed candidate receipt of the candidate.
+	/// Only for testing.
+	#[cfg(feature = "test")]
+	pub fn candidate_mut(&mut self) -> &mut CommittedCandidateReceiptV2<H> {
+		&mut self.candidate
+	}
 	/// Get a reference to the descriptor of the candidate.
 	pub fn descriptor(&self) -> &CandidateDescriptorV2<H> {
 		&self.candidate.descriptor
@@ -552,20 +892,13 @@ impl<H> BackedCandidate<H> {
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
-		core_index_enabled: bool,
 	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			if core_idx_offset > 0 {
-				let (validator_indices_slice, core_idx_slice) =
-					self.validator_indices.split_at(core_idx_offset);
-				return (
-					validator_indices_slice,
-					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-				);
-			}
+		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
+		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+		if core_idx_offset > 0 {
+			let (validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
 		}
 
 		(&self.validator_indices, None)
@@ -650,6 +983,13 @@ pub struct OccupiedCore<H = Hash, N = BlockNumber> {
 	pub candidate_descriptor: CandidateDescriptorV2<H>,
 }
 
+impl<H, N> OccupiedCore<H, N> {
+	/// Get the Para currently occupying this core.
+	pub fn para_id(&self) -> Id {
+		self.candidate_descriptor.para_id
+	}
+}
+
 /// The state of a particular availability core.
 #[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(PartialEq))]
@@ -669,6 +1009,28 @@ pub enum CoreState<H = Hash, N = BlockNumber> {
 	/// left idle.
 	#[codec(index = 2)]
 	Free,
+}
+
+impl<N> CoreState<N> {
+	/// Returns the scheduled `ParaId` for the core or `None` if nothing is scheduled.
+	///
+	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
+	/// for each core.
+	#[deprecated(
+		note = "`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
+	)]
+	pub fn para_id(&self) -> Option<Id> {
+		match self {
+			Self::Occupied(ref core) => core.next_up_on_available.as_ref().map(|n| n.para_id),
+			Self::Scheduled(core) => Some(core.para_id),
+			Self::Free => None,
+		}
+	}
+
+	/// Is this core state `Self::Occupied`?
+	pub fn is_occupied(&self) -> bool {
+		matches!(self, Self::Occupied(_))
+	}
 }
 
 impl<H: Copy> From<OccupiedCore<H>> for super::v8::OccupiedCore<H> {
@@ -697,8 +1059,31 @@ impl<H: Copy> From<CoreState<H>> for super::v8::CoreState<H> {
 	}
 }
 
+/// The claim queue mapped by parachain id.
+pub type TransposedClaimQueue = BTreeMap<ParaId, BTreeMap<u8, BTreeSet<CoreIndex>>>;
+
+/// Returns a mapping between the para id and the core indices assigned at different
+/// depths in the claim queue.
+pub fn transpose_claim_queue(
+	claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
+) -> TransposedClaimQueue {
+	let mut per_para_claim_queue = BTreeMap::new();
+
+	for (core, paras) in claim_queue {
+		// Iterate paras assigned to this core at each depth.
+		for (depth, para) in paras.into_iter().enumerate() {
+			let depths: &mut BTreeMap<u8, BTreeSet<CoreIndex>> =
+				per_para_claim_queue.entry(para).or_insert_with(|| Default::default());
+
+			depths.entry(depth as u8).or_default().insert(core);
+		}
+	}
+
+	per_para_claim_queue
+}
+
 #[cfg(test)]
-mod tests {
+mod candidate_receipt_tests {
 	use super::*;
 	use crate::{
 		v8::{
@@ -766,6 +1151,25 @@ mod tests {
 	}
 
 	#[test]
+	fn test_from_v1_descriptor() {
+		let mut old_ccr = dummy_old_committed_candidate_receipt().to_plain();
+		old_ccr.descriptor.collator = dummy_collator_id();
+		old_ccr.descriptor.signature = dummy_collator_signature();
+
+		let mut new_ccr = dummy_committed_candidate_receipt_v2().to_plain();
+
+		// Override descriptor from old candidate receipt.
+		new_ccr.descriptor = old_ccr.descriptor.clone().into();
+
+		// We get same candidate hash.
+		assert_eq!(old_ccr.hash(), new_ccr.hash());
+
+		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert_eq!(old_ccr.descriptor.collator, new_ccr.descriptor.collator().unwrap());
+		assert_eq!(old_ccr.descriptor.signature, new_ccr.descriptor.signature().unwrap());
+	}
+
+	#[test]
 	fn invalid_version_descriptor() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
@@ -778,76 +1182,246 @@ mod tests {
 
 		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
 		assert_eq!(
-			new_ccr.check(&vec![].as_slice()),
-			Err(CandidateReceiptError::UnknownVersion(InternalVersion(100)))
-		)
+			new_ccr.parse_ump_signals(&BTreeMap::new()),
+			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
+		);
 	}
 
 	#[test]
-	fn test_ump_commitment() {
+	// Test valid scenarios for parse_ump_signals():
+	// - no signals
+	// - only selected core signal
+	// - only approved peer signal
+	// - both signals in any order
+	fn test_ump_commitments() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		new_ccr.descriptor.core_index = 123;
 		new_ccr.descriptor.para_id = ParaId::new(1000);
+
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+		let cq = transpose_claim_queue(cq);
+
+		// No commitments
 
 		// dummy XCM messages
 		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
 		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
 
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Ok(CandidateUMPSignals { select_core: None, approved_peer: None })
+		);
+
 		// separator
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Ok(CandidateUMPSignals { select_core: None, approved_peer: None })
+		);
+
 		// CoreIndex commitment
+		{
+			let mut new_ccr = new_ccr.clone();
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals {
+					select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
+					approved_peer: None
+				})
+			);
+		}
+
+		{
+			let mut new_ccr = new_ccr.clone();
+
+			// Test having only an approved peer.
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals {
+					select_core: None,
+					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
+				})
+			);
+
+			// Test having an approved peer and a core selector.
+
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals {
+					select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
+					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
+				})
+			);
+		}
+
+		// Test having a core selector and an approved peer.
 		new_ccr
 			.commitments
 			.upward_messages
 			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Ok(CandidateUMPSignals {
+				select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
+				approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
+			})
+		);
 	}
 
 	#[test]
-	fn test_invalid_ump_commitment() {
+	fn test_invalid_ump_commitments() {
 		let mut new_ccr = dummy_committed_candidate_receipt_v2();
 		new_ccr.descriptor.core_index = 0;
 		new_ccr.descriptor.para_id = ParaId::new(1000);
 
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
-		// The check should fail because no `SelectCore` signal was sent.
-		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
-			Err(CandidateReceiptError::NoCoreSelected)
-		);
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+		let cq = transpose_claim_queue(cq);
+
+		// Add an approved peer message.
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 
 		// Garbage message.
 		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
 
-		// No `SelectCore` can be decoded.
-		assert_eq!(new_ccr.commitments.selected_core(), None);
-
-		// Failure is expected.
+		// No signals can be decoded.
 		assert_eq!(
-			new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]),
-			Err(CandidateReceiptError::NoCoreSelected)
+			new_ccr.parse_ump_signals(&cq),
+			Err(CommittedCandidateReceiptError::UmpSignalDecode)
+		);
+		assert_eq!(
+			new_ccr.commitments.ump_signals(),
+			Err(CommittedCandidateReceiptError::UmpSignalDecode)
 		);
 
+		// Verify core index checks.
+		{
+			// Has two cores assigned but no core commitment. Will pass the check if the descriptor
+			// core index is indeed assigned to the para.
+			new_ccr.commitments.upward_messages.clear();
+			new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+			let mut cq = BTreeMap::new();
+			cq.insert(
+				CoreIndex(0),
+				vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+			);
+			cq.insert(
+				CoreIndex(100),
+				vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+			);
+			let cq = transpose_claim_queue(cq);
+
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Ok(CandidateUMPSignals {
+					select_core: None,
+					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
+				})
+			);
+
+			new_ccr.descriptor.set_core_index(CoreIndex(1));
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Err(CommittedCandidateReceiptError::InvalidCoreIndex)
+			);
+			new_ccr.descriptor.set_core_index(CoreIndex(0));
+
+			new_ccr
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
+
+			// No assignments.
+			assert_eq!(
+				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default())),
+				Err(CommittedCandidateReceiptError::NoAssignment)
+			);
+
+			// Mismatch between descriptor index and commitment.
+			new_ccr.descriptor.set_core_index(CoreIndex(1));
+			assert_eq!(
+				new_ccr.parse_ump_signals(&cq),
+				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+					descriptor: CoreIndex(1),
+					commitments: CoreIndex(0),
+				})
+			);
+		}
+
+		new_ccr.descriptor.set_core_index(CoreIndex(0));
+
+		// Add two ApprovedPeer messages
 		new_ccr.commitments.upward_messages.clear();
 		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
 		new_ccr
 			.commitments
 			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-
-		// Duplicate
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
 		new_ccr
 			.commitments
 			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
+			.force_push(UMPSignal::ApprovedPeer(vec![4, 5].try_into().unwrap()).encode());
 
-		// Duplicate doesn't override first signal.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0), CoreIndex(100)]), Ok(()));
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+		);
+
+		// Too many
+		new_ccr.commitments.upward_messages.clear();
+		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+		new_ccr
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+		assert_eq!(
+			new_ccr.parse_ump_signals(&cq),
+			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+		);
 	}
 
 	#[test]
@@ -884,13 +1458,58 @@ mod tests {
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
 		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
-		assert_eq!(new_ccr.check(&vec![CoreIndex(123)]), Ok(()));
+
+		let mut cq = BTreeMap::new();
+		cq.insert(
+			CoreIndex(123),
+			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
+		);
+
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
 
 		assert_eq!(new_ccr.hash(), v2_ccr.hash());
 	}
 
+	// V1 descriptors are forbidden once the parachain runtime started sending UMP signals.
 	#[test]
-	fn test_core_select_is_mandatory() {
+	fn test_v1_descriptors_with_ump_signal() {
+		let mut ccr = dummy_old_committed_candidate_receipt();
+		ccr.descriptor.para_id = ParaId::new(1024);
+		// Adding collator signature should make it decode as v1.
+		ccr.descriptor.signature = dummy_collator_signature();
+		ccr.descriptor.collator = dummy_collator_id();
+
+		ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		ccr.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
+
+		ccr.commitments
+			.upward_messages
+			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
+
+		let encoded_ccr: Vec<u8> = ccr.encode();
+
+		let v1_ccr: CommittedCandidateReceiptV2 =
+			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
+
+		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
+		assert!(!v1_ccr.commitments.ump_signals().unwrap().is_empty());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
+
+		assert_eq!(v1_ccr.descriptor.core_index(), None);
+
+		assert_eq!(
+			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq)),
+			Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
+		);
+	}
+
+	#[test]
+	fn test_core_select_is_optional() {
 		// Testing edge case when collators provide zeroed signature and collator id.
 		let mut old_ccr = dummy_old_committed_candidate_receipt();
 		old_ccr.descriptor.para_id = ParaId::new(1000);
@@ -899,11 +1518,20 @@ mod tests {
 		let new_ccr: CommittedCandidateReceiptV2 =
 			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
 
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+
 		// Since collator sig and id are zeroed, it means that the descriptor uses format
-		// version 2.
-		// We expect the check to fail in such case because there will be no `SelectCore`
-		// commitment.
-		assert_eq!(new_ccr.check(&vec![CoreIndex(0)]), Err(CandidateReceiptError::NoCoreSelected));
+		// version 2. Should still pass checks without core selector.
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
+
+		let mut cq = BTreeMap::new();
+		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
+		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
+
+		// Passes even if 2 cores are assigned, because elastic scaling MVP could still inject the
+		// core index in the `BackedCandidate`.
+		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
 
 		// Adding collator signature should make it decode as v1.
 		old_ccr.descriptor.signature = dummy_collator_signature();
@@ -923,5 +1551,112 @@ mod tests {
 		assert_eq!(new_ccr.descriptor.para_id(), ParaId::new(1000));
 
 		assert_eq!(old_ccr_hash, new_ccr.hash());
+	}
+}
+
+// Approval Slashes primitives
+/// Supercedes the old 'SlashingOffenceKind' enum.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub enum DisputeOffenceKind {
+	/// A severe offence when a validator backed an invalid block
+	/// (backing only)
+	#[codec(index = 0)]
+	ForInvalidBacked,
+	/// A minor offence when a validator disputed a valid block.
+	/// (approval checking and dispute vote only)
+	#[codec(index = 1)]
+	AgainstValid,
+	/// A medium offence when a validator approved an invalid block
+	/// (approval checking and dispute vote only)
+	#[codec(index = 2)]
+	ForInvalidApproved,
+}
+
+/// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
+/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not
+/// supported in the past
+impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
+	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
+		match value {
+			super::v8::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
+			super::v8::slashing::SlashingOffenceKind::AgainstValid => Self::AgainstValid,
+		}
+	}
+}
+
+/// impl for a tryFrom conversion from DisputeOffenceKind to SlashingOffenceKind
+impl TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
+	type Error = ();
+
+	fn try_from(value: DisputeOffenceKind) -> Result<Self, Self::Error> {
+		match value {
+			DisputeOffenceKind::ForInvalidBacked => Ok(Self::ForInvalid),
+			DisputeOffenceKind::AgainstValid => Ok(Self::AgainstValid),
+			DisputeOffenceKind::ForInvalidApproved => Err(()),
+		}
+	}
+}
+
+/// Slashes that are waiting to be applied once we have validator key
+/// identification.
+#[derive(Encode, Decode, TypeInfo, Debug, Clone)]
+pub struct PendingSlashes {
+	/// Indices and keys of the validators who lost a dispute and are pending
+	/// slashes.
+	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+}
+
+impl From<super::v8::slashing::PendingSlashes> for PendingSlashes {
+	fn from(old: super::v8::slashing::PendingSlashes) -> Self {
+		let keys = old.keys;
+		let kind = old.kind.into();
+		Self { keys, kind }
+	}
+}
+
+impl TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
+	type Error = ();
+
+	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
+		Ok(Self { keys: value.keys, kind: value.kind.try_into()? })
+	}
+}
+
+/// We store most of the information about a lost dispute on chain. This struct
+/// is required to identify and verify it.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub struct DisputeProof {
+	/// Time slot when the dispute occurred.
+	pub time_slot: DisputesTimeSlot,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+	/// The index of the validator who lost a dispute.
+	pub validator_index: ValidatorIndex,
+	/// The parachain session key of the validator.
+	pub validator_id: ValidatorId,
+}
+
+impl From<super::v8::slashing::DisputeProof> for DisputeProof {
+	fn from(old: super::v8::slashing::DisputeProof) -> Self {
+		let time_slot = old.time_slot;
+		let kind = old.kind.into(); // infallible conversion
+		let validator_index = old.validator_index;
+		let validator_id = old.validator_id;
+		Self { time_slot, kind, validator_index, validator_id }
+	}
+}
+
+impl TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
+	type Error = ();
+
+	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
+		Ok(Self {
+			time_slot: value.time_slot,
+			kind: value.kind.try_into()?,
+			validator_index: value.validator_index,
+			validator_id: value.validator_id,
+		})
 	}
 }

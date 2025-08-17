@@ -1,0 +1,66 @@
+title: 'Collator: Support building on older relay parents'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduce mechanisms to build on relay parents that are not at the tip of the relay chain. This is useful in combination
+    with the slot-based collator (`--authoring slot-based`) and elastic-scaling. Relay chain forks are short. By choosing
+    a relay parent with an offset, forks have already settled and therefore parachain forks become less likely too.
+
+    Migration: Teams that want to keep behaviour as-is can just add `type RelayParentOffset = ConstU32<0>;` to the
+    `cumulus_pallet_parachain_system::Config` in their runtime. Teams that wish to leverage the new functionality
+    can find more documentation [here](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/handling_parachain_forks/index.html)
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-client-parachain-inherent
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: parachains-runtimes-test-utils
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: cumulus-primitives-parachain-inherent
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: sc-consensus-babe
+  bump: major
+- name: sp-consensus-babe
+  bump: major
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: xcm-emulator
+  bump: major

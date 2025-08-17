@@ -21,9 +21,9 @@ use proc_macro2::{Span, TokenStream};
 use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
 use syn::{
-	parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute, Error, Expr,
-	ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, Meta, MetaNameValue, Pat, Path,
-	PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
+	parenthesized, parse_quote, punctuated::Punctuated, spanned::Spanned, token::And, Attribute,
+	Error, Expr, ExprLit, FnArg, GenericArgument, Ident, ItemImpl, Lit, LitInt, LitStr, Meta,
+	MetaNameValue, Pat, Path, PathArguments, Result, ReturnType, Signature, Token, Type, TypePath,
 };
 
 /// Generates the access to the `sc_client` crate.
@@ -74,10 +74,8 @@ pub fn replace_wild_card_parameter_names(input: &mut Signature) {
 	let mut generated_pattern_counter = 0;
 	input.inputs.iter_mut().for_each(|arg| {
 		if let FnArg::Typed(arg) = arg {
-			arg.pat = Box::new(generate_unique_pattern(
-				(*arg.pat).clone(),
-				&mut generated_pattern_counter,
-			));
+			arg.pat =
+				Box::new(sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter));
 		}
 	});
 }
@@ -101,8 +99,11 @@ pub fn fold_fn_decl_for_client_side(
 	};
 }
 
-/// Generate an unique pattern based on the given counter, if the given pattern is a `_`.
-pub fn generate_unique_pattern(pat: Pat, counter: &mut u32) -> Pat {
+/// Sanitize the given pattern.
+///
+/// - `_` patterns are changed to a variable based on `counter`.
+/// - `mut something` removes the `mut`.
+pub fn sanitize_pattern(pat: Pat, counter: &mut u32) -> Pat {
 	match pat {
 		Pat::Wild(_) => {
 			let generated_name =
@@ -110,6 +111,10 @@ pub fn generate_unique_pattern(pat: Pat, counter: &mut u32) -> Pat {
 			*counter += 1;
 
 			parse_quote!( #generated_name )
+		},
+		Pat::Ident(mut pat) => {
+			pat.mutability = None;
+			pat.into()
 		},
 		_ => pat,
 	}
@@ -138,8 +143,7 @@ pub fn extract_parameter_names_types_and_borrows(
 					t => (t.clone(), None),
 				};
 
-				let name =
-					generate_unique_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
+				let name = sanitize_pattern((*arg.pat).clone(), &mut generated_pattern_counter);
 				result.push((name, ty, borrow));
 			},
 			FnArg::Receiver(_) if matches!(allow_self, AllowSelfRefInParameters::No) =>
@@ -216,7 +220,7 @@ pub fn extract_impl_trait(impl_: &ItemImpl, require: RequireQualifiedTraitPath) 
 }
 
 /// Parse the given attribute as `API_VERSION_ATTRIBUTE`.
-pub fn parse_runtime_api_version(version: &Attribute) -> Result<u64> {
+pub fn parse_runtime_api_version(version: &Attribute) -> Result<u32> {
 	let version = version.parse_args::<syn::LitInt>().map_err(|_| {
 		Error::new(
 			version.span(),
@@ -231,7 +235,7 @@ pub fn parse_runtime_api_version(version: &Attribute) -> Result<u64> {
 }
 
 /// Each versioned trait is named 'ApiNameVN' where N is the specific version. E.g. ParachainHostV2
-pub fn versioned_trait_name(trait_ident: &Ident, version: u64) -> Ident {
+pub fn versioned_trait_name(trait_ident: &Ident, version: u32) -> Ident {
 	format_ident!("{}V{}", trait_ident, version)
 }
 
@@ -301,7 +305,7 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 					} else {
 						quote! { None }
 					};
-					let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #note, since: #since }};
+					let doc = quote! { #crate_::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #note, since: #since }};
 					Ok(doc)
 				},
 			)
@@ -311,12 +315,12 @@ fn parse_deprecated_meta(crate_: &TokenStream, attr: &syn::Attribute) -> Result<
 			..
 		}) => {
 			// #[deprecated = "lit"]
-			let doc = quote! { #crate_::metadata_ir::DeprecationStatusIR::Deprecated { note: #lit, since: None } };
+			let doc = quote! { #crate_::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #lit, since: None } };
 			Ok(doc)
 		},
 		Meta::Path(_) => {
 			// #[deprecated]
-			Ok(quote! { #crate_::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote })
+			Ok(quote! { #crate_::metadata_ir::ItemDeprecationInfoIR::DeprecatedWithoutNote })
 		},
 		_ => Err(Error::new(
 			attr.span(),
@@ -331,7 +335,90 @@ pub fn get_deprecation(crate_: &TokenStream, attrs: &[syn::Attribute]) -> Result
 		.iter()
 		.find(|a| a.path().is_ident("deprecated"))
 		.map(|a| parse_deprecated_meta(&crate_, a))
-		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::DeprecationStatusIR::NotDeprecated}))
+		.unwrap_or_else(|| Ok(quote! {#crate_::metadata_ir::ItemDeprecationInfoIR::NotDeprecated}))
+}
+
+/// Represents an API version.
+pub struct ApiVersion {
+	/// Corresponds to `#[api_version(X)]` attribute.
+	pub custom: Option<u32>,
+	/// Corresponds to `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
+	/// attribute. `String` is the feature name, `u32` the staging api version.
+	pub feature_gated: Option<(String, u32)>,
+}
+
+/// Extracts the value of `API_VERSION_ATTRIBUTE` and handles errors.
+/// Returns:
+/// - Err if the version is malformed
+/// - `ApiVersion` on success. If a version is set or not is determined by the fields of
+///   `ApiVersion`
+pub fn extract_api_version(attrs: &[Attribute], span: Span) -> Result<ApiVersion> {
+	// First fetch all `API_VERSION_ATTRIBUTE` values (should be only one)
+	let api_ver = attrs
+		.iter()
+		.filter(|a| a.path().is_ident(API_VERSION_ATTRIBUTE))
+		.collect::<Vec<_>>();
+
+	if api_ver.len() > 1 {
+		return Err(Error::new(
+			span,
+			format!(
+				"Found multiple #[{}] attributes for an API implementation. \
+				Each runtime API can have only one version.",
+				API_VERSION_ATTRIBUTE
+			),
+		));
+	}
+
+	// Parse the runtime version if there exists one.
+	Ok(ApiVersion {
+		custom: api_ver.first().map(|v| parse_runtime_api_version(v)).transpose()?,
+		feature_gated: extract_cfg_api_version(attrs, span)?,
+	})
+}
+
+/// Parse feature flagged api_version.
+/// E.g. `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
+fn extract_cfg_api_version(attrs: &[Attribute], span: Span) -> Result<Option<(String, u32)>> {
+	let cfg_attrs = attrs.iter().filter(|a| a.path().is_ident("cfg_attr")).collect::<Vec<_>>();
+
+	let mut cfg_api_version_attr = Vec::new();
+	for cfg_attr in cfg_attrs {
+		let mut feature_name = None;
+		let mut api_version = None;
+		cfg_attr.parse_nested_meta(|m| {
+			if m.path.is_ident("feature") {
+				let a = m.value()?;
+				let b: LitStr = a.parse()?;
+				feature_name = Some(b.value());
+			} else if m.path.is_ident(API_VERSION_ATTRIBUTE) {
+				let content;
+				parenthesized!(content in m.input);
+				let ver: LitInt = content.parse()?;
+				api_version = Some(ver.base10_parse::<u32>()?);
+			}
+			Ok(())
+		})?;
+
+		// If there is a cfg attribute containing api_version - save if for processing
+		if let (Some(feature_name), Some(api_version)) = (feature_name, api_version) {
+			cfg_api_version_attr.push((feature_name, api_version, cfg_attr.span()));
+		}
+	}
+
+	if cfg_api_version_attr.len() > 1 {
+		let mut err = Error::new(span, format!("Found multiple feature gated api versions (cfg attribute with nested `{}` attribute). This is not supported.", API_VERSION_ATTRIBUTE));
+		for (_, _, attr_span) in cfg_api_version_attr {
+			err.combine(Error::new(attr_span, format!("`{}` found here", API_VERSION_ATTRIBUTE)));
+		}
+
+		return Err(err);
+	}
+
+	Ok(cfg_api_version_attr
+		.into_iter()
+		.next()
+		.map(|(feature, name, _)| (feature, name)))
 }
 
 #[cfg(test)]
@@ -395,23 +482,23 @@ mod tests {
 			parse_quote!(#[deprecated(note = #FIRST, since = #SECOND, extra = "Test")]);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[simple]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatusIR::DeprecatedWithoutNote }.to_string()
+			quote! { crate::metadata_ir::ItemDeprecationInfoIR::DeprecatedWithoutNote }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[simple_path]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
+			quote! { crate::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #FIRST, since: None } }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[meta_list]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: None } }.to_string()
+			quote! { crate::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #FIRST, since: None } }.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[meta_list_with_since]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+			quote! { crate::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
 		);
 		assert_eq!(
 			get_deprecation(&quote! { crate }, &[extra_fields]).unwrap().to_string(),
-			quote! { crate::metadata_ir::DeprecationStatusIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
+			quote! { crate::metadata_ir::ItemDeprecationInfoIR::Deprecated { note: #FIRST, since: Some(#SECOND) }}.to_string()
 		);
 	}
 }

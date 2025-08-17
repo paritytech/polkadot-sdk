@@ -36,6 +36,7 @@ pub mod storage;
 pub mod tasks;
 pub mod type_value;
 pub mod validate_unsigned;
+pub mod view_functions;
 
 #[cfg(test)]
 pub mod tests;
@@ -70,6 +71,8 @@ pub struct Def {
 	pub frame_system: syn::Path,
 	pub frame_support: syn::Path,
 	pub dev_mode: bool,
+	pub view_functions: Option<view_functions::ViewFunctionsImplDef>,
+	pub is_frame_system: bool,
 }
 
 impl Def {
@@ -103,18 +106,24 @@ impl Def {
 		let mut storages = vec![];
 		let mut type_values = vec![];
 		let mut composites: Vec<CompositeDef> = vec![];
+		let mut view_functions = None;
+		let mut is_frame_system = false;
 
 		for (index, item) in items.iter_mut().enumerate() {
 			let pallet_attr: Option<PalletAttr> = helper::take_first_item_pallet_attr(item)?;
 
 			match pallet_attr {
-				Some(PalletAttr::Config(_, with_default)) if config.is_none() =>
+				Some(PalletAttr::Config{ with_default, frame_system_config: is_frame_system_val, without_automatic_metadata, ..}) if config.is_none() => {
+					is_frame_system = is_frame_system_val;
 					config = Some(config::ConfigDef::try_from(
 						&frame_system,
 						index,
 						item,
 						with_default,
-					)?),
+						without_automatic_metadata,
+						is_frame_system,
+					)?);
+				},
 				Some(PalletAttr::Pallet(span)) if pallet_struct.is_none() => {
 					let p = pallet_struct::PalletStructDef::try_from(span, index, item)?;
 					pallet_struct = Some(p);
@@ -125,11 +134,11 @@ impl Def {
 				},
 				Some(PalletAttr::RuntimeCall(cw, span)) if call.is_none() =>
 					call = Some(call::CallDef::try_from(span, index, item, dev_mode, cw)?),
-				Some(PalletAttr::Tasks(_)) if tasks.is_none() => {
+				Some(PalletAttr::Tasks(span)) if tasks.is_none() => {
 					let item_tokens = item.to_token_stream();
 					// `TasksDef::parse` needs to know if attr was provided so we artificially
 					// re-insert it here
-					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote! {
+					tasks = Some(syn::parse2::<tasks::TasksDef>(quote::quote_spanned! { span =>
 						#[pallet::tasks_experimental]
 						#item_tokens
 					})?);
@@ -204,6 +213,9 @@ impl Def {
 					}
 					composites.push(composite);
 				},
+				Some(PalletAttr::ViewFunctions(span)) => {
+					view_functions = Some(view_functions::ViewFunctionsImplDef::try_from(span, item)?);
+				}
 				Some(attr) => {
 					let msg = "Invalid duplicated attribute";
 					return Err(syn::Error::new(attr.span(), msg))
@@ -249,10 +261,11 @@ impl Def {
 			frame_system,
 			frame_support,
 			dev_mode,
+			view_functions,
+			is_frame_system,
 		};
 
 		def.check_instance_usage()?;
-		def.check_event_usage()?;
 
 		Ok(def)
 	}
@@ -350,26 +363,6 @@ impl Def {
 		Ok(())
 	}
 
-	/// Check that usage of trait `Event` is consistent with the definition, i.e. it is declared
-	/// and trait defines type RuntimeEvent, or not declared and no trait associated type.
-	fn check_event_usage(&self) -> syn::Result<()> {
-		match (self.config.has_event_type, self.event.is_some()) {
-			(true, false) => {
-				let msg = "Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent`, \
-					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
-					Note that type `RuntimeEvent` in trait is reserved to work alongside pallet event.";
-				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
-			},
-			(false, true) => {
-				let msg = "Invalid usage of RuntimeEvent, `Config` contains no associated type \
-					`RuntimeEvent`, but enum `Event` is declared (in use of `#[pallet::event]`). \
-					An RuntimeEvent associated type must be declare on trait `Config`.";
-				Err(syn::Error::new(proc_macro2::Span::call_site(), msg))
-			},
-			_ => Ok(()),
-		}
-	}
-
 	/// Check that usage of trait `Config` is consistent with the definition, i.e. it is used with
 	/// instance iff it is defined with instance.
 	fn check_instance_usage(&self) -> syn::Result<()> {
@@ -402,6 +395,9 @@ impl Def {
 		}
 		if let Some(extra_constants) = &self.extra_constants {
 			instances.extend_from_slice(&extra_constants.instances[..]);
+		}
+		if let Some(task_enum) = &self.task_enum {
+			instances.push(task_enum.instance_usage.clone());
 		}
 
 		let mut errors = instances.into_iter().filter_map(|instances| {
@@ -547,6 +543,8 @@ mod keyword {
 	syn::custom_keyword!(event);
 	syn::custom_keyword!(config);
 	syn::custom_keyword!(with_default);
+	syn::custom_keyword!(without_automatic_metadata);
+	syn::custom_keyword!(frame_system_config);
 	syn::custom_keyword!(hooks);
 	syn::custom_keyword!(inherent);
 	syn::custom_keyword!(error);
@@ -558,12 +556,45 @@ mod keyword {
 	syn::custom_keyword!(pallet);
 	syn::custom_keyword!(extra_constants);
 	syn::custom_keyword!(composite_enum);
+	syn::custom_keyword!(view_functions);
+}
+
+/// The possible values for the `#[pallet::config]` attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ConfigValue {
+	/// `#[pallet::config(with_default)]`
+	WithDefault(keyword::with_default),
+	/// `#[pallet::config(without_automatic_metadata)]`
+	WithoutAutomaticMetadata(keyword::without_automatic_metadata),
+	/// `#[pallet::config(frame_system_config)]`
+	FrameSystemConfig(keyword::frame_system_config),
+}
+
+impl syn::parse::Parse for ConfigValue {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let lookahead = input.lookahead1();
+
+		if lookahead.peek(keyword::with_default) {
+			input.parse().map(ConfigValue::WithDefault)
+		} else if lookahead.peek(keyword::without_automatic_metadata) {
+			input.parse().map(ConfigValue::WithoutAutomaticMetadata)
+		} else if lookahead.peek(keyword::frame_system_config) {
+			input.parse().map(ConfigValue::FrameSystemConfig)
+		} else {
+			Err(lookahead.error())
+		}
+	}
 }
 
 /// Parse attributes for item in pallet module
 /// syntax must be `pallet::` (e.g. `#[pallet::config]`)
 enum PalletAttr {
-	Config(proc_macro2::Span, bool),
+	Config {
+		span: proc_macro2::Span,
+		with_default: bool,
+		without_automatic_metadata: bool,
+		frame_system_config: bool,
+	},
 	Pallet(proc_macro2::Span),
 	Hooks(proc_macro2::Span),
 	/// A `#[pallet::call]` with optional attributes to specialize the behaviour.
@@ -620,12 +651,13 @@ enum PalletAttr {
 	TypeValue(proc_macro2::Span),
 	ExtraConstants(proc_macro2::Span),
 	Composite(proc_macro2::Span),
+	ViewFunctions(proc_macro2::Span),
 }
 
 impl PalletAttr {
 	fn span(&self) -> proc_macro2::Span {
 		match self {
-			Self::Config(span, _) => *span,
+			Self::Config { span, .. } => *span,
 			Self::Pallet(span) => *span,
 			Self::Hooks(span) => *span,
 			Self::Tasks(span) => *span,
@@ -645,6 +677,7 @@ impl PalletAttr {
 			Self::TypeValue(span) => *span,
 			Self::ExtraConstants(span) => *span,
 			Self::Composite(span) => *span,
+			Self::ViewFunctions(span) => *span,
 		}
 	}
 }
@@ -660,13 +693,65 @@ impl syn::parse::Parse for PalletAttr {
 		let lookahead = content.lookahead1();
 		if lookahead.peek(keyword::config) {
 			let span = content.parse::<keyword::config>()?.span();
-			let with_default = content.peek(syn::token::Paren);
-			if with_default {
+			if content.peek(syn::token::Paren) {
 				let inside_config;
+
+				// Parse (with_default, without_automatic_metadata) attributes.
 				let _paren = syn::parenthesized!(inside_config in content);
-				inside_config.parse::<keyword::with_default>()?;
+
+				let fields: syn::punctuated::Punctuated<ConfigValue, syn::Token![,]> =
+					inside_config.parse_terminated(ConfigValue::parse, syn::Token![,])?;
+				let config_values = fields.iter().collect::<Vec<_>>();
+
+				let mut with_default = false;
+				let mut without_automatic_metadata = false;
+				let mut frame_system_config = false;
+				for config in config_values {
+					match config {
+						ConfigValue::WithDefault(_) => {
+							if with_default {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: with_default.",
+								));
+							}
+							with_default = true;
+						},
+						ConfigValue::WithoutAutomaticMetadata(_) => {
+							if without_automatic_metadata {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: without_automatic_metadata.",
+								));
+							}
+							without_automatic_metadata = true;
+						},
+						ConfigValue::FrameSystemConfig(_) => {
+							if frame_system_config {
+								return Err(syn::Error::new(
+									span,
+									"Invalid duplicated attribute for `#[pallet::config]`. Please remove duplicates: frame_system_config.",
+								));
+							}
+							frame_system_config = true;
+						},
+					}
+				}
+
+				Ok(PalletAttr::Config {
+					span,
+					with_default,
+					without_automatic_metadata,
+					frame_system_config,
+				})
+			} else {
+				Ok(PalletAttr::Config {
+					span,
+					with_default: false,
+					without_automatic_metadata: false,
+					frame_system_config: false,
+				})
 			}
-			Ok(PalletAttr::Config(span, with_default))
 		} else if lookahead.peek(keyword::pallet) {
 			Ok(PalletAttr::Pallet(content.parse::<keyword::pallet>()?.span()))
 		} else if lookahead.peek(keyword::hooks) {
@@ -710,6 +795,8 @@ impl syn::parse::Parse for PalletAttr {
 			Ok(PalletAttr::ExtraConstants(content.parse::<keyword::extra_constants>()?.span()))
 		} else if lookahead.peek(keyword::composite_enum) {
 			Ok(PalletAttr::Composite(content.parse::<keyword::composite_enum>()?.span()))
+		} else if lookahead.peek(keyword::view_functions) {
+			Ok(PalletAttr::ViewFunctions(content.parse::<keyword::view_functions>()?.span()))
 		} else {
 			Err(lookahead.error())
 		}

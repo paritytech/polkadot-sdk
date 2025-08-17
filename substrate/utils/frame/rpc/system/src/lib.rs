@@ -224,7 +224,7 @@ mod tests {
 		transaction_validity::{InvalidTransaction, TransactionValidityError},
 		ApplyExtrinsicResult,
 	};
-	use substrate_test_runtime_client::{runtime::Transfer, AccountKeyring};
+	use substrate_test_runtime_client::{runtime::Transfer, Sr25519Keyring};
 
 	fn deny_unsafe() -> Extensions {
 		let mut ext = Extensions::new();
@@ -245,14 +245,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let source = sp_runtime::transaction_validity::TransactionSource::External;
 		let new_transaction = |nonce: u64| {
 			let t = Transfer {
-				from: AccountKeyring::Alice.into(),
-				to: AccountKeyring::Bob.into(),
+				from: Sr25519Keyring::Alice.into(),
+				to: Sr25519Keyring::Bob.into(),
 				amount: 5,
 				nonce,
 			};
@@ -268,7 +273,7 @@ mod tests {
 		let accounts = System::new(client, pool);
 
 		// when
-		let nonce = accounts.nonce(AccountKeyring::Alice.into()).await;
+		let nonce = accounts.nonce(Sr25519Keyring::Alice.into()).await;
 
 		// then
 		assert_eq!(nonce.unwrap(), 2);
@@ -281,8 +286,13 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 
@@ -300,14 +310,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 
 		let tx = Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 			amount: 5,
 			nonce: 0,
 		}
@@ -331,14 +346,19 @@ mod tests {
 		// given
 		let client = Arc::new(substrate_test_runtime_client::new());
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let pool =
-			BasicPool::new_full(Default::default(), true.into(), None, spawner, client.clone());
+		let pool = Arc::from(BasicPool::new_full(
+			Default::default(),
+			true.into(),
+			None,
+			spawner,
+			client.clone(),
+		));
 
 		let accounts = System::new(client, pool);
 
 		let tx = Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Bob.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Bob.into(),
 			amount: 5,
 			nonce: 100,
 		}

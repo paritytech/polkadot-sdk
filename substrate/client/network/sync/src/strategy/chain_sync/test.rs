@@ -19,15 +19,63 @@
 //! Tests of [`ChainSync`].
 
 use super::*;
-use futures::executor::block_on;
+use crate::{
+	block_relay_protocol::BlockResponseError, mock::MockBlockDownloader,
+	service::network::NetworkServiceProvider,
+};
+use futures::{channel::oneshot::Canceled, executor::block_on};
 use sc_block_builder::BlockBuilderBuilder;
+use sc_network::RequestFailure;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
+use std::sync::Mutex;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
 	BlockBuilderExt, ClientBlockImportExt, ClientExt, DefaultTestClientBuilderExt, TestClient,
 	TestClientBuilder, TestClientBuilderExt,
 };
+
+#[derive(Debug)]
+struct ProxyBlockDownloader {
+	protocol_name: ProtocolName,
+	sender: std::sync::mpsc::Sender<BlockRequest<Block>>,
+	request: Mutex<std::sync::mpsc::Receiver<BlockRequest<Block>>>,
+}
+
+#[async_trait::async_trait]
+impl BlockDownloader<Block> for ProxyBlockDownloader {
+	fn protocol_name(&self) -> &ProtocolName {
+		&self.protocol_name
+	}
+
+	async fn download_blocks(
+		&self,
+		_who: PeerId,
+		request: BlockRequest<Block>,
+	) -> Result<Result<(Vec<u8>, ProtocolName), RequestFailure>, Canceled> {
+		self.sender.send(request).unwrap();
+		Ok(Ok((Vec::new(), self.protocol_name.clone())))
+	}
+
+	fn block_response_into_blocks(
+		&self,
+		_request: &BlockRequest<Block>,
+		_response: Vec<u8>,
+	) -> Result<Vec<BlockData<Block>>, BlockResponseError> {
+		Ok(Vec::new())
+	}
+}
+
+impl ProxyBlockDownloader {
+	fn new(protocol_name: ProtocolName) -> Self {
+		let (sender, receiver) = std::sync::mpsc::channel();
+		Self { protocol_name, sender, request: Mutex::new(receiver) }
+	}
+
+	fn next_request(&self) -> BlockRequest<Block> {
+		self.request.lock().unwrap().recv().unwrap()
+	}
+}
 
 #[test]
 fn processes_empty_response_on_justification_request_for_unknown_block() {
@@ -44,6 +92,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		1,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -108,6 +157,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		1,
 		8,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -140,13 +190,15 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.add_peer(peer_id1, Hash::random(), 42);
 	sync.add_peer(peer_id2, Hash::random(), 10);
 
+	let network_provider = NetworkServiceProvider::new();
+	let network_handle = network_provider.handle();
+
 	// we wil send block requests to these peers
 	// for these blocks we don't know about
-	let actions = sync.actions().unwrap();
+	let actions = sync.actions(&network_handle).unwrap();
 	assert_eq!(actions.len(), 2);
 	assert!(actions.iter().all(|action| match action {
-		SyncingAction::SendBlockRequest { peer_id, .. } =>
-			peer_id == &peer_id1 || peer_id == &peer_id2,
+		SyncingAction::StartRequest { peer_id, .. } => peer_id == &peer_id1 || peer_id == &peer_id2,
 		_ => false,
 	}));
 
@@ -176,7 +228,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	sync.restart();
 
 	// which should make us cancel and send out again block requests to the first two peers
-	let actions = sync.actions().unwrap();
+	let actions = sync.actions(&network_handle).unwrap();
 	assert_eq!(actions.len(), 4);
 	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
@@ -184,7 +236,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 			cancelled_first.insert(peer_id);
 			peer_id == &peer_id1 || peer_id == &peer_id2
 		},
-		SyncingAction::SendBlockRequest { peer_id, .. } => {
+		SyncingAction::StartRequest { peer_id, .. } => {
 			assert!(cancelled_first.remove(peer_id));
 			peer_id == &peer_id1 || peer_id == &peer_id2
 		},
@@ -311,6 +363,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		5,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -459,12 +512,16 @@ fn can_sync_huge_fork() {
 
 	let info = client.info();
 
+	let protocol_name = ProtocolName::Static("");
+	let proxy_block_downloader = Arc::new(ProxyBlockDownloader::new(protocol_name.clone()));
+
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
 		5,
 		64,
-		ProtocolName::Static(""),
+		protocol_name,
+		proxy_block_downloader.clone(),
 		None,
 		std::iter::empty(),
 	)
@@ -494,18 +551,21 @@ fn can_sync_huge_fork() {
 		let block = &fork_blocks[unwrap_from_block_number(request.from.clone()) as usize - 1];
 		let response = create_block_response(vec![block.clone()]);
 
-		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
+		sync.on_block_data(&peer_id1, Some(request.clone()), response).unwrap();
 
-		let actions = sync.take_actions().collect::<Vec<_>>();
+		let mut actions = sync.take_actions().collect::<Vec<_>>();
 
 		request = if actions.is_empty() {
 			// We found the ancestor
 			break
 		} else {
 			assert_eq!(actions.len(), 1);
-			match &actions[0] {
-				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
-				action @ _ => panic!("Unexpected action: {action:?}"),
+			match actions.pop().unwrap() {
+				SyncingAction::StartRequest { request, .. } => {
+					block_on(request).unwrap().unwrap();
+					proxy_block_downloader.next_request()
+				},
+				action => panic!("Unexpected action: {}", action.name()),
 			}
 		};
 
@@ -600,12 +660,16 @@ fn syncs_fork_without_duplicate_requests() {
 
 	let info = client.info();
 
+	let protocol_name = ProtocolName::Static("");
+	let proxy_block_downloader = Arc::new(ProxyBlockDownloader::new(protocol_name.clone()));
+
 	let mut sync = ChainSync::new(
 		ChainSyncMode::Full,
 		client.clone(),
 		5,
 		64,
-		ProtocolName::Static(""),
+		protocol_name,
+		proxy_block_downloader.clone(),
 		None,
 		std::iter::empty(),
 	)
@@ -637,16 +701,19 @@ fn syncs_fork_without_duplicate_requests() {
 
 		sync.on_block_data(&peer_id1, Some(request), response).unwrap();
 
-		let actions = sync.take_actions().collect::<Vec<_>>();
+		let mut actions = sync.take_actions().collect::<Vec<_>>();
 
 		request = if actions.is_empty() {
 			// We found the ancestor
 			break
 		} else {
 			assert_eq!(actions.len(), 1);
-			match &actions[0] {
-				SyncingAction::SendBlockRequest { peer_id: _, request, key: _ } => request.clone(),
-				action @ _ => panic!("Unexpected action: {action:?}"),
+			match actions.pop().unwrap() {
+				SyncingAction::StartRequest { request, .. } => {
+					block_on(request).unwrap().unwrap();
+					proxy_block_downloader.next_request()
+				},
+				action => panic!("Unexpected action: {}", action.name()),
 			}
 		};
 
@@ -750,6 +817,7 @@ fn removes_target_fork_on_disconnect() {
 		1,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -784,6 +852,7 @@ fn can_import_response_with_missing_blocks() {
 		1,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -824,6 +893,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		1,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -898,17 +968,17 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 			SyncingAction::CancelRequest { peer_id, key: _ } => {
 				pending_responses.remove(&peer_id);
 			},
-			SyncingAction::SendBlockRequest { peer_id, .. } => {
+			SyncingAction::StartRequest { peer_id, .. } => {
 				// we drop obsolete response, but don't register a new request, it's checked in
 				// the `assert!` below
 				pending_responses.remove(&peer_id);
 			},
-			action @ _ => panic!("Unexpected action: {action:?}"),
+			action @ _ => panic!("Unexpected action: {}", action.name()),
 		}
 	}
 	assert!(actions.iter().any(|action| {
 		match action {
-			SyncingAction::SendBlockRequest { peer_id, .. } => peer_id == &peers[0],
+			SyncingAction::StartRequest { peer_id, .. } => peer_id == &peers[0],
 			_ => false,
 		}
 	}));
@@ -975,6 +1045,7 @@ fn request_across_forks() {
 		5,
 		64,
 		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
 	)
@@ -1054,5 +1125,219 @@ fn request_across_forks() {
 			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() == 1_usize
 		));
 		assert!(sync.is_known(&block.header.parent_hash()));
+	}
+}
+
+/// This test simulates a scenario where we get a `VerificationFailed` error
+/// while a gap reported by our client.info(). Then the gap is filled after
+/// the restart of the sync process. The test ensures that the gap is properly closed
+/// on importing unknown blocks (ie blocks we don't have in our chain yet).
+#[test]
+fn sync_verification_failed_with_gap_filled() {
+	sp_tracing::try_init_simple();
+
+	// We only care about 2 iterations of the loop (since max blocks per request is 64).
+	const TEST_TARGET: u32 = 64 * 3;
+
+	let blocks = {
+		let client = TestClientBuilder::new().build();
+		(0..TEST_TARGET).map(|_| build_block(&client, None, false)).collect::<Vec<_>>()
+	};
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let info = client.info();
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+	let peer_id2 = PeerId::random();
+
+	let best_block = blocks.last().unwrap().clone();
+	let max_blocks_to_request = sync.max_blocks_per_request;
+
+	let status = sync.status();
+	assert!(status.warp_sync.is_none());
+	log::info!(target: LOG_TARGET, "Before adding peers: {status:?}");
+
+	// Connect the node we will sync from
+	sync.add_peer(peer_id1, best_block.hash(), *best_block.header().number());
+	sync.add_peer(peer_id2, info.best_hash, 0);
+
+	let mut best_block_num = 0;
+	assert_eq!(sync.best_queued_number, 0);
+
+	// Two iterations to simulate the gap filling.
+	for loop_index in 0..2 {
+		log::info!(target: LOG_TARGET, "Loop index: {loop_index}");
+
+		// Build the request.
+		let request = get_block_request(
+			&mut sync,
+			FromBlock::Number(max_blocks_to_request as u64 + best_block_num as u64),
+			max_blocks_to_request as u32,
+			&peer_id1,
+		);
+		let from = unwrap_from_block_number(request.from.clone());
+		let mut resp_blocks = blocks[best_block_num as usize..from as usize].to_vec();
+		resp_blocks.reverse();
+		let response = create_block_response(resp_blocks.clone());
+
+		// Clear old actions to not deal with them
+		let _ = sync.take_actions();
+
+		let status = sync.status();
+		log::info!(target: LOG_TARGET, "Status before on_block_data: {status:?}");
+
+		sync.on_block_data(&peer_id1, Some(request.clone()), response.clone()).unwrap();
+
+		let actions = sync.take_actions().collect::<Vec<_>>();
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(
+			&actions[0],
+			SyncingAction::ImportBlocks{ origin: _, blocks } if blocks.len() ==
+		max_blocks_to_request as usize, ));
+
+		let status = sync.status();
+		log::info!(target: LOG_TARGET, "Status before processing blocks: {status:?}");
+
+		best_block_num += max_blocks_to_request as u32;
+
+		let responses: Vec<_> = resp_blocks
+			.iter()
+			.rev()
+			.map(|b| {
+				(
+					Ok(BlockImportStatus::ImportedUnknown(
+						*b.header().number(),
+						Default::default(),
+						Some(peer_id1),
+					)),
+					b.hash(),
+				)
+			})
+			.collect();
+
+		sync.on_blocks_processed(
+			max_blocks_to_request as usize,
+			max_blocks_to_request as usize,
+			responses,
+		);
+
+		let status = sync.status();
+		log::info!(target: LOG_TARGET, "Status after processing blocks: {status:?}");
+
+		// Import the blocks as final to the client.
+		resp_blocks
+			.into_iter()
+			.rev()
+			.for_each(|b| block_on(client.import_as_final(BlockOrigin::Own, b)).unwrap());
+
+		if loop_index == 0 {
+			log::info!(target: LOG_TARGET, "Peer state {:#?}", sync.peers);
+
+			// Both peers are in the available state.
+			match sync.peers.get(&peer_id1) {
+				Some(peer) => assert_eq!(peer.state, PeerSyncState::Available),
+				None => panic!("Peer not found"),
+			}
+			match sync.peers.get(&peer_id2) {
+				Some(peer) => assert_eq!(peer.state, PeerSyncState::Available),
+				None => panic!("Peer not found"),
+			}
+
+			// Simulate that we encounter a `VerificationFailed` error while processing the blocks.
+			// During this error, the sync will enter the `AncestorSearch` state for the peer 1
+			// because of the sync restart operation. Then, the peer will be in the `Available`
+			// state after the ancestor search is done. However, we still have the gap present.
+			sync.gap_sync = Some(GapSync {
+				best_queued_number: 64 as u64,
+				target: 84 as u64,
+				blocks: BlockCollection::new(),
+			});
+		} else if loop_index == 1 {
+			if sync.gap_sync.is_none() {
+				log::info!(target: LOG_TARGET, "Gap successfully closed");
+			} else {
+				panic!("Gap not closed after the second loop");
+			}
+		}
+	}
+}
+
+#[test]
+fn sync_gap_filled_regardless_of_blocks_origin() {
+	sp_tracing::try_init_simple();
+
+	let blocks = {
+		let client = TestClientBuilder::new().build();
+		(0..2).map(|_| build_block(&client, None, false)).collect::<Vec<_>>()
+	};
+
+	let client = Arc::new(TestClientBuilder::new().build());
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	let peer_id1 = PeerId::random();
+
+	// BlockImportStatus::ImportedUnknown clears the gap.
+	{
+		// Simulate that we encounter a `VerificationFailed` error while processing the blocks
+		// and the client.info() reports a gap.
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: *blocks[0].header().number(),
+			target: *blocks[0].header().number(),
+			blocks: BlockCollection::new(),
+		});
+
+		// Announce the block as unknown.
+		let results = [(
+			Ok(BlockImportStatus::ImportedUnknown(
+				*blocks[0].header().number(),
+				Default::default(),
+				Some(peer_id1),
+			)),
+			blocks[0].hash(),
+		)];
+		sync.on_blocks_processed(1, 1, results.into_iter().collect());
+		// Ensure the gap is cleared out.
+		assert!(sync.gap_sync.is_none());
+	}
+
+	// BlockImportStatus::ImportedKnown also clears the gap.
+	{
+		sync.gap_sync = Some(GapSync {
+			best_queued_number: *blocks[0].header().number(),
+			target: *blocks[0].header().number(),
+			blocks: BlockCollection::new(),
+		});
+
+		// Announce the block as known.
+		let results = [(
+			Ok(BlockImportStatus::ImportedKnown(*blocks[0].header().number(), Some(peer_id1))),
+			blocks[0].hash(),
+		)];
+
+		sync.on_blocks_processed(1, 1, results.into_iter().collect());
+		// Ensure the gap is cleared out.
+		assert!(sync.gap_sync.is_none());
 	}
 }

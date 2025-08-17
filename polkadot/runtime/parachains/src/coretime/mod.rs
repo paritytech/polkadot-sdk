@@ -30,20 +30,7 @@ use pallet_broker::{CoreAssignment, CoreIndex as BrokerCoreIndex};
 use polkadot_primitives::{Balance, BlockNumber, CoreIndex, Id as ParaId};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_runtime::traits::TryConvert;
-use xcm::{
-	prelude::{send_xcm, Instruction, Junction, Location, OriginKind, SendXcm, WeightLimit, Xcm},
-	v4::{
-		Asset,
-		AssetFilter::Wild,
-		AssetId, Assets, Error as XcmError,
-		Fungibility::Fungible,
-		Instruction::{DepositAsset, ReceiveTeleportedAsset},
-		Junctions::Here,
-		Reanchorable,
-		WildAsset::AllCounted,
-		XcmContext,
-	},
-};
+use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
@@ -61,7 +48,7 @@ const LOG_TARGET: &str = "runtime::parachains::coretime";
 pub trait WeightInfo {
 	fn request_core_count() -> Weight;
 	fn request_revenue_at() -> Weight;
-	//fn credit_account() -> Weight;
+	fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
 }
 
@@ -75,19 +62,18 @@ impl WeightInfo for TestWeightInfo {
 	fn request_revenue_at() -> Weight {
 		Weight::MAX
 	}
-	// TODO: Add real benchmarking functionality for each of these to
-	// benchmarking.rs, then uncomment here and in trait definition.
-	//fn credit_account() -> Weight {
-	//	Weight::MAX
-	//}
+	fn credit_account() -> Weight {
+		Weight::MAX
+	}
 	fn assign_core(_s: u32) -> Weight {
 		Weight::MAX
 	}
 }
 
 /// Shorthand for the Balance type the runtime is using.
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as on_demand::Config>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 /// Broker pallet index on the coretime chain. Used to
 ///
@@ -119,7 +105,7 @@ pub mod pallet {
 
 	use crate::configuration;
 	use sp_runtime::traits::TryConvert;
-	use xcm::v4::InteriorLocation;
+	use xcm::latest::InteriorLocation;
 	use xcm_executor::traits::TransactAsset;
 
 	use super::*;
@@ -132,9 +118,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The runtime's definition of a Currency.
-		type Currency: Currency<Self::AccountId>;
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
 		type BrokerId: Get<u32>;
@@ -208,18 +193,19 @@ pub mod pallet {
 			Self::notify_revenue(when)
 		}
 
-		//// TODO Impl me!
-		////#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
-		//#[pallet::call_index(3)]
-		//pub fn credit_account(
-		//	origin: OriginFor<T>,
-		//	_who: T::AccountId,
-		//	_amount: BalanceOf<T>,
-		//) -> DispatchResult {
-		//	// Ignore requests not coming from the coretime chain or root.
-		//	Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
-		//	Ok(())
-		//}
+		#[pallet::weight(<T as Config>::WeightInfo::credit_account())]
+		#[pallet::call_index(3)]
+		pub fn credit_account(
+			origin: OriginFor<T>,
+			who: T::AccountId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, <T as Config>::BrokerId::get().into())?;
+
+			on_demand::Pallet::<T>::credit_account(who, amount.saturated_into());
+			Ok(())
+		}
 
 		/// Receive instructions from the `ExternalBrokerOrigin`, detailing how a specific core is
 		/// to be used.
@@ -351,7 +337,7 @@ impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
-		require_weight_at_most: T::MaxXcmTransactWeight::get(),
+		fallback_max_weight: Some(T::MaxXcmTransactWeight::get()),
 		call: BrokerRuntimePallets::Broker(call).encode().into(),
 	}
 }
@@ -362,7 +348,7 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 		weight_limit: WeightLimit::Unlimited,
 		check_origin: None,
 	}];
-	let asset = Asset { id: AssetId(Location::here()), fun: Fungible(raw_revenue) };
+	let asset = Asset { id: Location::here().into(), fun: Fungible(raw_revenue) };
 	let dummy_xcm_context = XcmContext { origin: None, message_id: [0; 32], topic: None };
 
 	if raw_revenue > 0 {

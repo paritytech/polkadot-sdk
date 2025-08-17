@@ -462,12 +462,14 @@ where
 		if let Some(transaction) = self.transaction_pool.transaction(hash) {
 			let propagated_to = self.do_propagate_transactions(&[(hash.clone(), transaction)]);
 			self.transaction_pool.on_broadcasted(propagated_to);
+		} else {
+			debug!(target: "sync", "Propagating transaction failure [{:?}]", hash);
 		}
 	}
 
 	fn do_propagate_transactions(
 		&mut self,
-		transactions: &[(H, B::Extrinsic)],
+		transactions: &[(H, Arc<B::Extrinsic>)],
 	) -> HashMap<H, Vec<String>> {
 		let mut propagated_to = HashMap::<_, Vec<_>>::new();
 		let mut propagated_transactions = 0;
@@ -478,7 +480,7 @@ where
 				continue
 			}
 
-			let (hashes, to_send): (Vec<_>, Vec<_>) = transactions
+			let (hashes, to_send): (Vec<_>, Transactions<_>) = transactions
 				.iter()
 				.filter(|(hash, _)| peer.known_transactions.insert(hash.clone()))
 				.cloned()

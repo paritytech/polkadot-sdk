@@ -1,8 +1,18 @@
-error[E0277]: the trait bound `<T as frame_support_test::Config>::RuntimeOrigin: From<{integer}>` is not satisfied
-  --> tests/benchmark_ui/invalid_origin.rs:23:1
+error[E0277]: the trait bound `T: frame_system::Config` is not satisfied
+  --> tests/benchmark_ui/invalid_origin.rs:30:8
    |
-23 | #[benchmarks]
-   | ^^^^^^^^^^^^^ the trait `From<{integer}>` is not implemented for `<T as frame_support_test::Config>::RuntimeOrigin`, which is required by `{integer}: Into<_>`
+30 |         noop(1);
+   |              ^ the trait `frame_system::Config` is not implemented for `T`
+   |
+help: consider further restricting type parameter `T` with trait `Config`
+   |
+23 | #[benchmarks], T: frame_system::Config
+   |              +++++++++++++++++++++++++
+
+error[E0277]: the trait bound `<T as frame_support_test::Config>::RuntimeOrigin: From<{integer}>` is not satisfied
+  --> tests/benchmark_ui/invalid_origin.rs:30:8
+   |
+30 |         noop(1);
+   |              ^ the trait `From<{integer}>` is not implemented for `<T as frame_support_test::Config>::RuntimeOrigin`
    |
    = note: required for `{integer}` to implement `Into<<T as frame_support_test::Config>::RuntimeOrigin>`
-   = note: this error originates in the attribute macro `benchmarks` (in Nightly builds, run with -Z macro-backtrace for more info)

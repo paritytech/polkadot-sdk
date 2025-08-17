@@ -21,18 +21,22 @@
 
 #![no_std]
 #![no_main]
-
-extern crate common;
+include!("../panic_handler.rs");
 
 use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
 
-static mut BUFFER: [u8; 513 * 1024] = [42; 513 * 1024];
+static mut BUFFER: [u8; 1024 * 1024] = [42; 1024 * 1024];
+
+unsafe fn buffer() -> &'static [u8; 1024 * 1024] {
+	let ptr = core::ptr::addr_of!(BUFFER);
+	&*ptr
+}
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub unsafe extern "C" fn call_never() {
 	// make sure the buffer is not optimized away
-	api::return_value(ReturnFlags::empty(), &BUFFER);
+	api::return_value(ReturnFlags::empty(), buffer());
 }
 
 #[no_mangle]

@@ -18,10 +18,12 @@
 use crate::*;
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use parachains_common::{genesis_config_helpers::*, AccountId, AuraId};
-use sp_core::sr25519;
+use frame_support::build_struct_json_patch;
+use parachains_common::{AccountId, AuraId};
 use sp_genesis_builder::PresetId;
+use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::rococo::xcm_version::SAFE_XCM_VERSION;
+use xcm::latest::WESTEND_GENESIS_HASH;
 
 const BRIDGE_HUB_ROCOCO_ED: Balance = ExistentialDeposit::get();
 
@@ -33,7 +35,7 @@ fn bridge_hub_rococo_genesis(
 	asset_hub_para_id: ParaId,
 	opened_bridges: Vec<(Location, InteriorLocation, Option<bp_messages::LegacyLaneId>)>,
 ) -> serde_json::Value {
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -41,11 +43,10 @@ fn bridge_hub_rococo_genesis(
 				.map(|k| (k, 1u128 << 60))
 				.collect::<Vec<_>>(),
 		},
-		parachain_info: ParachainInfoConfig { parachain_id: id, ..Default::default() },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
 			candidacy_bond: BRIDGE_HUB_ROCOCO_ED * 16,
-			..Default::default()
 		},
 		session: SessionConfig {
 			keys: invulnerables
@@ -58,101 +59,55 @@ fn bridge_hub_rococo_genesis(
 					)
 				})
 				.collect(),
-			..Default::default()
 		},
-		polkadot_xcm: PolkadotXcmConfig {
-			safe_xcm_version: Some(SAFE_XCM_VERSION),
-			..Default::default()
-		},
-		bridge_westend_grandpa: BridgeWestendGrandpaConfig {
+		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		bridge_polkadot_bulletin_grandpa: BridgePolkadotBulletinGrandpaConfig {
 			owner: bridges_pallet_owner.clone(),
-			..Default::default()
 		},
+		bridge_westend_grandpa: BridgeWestendGrandpaConfig { owner: bridges_pallet_owner.clone() },
 		bridge_westend_messages: BridgeWestendMessagesConfig {
 			owner: bridges_pallet_owner.clone(),
-			..Default::default()
 		},
-		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig {
-			opened_bridges,
-			..Default::default()
+		xcm_over_polkadot_bulletin: XcmOverPolkadotBulletinConfig {
+			opened_bridges: vec![(
+				Location::new(1, [Parachain(1004)]),
+				Junctions::from([GlobalConsensus(NetworkId::PolkadotBulletin).into()]),
+				Some(bp_messages::LegacyLaneId([0, 0, 0, 0])),
+			)],
 		},
-		ethereum_system: EthereumSystemConfig {
-			para_id: id,
-			asset_hub_para_id,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		xcm_over_bridge_hub_westend: XcmOverBridgeHubWestendConfig { opened_bridges },
+		ethereum_system: EthereumSystemConfig { para_id: id, asset_hub_para_id },
+	})
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &sp_genesis_builder::PresetId) -> Option<sp_std::vec::Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				),
+				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
+			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			1013.into(),
-			Some(get_account_id_from_seed::<sr25519::Public>("Bob")),
+			Some(Sr25519Keyring::Bob.to_account_id()),
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![(
 				Location::new(1, [Parachain(1000)]),
-				Junctions::from([Westend.into(), Parachain(1000)]),
+				Junctions::from([ByGenesis(WESTEND_GENESIS_HASH).into(), Parachain(1000)]),
 				Some(bp_messages::LegacyLaneId([0, 0, 0, 2])),
 			)],
 		),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => bridge_hub_rococo_genesis(
+		sp_genesis_builder::DEV_RUNTIME_PRESET => bridge_hub_rococo_genesis(
 			// initial collators.
 			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed::<AuraId>("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed::<AuraId>("Bob"),
-				),
+				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 			],
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
+			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 			1013.into(),
-			Some(get_account_id_from_seed::<sr25519::Public>("Bob")),
+			Some(Sr25519Keyring::Bob.to_account_id()),
 			rococo_runtime_constants::system_parachain::ASSET_HUB_ID.into(),
 			vec![],
 		),

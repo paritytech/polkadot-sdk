@@ -31,23 +31,31 @@ use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
-		CandidateValidationMessage, PreCheckOutcome, RuntimeApiMessage, RuntimeApiRequest,
-		ValidationFailed,
+		CandidateValidationMessage, ChainApiMessage, PreCheckOutcome, PvfExecKind,
+		RuntimeApiMessage, RuntimeApiRequest, ValidationFailed,
 	},
 	overseer, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError, SubsystemResult,
 	SubsystemSender,
 };
-use polkadot_node_subsystem_util as util;
-use polkadot_overseer::ActiveLeavesUpdate;
+use polkadot_node_subsystem_util::{
+	self as util,
+	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
+};
+use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
 use polkadot_parachain_primitives::primitives::ValidationResult as WasmValidationResult;
 use polkadot_primitives::{
 	executor_params::{
 		DEFAULT_APPROVAL_EXECUTION_TIMEOUT, DEFAULT_BACKING_EXECUTION_TIMEOUT,
 		DEFAULT_LENIENT_PREPARATION_TIMEOUT, DEFAULT_PRECHECK_PREPARATION_TIMEOUT,
 	},
-	AuthorityDiscoveryId, CandidateCommitments, CandidateDescriptor, CandidateEvent,
-	CandidateReceipt, ExecutorParams, Hash, PersistedValidationData, PvfExecKind, PvfPrepKind,
-	SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
+	vstaging::{
+		transpose_claim_queue, CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
+		CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	},
+	AuthorityDiscoveryId, CandidateCommitments, ExecutorParams, Hash, PersistedValidationData,
+	PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -144,6 +152,25 @@ impl<Context> CandidateValidationSubsystem {
 	}
 }
 
+// Returns the claim queue at relay parent and logs a warning if it is not available.
+async fn claim_queue<Sender>(relay_parent: Hash, sender: &mut Sender) -> Option<ClaimQueueSnapshot>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match util::runtime::fetch_claim_queue(sender, relay_parent).await {
+		Ok(cq) => Some(cq),
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?relay_parent,
+				?err,
+				"Claim queue not available"
+			);
+			None
+		},
+	}
+}
+
 fn handle_validation_message<S>(
 	mut sender: S,
 	validation_host: ValidationHost,
@@ -165,7 +192,46 @@ where
 			..
 		} => async move {
 			let _timer = metrics.time_validate_from_exhaustive();
+			let relay_parent = candidate_receipt.descriptor.relay_parent();
+
+			let maybe_claim_queue = claim_queue(relay_parent, &mut sender).await;
+			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender
+					.send(Err(ValidationFailed("Session index not found".to_string())));
+				return
+			};
+
+			// This will return a default value for the limit if runtime API is not available.
+			// however we still error out if there is a weird runtime API error.
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
+				let error = "cannot fetch validation code bomb limit from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(Err(ValidationFailed(
+					"Validation code bomb limit not available".to_string(),
+				)));
+				return
+			};
+
 			let res = validate_candidate_exhaustive(
+				session_index,
 				validation_host,
 				validation_data,
 				validation_code,
@@ -174,6 +240,8 @@ where
 				executor_params,
 				exec_kind,
 				&metrics,
+				maybe_claim_queue,
+				validation_code_bomb_limit,
 			)
 			.await;
 
@@ -187,9 +255,46 @@ where
 			response_sender,
 			..
 		} => async move {
-			let precheck_result =
-				precheck_pvf(&mut sender, validation_host, relay_parent, validation_code_hash)
-					.await;
+			let Some(session_index) = get_session_index(&mut sender, relay_parent).await else {
+				let error = "cannot fetch session index from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(PreCheckOutcome::Failed);
+				return
+			};
+
+			// This will return a default value for the limit if runtime API is not available.
+			// however we still error out if there is a weird runtime API error.
+			let Ok(validation_code_bomb_limit) = util::runtime::fetch_validation_code_bomb_limit(
+				relay_parent,
+				session_index,
+				&mut sender,
+			)
+			.await
+			else {
+				let error = "cannot fetch validation code bomb limit from the runtime";
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					error,
+				);
+
+				let _ = response_sender.send(PreCheckOutcome::Failed);
+				return
+			};
+
+			let precheck_result = precheck_pvf(
+				&mut sender,
+				validation_host,
+				relay_parent,
+				validation_code_hash,
+				validation_code_bomb_limit,
+			)
+			.await;
 
 			let _ = response_sender.send(precheck_result);
 		}
@@ -214,7 +319,7 @@ async fn run<Context>(
 		pvf_prepare_workers_hard_max_num,
 	}: Config,
 ) -> SubsystemResult<()> {
-	let (validation_host, task) = polkadot_node_core_pvf::start(
+	let (mut validation_host, task) = polkadot_node_core_pvf::start(
 		polkadot_node_core_pvf::Config::new(
 			artifacts_cache_path,
 			node_version,
@@ -239,7 +344,13 @@ async fn run<Context>(
 				comm = ctx.recv().fuse() => {
 					match comm {
 						Ok(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update))) => {
-							maybe_prepare_validation(ctx.sender(), keystore.clone(), validation_host.clone(), update, &mut prepare_state).await;
+							handle_active_leaves_update(
+								ctx.sender(),
+								keystore.clone(),
+								&mut validation_host,
+								update,
+								&mut prepare_state,
+							).await
 						},
 						Ok(FromOrchestra::Signal(OverseerSignal::BlockFinalized(..))) => {},
 						Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) => return Ok(()),
@@ -299,17 +410,46 @@ impl Default for PrepareValidationState {
 	}
 }
 
+async fn handle_active_leaves_update<Sender>(
+	sender: &mut Sender,
+	keystore: KeystorePtr,
+	validation_host: &mut impl ValidationBackend,
+	update: ActiveLeavesUpdate,
+	prepare_state: &mut PrepareValidationState,
+) where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let maybe_session_index = update_active_leaves(sender, validation_host, update.clone()).await;
+
+	if let Some(activated) = update.activated {
+		let maybe_new_session_index = match (prepare_state.session_index, maybe_session_index) {
+			(Some(existing_index), Some(new_index)) =>
+				(new_index > existing_index).then_some(new_index),
+			(None, Some(new_index)) => Some(new_index),
+			_ => None,
+		};
+		maybe_prepare_validation(
+			sender,
+			keystore.clone(),
+			validation_host,
+			activated,
+			prepare_state,
+			maybe_new_session_index,
+		)
+		.await;
+	}
+}
+
 async fn maybe_prepare_validation<Sender>(
 	sender: &mut Sender,
 	keystore: KeystorePtr,
-	validation_backend: impl ValidationBackend,
-	update: ActiveLeavesUpdate,
+	validation_backend: &mut impl ValidationBackend,
+	leaf: ActivatedLeaf,
 	state: &mut PrepareValidationState,
+	new_session_index: Option<SessionIndex>,
 ) where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Some(leaf) = update.activated else { return };
-	let new_session_index = new_session_index(sender, state.session_index, leaf.hash).await;
 	if new_session_index.is_some() {
 		state.session_index = new_session_index;
 		state.already_prepared_code_hashes.clear();
@@ -336,16 +476,11 @@ async fn maybe_prepare_validation<Sender>(
 	}
 }
 
-// Returns the new session index if it is greater than the current one.
-async fn new_session_index<Sender>(
-	sender: &mut Sender,
-	session_index: Option<SessionIndex>,
-	relay_parent: Hash,
-) -> Option<SessionIndex>
+async fn get_session_index<Sender>(sender: &mut Sender, relay_parent: Hash) -> Option<SessionIndex>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	let Ok(Ok(new_session_index)) =
+	let Ok(Ok(session_index)) =
 		util::request_session_index_for_child(relay_parent, sender).await.await
 	else {
 		gum::warn!(
@@ -356,13 +491,7 @@ where
 		return None
 	};
 
-	session_index.map_or(Some(new_session_index), |index| {
-		if new_session_index > index {
-			Some(new_session_index)
-		} else {
-			None
-		}
-	})
+	Some(session_index)
 }
 
 // Returns true if the node is an authority in the next session.
@@ -416,7 +545,7 @@ where
 // Sends PVF with unknown code hashes to the validation host returning the list of code hashes sent.
 async fn prepare_pvfs_for_backed_candidates<Sender>(
 	sender: &mut Sender,
-	mut validation_backend: impl ValidationBackend,
+	validation_backend: &mut impl ValidationBackend,
 	relay_parent: Hash,
 	already_prepared: &HashSet<ValidationCodeHash>,
 	per_block_limit: usize,
@@ -436,7 +565,7 @@ where
 		.into_iter()
 		.filter_map(|e| match e {
 			CandidateEvent::CandidateBacked(receipt, ..) => {
-				let h = receipt.descriptor.validation_code_hash;
+				let h = receipt.descriptor.validation_code_hash();
 				if already_prepared.contains(&h) {
 					None
 				} else {
@@ -476,11 +605,33 @@ where
 			continue;
 		};
 
+		let Some(session_index) = get_session_index(sender, relay_parent).await else { continue };
+
+		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(
+			relay_parent,
+			session_index,
+			sender,
+		)
+		.await
+		{
+			Ok(limit) => limit,
+			Err(err) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?err,
+					"cannot fetch validation code bomb limit from runtime API",
+				);
+				continue;
+			},
+		};
+
 		let pvf = PvfPrepData::from_code(
 			validation_code.0,
 			executor_params.clone(),
 			timeout,
 			PrepareJobKind::Prechecking,
+			validation_code_bomb_limit,
 		);
 
 		active_pvfs.push(pvf);
@@ -509,6 +660,69 @@ where
 	);
 
 	Some(processed_code_hashes)
+}
+
+async fn update_active_leaves<Sender>(
+	sender: &mut Sender,
+	validation_backend: &mut impl ValidationBackend,
+	update: ActiveLeavesUpdate,
+) -> Option<SessionIndex>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let maybe_new_leaf = if let Some(activated) = &update.activated {
+		get_session_index(sender, activated.hash)
+			.await
+			.map(|index| (activated.hash, index))
+	} else {
+		None
+	};
+
+	let ancestors = get_block_ancestors(sender, maybe_new_leaf).await;
+	if let Err(err) = validation_backend.update_active_leaves(update, ancestors).await {
+		gum::warn!(
+			target: LOG_TARGET,
+			?err,
+			"cannot update active leaves in validation backend",
+		);
+	};
+
+	maybe_new_leaf.map(|l| l.1)
+}
+
+async fn get_block_ancestors<Sender>(
+	sender: &mut Sender,
+	maybe_new_leaf: Option<(Hash, SessionIndex)>,
+) -> Vec<Hash>
+where
+	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
+{
+	let Some((relay_parent, session_index)) = maybe_new_leaf else { return vec![] };
+	let scheduling_lookahead =
+		match fetch_scheduling_lookahead(relay_parent, session_index, sender).await {
+			Ok(scheduling_lookahead) => scheduling_lookahead,
+			res => {
+				gum::warn!(target: LOG_TARGET, ?res, "Failed to request scheduling lookahead");
+				return vec![]
+			},
+		};
+
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ChainApiMessage::Ancestors {
+			hash: relay_parent,
+			// Subtract 1 from the claim queue length, as it includes current `relay_parent`.
+			k: scheduling_lookahead.saturating_sub(1) as usize,
+			response_channel: tx,
+		})
+		.await;
+	match rx.await {
+		Ok(Ok(x)) => x,
+		res => {
+			gum::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
+			vec![]
+		},
+	}
 }
 
 struct RuntimeRequestFailed;
@@ -570,6 +784,7 @@ async fn precheck_pvf<Sender>(
 	mut validation_backend: impl ValidationBackend,
 	relay_parent: Hash,
 	validation_code_hash: ValidationCodeHash,
+	validation_code_bomb_limit: u32,
 ) -> PreCheckOutcome
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
@@ -619,6 +834,7 @@ where
 		executor_params,
 		timeout,
 		PrepareJobKind::Prechecking,
+		validation_code_bomb_limit,
 	);
 
 	match validation_backend.precheck_pvf(pvf).await {
@@ -633,6 +849,7 @@ where
 }
 
 async fn validate_candidate_exhaustive(
+	expected_session_index: SessionIndex,
 	mut validation_backend: impl ValidationBackend + Send,
 	persisted_validation_data: PersistedValidationData,
 	validation_code: ValidationCode,
@@ -641,17 +858,31 @@ async fn validate_candidate_exhaustive(
 	executor_params: ExecutorParams,
 	exec_kind: PvfExecKind,
 	metrics: &Metrics,
+	maybe_claim_queue: Option<ClaimQueueSnapshot>,
+	validation_code_bomb_limit: u32,
 ) -> Result<ValidationResult, ValidationFailed> {
 	let _timer = metrics.time_validate_candidate_exhaustive();
-
 	let validation_code_hash = validation_code.hash();
-	let para_id = candidate_receipt.descriptor.para_id;
+	let relay_parent = candidate_receipt.descriptor.relay_parent();
+	let para_id = candidate_receipt.descriptor.para_id();
+	let candidate_hash = candidate_receipt.hash();
+
 	gum::debug!(
 		target: LOG_TARGET,
 		?validation_code_hash,
+		?candidate_hash,
 		?para_id,
 		"About to validate a candidate.",
 	);
+
+	// We only check the session index for backing.
+	match (exec_kind, candidate_receipt.descriptor.session_index()) {
+		(PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_), Some(session_index)) =>
+			if session_index != expected_session_index {
+				return Ok(ValidationResult::Invalid(InvalidCandidate::InvalidSessionIndex))
+			},
+		(_, _) => {},
+	};
 
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
@@ -659,7 +890,7 @@ async fn validate_candidate_exhaustive(
 		&pov,
 		&validation_code_hash,
 	) {
-		gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (basic checks)");
+		gum::debug!(target: LOG_TARGET, ?para_id, ?candidate_hash, "Invalid candidate (basic checks)");
 		return Ok(ValidationResult::Invalid(e))
 	}
 
@@ -667,14 +898,15 @@ async fn validate_candidate_exhaustive(
 	let result = match exec_kind {
 		// Retry is disabled to reduce the chance of nondeterministic blocks getting backed and
 		// honest backers getting slashed.
-		PvfExecKind::Backing => {
+		PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
 			let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
-			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind);
+			let exec_timeout = pvf_exec_timeout(&executor_params, exec_kind.into());
 			let pvf = PvfPrepData::from_code(
 				validation_code.0,
 				executor_params,
 				prep_timeout,
 				PrepareJobKind::Compilation,
+				validation_code_bomb_limit,
 			);
 
 			validation_backend
@@ -683,26 +915,29 @@ async fn validate_candidate_exhaustive(
 					exec_timeout,
 					persisted_validation_data.clone(),
 					pov,
-					polkadot_node_core_pvf::Priority::Normal,
+					exec_kind.into(),
+					exec_kind,
 				)
 				.await
 		},
-		PvfExecKind::Approval =>
+		PvfExecKind::Approval | PvfExecKind::Dispute =>
 			validation_backend
 				.validate_candidate_with_retry(
 					validation_code.0,
-					pvf_exec_timeout(&executor_params, exec_kind),
+					pvf_exec_timeout(&executor_params, exec_kind.into()),
 					persisted_validation_data.clone(),
 					pov,
 					executor_params,
 					PVF_APPROVAL_EXECUTION_RETRY_DELAY,
-					polkadot_node_core_pvf::Priority::Critical,
+					exec_kind.into(),
+					exec_kind,
+					validation_code_bomb_limit,
 				)
 				.await,
 	};
 
 	if let Err(ref error) = result {
-		gum::info!(target: LOG_TARGET, ?para_id, ?error, "Failed to validate candidate");
+		gum::info!(target: LOG_TARGET, ?para_id, ?candidate_hash, ?error, "Failed to validate candidate");
 	}
 
 	match result {
@@ -710,6 +945,7 @@ async fn validate_candidate_exhaustive(
 			gum::warn!(
 				target: LOG_TARGET,
 				?para_id,
+				?candidate_hash,
 				?e,
 				"An internal error occurred during validation, will abstain from voting",
 			);
@@ -729,6 +965,8 @@ async fn validate_candidate_exhaustive(
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::RuntimeConstruction(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
+		Err(ValidationError::PossiblyInvalid(err @ PossiblyInvalidError::CorruptedArtifact)) =>
+			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err.to_string()))),
 
 		Err(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =>
 			Ok(ValidationResult::Invalid(InvalidCandidate::ExecutionError(format!(
@@ -743,31 +981,91 @@ async fn validate_candidate_exhaustive(
 			);
 			Err(ValidationFailed(e.to_string()))
 		},
+		Err(e @ ValidationError::ExecutionDeadline) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?para_id,
+				?e,
+				"Job assigned too late, execution queue probably overloaded",
+			);
+			Err(ValidationFailed(e.to_string()))
+		},
 		Ok(res) =>
-			if res.head_data.hash() != candidate_receipt.descriptor.para_head {
+			if res.head_data.hash() != candidate_receipt.descriptor.para_head() {
 				gum::info!(target: LOG_TARGET, ?para_id, "Invalid candidate (para_head)");
 				Ok(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} else {
-				let outputs = CandidateCommitments {
-					head_data: res.head_data,
-					upward_messages: res.upward_messages,
-					horizontal_messages: res.horizontal_messages,
-					new_validation_code: res.new_validation_code,
-					processed_downward_messages: res.processed_downward_messages,
-					hrmp_watermark: res.hrmp_watermark,
+				let committed_candidate_receipt = CommittedCandidateReceipt {
+					descriptor: candidate_receipt.descriptor.clone(),
+					commitments: CandidateCommitments {
+						head_data: res.head_data,
+						upward_messages: res.upward_messages,
+						horizontal_messages: res.horizontal_messages,
+						new_validation_code: res.new_validation_code,
+						processed_downward_messages: res.processed_downward_messages,
+						hrmp_watermark: res.hrmp_watermark,
+					},
 				};
-				if candidate_receipt.commitments_hash != outputs.hash() {
+
+				if candidate_receipt.commitments_hash !=
+					committed_candidate_receipt.commitments.hash()
+				{
 					gum::info!(
 						target: LOG_TARGET,
 						?para_id,
+						?candidate_hash,
 						"Invalid candidate (commitments hash)"
+					);
+
+					gum::trace!(
+						target: LOG_TARGET,
+						?para_id,
+						?candidate_hash,
+						produced_commitments = ?committed_candidate_receipt.commitments,
+						"Invalid candidate commitments"
 					);
 
 					// If validation produced a new set of commitments, we treat the candidate as
 					// invalid.
 					Ok(ValidationResult::Invalid(InvalidCandidate::CommitmentsHashMismatch))
 				} else {
-					Ok(ValidationResult::Valid(outputs, (*persisted_validation_data).clone()))
+					match exec_kind {
+						// Core selectors are optional for V2 descriptors, but we still check the
+						// descriptor core index.
+						PvfExecKind::Backing(_) | PvfExecKind::BackingSystemParas(_) => {
+							let Some(claim_queue) = maybe_claim_queue else {
+								let error = "cannot fetch the claim queue from the runtime";
+								gum::warn!(
+									target: LOG_TARGET,
+									?relay_parent,
+									error
+								);
+
+								return Err(ValidationFailed(error.into()))
+							};
+
+							if let Err(err) = committed_candidate_receipt
+								.parse_ump_signals(&transpose_claim_queue(claim_queue.0))
+							{
+								gum::warn!(
+									target: LOG_TARGET,
+									candidate_hash = ?candidate_receipt.hash(),
+									"Invalid UMP signals: {}",
+									err
+								);
+								return Ok(ValidationResult::Invalid(
+									InvalidCandidate::InvalidUMPSignals(err),
+								))
+							}
+						},
+						// No checks for approvals and disputes
+						_ => {},
+					}
+
+					Ok(ValidationResult::Valid(
+						committed_candidate_receipt.commitments,
+						(*persisted_validation_data).clone(),
+					))
 				}
 			},
 	}
@@ -784,6 +1082,8 @@ trait ValidationBackend {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError>;
 
 	/// Tries executing a PVF. Will retry once if an error is encountered that may have
@@ -804,6 +1104,9 @@ trait ValidationBackend {
 		retry_delay: Duration,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
+		validation_code_bomb_limit: u32,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let prep_timeout = pvf_prep_timeout(&executor_params, PvfPrepKind::Prepare);
 		// Construct the PVF a single time, since it is an expensive operation. Cloning it is cheap.
@@ -812,6 +1115,7 @@ trait ValidationBackend {
 			executor_params,
 			prep_timeout,
 			PrepareJobKind::Compilation,
+			validation_code_bomb_limit,
 		);
 		// We keep track of the total time that has passed and stop retrying if we are taking too
 		// long.
@@ -825,6 +1129,7 @@ trait ValidationBackend {
 				pvd.clone(),
 				pov.clone(),
 				prepare_priority,
+				exec_kind,
 			)
 			.await;
 		if validation_result.is_ok() {
@@ -845,7 +1150,7 @@ trait ValidationBackend {
 		let mut num_death_retries_left = 1;
 		let mut num_job_error_retries_left = 1;
 		let mut num_internal_retries_left = 1;
-		let mut num_runtime_construction_retries_left = 1;
+		let mut num_execution_error_retries_left = 1;
 		loop {
 			// Stop retrying if we exceeded the timeout.
 			if total_time_start.elapsed() + retry_delay > exec_timeout {
@@ -865,9 +1170,10 @@ trait ValidationBackend {
 					break_if_no_retries_left!(num_internal_retries_left),
 
 				Err(ValidationError::PossiblyInvalid(
-					PossiblyInvalidError::RuntimeConstruction(_),
+					PossiblyInvalidError::RuntimeConstruction(_) |
+					PossiblyInvalidError::CorruptedArtifact,
 				)) => {
-					break_if_no_retries_left!(num_runtime_construction_retries_left);
+					break_if_no_retries_left!(num_execution_error_retries_left);
 					self.precheck_pvf(pvf.clone()).await?;
 					// In this case the error is deterministic
 					// And a retry forces the ValidationBackend
@@ -876,7 +1182,12 @@ trait ValidationBackend {
 					retry_immediately = true;
 				},
 
-				Ok(_) | Err(ValidationError::Invalid(_) | ValidationError::Preparation(_)) => break,
+				Ok(_) |
+				Err(
+					ValidationError::Invalid(_) |
+					ValidationError::Preparation(_) |
+					ValidationError::ExecutionDeadline,
+				) => break,
 			}
 
 			// If we got a possibly transient error, retry once after a brief delay, on the
@@ -905,6 +1216,7 @@ trait ValidationBackend {
 						pvd.clone(),
 						pov.clone(),
 						prepare_priority,
+						exec_kind,
 					)
 					.await;
 			}
@@ -916,6 +1228,12 @@ trait ValidationBackend {
 	async fn precheck_pvf(&mut self, pvf: PvfPrepData) -> Result<(), PrepareError>;
 
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String>;
+
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String>;
 }
 
 #[async_trait]
@@ -929,9 +1247,13 @@ impl ValidationBackend for ValidationHost {
 		pov: Arc<PoV>,
 		// The priority for the preparation job.
 		prepare_priority: polkadot_node_core_pvf::Priority,
+		// The kind for the execution job.
+		exec_kind: PvfExecKind,
 	) -> Result<WasmValidationResult, ValidationError> {
 		let (tx, rx) = oneshot::channel();
-		if let Err(err) = self.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, tx).await
+		if let Err(err) = self
+			.execute_pvf(pvf, exec_timeout, pvd, pov, prepare_priority, exec_kind, tx)
+			.await
 		{
 			return Err(InternalValidationError::HostCommunication(format!(
 				"cannot send pvf to the validation host, it might have shut down: {:?}",
@@ -962,6 +1284,14 @@ impl ValidationBackend for ValidationHost {
 	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		self.heads_up(active_pvfs).await
 	}
+
+	async fn update_active_leaves(
+		&mut self,
+		update: ActiveLeavesUpdate,
+		ancestors: Vec<Hash>,
+	) -> Result<(), String> {
+		self.update_active_leaves(update, ancestors).await
+	}
 }
 
 /// Does basic checks of a candidate. Provide the encoded PoV-block. Returns `Ok` if basic checks
@@ -979,14 +1309,15 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::ParamsTooLarge(encoded_pov_size as u64))
 	}
 
-	if pov_hash != candidate.pov_hash {
+	if pov_hash != candidate.pov_hash() {
 		return Err(InvalidCandidate::PoVHashMismatch)
 	}
 
-	if *validation_code_hash != candidate.validation_code_hash {
+	if *validation_code_hash != candidate.validation_code_hash() {
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
+	// No-op for `v2` receipts.
 	if let Err(()) = candidate.check_collator_signature() {
 		return Err(InvalidCandidate::BadSignature)
 	}
@@ -1023,12 +1354,12 @@ fn pvf_prep_timeout(executor_params: &ExecutorParams, kind: PvfPrepKind) -> Dura
 /// This should be much longer than the backing execution timeout to ensure that in the
 /// absence of extremely large disparities between hardware, blocks that pass backing are
 /// considered executable by approval checkers or dispute participants.
-fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: PvfExecKind) -> Duration {
+fn pvf_exec_timeout(executor_params: &ExecutorParams, kind: RuntimePvfExecKind) -> Duration {
 	if let Some(timeout) = executor_params.pvf_exec_timeout(kind) {
 		return timeout
 	}
 	match kind {
-		PvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
-		PvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Backing => DEFAULT_BACKING_EXECUTION_TIMEOUT,
+		RuntimePvfExecKind::Approval => DEFAULT_APPROVAL_EXECUTION_TIMEOUT,
 	}
 }

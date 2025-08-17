@@ -1,9 +1,12 @@
-use frame_support::{derive_impl, weights::constants::RocksDbWeight};
-use frame_system::{mocking::MockBlock, GenesisConfig};
-use sp_runtime::{traits::ConstU64, BuildStorage};
+use frame::{
+	deps::{frame_support::weights::constants::RocksDbWeight, frame_system::GenesisConfig},
+	prelude::*,
+	runtime::prelude::*,
+	testing_prelude::*,
+};
 
 // Configure a mock runtime to test the pallet.
-#[frame_support::runtime]
+#[frame_construct_runtime]
 mod test_runtime {
 	#[runtime::runtime]
 	#[runtime::derive(
@@ -15,7 +18,8 @@ mod test_runtime {
 		RuntimeHoldReason,
 		RuntimeSlashReason,
 		RuntimeLockId,
-		RuntimeTask
+		RuntimeTask,
+		RuntimeViewFunction
 	)]
 	pub struct Test;
 
@@ -39,6 +43,6 @@ impl crate::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }

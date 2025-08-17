@@ -10,7 +10,6 @@
     "tokenSymbol": "UNIT"
   },
   "relay_chain": "rococo-local",
-  "para_id": 10101,
   "codeSubstitutes": {},
   "genesis": {
     "runtimeGenesis": {
@@ -27,7 +26,8 @@
           }
         },
         "balances": {
-          "balances": []
+          "balances": [],
+          "devAccounts": null
         },
         "substrateTest": {
           "authorities": []

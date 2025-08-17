@@ -23,31 +23,18 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
+use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
-use polkadot_primitives::{AccountId, AccountPublic, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_genesis_builder::PresetId;
-use sp_runtime::{traits::IdentifyAccount, Perbill};
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::Perbill;
 use westend_runtime_constants::currency::UNITS as WND;
-
-/// Helper function to generate a crypto pair from seed
-fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
-	TPublic::Pair::from_string(&format!("//{}", seed), None)
-		.expect("static values are valid; qed")
-		.public()
-}
-
-/// Helper function to generate an account ID from seed
-fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
-where
-	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
-{
-	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(
@@ -63,7 +50,16 @@ fn get_authority_keys_from_seed(
 	BeefyId,
 ) {
 	let keys = get_authority_keys_from_seed_no_beefy(seed);
-	(keys.0, keys.1, keys.2, keys.3, keys.4, keys.5, keys.6, get_from_seed::<BeefyId>(seed))
+	(
+		keys.0,
+		keys.1,
+		keys.2,
+		keys.3,
+		keys.4,
+		keys.5,
+		keys.6,
+		get_public_from_string_or_panic::<BeefyId>(seed),
+	)
 }
 
 /// Helper function to generate stash, controller and session key from seed
@@ -71,31 +67,18 @@ fn get_authority_keys_from_seed_no_beefy(
 	seed: &str,
 ) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
-		get_account_id_from_seed::<sr25519::Public>(seed),
-		get_from_seed::<BabeId>(seed),
-		get_from_seed::<GrandpaId>(seed),
-		get_from_seed::<ValidatorId>(seed),
-		get_from_seed::<AssignmentId>(seed),
-		get_from_seed::<AuthorityDiscoveryId>(seed),
+		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
+		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
+		get_public_from_string_or_panic::<BabeId>(seed),
+		get_public_from_string_or_panic::<GrandpaId>(seed),
+		get_public_from_string_or_panic::<ValidatorId>(seed),
+		get_public_from_string_or_panic::<AssignmentId>(seed),
+		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
 	)
 }
 
 fn testnet_accounts() -> Vec<AccountId> {
-	Vec::from([
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		get_account_id_from_seed::<sr25519::Public>("Bob"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie"),
-		get_account_id_from_seed::<sr25519::Public>("Dave"),
-		get_account_id_from_seed::<sr25519::Public>("Eve"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-		get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-		get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-	])
+	Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
 }
 
 fn westend_session_keys(
@@ -145,15 +128,16 @@ fn default_parachains_host_configuration(
 		zeroth_delay_tranche_width: 0,
 		minimum_validation_upgrade_delay: 5,
 		async_backing_params: AsyncBackingParams {
-			max_candidate_depth: 3,
-			allowed_ancestry_len: 2,
+			max_candidate_depth: 0,
+			allowed_ancestry_len: 0,
 		},
 		node_features: bitvec::vec::BitVec::from_element(
-			1u8 << (FeatureIndex::ElasticScalingMVP as usize) |
-				1u8 << (FeatureIndex::EnableAssignmentsV2 as usize),
+			(1u8 << (FeatureIndex::ElasticScalingMVP as usize)) |
+				(1u8 << (FeatureIndex::EnableAssignmentsV2 as usize)) |
+				(1u8 << (FeatureIndex::CandidateReceiptV2 as usize)),
 		),
 		scheduler_params: SchedulerParams {
-			lookahead: 2,
+			lookahead: 3,
 			group_rotation_frequency: 20,
 			paras_availability_period: 4,
 			..Default::default()
@@ -188,7 +172,7 @@ fn westend_testnet_genesis(
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
 		},
@@ -210,7 +194,6 @@ fn westend_testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			minimum_validator_count: 1,
@@ -222,19 +205,12 @@ fn westend_testnet_genesis(
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::NotForcing,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(root_key) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 // staging_testnet
@@ -247,7 +223,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	//
 	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
 	// subkey inspect -n polkadot "$SECRET_SEED"
-	let endowed_accounts = vec![
+	let endowed_accounts: Vec<AccountId> = vec![
 		// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
 		hex!["c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"].into(),
 	];
@@ -363,7 +339,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 	const ENDOWMENT: u128 = 1_000_000 * WND;
 	const STASH: u128 = 100 * WND;
 
-	let config = RuntimeGenesisConfig {
+	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
 			balances: endowed_accounts
 				.iter()
@@ -389,7 +365,6 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
 		},
 		staking: StakingConfig {
 			validator_count: 50,
@@ -401,26 +376,19 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
-			..Default::default()
 		},
-		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG, ..Default::default() },
+		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		sudo: SudoConfig { key: Some(endowed_accounts[0].clone()) },
 		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
-		registrar: RegistrarConfig {
-			next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID,
-			..Default::default()
-		},
-		..Default::default()
-	};
-
-	serde_json::to_value(config).expect("Could not build genesis config.")
+		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+	})
 }
 
 //development
 fn westend_development_config_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
 		Vec::from([get_authority_keys_from_seed("Alice")]),
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		Sr25519Keyring::Alice.to_account_id(),
 		None,
 	)
 }
@@ -429,17 +397,17 @@ fn westend_development_config_genesis() -> serde_json::Value {
 fn westend_local_testnet_genesis() -> serde_json::Value {
 	westend_testnet_genesis(
 		Vec::from([get_authority_keys_from_seed("Alice"), get_authority_keys_from_seed("Bob")]),
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		Sr25519Keyring::Alice.to_account_id(),
 		None,
 	)
 }
 
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
-	let patch = match id.try_into() {
-		Ok(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET) => westend_local_testnet_genesis(),
-		Ok(sp_genesis_builder::DEV_RUNTIME_PRESET) => westend_development_config_genesis(),
-		Ok("staging_testnet") => westend_staging_testnet_config_genesis(),
+	let patch = match id.as_ref() {
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => westend_local_testnet_genesis(),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => westend_development_config_genesis(),
+		"staging_testnet" => westend_staging_testnet_config_genesis(),
 		_ => return None,
 	};
 	Some(

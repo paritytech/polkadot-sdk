@@ -26,7 +26,7 @@ use crate::{Config, Pallet, LOG_TARGET};
 use bp_messages::target_chain::{DispatchMessage, MessageDispatch};
 use bp_runtime::messages::MessageDispatchResult;
 use bp_xcm_bridge_hub::{LocalXcmChannelManager, XcmAsPlainPayload};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{weights::Weight, CloneNoBound, EqNoBound, PartialEqNoBound};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, WeightInfoExt};
 use scale_info::TypeInfo;
@@ -35,7 +35,16 @@ use xcm::prelude::*;
 use xcm_builder::{DispatchBlob, DispatchBlobError};
 
 /// Message dispatch result type for single message.
-#[derive(CloneNoBound, EqNoBound, PartialEqNoBound, Encode, Decode, Debug, TypeInfo)]
+#[derive(
+	CloneNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+)]
 pub enum XcmBlobMessageDispatchResult {
 	/// We've been unable to decode message payload.
 	InvalidPayload,
@@ -59,7 +68,7 @@ where
 
 	fn is_active(lane: Self::LaneId) -> bool {
 		Pallet::<T, I>::bridge_by_lane_id(&lane)
-			.and_then(|(_, bridge)| bridge.bridge_origin_relative_location.try_as().cloned().ok())
+			.and_then(|(_, bridge)| (*bridge.bridge_origin_relative_location).try_into().ok())
 			.map(|recipient: Location| !T::LocalXcmChannelManager::is_congested(&recipient))
 			.unwrap_or(false)
 	}
@@ -82,11 +91,12 @@ where
 		let payload = match message.data.payload {
 			Ok(payload) => payload,
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"dispatch - payload error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					error=?e,
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - payload error"
 				);
 				return MessageDispatchResult {
 					unspent_weight: Weight::zero(),
@@ -96,20 +106,21 @@ where
 		};
 		let dispatch_level_result = match T::BlobDispatcher::dispatch_blob(payload) {
 			Ok(_) => {
-				log::debug!(
+				tracing::debug!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` was ok for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - `DispatchBlob::dispatch_blob` was ok"
 				);
 				XcmBlobMessageDispatchResult::Dispatched
 			},
 			Err(e) => {
-				log::error!(
+				tracing::error!(
 					target: LOG_TARGET,
-					"dispatch - `DispatchBlob::dispatch_blob` failed with error: {e:?} for lane_id: {:?} and message_nonce: {:?}",
-					message.key.lane_id,
-					message.key.nonce
+					error=?e,
+					lane_id=?message.key.lane_id,
+					message_nonce=?message.key.nonce,
+					"dispatch - `DispatchBlob::dispatch_blob` failed"
 				);
 				XcmBlobMessageDispatchResult::NotDispatched(Some(e))
 			},

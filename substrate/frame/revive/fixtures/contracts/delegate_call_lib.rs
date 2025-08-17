@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::u64_output;
-use uapi::{HostFn, HostFnImpl as api, StorageFlags};
+use uapi::{u64_output, HostFn, HostFnImpl as api, StorageFlags};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -40,7 +40,7 @@ pub extern "C" fn call() {
 	// Assert that `value_transferred` is equal to the value
 	// passed to the `caller` contract: 1337.
 	let value = u64_output!(api::value_transferred,);
-	assert_eq!(value, 1337);
+	assert_eq!(value, 1337_000_000);
 
 	// Assert that ALICE is the caller of the contract.
 	let mut caller = [0u8; 20];

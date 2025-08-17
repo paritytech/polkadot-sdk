@@ -1,0 +1,10 @@
+title: Use hashbrown hashmap/hashset in validation context
+doc:
+- audience: Node Dev
+  description: |-
+    Discovered while profiling https://github.com/paritytech/polkadot-sdk/issues/6131#issuecomment-2891523233 with the benchmark https://github.com/paritytech/polkadot-sdk/pull/8069 that  when running in validation a big chunk of the time is spent inserting and retrieving data from the BTreeMap/BTreeSet.
+
+    By switching to hashbrown HashMap/HashSet in validation TrieCache and TrieRecorder  and the memory-db https://github.com/paritytech/trie/pull/221 read costs improve with around ~40% and write with about ~20%
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor

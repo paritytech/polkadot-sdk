@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Set the new version by replacing the value of the constant given as patetrn
+# Set the new version by replacing the value of the constant given as pattern
 # in the file.
 #
 # input: pattern, version, file
@@ -71,7 +71,7 @@ git_show_log() {
 # 1_012_000 or 1_012_001 if SUFFIX is set
 function get_spec_version() {
     INPUT=$1
-    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific ruuntime version like 93826 it can be intialised as sestem variable
+    SUFFIX=${SUFFIX:-000} #this variable makes it possible to set a specific runtime version like 93826 it can be initialised as system variable
     [[ $INPUT =~ .*([0-9]+\.[0-9]+\.[0-9]{1,2}).* ]]
     VERSION="${BASH_REMATCH[1]}"
     MATCH="${BASH_REMATCH[0]}"
@@ -115,4 +115,89 @@ set_polkadot_parachain_binary_version() {
     MESSAGE="Bump versions in: ${cargo_toml_file}"
     commit_with_message "$MESSAGE"
     git_show_log "$MESSAGE"
+}
+
+
+upload_s3_release() {
+    alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
+
+    product=$1
+    version=$2
+    target=$3
+
+    echo "Working on product:  $product "
+    echo "Working on version:  $version "
+    echo "Working on platform: $target "
+
+    URL_BASE=$(get_s3_url_base $product)
+
+    echo "Current content, should be empty on new uploads:"
+    aws s3 ls "s3://${URL_BASE}/${version}/${target}" --recursive --human-readable --summarize || true
+    echo "Content to be uploaded:"
+    artifacts="release-artifacts/$target/$product/"
+    ls "$artifacts"
+    aws s3 sync --acl public-read "$artifacts" "s3://${URL_BASE}/${version}/${target}"
+    echo "Uploaded files:"
+    aws s3 ls "s3://${URL_BASE}/${version}/${target}" --recursive --human-readable --summarize
+    echo "✅ The release should be at https://${URL_BASE}/${version}/${target}"
+}
+
+# Upload runtimes artifacts to s3 release bucket
+#
+# input: version (stable release tage.g. polkadot-stable2412 or polkadot-stable2412-rc1)
+# output: none
+upload_s3_runtimes_release_artifacts() {
+  alias aws='podman run --rm -it docker.io/paritytech/awscli -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_BUCKET aws'
+
+  version=$1
+
+  echo "Working on version: $version "
+
+  echo "Current content, should be empty on new uploads:"
+  aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize || true
+  echo "Content to be uploaded:"
+  artifacts="artifacts/runtimes/"
+  ls "$artifacts"
+  aws s3 sync --acl public-read "$artifacts" "s3://releases.parity.io/polkadot/runtimes/${version}/"
+  echo "Uploaded files:"
+  aws s3 ls "s3://releases.parity.io/polkadot/runtimes/${version}/" --recursive --human-readable --summarize
+  echo "✅ The release should be at https://releases.parity.io/polkadot/runtimes/${version}"
+}
+
+
+# Pass the name of the binary as input, it will
+# return the s3 base url
+function get_s3_url_base() {
+    name=$1
+    case $name in
+      polkadot | polkadot-execute-worker | polkadot-prepare-worker )
+        printf "releases.parity.io/polkadot"
+        ;;
+
+      polkadot-parachain)
+        printf "releases.parity.io/polkadot-parachain"
+        ;;
+
+      polkadot-omni-node)
+        printf "releases.parity.io/polkadot-omni-node"
+        ;;
+
+      chain-spec-builder)
+        printf "releases.parity.io/chain-spec-builder"
+        ;;
+
+      frame-omni-bencher)
+        printf "releases.parity.io/frame-omni-bencher"
+        ;;
+      substrate-node)
+        printf "releases.parity.io/substrate-node"
+        ;;
+      eth-rpc)
+        printf "releases.parity.io/eth-rpc"
+        ;;
+      *)
+        printf "UNSUPPORTED BINARY $name"
+        exit 1
+        ;;
+    esac
 }

@@ -16,11 +16,10 @@
 
 //! Deal with CLI args of substrate-to-substrate relay.
 
+use clap::Parser;
 use rbtag::BuildInfo;
 use sp_runtime::traits::TryConvert;
 use std::str::FromStr;
-use structopt::StructOpt;
-use strum::{EnumString, VariantNames};
 
 pub mod bridge;
 pub mod chain_schema;
@@ -58,16 +57,16 @@ impl FromStr for HexLaneId {
 }
 
 /// Prometheus metrics params.
-#[derive(Clone, Debug, PartialEq, StructOpt)]
+#[derive(Clone, Debug, PartialEq, Parser)]
 pub struct PrometheusParams {
 	/// Do not expose a Prometheus metric endpoint.
-	#[structopt(long)]
+	#[arg(long)]
 	pub no_prometheus: bool,
 	/// Expose Prometheus endpoint at given interface.
-	#[structopt(long, default_value = "127.0.0.1")]
+	#[arg(long, default_value = "127.0.0.1")]
 	pub prometheus_host: String,
 	/// Expose Prometheus endpoint at given port.
-	#[structopt(long, default_value = "9616")]
+	#[arg(long, default_value = "9616")]
 	pub prometheus_port: u16,
 }
 
@@ -137,17 +136,6 @@ where
 			.map(ExplicitOrMaximal::Explicit)
 			.map_err(|e| format!("Failed to parse '{e:?}'. Expected 'max' or explicit value"))
 	}
-}
-
-#[doc = "Runtime version params."]
-#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
-pub enum RuntimeVersionType {
-	/// Auto query version from chain
-	Auto,
-	/// Custom `spec_version` and `transaction_version`
-	Custom,
-	/// Read version from bundle dependencies directly.
-	Bundle,
 }
 
 #[cfg(test)]

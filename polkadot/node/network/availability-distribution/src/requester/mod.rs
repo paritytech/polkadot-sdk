@@ -38,7 +38,7 @@ use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
 	runtime::{get_occupied_cores, RuntimeInfo},
 };
-use polkadot_primitives::{CandidateHash, CoreIndex, Hash, OccupiedCore, SessionIndex};
+use polkadot_primitives::{vstaging::OccupiedCore, CandidateHash, CoreIndex, Hash, SessionIndex};
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
 

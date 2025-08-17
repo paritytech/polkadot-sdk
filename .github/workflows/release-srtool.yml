@@ -1,7 +1,7 @@
 name: Srtool build
 
 env:
-  SUBWASM_VERSION: 0.20.0
+  SUBWASM_VERSION: 0.21.0
   TOML_CLI_VERSION: 0.2.4
 
 on:
@@ -11,14 +11,20 @@ on:
         type: string
       build_opts:
         type: string
+      profile:
+        type: string
+      chain:
+        type: string
+      runtime_dir:
+        type: string
     outputs:
       published_runtimes:
         value: ${{ jobs.find-runtimes.outputs.runtime }}
 
-  schedule:
-    - cron: "00 02 * * 1" # 2AM weekly on monday
-
-  workflow_dispatch:
+permissions:
+    id-token: write
+    attestations: write
+    contents: read
 
 jobs:
   find-runtimes:
@@ -39,9 +45,12 @@ jobs:
             sudo dpkg -i toml.deb
             toml --version; jq --version
 
-        - name: Scan runtimes
+        - name: Scan and get runtimes list
+          id: get_runtimes_list
           env:
             EXCLUDED_RUNTIMES: ${{ inputs.excluded_runtimes }}:"substrate-test"
+            CHAIN: ${{ inputs.chain }}
+            RUNTIME_DIR: ${{ inputs.runtime_dir }}
           run: |
             . ./.github/scripts/common/lib.sh
 
@@ -49,16 +58,21 @@ jobs:
             echo "Current folder: $(pwd)"; ls -al
             ls -al
 
-            MATRIX=$(find_runtimes | tee runtimes_list.json)
-            echo $MATRIX
-
-        - name: Get runtimes list
-          id: get_runtimes_list
-          run: |
-            ls -al
-            MATRIX=$(cat runtimes_list.json)
-            echo $MATRIX
-            echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            if [ "$CHAIN" == "all" ]; then
+              MATRIX=$(find_runtimes | tee runtimes_list.json)
+              echo $MATRIX
+              echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            else
+              if [ -n "$RUNTIME_DIR" ]; then
+                # Create a custom matrix with specific chain and runtime_dir
+                MATRIX='{"include":[{"chain":"'$CHAIN'","crate":"'$CHAIN'-runtime","runtime_dir":"'$RUNTIME_DIR'"}]}'
+              else
+                echo "RUNTIME_DIR is not set"
+                exit 1
+              fi
+              echo $MATRIX
+              echo "runtime=$MATRIX" >> $GITHUB_OUTPUT
+            fi
 
   srtool:
     runs-on: ubuntu-latest
@@ -81,6 +95,7 @@ jobs:
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: ${{ matrix.runtime_dir }}
+          profile: ${{ inputs.profile }}
 
       - name: Summary
         run: |
@@ -88,6 +103,11 @@ jobs:
           cat ${{ matrix.chain }}-srtool-digest.json
           echo "Compact Runtime: ${{ steps.srtool_build.outputs.wasm }}"
           echo "Compressed Runtime: ${{ steps.srtool_build.outputs.wasm_compressed }}"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path:  ${{ steps.srtool_build.outputs.wasm }}
 
       # We now get extra information thanks to subwasm
       - name: Install subwasm

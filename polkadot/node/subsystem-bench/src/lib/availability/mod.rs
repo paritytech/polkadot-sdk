@@ -22,9 +22,7 @@ use crate::{
 		av_store::{MockAvailabilityStore, NetworkAvailabilityState},
 		chain_api::{ChainApiState, MockChainApi},
 		network_bridge::{self, MockNetworkBridgeRx, MockNetworkBridgeTx},
-		runtime_api::{
-			node_features_with_chunk_mapping_enabled, MockRuntimeApi, MockRuntimeApiCoreState,
-		},
+		runtime_api::{default_node_features, MockRuntimeApi, MockRuntimeApiCoreState},
 		AlwaysSupportsParachains,
 	},
 	network::new_network,
@@ -207,7 +205,7 @@ pub fn prepare_test(
 		state.test_authorities.clone(),
 	);
 	let network_bridge_rx =
-		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg), false);
+		network_bridge::MockNetworkBridgeRx::new(network_receiver, Some(chunk_req_v2_cfg));
 
 	let runtime_api = MockRuntimeApi::new(
 		state.config.clone(),
@@ -353,12 +351,12 @@ pub async fn benchmark_availability_read(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{block_time:?}ms").cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
 	let availability_bytes = availability_bytes / 1024;
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Throughput: {}",
 		format!("{} KiB/block", availability_bytes / env.config().num_blocks as u128).bright_red()
@@ -391,10 +389,10 @@ pub async fn benchmark_availability_write(
 				candidate_hash: backed_candidate.hash(),
 				n_validators: config.n_validators as u32,
 				available_data,
-				expected_erasure_root: backed_candidate.descriptor().erasure_root,
+				expected_erasure_root: backed_candidate.descriptor().erasure_root(),
 				tx,
 				core_index: CoreIndex(core_index as u32),
-				node_features: node_features_with_chunk_mapping_enabled(),
+				node_features: default_node_features(),
 			},
 		))
 		.await;
@@ -492,11 +490,11 @@ pub async fn benchmark_availability_write(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{:?}ms", block_time).cyan());
+		gum::info!(target: LOG_TARGET, "All work for block completed in {}", format!("{block_time:?}ms").cyan());
 	}
 
 	let duration: u128 = test_start.elapsed().as_millis();
-	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{:?}ms", duration).cyan());
+	gum::info!(target: LOG_TARGET, "All blocks processed in {}", format!("{duration:?}ms").cyan());
 	gum::info!(target: LOG_TARGET,
 		"Avg block time: {}",
 		format!("{} ms", test_start.elapsed().as_millis() / env.config().num_blocks as u128).red()

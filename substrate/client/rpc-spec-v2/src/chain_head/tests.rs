@@ -34,7 +34,7 @@ use jsonrpsee::{
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::ChildInfo;
 use sc_rpc::testing::TokioTestExecutor;
-use sc_service::client::new_in_mem;
+use sc_service::client::new_with_backend;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::BlockOrigin;
 use sp_core::{
@@ -44,7 +44,7 @@ use sp_core::{
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	fmt::Debug,
 	sync::Arc,
 	time::Duration,
@@ -86,6 +86,7 @@ pub async fn run_server() -> std::net::SocketAddr {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_follow_subscriptions_per_connection: 1,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -147,6 +148,7 @@ async fn setup_api() -> (
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -254,6 +256,7 @@ async fn follow_subscription_produces_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -323,6 +326,7 @@ async fn follow_with_runtime() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -502,8 +506,8 @@ async fn get_body() {
 		.unwrap();
 	builder
 		.push_transfer(runtime::Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 42,
 			nonce: 0,
 		})
@@ -576,7 +580,7 @@ async fn call_runtime() {
 	);
 
 	// Valid call.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
@@ -631,6 +635,7 @@ async fn call_runtime_without_flag() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -665,7 +670,7 @@ async fn call_runtime_without_flag() {
 	);
 
 	// Valid runtime call on a subscription started with `with_runtime` false.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	let call_parameters = hex_string(&alice_id.encode());
 	let err = api
 		.call::<_, serde_json::Value>(
@@ -1251,7 +1256,7 @@ async fn unique_operation_ids() {
 		assert!(op_ids.insert(operation_id));
 
 		// Valid `chainHead_v1_call` call.
-		let alice_id = AccountKeyring::Alice.to_account_id();
+		let alice_id = Sr25519Keyring::Alice.to_account_id();
 		let call_parameters = hex_string(&alice_id.encode());
 		let response: MethodResponse = api
 			.call(
@@ -1290,6 +1295,7 @@ async fn separate_operation_ids_for_subscriptions() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1376,6 +1382,7 @@ async fn follow_generates_initial_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1416,8 +1423,8 @@ async fn follow_generates_initial_blocks() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -1532,6 +1539,7 @@ async fn follow_exceeding_pinned_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1609,6 +1617,7 @@ async fn follow_with_unpin() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1715,6 +1724,7 @@ async fn unpin_duplicate_hashes() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1818,6 +1828,7 @@ async fn follow_with_multiple_unpin_hashes() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -1963,6 +1974,7 @@ async fn follow_prune_best_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2034,8 +2046,8 @@ async fn follow_prune_best_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2149,6 +2161,7 @@ async fn follow_forks_pruned_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2204,8 +2217,8 @@ async fn follow_forks_pruned_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2220,8 +2233,8 @@ async fn follow_forks_pruned_block() {
 		.unwrap();
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Bob.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Bob.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2309,6 +2322,7 @@ async fn follow_report_multiple_pruned_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2365,8 +2379,8 @@ async fn follow_report_multiple_pruned_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2383,8 +2397,8 @@ async fn follow_report_multiple_pruned_block() {
 
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Bob.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Bob.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -2533,13 +2547,13 @@ async fn pin_block_references() {
 	.unwrap();
 
 	let client = Arc::new(
-		new_in_mem::<_, Block, _, RuntimeApi>(
+		new_with_backend::<_, _, Block, _, RuntimeApi>(
 			backend.clone(),
 			executor,
 			genesis_block_builder,
-			None,
-			None,
 			Box::new(TokioTestExecutor::default()),
+			None,
+			None,
 			client_config,
 		)
 		.unwrap(),
@@ -2555,6 +2569,7 @@ async fn pin_block_references() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2690,6 +2705,7 @@ async fn follow_finalized_before_new_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2805,6 +2821,7 @@ async fn ensure_operation_limits_works() {
 			subscription_max_ongoing_operations: 1,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -2854,7 +2871,7 @@ async fn ensure_operation_limits_works() {
 	let operation_id = match response {
 		MethodResponse::Started(started) => {
 			// Check discarded items.
-			assert!(started.discarded_items.is_none());
+			assert_eq!(started.discarded_items, Some(0));
 			started.operation_id
 		},
 		MethodResponse::LimitReached => panic!("Expected started response"),
@@ -2866,7 +2883,7 @@ async fn ensure_operation_limits_works() {
 	);
 
 	// The storage is finished and capacity must be released.
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = api
@@ -2910,6 +2927,7 @@ async fn storage_is_backpressured() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3047,6 +3065,7 @@ async fn stop_storage_operation() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3209,7 +3228,10 @@ async fn storage_closest_merkle_value() {
 			.await
 			.unwrap();
 		let operation_id = match response {
-			MethodResponse::Started(started) => started.operation_id,
+			MethodResponse::Started(started) => {
+				assert_eq!(started.discarded_items, Some(0));
+				started.operation_id
+			},
 			MethodResponse::LimitReached => panic!("Expected started response"),
 		};
 
@@ -3344,6 +3366,7 @@ async fn chain_head_stop_all_subscriptions() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: 5,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3514,7 +3537,7 @@ async fn chain_head_single_connection_context() {
 	.unwrap();
 	assert_matches!(response, MethodResponse::LimitReached);
 
-	let alice_id = AccountKeyring::Alice.to_account_id();
+	let alice_id = Sr25519Keyring::Alice.to_account_id();
 	// Hex encoded scale encoded bytes representing the call parameters.
 	let call_parameters = hex_string(&alice_id.encode());
 	let response: MethodResponse = ChainHeadApiClient::<String>::chain_head_unstable_call(
@@ -3557,6 +3580,7 @@ async fn chain_head_limit_reached() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: 1,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3597,6 +3621,7 @@ async fn follow_unique_pruned_blocks() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3638,8 +3663,8 @@ async fn follow_unique_pruned_blocks() {
 	let block_6_hash = import_block(client.clone(), block_2_f_hash, 2).await.hash();
 	// Import block 2 as best on the fork.
 	let mut tx_alice_ferdie = Transfer {
-		from: AccountKeyring::Alice.into(),
-		to: AccountKeyring::Ferdie.into(),
+		from: Sr25519Keyring::Alice.into(),
+		to: Sr25519Keyring::Ferdie.into(),
 		amount: 41,
 		nonce: 0,
 	};
@@ -3766,6 +3791,7 @@ async fn follow_report_best_block_of_a_known_block() {
 			subscription_max_ongoing_operations: MAX_OPERATIONS,
 			max_lagging_distance: MAX_LAGGING_DISTANCE,
 			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
 		},
 	)
 	.into_rpc();
@@ -3820,8 +3846,8 @@ async fn follow_report_best_block_of_a_known_block() {
 	// imported
 	block_builder
 		.push_transfer(Transfer {
-			from: AccountKeyring::Alice.into(),
-			to: AccountKeyring::Ferdie.into(),
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
 			amount: 41,
 			nonce: 0,
 		})
@@ -3964,4 +3990,124 @@ async fn follow_report_best_block_of_a_known_block() {
 		pruned_block_hashes: vec![],
 	});
 	assert_eq!(event, expected);
+}
+
+#[tokio::test]
+async fn follow_event_with_unknown_parent() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let client_mock = Arc::new(ChainHeadMockClient::new(client.clone()));
+
+	let api = ChainHead::new(
+		client_mock.clone(),
+		backend,
+		Arc::new(TokioTestExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			subscription_buffer_cap: MAX_PINNED_BLOCKS,
+		},
+	)
+	.into_rpc();
+
+	let finalized_hash = client.info().finalized_hash;
+	let mut sub = api.subscribe_unbounded("chainHead_v1_follow", [false]).await.unwrap();
+	// Initialized must always be reported first.
+	let event: FollowEvent<String> = get_next_event(&mut sub).await;
+	let expected = FollowEvent::Initialized(Initialized {
+		finalized_block_hashes: vec![format!("{:?}", finalized_hash)],
+		finalized_block_runtime: None,
+		with_runtime: false,
+	});
+	assert_eq!(event, expected);
+
+	// Block tree:
+	//
+	// finalized -> (gap: block 1) -> block 2
+	//
+	// Block 1 is not announced yet. ChainHead should report the stop
+	// event when encountering an unknown parent of block 2.
+
+	// Note: `client` is used just for constructing the blocks.
+	// The blocks are imported to chainHead using the `client_mock`.
+	let block_1 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	let block_1_hash = block_1.hash();
+	client.import(BlockOrigin::Own, block_1.clone()).await.unwrap();
+
+	let block_2 = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(block_1_hash)
+		.with_parent_block_number(1)
+		.build()
+		.unwrap()
+		.build()
+		.unwrap()
+		.block;
+	client.import(BlockOrigin::Own, block_2.clone()).await.unwrap();
+
+	run_with_timeout(client_mock.trigger_import_stream(block_2.header)).await;
+	// When importing the block 2, chainHead detects a gap in our blocks and stops.
+	assert_matches!(get_next_event::<FollowEvent<String>>(&mut sub).await, FollowEvent::Stop);
+}
+
+#[tokio::test]
+async fn events_are_backpressured() {
+	let builder = TestClientBuilder::new();
+	let backend = builder.backend();
+	let client = Arc::new(builder.build());
+
+	let api = ChainHead::new(
+		client.clone(),
+		backend,
+		Arc::new(TokioTestExecutor::default()),
+		ChainHeadConfig {
+			global_max_pinned_blocks: MAX_PINNED_BLOCKS,
+			subscription_max_pinned_duration: Duration::from_secs(MAX_PINNED_SECS),
+			subscription_max_ongoing_operations: MAX_OPERATIONS,
+			max_lagging_distance: MAX_LAGGING_DISTANCE,
+			max_follow_subscriptions_per_connection: MAX_FOLLOW_SUBSCRIPTIONS_PER_CONNECTION,
+			subscription_buffer_cap: 10,
+		},
+	)
+	.into_rpc();
+
+	let mut parent_hash = client.chain_info().genesis_hash;
+	let mut header = VecDeque::new();
+	let mut sub = api.subscribe("chainHead_v1_follow", [false], 1).await.unwrap();
+
+	// insert more events than the user can consume
+	for i in 0..=5 {
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(parent_hash)
+			.with_parent_block_number(i)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		header.push_front(block.header().clone());
+
+		parent_hash = block.hash();
+		client.import(BlockOrigin::Own, block.clone()).await.unwrap();
+	}
+
+	let mut events = Vec::new();
+
+	while let Some(event) = sub.next::<FollowEvent<String>>().await {
+		events.push(event);
+	}
+
+	assert_eq!(events.len(), 2);
+	assert_matches!(events.pop().unwrap().map(|x| x.0), Ok(FollowEvent::Stop));
 }

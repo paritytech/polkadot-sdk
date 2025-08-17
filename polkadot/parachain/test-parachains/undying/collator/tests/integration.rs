@@ -19,10 +19,16 @@
 
 // If this test is failing, make sure to run all tests with the `real-overseer` feature being
 // enabled.
+
+use polkadot_node_subsystem::TimeoutExt;
+use std::time::Duration;
+
+const TIMEOUT: Duration = Duration::from_secs(120);
+
 #[tokio::test(flavor = "multi_thread")]
 async fn collating_using_undying_collator() {
 	use polkadot_primitives::Id as ParaId;
-	use sp_keyring::AccountKeyring::*;
+	use sp_keyring::Sr25519Keyring::*;
 
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
@@ -43,7 +49,8 @@ async fn collating_using_undying_collator() {
 	workers_path.pop();
 
 	// start alice
-	let alice = polkadot_test_service::run_validator_node(alice_config, Some(workers_path.clone()));
+	let alice =
+		polkadot_test_service::run_validator_node(alice_config, Some(workers_path.clone())).await;
 
 	let bob_config = polkadot_test_service::node_config(
 		|| {},
@@ -54,9 +61,9 @@ async fn collating_using_undying_collator() {
 	);
 
 	// start bob
-	let bob = polkadot_test_service::run_validator_node(bob_config, Some(workers_path));
+	let bob = polkadot_test_service::run_validator_node(bob_config, Some(workers_path)).await;
 
-	let collator = test_parachain_undying_collator::Collator::new(1_000, 1);
+	let collator = test_parachain_undying_collator::Collator::new(1_000, 1, false);
 
 	// register parachain
 	alice
@@ -71,7 +78,8 @@ async fn collating_using_undying_collator() {
 		|| {},
 		vec![alice.addr.clone(), bob.addr.clone()],
 		collator.collator_key(),
-	);
+	)
+	.await;
 
 	charlie
 		.register_collator(
@@ -82,8 +90,16 @@ async fn collating_using_undying_collator() {
 		.await;
 
 	// Wait until the parachain has 4 blocks produced.
-	collator.wait_for_blocks(4).await;
+	collator
+		.wait_for_blocks(4)
+		.timeout(TIMEOUT)
+		.await
+		.expect("Timed out waiting for 4 produced blocks");
 
 	// Wait until the collator received `12` seconded statements for its collations.
-	collator.wait_for_seconded_collations(12).await;
+	collator
+		.wait_for_seconded_collations(12)
+		.timeout(TIMEOUT)
+		.await
+		.expect("Timed out waiting for 12 seconded collations");
 }

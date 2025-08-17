@@ -6,6 +6,7 @@ import json
 import argparse
 import _help
 import importlib.util
+import re
 
 _HelpAction = _help._HelpAction
 
@@ -15,11 +16,20 @@ runtimesMatrix = json.load(f)
 runtimeNames = list(map(lambda x: x['name'], runtimesMatrix))
 
 common_args = {
-    '--continue-on-fail': {"action": "store_true", "help": "Won't exit(1) on failed command and continue with next steps. "},
     '--quiet': {"action": "store_true", "help": "Won't print start/end/failed messages in PR"},
     '--clean': {"action": "store_true", "help": "Clean up the previous bot's & author's comments in PR"},
     '--image': {"help": "Override docker image '--image docker.io/paritytech/ci-unified:latest'"},
 }
+
+def print_and_log(message, output_file='/tmp/cmd/command_output.log'):
+    print(message)
+    with open(output_file, 'a') as f:
+        f.write(message + '\n')
+
+def setup_logging():
+    if not os.path.exists('/tmp/cmd'):
+        os.makedirs('/tmp/cmd')
+    open('/tmp/cmd/command_output.log', 'w')
 
 parser = argparse.ArgumentParser(prog="/cmd ", description='A command runner for polkadot-sdk repo', add_help=False)
 parser.add_argument('--help', action=_HelpAction, help='help for help if you need some help')  # help for help
@@ -28,8 +38,10 @@ for arg, config in common_args.items():
 
 subparsers = parser.add_subparsers(help='a command to run', dest='command')
 
+setup_logging()
+
 """
-BENCH 
+BENCH
 """
 
 bench_example = '''**Examples**:
@@ -39,30 +51,32 @@ bench_example = '''**Examples**:
  Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
  %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
  
- Runs bench for all pallets for westend runtime and continues even if some benchmarks fail
- %(prog)s --runtime westend --continue-on-fail
+ Runs bench for all pallets for westend runtime and fails fast on first failed benchmark
+ %(prog)s --runtime westend --fail-fast
  
  Does not output anything and cleans up the previous bot's & author command triggering comments in PR 
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
-parser_bench = subparsers.add_parser('bench', help='Runs benchmarks', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
     parser_bench.add_argument(arg, **config)
 
 parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
 parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
+parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+
 
 """
-FMT 
+FMT
 """
 parser_fmt = subparsers.add_parser('fmt', help='Formats code (cargo +nightly-VERSION fmt) and configs (taplo format)')
 for arg, config in common_args.items():
     parser_fmt.add_argument(arg, **config)
 
 """
-Update UI 
+Update UI
 """
 parser_ui = subparsers.add_parser('update-ui', help='Updates UI tests')
 for arg, config in common_args.items():
@@ -77,7 +91,7 @@ generate_prdoc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prdoc)
 
 parser_prdoc = subparsers.add_parser('prdoc', help='Generates PR documentation')
-generate_prdoc.setup_parser(parser_prdoc)
+generate_prdoc.setup_parser(parser_prdoc, pr_required=False)
 
 def main():
     global args, unknown, runtimesMatrix
@@ -85,12 +99,12 @@ def main():
 
     print(f'args: {args}')
 
-    if args.command == 'bench':
+    if args.command == 'bench' or args.command == 'bench-omni':
         runtime_pallets_map = {}
         failed_benchmarks = {}
         successful_benchmarks = {}
 
-        profile = "release"
+        profile = "production"
 
         print(f'Provided runtimes: {args.runtime}')
         # convert to mapped dict
@@ -98,13 +112,36 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
+        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        if compile_bencher != 0:
+            print_and_log('❌ Failed to compile frame-omni-bencher')
+            sys.exit(1)
+
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            os.system(f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}")
+            build_command = f"forklift cargo build -q -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            print(f'-- building "{runtime["name"]}" with `{build_command}`')
+            build_status = os.system(build_command)
+            if build_status != 0:
+                print_and_log(f'❌ Failed to build {runtime["name"]}')
+                if args.fail_fast:
+                    sys.exit(1)
+                else:
+                    continue
+
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
-            output = os.popen(
-                f"frame-omni-bencher v1 benchmark pallet --no-csv-header --no-storage-info --no-min-squares --no-median-slopes --all --list --runtime={wasm_file}").read()
+            list_command = f"frame-omni-bencher v1 benchmark pallet " \
+                f"--no-csv-header " \
+                f"--no-storage-info " \
+                f"--no-min-squares " \
+                f"--no-median-slopes " \
+                f"--all " \
+                f"--list " \
+                f"--runtime={wasm_file} " \
+                f"{runtime['bench_flags']}"
+            print(f'-- running: {list_command}')
+            output = os.popen(list_command).read()
             raw_pallets = output.strip().split('\n')
 
             all_pallets = set()
@@ -156,12 +193,25 @@ def main():
                     manifest_path = os.popen(search_manifest_path).read()
                     if not manifest_path:
                         print(f'-- pallet {pallet} not found in dev runtime')
-                        exit(1)
+                        if args.fail_fast:
+                            print_and_log(f'Error: {pallet} not found in dev runtime')
+                            sys.exit(1)
                     package_dir = os.path.dirname(manifest_path)
                     print(f'-- package_dir: {package_dir}')
                     print(f'-- manifest_path: {manifest_path}')
                     output_path = os.path.join(package_dir, "src", "weights.rs")
+                    # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
+                    try:
+                        uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                        print(f'uses_polkadot_sdk_frame: {uses_polkadot_sdk_frame}')
+                    # Empty output from the previous os.popen command
+                    except StopIteration:
+                        print(f'Error: {pallet} not found in dev runtime')
+                        uses_polkadot_sdk_frame = False
                     template = config['template']
+                    if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
+                        template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
+                    print(f'template: {template}')
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"
@@ -182,11 +232,13 @@ def main():
                     f"--repeat=20 " \
                     f"--heap-pages=4096 " \
                     f"{f'--template={template} ' if template else ''}" \
-                    f"--no-storage-info --no-min-squares --no-median-slopes"
+                    f"--no-storage-info --no-min-squares --no-median-slopes " \
+                    f"{config['bench_flags']}"
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
-                if status != 0 and not args.continue_on_fail:
-                    print(f'Failed to benchmark {pallet} in {runtime}')
+
+                if status != 0 and args.fail_fast:
+                    print_and_log(f'❌ Failed to benchmark {pallet} in {runtime}')
                     sys.exit(1)
 
                 # Otherwise collect failed benchmarks and print them at the end
@@ -197,14 +249,14 @@ def main():
                     successful_benchmarks[f'{runtime}'] = successful_benchmarks.get(f'{runtime}', []) + [pallet]
 
         if failed_benchmarks:
-            print('❌ Failed benchmarks of runtimes/pallets:')
+            print_and_log('❌ Failed benchmarks of runtimes/pallets:')
             for runtime, pallets in failed_benchmarks.items():
-                print(f'-- {runtime}: {pallets}')
+                print_and_log(f'-- {runtime}: {pallets}')
 
         if successful_benchmarks:
-            print('✅ Successful benchmarks of runtimes/pallets:')
+            print_and_log('✅ Successful benchmarks of runtimes/pallets:')
             for runtime, pallets in successful_benchmarks.items():
-                print(f'-- {runtime}: {pallets}')
+                print_and_log(f'-- {runtime}: {pallets}')
 
     elif args.command == 'fmt':
         command = f"cargo +nightly fmt"
@@ -212,8 +264,8 @@ def main():
         nightly_status = os.system(f'{command}')
         taplo_status = os.system('taplo format --config .config/taplo.toml')
 
-        if (nightly_status != 0 or taplo_status != 0) and not args.continue_on_fail:
-            print('❌ Failed to format code')
+        if (nightly_status != 0 or taplo_status != 0):
+            print_and_log('❌ Failed to format code')
             sys.exit(1)
 
     elif args.command == 'update-ui':
@@ -221,15 +273,15 @@ def main():
         print(f'Updating ui with `{command}`')
         status = os.system(f'{command}')
 
-        if status != 0 and not args.continue_on_fail:
-            print('❌ Failed to format code')
+        if status != 0:
+            print_and_log('❌ Failed to update ui')
             sys.exit(1)
 
     elif args.command == 'prdoc':
         # Call the main function from ./github/scripts/generate-prdoc.py module
         exit_code = generate_prdoc.main(args)
-        if exit_code != 0 and not args.continue_on_fail:
-            print('❌ Failed to generate prdoc')
+        if exit_code != 0:
+            print_and_log('❌ Failed to generate prdoc')
             sys.exit(exit_code)
 
     print('🚀 Done')

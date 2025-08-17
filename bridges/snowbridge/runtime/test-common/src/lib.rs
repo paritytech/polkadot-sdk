@@ -13,12 +13,9 @@ use parachains_runtimes_test_utils::{
 use snowbridge_core::{ChannelId, ParaId};
 use snowbridge_pallet_ethereum_client_fixtures::*;
 use sp_core::{Get, H160, U256};
-use sp_keyring::AccountKeyring::*;
+use sp_keyring::Sr25519Keyring::*;
 use sp_runtime::{traits::Header, AccountId32, DigestItem, SaturatedConversion, Saturating};
-use xcm::{
-	latest::prelude::*,
-	v3::Error::{self, Barrier},
-};
+use xcm::latest::prelude::*;
 use xcm_executor::XcmExecutor;
 
 type RuntimeHelper<Runtime, AllPalletsWithoutSystem = ()> =
@@ -309,6 +306,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		+ pallet_collator_selection::Config
 		+ cumulus_pallet_parachain_system::Config
 		+ snowbridge_pallet_outbound_queue::Config
+		+ snowbridge_pallet_system::Config
 		+ pallet_timestamp::Config,
 	XcmConfig: xcm_executor::Config,
 	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
@@ -322,12 +320,9 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 		.with_tracing()
 		.build()
 		.execute_with(|| {
-			let asset_hub_sovereign_account =
-				snowbridge_core::sibling_sovereign_account::<Runtime>(assethub_parachain_id.into());
-
-			<pallet_balances::Pallet<Runtime>>::mint_into(
-				&asset_hub_sovereign_account,
-				4000000000u32.into(),
+			<snowbridge_pallet_system::Pallet<Runtime>>::initialize(
+				runtime_para_id.into(),
+				assethub_parachain_id.into(),
 			)
 			.unwrap();
 
@@ -373,8 +368,7 @@ pub fn send_unpaid_transfer_token_message<Runtime, XcmConfig>(
 				RuntimeHelper::<Runtime>::xcm_max_weight(XcmReceivedFrom::Sibling),
 				Weight::zero(),
 			);
-			// check error is barrier
-			assert_err!(outcome.ensure_complete(), Barrier);
+			assert_ok!(outcome.ensure_complete());
 		});
 }
 
@@ -388,7 +382,7 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 	weth_contract_address: H160,
 	destination_address: H160,
 	fee_amount: u128,
-	expected_error: Error,
+	expected_error: XcmError,
 ) where
 	Runtime: frame_system::Config
 		+ pallet_balances::Config
@@ -426,7 +420,10 @@ pub fn send_transfer_token_message_failure<Runtime, XcmConfig>(
 				destination_address,
 				fee_amount,
 			);
-			assert_err!(outcome.ensure_complete(), expected_error);
+			assert_err!(
+				outcome.ensure_complete(),
+				InstructionError { index: 0, error: expected_error }
+			);
 		});
 }
 
@@ -434,7 +431,7 @@ pub fn ethereum_extrinsic<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		<Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 ) where
@@ -518,6 +515,9 @@ pub fn ethereum_extrinsic<Runtime>(
 			let balance_after_update =
 				<pallet_balances::Pallet<Runtime>>::free_balance(&alice_account.clone().into());
 
+			// All the extrinsics in this test do no fit into 1 block
+			let _ = RuntimeHelper::<Runtime>::run_to_block(2, alice_account.clone().into());
+
 			// Invalid finalized header update
 			let invalid_update_outcome =
 				construct_and_apply_extrinsic(alice, invalid_update_call.into());
@@ -570,7 +570,7 @@ pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,
 	construct_and_apply_extrinsic: fn(
-		sp_keyring::AccountKeyring,
+		sp_keyring::Sr25519Keyring,
 		<Runtime as frame_system::Config>::RuntimeCall,
 	) -> sp_runtime::DispatchOutcome,
 ) where

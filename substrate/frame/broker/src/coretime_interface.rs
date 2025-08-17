@@ -18,7 +18,7 @@
 #![deny(missing_docs)]
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
@@ -39,7 +39,17 @@ pub type PartsOf57600 = u16;
 
 /// An element to which a core can be assigned.
 #[derive(
-	Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum CoreAssignment {
 	/// Core need not be used for anything.
@@ -88,7 +98,7 @@ pub trait CoretimeInterface {
 	/// Credit account of `who`.
 	///
 	/// It is expected that Instantaneous Coretime Market Credit on the Relay-chain is NOT
-	/// transferrable and only redeemable when used to assign cores in the Instantaneous Coretime
+	/// transferable and only redeemable when used to assign cores in the Instantaneous Coretime
 	/// Pool.
 	fn credit_account(who: Self::AccountId, amount: Self::Balance);
 
@@ -111,7 +121,7 @@ pub trait CoretimeInterface {
 	);
 
 	/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
-	/// batching different matters happened during the timeslice that may benifit from batched
+	/// batching different matters happened during the timeslice that may benefit from batched
 	/// processing.
 	fn on_new_timeslice(_timeslice: Timeslice) {}
 }

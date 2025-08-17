@@ -22,15 +22,16 @@ use crate::{
 	EnsureDecodableXcm,
 };
 pub use crate::{
-	AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom, AllowKnownQueryResponses,
-	AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, FixedRateOfFungible,
-	FixedWeightBounds, TakeWeightCredit,
+	AliasChildLocation, AliasForeignAccountId32, AllowExplicitUnpaidExecutionFrom,
+	AllowKnownQueryResponses, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom,
+	FixedRateOfFungible, FixedWeightBounds, TakeWeightCredit,
 };
 pub use alloc::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-pub use codec::{Decode, Encode};
+pub use codec::{Decode, DecodeWithMemTracking, Encode};
 pub use core::{
 	cell::{Cell, RefCell},
 	fmt::Debug,
+	ops::ControlFlow,
 };
 use frame_support::traits::{ContainsPair, Everything};
 pub use frame_support::{
@@ -40,14 +41,15 @@ pub use frame_support::{
 	traits::{Contains, Get, IsInVec},
 };
 pub use xcm::latest::{prelude::*, QueryId, Weight};
-use xcm_executor::traits::{Properties, QueryHandler, QueryResponseStatus};
 pub use xcm_executor::{
 	traits::{
-		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, Enact, ExportXcm, FeeManager,
-		FeeReason, LockError, OnResponse, TransactAsset,
+		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
+		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
+		QueryResponseStatus, TransactAsset,
 	},
 	AssetsInHolding, Config,
 };
+pub use xcm_simulator::helpers::derive_topic_id;
 
 #[derive(Debug)]
 pub enum TestOrigin {
@@ -61,7 +63,9 @@ pub enum TestOrigin {
 ///
 /// Each item contains the amount of weight that it *wants* to consume as the first item, and the
 /// actual amount (if different from the former) in the second option.
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub enum TestCall {
 	OnlyRoot(Weight, Option<Weight>),
 	OnlyParachain(Weight, Option<Weight>, Option<u32>),
@@ -100,13 +104,13 @@ impl Dispatchable for TestCall {
 
 impl GetDispatchInfo for TestCall {
 	fn get_dispatch_info(&self) -> DispatchInfo {
-		let weight = *match self {
+		let call_weight = *match self {
 			TestCall::OnlyRoot(estimate, ..) |
 			TestCall::OnlyParachain(estimate, ..) |
 			TestCall::OnlySigned(estimate, ..) |
 			TestCall::Any(estimate, ..) => estimate,
 		};
-		DispatchInfo { weight, ..Default::default() }
+		DispatchInfo { call_weight, ..Default::default() }
 	}
 }
 
@@ -174,7 +178,7 @@ impl SendXcm for TestMessageSenderImpl {
 		msg: &mut Option<Xcm<()>>,
 	) -> SendResult<(Location, Xcm<()>, XcmHash)> {
 		let msg = msg.take().unwrap();
-		let hash = fake_message_hash(&msg);
+		let hash = derive_topic_id(&msg);
 		let triplet = (dest.take().unwrap(), msg, hash);
 		Ok((triplet, SEND_PRICE.with(|l| l.borrow().clone())))
 	}
@@ -204,7 +208,7 @@ impl ExportXcm for TestMessageExporter {
 				Ok(Assets::new())
 			}
 		});
-		let h = fake_message_hash(&m);
+		let h = derive_topic_id(&m);
 		match r {
 			Ok(price) => Ok(((network, channel, s, d, m, h), price)),
 			Err(e) => {
@@ -732,10 +736,14 @@ impl Contains<Location> for ParentPrefix {
 	}
 }
 
+/// Pairs (location1, location2) where location1 can alias as location2.
+pub type Aliasers = (AliasForeignAccountId32<SiblingPrefix>, AliasChildLocation);
+
 pub struct TestConfig;
 impl Config for TestConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestMessageSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = TestOriginConverter;
 	type IsReserve = TestIsReserve;
@@ -757,7 +765,7 @@ impl Config for TestConfig {
 	type MessageExporter = TestMessageExporter;
 	type CallDispatcher = TestCall;
 	type SafeCallFilter = Everything;
-	type Aliasers = AliasForeignAccountId32<SiblingPrefix>;
+	type Aliasers = Aliasers;
 	type TransactionalProcessor = ();
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();

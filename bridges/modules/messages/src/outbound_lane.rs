@@ -22,7 +22,7 @@ use bp_messages::{
 	ChainWithMessages, DeliveredMessages, LaneState, MessageNonce, OutboundLaneData,
 	UnrewardedRelayer,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{traits::Get, BoundedVec, PalletError};
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -65,7 +65,9 @@ impl<T: Config<I>, I: 'static> Get<u32> for StoredMessagePayloadLimit<T, I> {
 pub type StoredMessagePayload<T, I> = BoundedVec<u8, StoredMessagePayloadLimit<T, I>>;
 
 /// Result of messages receival confirmation.
-#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, RuntimeDebug, PartialEq, Eq, PalletError, TypeInfo,
+)]
 pub enum ReceptionConfirmationError {
 	/// Bridged chain is trying to confirm more messages than we have generated. May be a result
 	/// of invalid bridged chain storage.
@@ -153,11 +155,11 @@ impl<S: OutboundLaneStorage> OutboundLane<S> {
 			// chain storage is corrupted, though) that the actual number of confirmed messages if
 			// larger than declared. This would mean that 'reward loop' will take more time than the
 			// weight formula accounts, so we can't allow that.
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Messages delivery proof contains too many messages to confirm: {} vs declared {}",
-				confirmed_messages.total_messages(),
-				max_allowed_messages,
+				confirmed=%confirmed_messages.total_messages(),
+				max_allowed=%max_allowed_messages,
+				"Messages delivery proof contains too many messages to confirm"
 			);
 			return Err(ReceptionConfirmationError::TryingToConfirmMoreMessagesThanExpected)
 		}

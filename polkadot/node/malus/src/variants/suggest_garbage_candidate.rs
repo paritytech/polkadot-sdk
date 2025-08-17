@@ -32,7 +32,7 @@ use polkadot_cli::{
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
-use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
+use polkadot_primitives::{vstaging::CandidateReceiptV2, CandidateDescriptor};
 
 use polkadot_node_subsystem_util::request_validators;
 use sp_core::traits::SpawnNamed;
@@ -127,7 +127,7 @@ where
 
 							let validation_code = {
 								let validation_code_hash =
-									_candidate.descriptor().validation_code_hash;
+									_candidate.descriptor().validation_code_hash();
 								let (tx, rx) = oneshot::channel();
 								new_sender
 									.send_message(RuntimeApiMessage::Request(
@@ -214,7 +214,7 @@ where
 						let collator_pair = CollatorPair::generate().0;
 						let signature_payload = polkadot_primitives::collator_signature_payload(
 							&relay_parent,
-							&candidate.descriptor().para_id,
+							&candidate.descriptor().para_id(),
 							&validation_data_hash,
 							&pov_hash,
 							&validation_code_hash,
@@ -227,9 +227,9 @@ where
 						&malicious_available_data.validation_data,
 					);
 
-					let malicious_candidate = CandidateReceipt {
+					let malicious_candidate = CandidateReceiptV2 {
 						descriptor: CandidateDescriptor {
-							para_id: candidate.descriptor().para_id,
+							para_id: candidate.descriptor.para_id(),
 							relay_parent,
 							collator: collator_id,
 							persisted_validation_data_hash: validation_data_hash,
@@ -238,7 +238,8 @@ where
 							signature: collator_signature,
 							para_head: malicious_commitments.head_data.hash(),
 							validation_code_hash,
-						},
+						}
+						.into(),
 						commitments_hash: malicious_commitments.hash(),
 					};
 					let malicious_candidate_hash = malicious_candidate.hash();

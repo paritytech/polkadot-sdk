@@ -17,9 +17,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{u256_bytes, u64_output};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -36,6 +36,15 @@ pub extern "C" fn call() {
 
 	// Try to self-destruct by sending more balance to the 0 address.
 	// The call will fail because a contract transfer has a keep alive requirement.
-	let res = api::transfer(&[0u8; 20], &u256_bytes(balance));
+	let res = api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		0,
+		0,
+		&[u8::MAX; 32],
+		&u256_bytes(balance),
+		&[],
+		None,
+	);
 	assert!(matches!(res, Err(uapi::ReturnErrorCode::TransferFailed)));
 }
