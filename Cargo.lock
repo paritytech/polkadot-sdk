@@ -1224,6 +1224,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-conviction-voting",
  "pallet-delegated-staking",
+ "pallet-derivatives",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
  "pallet-indices",
