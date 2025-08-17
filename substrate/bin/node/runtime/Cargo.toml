@@ -37,6 +37,7 @@ node-primitives = { workspace = true }
 # Example pallets that are not published:
 pallet-example-mbm = { workspace = true }
 pallet-example-tasks = { workspace = true }
+pallet-example-hello-world = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -50,6 +51,7 @@ std = [
 	"node-primitives/std",
 	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
+	"pallet-example-hello-world/std",
 	"polkadot-sdk/std",
 	"primitive-types/std",
 	"scale-info/std",
@@ -60,11 +62,13 @@ std = [
 runtime-benchmarks = [
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
+	"pallet-example-hello-world/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
 ]
 try-runtime = [
 	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
+	"pallet-example-hello-world/try-runtime",
 	"polkadot-sdk/try-runtime",
 ]
 experimental = [

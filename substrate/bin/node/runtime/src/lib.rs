@@ -375,6 +375,10 @@ impl pallet_example_tasks::Config for Runtime {
 
 impl pallet_example_mbm::Config for Runtime {}
 
+impl pallet_example_hello_world::Config for Runtime {
+	type WeightInfo = pallet_example_hello_world::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -2776,6 +2780,9 @@ mod runtime {
 
 	#[runtime::pallet_index(78)]
 	pub type PalletExampleMbms = pallet_example_mbm::Pallet<Runtime>;
+
+	#[runtime::pallet_index(85)]
+	pub type HelloWorld = pallet_example_hello_world::Pallet<Runtime>;
 
 	#[runtime::pallet_index(79)]
 	pub type AssetConversionMigration = pallet_asset_conversion_ops::Pallet<Runtime>;

@@ -8862,6 +8862,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "log",
  "node-primitives",
+ "pallet-example-hello-world",
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
@@ -12090,6 +12091,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example-hello-world"
+version = "27.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "pallet-example-kitchensink"
 version = "4.0.0-dev"
 dependencies = [
@@ -12207,6 +12224,7 @@ dependencies = [
  "pallet-example-authorization-tx-extension",
  "pallet-example-basic",
  "pallet-example-frame-crate",
+ "pallet-example-hello-world",
  "pallet-example-kitchensink",
  "pallet-example-offchain-worker",
  "pallet-example-single-block-migrations",

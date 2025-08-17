@@ -21,6 +21,7 @@ pallet-dev-mode = { workspace = true }
 pallet-example-authorization-tx-extension = { workspace = true }
 pallet-example-basic = { workspace = true }
 pallet-example-frame-crate = { workspace = true }
+pallet-example-hello-world = { workspace = true }
 pallet-example-kitchensink = { workspace = true }
 pallet-example-offchain-worker = { workspace = true }
 pallet-example-single-block-migrations = { workspace = true }
@@ -36,6 +37,7 @@ std = [
 	"pallet-example-authorization-tx-extension/std",
 	"pallet-example-basic/std",
 	"pallet-example-frame-crate/std",
+	"pallet-example-hello-world/std",
 	"pallet-example-kitchensink/std",
 	"pallet-example-offchain-worker/std",
 	"pallet-example-single-block-migrations/std",
@@ -48,6 +50,7 @@ try-runtime = [
 	"pallet-dev-mode/try-runtime",
 	"pallet-example-authorization-tx-extension/try-runtime",
 	"pallet-example-basic/try-runtime",
+	"pallet-example-hello-world/try-runtime",
 	"pallet-example-kitchensink/try-runtime",
 	"pallet-example-offchain-worker/try-runtime",
 	"pallet-example-single-block-migrations/try-runtime",
