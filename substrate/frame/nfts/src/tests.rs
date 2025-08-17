@@ -3875,3 +3875,1018 @@ fn clear_collection_metadata_works() {
 		assert_eq!(Balances::reserved_balance(&account(1)), 10);
 	});
 }
+
+mod asset_ops_tests {
+	use super::{account, collections, items};
+	use crate::{asset_strategies::*, mock::*, *};
+	use enumflags2::BitFlags;
+	use frame_support::{
+		assert_noop, assert_ok,
+		traits::tokens::asset_ops::{common_strategies::*, *},
+	};
+	use sp_runtime::traits::TypedGet;
+
+	type Collection = asset_ops::Collection<Nfts>;
+	type Item = asset_ops::Item<Nfts>;
+
+	fn test_create_with_collection_owner() {
+		let collection_owner = account(1);
+		let collection_config = Default::default();
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionOwner::from(
+			Owner::with_config_value(collection_owner.clone()),
+		));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(collections(), vec![(collection_owner.clone(), collection_id)]);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::all())),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(<Test as Config>::CollectionDeposit::get()),
+		);
+	}
+
+	fn test_create_with_collection_managers() {
+		let collection_owner = account(2);
+		let collection_admin = account(3);
+		let collection_config = Default::default();
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionManagers::from((
+			Owner::with_config_value(collection_owner.clone()),
+			Admin::with_config_value(collection_admin.clone()),
+		)));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_admin.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_admin)),
+			Ok(CollectionRoles(BitFlags::all()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::empty()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(<Test as Config>::CollectionDeposit::get()),
+		);
+	}
+
+	fn test_create_with_collection_config() {
+		let collection_owner = account(4);
+		let collection_admin = account(5);
+		let collection_config =
+			CollectionConfigFor::<Test> { max_supply: Some(42), ..Default::default() };
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionConfig::from((
+			Owner::with_config_value(collection_owner.clone()),
+			Admin::with_config_value(collection_admin.clone()),
+			asset_strategies::CollectionConfig::with_config_value(collection_config),
+		)));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_admin.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_admin)),
+			Ok(CollectionRoles(BitFlags::all()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::empty()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(<Test as Config>::CollectionDeposit::get()),
+		);
+	}
+
+	fn test_create_with_collection_deposit() {
+		let collection_owner = account(6);
+		let collection_admin = account(7);
+		let collection_config =
+			CollectionConfigFor::<Test> { max_supply: Some(112), ..Default::default() };
+		let collection_deposit = <Test as Config>::CollectionDeposit::get() + 17;
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionDeposit::from((
+			Owner::with_config_value(collection_owner.clone()),
+			Admin::with_config_value(collection_admin.clone()),
+			asset_strategies::CollectionConfig::with_config_value(collection_config),
+			CollectionDeposit::with_config_value(collection_deposit),
+		)));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_admin.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_admin)),
+			Ok(CollectionRoles(BitFlags::all()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::empty()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(collection_deposit),
+		);
+	}
+
+	#[test]
+	fn create_collection() {
+		new_test_ext().execute_with(|| {
+			test_create_with_collection_owner();
+			test_create_with_collection_managers();
+			test_create_with_collection_config();
+			test_create_with_collection_deposit();
+		});
+	}
+
+	fn test_create_collection_signed_origin() {
+		let collection_owner = account(1);
+		let collection_admin = account(2);
+		let other_account = account(3);
+		let collection_config = Default::default();
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+		Balances::make_free_balance_be(&other_account, 100);
+
+		assert_noop!(
+			Collection::create(CheckOrigin::new(
+				RuntimeOrigin::signed(other_account),
+				WithCollectionConfig::from((
+					Owner::with_config_value(collection_owner.clone()),
+					Admin::with_config_value(collection_admin.clone()),
+					asset_strategies::CollectionConfig::with_config_value(collection_config),
+				))
+			)),
+			Error::<Test>::NoPermission
+		);
+
+		assert_noop!(
+			Collection::create(CheckOrigin::new(
+				RuntimeOrigin::signed(collection_owner.clone()),
+				WithCollectionConfig::from((
+					Owner::with_config_value(collection_owner.clone()),
+					Admin::with_config_value(collection_admin.clone()),
+					asset_strategies::CollectionConfig::with_config_value(CollectionConfigFor::<
+						Test,
+					> {
+						settings: CollectionSettings::from_disabled(
+							CollectionSetting::DepositRequired.into()
+						),
+						..Default::default()
+					}),
+				))
+			)),
+			Error::<Test>::WrongSetting
+		);
+
+		let creation_result = Collection::create(CheckOrigin::new(
+			RuntimeOrigin::signed(collection_owner.clone()),
+			WithCollectionConfig::from((
+				Owner::with_config_value(collection_owner.clone()),
+				Admin::with_config_value(collection_admin.clone()),
+				asset_strategies::CollectionConfig::with_config_value(collection_config),
+			)),
+		));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_admin.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_admin)),
+			Ok(CollectionRoles(BitFlags::all()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::empty()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(<Test as Config>::CollectionDeposit::get()),
+		);
+	}
+
+	fn test_create_collection_root_origin() {
+		let collection_owner = account(3);
+		let collection_admin = account(4);
+		let collection_config = Default::default();
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(CheckOrigin::new(
+			RuntimeOrigin::root(),
+			WithCollectionConfig::from((
+				Owner::with_config_value(collection_owner.clone()),
+				Admin::with_config_value(collection_admin.clone()),
+				asset_strategies::CollectionConfig::with_config_value(collection_config),
+			)),
+		));
+
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Owner::default()),
+			Ok(collection_owner.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Admin::default()),
+			Ok(collection_admin.clone())
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_admin)),
+			Ok(CollectionRoles(BitFlags::all()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, Roles(&collection_owner)),
+			Ok(CollectionRoles(BitFlags::empty()))
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, asset_strategies::CollectionConfig::default()),
+			Ok(collection_config),
+		);
+
+		assert_eq!(
+			Collection::inspect(&collection_id, CollectionDeposit::default()),
+			Ok(Zero::zero()),
+		);
+	}
+
+	#[test]
+	fn create_collection_check_origin() {
+		new_test_ext().execute_with(|| {
+			test_create_collection_signed_origin();
+			test_create_collection_root_origin();
+		});
+	}
+
+	#[test]
+	fn destroy_collection_with_witness() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+			let item_owner = account(2);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_ok!(Item::create(WithItemOwner::new(
+				Owner::with_config_value(item_owner.clone()),
+				PredefinedId::from((collection_id, 0)),
+			)));
+
+			let outdated_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+
+			assert_ok!(Item::update(&(collection_id, 0), Bytes::default(), Some(b"test-metadata")));
+
+			assert_noop!(
+				Collection::destroy(&collection_id, WithWitness::check(outdated_witness)),
+				Error::<Test>::CollectionNotEmpty,
+			);
+
+			assert_ok!(Item::destroy(&(collection_id, 0), NoParams));
+
+			assert_noop!(
+				Collection::destroy(&collection_id, WithWitness::check(outdated_witness)),
+				Error::<Test>::BadWitness,
+			);
+
+			let ok_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+			assert_ne!(outdated_witness, ok_witness);
+
+			assert_ok!(Collection::destroy(&collection_id, WithWitness::check(ok_witness)));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+		});
+	}
+
+	#[test]
+	fn destroy_collection_if_owned_by_and_with_witness() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+			let not_collection_owner = account(2);
+			let item_owner = account(3);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_ok!(Item::create(WithItemOwner::new(
+				Owner::with_config_value(item_owner.clone()),
+				PredefinedId::from((collection_id, 0)),
+			)));
+
+			let outdated_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+
+			assert_ok!(Item::update(&(collection_id, 0), Bytes::default(), Some(b"test-metadata")));
+
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					IfOwnedBy::new(collection_owner.clone(), WithWitness::check(outdated_witness))
+				),
+				Error::<Test>::CollectionNotEmpty,
+			);
+
+			assert_ok!(Item::destroy(&(collection_id, 0), NoParams));
+
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					IfOwnedBy::new(collection_owner.clone(), WithWitness::check(outdated_witness))
+				),
+				Error::<Test>::BadWitness,
+			);
+
+			let ok_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+			assert_ne!(outdated_witness, ok_witness);
+
+			assert_noop!(
+				Collection::destroy(
+					&collection_id,
+					IfOwnedBy::new(not_collection_owner, WithWitness::check(ok_witness))
+				),
+				Error::<Test>::NoPermission
+			);
+
+			assert_ok!(Collection::destroy(
+				&collection_id,
+				IfOwnedBy::new(collection_owner, WithWitness::check(ok_witness))
+			));
+
+			assert_eq!(collections(), vec![]);
+			assert_eq!(items(), vec![]);
+		});
+	}
+
+	fn test_destroy_collection_signed() {
+		let collection_owner = account(1);
+		let not_collection_owner = account(2);
+		let item_owner = account(3);
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionOwner::from(
+			Owner::with_config_value(collection_owner.clone()),
+		));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_ok!(Item::create(WithItemOwner::new(
+			Owner::with_config_value(item_owner.clone()),
+			PredefinedId::from((collection_id, 0)),
+		)));
+
+		let outdated_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+
+		assert_ok!(Item::update(&(collection_id, 0), Bytes::default(), Some(b"test-metadata")));
+
+		assert_noop!(
+			Collection::destroy(
+				&collection_id,
+				CheckOrigin::new(
+					RuntimeOrigin::signed(collection_owner.clone()),
+					WithWitness::check(outdated_witness)
+				)
+			),
+			Error::<Test>::CollectionNotEmpty,
+		);
+
+		assert_ok!(Item::destroy(&(collection_id, 0), NoParams));
+
+		assert_noop!(
+			Collection::destroy(
+				&collection_id,
+				CheckOrigin::new(
+					RuntimeOrigin::signed(collection_owner.clone()),
+					WithWitness::check(outdated_witness)
+				)
+			),
+			Error::<Test>::BadWitness,
+		);
+
+		let ok_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+		assert_ne!(outdated_witness, ok_witness);
+
+		assert_noop!(
+			Collection::destroy(
+				&collection_id,
+				CheckOrigin::new(
+					RuntimeOrigin::signed(not_collection_owner),
+					WithWitness::check(ok_witness)
+				)
+			),
+			Error::<Test>::NoPermission
+		);
+
+		assert_ok!(Collection::destroy(
+			&collection_id,
+			CheckOrigin::new(
+				RuntimeOrigin::signed(collection_owner),
+				WithWitness::check(ok_witness)
+			)
+		));
+
+		assert_eq!(collections(), vec![]);
+		assert_eq!(items(), vec![]);
+	}
+
+	fn test_destroy_collection_root() {
+		let collection_owner = account(1);
+		let item_owner = account(2);
+
+		Balances::make_free_balance_be(&collection_owner, 100);
+
+		let creation_result = Collection::create(WithCollectionOwner::from(
+			Owner::with_config_value(collection_owner.clone()),
+		));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_ok!(Item::create(WithItemOwner::new(
+			Owner::with_config_value(item_owner.clone()),
+			PredefinedId::from((collection_id, 0)),
+		)));
+
+		let outdated_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+
+		assert_ok!(Item::update(&(collection_id, 0), Bytes::default(), Some(b"test-metadata")));
+
+		assert_noop!(
+			Collection::destroy(
+				&collection_id,
+				CheckOrigin::new(RuntimeOrigin::root(), WithWitness::check(outdated_witness))
+			),
+			Error::<Test>::CollectionNotEmpty,
+		);
+
+		assert_ok!(Item::destroy(&(collection_id, 0), NoParams));
+
+		assert_noop!(
+			Collection::destroy(
+				&collection_id,
+				CheckOrigin::new(RuntimeOrigin::root(), WithWitness::check(outdated_witness))
+			),
+			Error::<Test>::BadWitness,
+		);
+
+		let ok_witness = Collection::inspect(&collection_id, Witness::default()).unwrap();
+		assert_ne!(outdated_witness, ok_witness);
+
+		assert_ok!(Collection::destroy(
+			&collection_id,
+			CheckOrigin::new(RuntimeOrigin::root(), WithWitness::check(ok_witness))
+		));
+
+		assert_eq!(collections(), vec![]);
+		assert_eq!(items(), vec![]);
+	}
+
+	#[test]
+	fn destroy_collection_check_origin() {
+		new_test_ext().execute_with(|| {
+			test_destroy_collection_signed();
+			test_destroy_collection_root();
+		});
+	}
+
+	#[test]
+	fn update_collection_owner() {
+		new_test_ext().execute_with(|| {
+			let alice = account(1);
+			let bob = account(2);
+
+			Balances::make_free_balance_be(&alice, 100);
+			Balances::make_free_balance_be(&bob, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(alice.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(alice));
+
+			assert_ok!(Collection::update(&collection_id, Owner::default(), &bob));
+
+			assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(bob));
+		});
+	}
+
+	#[test]
+	fn update_collection_owner_from() {
+		new_test_ext().execute_with(|| {
+			let alice = account(1);
+			let bob = account(2);
+
+			Balances::make_free_balance_be(&alice, 100);
+			Balances::make_free_balance_be(&bob, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(alice.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(alice.clone()));
+
+			assert_noop!(
+				Collection::update(&collection_id, ChangeOwnerFrom::check(bob.clone()), &bob),
+				Error::<Test>::NoPermission
+			);
+
+			assert_ok!(Collection::update(&collection_id, ChangeOwnerFrom::check(alice), &bob));
+
+			assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(bob));
+		});
+	}
+
+	fn test_update_collection_owner_signed() {
+		let alice = account(1);
+		let bob = account(2);
+
+		Balances::make_free_balance_be(&alice, 100);
+		Balances::make_free_balance_be(&bob, 100);
+
+		let creation_result =
+			Collection::create(WithCollectionOwner::from(Owner::with_config_value(alice.clone())));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(alice.clone()));
+
+		assert_noop!(
+			Collection::update(
+				&collection_id,
+				CheckOrigin::check(RuntimeOrigin::signed(alice.clone())),
+				&bob
+			),
+			Error::<Test>::Unaccepted
+		);
+
+		assert_ok!(Nfts::set_accept_ownership(
+			RuntimeOrigin::signed(bob.clone()),
+			Some(collection_id)
+		));
+
+		assert_noop!(
+			Collection::update(
+				&collection_id,
+				CheckOrigin::check(RuntimeOrigin::signed(bob.clone())),
+				&bob
+			),
+			Error::<Test>::NoPermission
+		);
+
+		assert_ok!(Collection::update(
+			&collection_id,
+			CheckOrigin::check(RuntimeOrigin::signed(alice)),
+			&bob
+		));
+
+		assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(bob));
+	}
+
+	fn test_update_collection_owner_root() {
+		let alice = account(1);
+		let bob = account(2);
+
+		Balances::make_free_balance_be(&alice, 100);
+		Balances::make_free_balance_be(&bob, 100);
+
+		let creation_result =
+			Collection::create(WithCollectionOwner::from(Owner::with_config_value(alice.clone())));
+		assert_ok!(creation_result);
+		let collection_id = creation_result.unwrap();
+
+		assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(alice.clone()));
+
+		assert_ok!(Collection::update(
+			&collection_id,
+			CheckOrigin::check(RuntimeOrigin::root()),
+			&bob
+		));
+
+		assert_eq!(Collection::inspect(&collection_id, Owner::default()), Ok(bob));
+	}
+
+	#[test]
+	fn update_collection_owner_check_origin() {
+		new_test_ext().execute_with(|| {
+			test_update_collection_owner_signed();
+			test_update_collection_owner_root();
+		});
+	}
+
+	#[test]
+	fn collection_owner() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_eq!(
+				Collection::inspect(&collection_id, Owner::default()),
+				Ok(collection_owner.clone())
+			);
+
+			assert_noop!(
+				Collection::inspect(&(collection_id + 1), Owner::default()),
+				Error::<Test>::UnknownCollection
+			);
+		});
+	}
+
+	#[test]
+	fn collection_admin() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+			let collection_admin = account(2);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionManagers::from((
+				Owner::with_config_value(collection_owner.clone()),
+				Admin::with_config_value(collection_admin.clone()),
+			)));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_eq!(
+				Collection::inspect(&collection_id, Admin::default()),
+				Ok(collection_admin.clone())
+			);
+
+			assert_noop!(
+				Collection::inspect(&(collection_id + 1), Admin::default()),
+				Error::<Test>::UnknownCollection
+			);
+
+			assert_ok!(Nfts::do_set_team(None, collection_id, None, None, None));
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Admin::default()),
+				Error::<Test>::NoAdmin
+			);
+		});
+	}
+
+	#[test]
+	fn collection_metadata() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Error::<Test>::MetadataNotFound
+			);
+
+			assert_ok!(Collection::update(&collection_id, Bytes::default(), Some(b"test-value")));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Ok(b"test-value".to_vec())
+			);
+			assert_eq!(
+				CollectionMetadataOf::<Test>::get(&collection_id).map(|d| d.data.into_inner()),
+				Some(b"test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(
+				&collection_id,
+				Bytes::default(),
+				Some(b"another-test-value")
+			));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Ok(b"another-test-value".to_vec())
+			);
+			assert_eq!(
+				CollectionMetadataOf::<Test>::get(&collection_id).map(|d| d.data.into_inner()),
+				Some(b"another-test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(&collection_id, Bytes::default(), None));
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes::default()),
+				Error::<Test>::MetadataNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn collection_regular_attribute() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(RegularAttribute(b"key-A"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(RegularAttribute(b"key-B"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::CollectionOwner,
+					Nfts::construct_attribute_key(b"key-A".to_vec()).unwrap(),
+				)),
+				None,
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::CollectionOwner,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				)),
+				None,
+			);
+
+			assert_ok!(Collection::update(
+				&collection_id,
+				Bytes(RegularAttribute(b"key-A")),
+				Some(b"key-A-test-value")
+			));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes(RegularAttribute(b"key-A"))),
+				Ok(b"key-A-test-value".to_vec())
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::CollectionOwner,
+					Nfts::construct_attribute_key(b"key-A".to_vec()).unwrap(),
+				))
+				.map(|(a, _)| a.into_inner()),
+				Some(b"key-A-test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(
+				&collection_id,
+				Bytes(RegularAttribute(b"key-B")),
+				Some(b"key-B-test-value")
+			));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes(RegularAttribute(b"key-B"))),
+				Ok(b"key-B-test-value".to_vec())
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::CollectionOwner,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				))
+				.map(|(a, _)| a.into_inner()),
+				Some(b"key-B-test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(&collection_id, Bytes(RegularAttribute(b"key-B")), None));
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(RegularAttribute(b"key-B"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::CollectionOwner,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				)),
+				None,
+			);
+		});
+	}
+
+	#[test]
+	fn collection_system_attribute() {
+		new_test_ext().execute_with(|| {
+			let collection_owner = account(1);
+
+			Balances::make_free_balance_be(&collection_owner, 100);
+
+			let creation_result = Collection::create(WithCollectionOwner::from(
+				Owner::with_config_value(collection_owner.clone()),
+			));
+			assert_ok!(creation_result);
+			let collection_id = creation_result.unwrap();
+
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(SystemAttribute(b"key-A"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(SystemAttribute(b"key-B"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::Pallet,
+					Nfts::construct_attribute_key(b"key-A".to_vec()).unwrap(),
+				)),
+				None,
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::Pallet,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				)),
+				None,
+			);
+
+			assert_ok!(Collection::update(
+				&collection_id,
+				Bytes(SystemAttribute(b"key-A")),
+				Some(b"key-A-test-value")
+			));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes(SystemAttribute(b"key-A"))),
+				Ok(b"key-A-test-value".to_vec())
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::Pallet,
+					Nfts::construct_attribute_key(b"key-A".to_vec()).unwrap(),
+				))
+				.map(|(a, _)| a.into_inner()),
+				Some(b"key-A-test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(
+				&collection_id,
+				Bytes(SystemAttribute(b"key-B")),
+				Some(b"key-B-test-value")
+			));
+			assert_eq!(
+				Collection::inspect(&collection_id, Bytes(SystemAttribute(b"key-B"))),
+				Ok(b"key-B-test-value".to_vec())
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::Pallet,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				))
+				.map(|(a, _)| a.into_inner()),
+				Some(b"key-B-test-value".to_vec())
+			);
+
+			assert_ok!(Collection::update(&collection_id, Bytes(SystemAttribute(b"key-B")), None));
+			assert_noop!(
+				Collection::inspect(&collection_id, Bytes(SystemAttribute(b"key-B"))),
+				Error::<Test>::AttributeNotFound
+			);
+			assert_eq!(
+				Attribute::<Test>::get((
+					&collection_id,
+					None::<u32>,
+					AttributeNamespace::Pallet,
+					Nfts::construct_attribute_key(b"key-B".to_vec()).unwrap(),
+				)),
+				None,
+			);
+		});
+	}
+}
