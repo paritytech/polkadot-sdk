@@ -25,6 +25,7 @@ use crate::{
 	},
 	ClientError, LOG_TARGET,
 };
+
 use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
@@ -35,7 +36,7 @@ use pallet_revive::{
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
-use subxt::OnlineClient;
+use subxt::{blocks::ExtrinsicDetails, OnlineClient};
 
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
@@ -241,13 +242,43 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
+		let ext_iter = self.get_block_extrinsics(block).await?;
+
+		// TODO: Order of receipt and transaction info is important while building
+		// the state tries. Are we sorting them afterwards?
+		stream::iter(ext_iter)
+			.map(|(ext, call, receipt)| async move {
+				self.extract_from_extrinsic(block, ext, call, receipt).await.inspect_err(|err| {
+					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
+				})
+			})
+			.buffer_unordered(10)
+			.collect::<Vec<Result<_, _>>>()
+			.await
+			.into_iter()
+			.collect::<Result<Vec<_>, _>>()
+	}
+
+	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
+	async fn get_block_extrinsics(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<
+		impl Iterator<
+			Item = (
+				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+				EthTransact,
+				Option<ReconstructReceiptInfo>,
+			),
+		>,
+		ClientError,
+	> {
 		// Filter extrinsics from pallet_revive
 		let extrinsics = block.extrinsics().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
 		let mut maybe_data = (self.fetch_receipt_data)(block.hash()).await;
-
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.flat_map(|ext| {
@@ -269,27 +300,16 @@ impl ReceiptExtractor {
 			}
 		}
 
-		let ext_iter = extrinsics.into_iter().zip(
-			maybe_data
-				.unwrap_or_default()
-				.into_iter()
-				.map(Some)
-				.chain(std::iter::repeat(None)),
-		);
-
-		// TODO: Order of receipt and transaction info is important while building
-		// the state tries. Are we sorting them afterwards?
-		stream::iter(ext_iter)
-			.map(|((ext, call), receipt)| async move {
-				self.extract_from_extrinsic(block, ext, call, receipt).await.inspect_err(|err| {
-					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-				})
-			})
-			.buffer_unordered(10)
-			.collect::<Vec<Result<_, _>>>()
-			.await
+		Ok(extrinsics
 			.into_iter()
-			.collect::<Result<Vec<_>, _>>()
+			.zip(
+				maybe_data
+					.unwrap_or_default()
+					.into_iter()
+					.map(Some)
+					.chain(std::iter::repeat(None)),
+			)
+			.map(|((extr, call), rec)| (extr, call, rec)))
 	}
 
 	/// Extract receipt from transaction
@@ -298,17 +318,13 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let extrinsics = block.extrinsics().await?;
-		let ext = extrinsics
-			.iter()
-			.nth(transaction_index)
+		let ext_iter = self.get_block_extrinsics(block).await?;
+
+		let (ext, eth_call, maybe_receipt) = ext_iter
+			.into_iter()
+			.find(|(e, _, _)| e.index() as usize == transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let maybe_data = (self.fetch_receipt_data)(block.hash()).await;
-
-		let call = ext
-			.as_extrinsic::<EthTransact>()?
-			.ok_or_else(|| ClientError::EthExtrinsicNotFound)?;
-		self.extract_from_extrinsic(block, ext, call, None).await
+		self.extract_from_extrinsic(block, ext, eth_call, maybe_receipt).await
 	}
 }
