@@ -26,7 +26,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	weights::WeightInfo,
-	Config, Error, LOG_TARGET, SENTINEL,
+	Config, Error, Pallet, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -35,7 +35,7 @@ use frame_support::{ensure, traits::Get, weights::Weight};
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+use sp_io::hashing::{blake2_128, keccak_256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
 /// Abstraction over the memory access within syscalls.
@@ -65,6 +65,13 @@ pub trait Memory<T: Config> {
 	///
 	/// - designated area is not within the bounds of the sandbox memory.
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError>;
+
+	/// This will reset all compilation artifacts of the currently executing instance.
+	///
+	/// This is used before we call into a new contract to free up some memory. Doing
+	/// so we make sure that we only ever have to hold one compilation cache at a time
+	/// independtently of of our call stack depth.
+	fn reset_interpreter_cache(&mut self);
 
 	/// Read designated chunk from the sandbox memory.
 	///
@@ -150,6 +157,8 @@ impl<T: Config> Memory<T> for [u8] {
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
+
+	fn reset_interpreter_cache(&mut self) {}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -165,6 +174,10 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 
 	fn zero(&mut self, ptr: u32, len: u32) -> Result<(), DispatchError> {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
+	}
+
+	fn reset_interpreter_cache(&mut self) {
+		self.reset_interpreter_cache();
 	}
 }
 
@@ -341,18 +354,20 @@ pub enum RuntimeCosts {
 	/// Weight of reading and decoding the input to a precompile.
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
-	CallTransferSurcharge,
+	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
+	CallTransferSurcharge { dust_transfer: bool },
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate` for the given input length.
-	Instantiate { input_data_len: u32 },
+	/// Weight of calling `seal_instantiate`.
+	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
-	/// Weight of calling `seal_hash_blake2_256` for the given input size.
+	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// size.
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
@@ -490,18 +505,24 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			TakeTransientStorage(len) => {
 				cost_storage!(write_transient, seal_take_transient_storage, len)
 			},
-			CallBase => T::WeightInfo::seal_call(0, 0),
+			CallBase => T::WeightInfo::seal_call(0, 0, 0),
 			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge => cost_args!(seal_call, 1, 0),
-			CallInputCloned(len) => cost_args!(seal_call, 0, len),
-			Instantiate { input_data_len } => T::WeightInfo::seal_instantiate(input_data_len),
+			CallTransferSurcharge { dust_transfer } =>
+				cost_args!(seal_call, 1, dust_transfer.into(), 0),
+			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
+				T::WeightInfo::seal_instantiate(
+					input_data_len,
+					balance_transfer.into(),
+					dust_transfer.into(),
+				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
-			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
+			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
@@ -1065,6 +1086,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let deposit_limit = memory.read_u256(deposit_ptr)?;
 
+		// we do check this in exec.rs but we want to error out early
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
+
 		let input_data = if flags.contains(CallFlags::CLONE_INPUT) {
 			let input = self.input_data.as_ref().ok_or(Error::<E::T>::InputForwarded)?;
 			charge_gas!(self, RuntimeCosts::CallInputCloned(input.len() as u32))?;
@@ -1080,6 +1106,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
+		memory.reset_interpreter_cache();
+
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
@@ -1090,7 +1118,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					if read_only || self.ext.is_read_only() {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge)?;
+
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
+						dust_transfer: Pallet::<E::T>::has_dust(value),
+					})?;
 				}
 				self.ext.call(
 					weight,
@@ -1156,10 +1187,29 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 		salt_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		self.charge_gas(RuntimeCosts::Instantiate { input_data_len })?;
+		let value = match memory.read_u256(value_ptr) {
+			Ok(value) => {
+				self.charge_gas(RuntimeCosts::Instantiate {
+					input_data_len,
+					balance_transfer: Pallet::<E::T>::has_balance(value),
+					dust_transfer: Pallet::<E::T>::has_dust(value),
+				})?;
+				value
+			},
+			Err(err) => {
+				self.charge_gas(RuntimeCosts::Instantiate {
+					input_data_len: 0,
+					balance_transfer: false,
+					dust_transfer: false,
+				})?;
+				return Err(err.into());
+			},
+		};
 		let deposit_limit: U256 = memory.read_u256(deposit_ptr)?;
-		let value = memory.read_u256(value_ptr)?;
 		let code_hash = memory.read_h256(code_hash_ptr)?;
+		if input_data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::CallDataTooLarge)?;
+		}
 		let input_data = memory.read(input_data_ptr, input_data_len)?;
 		let salt = if salt_ptr == SENTINEL {
 			None
@@ -1167,6 +1217,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			let salt: [u8; 32] = memory.read_array(salt_ptr)?;
 			Some(salt)
 		};
+
+		memory.reset_interpreter_cache();
 
 		match self.ext.instantiate(
 			weight,
@@ -1497,6 +1549,9 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
+		if data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::ReturnDataTooLarge)?;
+		}
 		Err(TrapReason::Return(ReturnData { flags, data: memory.read(data_ptr, data_len)? }))
 	}
 
@@ -1957,21 +2012,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
@@ -2079,27 +2119,6 @@ pub mod env {
 			out_ptr,
 			out_len_ptr,
 			gas_left,
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Retrieves the account id for a specified contract address.
-	///
-	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
-	fn to_account_id(
-		&mut self,
-		memory: &mut M,
-		addr_ptr: u32,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::ToAccountId)?;
-		let address = memory.read_h160(addr_ptr)?;
-		let account_id = self.ext.to_account_id(&address);
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&account_id.encode(),
 			false,
 			already_charged,
 		)?)

@@ -62,6 +62,11 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// `account_id` instead of the fallback account id.
 	fn map(account_id: &T::AccountId) -> DispatchResult;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn bench_map(account_id: &T::AccountId) -> DispatchResult {
+		Self::map(account_id)
+	}
+
 	/// Remove the mapping in order to reclaim the deposit.
 	///
 	/// There is no reason why one would unmap their `account_id` except
@@ -140,6 +145,14 @@ where
 		Ok(())
 	}
 
+	/// Convenience function for benchmarking, to map an account id without taking any deposit.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn bench_map(account_id: &T::AccountId) -> DispatchResult {
+		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
+		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
+		Ok(())
+	}
+
 	fn unmap(account_id: &T::AccountId) -> DispatchResult {
 		// will do nothing if address is not mapped so no check required
 		<OriginalAccount<T>>::remove(Self::to_address(account_id));
@@ -192,7 +205,7 @@ where
 ///
 /// This is a stateless check that just compares the last 12 bytes. Please note that it is
 /// theoretically possible to create an ed25519 keypair that passed this filter. However,
-/// this can't be used for an attack. It also won't happen by accident since everbody is using
+/// this can't be used for an attack. It also won't happen by accident since everybody is using
 /// sr25519 where this is not a valid public key.
 pub fn is_eth_derived(account_id: &AccountId32) -> bool {
 	let account_bytes: &[u8; 32] = account_id.as_ref();

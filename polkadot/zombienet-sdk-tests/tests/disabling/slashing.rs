@@ -7,8 +7,7 @@
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_blocks_are_being_finalized, assert_finalized_para_throughput,
-	wait_for_first_session_change,
+	assert_blocks_are_being_finalized, assert_para_throughput, wait_for_first_session_change,
 };
 use polkadot_primitives::{BlockNumber, CandidateHash, DisputeState, Id as ParaId, SessionIndex};
 use serde_json::json;
@@ -92,12 +91,8 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 
 	// Wait for some para blocks being produced
-	assert_finalized_para_throughput(
-		&relay_client,
-		20,
-		[(ParaId::from(1337), 10..20)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..20)].into_iter().collect())
+		.await?;
 
 	// Let's initiate a dispute
 	malus.resume().await?;

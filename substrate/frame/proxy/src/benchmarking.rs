@@ -305,6 +305,8 @@ mod benchmarks {
 				who: caller,
 				proxy_type: T::ProxyType::default(),
 				disambiguation_index: 0,
+				at: <T as Config>::BlockNumberProvider::current_block_number(),
+				extrinsic_index: frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default(),
 			}
 			.into(),
 		);

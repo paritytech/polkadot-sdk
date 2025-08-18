@@ -561,6 +561,117 @@ fn inherent_messages_are_compressed() {
 }
 
 #[test]
+fn check_hrmp_message_metadata_works_with_known_channel() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(
+	expected = "One of the messages submitted by the collator was sent from a sender (2000) that \
+	doesn't have a channel opened to this parachain"
+)]
+fn check_hrmp_message_metadata_panics_on_unknown_channel() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 2000.into()),
+	);
+}
+
+#[test]
+fn check_hrmp_message_metadata_works_when_correctly_ordered() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut None,
+		(1, 1000.into()),
+	);
+
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((0, 1000.into())),
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn check_hrmp_message_metadata_panics_on_unordered_sent_at() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((1, 1000.into())),
+		(0, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn check_hrmp_message_metadata_panics_on_unordered_para_id() {
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut Some((1, 2000.into())),
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(
+	expected = "One of the messages submitted by the collator was sent from a sender (2000) that \
+	doesn't have a channel opened to this parachain"
+)]
+fn hrmp_ingress_channels_are_checked() {
+	CONSENSUS_HOOK.with(|c| {
+		*c.borrow_mut() = Box::new(|_| (Weight::zero(), NonZeroU32::new(2).unwrap().into()))
+	});
+
+	let mut test = BlockTests::new()
+		.with_inclusion_delay(1)
+		.with_relay_block_number(|block_number| 2.max(*block_number as RelayChainBlockNumber))
+		.with_relay_sproof_builder(move |_, relay_block_num, sproof| match relay_block_num {
+			// Let's open a channel only with parachain 1000.
+			2 => {
+				let mqc_head =
+					sproof.upsert_inbound_channel(1000.into()).mqc_head.get_or_insert_default();
+				let mut mqc = MessageQueueChain::new(*mqc_head);
+				mqc.extend_hrmp(&mk_hrmp(1, 100));
+				*mqc_head = mqc.head();
+			},
+			_ => {},
+		})
+		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+			// Simulate receiving a message from parachain 1000 at block 2. This should work.
+			2 => {
+				let entry = data.horizontal_messages.entry(1000.into()).or_default();
+				entry.push(mk_hrmp(1, 100))
+			},
+			_ => {},
+		})
+		.add(2, move || {
+			HANDLED_XCMP_MESSAGES.with(|m| {
+				let m = m.borrow_mut();
+				assert_eq!(&*m, &vec![(1000.into(), 1, vec![1; 100])]);
+			});
+		});
+	test.run();
+
+	let mut test = test
+		.with_relay_block_number(|block_number| 3.max(*block_number as RelayChainBlockNumber))
+		.with_inherent_data(move |_, relay_block_num, data| match relay_block_num {
+			// Simulate receiving a message from parachain 2000 at block 3. This should lead to a
+			// panic.
+			3 => {
+				let entry = data.horizontal_messages.entry(2000.into()).or_default();
+				entry.push(mk_hrmp(1, 100))
+			},
+			_ => {},
+		});
+	test.run();
+}
+
+#[test]
 fn hrmp_outbound_respects_used_bandwidth() {
 	let recipient = ParaId::from(400);
 

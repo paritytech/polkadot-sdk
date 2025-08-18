@@ -383,6 +383,14 @@ impl<T: Config> ContractBlob<T> {
 		})?;
 
 		instance.set_gas(gas_limit_polkavm);
+		instance
+			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
+				max_block_size: limits::code::BASIC_BLOCK_SIZE,
+				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
+					.try_into()
+					.map_err(|_| Error::<T>::CodeRejected)?,
+			}))
+			.map_err(|_| Error::<T>::CodeRejected)?;
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
 		Ok(PreparedCall { module, instance, runtime })
