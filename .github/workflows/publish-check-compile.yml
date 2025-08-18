@@ -43,7 +43,9 @@ jobs:
       - name: Checkout to merge base with master
         run: |
           git fetch origin ${{ github.base_ref}}
-          commit=$(git merge-base origin/${{ github.base_ref }} refs/remotes/pull/$GITHUB_REF_NAME/head)
+          git fetch refs/pull/$GITHUB_REF_NAME/head
+          pr_commit=$(git rev-parse FETCH_HEAD)
+          commit=$(git merge-base origin/${{ github.base_ref }} $pr_commit)
           echo $commit
           #git checkout $commit
 
