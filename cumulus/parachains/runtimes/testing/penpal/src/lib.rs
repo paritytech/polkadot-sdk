@@ -837,7 +837,6 @@ parameter_types! {
 	pub const DepositPerItem: Balance = 0;
 	pub const DepositPerByte: Balance = 0;
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const BlockHashCountRevive: u32 = 256;
 }
 
 impl pallet_revive::Config for Runtime {
@@ -863,7 +862,6 @@ impl pallet_revive::Config for Runtime {
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
-	type BlockHashCount = BlockHashCountRevive;
 }
 
 impl pallet_sudo::Config for Runtime {
