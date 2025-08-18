@@ -36,6 +36,8 @@ use revm::{
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
 
+// TODO: Implement correct gas handling for all instructions below
+
 /// Implements the CREATE/CREATE2 instruction.
 ///
 /// Creates a new contract with provided bytecode.
