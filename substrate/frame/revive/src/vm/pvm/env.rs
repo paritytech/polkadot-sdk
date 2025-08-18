@@ -33,7 +33,7 @@ use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+use sp_io::hashing::{blake2_128, keccak_256};
 use sp_runtime::DispatchError;
 
 impl<T: Config> ContractBlob<T> {
@@ -86,6 +86,14 @@ impl<T: Config> ContractBlob<T> {
 		})?;
 
 		instance.set_gas(gas_limit_polkavm);
+		instance
+			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
+				max_block_size: limits::code::BASIC_BLOCK_SIZE,
+				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
+					.try_into()
+					.map_err(|_| Error::<T>::CodeRejected)?,
+			}))
+			.map_err(|_| Error::<T>::CodeRejected)?;
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
 		Ok(PreparedCall { module, instance, runtime })
@@ -467,6 +475,9 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
+		if data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::ReturnDataTooLarge)?;
+		}
 		Err(TrapReason::Return(ReturnData { flags, data: memory.read(data_ptr, data_len)? }))
 	}
 
@@ -924,21 +935,6 @@ pub mod env {
 		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
 		Ok(self.compute_hash_on_intermediate_buffer(
 			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
 		)?)
 	}
 

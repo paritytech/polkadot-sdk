@@ -128,9 +128,7 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) -> Result<(), BenchmarkError> {
+	fn call_with_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
@@ -216,8 +214,8 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
@@ -257,8 +255,8 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -310,7 +308,7 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -445,9 +443,7 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) {
+	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
@@ -1088,7 +1084,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_return(n: Linear<0, { limits::CALLDATA_BYTES }>) {
 		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
 		let result;
@@ -1758,7 +1754,7 @@ mod benchmarks {
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::CALLDATA_BYTES - 100 }>) {
 		use alloy_core::sol_types::SolInterface;
 		use precompiles::{BenchmarkNoInfo, BenchmarkWithInfo, BuiltinPrecompile, IBenchmarking};
 
@@ -1778,7 +1774,7 @@ mod benchmarks {
 		let value_len = value_bytes.len() as u32;
 
 		let input_bytes = IBenchmarking::IBenchmarkingCalls::bench(IBenchmarking::benchCall {
-			input: vec![42; i as usize].into(),
+			input: vec![42_u8; i as usize].into(),
 		})
 		.abi_encode();
 		let input_len = input_bytes.len() as u32;
@@ -1861,7 +1857,7 @@ mod benchmarks {
 	fn seal_instantiate(
 		t: Linear<0, 1>,
 		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
@@ -2004,16 +2000,29 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
+		use alloy_core::sol_types::SolInterface;
+
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_256(memory.as_mut_slice(), 32, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes

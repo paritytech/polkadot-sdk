@@ -139,7 +139,8 @@ pub enum RuntimeCosts {
 	HashSha256(u32),
 	/// Weight of calling `seal_hash_keccak_256` for the given input size.
 	HashKeccak256(u32),
-	/// Weight of calling `seal_hash_blake2_256` for the given input size.
+	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// size.
 	HashBlake256(u32),
 	/// Weight of calling `seal_hash_blake2_128` for the given input size.
 	HashBlake128(u32),
@@ -294,7 +295,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
-			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
+			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
 			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
