@@ -49,16 +49,13 @@ sol! {
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
 		function toAccountId(address input) external view returns (bytes memory account_id);
 
-		/// Check whether the `caller` is the origin of the whole call stack.
-		///
-		/// todo If there is no address associated with the caller (e.g. because the caller is root) then
-		/// todo it traps with `BadOrigin`.
+		/// Checks whether the contract caller is the origin of the whole call stack.
 		function callerIsOrigin() external pure returns (bool);
 
 		/// Checks whether the caller of the current contract is root.
 		///
-		/// Note that only the origin of the call stack can be root. Hence this function returning
-		/// `true` implies that the contract is being called by the origin.
+		/// Note that only the origin of the call stack can be root. Hence this
+		/// function returning `true` implies that the contract is being called by the origin.
 		///
 		/// A return value of `true` indicates that this contract is being called by a root origin,
 		/// and `false` indicates that the caller is a signed origin.
@@ -141,9 +138,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
-				let caller = env.caller();
-				let address = caller.account_id().unwrap().encode();
-				let address = H160::from_slice(&address[..20]);
+				let address = env.address();
 				let output = env.code_hash(&address).encode();
 				Ok(output)
 			},
