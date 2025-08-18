@@ -38,7 +38,7 @@ jobs:
 
       - name: install parity-publish
         run: |
-          cargo install parity-publish@0.10.5 --locked -q
+          cargo install parity-publish@0.10.6 --locked -q
 
       - name: set current PR's prdoc name in a variable
         run: |
