@@ -1807,9 +1807,12 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		let events_count = InflightEvents::<T>::count();
-		// TODO: ensure we don't exceed a maximum number of events per tx.
-		InflightEvents::<T>::insert(events_count, event.clone());
+		if matches!(event, Event::ContractEmitted { .. }) {
+			let events_count = InflightEvents::<T>::count();
+			// TODO: ensure we don't exceed a maximum number of events per tx.
+			InflightEvents::<T>::insert(events_count, event.clone());
+		}
+
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
