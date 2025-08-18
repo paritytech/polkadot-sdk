@@ -40,6 +40,7 @@ rand_pcg = { workspace = true, optional = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+k256 = { features = ["alloc", "ecdsa"], workspace = true, optional = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }

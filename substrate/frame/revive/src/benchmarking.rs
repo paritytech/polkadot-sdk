@@ -38,6 +38,7 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
+use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
 pub use pallet_transaction_payment;
 use sp_consensus_aura::AURA_ENGINE_ID;
@@ -46,7 +47,6 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_core::{ecdsa, Pair};
 use sp_runtime::{
 	generic::{Digest, DigestItem},
 	traits::Zero,
@@ -2312,23 +2312,24 @@ mod benchmarks {
 	}
 
 	// Helper function to create a test signer for finalize_block benchmark
-	fn create_test_signer<T: Config>() -> (T::AccountId, ecdsa::Pair, H160) {
+	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;
-		let (signer_account_id, signer_priv_key) = (
-			// dev::alith()
-			hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"),
-			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133"),
-		);
-		let signer_keypair = ecdsa::Pair::from_seed(&signer_priv_key);
+		// dev::alith()
+		let signer_account_id = hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac");
+		let signer_priv_key =
+			hex!("5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133");
+
+		let signer_key = SigningKey::from_bytes(&signer_priv_key.into()).expect("valid key");
+
 		let signer_address = H160::from_slice(&signer_account_id);
 		let signer_caller = T::AddressMapper::to_fallback_account_id(&signer_address);
 
-		(signer_caller, signer_keypair, signer_address)
+		(signer_caller, signer_key, signer_address)
 	}
 
 	// Helper function to create and sign a transaction for finalize_block benchmark
 	fn create_signed_transaction(
-		signer_keypair: &ecdsa::Pair,
+		signer_key: &SigningKey,
 		target_address: H160,
 		value: U256,
 	) -> Vec<u8> {
@@ -2342,8 +2343,14 @@ mod benchmarks {
 		.into();
 
 		let hashed_payload = sp_io::hashing::keccak_256(&unsigned_tx.unsigned_payload());
-		let signature = signer_keypair.sign_prehashed(&hashed_payload);
-		let signed_tx = unsigned_tx.with_signature(signature.into());
+		let (signature, recovery_id) =
+			signer_key.sign_prehash_recoverable(&hashed_payload).expect("signing success");
+
+		let mut sig_bytes = [0u8; 65];
+		sig_bytes[..64].copy_from_slice(&signature.to_bytes());
+		sig_bytes[64] = recovery_id.to_byte();
+
+		let signed_tx = unsigned_tx.with_signature(sig_bytes);
 
 		signed_tx.signed_payload()
 	}
@@ -2352,7 +2359,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		// Setup test signer
-		let (signer_caller, signer_keypair, _signer_address) = create_test_signer::<T>();
+		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
 		whitelist_account!(signer_caller);
 
 		// Setup contract instance
@@ -2365,8 +2372,7 @@ mod benchmarks {
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
 
 		// Create signed transaction
-		let signed_payload =
-			create_signed_transaction(&signer_keypair, instance.address, value.into());
+		let signed_payload = create_signed_transaction(&signer_key, instance.address, value.into());
 
 		// Setup block
 		let current_block = BlockNumberFor::<T>::from(1u32);
