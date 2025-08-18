@@ -948,7 +948,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		deposit: Option<BalanceOf<T, I>>,
 	) -> DispatchResultWithPostInfo {
 		let mut status = Self::ensure_ongoing(index)?;
-		let track = Self::track(status.track).ok_or(Error::<T, I>::NoTrack)?;
+		let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
 		let deposit = deposit.unwrap_or(track.decision_deposit);
@@ -1025,7 +1025,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok(().into())
 		}
 
-		let now = frame_system::Pallet::<T>::block_number();
+		let now = T::BlockNumberProvider::current_block_number();
 		let (info, _, branch) = Self::service_referendum(now, index, status);
 		ReferendumInfoFor::<T, I>::insert(index, info);
 
@@ -1040,7 +1040,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub fn is_referendum_passing(ref_index: ReferendumIndex) -> Result<bool, DispatchError> {
 		let info = ReferendumInfoFor::<T, I>::get(ref_index).ok_or(Error::<T, I>::BadReferendum)?;
 		match info {
-			ReferendumInfo::Ongoing(status) => {
+			ReferendumInfo::Ongoing{ status } => {
 				let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 				let elapsed = if let Some(deciding) = status.deciding {
 					T::BlockNumberProvider::current_block_number().saturating_sub(deciding.since)
