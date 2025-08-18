@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
+	client::{storage_api::StorageApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		self,
 		revive::{calls::types::EthTransact, events::ContractEmitted},
@@ -28,7 +28,10 @@ use crate::{
 use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256, U256},
+	evm::{
+		block_hash::ReconstructReceiptInfo, GenericTransaction, Log, ReceiptInfo,
+		TransactionSigned, H256, U256,
+	},
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
@@ -37,9 +40,19 @@ use subxt::OnlineClient;
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
 >;
+
+type FetchReceiptDataFn = Arc<
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReconstructReceiptInfo>>> + Send>>
+		+ Send
+		+ Sync,
+>;
+
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
+	/// Fetch the receipt data info.
+	fetch_receipt_data: FetchReceiptDataFn,
+
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
 
@@ -69,26 +82,51 @@ impl ReceiptExtractor {
 	) -> Result<Self, ClientError> {
 		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
 
+		let gas_api = api.clone();
 		let fetch_gas_price = Arc::new(move |block_hash| {
-			let api_clone = api.clone();
+			let api_clone = gas_api.clone();
+
 			let fut = async move {
 				let runtime_api = api_clone.runtime_api().at(block_hash);
 				let payload = subxt_client::apis().revive_api().gas_price();
 				let base_gas_price = runtime_api.call(payload).await?;
 				Ok(*base_gas_price)
 			};
+
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		Ok(Self { native_to_eth_ratio, fetch_gas_price, earliest_receipt_block })
+		let fetch_receipt_data = Arc::new(move |block_hash| {
+			let api_clone = api.clone();
+
+			let fut = async move {
+				let storage_api = StorageApi::new(api_clone.storage().at(block_hash));
+				storage_api.get_receipt_data().await.ok()
+			};
+
+			Box::pin(fut) as Pin<Box<_>>
+		});
+
+		Ok(Self {
+			fetch_receipt_data,
+			fetch_gas_price,
+			native_to_eth_ratio,
+			earliest_receipt_block,
+		})
 	}
 
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
+		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None) as Pin<Box<_>>));
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
-		Self { native_to_eth_ratio: 1_000_000, fetch_gas_price, earliest_receipt_block: None }
+		Self {
+			fetch_receipt_data,
+			fetch_gas_price,
+			native_to_eth_ratio: 1_000_000,
+			earliest_receipt_block: None,
+		}
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.

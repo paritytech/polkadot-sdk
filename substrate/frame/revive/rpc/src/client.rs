@@ -18,7 +18,7 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 mod runtime_api;
-mod storage_api;
+pub(crate) mod storage_api;
 
 use runtime_api::RuntimeApi;
 use storage_api::StorageApi;
@@ -354,7 +354,7 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
 
 		self.subscribe_past_blocks(range, |block| async move {
-			let _storage_api = self.storage_api(block.hash());
+			let maybe_receipt_data = self.storage_api(block.hash()).get_receipt_data().await.ok();
 
 			self.receipt_provider.insert_block_receipts(&block).await?;
 			Ok(())
