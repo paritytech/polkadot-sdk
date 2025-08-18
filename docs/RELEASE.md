@@ -160,7 +160,7 @@ From the forked Polkadot-sdk repository in the [paritytech-release org](https://
 
 1. Sync the forks before continuing with the release using
 [Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
-2. To build binaries, testnet runtimes and create a relase draft in the github
+2. To build binaries or testnet runtimes and to create a release draft in the github
 trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml)
 3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch
 4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes
