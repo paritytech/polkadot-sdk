@@ -30,7 +30,6 @@ type SystemBlockNumberFor<T> = frame_system::pallet_prelude::BlockNumberFor<T>;
 /// Initial version of storage types.
 pub mod v0 {
 	use super::*;
-
 	// ReferendumStatus and its dependency types referenced from the latest version while staying
 	// unchanged. [`super::test::referendum_status_v0()`] checks its immutability between v0 and
 	// latest version.
