@@ -608,7 +608,7 @@ mod test {
 			let tx_revive = TransactionSigned::decode(&rlp_encoded_tx).unwrap();
 
 			// RLP encode using this implementation
-			let rlp_encoded_revive = tx_revive.encode_2718();
+			let rlp_encoded_revive = tx_revive.signed_payload();
 
 			// Verify round-trip: our encoding should decode back to the same transaction
 			assert_eq!(rlp_encoded_tx, rlp_encoded_revive);
@@ -626,10 +626,10 @@ mod test {
 					ethereum::EnvelopedEncodable::encode(&tx_ethereum).to_vec();
 
 				assert_eq!(
-            rlp_encoded_revive,
-            rlp_encoded_ethereum,
-            "encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
-			  );
+                    rlp_encoded_revive,
+                    rlp_encoded_ethereum,
+                    "encode_2718() output differs from ethereum crate EnvelopedEncodable for transaction type"
+                );
 			}
 		}
 	}
