@@ -433,7 +433,7 @@ fn select_availability_bitfields(
 	'a: for bitfield in bitfields.iter().cloned() {
 		if bitfield.payload().0.len() != cores.len() {
 			gum::debug!(target: LOG_TARGET, ?leaf_hash, "dropping bitfield due to length mismatch");
-			continue
+			continue;
 		}
 
 		let is_better = selected
@@ -447,7 +447,7 @@ fn select_availability_bitfields(
 				?leaf_hash,
 				"dropping bitfield due to duplication - the better one is kept"
 			);
-			continue
+			continue;
 		}
 
 		for (idx, _) in cores.iter().enumerate().filter(|v| !v.1.is_occupied()) {
@@ -459,7 +459,7 @@ fn select_availability_bitfields(
 					?leaf_hash,
 					"dropping invalid bitfield - bit is set for an unoccupied core"
 				);
-				continue 'a
+				continue 'a;
 			}
 		}
 
@@ -493,7 +493,7 @@ async fn select_candidates(
 	);
 
 	let selected_candidates =
-		request_backable_candidates(availability_cores, bitfields, leaf, sender, false).await?;
+		request_backable_candidates(availability_cores, Some(bitfields), leaf, sender).await?;
 	gum::debug!(target: LOG_TARGET, ?selected_candidates, "Got backable candidates");
 
 	// now get the backed candidates corresponding to these candidate receipts
@@ -518,7 +518,7 @@ async fn select_candidates(
 		for candidate in para_candidates {
 			if candidate.candidate().commitments.new_validation_code.is_some() {
 				if with_validation_code {
-					break
+					break;
 				} else {
 					with_validation_code = true;
 				}

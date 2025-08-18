@@ -17,22 +17,22 @@
 //! Requester takes care of requesting erasure chunks for candidates that are pending
 //! availability.
 
-use std::{
-	collections::{hash_map::HashMap, hash_set::HashSet},
-	iter::IntoIterator,
-	pin::Pin,
-};
-
 use futures::{
 	channel::{mpsc, oneshot},
 	task::{Context, Poll},
 	Stream,
 };
+use std::{
+	collections::{hash_map::HashMap, hash_set::HashSet},
+	iter::IntoIterator,
+	pin::Pin,
+	time::Duration,
+};
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
 	messages::{CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage},
-	overseer, ActivatedLeaf, ActiveLeavesUpdate, SubsystemSender,
+	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
@@ -41,7 +41,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
-	SessionIndex, ValidatorIndex,
+	Id as paraId, SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -55,11 +55,13 @@ use session_cache::SessionCache;
 
 /// A task fetching a particular chunk.
 mod fetch_task;
-use crate::error::Error::{CanceledValidatorGroups, FailedValidatorGroups};
+use crate::error::Error::{
+	CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
+};
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
-use polkadot_node_subsystem::messages::RuntimeApiRequest;
+use polkadot_node_subsystem::messages::{ProspectiveParachainsMessage, RuntimeApiRequest};
 use polkadot_node_subsystem_util::runtime::get_availability_cores;
-use polkadot_primitives::vstaging::OccupiedCore;
+use polkadot_primitives::vstaging::BackedCandidate;
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -165,8 +167,7 @@ impl Requester {
 
 		// Also spawn or bump tasks for candidates in ancestry in the same session.
 		for hash in std::iter::once(leaf).chain(ancestors_in_session) {
-			let occupied_cores: Vec<(CoreIndex, OccupiedCore)> =
-				get_occupied_cores(sender, hash).await?;
+			let occupied_cores = get_occupied_cores(sender, hash).await?;
 			gum::trace!(
 				target: LOG_TARGET,
 				occupied_cores = ?occupied_cores,
@@ -199,9 +200,65 @@ impl Requester {
 		}
 
 		let groups = get_validator_groups(sender, new_head.hash).await?;
-		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups)
-			.await;
+		if let Err(err) = self
+			.schedule_chunk_prefetch(ctx, runtime, new_head, leaf_session_index, &groups)
+			.await
+		{
+			gum::warn!(
+				target: LOG_TARGET,
+				error = ?err,
+				"Failed to schedule chunk prefetch for activated leaf"
+			);
+		}
 		Ok(())
+	}
+
+	/// Handle early chunk request timing and execution
+	async fn schedule_chunk_prefetch<Context>(
+		&mut self,
+		ctx: &mut Context,
+		runtime: &mut RuntimeInfo,
+		new_head: ActivatedLeaf,
+		leaf_session_index: SessionIndex,
+		groups: &(Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
+	) -> Result<()> {
+		let delay = Self::time_until_next_half_slot().await;
+
+		if delay > 0 {
+			gum::trace!(
+				target: LOG_TARGET,
+				until_next_ms = delay * 2,
+				half_wait_ms = delay,
+				"Delaying early_request_chunks until halfway to next slot",
+			);
+			futures_timer::Delay::new(Duration::from_millis(delay)).await;
+		}
+
+		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, groups)
+			.await
+			.inspect_err(|err| {
+				gum::trace!(
+					target: LOG_TARGET,
+					error = ?err,
+					"Failed to early request chunks for activated leaf"
+				)
+			})
+	}
+
+	/// Calculate time until next half slot
+	async fn time_until_next_half_slot() -> u64 {
+		const SLOT_DURATION_MS: u64 = 6_000;
+
+		use std::time::{SystemTime, UNIX_EPOCH};
+
+		SystemTime::now()
+			.duration_since(UNIX_EPOCH)
+			.map(|duration| {
+				let now = duration.as_millis() as u64;
+				let remainder = now % SLOT_DURATION_MS;
+				SLOT_DURATION_MS.saturating_sub(remainder) / 2
+			})
+			.unwrap_or_default()
 	}
 
 	async fn early_request_chunks<Context>(
@@ -211,112 +268,109 @@ impl Requester {
 		activated_leaf: ActivatedLeaf,
 		leaf_session_index: SessionIndex,
 		validator_groups: &(Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
-	) {
+	) -> Result<()> {
 		let sender = &mut ctx.sender().clone();
 
-		let availability_cores = match get_availability_cores(sender, activated_leaf.hash).await {
-			Ok(cores) => cores,
-			Err(err) => {
+		let availability_cores =
+			get_availability_cores(sender, activated_leaf.hash).await.map_err(|err| {
 				gum::warn!(
 					target: LOG_TARGET,
 					error = ?err,
-					"Failed to get availability cores for leaf {:?}",
-					activated_leaf.hash
+					"Failed to get availability cores for activated leaf"
 				);
-				return;
-			},
-		};
+				err
+			})?;
 
-		let backable_candidate_hashes = match request_backable_candidates(
-			&availability_cores,
-			&[],
-			&activated_leaf,
-			sender,
-			true,
-		)
-		.await
-		{
-			Ok(hashes) => hashes,
-			Err(_) => {
-				gum::warn!(target: LOG_TARGET, "Canceled backable candidates request");
-				return;
-			},
-		};
+		let backable_candidates = self
+			.fetch_backable_candidates(&activated_leaf, sender, &availability_cores)
+			.await?;
+
+		let total_cores = validator_groups.0.len();
+
+		// Process candidates and collect cores
+		let cores = backable_candidates
+			.into_iter()
+			.flat_map(|(para, candidates)| {
+				let availability_cores = availability_cores.clone();
+
+				candidates.into_iter().filter_map(move |candidate| {
+					let receipt = candidate.candidate();
+					let core_index = receipt.descriptor.core_index()?;
+					let core_state = availability_cores.get(core_index.0 as usize)?;
+
+					match core_state {
+						CoreState::Free => None,
+						CoreState::Scheduled(s) if para == s.para_id => Some((
+							core_index,
+							CoreInfo {
+								candidate_hash: receipt.hash(),
+								relay_parent: receipt.descriptor.relay_parent(),
+								erasure_root: receipt.descriptor.erasure_root(),
+								group_responsible: validator_groups
+									.1
+									.group_for_core(core_index, total_cores),
+							},
+						)),
+						CoreState::Occupied(o) if para == o.candidate_descriptor.para_id() =>
+							Some((
+								core_index,
+								CoreInfo {
+									candidate_hash: o.candidate_hash,
+									relay_parent: o.candidate_descriptor.relay_parent(),
+									erasure_root: o.candidate_descriptor.erasure_root(),
+									group_responsible: o.group_responsible,
+								},
+							)),
+						_ => None,
+					}
+				})
+			})
+			.collect::<Vec<_>>();
+
+		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores)
+			.await
+	}
+
+	async fn fetch_backable_candidates<Sender>(
+		&mut self,
+		activated_leaf: &ActivatedLeaf,
+		sender: &mut Sender,
+		availability_cores: &Vec<CoreState>,
+	) -> Result<HashMap<paraId, Vec<BackedCandidate>>>
+	where
+		Sender: overseer::SubsystemSender<ProspectiveParachainsMessage>
+			+ overseer::SubsystemSender<CandidateBackingMessage>,
+	{
+		// provided `None` bitfields to assume cores are all available.
+		let backable_candidate_hashes =
+			request_backable_candidates(&availability_cores, None, &activated_leaf, sender)
+				.await
+				.map_err(|err| {
+					gum::warn!(
+						target: LOG_TARGET,
+						error = ?err,
+						"Failed to request backable candidate hashes for activated leaf"
+					);
+					SubsystemUtil(err)
+				})?;
 
 		let (tx, rx) = oneshot::channel();
+
 		sender
 			.send_message(CandidateBackingMessage::GetBackableCandidates(
 				backable_candidate_hashes,
 				tx,
 			))
 			.await;
-		let backable_candidates = match rx.await {
-			Ok(candidates) => candidates,
-			Err(_) => {
-				gum::warn!(target: LOG_TARGET, "Canceled backable candidates request");
-				return;
-			},
-		};
 
-		let total_cores = validator_groups.0.len();
-		let mut cores: Vec<(CoreIndex, CoreInfo)> = Vec::new();
-
-		for (para, candidates) in backable_candidates {
-			for candidate in candidates {
-				let receipt = candidate.candidate();
-
-				if let Some(core_index) = receipt.descriptor.core_index() {
-					match availability_cores.get(core_index.0 as usize) {
-						Some(CoreState::Free) => {},
-						Some(CoreState::Scheduled(s)) =>
-							if para == s.para_id {
-								let core_info = CoreInfo {
-									candidate_hash: receipt.hash(),
-									relay_parent: receipt.descriptor.relay_parent(),
-									erasure_root: receipt.descriptor.erasure_root(),
-									group_responsible: validator_groups
-										.1
-										.group_for_core(core_index, total_cores),
-								};
-
-								cores.push((core_index, core_info));
-							},
-						Some(CoreState::Occupied(o)) => {
-							if para == o.candidate_descriptor.para_id() {
-								let core_info = CoreInfo {
-									candidate_hash: o.candidate_hash,
-									relay_parent: o.candidate_descriptor.relay_parent(),
-									erasure_root: o.candidate_descriptor.erasure_root(),
-									group_responsible: o.group_responsible,
-								};
-
-								cores.push((core_index, core_info));
-							}
-						},
-						None => {
-							gum::warn!(
-								target: LOG_TARGET,
-								"Core index {} is not available in availability cores",
-								core_index.0
-							);
-						},
-					};
-				}
-			}
-		}
-
-		if let Some(err) = self
-			.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores)
-			.await
-			.err()
-		{
+		rx.await.map_err(|err| {
 			gum::warn!(
 				target: LOG_TARGET,
 				error = ?err,
-				"Failed to start fetch task for activated leaf {:?}",
-				activated_leaf.hash
+				"Failed to get backable candidates for activated leaf"
 			);
-		}
+			GetBackableCandidates(err)
+		})
 	}
 
 	/// Stop requesting chunks for obsolete heads.
@@ -415,7 +469,7 @@ impl Stream for Requester {
 				Poll::Ready(Some(FromFetchTask::Message(m))) => return Poll::Ready(Some(m)),
 				Poll::Ready(Some(FromFetchTask::Concluded(Some(bad_boys)))) => {
 					self.session_cache.report_bad_log(bad_boys);
-					continue
+					continue;
 				},
 				Poll::Ready(Some(FromFetchTask::Concluded(None))) => continue,
 				Poll::Ready(Some(FromFetchTask::Failed(candidate_hash))) => {

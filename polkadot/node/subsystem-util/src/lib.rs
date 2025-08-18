@@ -398,7 +398,7 @@ pub fn signing_key_and_index<'a>(
 ) -> Option<(ValidatorId, ValidatorIndex)> {
 	for (i, v) in validators.into_iter().enumerate() {
 		if keystore.has_keys(&[(v.to_raw_vec(), ValidatorId::ID)]) {
-			return Some((v.clone(), ValidatorIndex(i as _)))
+			return Some((v.clone(), ValidatorIndex(i as _)));
 		}
 	}
 	None
@@ -455,7 +455,7 @@ pub fn choose_random_subset_with_rng<T, F: FnMut(&T) -> bool, R: rand::Rng>(
 
 	if i >= min || v.len() <= i {
 		v.truncate(i);
-		return
+		return;
 	}
 
 	v[i..].shuffle(rng);
@@ -561,10 +561,9 @@ impl Validator {
 /// based on core states.
 pub async fn request_backable_candidates(
 	availability_cores: &[CoreState],
-	bitfields: &[SignedAvailabilityBitfield],
+	bitfields: Option<&[SignedAvailabilityBitfield]>,
 	relay_parent: &ActivatedLeaf,
 	sender: &mut impl overseer::SubsystemSender<ProspectiveParachainsMessage>,
-	is_early_request: bool,
 ) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
 	let block_number_under_construction = relay_parent.number + 1;
 
@@ -582,14 +581,24 @@ pub async fn request_backable_candidates(
 				*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
 			},
 			CoreState::Occupied(occupied_core) => {
-				let is_available = if is_early_request {
-					true
-				} else {
-					bitfields_indicate_availability(
-						core_idx.0 as usize,
-						bitfields,
-						&occupied_core.availability,
-					)
+				let is_available = match bitfields {
+					Some(bitfields) => {
+						// If bitfields are provided, check if the core is available.
+						bitfields_indicate_availability(
+							core_idx.0 as usize,
+							bitfields,
+							&occupied_core.availability,
+						)
+					},
+					None => {
+						gum::debug!(
+							target: LOG_TARGET,
+							leaf_hash = ?relay_parent.hash,
+							?core_idx,
+							"No availability bitfields provided, assuming core is available"
+						);
+						true
+					},
 				};
 
 				if is_available {
@@ -643,7 +652,7 @@ pub async fn request_backable_candidates(
 				?para_id,
 				"No backable candidate returned by prospective parachains",
 			);
-			continue
+			continue;
 		}
 
 		selected_candidates.insert(para_id, response);
@@ -686,7 +695,7 @@ fn bitfields_indicate_availability(
 					availability_len,
 				);
 
-				return false
+				return false;
 			},
 			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
 		}
