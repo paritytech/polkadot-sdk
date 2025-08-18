@@ -1489,6 +1489,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Period<BlockNumber> {
 	Voting { elapsed: BlockNumber, more: BlockNumber },
 	Claim { elapsed: BlockNumber, more: BlockNumber },
@@ -1514,14 +1515,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Next intake (candidate/membership) rotation scheduled with [Config::BlockNumberProvider].
 	pub fn next_intake_at() -> BlockNumberFor<T, I> {
-		NextIntakeAt::<T, I>::get().unwrap_or({
-			// executed once.
-			let now = T::BlockNumberProvider::current_block_number();
-			let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
-			let rotation_period = T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get());
-			let elapsed = prev_block % rotation_period;
-			prev_block + (rotation_period - elapsed)
-		})
+		match NextIntakeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let rotation_period = T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get());
+				let elapsed = prev_block % rotation_period;
+				let next_intake_at = prev_block + (rotation_period - elapsed);
+				NextIntakeAt::<T, I>::put(next_intake_at);
+				next_intake_at
+			},
+		}
 	}
 
 	/// Set the next intake (candidate/membership) rotation.
@@ -1534,16 +1540,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		NextIntakeAt::<T, I>::put(next_intake_at);
 	}
 
-	/// Next challenge rotation scheduled with [Config::BlockNumberProvider].
+	/// Returns the next challenge rotation scheduled with [Config::BlockNumberProvider].
 	pub fn next_challenge_at() -> BlockNumberFor<T, I> {
-		NextChallengeAt::<T, I>::get().unwrap_or({
-			// executed once.
-			let now = T::BlockNumberProvider::current_block_number();
-			let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
-			let challenge_period = T::ChallengePeriod::get();
-			let elapsed = prev_block % challenge_period;
-			prev_block + (challenge_period - elapsed)
-		})
+		match NextChallengeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let challenge_period = T::ChallengePeriod::get();
+				let elapsed = prev_block % challenge_period;
+				let next_challenge_at = prev_block + (challenge_period - elapsed);
+				NextChallengeAt::<T, I>::put(next_challenge_at);
+				next_challenge_at
+			},
+		}
 	}
 
 	/// Set the next challenge rotation.
