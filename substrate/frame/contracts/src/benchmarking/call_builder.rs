@@ -231,6 +231,6 @@ macro_rules! build_runtime(
 		let $contract = setup.contract();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		let mut $runtime = $crate::wasm::Runtime::new(&mut ext, input);
+		let mut $runtime = crate::wasm::Runtime::new(&mut ext, input);
 	};
 );
