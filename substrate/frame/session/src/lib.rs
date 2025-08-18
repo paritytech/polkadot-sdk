@@ -129,7 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{hold::Mutate as HoldMutate, Inspect},
+		fungible::{hold::Mutate as HoldMutate, Mutate, Inspect},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -447,7 +447,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The currency type for placing holds when setting keys.
-		type Currency: Inspect<Self::AccountId>
+		type Currency: Mutate<Self::AccountId>
 			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
 
 		/// The amount to be held when setting keys.
