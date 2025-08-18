@@ -155,14 +155,13 @@ impl ReceiptExtractor {
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
-		block: &SubstrateBlock,
+		block_number: U256,
+		block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		maybe_receipt: Option<ReconstructReceiptInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
-		let block_number = U256::from(block.number());
-		let block_hash = block.hash();
 		let events = ext.events().await?;
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
@@ -266,11 +265,26 @@ impl ReceiptExtractor {
 
 		let ext_iter = self.get_block_extrinsics(block).await?;
 
+		let substrate_block_number = block.number() as u64;
+		let substrate_block_hash = block.hash();
+		let eth_block_hash =
+			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
+				.await
+				.unwrap_or(substrate_block_hash);
+
 		// TODO: Order of receipt and transaction info is important while building
 		// the state tries. Are we sorting them afterwards?
 		stream::iter(ext_iter)
 			.map(|(ext, call, receipt)| async move {
-				self.extract_from_extrinsic(block, ext, call, receipt).await.inspect_err(|err| {
+				self.extract_from_extrinsic(
+					substrate_block_number.into(),
+					eth_block_hash,
+					ext,
+					call,
+					receipt,
+				)
+				.await
+				.inspect_err(|err| {
 					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
 				})
 			})
@@ -347,6 +361,20 @@ impl ReceiptExtractor {
 			.find(|(e, _, _)| e.index() as usize == transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		self.extract_from_extrinsic(block, ext, eth_call, maybe_receipt).await
+		let substrate_block_number = block.number() as u64;
+		let substrate_block_hash = block.hash();
+		let eth_block_hash =
+			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
+				.await
+				.unwrap_or(substrate_block_hash);
+
+		self.extract_from_extrinsic(
+			substrate_block_number.into(),
+			eth_block_hash,
+			ext,
+			eth_call,
+			maybe_receipt,
+		)
+		.await
 	}
 }
