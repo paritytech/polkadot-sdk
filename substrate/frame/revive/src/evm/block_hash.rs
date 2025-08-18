@@ -234,6 +234,12 @@ impl EthBlockBuilder {
 		transactions_root: alloy_primitives::B256,
 		receipts_root: alloy_primitives::B256,
 	) -> H256 {
+		// Note: Cap the gas limit to u64::MAX.
+		// In practice, it should be impossible to fill a u64::MAX gas limit
+		// of an either Ethereum or Substrate block.
+		let gas_limit =
+			if self.gas_limit > u64::MAX.into() { u64::MAX } else { self.gas_limit.as_u64() };
+
 		let alloy_header = alloy_consensus::Header {
 			state_root: transactions_root,
 			transactions_root,
@@ -243,7 +249,7 @@ impl EthBlockBuilder {
 			beneficiary: self.block_author.0.into(),
 			number: self.block_number.as_u64(),
 			logs_bloom: self.logs_bloom.0.into(),
-			gas_limit: self.gas_limit.as_u64(),
+			gas_limit,
 			gas_used: self.total_gas_used.as_u64(),
 			timestamp: self.timestamp.as_u64(),
 
