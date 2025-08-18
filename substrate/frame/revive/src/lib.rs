@@ -1238,6 +1238,13 @@ pub mod pallet {
 		fn finalize_block_per_tx() -> Weight;
 	}
 
+	/// Splits finalize_block weight into fixed and per-transaction components.
+	///
+	/// Total weight = fixed_part + (transaction_count * per_tx_part)
+	///
+	/// - `finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
+	/// - `finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
+	///   to enforce gas limits and reject transactions early if needed.
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
 			// Call finalize_block with tx_count = 0 → only `a`
