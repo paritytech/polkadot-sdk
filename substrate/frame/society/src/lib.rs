@@ -1543,6 +1543,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Returns the next challenge rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next multiple of the challenge duration.
 	pub fn next_challenge_at() -> BlockNumberFor<T, I> {
 		match NextChallengeAt::<T, I>::get() {
 			Some(next) => next,
