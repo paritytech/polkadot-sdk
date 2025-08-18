@@ -688,15 +688,6 @@ pub mod pallet {
 				DispatchClass::Normal,
 			);
 
-			// TODO: remove eventually
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			log::info!(
-				"[on_finalize] block: {:?} fixed={} per_tx={}",
-				block_number,
-				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
-				<T as pallet::Config>::WeightInfo::finalize_block_per_tx()
-			);
-
 			// If we cannot fetch the block author there's nothing we can do.
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
@@ -1082,7 +1073,11 @@ pub mod pallet {
 		/// Same as [`Self::call`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into()).saturating_add(*gas_limit).saturating_add(T::WeightInfo::finalize_block_per_tx()))]
+		#[pallet::weight(
+		    T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
+				.saturating_add(*gas_limit)
+				.saturating_add(T::WeightInfo::finalize_block_per_tx())
+		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
@@ -1092,11 +1087,6 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			// TODO: remove eventually
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			log::info!("[eth_call] dest: {dest:?} value: {value:?} gas_limit: {gas_limit:?} data: {} bytes payload: {} bytes",
-			    data.len(), payload.len());
-
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1864,10 +1854,6 @@ impl<T: Config> Pallet<T> {
 		});
 
 		let transactions_count = InflightTransactions::<T>::count();
-
-		// TODO: remove eventually
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		log::info!("[store_transaction] transactions_count: {transactions_count} extrinsic_index: {extrinsic_index} events: {} sucess: {success} gas_consumed: {gas_consumed:?}", events.len() );
 
 		InflightTransactions::<T>::insert(
 			transactions_count,
