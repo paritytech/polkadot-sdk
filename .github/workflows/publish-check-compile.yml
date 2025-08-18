@@ -40,20 +40,11 @@ jobs:
         run: |
           cargo install parity-publish@0.10.5 --locked -q
       
-      - name: Checkout to merge base with master
+      - name: parity-publish update plan w/o this PRs prdoc
         run: |
-          git fetch origin ${{ github.base_ref}}
-          git fetch refs/pull/$GITHUB_REF_NAME/head
-          pr_commit=$(git rev-parse FETCH_HEAD)
-          commit=$(git merge-base origin/${{ github.base_ref }} $pr_commit)
-          echo $commit
-          #git checkout $commit
-
-      - name: parity-publish update plan
-        run: parity-publish --color always plan --skip-check --prdoc prdoc/
-
-      - name: Checkout back to PR's branch
-        run: git checkout $GITHUB_REF_NAME
+          echo "CURRENT_PRDOC=pr_${{ github.event.pull_request.number }}.prdoc" >> $GITHUB_ENV
+          mv prdoc/$CURRENT_PRDOC .
+          parity-publish --color always plan --skip-check --prdoc prdoc/
 
       - name: parity-publish apply plan here for previous "local release"
         run: parity-publish --color always apply --registry
@@ -61,14 +52,9 @@ jobs:
       - name: move all prdocs except current one to unstable dir
         run: |
           mkdir prdoc/unstable
-          current_pr="pr_${{ github.event.pull_request.number }}.prdoc"
-          if [ -f prdoc/$current_prdoc ]
-            mv prdoc/$current_prdoc .   
-          fi
-          
           mv prdoc/pr_*.prdoc prdoc/unstable
-          if [ -f prdoc/$current_prdoc ]
-            mv $current_pr prdoc/
+          if [ -f $CURRENT_PRDOC ]
+            mv $CURRENT_PRDOC prdoc
           fi
 
       - name: parity-publish update plan just for PR's prdoc
