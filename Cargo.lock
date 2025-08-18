@@ -13057,6 +13057,9 @@ dependencies = [
 name = "pallet-revive-eth-rpc"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-core",
+ "alloy-primitives",
  "anyhow",
  "clap",
  "env_logger 0.11.3",

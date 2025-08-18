@@ -44,6 +44,9 @@ subxt = { workspace = true, default-features = true, features = ["reconnecting-r
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+alloy-consensus = { workspace = true, default-features = false }
+alloy-core = { workspace = true, features = ["sol-types"] }
+alloy-primitives = { workspace = true, default-features = false }
 
 [dev-dependencies]
 env_logger = { workspace = true }

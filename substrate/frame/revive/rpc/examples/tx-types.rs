@@ -15,11 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use jsonrpsee::http_client::HttpClientBuilder;
-use pallet_revive::evm::{Account, BlockNumberOrTag};
-use pallet_revive_eth_rpc::{
-	example::{TransactionBuilder, TransactionType},
-	EthRpcClient,
-};
+use pallet_revive::evm::Account;
+use pallet_revive_eth_rpc::example::{TransactionBuilder, TransactionType};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -27,7 +24,6 @@ async fn main() -> anyhow::Result<()> {
 	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
 
 	let alith = Account::default();
-	let alith_address = alith.address();
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = 1_000_000_000_000_000_000_000u128.into();
 

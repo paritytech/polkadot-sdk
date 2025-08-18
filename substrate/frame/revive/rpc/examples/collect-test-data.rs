@@ -21,6 +21,7 @@ use pallet_revive::evm::{BlockNumberOrTag, ReceiptInfo, TransactionInfo, H256, U
 use pallet_revive_eth_rpc::EthRpcClient;
 use serde::Serialize;
 use std::sync::Arc;
+use alloy_consensus::{RlpEncodableReceipt, Eip658Value};
 
 #[derive(Parser)]
 #[command(name = "collect-test-data")]
@@ -61,6 +62,30 @@ struct TestData {
 	receipts_rlp: Vec<String>,
 	receipts_root: H256,
 }
+
+/// Helper function to encode a ReceiptInfo to RLP bytes following the same pattern as block_hash.rs
+fn encode_receipt_rlp(receipt_info: &ReceiptInfo) -> Vec<u8> {
+	let alloy_receipt = alloy_consensus::Receipt {
+		status: Eip658Value::Eip658(receipt_info.is_success()),
+		cumulative_gas_used: receipt_info.cumulative_gas_used.as_u64(),
+		logs: receipt_info.logs.iter().map(|log| {
+		    let data = log.data.clone().unwrap_or_default().0;
+			alloy_primitives::Log::new_unchecked(
+				log.address.0.into(),
+				log.topics.iter().map(|t| alloy_primitives::FixedBytes::from(t.0)).collect(),
+				alloy_primitives::Bytes::from(data),
+			)
+		}).collect(),
+	};
+
+	let receipt_bloom = alloy_receipt.bloom_slow();
+	let mut encoded_receipt = Vec::with_capacity(
+		alloy_receipt.rlp_encoded_length_with_bloom(&receipt_bloom)
+	);
+	alloy_receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+	encoded_receipt
+}
+
 // TODO
 // below command fails
 //   target/debug/examples/collect-test-data -b 23094898 -r https://ethereum-rpc.publicnode.com
@@ -130,14 +155,14 @@ async fn main() -> anyhow::Result<()> {
 	// Generate RLP encoded transactions
 	let mut transactions_rlp = Vec::new();
 	for tx in &transaction_infos {
-		let rlp_encoded = tx.transaction_signed.encode_2718();
+		let rlp_encoded = tx.transaction_signed.signed_payload();
 		transactions_rlp.push(format!("0x{}", hex::encode(rlp_encoded)));
 	}
 
 	// Generate RLP encoded receipts
 	let mut receipts_rlp = Vec::new();
 	for receipt in &receipts {
-		let rlp_encoded = receipt.encode_2718();
+		let rlp_encoded = encode_receipt_rlp(receipt);
 		receipts_rlp.push(format!("0x{}", hex::encode(rlp_encoded)));
 	}
 
