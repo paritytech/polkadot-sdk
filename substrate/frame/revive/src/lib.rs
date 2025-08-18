@@ -1157,10 +1157,6 @@ where
 						let executable = ContractBlob::from_evm_code(code, origin)?;
 						(executable, Default::default())
 					} else {
-						log::debug!(
-							target: LOG_TARGET,
-							"Rejected upload of EVM bytecode because AllowEVMBytecode is false"
-						);
 						return Err(<Error<T>>::CodeRejected.into())
 					},
 				Code::Existing(code_hash) =>

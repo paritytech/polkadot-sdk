@@ -154,9 +154,7 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_call_with_code_per_byte(
-		c: Linear<1, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
+	fn evm_call_with_code_per_byte(c: Linear<1, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_sized(c - 1),
