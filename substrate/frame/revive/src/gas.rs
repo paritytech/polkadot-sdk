@@ -341,6 +341,13 @@ impl<T: Config> GasMeter<T> {
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
 	}
+
+	pub fn consume_all(&mut self) {
+		log::info!("consume_all: gas_left={:?}", self.gas_left);
+		self.gas_left = self.gas_left.saturating_sub(self.gas_left);
+		log::info!("consume_all: gas_left={:?}", self.gas_left);
+	}
+
 }
 
 #[cfg(test)]
