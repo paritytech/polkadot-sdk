@@ -129,7 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
-		fungible::{hold::Mutate as HoldMutate, Mutate, Inspect},
+		fungible::{hold::Mutate as HoldMutate, Inspect, Mutate},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
