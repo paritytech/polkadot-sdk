@@ -2715,7 +2715,7 @@ fn storage_deposit_callee_works() {
 #[test]
 fn set_code_extrinsic() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
-	let (new_binary, new_code_hash) = compile_module("crypto_hashes").unwrap();
+	let (new_binary, new_code_hash) = compile_module("crypto_hash_keccak_256").unwrap();
 
 	assert_ne!(code_hash, new_code_hash);
 
