@@ -928,7 +928,7 @@ node-rpc = { path = "substrate/bin/node/rpc" }
 node-testing = { path = "substrate/bin/node/testing" }
 nohash-hasher = { version = "0.2.0" }
 novelpoly = { version = "2.0.0", package = "reed-solomon-novelpoly" }
-num-bigint = { version = "0.4.3", default-features = false }
+num-bigint = { version = "0.4.6", default-features = false }
 num-format = { version = "0.4.3" }
 num-integer = { version = "0.1.46", default-features = false }
 num-rational = { version = "0.4.1" }

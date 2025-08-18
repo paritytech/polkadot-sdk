@@ -33,4 +33,11 @@ toml = { workspace = true }
 [features]
 default = ["std"]
 # only when std is enabled all fixtures are available
-std = ["alloy-core", "anyhow", "sp-core", "sp-io"]
+std = [
+	"alloy-core",
+	"anyhow",
+	"hex/std",
+	"serde_json/std",
+	"sp-core",
+	"sp-io",
+]

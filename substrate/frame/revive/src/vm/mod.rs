@@ -38,7 +38,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
