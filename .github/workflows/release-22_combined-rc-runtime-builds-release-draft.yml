@@ -1,10 +1,10 @@
-name: Release - Build runtimes
+name: Release - Combined Builds Flow
 
 on:
   workflow_dispatch:
     inputs:
       chain:
-        description: The chain to use
+        description: The chain to use for runtime builds
         default: all
         required: true
         type: choice
@@ -29,28 +29,23 @@ on:
           - cumulus/parachains/runtimes/coretime/coretime-westend
           - cumulus/parachains/runtimes/people/people-westend
           - cumulus/parachains/runtimes/glutton/glutton-westend
-
-      release_tag:
-        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
-        type: string
-
-  workflow_call:
-    inputs:
-      chain:
-        description: The chain to use
+      binary:
+        description: Binary to be built for the release candidate
         default: all
-        required: true
-        type: string
-      runtime_dir:
-        description: The runtime dir to be used (⚠️ this parameter is optional and needed only in case of the single runtime build, set it accordingly to the runtime you want to build)
-        default: polkadot/runtime/westend
-        type: string
+        type: choice
+        options:
+          - polkadot
+          - polkadot-parachain
+          - polkadot-omni-node
+          - frame-omni-bencher
+          - chain-spec-builder
+          - substrate-node
+          - eth-rpc
+          - all
       release_tag:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
         type: string
-    outputs:
-      published_runtimes:
-        value: ${{ jobs.build-runtimes.outputs.published_runtimes }}
+        required: true
 
 jobs:
   check-synchronization:
@@ -63,7 +58,7 @@ jobs:
     if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
     runs-on: ubuntu-latest
     outputs:
-        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+      release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
@@ -76,16 +71,36 @@ jobs:
           RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
-  build-runtimes:
+  build-runtimes-flow:
     needs: [validate-inputs]
-    uses: "./.github/workflows/release-srtool.yml"
+    uses: "./.github/workflows/release-21_build-runtimes.yml"
     with:
-       excluded_runtimes: "asset-hub-rococo bridge-hub-rococo coretime-rococo people-rococo rococo rococo-parachain substrate-test bp cumulus-test kitchensink minimal-template parachain-template penpal polkadot-test seedling shell frame-try sp solochain-template polkadot-sdk-docs-first pallet-staking-async-parachain pallet-staking-async-rc frame-storage-access-test yet-another-parachain revive-dev"
-       build_opts: "--features on-chain-release-build"
-       profile: production
-       chain: ${{ inputs.chain }}
-       runtime_dir: ${{ inputs.runtime_dir }}
+      chain: ${{ inputs.chain }}
+      runtime_dir: ${{ inputs.runtime_dir }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
       contents: read
+
+  build-rc-flow:
+    needs: [validate-inputs]
+    uses: "./.github/workflows/release-20_build-rc.yml"
+    with:
+      binary: ${{ inputs.binary }}
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+    secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+  trigger-release-draft:
+    needs: [build-runtimes-flow, build-rc-flow, validate-inputs]
+    uses: "./.github/workflows/release-30_publish_release_draft.yml"
+    with:
+      release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
+      build_run_id: ${{ github.run_id }}
+      runtimes: '${{ needs.build-runtimes-flow.outputs.published_runtimes }}'
+    secrets: inherit
