@@ -46,7 +46,8 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-	const POP_LEN: usize = ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
+	const POP_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
@@ -69,11 +70,18 @@ pub mod ecdsa_bls377 {
 	/// (ECDSA,BLS12-377) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls377Tag>;
 
+	/// (ECDSA, (BLS12-377, BLS12-377))
+	pub type ProofOfPossession = super::Signature<POP_LEN, EcdsaBls377Tag>;
+
 	impl super::CryptoType for Public {
 		type Pair = Pair;
 	}
 
 	impl super::CryptoType for Signature {
+		type Pair = Pair;
+	}
+
+	impl super::CryptoType for ProofOfPossession {
 		type Pair = Pair;
 	}
 
@@ -181,6 +189,7 @@ pub mod ecdsa_bls381 {
 	/// (ECDSA,BLS12-381) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls381Tag>;
 
+	/// (ECDSA, (BLS12-381, BLS12-381))
 	pub type ProofOfPossession = super::Signature<POP_LEN, EcdsaBls381Tag>;
 
 	impl super::CryptoType for Public {
