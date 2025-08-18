@@ -477,12 +477,4 @@ impl VmBinaryModule {
 		let code = polkavm_common::assembler::assemble(&text).unwrap();
 		Self::new(code)
 	}
-
-	/// An evm contract that executes  `n` JUMPDEST instructions.
-	pub fn evm_noop(size: u32) -> Self {
-		use revm::bytecode::opcode::JUMPDEST;
-
-		let code = vec![JUMPDEST; size as usize];
-		Self::new(code)
-	}
 }
