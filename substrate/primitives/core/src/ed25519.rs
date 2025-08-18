@@ -69,7 +69,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
-    type ProofOfPossession = Signature;
+	type ProofOfPossession = Signature;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.
@@ -340,13 +340,17 @@ mod tests {
 
 	#[test]
 	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
 		assert_eq!(
-			Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
 			false
 		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }

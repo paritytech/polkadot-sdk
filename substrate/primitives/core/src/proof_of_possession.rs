@@ -25,30 +25,30 @@ use sp_std::vec::Vec;
 /// This is implemented in different trait to provide default behavior.
 pub trait ProofOfPossessionGenerator: Pair
 where
-    Self::Public: CryptoType,
-    Self::ProofOfPossession: Signature,
+	Self::Public: CryptoType,
+	Self::ProofOfPossession: Signature,
 {
-    /// Generate proof of possession.
-    ///
-    /// This is usually done by signing the owner's idetifier, this is prevent
-    /// front runner to claim ownership of public keys of other entities. 
-    ///
-    /// However, for aggregatable signature 
-    /// the proof of possession generator is supposed to
-    /// produce a "signature" with unique hash context that should
-    /// never be used in other signatures. While this proves that
-    /// the secret key is known to the prover, it prevents
-    /// malicious actors to trick an honest party to sign an
-    /// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
-    /// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
-    ///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
-    ///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer).
-    ///
-    /// As such, for aggregatable signatures, proof of possession consists of two signatures one
-    /// regular signature signing the owner identity and the second one with unique context which
-    /// signs the correspoding public key (and nothing else).
-    #[cfg(feature = "full_crypto")]
-    fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession;
+	/// Generate proof of possession.
+	///
+	/// This is usually done by signing the owner's idetifier, this is prevent
+	/// front runner to claim ownership of public keys of other entities.
+	///
+	/// However, for aggregatable signature
+	/// the proof of possession generator is supposed to
+	/// produce a "signature" with unique hash context that should
+	/// never be used in other signatures. While this proves that
+	/// the secret key is known to the prover, it prevents
+	/// malicious actors to trick an honest party to sign an
+	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
+	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
+	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
+	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer).
+	///
+	/// As such, for aggregatable signatures, proof of possession consists of two signatures one
+	/// regular signature signing the owner identity and the second one with unique context which
+	/// signs the correspoding public key (and nothing else).
+	#[cfg(feature = "full_crypto")]
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession;
 }
 
 /// Pair which is able to verify proof of possession.
@@ -58,19 +58,26 @@ where
 /// This is implemented in different trait (than Public Key) to provide default behavior.
 pub trait ProofOfPossessionVerifier: Pair
 where
-    Self::Public: CryptoType,
-Self::ProofOfPossession: Signature,
+	Self::Public: CryptoType,
+	Self::ProofOfPossession: Signature,
 {
 	/// Verify proof of possession.
 	///
 	/// The proof of possession verifier is supposed to to verify a signature with unique hash
 	/// context that is produced solely for this reason. This proves that that the secret key is
 	/// known to the prover.
-    fn verify_proof_of_possession(
-	        owner: &[u8],
+	fn verify_proof_of_possession(
+		owner: &[u8],
 		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool;
+}
+
+/// Simply returns the owner prefixed with proof of possession context.
+pub fn statement_of_ownership(owner: &[u8]) -> Vec<u8> {
+	/// The context which attached to pop message to attest its purpose.
+	const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
+	[PROOF_OF_POSSESSION_CONTEXT_TAG, owner].concat()
 }
 
 /// Marker trait to identify whether the scheme is not aggregatable.
@@ -90,31 +97,23 @@ Self::ProofOfPossession: Signature,
 /// possible to aggregate it to generate a valid proof for a key the attack does not
 /// possess. Therefore we do not require non-aggregatable schemes to prevent proof_of_possession
 /// confirming signatures at API level
-pub trait NonAggregatable: Pair {
-	/// Default proof_of_possession statement.
-	fn proof_of_possession_statement(owner: &[u8]) -> Vec<u8> {
-		/// The context which attached to pop message to attest its purpose.
-		const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
-		[PROOF_OF_POSSESSION_CONTEXT_TAG, owner].concat()
-	}
-}
+pub trait NonAggregatable: Pair {}
 
 impl<T> ProofOfPossessionVerifier for T
 where
-    T: NonAggregatable<ProofOfPossession = Self::Signature>
+	T: NonAggregatable<ProofOfPossession = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
 	/// While we enforce hash context separation at the library level in aggregatable schemes,
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
-    fn verify_proof_of_possession(
-	        owner: &[u8],
+	fn verify_proof_of_possession(
+		owner: &[u8],
 		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession_statement =
-			Self::proof_of_possession_statement(owner);
+		let proof_of_possession_statement = statement_of_ownership(owner);
 		Self::verify(
 			&proof_of_possession,
 			proof_of_possession_statement,
@@ -134,7 +133,7 @@ where
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
-		let proof_of_possession_statement = Self::proof_of_possession_statement(owner);
+		let proof_of_possession_statement = statement_of_ownership(owner);
 		self.sign(proof_of_possession_statement.as_slice())
 	}
 }

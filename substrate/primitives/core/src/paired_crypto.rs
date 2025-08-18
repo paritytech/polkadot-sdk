@@ -46,8 +46,7 @@ pub mod ecdsa_bls377 {
 	const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
-    	const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
+	const POP_LEN: usize = ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls377Tag(ecdsa::EcdsaTag, bls377::Bls377Tag);
@@ -55,8 +54,14 @@ pub mod ecdsa_bls377 {
 	impl super::PairedCryptoSubTagBound for EcdsaBls377Tag {}
 
 	/// (ECDSA,BLS12-377) key-pair pair.
-	pub type Pair =
-		super::Pair<ecdsa::Pair, bls377::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls377Tag>;
+	pub type Pair = super::Pair<
+		ecdsa::Pair,
+		bls377::Pair,
+		PUBLIC_KEY_LEN,
+		SIGNATURE_LEN,
+		POP_LEN,
+		EcdsaBls377Tag,
+	>;
 
 	/// (ECDSA,BLS12-377) public key pair.
 	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls377Tag>;
@@ -150,11 +155,10 @@ pub mod ecdsa_bls381 {
 
 	/// Aggregate signature serialized size.
 	pub const SIGNATURE_LEN: usize =
-	ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
-    const POP_LEN: usize =
-		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls377::SIGNATURE_SERIALIZED_SIZE;
-
+	const POP_LEN: usize =
+		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
 
 	#[doc(hidden)]
 	pub struct EcdsaBls381Tag(ecdsa::EcdsaTag, bls381::Bls381Tag);
@@ -162,8 +166,14 @@ pub mod ecdsa_bls381 {
 	impl super::PairedCryptoSubTagBound for EcdsaBls381Tag {}
 
 	/// (ECDSA,BLS12-381) key-pair pair.
-	pub type Pair =
-		super::Pair<ecdsa::Pair, bls381::Pair, PUBLIC_KEY_LEN, SIGNATURE_LEN, EcdsaBls381Tag>;
+	pub type Pair = super::Pair<
+		ecdsa::Pair,
+		bls381::Pair,
+		PUBLIC_KEY_LEN,
+		SIGNATURE_LEN,
+		POP_LEN,
+		EcdsaBls381Tag,
+	>;
 
 	/// (ECDSA,BLS12-381) public key pair.
 	pub type Public = super::Public<PUBLIC_KEY_LEN, EcdsaBls381Tag>;
@@ -171,11 +181,17 @@ pub mod ecdsa_bls381 {
 	/// (ECDSA,BLS12-381) signature pair.
 	pub type Signature = super::Signature<SIGNATURE_LEN, EcdsaBls381Tag>;
 
+	pub type ProofOfPossession = super::Signature<POP_LEN, EcdsaBls381Tag>;
+
 	impl super::CryptoType for Public {
 		type Pair = Pair;
 	}
 
 	impl super::CryptoType for Signature {
+		type Pair = Pair;
+	}
+
+	impl super::CryptoType for ProofOfPossession {
 		type Pair = Pair;
 	}
 
@@ -263,8 +279,8 @@ impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const LEFT_PLUS_RIGHT_PUBLIC_LEN: usize,
-    const SIGNATURE_LEN: usize,    
-    const POP_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
 	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, POP_LEN, SubTag>>
 	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
@@ -306,8 +322,8 @@ impl<
 		LeftPair: PairT + Clone,
 		RightPair: PairT + Clone,
 		const PUBLIC_KEY_LEN: usize,
-    const SIGNATURE_LEN: usize,
-    const POP_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
 		SubTag,
 	> Clone for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 {
@@ -321,22 +337,22 @@ impl<
 		LeftPair: PairT,
 		RightPair: PairT,
 		const PUBLIC_KEY_LEN: usize,
-	    const SIGNATURE_LEN: usize,
-        const POP_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
 	> PairT for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN,SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-ProofOfPossession<POP_LEN, SubTag>: SignatureT,
+	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	type Seed = Seed;
 	type Public = Public<PUBLIC_KEY_LEN, SubTag>;
 	type Signature = Signature<SIGNATURE_LEN, SubTag>;
-        type ProofOfPossession = Signature<POP_LEN, SubTag>;
+	type ProofOfPossession = Signature<POP_LEN, SubTag>;
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECURE_SEED_LEN {
@@ -415,18 +431,18 @@ impl<
 		LeftPair: PairT + ProofOfPossessionGenerator,
 		RightPair: PairT + ProofOfPossessionGenerator,
 		const PUBLIC_KEY_LEN: usize,
-    const SIGNATURE_LEN: usize,
-    const POP_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> ProofOfPossessionGenerator for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> ProofOfPossessionGenerator
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
-	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN,SubTag>: CryptoType,
+	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-ProofOfPossession<POP_LEN, SubTag>: SignatureT,
+	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
-    RightPair::Seed: From<Seed> + Into<Seed>,
-
+	RightPair::Seed: From<Seed> + Into<Seed>,
 {
 	#[cfg(feature = "full_crypto")]
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
@@ -451,24 +467,24 @@ impl<
 		LeftPair: PairT + ProofOfPossessionVerifier,
 		RightPair: PairT + ProofOfPossessionVerifier,
 		const PUBLIC_KEY_LEN: usize,
-    const SIGNATURE_LEN: usize,
-    const POP_LEN: usize,
+		const SIGNATURE_LEN: usize,
+		const POP_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-
-    > ProofOfPossessionVerifier for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
+	> ProofOfPossessionVerifier
+	for Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>
 where
 	Pair<LeftPair, RightPair, PUBLIC_KEY_LEN, SIGNATURE_LEN, POP_LEN, SubTag>: CryptoType,
 	Public<PUBLIC_KEY_LEN, SubTag>: PublicT,
-        Signature<SIGNATURE_LEN, SubTag>: SignatureT,
-        ProofOfPossession<POP_LEN, SubTag>: SignatureT, 
+	Signature<SIGNATURE_LEN, SubTag>: SignatureT,
+	ProofOfPossession<POP_LEN, SubTag>: SignatureT,
 	LeftPair::Seed: From<Seed> + Into<Seed>,
 	RightPair::Seed: From<Seed> + Into<Seed>,
 {
-    fn verify_proof_of_possession(
-	        owner: &[u8],
+	fn verify_proof_of_possession(
+		owner: &[u8],
 		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessed_pubkey: &Self::Public,
-    ) -> bool {
+	) -> bool {
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false
 		};
@@ -738,13 +754,17 @@ mod tests {
 
 	#[test]
 	fn good_proof_of_possession_should_work_bad_proof_of_possession_should_fail() {
+		let owner = b"owner";
+		let not_owner = b"not owner";
+
 		let mut pair = Pair::from_seed(b"12345678901234567890123456789012");
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
-		let proof_of_possession = pair.generate_proof_of_possession();
-		assert!(Pair::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+		let proof_of_possession = pair.generate_proof_of_possession(owner);
+		assert!(Pair::verify_proof_of_possession(owner, &proof_of_possession, &pair.public()));
 		assert_eq!(
-			Pair::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			Pair::verify_proof_of_possession(owner, &proof_of_possession, &other_pair.public()),
 			false
 		);
+		assert!(!Pair::verify_proof_of_possession(not_owner, &proof_of_possession, &pair.public()));
 	}
 }
