@@ -28,7 +28,7 @@ on:
         default: all
         type: string
       release_tag:
-        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
         type: string
 
 jobs:
