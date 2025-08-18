@@ -162,6 +162,8 @@ pub trait WeightInfo {
 	fn evm_opcode(_r: u32) -> Weight { Weight::zero() }
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
+	fn v2_migration_step() -> Weight { Weight::zero() }
+
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
