@@ -169,7 +169,7 @@ to the release branch
 to have it as a final rc on the S3
 6. Publish deb package for the `polkadot` binary using
 [Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
-7. Adjust the release draft and publish release on the GitHub.
+7. Adjust the release draft and publish release on GitHub.
 8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
 From the main Polkadot-sdk repository in the paritytech org:
