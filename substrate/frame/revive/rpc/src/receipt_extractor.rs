@@ -135,6 +135,7 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
+		maybe_receipt: Option<ReconstructReceiptInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
 		let block_number = U256::from(block.number());
@@ -142,8 +143,12 @@ impl ReceiptExtractor {
 		let events = ext.events().await?;
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
-		log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
-	})?;
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}"
+			);
+		})?;
+
 		let tx_fees = events
 		.find_first::<TransactionFeePaid>()?
 		.ok_or(ClientError::TxFeeNotFound)
@@ -162,11 +167,19 @@ impl ReceiptExtractor {
 		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
-		let gas_price = tx_info.gas_price.unwrap_or_default();
-		let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
-			.saturating_mul(self.native_to_eth_ratio.into())
-			.checked_div(gas_price)
-			.unwrap_or_default();
+
+		let (gas_price, gas_used) = if let Some(receipt) = maybe_receipt {
+			// If we have a receipt, use it to accurately represent the gas.
+			(U256::from(receipt.effective_gas_price), U256::from(receipt.gas_used))
+		} else {
+			// Otherwise, calculate gas used from the transaction fees.
+			let gas_price = tx_info.gas_price.unwrap_or_default();
+			let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
+				.saturating_mul(self.native_to_eth_ratio.into())
+				.checked_div(gas_price)
+				.unwrap_or_default();
+			(gas_price, gas_used)
+		};
 
 		// get logs from ContractEmitted event
 		let logs = events
@@ -233,14 +246,42 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
-		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let call = ext.as_extrinsic::<EthTransact>().ok()??;
-			Some((ext, call))
-		});
+		let mut maybe_data = (self.fetch_receipt_data)(block.hash()).await;
 
-		stream::iter(extrinsics)
-			.map(|(ext, call)| async move {
-				self.extract_from_extrinsic(block, ext, call).await.inspect_err(|err| {
+		let extrinsics: Vec<_> = extrinsics
+			.iter()
+			.flat_map(|ext| {
+				let call = ext.as_extrinsic::<EthTransact>().ok()??;
+				Some((ext, call))
+			})
+			.collect();
+
+		// Sanity check we received enough data from the pallet revive.
+		if let Some(data) = &mut maybe_data {
+			if data.len() != extrinsics.len() {
+				log::warn!(
+					target: LOG_TARGET,
+					"Receipt data length ({}) does not match extrinsics length ({})",
+					data.len(),
+					extrinsics.len()
+				);
+				maybe_data = None;
+			}
+		}
+
+		let ext_iter = extrinsics.into_iter().zip(
+			maybe_data
+				.unwrap_or_default()
+				.into_iter()
+				.map(Some)
+				.chain(std::iter::repeat(None)),
+		);
+
+		// TODO: Order of receipt and transaction info is important while building
+		// the state tries. Are we sorting them afterwards?
+		stream::iter(ext_iter)
+			.map(|((ext, call), receipt)| async move {
+				self.extract_from_extrinsic(block, ext, call, receipt).await.inspect_err(|err| {
 					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
 				})
 			})
@@ -263,9 +304,11 @@ impl ReceiptExtractor {
 			.nth(transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
+		let maybe_data = (self.fetch_receipt_data)(block.hash()).await;
+
 		let call = ext
 			.as_extrinsic::<EthTransact>()?
 			.ok_or_else(|| ClientError::EthExtrinsicNotFound)?;
-		self.extract_from_extrinsic(block, ext, call).await
+		self.extract_from_extrinsic(block, ext, call, None).await
 	}
 }
