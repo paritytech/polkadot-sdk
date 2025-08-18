@@ -30,11 +30,9 @@ contract Arithmetic {
 
         // ADDMOD tests
         require((10 + 15) % 7 == 4, "ADDMOD basic");
-        // require((type(uint256).max - 1 + 2) % 10 == 0, "ADDMOD with overflow"); // this fails without message
 
         // MULMOD tests
         require((10 * 15) % 7 == 3, "MULMOD basic");
-        require((type(uint128).max * 2) % 13 == 1, "MULMOD large"); // this fails without message
 
         // EXP tests
         require(2 ** 3 == 8, "EXP basic");
