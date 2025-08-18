@@ -24,7 +24,7 @@ on:
   workflow_call:
     inputs:
       binary:
-        description: Binary to be build for the release
+        description: Binary to be built for the release
         default: all
         type: string
       release_tag:
