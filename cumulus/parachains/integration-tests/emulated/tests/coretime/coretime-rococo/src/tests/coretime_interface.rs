@@ -17,6 +17,7 @@ use crate::imports::*;
 use frame_support::traits::OnInitialize;
 use pallet_broker::{ConfigRecord, Configuration, CoreAssignment, CoreMask, ScheduleItem};
 use rococo_runtime_constants::system_parachain::coretime::TIMESLICE_PERIOD;
+use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use sp_runtime::Perbill;
 
 #[test]
@@ -33,6 +34,10 @@ fn transact_hardcoded_weights_are_sane() {
 	// <https://github.com/rust-lang/rust/issues/86935>
 	type CoretimeEvent = <CoretimeRococo as Chain>::RuntimeEvent;
 	type RelayEvent = <Rococo as Chain>::RuntimeEvent;
+
+	Rococo::execute_with(|| {
+		Dmp::make_parachain_reachable(CoretimeRococo::para_id());
+	});
 
 	// Reserve a workload, configure broker and start sales.
 	CoretimeRococo::execute_with(|| {

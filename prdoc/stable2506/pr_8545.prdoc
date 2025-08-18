@@ -1,0 +1,11 @@
+title: '[pallet-revive] eth-rpc improved healthcheck'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Check that the cached latest block is properly synced in the healthcheck
+    - Add additional  traces to debug broken block subscription
+crates:
+- name: sc-rpc-server
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

@@ -134,6 +134,7 @@ mod docs {
 
 		/// The `TransactionExtension` to the basic transaction logic.
 		pub type TxExtension = (
+			frame_system::AuthorizeCall<Runtime>,
 			frame_system::CheckNonZeroSender<Runtime>,
 			frame_system::CheckSpecVersion<Runtime>,
 			frame_system::CheckTxVersion<Runtime>,
@@ -144,6 +145,7 @@ mod docs {
 			// Add the `CheckMetadataHash` extension.
 			// The position in this list is not important, so we could also add it to beginning.
 			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+			frame_system::WeightReclaim<Runtime>,
 		);
 
 		/// In your runtime this will be your real address type.

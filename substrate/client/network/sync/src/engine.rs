@@ -100,6 +100,8 @@ mod rep {
 	pub const REFUSED: Rep = Rep::new(-(1 << 10), "Request refused");
 	/// Reputation change when a peer doesn't respond in time to our messages.
 	pub const TIMEOUT: Rep = Rep::new(-(1 << 10), "Request timeout");
+	/// Reputation change when a peer connection failed with IO error.
+	pub const IO: Rep = Rep::new(-(1 << 10), "IO error during request");
 }
 
 struct Metrics {
@@ -110,7 +112,7 @@ struct Metrics {
 
 impl Metrics {
 	fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {
-		let _ = MajorSyncingGauge::register(r, major_syncing)?;
+		MajorSyncingGauge::register(r, major_syncing)?;
 		Ok(Self {
 			peers: {
 				let g = Gauge::new("substrate_sync_peers", "Number of peers we sync with")?;
@@ -654,7 +656,13 @@ where
 			ToServiceCommand::SetSyncForkRequest(peers, hash, number) => {
 				self.strategy.set_sync_fork_request(peers, &hash, number);
 			},
-			ToServiceCommand::EventStream(tx) => self.event_streams.push(tx),
+			ToServiceCommand::EventStream(tx) => {
+				// Let a new subscriber know about already connected peers.
+				for peer_id in self.peers.keys() {
+					let _ = tx.unbounded_send(SyncEvent::PeerConnected(*peer_id));
+				}
+				self.event_streams.push(tx);
+			},
 			ToServiceCommand::RequestJustification(hash, number) =>
 				self.strategy.request_justification(&hash, number),
 			ToServiceCommand::ClearJustificationRequests =>
@@ -662,17 +670,36 @@ where
 			ToServiceCommand::BlocksProcessed(imported, count, results) => {
 				self.strategy.on_blocks_processed(imported, count, results);
 			},
-			ToServiceCommand::JustificationImported(peer_id, hash, number, success) => {
+			ToServiceCommand::JustificationImported(peer_id, hash, number, import_result) => {
+				let success =
+					matches!(import_result, sc_consensus::JustificationImportResult::Success);
 				self.strategy.on_justification_import(hash, number, success);
-				if !success {
-					log::info!(
-						target: LOG_TARGET,
-						"💔 Invalid justification provided by {peer_id} for #{hash}",
-					);
-					self.network_service
-						.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
-					self.network_service
-						.report_peer(peer_id, ReputationChange::new_fatal("Invalid justification"));
+
+				match import_result {
+					sc_consensus::JustificationImportResult::OutdatedJustification => {
+						log::info!(
+							target: LOG_TARGET,
+							"💔 Outdated justification provided by {peer_id} for #{hash}",
+						);
+					},
+					sc_consensus::JustificationImportResult::Failure => {
+						log::info!(
+							target: LOG_TARGET,
+							"💔 Invalid justification provided by {peer_id} for #{hash}",
+						);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
+						self.network_service.report_peer(
+							peer_id,
+							ReputationChange::new_fatal("Invalid justification"),
+						);
+					},
+					sc_consensus::JustificationImportResult::Success => {
+						log::debug!(
+							target: LOG_TARGET,
+							"Justification for block #{hash} ({number}) imported from {peer_id} successfully",
+						);
+					},
 				}
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) => self.announce_block(hash, data),
@@ -1019,8 +1046,13 @@ where
 						debug_assert!(
 							false,
 							"Can not receive `RequestFailure::Obsolete` after dropping the \
-								response receiver.",
+							response receiver.",
 						);
+					},
+					RequestFailure::Network(OutboundFailure::Io(_)) => {
+						self.network_service.report_peer(peer_id, rep::IO);
+						self.network_service
+							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
 				}
 			},

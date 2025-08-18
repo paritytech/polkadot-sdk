@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
-use sc_client_api::backend;
+use sc_client_api::{backend, TrieCacheContext};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
@@ -79,7 +79,7 @@ where
 	///
 	/// This takes into account potential overrides/substitutes.
 	pub fn code_at_ignoring_overrides(&self, block: Block::Hash) -> sp_blockchain::Result<Vec<u8>> {
-		let state = self.backend.state_at(block)?;
+		let state = self.backend.state_at(block, TrieCacheContext::Untrusted)?;
 
 		let state_runtime_code = sp_state_machine::backend::BackendRuntimeCode::new(&state);
 		let runtime_code =
@@ -227,7 +227,9 @@ mod tests {
 		let check = code_provider
 			.maybe_override_code(
 				onchain_code,
-				&backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
+				&backend
+					.state_at(backend.blockchain().info().genesis_hash, TrieCacheContext::Untrusted)
+					.unwrap(),
 				backend.blockchain().info().genesis_hash,
 			)
 			.expect("RuntimeCode override")
@@ -288,7 +290,9 @@ mod tests {
 		let check = code_provider
 			.maybe_override_code(
 				onchain_code,
-				&backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
+				&backend
+					.state_at(backend.blockchain().info().genesis_hash, TrieCacheContext::Untrusted)
+					.unwrap(),
 				backend.blockchain().info().genesis_hash,
 			)
 			.expect("RuntimeCode override")

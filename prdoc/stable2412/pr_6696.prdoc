@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Make approval-distribution aggression a bit more robust and less spammy
+
+doc:
+  - audience: Node Dev
+    description: |
+      The problem with the current implementation of approval-distribution aggression is that is too spammy,
+      and can overload the nodes, so make it less spammy by moving back the moment we trigger L2 aggression
+      and make resend enable only for the latest unfinalized block.
+
+crates:
+  - name: polkadot-approval-distribution
+    bump: minor

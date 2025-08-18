@@ -26,7 +26,7 @@
 //! # use sp_runtime::generic::BlockId;
 //! # use std::{sync::Arc, time::Duration};
 //! # use substrate_test_runtime_client::{
-//! #     runtime::Transfer, AccountKeyring,
+//! #     runtime::Transfer, Sr25519Keyring,
 //! #     DefaultTestClientBuilderExt, TestClientBuilderExt,
 //! # };
 //! # use sc_transaction_pool::{BasicPool, FullChainApi};
@@ -58,7 +58,8 @@
 //!
 //! // This `Proposer` allows us to create a block proposition.
 //! // The proposer will grab transactions from the transaction pool, and put them into the block.
-//! let future = proposer.propose(
+//! let future = Proposer::propose(
+//! 	proposer,
 //! 	Default::default(),
 //! 	Default::default(),
 //! 	Duration::from_secs(2),
@@ -72,4 +73,6 @@
 
 mod basic_authorship;
 
-pub use crate::basic_authorship::{Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT};
+pub use crate::basic_authorship::{
+	ProposeArgs, Proposer, ProposerFactory, DEFAULT_BLOCK_SIZE_LIMIT,
+};

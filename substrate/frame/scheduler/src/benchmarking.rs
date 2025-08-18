@@ -49,10 +49,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 /// - `None`: aborted (hash without preimage)
 /// - `Some(true)`: hash resolves into call if possible, plain call otherwise
 /// - `Some(false)`: plain call
-fn fill_schedule<T: Config>(
-	when: frame_system::pallet_prelude::BlockNumberFor<T>,
-	n: u32,
-) -> Result<(), &'static str> {
+fn fill_schedule<T: Config>(when: BlockNumberFor<T>, n: u32) -> Result<(), &'static str> {
 	let t = DispatchTime::At(when);
 	let origin: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
 	for i in 0..n {
@@ -157,14 +154,14 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let now = BLOCK_NUMBER.into();
 		fill_schedule::<T>(now, s)?;
-		let mut executed = 0;
+		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
 
 		#[block]
 		{
-			Pallet::<T>::service_agenda(&mut WeightMeter::new(), &mut executed, now, now, 0);
+			Pallet::<T>::service_agenda(&mut WeightMeter::new(), true, now, now, 0);
 		}
 
-		assert_eq!(executed, 0);
+		assert_eq!(Agenda::<T>::get(now).len() as u32, s);
 
 		Ok(())
 	}

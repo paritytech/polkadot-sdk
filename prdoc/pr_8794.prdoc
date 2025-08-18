@@ -1,0 +1,11 @@
+title: renamed wasm module in pallet-revive to vm
+doc:
+- audience: Runtime Dev
+  description: fixes https://github.com/paritytech/polkadot-sdk/issues/8341
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-proc-macro
+  bump: patch

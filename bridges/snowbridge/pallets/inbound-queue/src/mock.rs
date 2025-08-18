@@ -8,14 +8,12 @@ use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{
-	gwei,
-	inbound::{Log, Proof, VerificationError},
-	meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
+	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
-use snowbridge_router_primitives::inbound::MessageToXcm;
+use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
 	BuildStorage, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -64,7 +62,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const ChainForkVersions: ForkVersions = ForkVersions{
+	pub const ChainForkVersions: ForkVersions = ForkVersions {
 		genesis: Fork {
 			version: [0, 0, 0, 1], // 0x00000001
 			epoch: 0,
@@ -83,7 +81,11 @@ parameter_types! {
 		},
 		deneb: Fork {
 			version: [4, 0, 0, 1], // 0x04000001
-			epoch: 4294967295,
+			epoch: 0,
+		},
+		electra: Fork {
+			version: [5, 0, 0, 0], // 0x05000000
+			epoch: 80000000000,
 		}
 	};
 }
@@ -212,12 +214,9 @@ impl TransactAsset for SuccessfulTransactor {
 }
 
 pub struct MockTokenIdConvert;
-impl MaybeEquivalence<TokenId, Location> for MockTokenIdConvert {
-	fn convert(_id: &TokenId) -> Option<Location> {
+impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
+	fn maybe_convert(_id: TokenId) -> Option<Location> {
 		Some(Location::parent())
-	}
-	fn convert_back(_loc: &Location) -> Option<TokenId> {
-		None
 	}
 }
 
@@ -246,20 +245,6 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-}
-
-pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	frame_system::Pallet::<Test>::events()
-		.into_iter()
-		.rev()
-		.take(n)
-		.rev()
-		.map(|e| e.event)
-		.collect()
-}
-
-pub fn expect_events(e: Vec<RuntimeEvent>) {
-	assert_eq!(last_events(e.len()), e);
 }
 
 pub fn setup() {

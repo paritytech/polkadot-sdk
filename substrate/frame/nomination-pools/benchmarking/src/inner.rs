@@ -132,6 +132,10 @@ fn migrate_to_transfer_stake<T: Config>(pool_id: PoolId) {
 			.expect("member should have enough balance to transfer");
 		});
 
+	// Pool needs to have ED balance free to stake so give it some.
+	// Note: we didn't require ED until pallet-staking migrated from locks to holds.
+	let _ = CurrencyOf::<T>::mint_into(&pool_acc, CurrencyOf::<T>::minimum_balance());
+
 	pallet_staking::Pallet::<T>::migrate_to_direct_staker(&pool_acc);
 }
 
@@ -139,14 +143,6 @@ fn vote_to_balance<T: pallet_nomination_pools::Config>(
 	vote: u64,
 ) -> Result<BalanceOf<T>, &'static str> {
 	vote.try_into().map_err(|_| "could not convert u64 to Balance")
-}
-
-/// `assertion` should strictly be true if the adapter is using `Delegate` strategy and strictly
-/// false if the adapter is not using `Delegate` strategy.
-fn assert_if_delegate<T: pallet_nomination_pools::Config>(assertion: bool) {
-	let legacy_adapter_used = T::StakeAdapter::strategy_type() != StakeStrategyType::Delegate;
-	// one and only one of the two should be true.
-	assert!(assertion ^ legacy_adapter_used);
 }
 
 #[allow(unused)]
@@ -969,21 +965,19 @@ mod benchmarks {
 
 		// Remove ed freeze to create a scenario where the ed deposit needs to be adjusted.
 		let _ = Pools::<T>::unfreeze_pool_deposit(&Pools::<T>::generate_reward_account(1));
-		assert!(&Pools::<T>::check_ed_imbalance().is_err());
+
+		assert_eq!(Pools::<T>::check_ed_imbalance().unwrap(), 1);
 
 		whitelist_account!(depositor);
 
 		#[extrinsic_call]
 		_(RuntimeOrigin::Signed(depositor), 1);
 
-		assert!(&Pools::<T>::check_ed_imbalance().is_ok());
+		assert_eq!(Pools::<T>::check_ed_imbalance().unwrap(), 0);
 	}
 
 	#[benchmark]
 	fn apply_slash() {
-		// Note: With older `TransferStake` strategy, slashing is greedy and apply_slash should
-		// always fail.
-
 		// We want to fill member's unbonding pools. So let's bond with big enough amount.
 		let deposit_amount =
 			Pools::<T>::depositor_min_bond() * T::MaxUnbonding::get().into() * 4u32.into();
@@ -993,7 +987,7 @@ mod benchmarks {
 		// verify user balance in the pool.
 		assert_eq!(PoolMembers::<T>::get(&depositor).unwrap().total_balance(), deposit_amount);
 		// verify delegated balance.
-		assert_if_delegate::<T>(
+		assert!(
 			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
 				Some(deposit_amount),
 		);
@@ -1017,7 +1011,7 @@ mod benchmarks {
 			deposit_amount / 2u32.into()
 		);
 		// verify delegated balance are not yet slashed.
-		assert_if_delegate::<T>(
+		assert!(
 			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
 				Some(deposit_amount),
 		);
@@ -1041,13 +1035,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert_if_delegate::<T>(
-				Pools::<T>::apply_slash(
-					RuntimeOrigin::Signed(slash_reporter.clone()).into(),
-					depositor_lookup.clone(),
-				)
-				.is_ok(),
-			);
+			assert!(Pools::<T>::apply_slash(
+				RuntimeOrigin::Signed(slash_reporter.clone()).into(),
+				depositor_lookup.clone(),
+			)
+			.is_ok(),);
 		}
 
 		// verify balances are correct and slash applied.
@@ -1055,7 +1047,7 @@ mod benchmarks {
 			PoolMembers::<T>::get(&depositor).unwrap().total_balance(),
 			deposit_amount / 2u32.into()
 		);
-		assert_if_delegate::<T>(
+		assert!(
 			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
 				Some(deposit_amount / 2u32.into()),
 		);
@@ -1126,18 +1118,16 @@ mod benchmarks {
 		let _ = migrate_to_transfer_stake::<T>(1);
 		#[block]
 		{
-			assert_if_delegate::<T>(
-				Pools::<T>::migrate_pool_to_delegate_stake(
-					RuntimeOrigin::Signed(depositor.clone()).into(),
-					1u32.into(),
-				)
-				.is_ok(),
-			);
+			assert!(Pools::<T>::migrate_pool_to_delegate_stake(
+				RuntimeOrigin::Signed(depositor.clone()).into(),
+				1u32.into(),
+			)
+			.is_ok(),);
 		}
-		// this queries agent balance if `DelegateStake` strategy.
+		// this queries agent balance.
 		assert_eq!(
 			T::StakeAdapter::total_balance(Pool::from(pool_account.clone())),
-			Some(deposit_amount)
+			Some(deposit_amount + CurrencyOf::<T>::minimum_balance())
 		);
 	}
 
@@ -1152,13 +1142,11 @@ mod benchmarks {
 		let _ = migrate_to_transfer_stake::<T>(1);
 
 		// Now migrate pool to delegate stake keeping delegators unmigrated.
-		assert_if_delegate::<T>(
-			Pools::<T>::migrate_pool_to_delegate_stake(
-				RuntimeOrigin::Signed(depositor.clone()).into(),
-				1u32.into(),
-			)
-			.is_ok(),
-		);
+		assert!(Pools::<T>::migrate_pool_to_delegate_stake(
+			RuntimeOrigin::Signed(depositor.clone()).into(),
+			1u32.into(),
+		)
+		.is_ok(),);
 
 		// delegation does not exist.
 		assert!(
@@ -1171,16 +1159,14 @@ mod benchmarks {
 
 		#[block]
 		{
-			assert_if_delegate::<T>(
-				Pools::<T>::migrate_delegation(
-					RuntimeOrigin::Signed(depositor.clone()).into(),
-					depositor_lookup.clone(),
-				)
-				.is_ok(),
-			);
+			assert!(Pools::<T>::migrate_delegation(
+				RuntimeOrigin::Signed(depositor.clone()).into(),
+				depositor_lookup.clone(),
+			)
+			.is_ok(),);
 		}
 		// verify balances once more.
-		assert_if_delegate::<T>(
+		assert!(
 			T::StakeAdapter::member_delegation_balance(Member::from(depositor.clone())) ==
 				Some(deposit_amount),
 		);

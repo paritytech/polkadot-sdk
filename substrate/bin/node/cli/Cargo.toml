@@ -27,24 +27,36 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "paritytech/polkadot-sdk" }
 is-it-maintained-open-issues = { repository = "paritytech/polkadot-sdk" }
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [[bin]]
 name = "substrate-node"
 path = "bin/main.rs"
 required-features = ["cli"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[[bench]]
+name = "transaction_pool"
+harness = false
+
+[[bench]]
+name = "block_production"
+harness = false
+
+[[bench]]
+name = "executor"
+harness = false
 
 [dependencies]
 # third-party dependencies
 array-bytes = { workspace = true, default-features = true }
 clap = { features = ["derive"], optional = true, workspace = true }
 codec = { workspace = true, default-features = true }
-serde = { features = ["derive"], workspace = true, default-features = true }
-jsonrpsee = { features = ["server"], workspace = true }
 futures = { workspace = true }
+jsonrpsee = { features = ["server"], workspace = true }
 log = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
 
@@ -135,32 +147,28 @@ polkadot-sdk = { features = [
 
 # Shared code between the staging node and kitchensink runtime:
 kitchensink-runtime = { workspace = true }
-node-rpc = { workspace = true }
-node-primitives = { workspace = true, default-features = true }
 node-inspect = { optional = true, workspace = true, default-features = true }
+node-primitives = { workspace = true, default-features = true }
+node-rpc = { workspace = true }
 
 [dev-dependencies]
-futures = { workspace = true }
-tempfile = { workspace = true }
 assert_cmd = { workspace = true }
-nix = { features = ["signal"], workspace = true }
-regex = { workspace = true }
-platforms = { workspace = true }
-soketto = { workspace = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
+nix = { features = ["signal"], workspace = true }
+pretty_assertions.workspace = true
+regex = { workspace = true }
+scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
+soketto = { workspace = true }
+sp-keyring = { workspace = true }
+tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
-wait-timeout = { workspace = true }
 wat = { workspace = true }
-serde_json = { workspace = true, default-features = true }
-scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
-sp-keyring = { workspace = true }
-pretty_assertions.workspace = true
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
 node-testing = { workspace = true }
-substrate-cli-test-utils = { workspace = true }
 sc-service-test = { workspace = true }
+substrate-cli-test-utils = { workspace = true }
 
 [build-dependencies]
 clap = { optional = true, workspace = true }
@@ -168,7 +176,12 @@ clap_complete = { optional = true, workspace = true }
 
 node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-storage-monitor",
+	"substrate-build-script-utils",
+], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]
@@ -183,15 +196,3 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-
-[[bench]]
-name = "transaction_pool"
-harness = false
-
-[[bench]]
-name = "block_production"
-harness = false
-
-[[bench]]
-name = "executor"
-harness = false

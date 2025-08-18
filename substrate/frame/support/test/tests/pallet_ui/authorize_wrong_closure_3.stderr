@@ -1,0 +1,5 @@
+error: unexpected end of input, expected an expression
+  --> tests/pallet_ui/authorize_wrong_closure_3.rs:36:22
+   |
+36 |         #[pallet::authorize()]
+   |                            ^^

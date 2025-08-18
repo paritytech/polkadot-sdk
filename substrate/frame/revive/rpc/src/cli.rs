@@ -16,8 +16,10 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	client::Client, EthRpcServer, EthRpcServerImpl, SystemHealthRpcServer,
-	SystemHealthRpcServerImpl,
+	client::{connect, Client, SubscriptionType, SubstrateBlockNumber},
+	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, ReceiptExtractor,
+	ReceiptProvider, SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
+	LOG_TARGET,
 };
 use clap::Parser;
 use futures::{pin_mut, FutureExt};
@@ -27,12 +29,15 @@ use sc_service::{
 	config::{PrometheusConfig, RpcConfiguration},
 	start_rpc_servers, TaskManager,
 };
+use sqlx::sqlite::SqlitePoolOptions;
 
 // Default port if --prometheus-port is not specified
 const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
+
+const IN_MEMORY_DB: &str = "sqlite::memory:";
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -41,6 +46,24 @@ pub struct CliCommand {
 	/// The node url to connect to
 	#[clap(long, default_value = "ws://127.0.0.1:9944")]
 	pub node_rpc_url: String,
+
+	/// The maximum number of blocks to cache in memory.
+	#[clap(long, default_value = "256")]
+	pub cache_size: usize,
+
+	/// Earliest block number to consider when searching for transaction receipts.
+	#[clap(long)]
+	pub earliest_receipt_block: Option<SubstrateBlockNumber>,
+
+	/// The database used to store Ethereum transaction hashes.
+	/// This is only useful if the node needs to act as an archive node and respond to Ethereum RPC
+	/// queries for transactions that are not in the in memory cache.
+	#[clap(long, env = "DATABASE_URL", default_value = IN_MEMORY_DB)]
+	pub database_url: String,
+
+	/// If provided, index the last n blocks
+	#[clap(long)]
+	pub index_last_n_blocks: Option<SubstrateBlockNumber>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -76,9 +99,72 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	Ok(())
 }
 
+fn build_client(
+	tokio_handle: &tokio::runtime::Handle,
+	cache_size: usize,
+	earliest_receipt_block: Option<SubstrateBlockNumber>,
+	node_rpc_url: &str,
+	database_url: &str,
+	abort_signal: Signals,
+) -> anyhow::Result<Client> {
+	let fut = async {
+		let (api, rpc_client, rpc) = connect(node_rpc_url).await?;
+		let block_provider = SubxtBlockInfoProvider::new( api.clone(), rpc.clone()).await?;
+
+		let (pool, keep_latest_n_blocks) = if database_url == IN_MEMORY_DB {
+			log::warn!( target: LOG_TARGET, "💾 Using in-memory database, keeping only {cache_size} blocks in memory");
+			// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+			let pool = SqlitePoolOptions::new()
+					.max_connections(1)
+					.idle_timeout(None)
+					.max_lifetime(None)
+					.connect(database_url).await?;
+
+			(pool, Some(cache_size))
+		} else {
+			(SqlitePoolOptions::new().connect(database_url).await?, None)
+		};
+
+		let receipt_extractor = ReceiptExtractor::new(
+			api.clone(),
+			earliest_receipt_block).await?;
+
+		let receipt_provider = ReceiptProvider::new(
+				pool,
+				block_provider.clone(),
+				receipt_extractor.clone(),
+				keep_latest_n_blocks,
+			)
+			.await?;
+
+		let client =
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider).await?;
+
+		Ok(client)
+	}
+	.fuse();
+	pin_mut!(fut);
+
+	match tokio_handle.block_on(abort_signal.try_until_signal(fut)) {
+		Ok(Ok(client)) => Ok(client),
+		Ok(Err(err)) => Err(err),
+		Err(_) => anyhow::bail!("Process interrupted"),
+	}
+}
+
 /// Start the JSON-RPC server using the given command line arguments.
 pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
-	let CliCommand { rpc_params, prometheus_params, node_rpc_url, shared_params, .. } = cmd;
+	let CliCommand {
+		rpc_params,
+		prometheus_params,
+		node_rpc_url,
+		cache_size,
+		database_url,
+		earliest_receipt_block,
+		index_last_n_blocks,
+		shared_params,
+		..
+	} = cmd;
 
 	#[cfg(not(test))]
 	init_logger(&shared_params)?;
@@ -110,24 +196,16 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 
 	let tokio_runtime = sc_cli::build_runtime()?;
 	let tokio_handle = tokio_runtime.handle();
-	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	let mut task_manager = TaskManager::new(tokio_handle.clone(), prometheus_registry)?;
-	let essential_spawn_handle = task_manager.spawn_essential_handle();
 
-	let gen_rpc_module = || {
-		let signals = tokio_runtime.block_on(async { Signals::capture() })?;
-		let fut = Client::from_url(&node_rpc_url, &essential_spawn_handle).fuse();
-		pin_mut!(fut);
-
-		match tokio_handle.block_on(signals.try_until_signal(fut)) {
-			Ok(Ok(client)) => rpc_module(is_dev, client),
-			Ok(Err(err)) => {
-				log::error!("Error connecting to the node at {node_rpc_url}: {err}");
-				Err(sc_service::Error::Application(err.into()))
-			},
-			Err(_) => Err(sc_service::Error::Application("Client connection interrupted".into())),
-		}
-	};
+	let client = build_client(
+		tokio_handle,
+		cache_size,
+		earliest_receipt_block,
+		&node_rpc_url,
+		&database_url,
+		tokio_runtime.block_on(async { Signals::capture() })?,
+	)?;
 
 	// Prometheus metrics.
 	if let Some(PrometheusConfig { port, registry }) = prometheus_config.clone() {
@@ -138,10 +216,34 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		);
 	}
 
-	let rpc_server_handle =
-		start_rpc_servers(&rpc_config, prometheus_registry, tokio_handle, gen_rpc_module, None)?;
+	let rpc_server_handle = start_rpc_servers(
+		&rpc_config,
+		prometheus_registry,
+		tokio_handle,
+		|| rpc_module(is_dev, client.clone()),
+		None,
+	)?;
+
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-subscription", None, async move {
+			let fut1 = client.subscribe_and_cache_new_blocks(SubscriptionType::BestBlocks);
+			let fut2 = client.subscribe_and_cache_new_blocks(SubscriptionType::FinalizedBlocks);
+
+			let res = if let Some(index_last_n_blocks) = index_last_n_blocks {
+				let fut3 = client.subscribe_and_cache_blocks(index_last_n_blocks);
+				tokio::try_join!(fut1, fut2, fut3).map(|_| ())
+			} else {
+				tokio::try_join!(fut1, fut2).map(|_| ())
+			};
+
+			if let Err(err) = res {
+				panic!("Block subscription task failed: {err:?}",)
+			}
+		});
 
 	task_manager.keep_alive(rpc_server_handle);
+	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
 	tokio_runtime.block_on(signals.run_until_signal(task_manager.future().fuse()))?;
 	Ok(())
 }
@@ -152,10 +254,12 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		.with_accounts(if is_dev { vec![crate::Account::default()] } else { vec![] })
 		.into_rpc();
 
-	let health_api = SystemHealthRpcServerImpl::new(client).into_rpc();
+	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
+	let debug_api = DebugRpcServerImpl::new(client).into_rpc();
 
 	let mut module = RpcModule::new(());
 	module.merge(eth_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	module.merge(health_api).map_err(|e| sc_service::Error::Application(e.into()))?;
+	module.merge(debug_api).map_err(|e| sc_service::Error::Application(e.into()))?;
 	Ok(module)
 }

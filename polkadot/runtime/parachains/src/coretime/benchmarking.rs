@@ -43,6 +43,8 @@ mod benchmarks {
 			.unwrap();
 		on_demand::Revenue::<T>::put(rev);
 
+		crate::paras::Heads::<T>::insert(ParaId::from(T::BrokerId::get()), vec![1, 2, 3]);
+
 		<T as on_demand::Config>::Currency::make_free_balance_be(
 			&<on_demand::Pallet<T>>::account_id(),
 			minimum_balance * (mhr * (mhr + 1)).into(),
@@ -93,5 +95,15 @@ mod benchmarks {
 			assignments,
 			Some(BlockNumberFor::<T>::from(20u32)),
 		)
+	}
+
+	#[benchmark]
+	fn credit_account() {
+		// Setup
+		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
+		let who: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		_(root_origin as <T as frame_system::Config>::RuntimeOrigin, who, 1_000_000u32.into())
 	}
 }

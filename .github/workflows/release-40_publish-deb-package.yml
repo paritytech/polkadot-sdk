@@ -1,10 +1,10 @@
-name: Release - Publish polakdot deb package
+name: Release - Publish polkadot deb package
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Current final release tag in the format polakdot-stableYYMM or polkadot-stable-YYMM-X
+        description: Current final release tag in the format polkadot-stableYYMM or polkadot-stable-YYMM-X
         default: polkadot-stable2412
         required: true
         type: string
@@ -17,7 +17,9 @@ on:
 
 jobs:
   check-synchronization:
-    uses: paritytech-release/sync-workflows/.github/workflows/check-syncronization.yml@main
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
@@ -44,9 +46,9 @@ jobs:
     needs: [validate-inputs]
     env:
       REPO: ${{ github.repository }}
-      RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
+      VERSION: ${{ needs.validate-inputs.outputs.release_tag }}
     outputs:
-      VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.VERSION }}
+      NODE_VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.NODE_VERSION }}
 
     steps:
       - name: Checkout sources
@@ -57,8 +59,8 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="$(get_polkadot_node_version_from_code)"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          NODE_VERSION="$(get_polkadot_node_version_from_code)"
+          echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_OUTPUT
 
           fetch_debian_package_from_s3 polkadot
 
@@ -76,13 +78,13 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
       AWS_DEB_PATH: "s3://releases-package-repos/deb"
       LOCAL_DEB_REPO_PATH: ${{ github.workspace }}/deb
-      VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.VERSION }}
+      NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
 
     steps:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@1f8555426662ac93a3849480a35449f683b1c89f"
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
           echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
 
       - name: Install awscli
@@ -135,7 +137,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
           # Add the new deb to the repo
-          reprepro -b "$LOCAL_DEB_REPO_PATH" includedeb "${{ inputs.distribution }}" "release-artifacts/polkadot_${VERSION}_amd64.deb"
+          reprepro -b "$LOCAL_DEB_REPO_PATH" includedeb "${{ inputs.distribution }}" "release-artifacts/polkadot_${NODE_VERSION}_amd64.deb"
 
       - name: Upload updated deb repo
         env:

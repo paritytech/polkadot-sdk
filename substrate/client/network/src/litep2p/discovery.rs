@@ -19,7 +19,10 @@
 //! libp2p-related discovery code for litep2p backend.
 
 use crate::{
-	config::{NetworkConfiguration, ProtocolId},
+	config::{
+		NetworkConfiguration, ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
 	peer_store::PeerStoreProvider,
 };
 
@@ -32,9 +35,9 @@ use litep2p::{
 		libp2p::{
 			identify::{Config as IdentifyConfig, IdentifyEvent},
 			kademlia::{
-				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder,
-				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, QueryId, Quorum,
-				Record, RecordKey, RecordsType,
+				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
+				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
+				Quorum, Record, RecordKey,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -50,6 +53,7 @@ use schnellru::{ByLength, LruMap};
 use std::{
 	cmp,
 	collections::{HashMap, HashSet, VecDeque},
+	iter,
 	num::NonZeroUsize,
 	pin::Pin,
 	sync::Arc,
@@ -72,11 +76,9 @@ const GET_RECORD_REDUNDANCY_FACTOR: usize = 4;
 /// The maximum number of tracked external addresses we allow.
 const MAX_EXTERNAL_ADDRESSES: u32 = 32;
 
-/// Minimum number of confirmations received before an address is verified.
-///
-/// Note: all addresses are confirmed by libp2p on the first encounter. This aims to make
-/// addresses a bit more robust.
-const MIN_ADDRESS_CONFIRMATIONS: usize = 2;
+/// Number of times observed address is received from different peers before it is confirmed as
+/// external.
+const MIN_ADDRESS_CONFIRMATIONS: usize = 3;
 
 /// Discovery events.
 #[derive(Debug)]
@@ -103,6 +105,8 @@ pub enum DiscoveryEvent {
 	},
 
 	/// One or more addresses discovered.
+	///
+	/// This event is emitted when a new peer is discovered over mDNS.
 	Discovered {
 		/// Discovered addresses.
 		addresses: Vec<Multiaddr>,
@@ -129,19 +133,45 @@ pub enum DiscoveryEvent {
 		address: Multiaddr,
 	},
 
-	/// Record was found from the DHT.
-	GetRecordSuccess {
+	/// `FIND_NODE` query succeeded.
+	FindNodeSuccess {
 		/// Query ID.
 		query_id: QueryId,
 
-		/// Records.
-		records: RecordsType,
+		/// Target.
+		target: PeerId,
+
+		/// Found peers.
+		peers: Vec<(PeerId, Vec<Multiaddr>)>,
+	},
+
+	/// `GetRecord` query succeeded.
+	GetRecordSuccess {
+		/// Query ID.
+		query_id: QueryId,
+	},
+
+	/// Record was found from the DHT.
+	GetRecordPartialResult {
+		/// Query ID.
+		query_id: QueryId,
+
+		/// Record.
+		record: PeerRecord,
 	},
 
 	/// Record was successfully stored on the DHT.
 	PutRecordSuccess {
 		/// Query ID.
 		query_id: QueryId,
+	},
+
+	/// Providers were successfully retrieved.
+	GetProvidersSuccess {
+		/// Query ID.
+		query_id: QueryId,
+		/// Found providers sorted by distance to provided key.
+		providers: Vec<ContentProvider>,
 	},
 
 	/// Query failed.
@@ -186,7 +216,7 @@ pub struct Discovery {
 	next_kad_query: Option<Delay>,
 
 	/// Active `FIND_NODE` query if it exists.
-	find_node_query_id: Option<QueryId>,
+	random_walk_query_id: Option<QueryId>,
 
 	/// Pending events.
 	pending_events: VecDeque<DiscoveryEvent>,
@@ -246,7 +276,7 @@ impl Discovery {
 		_peerstore_handle: Arc<dyn PeerStoreProvider>,
 	) -> (Self, PingConfig, IdentifyConfig, KademliaConfig, Option<MdnsConfig>) {
 		let (ping_config, ping_event_stream) = PingConfig::default();
-		let user_agent = format!("{} ({})", config.client_version, config.node_name);
+		let user_agent = format!("{} ({}) (litep2p)", config.client_version, config.node_name);
 
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
@@ -272,6 +302,9 @@ impl Discovery {
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
+				.with_provider_record_ttl(KADEMLIA_PROVIDER_RECORD_TTL)
+				.with_provider_refresh_interval(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL)
+				.with_max_provider_keys(KADEMLIA_MAX_PROVIDER_KEYS)
 				.build()
 		};
 
@@ -284,7 +317,7 @@ impl Discovery {
 				kademlia_handle,
 				_peerstore_handle,
 				listen_addresses,
-				find_node_query_id: None,
+				random_walk_query_id: None,
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
@@ -350,6 +383,11 @@ impl Discovery {
 		self.kademlia_handle.add_known_peer(peer, addresses).await;
 	}
 
+	/// Start Kademlia `FIND_NODE` query for `target`.
+	pub async fn find_node(&mut self, target: PeerId) -> QueryId {
+		self.kademlia_handle.find_node(target).await
+	}
+
 	/// Start Kademlia `GET_VALUE` query for `key`.
 	pub async fn get_value(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
@@ -407,6 +445,21 @@ impl Discovery {
 			.await;
 	}
 
+	/// Start providing `key`.
+	pub async fn start_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.start_providing(key.into()).await;
+	}
+
+	/// Stop providing `key`.
+	pub async fn stop_providing(&mut self, key: KademliaKey) {
+		self.kademlia_handle.stop_providing(key.into()).await;
+	}
+
+	/// Get providers for `key`.
+	pub async fn get_providers(&mut self, key: KademliaKey) -> QueryId {
+		self.kademlia_handle.get_providers(key.into()).await
+	}
+
 	/// Check if the observed address is a known address.
 	fn is_known_address(known: &Multiaddr, observed: &Multiaddr) -> bool {
 		let mut known = known.iter();
@@ -446,6 +499,15 @@ impl Discovery {
 	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
+		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+			log::trace!(
+				target: LOG_TARGET,
+				"ignoring externally reported non-global address {address} from {peer}."
+			);
+
+			return (false, None);
+		}
+
 		// is the address one of our known addresses
 		if self
 			.listen_addresses
@@ -480,7 +542,7 @@ impl Discovery {
 					.flatten()
 					.flatten();
 
-				self.address_confirmations.insert(address.clone(), Default::default());
+				self.address_confirmations.insert(address.clone(), iter::once(peer).collect());
 
 				return (false, oldest)
 			},
@@ -512,7 +574,7 @@ impl Stream for Discovery {
 
 					match this.kademlia_handle.try_find_node(peer) {
 						Ok(query_id) => {
-							this.find_node_query_id = Some(query_id);
+							this.random_walk_query_id = Some(query_id);
 							return Poll::Ready(Some(DiscoveryEvent::RandomKademliaStarted))
 						},
 						Err(()) => {
@@ -531,7 +593,9 @@ impl Stream for Discovery {
 		match Pin::new(&mut this.kademlia_handle).poll_next(cx) {
 			Poll::Pending => {},
 			Poll::Ready(None) => return Poll::Ready(None),
-			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { peers, .. })) => {
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }))
+				if Some(query_id) == this.random_walk_query_id =>
+			{
 				// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
@@ -543,6 +607,15 @@ impl Stream for Discovery {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
 				}))
 			},
+			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, target, peers })) => {
+				log::trace!(target: LOG_TARGET, "find node query yielded {} peers", peers.len());
+
+				return Poll::Ready(Some(DiscoveryEvent::FindNodeSuccess {
+					query_id,
+					target,
+					peers,
+				}))
+			},
 			Poll::Ready(Some(KademliaEvent::RoutingTableUpdate { peers })) => {
 				log::trace!(target: LOG_TARGET, "routing table update, discovered {} peers", peers.len());
 
@@ -550,20 +623,31 @@ impl Stream for Discovery {
 					peers: peers.into_iter().collect(),
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id, records })) => {
+			Poll::Ready(Some(KademliaEvent::GetRecordSuccess { query_id })) => {
 				log::trace!(
 					target: LOG_TARGET,
-					"`GET_RECORD` succeeded for {query_id:?}: {records:?}",
+					"`GET_RECORD` succeeded for {query_id:?}",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id, records }));
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordSuccess { query_id }));
+			},
+			Poll::Ready(Some(KademliaEvent::GetRecordPartialResult { query_id, record })) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_RECORD` intermediary succeeded for {query_id:?}: {record:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetRecordPartialResult {
+					query_id,
+					record,
+				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PutRecordSuccess { query_id, key: _ })) =>
 				return Poll::Ready(Some(DiscoveryEvent::PutRecordSuccess { query_id })),
 			Poll::Ready(Some(KademliaEvent::QueryFailed { query_id })) => {
-				match this.find_node_query_id == Some(query_id) {
+				match this.random_walk_query_id == Some(query_id) {
 					true => {
-						this.find_node_query_id = None;
+						this.random_walk_query_id = None;
 						this.duration_to_next_find_query =
 							cmp::min(this.duration_to_next_find_query * 2, Duration::from_secs(60));
 						this.next_kad_query = Some(Delay::new(this.duration_to_next_find_query));
@@ -581,8 +665,22 @@ impl Stream for Discovery {
 
 				return Poll::Ready(Some(DiscoveryEvent::IncomingRecord { record }))
 			},
-			// Content provider events are ignored for now.
-			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess { .. })) |
+			Poll::Ready(Some(KademliaEvent::GetProvidersSuccess {
+				provided_key,
+				providers,
+				query_id,
+			})) => {
+				log::trace!(
+					target: LOG_TARGET,
+					"`GET_PROVIDERS` for {query_id:?} with {provided_key:?} yielded {providers:?}",
+				);
+
+				return Poll::Ready(Some(DiscoveryEvent::GetProvidersSuccess {
+					query_id,
+					providers,
+				}))
+			},
+			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
 
@@ -660,5 +758,168 @@ impl Stream for Discovery {
 		}
 
 		Poll::Pending
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use std::sync::atomic::AtomicU32;
+
+	use crate::{
+		config::ProtocolId,
+		peer_store::{PeerStore, PeerStoreProvider},
+	};
+	use futures::{stream::FuturesUnordered, StreamExt};
+	use sp_core::H256;
+	use sp_tracing::tracing_subscriber;
+
+	use litep2p::{
+		config::ConfigBuilder as Litep2pConfigBuilder, transport::tcp::config::Config as TcpConfig,
+		Litep2p,
+	};
+
+	#[tokio::test]
+	async fn litep2p_discovery_works() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+			.try_init();
+
+		let mut known_peers = HashMap::new();
+		let genesis_hash = H256::from_low_u64_be(1);
+		let fork_id = Some("test-fork-id");
+		let protocol_id = ProtocolId::from("dot");
+
+		// Build backends such that the first peer is known to all other peers.
+		let backends = (0..10)
+			.map(|i| {
+				let keypair = litep2p::crypto::ed25519::Keypair::generate();
+				let peer_id: PeerId = keypair.public().to_peer_id().into();
+
+				let listen_addresses = Arc::new(RwLock::new(HashSet::new()));
+
+				let peer_store = PeerStore::new(vec![], None);
+				let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
+
+				let (discovery, ping_config, identify_config, kademlia_config, _mdns) =
+					Discovery::new(
+						peer_id,
+						&NetworkConfiguration::new_local(),
+						genesis_hash,
+						fork_id,
+						&protocol_id,
+						known_peers.clone(),
+						listen_addresses.clone(),
+						peer_store_handle,
+					);
+
+				let config = Litep2pConfigBuilder::new()
+					.with_keypair(keypair)
+					.with_tcp(TcpConfig {
+						listen_addresses: vec!["/ip6/::1/tcp/0".parse().unwrap()],
+						..Default::default()
+					})
+					.with_libp2p_ping(ping_config)
+					.with_libp2p_identify(identify_config)
+					.with_libp2p_kademlia(kademlia_config)
+					.build();
+
+				let mut litep2p = Litep2p::new(config).unwrap();
+
+				let addresses = litep2p.listen_addresses().cloned().collect::<Vec<_>>();
+				// Propagate addresses to discovery.
+				addresses.iter().for_each(|address| {
+					listen_addresses.write().insert(address.clone());
+				});
+
+				// Except the first peer, all other peers know the first peer addresses.
+				if i == 0 {
+					log::info!(target: LOG_TARGET, "First peer is {peer_id:?} with addresses {addresses:?}");
+					known_peers.insert(peer_id, addresses.clone());
+				} else {
+					let (peer, addresses) = known_peers.iter().next().unwrap();
+
+					let result = litep2p.add_known_address(*peer, addresses.into_iter().cloned());
+
+					log::info!(target: LOG_TARGET, "{peer_id:?}: Adding known peer {peer:?} with addresses {addresses:?} result={result:?}");
+
+				}
+
+				(peer_id, litep2p, discovery)
+			})
+			.collect::<Vec<_>>();
+
+		let total_peers = backends.len() as u32;
+		let remaining_peers =
+			backends.iter().map(|(peer_id, _, _)| *peer_id).collect::<HashSet<_>>();
+
+		let first_peer = *known_peers.iter().next().unwrap().0;
+
+		// Each backend must discover the whole network.
+		let mut futures = FuturesUnordered::new();
+		let num_finished = Arc::new(AtomicU32::new(0));
+
+		for (peer_id, mut litep2p, mut discovery) in backends {
+			// Remove the local peer id from the set.
+			let mut remaining_peers = remaining_peers.clone();
+			remaining_peers.remove(&peer_id);
+
+			let num_finished = num_finished.clone();
+
+			let future = async move {
+				log::info!(target: LOG_TARGET, "{peer_id:?} starting loop");
+
+				if peer_id != first_peer {
+					log::info!(target: LOG_TARGET, "{peer_id:?} dialing {first_peer:?}");
+					litep2p.dial(&first_peer).await.unwrap();
+				}
+
+				loop {
+					// We need to keep the network alive until all peers are discovered.
+					if num_finished.load(std::sync::atomic::Ordering::Relaxed) == total_peers {
+						log::info!(target: LOG_TARGET, "{peer_id:?} all peers discovered");
+						break
+					}
+
+					tokio::select! {
+						// Drive litep2p backend forward.
+						event = litep2p.next_event() => {
+							log::info!(target: LOG_TARGET, "{peer_id:?} Litep2p event: {event:?}");
+						},
+
+						// Detect discovery events.
+						event = discovery.next() => {
+							match event.unwrap() {
+								// We have discovered the peer via kademlia and established
+								// a connection on the identify protocol.
+								DiscoveryEvent::Identified { peer, .. } => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Peer {peer} identified");
+
+									remaining_peers.remove(&peer);
+
+									if remaining_peers.is_empty() {
+										log::info!(target: LOG_TARGET, "{peer_id:?} All peers discovered");
+
+										num_finished.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+									}
+								},
+
+								event => {
+									log::info!(target: LOG_TARGET, "{peer_id:?} Discovery event: {event:?}");
+								}
+							}
+						}
+					}
+				}
+			};
+
+			futures.push(future);
+		}
+
+		// Futures will exit when all peers are discovered.
+		tokio::time::timeout(Duration::from_secs(60), futures.next())
+			.await
+			.expect("All peers should finish within 60 seconds");
 	}
 }

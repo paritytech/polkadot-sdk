@@ -102,11 +102,13 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		executor.set_holding(holding);
 
-		let fee_asset = AssetId(Here.into());
+		// The worst case we want for buy execution in terms of
+		// fee asset and weight
+		let (fee_asset, weight_limit) = T::worst_case_for_trader()?;
 
 		let instruction = Instruction::<XcmCallOf<T>>::BuyExecution {
-			fees: (fee_asset, 100_000_000u128).into(), // should be something inside of holding
-			weight_limit: WeightLimit::Unlimited,
+			fees: fee_asset,
+			weight_limit: weight_limit.into(),
 		};
 
 		let xcm = Xcm(vec![instruction]);
@@ -127,7 +129,7 @@ mod benchmarks {
 		// Set some weight to be paid for.
 		executor.set_message_weight(Weight::from_parts(100_000_000, 100_000));
 
-		let fee_asset: Asset = T::fee_asset().unwrap();
+		let (fee_asset, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
 
 		let instruction = Instruction::<XcmCallOf<T>>::PayFees { asset: fee_asset };
 
@@ -140,7 +142,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_asset_claimer() -> Result<(), BenchmarkError> {
+	fn asset_claimer() -> Result<(), BenchmarkError> {
 		let mut executor = new_executor::<T>(Default::default());
 		let (_, sender_location) = account_and_location::<T>(1);
 
@@ -207,7 +209,8 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(Default::default());
 		let holding_assets = T::worst_case_holding(1);
 		// We can already buy execution since we'll load the holding register manually
-		let asset_for_fees = T::fee_asset().unwrap();
+		let (asset_for_fees, _): (Asset, WeightLimit) = T::worst_case_for_trader().unwrap();
+
 		let previous_xcm = Xcm(vec![BuyExecution {
 			fees: asset_for_fees,
 			weight_limit: Limited(Weight::from_parts(1337, 1337)),
@@ -299,7 +302,9 @@ mod benchmarks {
 		let xcm = Xcm(vec![instruction]);
 		#[block]
 		{
-			executor.bench_process(xcm)?;
+			executor
+				.bench_process(xcm)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		}
 		assert_eq!(executor.origin(), &Some(Location { parents: 0, interior: Here }),);
 
@@ -407,6 +412,9 @@ mod benchmarks {
 		let mut executor = new_executor::<T>(origin.clone());
 		let instruction = Instruction::SubscribeVersion { query_id, max_response_weight };
 		let xcm = Xcm(vec![instruction]);
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		#[block]
 		{
 			executor.bench_process(xcm)?;
@@ -422,6 +430,9 @@ mod benchmarks {
 		use xcm_executor::traits::VersionChangeNotifier;
 		// First we need to subscribe to notifications.
 		let (origin, _) = T::transact_origin_and_runtime_call()?;
+
+		T::DeliveryHelper::ensure_successful_delivery(&origin, &origin, FeeReason::QueryPallet);
+
 		let query_id = Default::default();
 		let max_response_weight = Default::default();
 		<T::XcmConfig as xcm_executor::Config>::SubscriptionService::start(
@@ -700,7 +711,7 @@ mod benchmarks {
 		{
 			executor.bench_process(xcm)?;
 		}
-		assert_eq!(executor.holding(), &want.into());
+		assert!(executor.holding().contains(&want.into()));
 		Ok(())
 	}
 

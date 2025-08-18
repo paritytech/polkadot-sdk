@@ -20,6 +20,8 @@
 #[cfg(test)]
 mod block_import;
 #[cfg(test)]
+mod conformance;
+#[cfg(test)]
 mod fuzz;
 #[cfg(test)]
 mod service;
@@ -91,7 +93,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
 	Justification, Justifications,
 };
-use substrate_test_runtime_client::AccountKeyring;
+use substrate_test_runtime_client::Sr25519Keyring;
 pub use substrate_test_runtime_client::{
 	runtime::{Block, ExtrinsicBuilder, Hash, Header, Transfer},
 	TestClient, TestClientBuilder, TestClientBuilderExt,
@@ -475,8 +477,8 @@ where
 				BlockOrigin::File,
 				|mut builder| {
 					let transfer = Transfer {
-						from: AccountKeyring::Alice.into(),
-						to: AccountKeyring::Alice.into(),
+						from: Sr25519Keyring::Alice.into(),
+						to: Sr25519Keyring::Alice.into(),
 						amount: 1,
 						nonce,
 					};
@@ -671,7 +673,7 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
 		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header))
+		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
 	}
 	fn current_authorities(&self) -> AuthorityList {
 		Default::default()
@@ -915,6 +917,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			metrics_registry: None,
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
+			min_peers_to_start_warp_sync: None,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

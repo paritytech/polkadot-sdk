@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
 use async_trait::async_trait;
@@ -26,7 +27,7 @@ use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
-	vstaging::{CommittedCandidateReceiptV2, CoreState},
+	vstaging::{CandidateEvent, CommittedCandidateReceiptV2, CoreState},
 	BlockNumber, CandidateCommitments, CandidateDescriptor, CollatorPair,
 	CommittedCandidateReceipt, Hash as PHash, HeadData, InboundDownwardMessage, InboundHrmpMessage,
 	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, SigningContext,
@@ -345,6 +346,14 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		_hash: PHash,
 		_payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn scheduling_lookahead(&self, _: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		unimplemented!("Not needed for test")
 	}
 }

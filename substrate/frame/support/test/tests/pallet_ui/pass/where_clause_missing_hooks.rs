@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #[frame_support::pallet]
-mod pallet {
+pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config
 	where
@@ -34,7 +34,7 @@ mod pallet {
 	where
 		<T as frame_system::Config>::Nonce: From<u128>,
 	{
-		fn foo(x: u128) {
+		pub fn foo(x: u128) {
 			let _index = <T as frame_system::Config>::Nonce::from(x);
 		}
 	}
