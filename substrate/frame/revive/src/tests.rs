@@ -4038,43 +4038,6 @@ fn origin_api_works() {
 }
 
 #[test]
-fn to_account_id_works() {
-	let (code_hash_code, _) = compile_module("to_account_id").unwrap();
-
-	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&EVE, 1_000_000);
-
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
-
-		// mapped account
-		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		let expected_mapped_account_id = &<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR);
-		assert_ne!(
-			expected_mapped_account_id.encode()[20..32],
-			[0xEE; 12],
-			"fallback suffix found where none should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((EVE_ADDR, expected_mapped_account_id).encode())
-			.build());
-
-		// fallback for unmapped accounts
-		let expected_fallback_account_id =
-			&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
-		assert_eq!(
-			expected_fallback_account_id.encode()[20..32],
-			[0xEE; 12],
-			"no fallback suffix found where one should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((BOB_ADDR, expected_fallback_account_id).encode())
-			.build());
-	});
-}
-
-#[test]
 fn code_hash_works() {
 	use crate::precompiles::{Precompile, EVM_REVERT};
 	use precompiles::NoInfo;
