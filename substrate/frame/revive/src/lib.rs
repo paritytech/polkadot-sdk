@@ -45,9 +45,10 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::EthBlockBuilder, runtime::GAS_PRICE, CallTracer, GasEncoder,
-		GenericTransaction, HashesOrTransactionInfos, PrestateTracer, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		block_hash::{EthBlockBuilder, ReconstructReceiptInfo},
+		runtime::GAS_PRICE,
+		CallTracer, GasEncoder, GenericTransaction, HashesOrTransactionInfos, PrestateTracer,
+		Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -120,6 +121,9 @@ pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_paym
 /// sentinel because contracts are never allowed to use such a large amount of resources
 /// that this value makes sense for a memory location or length.
 const SENTINEL: u32 = u32::MAX;
+
+/// The maximum number of block hashes to keep in the history.
+const BLOCK_HASH_COUNT: u32 = 256;
 
 /// The target that is used for the log output emitted by this crate.
 ///
@@ -282,11 +286,6 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
-
-		/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-		#[pallet::constant]
-		#[pallet::no_default_bounds]
-		type BlockHashCount: Get<BlockNumberFor<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -311,7 +310,6 @@ pub mod pallet {
 			pub const DepositPerItem: Balance = deposit(1, 0);
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-			pub const BlockHashCount: u64 = 256;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -359,7 +357,6 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
-			type BlockHashCount = BlockHashCount;
 		}
 	}
 
@@ -379,20 +376,6 @@ pub mod pallet {
 
 		/// Contract deployed by deployer at the specified address.
 		Instantiated { deployer: H160, contract: H160 },
-
-		/// Mandatory receipt information of an Ethereum transaction.
-		///
-		/// This contains the minimal information needed to reconstruct the receipt information
-		/// without losing accuracy.
-		Receipt {
-			/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
-			/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
-			/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
-			effective_gas_price: U256,
-
-			/// The amount of gas used for this specific transaction alone.
-			gas_used: U256,
-		},
 	}
 
 	#[pallet::error]
@@ -597,9 +580,16 @@ pub mod pallet {
 
 	/// Mapping for block number and hashes.
 	///
-	/// The maximum number of elements stored is capped by the block hash count `BlockHashCount`.
+	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
+
+	/// The details needed to reconstruct the receipt info offchain.
+	///
+	/// This contains valuable information about the gas used by the transaction.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReconstructReceiptInfo>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -639,6 +629,56 @@ pub mod pallet {
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			// TODO: Account for future transactions here in the on_finalize.
+
+			// The pallet executes the following memory operations:
+			//
+			// For every emitted event of type `Event::ContractEmitted`:
+			//  (I) During collection:
+			// 		- read: InflightEvents::<T>::count()
+			// 		- write: InflightEvents::<T>::insert
+			//
+			//	(II) After transaction is executed:
+			// 		- read: InflightEvents::<T>::count() internally by InflightEvents::<T>::drain()
+			// 		- read: Provide the key, value internally by InflightEvents::<T>::drain()
+			// 		- write: Remove key internally by InflightEvents::<T>::drain()
+			// Therefore, we have 2 reads and 2 writes per event, plus one extra read per total
+			// (count).
+			//
+			// Cost(Events) = (2r + 2w) * N + 1r
+			//
+			// For every transaction:
+			//  (I) Cost incurred by the emitted event
+			//
+			//  (II) After transaction is executed:
+			// 		- read: frame_system::Pallet::<T>::extrinsic_index()
+			//  	- read: InflightTransactions::<T>::count()
+			//  	- write: InflightTransactions::<T>::insert()
+			//
+			// Cost(Txs) = Cost(Events) + (1r + 1r) * M + 1r
+			//
+			// On finalize operations:
+			// (I) Operating with transactions:
+			// 		- read: InflightTransactions::<T>::count() internally by
+			//     InflightTransactions::<T>::drain()
+			// 		- read: Provide key, value internally by InflightTransactions::<T>::drain()
+			// 		- write: Remove key internally by InflightTransactions::<T>::drain()
+			//
+			// (II) Parent hash
+			// 		- read: BlockHash::<T>::get()
+			//
+			// (III) Storage propagation
+			// 		- write: BlockHash::<T>::insert() (insert number to hash mapping)
+			// 		- write EthereumBlock::<T>::put() (insert block into storage)
+			// 		- write ReceiptInfoData::<T>::put() (insert receipt data into storage)
+			//
+			// Cost(on_finalize) = Cost(Txs) + (1r + 1r) * M + 1r + 1r + 3w
+			//
+			// Total cost:
+			// (2r + 2w) * N + 1r + (1r + 1r) * M + 1r + (1r + 1r) * M + 1r + 1r + 3w
+			// = 4 M (r + w) + 2 N * (r + w) + 4r + 3w
+			//
+			// Note: This does not account for the cost of computing the state tries.
+
 			Weight::zero()
 		}
 
@@ -674,12 +714,12 @@ pub mod pallet {
 			);
 			// The most expensive operation of this hook. Please check
 			// the method's documentation for computational details.
-			let (block_hash, block) = block_builder.build(transactions);
+			let (block_hash, block, receipt_data) = block_builder.build(transactions);
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
 			// Prune older block hashes.
-			let block_hash_count = <T as pallet::Config>::BlockHashCount::get();
+			let block_hash_count = BLOCK_HASH_COUNT;
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 			if !to_remove.is_zero() {
@@ -689,6 +729,8 @@ pub mod pallet {
 			}
 			// Store the ETH block into the last block.
 			EthereumBlock::<T>::put(block);
+			// Store the receipt info data for offchain reconstruction.
+			ReceiptInfoData::<T>::put(receipt_data);
 		}
 
 		fn integrity_test() {
@@ -1580,8 +1622,7 @@ where
 	/// # Note
 	///
 	/// The Ethereum block number is identical to the Substrate block number.
-	/// If the provided block number is outside of the pruning window defined by
-	/// `BlockHashCount` constant, then None is returned.
+	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
@@ -1762,17 +1803,12 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		let events_count = InflightEvents::<T>::count();
-		// TODO: ensure we don't exceed a maximum number of events per tx.
-		InflightEvents::<T>::insert(events_count, event.clone());
+		if matches!(event, Event::ContractEmitted { .. }) {
+			let events_count = InflightEvents::<T>::count();
+			// TODO: ensure we don't exceed a maximum number of events per tx.
+			InflightEvents::<T>::insert(events_count, event.clone());
+		}
 
-		Self::deposit_event_unstored(event)
-	}
-
-	/// Deposit a pallet event.
-	///
-	/// This does not store the event into storage for Ethereum block processing.
-	fn deposit_event_unstored(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
@@ -1786,13 +1822,6 @@ impl<T: Config> Pallet<T> {
 		let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
 			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
 			0
-		});
-
-		// Emit an event for the gas consumed by the transaction.
-		Self::deposit_event_unstored(Event::Receipt {
-			// TODO: Should this be the GenericTransaction.gas_price field here?
-			effective_gas_price: GAS_PRICE.into(),
-			gas_used: gas_consumed.ref_time().into(),
 		});
 
 		let transactions_count = InflightTransactions::<T>::count();
