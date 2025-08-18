@@ -23,7 +23,7 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	storage::meter::Diff,
-	vm::{ExportedFunction, RuntimeCosts},
+	vm::{BytecodeType, ExportedFunction, RuntimeCosts},
 	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
@@ -33,7 +33,7 @@ use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, blake2_256, keccak_256};
+use sp_io::hashing::{blake2_128, keccak_256};
 use sp_runtime::DispatchError;
 
 impl<T: Config> ContractBlob<T> {
@@ -86,6 +86,14 @@ impl<T: Config> ContractBlob<T> {
 		})?;
 
 		instance.set_gas(gas_limit_polkavm);
+		instance
+			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
+				max_block_size: limits::code::BASIC_BLOCK_SIZE,
+				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
+					.try_into()
+					.map_err(|_| Error::<T>::CodeRejected)?,
+			}))
+			.map_err(|_| Error::<T>::CodeRejected)?;
 		instance.prepare_call_untyped(entry_program_counter, &[]);
 
 		Ok(PreparedCall { module, instance, runtime })
@@ -113,6 +121,7 @@ where
 			deposit,
 			refcount: 0,
 			code_len,
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
@@ -467,6 +476,9 @@ pub mod env {
 		data_len: u32,
 	) -> Result<(), TrapReason> {
 		self.charge_gas(RuntimeCosts::CopyFromContract(data_len))?;
+		if data_len > limits::CALLDATA_BYTES {
+			Err(<Error<E::T>>::ReturnDataTooLarge)?;
+		}
 		Err(TrapReason::Return(ReturnData { flags, data: memory.read(data_ptr, data_len)? }))
 	}
 
@@ -927,21 +939,6 @@ pub mod env {
 		)?)
 	}
 
-	/// Computes the BLAKE2 256-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_256`].
-	fn hash_blake2_256(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake256(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_256, input_ptr, input_len, output_ptr,
-		)?)
-	}
-
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
 	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
 	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
@@ -1049,27 +1046,6 @@ pub mod env {
 			out_ptr,
 			out_len_ptr,
 			gas_left,
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Retrieves the account id for a specified contract address.
-	///
-	/// See [`pallet_revive_uapi::HostFn::to_account_id`].
-	fn to_account_id(
-		&mut self,
-		memory: &mut M,
-		addr_ptr: u32,
-		out_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::ToAccountId)?;
-		let address = memory.read_h160(addr_ptr)?;
-		let account_id = self.ext.to_account_id(&address);
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&account_id.encode(),
 			false,
 			already_charged,
 		)?)

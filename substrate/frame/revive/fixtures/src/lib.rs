@@ -33,6 +33,7 @@ pub enum FixtureType {
 	Solc,
 }
 
+#[cfg(feature = "std")]
 impl FixtureType {
 	fn file_extension(&self) -> &'static str {
 		match self {

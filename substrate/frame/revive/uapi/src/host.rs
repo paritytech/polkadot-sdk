@@ -433,19 +433,6 @@ pub trait HostFn: private::Sealed {
 	/// - `output`: A reference to the output data buffer to write the block number.
 	fn block_number(output: &mut [u8; 32]);
 
-	/// Retrieve the account id for a specified address.
-	///
-	/// # Parameters
-	///
-	/// - `addr`: A `H160` address.
-	/// - `output`: A reference to the output data buffer to write the account id.
-	///
-	/// # Note
-	///
-	/// If no mapping exists for `addr`, the fallback account id will be returned.
-	#[unstable_hostfn]
-	fn to_account_id(addr: &[u8; 20], output: &mut [u8]);
-
 	/// Stores the block hash of the given block number into the supplied buffer.
 	///
 	/// # Parameters
@@ -538,20 +525,6 @@ pub trait HostFn: private::Sealed {
 	/// - [EcdsaRecoveryFailed][`crate::ReturnErrorCode::EcdsaRecoveryFailed]
 	#[unstable_hostfn]
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result;
-
-	/// Computes the blake2_256 32-bit hash on the given input buffer.
-	///
-	/// - The `input` and `output` buffer may overlap.
-	/// - The output buffer is expected to hold at least 32 bits.
-	/// - It is the callers responsibility to provide an output buffer that is large enough to hold
-	///   the expected amount of bytes returned by the hash function.
-	///
-	/// # Parameters
-	///											*/
-	/// - `input`: The input data buffer.
-	/// - `output`: The output buffer to write the hash result to.
-	#[unstable_hostfn]
-	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]);
 
 	/// Computes the blake2_128 16-bit hash on the given input buffer.
 	///

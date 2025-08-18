@@ -18,7 +18,7 @@
 mod instructions;
 
 use crate::{
-	vm::{ExecResult, Ext},
+	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, H256, LOG_TARGET, U256,
 };
@@ -57,6 +57,7 @@ where
 			deposit: Default::default(),
 			refcount: 0,
 			code_len,
+			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));

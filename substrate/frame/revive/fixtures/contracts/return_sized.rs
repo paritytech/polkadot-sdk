@@ -19,7 +19,9 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{input, HostFn, HostFnImpl as api};
+polkavm_derive::min_stack_size!(512 * 1024);
+
+use uapi::{ReturnFlags, input, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -29,12 +31,10 @@ pub extern "C" fn deploy() {}
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		address: &[u8; 20],
-		expected_account_id: &[u8; 32],
+		return_size: u32,
 	);
 
-	let mut account_id = [0u8; 32];
-	api::to_account_id(address, &mut account_id);
+	let return_buf = [42u8; 256 * 1024];
+	api::return_value(ReturnFlags::empty(), &return_buf[..return_size as usize])
 
-	assert!(&account_id == expected_account_id);
 }

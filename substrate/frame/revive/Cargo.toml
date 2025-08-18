@@ -31,8 +31,8 @@ num-bigint = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.26.0", default-features = false }
-polkavm-common = { version = "0.26.0", default-features = false }
+polkavm = { version = "0.27.0", default-features = false }
+polkavm-common = { version = "0.27.0", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
 revm = { workspace = true }
@@ -128,7 +128,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",

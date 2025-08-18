@@ -39,7 +39,9 @@ pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	} else {
 		let from = as_usize_or_fail!(context.interpreter, offset);
 		resize_memory!(context.interpreter, from, len);
-		revm::primitives::keccak256(context.interpreter.memory.slice_len(from, len).as_ref())
+		let data = context.interpreter.memory.slice_len(from, len);
+		let data: &[u8] = data.as_ref();
+		revm::primitives::keccak256(data)
 	};
 	*top = hash.into();
 }

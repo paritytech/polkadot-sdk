@@ -350,23 +350,28 @@ pub trait EthExtra {
 				.into()
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
-				_ => None,
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				return Err(InvalidTransaction::Call);
+			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				let try_parse = || {
+					let blob_len = polkavm::ProgramBlob::blob_length(&data)?;
+					let blob_len = blob_len.try_into().ok()?;
+					let (code, data) = data.split_at_checked(blob_len)?;
+					Some((code.to_vec(), data.to_vec()))
+				};
+				let Some((code, data)) = try_parse() else {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+					return Err(InvalidTransaction::Call);
+				};
+				(code, data)
+			} else {
+				(data, Default::default())
 			};
 
 			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				code: code.to_vec(),
-				data: data.to_vec(),
+				code,
+				data,
 			}
 			.into()
 		};

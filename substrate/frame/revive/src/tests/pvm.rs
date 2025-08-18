@@ -17,6 +17,10 @@
 
 //! The pallet-revive PVM specific integration test suite.
 
+use super::{
+	precompiles,
+	precompiles::{INoInfo, NoInfo},
+};
 use crate::{
 	address::{create1, create2, AddressMapper},
 	assert_refcount, assert_return_code,
@@ -24,23 +28,17 @@ use crate::{
 	exec::Key,
 	limits,
 	storage::DeletionQueueManager,
-	test_utils::{builder::Contract, *},
+	test_utils::builder::Contract,
 	tests::{
-		builder, initialize_block,
-		test_utils::{
-			contract_base_deposit, ensure_stored, expected_deposit, get_balance,
-			get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
-			lockup_deposit, set_balance_with_dust, u256_bytes,
-		},
-		Balances, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
-		ExtBuilder, InstantiateAccount, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test,
-		UploadAccount, DEPOSIT_PER_BYTE,
+		builder, initialize_block, test_utils::*, Balances, CodeHashLockupDepositPercent,
+		Contracts, DepositPerByte, DepositPerItem, ExtBuilder, InstantiateAccount, RuntimeCall,
+		RuntimeEvent, RuntimeOrigin, System, Test, UploadAccount, DEPOSIT_PER_BYTE, *,
 	},
 	tracing::trace,
 	weights::WeightInfo,
 	AccountInfo, AccountInfoOf, BalanceWithDust, BumpNonce, Code, Config, ContractInfo,
 	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Pallet, PristineCode,
-	H160,
+	StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -121,6 +119,15 @@ fn transfer_with_dust_works() {
 			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(99, 0),
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
+		},
+		TestCase {
+			description: "receiver dust less than 1 plank",
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
+			total_issuance_diff: 1,
 		},
 	];
 
@@ -204,6 +211,41 @@ fn contract_call_transfer_with_dust_works() {
 		assert_ok!(builder::call(addr_caller).data((balance, addr_callee).encode()).build());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr_callee), balance);
+	});
+}
+
+#[test]
+fn deposit_limit_enforced_on_plain_transfer() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		// sending balance to a new account should fail when the limit is lower than the ed
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(190.into())
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositLimitExhausted);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(get_balance(&CHARLIE), 0);
+
+		// works when the account is prefunded
+		let result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(0.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(get_balance(&BOB), 1_000_001);
+
+		// also works allowing enough deposit
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(200.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(200));
+		assert_eq!(get_balance(&CHARLIE), 201);
 	});
 }
 
@@ -398,10 +440,7 @@ fn run_out_of_fuel_engine() {
 // Fail out of fuel (ref_time weight) in the host.
 #[test]
 fn run_out_of_fuel_host() {
-	use crate::{
-		precompiles::Precompile,
-		tests::precompiles::{INoInfo, NoInfo},
-	};
+	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::SolInterface;
 
 	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
@@ -1100,11 +1139,8 @@ fn crypto_hashes() {
 			};
 		}
 		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(2, dyn_hash_fn!(keccak_256), 32),
-			(3, dyn_hash_fn!(blake2_256), 32),
-			(4, dyn_hash_fn!(blake2_128), 16),
-		];
+		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] =
+			&[(2, dyn_hash_fn!(keccak_256), 32), (4, dyn_hash_fn!(blake2_128), 16)];
 		// Test the given hash functions for the input: "_DEAD_BEEF"
 		for (n, hash_fn, expected_size) in test_cases.iter() {
 			let mut params = vec![*n];
@@ -1758,9 +1794,9 @@ fn gas_estimation_for_subcalls() {
 
 #[test]
 fn call_runtime_reentrancy_guarded() {
-	use super::precompiles::{INoInfo, NoInfo};
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::SolInterface;
+	use precompiles::{INoInfo, NoInfo};
 
 	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 
@@ -3114,6 +3150,35 @@ fn balance_api_returns_free_balance() {
 }
 
 #[test]
+fn call_depth_is_enforced() {
+	let (binary, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let extra_recursions = 1024;
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary.to_vec())).build_and_unwrap_contract();
+
+		// takes the number of recursions
+		// returns the number of left over recursions
+		assert_eq!(
+			u32::from_le_bytes(
+				builder::bare_call(addr)
+					.data((limits::CALL_STACK_DEPTH + extra_recursions).encode())
+					.build_and_unwrap_result()
+					.data
+					.try_into()
+					.unwrap()
+			),
+			// + 1 because when the call depth is reached the caller contract is trapped without
+			// the ability to return any data. hence the last call frame is untracked.
+			extra_recursions + 1,
+		);
+	});
+}
+
+#[test]
 fn gas_consumed_is_linear_for_nested_calls() {
 	let (code, _code_hash) = compile_module("recurse").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -3127,7 +3192,10 @@ fn gas_consumed_is_linear_for_nested_calls() {
 				.iter()
 				.map(|i| {
 					let result = builder::bare_call(addr).data(i.encode()).build();
-					assert_ok!(result.result);
+					assert_eq!(
+						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
+						0
+					);
 					result.gas_consumed
 				})
 				.collect::<Vec<_>>()
@@ -3562,46 +3630,9 @@ fn origin_api_works() {
 }
 
 #[test]
-fn to_account_id_works() {
-	let (code_hash_code, _) = compile_module("to_account_id").unwrap();
-
-	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&EVE, 1_000_000);
-
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
-
-		// mapped account
-		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		let expected_mapped_account_id = &<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR);
-		assert_ne!(
-			expected_mapped_account_id.encode()[20..32],
-			[0xEE; 12],
-			"fallback suffix found where none should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((EVE_ADDR, expected_mapped_account_id).encode())
-			.build());
-
-		// fallback for unmapped accounts
-		let expected_fallback_account_id =
-			&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
-		assert_eq!(
-			expected_fallback_account_id.encode()[20..32],
-			[0xEE; 12],
-			"no fallback suffix found where one should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((BOB_ADDR, expected_fallback_account_id).encode())
-			.build());
-	});
-}
-
-#[test]
 fn code_hash_works() {
-	use super::precompiles::NoInfo;
 	use crate::precompiles::{Precompile, EVM_REVERT};
+	use precompiles::NoInfo;
 
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
 	let primitive_precompile = H160::from_low_u64_be(1);
@@ -4507,9 +4538,9 @@ fn pure_precompile_works() {
 
 #[test]
 fn precompiles_work() {
-	use super::precompiles::{INoInfo, NoInfo};
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, SolValue};
+	use precompiles::{INoInfo, NoInfo};
 
 	let precompile_addr = H160(NoInfo::<Test>::MATCHER.base_address());
 
@@ -4541,6 +4572,38 @@ fn precompiles_work() {
 			b"invalid".to_vec(),
 			Panic::from(PanicKind::ResourceError).abi_encode(),
 			RuntimeReturnCode::CalleeReverted,
+		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::CalleeTrapped,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES - 4,
+			})
+			.abi_encode(),
+			vec![42u8; limits::CALLDATA_BYTES as usize - 4],
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			vec![],
+			RuntimeReturnCode::CalleeTrapped,
 		),
 	];
 
@@ -4577,9 +4640,9 @@ fn precompiles_work() {
 
 #[test]
 fn precompiles_with_info_creates_contract() {
-	use super::precompiles::{IWithInfo, WithInfo};
 	use crate::precompiles::Precompile;
 	use alloy_core::sol_types::SolInterface;
+	use precompiles::{IWithInfo, WithInfo};
 
 	let precompile_addr = H160(WithInfo::<Test>::MATCHER.base_address());
 
@@ -4669,8 +4732,8 @@ fn bump_nonce_once_works() {
 
 #[test]
 fn code_size_for_precompiles_works() {
-	use super::precompiles::NoInfo;
 	use crate::precompiles::Precompile;
+	use precompiles::NoInfo;
 
 	let builtin_precompile = H160(NoInfo::<Test>::MATCHER.base_address());
 	let primitive_precompile = H160::from_low_u64_be(1);
@@ -4695,40 +4758,139 @@ fn code_size_for_precompiles_works() {
 }
 
 #[test]
-fn allow_evm_bytecode_config_works() {
-	use frame_support::assert_err;
-	use pallet_revive_fixtures::{compile_module_with_type, FixtureType};
-
-	let (evm_bytecode, _) = compile_module_with_type("Dummy", FixtureType::Solc).unwrap();
+fn call_data_limit_is_enforced_subcalls() {
+	let (code, _code_hash) = compile_module("call_with_input_size").unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Upload code should always fail with EVM bytecode
-		assert_err!(
-			Contracts::upload_code(
-				RuntimeOrigin::signed(ALICE),
-				evm_bytecode.clone(),
-				deposit_limit::<Test>(),
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
 			),
-			crate::Error::<Test>::CodeRejected
-		);
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+		];
 
-		// Try to instantiate with EVM bytecode - should succeed when AllowEVMBytecode is true
-		let contract = builder::bare_instantiate(Code::Upload(evm_bytecode.clone()))
-			.build_and_unwrap_contract();
+		for (callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(callee_input_size.encode()).build().result;
+			assert_result(result);
+		}
+	});
+}
 
-		// Call the contract - should succeed when AllowEVMBytecode is true
-		let call_result = builder::bare_call(contract.addr).build().result;
-		assert!(call_result.is_ok(), "Contract call should succeed when AllowEVMBytecode is true");
+#[test]
+fn call_data_limit_is_enforced_root_call() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
 
-		// Try to instantiate with EVM bytecode - should fail when AllowEVMBytecode is false
-		Test::set_allow_evm_bytecode(false);
-		let result = builder::bare_instantiate(Code::Upload(evm_bytecode.clone())).build().result;
-		assert_err!(result, crate::Error::<Test>::CodeRejected);
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		// Call the existing contract - should fail when AllowEVMBytecode is false
-		let call_result = builder::bare_call(contract.addr).build().result;
-		assert_err!(call_result, crate::Error::<Test>::CodeRejected);
+		let cases: Vec<(H160, u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				addr,
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+			(
+				// limit is not enforced when tx calls EOA
+				BOB_ADDR,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+		];
+
+		for (addr, callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr)
+				.data(vec![42; callee_input_size as usize])
+				.build()
+				.result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn return_data_limit_is_enforced() {
+	let (code, _code_hash) = compile_module("return_sized").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::ReturnDataTooLarge);
+				}),
+			),
+		];
+
+		for (return_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
+			assert_result(result);
+		}
 	});
 }

@@ -204,8 +204,7 @@ mod tests {
 		let mock_ext = Box::leak(Box::new(crate::exec::mock_ext::MockExt::<Test>::new()));
 
 		Interpreter {
-			// TODO clean up once we move to use our own gas meter
-			gas: revm::interpreter::Gas::new(30_000_000),
+			gas: revm::interpreter::Gas::new(0),
 			bytecode: Default::default(),
 			stack: Stack::new(),
 			return_data: Default::default(),

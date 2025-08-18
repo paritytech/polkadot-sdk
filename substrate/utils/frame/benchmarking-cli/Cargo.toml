@@ -24,6 +24,7 @@ codec = { workspace = true, default-features = true }
 comfy-table = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+env_filter = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
 frame-storage-access-test-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
@@ -61,6 +62,7 @@ sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true, default-features = true }
