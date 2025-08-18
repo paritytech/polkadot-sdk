@@ -10,13 +10,15 @@
 //! normal parachain runtime WILL mess things up.
 
 use anyhow::anyhow;
-#[subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
-pub mod rococo {}
 
-#[subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/coretime-rococo-local.scale")]
 mod coretime_rococo {}
 
+#[zombienet_sdk::subxt::subxt(runtime_metadata_path = "metadata-files/rococo-local.scale")]
+mod rococo {}
+
 use rococo::runtime_types::{
+	polkadot_parachain_primitives::primitives,
 	staging_xcm::v4::{
 		asset::{Asset, AssetId, Assets, Fungibility},
 		junction::Junction,
@@ -25,12 +27,15 @@ use rococo::runtime_types::{
 	},
 	xcm::{VersionedAssets, VersionedLocation},
 };
+
 use serde_json::json;
 use std::{fmt::Display, sync::Arc};
-use subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
 use tokio::sync::RwLock;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{events::StaticEvent, utils::AccountId32, OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 use coretime_rococo::{
 	self as coretime_api,
@@ -40,8 +45,7 @@ use coretime_rococo::{
 		sp_arithmetic::per_things::Perbill,
 	},
 };
-
-use rococo::{self as rococo_api, runtime_types::polkadot_parachain_primitives::primitives};
+use rococo::on_demand_assignment_provider::events as on_demand_events;
 
 type CoretimeRuntimeCall = coretime_api::runtime_types::coretime_rococo_runtime::RuntimeCall;
 type CoretimeUtilityCall = coretime_api::runtime_types::pallet_utility::pallet::Call;
@@ -60,7 +64,7 @@ async fn get_total_issuance(
 			.at_latest()
 			.await
 			.unwrap()
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap(),
@@ -86,7 +90,7 @@ async fn assert_total_issuance(
 	assert_eq!(ti, actual_ti);
 }
 
-type ParaEvents<C> = Arc<RwLock<Vec<(u64, subxt::events::EventDetails<C>)>>>;
+type EventOf<C> = Arc<RwLock<Vec<(u64, zombienet_sdk::subxt::events::EventDetails<C>)>>>;
 
 macro_rules! trace_event {
 	($event:ident : $mod:ident => $($ev:ident),*) => {
@@ -100,9 +104,11 @@ macro_rules! trace_event {
 	};
 }
 
-async fn para_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, events: ParaEvents<C>)
-where
-	<C::Header as subxt::config::Header>::Number: Display,
+async fn para_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	events: EventOf<C>,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
 {
 	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
 
@@ -128,8 +134,41 @@ where
 	}
 }
 
-async fn wait_for_para_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E) -> bool + Copy>(
-	events: ParaEvents<C>,
+async fn relay_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	events: EventOf<C>,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
+{
+	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
+
+	log::debug!("Starting parachain watcher");
+	while let Some(block) = blocks_sub.next().await {
+		let block = block.unwrap();
+		log::debug!("Finalized parachain block {}", block.number());
+
+		for event in block.events().await.unwrap().iter() {
+			let event = event.unwrap();
+			log::debug!("Got event: {} :: {}", event.pallet_name(), event.variant_name());
+			{
+				events.write().await.push((block.number().into(), event.clone()));
+			}
+
+			if event.pallet_name() == "OnDemandAssignmentProvider" {
+				trace_event!(event: on_demand_events =>
+					AccountCredited, SpotPriceSet, OnDemandOrderPlaced
+				);
+			}
+		}
+	}
+}
+
+async fn wait_for_event<
+	C: zombienet_sdk::subxt::Config + Clone,
+	E: StaticEvent,
+	P: Fn(&E) -> bool + Copy,
+>(
+	events: EventOf<C>,
 	pallet: &'static str,
 	variant: &'static str,
 	predicate: P,
@@ -150,9 +189,11 @@ async fn wait_for_para_event<C: subxt::Config + Clone, E: StaticEvent, P: Fn(&E)
 	}
 }
 
-async fn ti_watcher<C: subxt::Config + Clone>(api: OnlineClient<C>, prefix: &'static str)
-where
-	<C::Header as subxt::config::Header>::Number: Display,
+async fn ti_watcher<C: zombienet_sdk::subxt::Config + Clone>(
+	api: OnlineClient<C>,
+	prefix: &'static str,
+) where
+	<C::Header as zombienet_sdk::subxt::config::Header>::Number: Display,
 {
 	let mut blocks_sub = api.blocks().subscribe_finalized().await.unwrap();
 
@@ -165,7 +206,7 @@ where
 		let ti = api
 			.storage()
 			.at(block.reference())
-			.fetch(&rococo_api::storage().balances().total_issuance())
+			.fetch(&rococo::storage().balances().total_issuance())
 			.await
 			.unwrap()
 			.unwrap() as i128;
@@ -229,12 +270,20 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	let bob = dev::bob();
 
-	let para_events: ParaEvents<PolkadotConfig> = Arc::new(RwLock::new(Vec::new()));
+	let para_events: EventOf<PolkadotConfig> = Arc::new(RwLock::new(Vec::new()));
 	let p_api = para_node.wait_client().await?;
 	let p_events = para_events.clone();
 
-	let _subscriber = tokio::spawn(async move {
+	let _subscriber1 = tokio::spawn(async move {
 		para_watcher(p_api, p_events).await;
+	});
+
+	let relay_events: EventOf<PolkadotConfig> = Arc::new(RwLock::new(Vec::new()));
+	let r_api = relay_node.wait_client().await?;
+	let r_events = relay_events.clone();
+
+	let _subscriber2 = tokio::spawn(async move {
+		relay_watcher(r_api, r_events).await;
 	});
 
 	let api: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
@@ -253,7 +302,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	relay_client
 		.tx()
 		.sign_and_submit_default(
-			&rococo_api::tx().xcm_pallet().teleport_assets(
+			&rococo::tx().xcm_pallet().teleport_assets(
 				VersionedLocation::V4(Location {
 					parents: 0,
 					interior: Junctions::X1([Junction::Parachain(1005)]),
@@ -275,7 +324,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	wait_for_para_event(
+	wait_for_event(
 		para_events.clone(),
 		"Balances",
 		"Minted",
@@ -327,16 +376,16 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Waiting for a full-length sale to begin");
 
-	// Skip the first sale completeley as it may be a short one. Also, `request_code_count` requires
+	// Skip the first sale completeley as it may be a short one. Also, `request_core_count` requires
 	// two session boundaries to propagate. Given that the `fast-runtime` session is 10 blocks and
 	// the timeslice is 20 blocks, we should be just in time.
 
 	let _: coretime_api::broker::events::SaleInitialized =
-		wait_for_para_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
+		wait_for_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
 	log::info!("Skipped short sale");
 
 	let sale: coretime_api::broker::events::SaleInitialized =
-		wait_for_para_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
+		wait_for_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
 	log::info!("{:?}", sale);
 
 	// Alice buys a region
@@ -348,7 +397,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.sign_and_submit_default(&coretime_api::tx().broker().purchase(1_000_000_000), &alice)
 		.await?;
 
-	let purchase = wait_for_para_event(
+	let purchase = wait_for_event(
 		para_events.clone(),
 		"Broker",
 		"Purchased",
@@ -380,19 +429,17 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	let pooled = wait_for_para_event(
-		para_events.clone(),
-		"Broker",
-		"Pooled",
-		|e: &broker_events::Pooled| e.region_id.begin == region_begin,
-	)
-	.await;
+	let pooled =
+		wait_for_event(para_events.clone(), "Broker", "Pooled", |e: &broker_events::Pooled| {
+			e.region_id.begin == region_begin
+		})
+		.await;
 
 	// Wait until the beginning of the timeslice where the region belongs to
 
 	log::info!("Waiting for the region to begin");
 
-	let hist = wait_for_para_event(
+	let hist = wait_for_event(
 		para_events.clone(),
 		"Broker",
 		"HistoryInitialized",
@@ -411,7 +458,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	let r = relay_client
 		.tx()
 		.sign_and_submit_then_watch_default(
-			&rococo_api::tx()
+			&rococo::tx()
 				.on_demand_assignment_provider()
 				.place_order_allow_death(100_000_000, primitives::Id(100)),
 			&bob,
@@ -421,7 +468,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		.await?;
 
 	let order = r
-		.find_first::<rococo_api::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
 		.unwrap();
 
 	// As there's no spot traffic, Bob will only pay base fee
@@ -442,7 +489,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	log::info!("Waiting for Alice's revenue to be ready to claim");
 
-	let claims_ready = wait_for_para_event(
+	let claims_ready = wait_for_event(
 		para_events.clone(),
 		"Broker",
 		"ClaimsReady",
@@ -459,6 +506,54 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
 
+	// Try purchasing on-demand with credits:
+
+	log::info!("Bob is going to buy on-demand credits for alice");
+
+	let r = para_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&coretime_api::tx().broker().purchase_credit(100_000_000, alice_acc.clone()),
+			&bob,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	assert!(r.find_first::<coretime_api::broker::events::CreditPurchased>()?.is_some());
+
+	let _account_credited = wait_for_event(
+		relay_events.clone(),
+		"OnDemandAssignmentProvider",
+		"AccountCredited",
+		|e: &on_demand_events::AccountCredited| e.who == alice_acc && e.amount == 100_000_000,
+	)
+	.await;
+
+	// Once the account is credit we can place an on-demand order using credits
+	log::info!("Alice is going to place an on-demand order using credits");
+
+	let r = relay_client
+		.tx()
+		.sign_and_submit_then_watch_default(
+			&rococo::tx()
+				.on_demand_assignment_provider()
+				.place_order_with_credits(100_000_000, primitives::Id(100)),
+			&alice,
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	let order = r
+		.find_first::<rococo::on_demand_assignment_provider::events::OnDemandOrderPlaced>()?
+		.unwrap();
+
+	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);
+
+	// NOTE: Purchasing on-demand with credits doesn't affect the total issuance, as the credits are
+	// purchased on the PC. Therefore we don't check for total issuance changes.
+
 	// Alice claims her revenue
 
 	log::info!("Alice is going to claim her revenue");
@@ -471,7 +566,7 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 
-	let claim_paid = wait_for_para_event(
+	let claim_paid = wait_for_event(
 		para_events.clone(),
 		"Broker",
 		"RevenueClaimPaid",
@@ -489,15 +584,17 @@ async fn coretime_revenue_test() -> Result<(), anyhow::Error> {
 	// between.
 
 	let _: coretime_api::broker::events::SaleInitialized =
-		wait_for_para_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
+		wait_for_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
 
 	total_issuance.0 -= ON_DEMAND_BASE_FEE / 2;
 	total_issuance.1 -= ON_DEMAND_BASE_FEE / 2;
 
 	let _: coretime_api::broker::events::SaleInitialized =
-		wait_for_para_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
+		wait_for_event(para_events.clone(), "Broker", "SaleInitialized", |_| true).await;
 
 	assert_total_issuance(relay_client.clone(), para_client.clone(), total_issuance).await;
+
+	assert_eq!(order.spot_price, ON_DEMAND_BASE_FEE);
 
 	log::info!("Test finished successfully");
 

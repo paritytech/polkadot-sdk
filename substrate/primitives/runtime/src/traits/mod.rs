@@ -27,7 +27,9 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{
+	Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, MaxEncodedLen,
+};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
 use impl_trait_for_tuples::impl_for_tuples;
@@ -1009,6 +1011,7 @@ pub trait HashOutput:
 	+ Default
 	+ Encode
 	+ Decode
+	+ DecodeWithMemTracking
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
@@ -1029,6 +1032,7 @@ impl<T> HashOutput for T where
 		+ Default
 		+ Encode
 		+ Decode
+		+ DecodeWithMemTracking
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
@@ -1181,6 +1185,8 @@ pub trait BlockNumber:
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ FullCodec
+	+ DecodeWithMemTracking
+	+ HasCompact<Type: DecodeWithMemTracking>
 {
 }
 
@@ -1198,7 +1204,9 @@ impl<
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
-			+ FullCodec,
+			+ FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>,
 	> BlockNumber for T
 {
 }
@@ -1209,7 +1217,16 @@ impl<
 ///
 /// You can also create a `new` one from those fields.
 pub trait Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
+	Clone
+	+ Send
+	+ Sync
+	+ Codec
+	+ DecodeWithMemTracking
+	+ Eq
+	+ MaybeSerialize
+	+ Debug
+	+ TypeInfo
+	+ 'static
 {
 	/// Header number.
 	type Number: BlockNumber;
@@ -1293,6 +1310,7 @@ pub trait Block:
 	+ Send
 	+ Sync
 	+ Codec
+	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
 	+ Debug
@@ -1382,6 +1400,15 @@ where
 	fn is_bare(&self) -> bool {
 		<Self as Extrinsic>::is_bare(&self)
 	}
+}
+
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: ExtrinsicLike {
+	/// The type of the call.
+	type Call;
+
+	/// Get the call of the extrinsic.
+	fn call(&self) -> &Self::Call;
 }
 
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
@@ -1551,7 +1578,7 @@ impl Dispatchable for () {
 }
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct FakeDispatchable<Inner>(pub Inner);
 impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {
@@ -1620,7 +1647,7 @@ pub trait AsTransactionAuthorizedOrigin {
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -1710,7 +1737,7 @@ pub trait SignedExtension:
 	/// This method provides a default implementation that returns a vec containing a single
 	/// [`TransactionExtensionMetadata`].
 	fn metadata() -> Vec<TransactionExtensionMetadata> {
-		sp_std::vec![TransactionExtensionMetadata {
+		alloc::vec![TransactionExtensionMetadata {
 			identifier: Self::IDENTIFIER,
 			ty: scale_info::meta_type::<Self>(),
 			implicit: scale_info::meta_type::<Self::AdditionalSigned>()
@@ -1963,7 +1990,7 @@ pub trait AccountIdConversion<AccountId>: Sized {
 		Self::try_from_sub_account::<()>(a).map(|x| x.0)
 	}
 
-	/// Convert this value amalgamated with the a secondary "sub" value into an account ID,
+	/// Convert this value amalgamated with a secondary "sub" value into an account ID,
 	/// truncating any unused bytes. This is infallible.
 	///
 	/// NOTE: The account IDs from this and from `into_account` are *not* guaranteed to be distinct
@@ -2066,6 +2093,7 @@ macro_rules! impl_opaque_keys_inner {
 			Clone, PartialEq, Eq,
 			$crate::codec::Encode,
 			$crate::codec::Decode,
+			$crate::codec::DecodeWithMemTracking,
 			$crate::scale_info::TypeInfo,
 			$crate::RuntimeDebug,
 		)]
@@ -2343,6 +2371,7 @@ pub trait BlockIdTo<Block: self::Block> {
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
+		+ DecodeWithMemTracking
 		+ Clone
 		+ Ord
 		+ Eq
@@ -2351,7 +2380,8 @@ pub trait BlockNumberProvider {
 		+ Debug
 		+ MaxEncodedLen
 		+ Copy
-		+ EncodeLike;
+		+ EncodeLike
+		+ Default;
 
 	/// Returns the current block number.
 	///

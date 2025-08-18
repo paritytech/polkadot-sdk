@@ -20,7 +20,6 @@ array-bytes = { workspace = true, default-features = true }
 clap = { features = ["derive"], optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-log = { workspace = true }
 memmap2 = { workspace = true }
 sc-chain-spec-derive = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -39,6 +38,7 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
+pretty_assertions = { workspace = true }
 regex = { workspace = true }
 sp-application-crypto = { features = ["serde"], workspace = true }
 sp-consensus-babe = { features = ["serde"], workspace = true }

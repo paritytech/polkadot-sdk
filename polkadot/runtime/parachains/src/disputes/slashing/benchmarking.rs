@@ -82,6 +82,11 @@ where
 
 	pallet_session::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
 	initializer::Pallet::<T>::on_initialize(BlockNumberFor::<T>::one());
+
+	// signal to `pallet-staking`'s `ElectionProvider` to be ready asap.
+	use frame_election_provider_support::ElectionProvider;
+	<<T as pallet_staking::Config>::ElectionProvider as ElectionProvider>::asap();
+
 	// skip sessions until the new validator set is enacted
 	while pallet_session::Pallet::<T>::validators().len() < n as usize {
 		pallet_session::Pallet::<T>::rotate_session();
@@ -112,7 +117,7 @@ where
 }
 
 /// Submits a single `ForInvalid` dispute.
-fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProof
+fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProofV2
 where
 	T: Config,
 {
@@ -136,11 +141,11 @@ fn dispute_proof(
 	session_index: SessionIndex,
 	validator_id: ValidatorId,
 	validator_index: ValidatorIndex,
-) -> DisputeProof {
-	let kind = SlashingOffenceKind::ForInvalid;
+) -> DisputeProofV2 {
+	let kind = DisputeOffenceKind::ForInvalidBacked;
 	let time_slot = DisputesTimeSlot::new(session_index, CANDIDATE_HASH);
 
-	DisputeProof { time_slot, kind, validator_index, validator_id }
+	DisputeProofV2 { time_slot, kind, validator_index, validator_id }
 }
 
 #[benchmarks(where T: Config<KeyOwnerProof = MembershipProof>)]

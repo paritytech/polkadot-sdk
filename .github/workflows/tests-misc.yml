@@ -14,7 +14,10 @@ concurrency:
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
 jobs:
+  isdraft:
+    uses: ./.github/workflows/reusable-isdraft.yml
   preflight:
+    needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
 
   # more information about this job can be found here:
@@ -61,9 +64,9 @@ jobs:
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
           cd ../basic
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
 
   test-frame-ui:
     timeout-minutes: 60
@@ -137,7 +140,10 @@ jobs:
           ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
+        shell: bash
         run: |
+          # Fail the step if any command in a pipeline errors out.
+          set -euo pipefail 
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
@@ -356,7 +362,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@11df97af8e8102fd60b60a77dfbf58d40cd843b8 # v1.10.1
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}

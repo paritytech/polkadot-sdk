@@ -22,18 +22,14 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::ProvideRuntimeApi;
-use sp_consensus_aura::Slot;
-use sp_runtime::{
-	traits::{Block as BlockT, Header as HeaderT},
-	Digest, DigestItem,
-};
+use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
+use sp_consensus_aura::{AuraApi, Slot};
+use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
-	pub slot: Slot,
 }
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -65,6 +61,19 @@ pub trait InitBlockBuilder {
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -> BlockBuilderAndSupportData;
 
+	/// Init a specific block builder at a specific block that works for the test runtime.
+	///
+	/// Same as [`InitBlockBuilder::init_block_builder_with_timestamp`] besides that it takes
+	/// `ignored_nodes` that instruct the proof recorder to not record these nodes.
+	fn init_block_builder_with_ignored_nodes(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+	) -> BlockBuilderAndSupportData;
+
 	/// Init a specific block builder that works for the test runtime.
 	///
 	/// Same as [`InitBlockBuilder::init_block_builder`] besides that it takes a
@@ -85,10 +94,14 @@ fn init_block_builder(
 	validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
 	mut relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
+	ignored_nodes: Option<ProofRecorderIgnoredNodes<Block>>,
 ) -> BlockBuilderAndSupportData<'_> {
-	// This slot will be used for both relay chain and parachain
-	let slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
-	relay_sproof_builder.current_slot = slot;
+	let slot: Slot =
+		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
+
+	if relay_sproof_builder.current_slot == 0u64 {
+		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
+	}
 
 	let aura_pre_digest = Digest {
 		logs: vec![DigestItem::PreRuntime(sp_consensus_aura::AURA_ENGINE_ID, slot.encode())],
@@ -98,7 +111,9 @@ fn init_block_builder(
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
-		.enable_proof_recording()
+		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
+			ignored_nodes.unwrap_or_default(),
+		)))
 		.with_inherent_digests(aura_pre_digest)
 		.build()
 		.expect("Creates new block builder for test runtime");
@@ -123,6 +138,8 @@ fn init_block_builder(
 				relay_chain_state,
 				downward_messages: Default::default(),
 				horizontal_messages: Default::default(),
+				relay_parent_descendants: Default::default(),
+				collator_peer_id: None,
 			},
 		)
 		.expect("Put validation function params failed");
@@ -133,7 +150,7 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
+	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data }
 }
 
 impl InitBlockBuilder for Client {
@@ -155,15 +172,37 @@ impl InitBlockBuilder for Client {
 		let last_timestamp = self.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
 
 		let timestamp = if last_timestamp == 0 {
-			std::time::SystemTime::now()
-				.duration_since(std::time::SystemTime::UNIX_EPOCH)
-				.expect("Time is always after UNIX_EPOCH; qed")
-				.as_millis() as u64
+			if relay_sproof_builder.current_slot != 0u64 {
+				*relay_sproof_builder.current_slot * 6_000
+			} else {
+				std::time::SystemTime::now()
+					.duration_since(std::time::SystemTime::UNIX_EPOCH)
+					.expect("Time is always after UNIX_EPOCH; qed")
+					.as_millis() as u64
+			}
 		} else {
-			last_timestamp + cumulus_test_runtime::SLOT_DURATION
+			last_timestamp + self.runtime_api().slot_duration(at).unwrap().as_millis()
 		};
 
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
+	}
+
+	fn init_block_builder_with_ignored_nodes(
+		&self,
+		at: Hash,
+		validation_data: Option<PersistedValidationData<PHash, PBlockNumber>>,
+		relay_sproof_builder: RelayStateSproofBuilder,
+		timestamp: u64,
+		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+	) -> BlockBuilderAndSupportData {
+		init_block_builder(
+			self,
+			at,
+			validation_data,
+			relay_sproof_builder,
+			timestamp,
+			Some(ignored_nodes),
+		)
 	}
 
 	fn init_block_builder_with_timestamp(
@@ -173,7 +212,7 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 	) -> BlockBuilderAndSupportData {
-		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp)
+		init_block_builder(self, at, validation_data, relay_sproof_builder, timestamp, None)
 	}
 }
 
@@ -195,7 +234,6 @@ impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, C
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 
-		let (header, extrinsics) = built_block.block.deconstruct();
-		ParachainBlockData::new(header, extrinsics, storage_proof)
+		ParachainBlockData::new(vec![built_block.block], storage_proof)
 	}
 }

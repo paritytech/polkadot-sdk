@@ -27,6 +27,15 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod relay_parent_offset {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
+}
+
+pub mod elastic_scaling_500ms {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
+}
 pub mod elastic_scaling_mvp {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_mvp.rs"));
@@ -37,18 +46,29 @@ pub mod elastic_scaling {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling.rs"));
 }
 
+pub mod elastic_scaling_multi_block_slot {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_multi_block_slot.rs"));
+}
+
+pub mod sync_backing {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_sync_backing.rs"));
+}
+
 mod genesis_config_presets;
 mod test_pallet;
 
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::Encode;
+use cumulus_pallet_parachain_system::{DefaultCoreSelector, SelectCore};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
 
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
@@ -58,6 +78,8 @@ use sp_runtime::{
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+
+use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -98,22 +120,48 @@ impl_opaque_keys! {
 /// The para-id used in this runtime.
 pub const PARACHAIN_ID: u32 = 100;
 
-#[cfg(not(feature = "elastic-scaling"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 4;
-#[cfg(not(feature = "elastic-scaling"))]
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+#[cfg(all(
+	feature = "elastic-scaling-multi-block-slot",
+	not(any(
+		feature = "elastic-scaling",
+		feature = "elastic-scaling-500ms",
+		feature = "relay-parent-offset"
+	))
+))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
-#[cfg(feature = "elastic-scaling")]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 7;
-#[cfg(feature = "elastic-scaling")]
-const BLOCK_PROCESSING_VELOCITY: u32 = 4;
+#[cfg(all(
+	feature = "elastic-scaling-500ms",
+	not(any(
+		feature = "elastic-scaling",
+		feature = "elastic-scaling-multi-block-slot",
+		feature = "relay-parent-offset"
+	))
+))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
-#[cfg(not(feature = "elastic-scaling"))]
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-#[cfg(feature = "elastic-scaling")]
-pub const MILLISECS_PER_BLOCK: u64 = 2000;
+#[cfg(any(feature = "elastic-scaling", feature = "relay-parent-offset"))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+#[cfg(not(any(
+	feature = "elastic-scaling",
+	feature = "elastic-scaling-500ms",
+	feature = "elastic-scaling-multi-block-slot",
+	feature = "relay-parent-offset"
+)))]
+pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+
+#[cfg(feature = "sync-backing")]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+
+// The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
+#[cfg(not(feature = "sync-backing"))]
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
+
+#[cfg(feature = "sync-backing")]
+pub const SLOT_DURATION: u64 = 12000;
+#[cfg(not(feature = "sync-backing"))]
+pub const SLOT_DURATION: u64 = 6000;
 
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -135,7 +183,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 1,
+	spec_version: 2,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -149,7 +197,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 2,
+	spec_version: 3,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -159,7 +207,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
 // These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (SLOT_DURATION as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
@@ -232,8 +280,15 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl cumulus_pallet_weight_reclaim::Config for Runtime {
+	type WeightInfo = ();
+}
+
 parameter_types! {
-	pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+	pub const MinimumPeriod: u64 = 0;
+}
+
+parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 10 * MINUTES;
 	pub const Offset: u32 = 0;
@@ -298,6 +353,52 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub storage BlocksPerPoV: u32 = 1;
+}
+
+/// Super ultra hacky core selector.
+///
+/// TODO: Replace with something useful.
+pub struct MultipleBlocksPerPoVCoreSelector;
+
+impl SelectCore for MultipleBlocksPerPoVCoreSelector {
+	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
+		let blocks_per_pov = BlocksPerPoV::get();
+
+		if blocks_per_pov == 0 {
+			return (CoreSelector(0), ClaimQueueOffset(0))
+		} else if blocks_per_pov == 1 {
+			return DefaultCoreSelector::<Runtime>::selected_core()
+		}
+
+		let core_selector =
+			(System::block_number().saturating_sub(1) / blocks_per_pov).using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(0))
+	}
+
+	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
+		let blocks_per_pov = BlocksPerPoV::get();
+
+		if blocks_per_pov == 0 {
+			return (CoreSelector(0), ClaimQueueOffset(0))
+		} else if blocks_per_pov == 1 {
+			return DefaultCoreSelector::<Runtime>::select_next_core()
+		}
+
+		let core_selector = (System::block_number() / blocks_per_pov).using_encoded(|b| b[0]);
+
+		(CoreSelector(core_selector), ClaimQueueOffset(0))
+	}
+}
+
+#[cfg(feature = "relay-parent-offset")]
+const RELAY_PARENT_OFFSET: u32 = 2;
+
+#[cfg(not(feature = "relay-parent-offset"))]
+const RELAY_PARENT_OFFSET: u32 = 0;
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -318,7 +419,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type SelectCore = MultipleBlocksPerPoVCoreSelector;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -327,6 +429,9 @@ impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<32>;
+	#[cfg(feature = "sync-backing")]
+	type AllowMultipleBlocksPerSlot = ConstBool<false>;
+	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
@@ -347,6 +452,7 @@ construct_runtime! {
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
 		AuraExt: cumulus_pallet_aura_ext,
+		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
 }
 
@@ -377,16 +483,19 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim<Runtime>,
-);
+pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
+	Runtime,
+	(
+		frame_system::AuthorizeCall<Runtime>,
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckNonce<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	),
+>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
@@ -443,6 +552,12 @@ impl_runtime_apis! {
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
 			ConsensusHook::can_build_upon(included_hash, slot)
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			RELAY_PARENT_OFFSET
 		}
 	}
 
@@ -554,6 +669,13 @@ impl_runtime_apis! {
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
 		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+
 	}
 }
 

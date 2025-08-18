@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Utilities for generating and verifying GRANDPA warp sync proofs.
 
@@ -29,6 +30,7 @@ use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, One},
+	Justifications,
 };
 
 use std::{collections::HashMap, sync::Arc};
@@ -310,13 +312,28 @@ where
 			.ok_or_else(|| "Empty proof".to_string())?;
 		let (next_set_id, next_authorities) =
 			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
+		let justifications = proof
+			.proofs
+			.into_iter()
+			.map(|p| {
+				let justifications =
+					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
+				(p.header, justifications)
+			})
+			.collect::<Vec<_>>();
 		if proof.is_finished {
-			Ok(VerificationResult::<Block>::Complete(next_set_id, next_authorities, last_header))
+			Ok(VerificationResult::<Block>::Complete(
+				next_set_id,
+				next_authorities,
+				last_header,
+				justifications,
+			))
 		} else {
 			Ok(VerificationResult::<Block>::Partial(
 				next_set_id,
 				next_authorities,
 				last_header.hash(),
+				justifications,
 			))
 		}
 	}

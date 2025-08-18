@@ -15,22 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! Test the eth-rpc cli with the kitchensink node.
+//! This only includes basic transaction tests, most of the other tests are in the
+//! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
 	cli::{self, CliCommand},
-	example::{wait_for_successful_receipt, TransactionBuilder},
+	example::TransactionBuilder,
+	subxt_client,
+	subxt_client::{src_chain::runtime_types::pallet_revive::primitives::Code, SrcChainConfig},
 	EthRpcClient,
 };
 use clap::Parser;
-use ethabi::Token;
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use pallet_revive::{
 	create1,
 	evm::{Account, BlockTag, U256},
 };
 use static_init::dynamic;
-use std::thread;
+use std::{sync::Arc, thread};
 use substrate_cli_test_utils::*;
+use subxt::OnlineClient;
 
 /// Create a websocket client with a 120s timeout.
 async fn ws_client_with_retry(url: &str) -> WsClient {
@@ -46,17 +50,6 @@ async fn ws_client_with_retry(url: &str) -> WsClient {
 	})
 	.await
 	.expect("Hit timeout")
-}
-
-fn get_contract(name: &str) -> anyhow::Result<(Vec<u8>, ethabi::Contract)> {
-	let pvm_dir: std::path::PathBuf = "./examples/js/pvm".into();
-	let abi_dir: std::path::PathBuf = "./examples/js/abi".into();
-	let bytecode = std::fs::read(pvm_dir.join(format!("{}.polkavm", name)))?;
-
-	let abi = std::fs::read(abi_dir.join(format!("{}.json", name)))?;
-	let contract = ethabi::Contract::load(abi.as_slice())?;
-
-	Ok((bytecode, contract))
 }
 
 struct SharedResources {
@@ -117,57 +110,57 @@ macro_rules! unwrap_call_err(
 #[tokio::test]
 async fn transfer() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
+	let client = Arc::new(SharedResources::client().await);
 
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
 
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let hash = TransactionBuilder::default()
-		.value(value)
-		.to(ethan.address())
-		.send(&client)
-		.await?;
+	let tx = TransactionBuilder::new(&client).value(value).to(ethan.address()).send().await?;
 
-	let receipt = wait_for_successful_receipt(&client, hash).await?;
+	let receipt = tx.wait_for_receipt().await?;
 	assert_eq!(
 		Some(ethan.address()),
 		receipt.to,
 		"Receipt should have the correct contract address."
 	);
 
-	let increase =
-		client.get_balance(ethan.address(), BlockTag::Latest.into()).await? - initial_balance;
-	assert_eq!(value, increase);
+	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
+		ethan.address()
+	);
 	Ok(())
 }
 
 #[tokio::test]
 async fn deploy_and_call() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
+	let client = std::sync::Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
 	// Balance transfer
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let initial_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-
 	let value = 1_000_000_000_000_000_000_000u128.into();
-	let hash = TransactionBuilder::default()
-		.value(value)
-		.to(ethan.address())
-		.send(&client)
-		.await?;
+	let tx = TransactionBuilder::new(&client).value(value).to(ethan.address()).send().await?;
 
-	let receipt = wait_for_successful_receipt(&client, hash).await?;
+	let receipt = tx.wait_for_receipt().await?;
 	assert_eq!(
 		Some(ethan.address()),
 		receipt.to,
 		"Receipt should have the correct contract address."
 	);
 
-	let updated_balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
-	assert_eq!(value, updated_balance - initial_balance);
+	let balance = client.get_balance(ethan.address(), BlockTag::Latest.into()).await?;
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Ethan {:?} {balance:?} should have increased by {value:?} from {initial_balance}.",
+		ethan.address()
+	);
 
 	// Deploy contract
 	let data = b"hello world".to_vec();
@@ -175,148 +168,110 @@ async fn deploy_and_call() -> anyhow::Result<()> {
 	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
 	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::default().value(value).input(input).send(&client).await?;
-	let receipt = wait_for_successful_receipt(&client, hash).await?;
+	let tx = TransactionBuilder::new(&client).value(value).input(input).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(
 		Some(contract_address),
 		receipt.contract_address,
-		"Contract should be deployed with the correct address."
+		"Contract should be deployed at {contract_address:?}."
 	);
 
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(value, balance, "Contract balance should be the same as the value sent.");
+	let nonce_after_deploy =
+		client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+
+	assert_eq!(nonce_after_deploy - nonce, U256::from(1), "Nonce should have increased by 1");
+
+	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(
+		value, initial_balance,
+		"Contract {contract_address:?} balance should be the same as the value sent ({value})."
+	);
 
 	// Call contract
-	let hash = TransactionBuilder::default()
+	let tx = TransactionBuilder::new(&client)
 		.value(value)
 		.to(contract_address)
-		.send(&client)
+		.send()
 		.await?;
-	let receipt = wait_for_successful_receipt(&client, hash).await?;
+	let receipt = tx.wait_for_receipt().await?;
 
 	assert_eq!(
 		Some(contract_address),
 		receipt.to,
-		"Receipt should have the correct contract address."
+		"Receipt should have the correct contract address {contract_address:?}."
 	);
 
-	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
-	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	assert_eq!(Some(value), balance.checked_sub(initial_balance), "Contract {contract_address:?} Balance {balance} should have increased from {initial_balance} by {value}.");
 
 	// Balance transfer to contract
-	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	let hash = TransactionBuilder::default()
+	let initial_balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(&client)
 		.value(value)
 		.to(contract_address)
-		.send(&client)
+		.send()
 		.await?;
 
-	wait_for_successful_receipt(&client, hash).await?;
-	let increase = client.get_balance(contract_address, BlockTag::Latest.into()).await? - balance;
-	assert_eq!(value, increase, "contract's balance should have increased by the value sent.");
+	tx.wait_for_receipt().await?;
+
+	let balance = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
+
+	assert_eq!(
+		Some(value),
+		balance.checked_sub(initial_balance),
+		"Balance {balance} should have increased from {initial_balance} by {value}."
+	);
 	Ok(())
 }
 
 #[tokio::test]
-async fn revert_call() -> anyhow::Result<()> {
+async fn runtime_api_dry_run_addr_works() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("Errors")?;
-	let receipt = TransactionBuilder::default()
-		.input(bytecode)
-		.send_and_wait_for_receipt(&client)
-		.await?;
+	let client = std::sync::Arc::new(SharedResources::client().await);
 
-	let err = TransactionBuilder::default()
-		.to(receipt.contract_address.unwrap())
-		.input(contract.function("triggerRequireError")?.encode_input(&[])?.to_vec())
-		.send(&client)
-		.await
-		.unwrap_err();
+	let account = Account::default();
+	let origin: [u8; 32] = account.substrate_account().into();
+	let data = b"hello world".to_vec();
+	let value = 5_000_000_000_000u128;
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
 
-	let call_err = unwrap_call_err!(err.source().unwrap());
-	assert_eq!(call_err.message(), "execution reverted: This is a require error");
-	assert_eq!(call_err.code(), 3);
-	Ok(())
-}
+	let payload = subxt_client::apis().revive_api().instantiate(
+		subxt::utils::AccountId32(origin),
+		value,
+		None,
+		None,
+		Code::Upload(bytes),
+		data,
+		None,
+	);
 
-#[tokio::test]
-async fn event_logs() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("EventExample")?;
-	let receipt = TransactionBuilder::default()
-		.input(bytecode)
-		.send_and_wait_for_receipt(&client)
-		.await?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 
-	let receipt = TransactionBuilder::default()
-		.to(receipt.contract_address.unwrap())
-		.input(contract.function("triggerEvent")?.encode_input(&[])?.to_vec())
-		.send_and_wait_for_receipt(&client)
-		.await?;
-	assert_eq!(receipt.logs.len(), 1, "There should be one log.");
+	let c = OnlineClient::<SrcChainConfig>::from_url("ws://localhost:45789").await?;
+	let res = c.runtime_api().at_latest().await?.call(payload).await?.result.unwrap();
+
+	assert_eq!(res.addr, contract_address);
 	Ok(())
 }
 
 #[tokio::test]
 async fn invalid_transaction() -> anyhow::Result<()> {
 	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
+	let client = Arc::new(SharedResources::client().await);
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 
-	let err = TransactionBuilder::default()
+	let err = TransactionBuilder::new(&client)
 		.value(U256::from(1_000_000_000_000u128))
 		.to(ethan.address())
 		.mutate(|tx| tx.chain_id = Some(42u32.into()))
-		.send(&client)
+		.send()
 		.await
 		.unwrap_err();
 
 	let call_err = unwrap_call_err!(err.source().unwrap());
 	assert_eq!(call_err.message(), "Invalid Transaction");
-
-	Ok(())
-}
-
-#[tokio::test]
-async fn native_evm_ratio_works() -> anyhow::Result<()> {
-	let _lock = SHARED_RESOURCES.write();
-	let client = SharedResources::client().await;
-	let (bytecode, contract) = get_contract("PiggyBank")?;
-	let contract_address = TransactionBuilder::default()
-		.input(bytecode)
-		.send_and_wait_for_receipt(&client)
-		.await?
-		.contract_address
-		.unwrap();
-
-	let value = 10_000_000_000_000_000_000u128; // 10 eth
-	TransactionBuilder::default()
-		.to(contract_address)
-		.input(contract.function("deposit")?.encode_input(&[])?.to_vec())
-		.value(value.into())
-		.send_and_wait_for_receipt(&client)
-		.await?;
-
-	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(contract_value, value.into());
-
-	let withdraw_value = 1_000_000_000_000_000_000u128; // 1 eth
-	TransactionBuilder::default()
-		.to(contract_address)
-		.input(
-			contract
-				.function("withdraw")?
-				.encode_input(&[Token::Uint(withdraw_value.into())])?
-				.to_vec(),
-		)
-		.send_and_wait_for_receipt(&client)
-		.await?;
-
-	let contract_value = client.get_balance(contract_address, BlockTag::Latest.into()).await?;
-	assert_eq!(contract_value, (value - withdraw_value).into());
 
 	Ok(())
 }

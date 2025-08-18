@@ -234,7 +234,7 @@ where
 				execute_workers_max_num: cli.run.execute_workers_max_num,
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
-				enable_approval_voting_parallel: cli.run.enable_approval_voting_parallel,
+				keep_finalized_for: cli.run.keep_finalized_for,
 			},
 		)
 		.map(|full| full.task_manager)?;
@@ -286,9 +286,15 @@ pub fn run() -> Result<()> {
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
+		#[allow(deprecated)]
 		Some(Subcommand::BuildSpec(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			Ok(runner.sync_run(|config| cmd.run(config.chain_spec, config.network))?)
+		},
+		Some(Subcommand::ExportChainSpec(cmd)) => {
+			// Directly load the embedded chain spec using the CLI’s load_spec method.
+			let spec = cli.load_spec(&cmd.chain)?;
+			cmd.run(spec).map_err(Into::into)
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd).map_err(Error::SubstrateCli)?;
@@ -385,8 +391,9 @@ pub fn run() -> Result<()> {
 					let (client, backend, _, _) = polkadot_service::new_chain_ops(&mut config)?;
 					let db = backend.expose_db();
 					let storage = backend.expose_storage();
+					let shared_trie_cache = backend.expose_shared_trie_cache();
 
-					cmd.run(config, client.clone(), db, storage).map_err(Error::SubstrateCli)
+					cmd.run(config, client.clone(), db, storage, shared_trie_cache).map_err(Error::SubstrateCli)
 				}),
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|mut config| {
 					let (client, _, _, _) = polkadot_service::new_chain_ops(&mut config)?;

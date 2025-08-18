@@ -25,9 +25,9 @@
 
 #![no_std]
 #![no_main]
+include!("../panic_handler.rs");
 
-use common::{input, u256_bytes};
-use uapi::{HostFn, HostFnImpl as api};
+use uapi::{input, u256_bytes, HostFn, HostFnImpl as api};
 
 const INPUT_BUF_SIZE: usize = 128;
 static INPUT_DATA: [u8; INPUT_BUF_SIZE] = [0xFF; INPUT_BUF_SIZE];
@@ -80,8 +80,17 @@ fn assert_return_data_size_of(expected: u64) {
 
 /// Assert the return data to be reset after a balance transfer.
 fn assert_balance_transfer_does_reset() {
-	api::call(uapi::CallFlags::empty(), &[0u8; 20], 0, 0, None, &u256_bytes(128), &[], None)
-		.unwrap();
+	api::call(
+		uapi::CallFlags::empty(),
+		&[0u8; 20],
+		u64::MAX,
+		u64::MAX,
+		&[u8::MAX; 32],
+		&u256_bytes(128_000_000),
+		&[],
+		None,
+	)
+	.unwrap();
 	assert_return_data_size_of(0);
 }
 
@@ -109,13 +118,16 @@ pub extern "C" fn call() {
 		input
 	};
 	let mut instantiate = |exit_flag| {
+		let input = construct_input(exit_flag);
+		let mut deploy_input = [0; 32 + INPUT_BUF_SIZE];
+		deploy_input[..32].copy_from_slice(code_hash);
+		deploy_input[32..].copy_from_slice(&input);
 		api::instantiate(
-			code_hash,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
-			&construct_input(exit_flag),
+			&deploy_input,
 			Some(&mut address_buf),
 			None,
 			None,
@@ -125,9 +137,9 @@ pub extern "C" fn call() {
 		api::call(
 			uapi::CallFlags::empty(),
 			address_buf,
-			0u64,
-			0u64,
-			None,
+			u64::MAX,
+			u64::MAX,
+			&[u8::MAX; 32],
 			&[0; 32],
 			&construct_input(exit_flag),
 			None,

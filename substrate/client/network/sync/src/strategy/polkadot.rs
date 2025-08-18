@@ -65,6 +65,8 @@ where
 	pub max_parallel_downloads: u32,
 	/// Maximum number of blocks to request.
 	pub max_blocks_per_request: u32,
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
@@ -360,6 +362,7 @@ where
 				warp_sync_config,
 				warp_sync_protocol_name,
 				config.block_downloader.clone(),
+				config.min_peers_to_start_warp_sync,
 			);
 			Ok(Self {
 				config,

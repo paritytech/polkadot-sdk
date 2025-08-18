@@ -45,34 +45,6 @@ BENCH
 """
 
 bench_example = '''**Examples**:
- Runs all benchmarks
- %(prog)s
-
- Runs benchmarks for pallet_balances and pallet_multisig for all runtimes which have these pallets. **--quiet** makes it to output nothing to PR but reactions
- %(prog)s --pallet pallet_balances pallet_xcm_benchmarks::generic --quiet
-
- Runs bench for all pallets for westend runtime and fails fast on first failed benchmark
- %(prog)s --runtime westend --fail-fast
-
- Does not output anything and cleans up the previous bot's & author command triggering comments in PR
- %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
-'''
-
-parser_bench = subparsers.add_parser('bench', help='Runs benchmarks (old CLI)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
-
-for arg, config in common_args.items():
-    parser_bench.add_argument(arg, **config)
-
-parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
-parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
-parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
-
-
-"""
-BENCH OMNI
-"""
-
-bench_example = '''**Examples**:
  Runs all benchmarks 
  %(prog)s
 
@@ -86,14 +58,14 @@ bench_example = '''**Examples**:
  %(prog)s --runtime westend rococo --pallet pallet_balances pallet_multisig --quiet --clean
 '''
 
-parser_bench_old = subparsers.add_parser('bench-omni', help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
+parser_bench = subparsers.add_parser('bench', aliases=['bench-omni'], help='Runs benchmarks (frame omni bencher)', epilog=bench_example, formatter_class=argparse.RawDescriptionHelpFormatter)
 
 for arg, config in common_args.items():
-    parser_bench_old.add_argument(arg, **config)
+    parser_bench.add_argument(arg, **config)
 
-parser_bench_old.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
-parser_bench_old.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
-parser_bench_old.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
+parser_bench.add_argument('--runtime', help='Runtime(s) space separated', choices=runtimeNames, nargs='*', default=runtimeNames)
+parser_bench.add_argument('--pallet', help='Pallet(s) space separated', nargs='*', default=[])
+parser_bench.add_argument('--fail-fast', help='Fail fast on first failed benchmark', action='store_true')
 
 
 """
@@ -127,7 +99,7 @@ def main():
 
     print(f'args: {args}')
 
-    if args.command == 'bench-omni':
+    if args.command == 'bench' or args.command == 'bench-omni':
         runtime_pallets_map = {}
         failed_benchmarks = {}
         successful_benchmarks = {}
@@ -140,11 +112,23 @@ def main():
         runtimesMatrix = {x['name']: x for x in runtimesMatrix}
         print(f'Filtered out runtimes: {runtimesMatrix}')
 
+        compile_bencher = os.system(f"cargo install -q --path substrate/utils/frame/omni-bencher --locked --profile {profile}")
+        if compile_bencher != 0:
+            print_and_log('❌ Failed to compile frame-omni-bencher')
+            sys.exit(1)
+
         # loop over remaining runtimes to collect available pallets
         for runtime in runtimesMatrix.values():
-            build_command = f"forklift cargo build -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
+            build_command = f"forklift cargo build -q -p {runtime['package']} --profile {profile} --features={runtime['bench_features']}"
             print(f'-- building "{runtime["name"]}" with `{build_command}`')
-            os.system(build_command)
+            build_status = os.system(build_command)
+            if build_status != 0:
+                print_and_log(f'❌ Failed to build {runtime["name"]}')
+                if args.fail_fast:
+                    sys.exit(1)
+                else:
+                    continue
+
             print(f'-- listing pallets for benchmark for {runtime["name"]}')
             wasm_file = f"target/{profile}/wbuild/{runtime['package']}/{runtime['package'].replace('-', '_')}.wasm"
             list_command = f"frame-omni-bencher v1 benchmark pallet " \
@@ -219,12 +203,15 @@ def main():
                     # TODO: we can remove once all pallets in dev runtime are migrated to polkadot-sdk-frame
                     try:
                         uses_polkadot_sdk_frame = "true" in os.popen(f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .dependencies | any(.name == \"polkadot-sdk-frame\")'").read()
+                        print(f'uses_polkadot_sdk_frame: {uses_polkadot_sdk_frame}')
                     # Empty output from the previous os.popen command
                     except StopIteration:
+                        print(f'Error: {pallet} not found in dev runtime')
                         uses_polkadot_sdk_frame = False
                     template = config['template']
                     if uses_polkadot_sdk_frame and re.match(r"frame-(:?umbrella-)?weight-template\.hbs", os.path.normpath(template).split(os.path.sep)[-1]):
                         template = "substrate/.maintain/frame-umbrella-weight-template.hbs"
+                    print(f'template: {template}')
                 else:
                     default_path = f"./{config['path']}/src/weights"
                     xcm_path = f"./{config['path']}/src/weights/xcm"
@@ -247,149 +234,6 @@ def main():
                     f"{f'--template={template} ' if template else ''}" \
                     f"--no-storage-info --no-min-squares --no-median-slopes " \
                     f"{config['bench_flags']}"
-                print(f'-- Running: {cmd} \n')
-                status = os.system(cmd)
-
-                if status != 0 and args.fail_fast:
-                    print_and_log(f'❌ Failed to benchmark {pallet} in {runtime}')
-                    sys.exit(1)
-
-                # Otherwise collect failed benchmarks and print them at the end
-                # push failed pallets to failed_benchmarks
-                if status != 0:
-                    failed_benchmarks[f'{runtime}'] = failed_benchmarks.get(f'{runtime}', []) + [pallet]
-                else:
-                    successful_benchmarks[f'{runtime}'] = successful_benchmarks.get(f'{runtime}', []) + [pallet]
-
-        if failed_benchmarks:
-            print_and_log('❌ Failed benchmarks of runtimes/pallets:')
-            for runtime, pallets in failed_benchmarks.items():
-                print_and_log(f'-- {runtime}: {pallets}')
-
-        if successful_benchmarks:
-            print_and_log('✅ Successful benchmarks of runtimes/pallets:')
-            for runtime, pallets in successful_benchmarks.items():
-                print_and_log(f'-- {runtime}: {pallets}')
-    
-    if args.command == 'bench':
-        runtime_pallets_map = {}
-        failed_benchmarks = {}
-        successful_benchmarks = {}
-
-        profile = "production"
-
-        print(f'Provided runtimes: {args.runtime}')
-        # convert to mapped dict
-        runtimesMatrix = list(filter(lambda x: x['name'] in args.runtime, runtimesMatrix))
-        runtimesMatrix = {x['name']: x for x in runtimesMatrix}
-        print(f'Filtered out runtimes: {runtimesMatrix}')
-
-        # loop over remaining runtimes to collect available pallets
-        for runtime in runtimesMatrix.values():
-            build_command = f"forklift cargo build -p {runtime['old_package']} --profile {profile} --features={runtime['bench_features']} --locked"
-            print(f'-- building {runtime["name"]} with `{build_command}`')
-            os.system(build_command)
-            
-            chain = runtime['name'] if runtime['name'] == 'dev' else f"{runtime['name']}-dev"
-
-            machine_test = f"target/{profile}/{runtime['old_bin']} benchmark machine --chain={chain}"
-            print(f"Running machine test for `{machine_test}`")
-            os.system(machine_test)
-
-            print(f'-- listing pallets for benchmark for {chain}')
-            list_command = f"target/{profile}/{runtime['old_bin']} " \
-                f"benchmark pallet " \
-                f"--no-csv-header " \
-                f"--no-storage-info " \
-                f"--no-min-squares " \
-                f"--no-median-slopes " \
-                f"--all " \
-                f"--list " \
-                f"--chain={chain}"
-            print(f'-- running: {list_command}')
-            output = os.popen(list_command).read()
-            raw_pallets = output.strip().split('\n')
-
-            all_pallets = set()
-            for pallet in raw_pallets:
-                if pallet:
-                    all_pallets.add(pallet.split(',')[0].strip())
-
-            pallets = list(all_pallets)
-            print(f'Pallets in {runtime["name"]}: {pallets}')
-            runtime_pallets_map[runtime['name']] = pallets
-
-        print(f'\n')
-
-        # filter out only the specified pallets from collected runtimes/pallets
-        if args.pallet:
-            print(f'Pallets: {args.pallet}')
-            new_pallets_map = {}
-            # keep only specified pallets if they exist in the runtime
-            for runtime in runtime_pallets_map:
-                if set(args.pallet).issubset(set(runtime_pallets_map[runtime])):
-                    new_pallets_map[runtime] = args.pallet
-
-            runtime_pallets_map = new_pallets_map
-
-        print(f'Filtered out runtimes & pallets: {runtime_pallets_map}\n')
-
-        if not runtime_pallets_map:
-            if args.pallet and not args.runtime:
-                print(f"No pallets {args.pallet} found in any runtime")
-            elif args.runtime and not args.pallet:
-                print(f"{args.runtime} runtime does not have any pallets")
-            elif args.runtime and args.pallet:
-                print(f"No pallets {args.pallet} found in {args.runtime}")
-            else:
-                print('No runtimes found')
-            sys.exit(1)
-
-        for runtime in runtime_pallets_map:
-            for pallet in runtime_pallets_map[runtime]:
-                config = runtimesMatrix[runtime]
-                header_path = os.path.abspath(config['header'])
-                template = None
-
-                chain = config['name'] if runtime == 'dev' else f"{config['name']}-dev"
-
-                print(f'-- config: {config}')
-                if runtime == 'dev':
-                    # to support sub-modules (https://github.com/paritytech/command-bot/issues/275)
-                    search_manifest_path = f"cargo metadata --locked --format-version 1 --no-deps | jq -r '.packages[] | select(.name == \"{pallet.replace('_', '-')}\") | .manifest_path'"
-                    print(f'-- running: {search_manifest_path}')
-                    manifest_path = os.popen(search_manifest_path).read()
-                    if not manifest_path:
-                        print(f'-- pallet {pallet} not found in dev runtime')
-                        if args.fail_fast:
-                            print_and_log(f'Error: {pallet} not found in dev runtime')
-                            sys.exit(1)
-                    package_dir = os.path.dirname(manifest_path)
-                    print(f'-- package_dir: {package_dir}')
-                    print(f'-- manifest_path: {manifest_path}')
-                    output_path = os.path.join(package_dir, "src", "weights.rs")
-                    template = config['template']
-                else:
-                    default_path = f"./{config['path']}/src/weights"
-                    xcm_path = f"./{config['path']}/src/weights/xcm"
-                    output_path = default_path
-                    if pallet.startswith("pallet_xcm_benchmarks"):
-                        template = config['template']
-                        output_path = xcm_path
-
-                print(f'-- benchmarking {pallet} in {runtime} into {output_path}')
-                cmd = f"target/{profile}/{config['old_bin']} benchmark pallet " \
-                    f"--extrinsic=* " \
-                    f"--chain={chain} " \
-                    f"--pallet={pallet} " \
-                    f"--header={header_path} " \
-                    f"--output={output_path} " \
-                    f"--wasm-execution=compiled " \
-                    f"--steps=50 " \
-                    f"--repeat=20 " \
-                    f"--heap-pages=4096 " \
-                    f"{f'--template={template} ' if template else ''}" \
-                    f"--no-storage-info --no-min-squares --no-median-slopes "
                 print(f'-- Running: {cmd} \n')
                 status = os.system(cmd)
 

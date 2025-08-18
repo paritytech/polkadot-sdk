@@ -14,7 +14,7 @@ workspace = true
 [dependencies]
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true }
@@ -26,6 +26,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 
 # Cumulus
@@ -49,8 +50,6 @@ bp-polkadot-core = { workspace = true }
 bp-relayers = { workspace = true }
 bp-runtime = { workspace = true }
 bp-test-utils = { workspace = true }
-bp-xcm-bridge-hub = { workspace = true }
-bridge-runtime-common = { workspace = true }
 pallet-bridge-grandpa = { workspace = true }
 pallet-bridge-messages = { features = ["test-helpers"], workspace = true }
 pallet-bridge-parachains = { workspace = true }
@@ -68,14 +67,11 @@ std = [
 	"bp-relayers/std",
 	"bp-runtime/std",
 	"bp-test-utils/std",
-	"bp-xcm-bridge-hub/std",
-	"bridge-runtime-common/std",
 	"codec/std",
 	"cumulus-pallet-parachain-system/std",
 	"cumulus-pallet-xcmp-queue/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-balances/std",
 	"pallet-bridge-grandpa/std",
 	"pallet-bridge-messages/std",
@@ -90,6 +86,8 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
+	"tracing/std",
 	"xcm-builder/std",
 	"xcm-executor/std",
 	"xcm/std",

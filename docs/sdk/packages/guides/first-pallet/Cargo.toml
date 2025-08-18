@@ -18,7 +18,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true }
 docify = { workspace = true }
-frame = { workspace = true, features = ["experimental", "runtime"] }
+frame = { workspace = true, features = ["runtime"] }
 scale-info = { workspace = true }
 
 [features]

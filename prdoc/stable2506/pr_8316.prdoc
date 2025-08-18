@@ -1,0 +1,26 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove slashing spans from pallet-staking-async
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This change removes `SlashingSpans`, `SpanSlash`, and related metadata and logic from `pallet-staking-async`, simplifying the slashing system.
+
+      - Removes storage items: `SlashingSpans`, `SpanSlash`.
+      - Removes error: `IncorrectSlashingSpans`.
+      - Deprecates `num_slashing_spans` parameter in `withdraw_unbonded`, `force_unstake`, and `reap_stash` extrinsics (kept for backward compatibility).
+
+      Functional change to slashing rewards:
+      - Old behavior: reward = 50% of `SlashRewardFraction`, halved again for each successive slash in the same era.
+      - New behavior: no successive reward halving; only highest offence per validator/nominator per era is considered.
+
+
+
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: pallet-staking
+  bump: patch
+

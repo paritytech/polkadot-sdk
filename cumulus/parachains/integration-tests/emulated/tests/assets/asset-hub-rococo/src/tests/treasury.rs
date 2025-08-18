@@ -29,7 +29,6 @@ use frame_support::{
 use parachains_common::AccountId;
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use rococo_runtime_constants::currency::GRAND;
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
 use xcm_executor::traits::ConvertLocation;
 
 // Fund Treasury account on Asset Hub from Treasury account on Relay Chain with ROCs.
@@ -83,7 +82,7 @@ fn spend_roc_on_asset_hub() {
 			})),
 		});
 
-		// Dispatched from Root to `despatch_as` `Signed(treasury_account)`.
+		// Dispatched from Root to `dispatch_as` `Signed(treasury_account)`.
 		assert_ok!(teleport_call.dispatch(root));
 
 		assert_expected_events!(

@@ -15,9 +15,6 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[build-dependencies]
-prost-build = { workspace = true }
-
 [dependencies]
 array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
@@ -25,7 +22,6 @@ async-trait = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 fork-tree = { workspace = true, default-features = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 mockall = { workspace = true }
 prometheus-endpoint = { workspace = true, default-features = true }
@@ -49,9 +45,11 @@ tokio = { features = ["macros", "time"], workspace = true, default-features = tr
 tokio-stream = { workspace = true }
 
 [dev-dependencies]
-mockall = { workspace = true }
 quickcheck = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-test-primitives = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
+
+[build-dependencies]
+prost-build = { workspace = true }

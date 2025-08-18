@@ -202,6 +202,10 @@ fn should_update_authorities() {
 	});
 }
 
+// If you need to modify the test because you added a new event or something to the block or block
+// header you need to update the test by replacing the expected_mmr_root with the new one
+// you can get the new one by running the test while commenting out the first assert
+// and then copy pasting the new mmr root from the log of the second assert
 #[test]
 fn extract_validation_context_should_work_correctly() {
 	let mut ext = new_test_ext(vec![1, 2]);
@@ -214,8 +218,9 @@ fn extract_validation_context_should_work_correctly() {
 
 		// Check the MMR root log
 		let expected_mmr_root: [u8; 32] = array_bytes::hex_n_into_unchecked(
-			"b2106eff9894288bc212b3a9389caa54efd37962c3a7b71b3b0b06a0911b88a5",
+			"322c6a46ac00d3455c87bd9af42ebafb388f589a1b562f5e39b1d0d71bcbe8e0",
 		);
+
 		assert_eq!(
 			System::digest().logs,
 			vec![beefy_log(ConsensusLog::MmrRoot(H256::from_slice(&expected_mmr_root)))]

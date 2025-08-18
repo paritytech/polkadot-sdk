@@ -80,7 +80,7 @@ jobs:
           git config --global --add safe.directory '*'
           ls -lsR ./charts
 
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: app-token
         with:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}
@@ -92,6 +92,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
@@ -103,6 +104,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: "cargo"
+          name: ${{ env.BENCH }}
           output-file-path: ./charts/${{ env.BENCH }}.txt
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}

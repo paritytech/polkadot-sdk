@@ -24,7 +24,7 @@ use frame_support::{
 		BalanceStatus::{Free, Reserved},
 		Currency,
 		ExistenceRequirement::{self, AllowDeath, KeepAlive},
-		Hooks, InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
+		InspectLockableCurrency, LockIdentifier, LockableCurrency, NamedReservableCurrency,
 		ReservableCurrency, WithdrawReasons,
 	},
 	StorageNoopGuard,
@@ -463,7 +463,7 @@ fn deducting_balance_should_work() {
 fn refunding_balance_should_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 42);
-		assert_ok!(Balances::mutate_account(&1, |a| a.reserved = 69));
+		assert_ok!(Balances::mutate_account(&1, false, |a| a.reserved = 69));
 		Balances::unreserve(&1, 69);
 		assert_eq!(Balances::free_balance(1), 111);
 		assert_eq!(Balances::reserved_balance(1), 0);
@@ -721,7 +721,7 @@ fn burn_must_work() {
 fn cannot_set_genesis_value_below_ed() {
 	EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 11);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10)] }
+	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10)], ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 }
@@ -730,9 +730,12 @@ fn cannot_set_genesis_value_below_ed() {
 #[should_panic = "duplicate balances in genesis."]
 fn cannot_set_genesis_value_twice() {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let _ = crate::GenesisConfig::<Test> { balances: vec![(1, 10), (2, 20), (1, 15)] }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	let _ = crate::GenesisConfig::<Test> {
+		balances: vec![(1, 10), (2, 20), (1, 15)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 }
 
 #[test]
@@ -910,6 +913,7 @@ fn emit_events_with_existential_deposit() {
 			[
 				RuntimeEvent::System(system::Event::KilledAccount { account: 1 }),
 				RuntimeEvent::Balances(crate::Event::DustLost { account: 1, amount: 99 }),
+				RuntimeEvent::Balances(crate::Event::BurnedDebt { amount: 99 }),
 				RuntimeEvent::Balances(crate::Event::Slashed { who: 1, amount: 1 }),
 				RuntimeEvent::Balances(crate::Event::Rescinded { amount: 1 }),
 			]
@@ -1133,7 +1137,9 @@ fn operations_on_dead_account_should_not_change_state() {
 
 #[test]
 #[should_panic = "The existential deposit must be greater than zero!"]
+#[cfg(not(feature = "insecure_zero_ed"))]
 fn zero_ed_is_prohibited() {
+	use frame_support::traits::Hooks;
 	// These functions all use `mutate_account` which may introduce a storage change when
 	// the account never existed to begin with, and shouldn't exist in the end.
 	ExtBuilder::default().existential_deposit(0).build_and_execute_with(|| {
@@ -1378,22 +1384,22 @@ fn freezing_and_locking_should_work() {
 			assert_eq!(System::consumers(&1), 1);
 
 			// Frozen and locked balances update correctly.
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 6));
-			assert_eq!(Balances::account(&1).frozen, 6);
+			assert_eq!(get_test_account_data(1).frozen, 6);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 4));
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 			Balances::set_lock(ID_1, &1, 3, WithdrawReasons::all());
-			assert_eq!(Balances::account(&1).frozen, 4);
+			assert_eq!(get_test_account_data(1).frozen, 4);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 
 			// Locks update correctly.
 			Balances::remove_lock(ID_1, &1);
-			assert_eq!(Balances::account(&1).frozen, 4);
+			assert_eq!(get_test_account_data(1).frozen, 4);
 			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 0));
-			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(get_test_account_data(1).frozen, 0);
 			assert_eq!(System::consumers(&1), 0);
 		});
 }
