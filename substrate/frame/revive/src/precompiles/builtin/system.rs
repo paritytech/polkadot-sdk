@@ -69,7 +69,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
 				Ok(output.to_vec())
-      },
+			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
 				use crate::address::AddressMapper;
 				use codec::Encode;
