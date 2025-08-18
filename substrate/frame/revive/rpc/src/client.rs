@@ -36,8 +36,8 @@ use jsonrpsee::{
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H256, U256,
+		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
@@ -618,6 +618,36 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
+		let storage_api = self.storage_api(block.hash());
+		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
+		});
+
+		// This could potentially fail under two circumstances:
+		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
+		//    disabled)
+		if let Ok(mut eth_block) = ethereum_block {
+			// This means we can live with the hashes returned by the Revive pallet.
+			if !hydrated_transactions {
+				return eth_block;
+			}
+
+			// Hydrate the block.
+			let tx_infos = self
+				.receipt_provider
+				.receipts_from_block(&block)
+				.await
+				.unwrap_or_default()
+				.into_iter()
+				.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+				.collect::<Vec<_>>();
+
+			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+			return eth_block;
+		}
+
+		// We need to reconstruct the ETH block fully.
 		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
 			.receipt_provider
 			.receipts_from_block(&block)
@@ -638,7 +668,7 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
+		let runtime_api = self.runtime_api(block.hash());
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
 		let header = block.header();
