@@ -218,7 +218,7 @@ impl EthBlockBuilder {
 			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-		Some((signed_tx.encode_2718(), encoded_receipt))
+		Some((signed_tx.signed_payload(), encoded_receipt))
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.

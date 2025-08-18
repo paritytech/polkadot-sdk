@@ -99,22 +99,6 @@ impl TransactionSigned {
 			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
 		}
 	}
-
-	/// Encode the Ethereum transaction into bytes.
-	pub fn encode_2718(&self) -> Vec<u8> {
-		use alloc::vec;
-		use TransactionSigned::*;
-
-		match self {
-			Transaction2930Signed(ref tx) =>
-				vec![TYPE_EIP2930].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
-			Transaction1559Signed(ref tx) =>
-				vec![TYPE_EIP1559].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
-			Transaction4844Signed(ref tx) =>
-				vec![TYPE_EIP4844].into_iter().chain(rlp::encode(tx).into_iter()).collect(),
-			TransactionLegacySigned(ref tx) => rlp::encode(tx).to_vec(),
-		}
-	}
 }
 
 impl TransactionUnsigned {
