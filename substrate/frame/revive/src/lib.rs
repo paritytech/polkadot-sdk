@@ -673,12 +673,13 @@ pub mod pallet {
 			// (III) Storage propagation
 			// 		- write: BlockHash::<T>::insert() (insert number to hash mapping)
 			// 		- write EthereumBlock::<T>::put() (insert block into storage)
+			// 		- write ReceiptInfoData::<T>::put() (insert receipt data into storage)
 			//
-			// Cost(on_finalize) = Cost(Txs) + (1r + 1r) * M + 1r + 1r + 2w
+			// Cost(on_finalize) = Cost(Txs) + (1r + 1r) * M + 1r + 1r + 3w
 			//
 			// Total cost:
-			// (2r + 2w) * N + 1r + (1r + 1r) * M + 1r + (1r + 1r) * M + 1r + 1r + 2w
-			// = 4 M (r + w) + 2 N * (r + w) + 4r + 2w
+			// (2r + 2w) * N + 1r + (1r + 1r) * M + 1r + (1r + 1r) * M + 1r + 1r + 3w
+			// = 4 M (r + w) + 2 N * (r + w) + 4r + 3w
 			//
 			// Note: This does not account for the cost of computing the state tries.
 
