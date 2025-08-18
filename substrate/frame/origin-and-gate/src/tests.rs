@@ -148,8 +148,7 @@ mod unit_test {
 				System::set_block_number(1);
 
 				let call = create_dummy_call(1000);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Record current block and extrinsic index
 				let alice_submission_timepoint = Timepoint {
@@ -634,8 +633,7 @@ mod unit_test {
 
 				// Create call
 				let call = create_dummy_call(1000);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Propose using Alice's origin
 				assert_ok!(OriginAndGate::propose(
@@ -719,8 +717,7 @@ mod unit_test {
 
 				// Create call
 				let call = create_dummy_call(42);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Propose using Alice's origin
 				assert_ok!(OriginAndGate::propose(
@@ -1139,6 +1136,7 @@ mod unit_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: execution_timepoint,
+					is_collective: false,
 				}));
 
 				// Verify dummy value was set
@@ -1333,8 +1331,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -1401,6 +1398,7 @@ mod unit_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: execution_timepoint,
+					is_collective: false,
 				}));
 			});
 		}
@@ -1412,8 +1410,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -1467,8 +1464,7 @@ mod unit_test {
 
 				// Create proposal with expiry at block 10
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -1534,8 +1530,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -1573,6 +1568,7 @@ mod unit_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: execution_timepoint,
+					is_collective: false,
 				}));
 			});
 		}
@@ -1588,8 +1584,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -1645,8 +1640,7 @@ mod unit_test {
 
 				// Create proposal with expiry at block 10
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -1735,8 +1729,7 @@ mod unit_test {
 
 				// Create proposal with expiry at block 10
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -1838,8 +1831,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -1884,7 +1876,7 @@ mod unit_test {
 
 				// Create proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash = <<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -1974,8 +1966,7 @@ mod unit_test {
 
 				// Create proposal with expiry at block 10
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -2074,8 +2065,7 @@ mod unit_test {
 
 				// Create proposal with expiry at block 100
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				assert_ok!(OriginAndGate::propose(
 					RuntimeOrigin::signed(ALICE),
@@ -2114,8 +2104,7 @@ mod unit_test {
 
 				// Create proposal without expiry
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes
 				assert_ok!(OriginAndGate::propose(
@@ -2257,6 +2246,7 @@ mod unit_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: Timepoint { height: 100, index: 0 },
+					is_collective: false,
 				}));
 			});
 		}
@@ -2274,18 +2264,15 @@ mod unit_test {
 				// Create multiple proposals with different expiry blocks
 				// Proposal 1: Expires at block 10
 				let call1 = make_remark_call("1001").unwrap();
-				let proposal_hash1 =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call1);
+				let proposal_hash1 = <Test as Config>::Hashing::hash_of(&call1);
 
 				// Proposal 2: Expires at block 10 as well
 				let call2 = make_remark_call("1002").unwrap();
-				let proposal_hash2 =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call2);
+				let proposal_hash2 = <Test as Config>::Hashing::hash_of(&call2);
 
 				// Proposal 3: Expires at block 15
 				let call3 = make_remark_call("1003").unwrap();
-				let proposal_hash3 =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call3);
+				let proposal_hash3 = <Test as Config>::Hashing::hash_of(&call3);
 
 				// Create proposals
 				assert_ok!(OriginAndGate::propose(
@@ -2418,8 +2405,7 @@ mod unit_test {
 
 				for i in 0..5 {
 					let call = make_remark_call(&format!("100{}", i)).unwrap();
-					let proposal_hash =
-						<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+					let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 					proposal_hashes.push((proposal_hash, ALICE_ORIGIN_ID));
 
 					assert_ok!(OriginAndGate::propose(
@@ -2758,8 +2744,7 @@ mod unit_test {
 
 				// Create call
 				let call = create_dummy_call(1000);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 				let remark = b"Conditional approval included with proposal".to_vec();
 
 				// Propose using Alice's origin with remark
@@ -2803,8 +2788,7 @@ mod unit_test {
 
 				// Create call
 				let call = create_dummy_call(1000);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Propose using Alice's origin without remark
 				assert_ok!(OriginAndGate::propose(
@@ -2954,8 +2938,7 @@ mod unit_test {
 
 				// Create call
 				let call = create_dummy_call(1000);
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Propose using Alice's origin
 				assert_ok!(OriginAndGate::propose(
@@ -3255,8 +3238,7 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// let call = Box::new(mock::RuntimeCall::System(frame_system::Call::remark {
 				// 	remark: vec![1, 2, 3, 4],
@@ -3343,6 +3325,7 @@ mod integration_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: execution_timepoint,
+					is_collective: false,
 				}));
 			});
 		}
@@ -3373,8 +3356,7 @@ mod integration_test {
 
 				// Generate call hash
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Proposal by Alice
 				assert_ok!(OriginAndGate::propose(
@@ -3464,8 +3446,7 @@ mod integration_test {
 
 				// Create a dummy proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Record current block and extrinsic index
 				let alice_submission_timepoint = Timepoint {
@@ -3524,8 +3505,7 @@ mod integration_test {
 
 				// Create dummy proposal
 				let call = make_remark_call("1000").unwrap();
-				let proposal_hash =
-					<<Test as Config>::Hashing as sp_runtime::traits::Hash>::hash_of(&call);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 				// Alice proposes through `propose` pallet call that automatically adds Alice as
 				// first approval
@@ -3579,6 +3559,7 @@ mod integration_test {
 					proposal_origin_id: ALICE_ORIGIN_ID,
 					result: Ok(()),
 					timepoint: execution_timepoint,
+					is_collective: false,
 				}));
 
 				// Verify dummy value was set
@@ -3654,8 +3635,8 @@ mod integration_test {
 						const PROPOSAL_NOT_FOUND_INDEX: u8 = 1;
 
 						assert!(
-							!(module_error.index == origin_and_gate_index &&
-								module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
+							!(module_error.index == origin_and_gate_index
+								&& module_error.error[0] == INSUFFICIENT_APPROVALS_INDEX),
 							"Encountered InsufficientApprovals error that should have been ignored"
 						);
 
@@ -3674,6 +3655,102 @@ mod integration_test {
 						panic!("Expected a module error but got: {:?}", dispatch_error);
 					}
 				}
+			});
+		}
+
+		#[test]
+		fn third_approval_after_execution_has_no_effect() {
+			new_test_ext().execute_with(|| {
+				// Create a proposal
+				let call = create_dummy_call(1000);
+				let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
+
+				// Alice proposes
+				assert_ok!(OriginAndGate::propose(
+					RuntimeOrigin::signed(ALICE),
+					call,
+					ALICE_ORIGIN_ID,
+					None,
+					None,
+					None,
+					None,
+					None,
+					Some(true), // Auto-execute
+				));
+
+				// Bob approves (first approval)
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(BOB),
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					BOB_ORIGIN_ID,
+					None,
+					None,
+					None,
+				));
+
+				// Check proposal status is still pending after first approval
+				let proposal = Proposals::<Test>::get(proposal_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Pending);
+				assert_eq!(proposal.approvals.len(), 1);
+
+				// Charlie approves (second approval) so this should execute the proposal
+				assert_ok!(OriginAndGate::add_approval(
+					RuntimeOrigin::signed(CHARLIE),
+					proposal_hash,
+					ALICE_ORIGIN_ID,
+					CHARLIE_ORIGIN_ID,
+					None,
+					None,
+					None,
+				));
+
+				// Check proposal status is now executed
+				let proposal = Proposals::<Test>::get(proposal_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+				assert_eq!(proposal.approvals.len(), 2);
+
+				// Verify the ProposalExecuted event was emitted
+				System::assert_has_event(
+					Event::ProposalExecuted {
+						proposal_hash,
+						proposal_origin_id: ALICE_ORIGIN_ID,
+						result: Ok(()),
+						timepoint: current_timepoint(),
+						is_collective: false,
+					}
+					.into(),
+				);
+
+				// Clear events to check for new ones
+				System::reset_events();
+
+				// Dave tries to add a third approval after execution
+				assert_err!(
+					OriginAndGate::add_approval(
+						RuntimeOrigin::signed(DAVE),
+						proposal_hash,
+						ALICE_ORIGIN_ID,
+						DAVE_ORIGIN_ID,
+						None,
+						None,
+						None,
+					),
+					Error::<Test>::ProposalAlreadyExecuted
+				);
+
+				// Verify proposal status and approval count remain unchanged
+				let proposal = Proposals::<Test>::get(proposal_hash, ALICE_ORIGIN_ID).unwrap();
+				assert_eq!(proposal.status, ProposalStatus::Executed);
+				assert_eq!(proposal.approvals.len(), 2);
+
+				// Verify no ProposalExecuted event was emitted again
+				assert!(!System::events().iter().any(|record| {
+					matches!(
+						record.event,
+						RuntimeEvent::OriginAndGate(Event::ProposalExecuted { .. })
+					)
+				}));
 			});
 		}
 	}
@@ -3758,6 +3835,7 @@ mod andgate_requirements {
 				proposal_origin_id: ALICE_ORIGIN_ID,
 				result: Ok(()),
 				timepoint: execution_timepoint,
+				is_collective: false,
 			}));
 		});
 	}
@@ -3770,6 +3848,8 @@ mod andgate_requirements {
 
 			// Create call
 			let call = create_dummy_call(1000);
+			let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
+			let call = make_remark_call("1000").unwrap();
 			let proposal_hash = <Test as Config>::Hashing::hash_of(&call);
 
 			// Alice proposes
@@ -3841,6 +3921,7 @@ mod andgate_requirements {
 				proposal_origin_id: ALICE_ORIGIN_ID,
 				result: Ok(()),
 				timepoint: execution_timepoint,
+				is_collective: false,
 			}));
 		});
 	}
@@ -3955,6 +4036,7 @@ mod andgate_requirements {
 				proposal_origin_id: ALICE_ORIGIN_ID,
 				result: Ok(()),
 				timepoint: execution_timepoint,
+				is_collective: false,
 			}));
 		});
 	}
@@ -4069,6 +4151,7 @@ mod andgate_requirements {
 				proposal_origin_id: BOB_ORIGIN_ID,
 				result: Ok(()),
 				timepoint: first_execution_timepoint,
+				is_collective: false,
 			}));
 
 			// Skip to new block for second approval
@@ -4108,6 +4191,7 @@ mod andgate_requirements {
 				proposal_origin_id: ALICE_ORIGIN_ID,
 				result: Ok(()),
 				timepoint: second_execution_timepoint,
+				is_collective: false,
 			}));
 
 			// Verify both proposals marked as executed
@@ -4725,8 +4809,8 @@ mod external_storage_integration {
 			let (_, remark_hashes, _) = GovernanceHashes::<Test>::get(proposal_hash).unwrap();
 			assert!(remark_hashes
 				.values()
-				.any(|r| r ==
-					&BoundedVec::<u8, MaxRemarkLength>::try_from(new_remark.clone()).unwrap()));
+				.any(|r| r
+					== &BoundedVec::<u8, MaxRemarkLength>::try_from(new_remark.clone()).unwrap()));
 
 			// Verify storage ID added
 			assert!(OriginAndGate::has_storage_id_for_proposal(proposal_hash, &storage_id));
@@ -4791,8 +4875,8 @@ mod external_storage_integration {
 			let (_, remark_hashes, _) = GovernanceHashes::<Test>::get(proposal_hash).unwrap();
 			assert!(remark_hashes
 				.values()
-				.any(|r| r ==
-					&BoundedVec::<u8, MaxRemarkLength>::try_from(new_remark.clone()).unwrap()));
+				.any(|r| r
+					== &BoundedVec::<u8, MaxRemarkLength>::try_from(new_remark.clone()).unwrap()));
 
 			// Verify only remark amendment event emitted
 			System::assert_has_event(RuntimeEvent::OriginAndGate(

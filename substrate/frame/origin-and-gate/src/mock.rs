@@ -50,6 +50,7 @@ pub const ROOT: AccountId = 0;
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CHARLIE: AccountId = 3;
+pub const DAVE: AccountId = 4;
 pub const TECH_FELLOWSHIP: AccountId = 4;
 
 // Origin identifiers using CompositeOriginId
@@ -57,6 +58,7 @@ pub const ROOT_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id:
 pub const ALICE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 1, role: 0 };
 pub const BOB_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 2, role: 0 };
 pub const CHARLIE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 3, role: 0 };
+pub const DAVE_ORIGIN_ID: CompositeOriginId = CompositeOriginId { collective_id: 4, role: 0 };
 pub const TECH_FELLOWSHIP_ORIGIN_ID: CompositeOriginId =
 	CompositeOriginId { collective_id: 4, role: 0 };
 

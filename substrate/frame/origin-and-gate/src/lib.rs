@@ -387,6 +387,8 @@ pub mod pallet {
 				T::AccountId,
 				T::RequiredApprovalsCount,
 			>,
+			who: T::AccountId,
+			is_collective: bool,
 		) -> DispatchResultWithPostInfo {
 			// Ensure proposal is in Pending state
 			ensure!(
@@ -433,6 +435,7 @@ pub mod pallet {
 						proposal_origin_id,
 						result: result.map(|_| ()).map_err(|e| e.error),
 						timepoint: execution_timepoint,
+						is_collective,
 					});
 
 					return Ok(().into());
@@ -526,10 +529,10 @@ pub mod pallet {
 			let current_block = frame_system::Pallet::<T>::block_number();
 
 			// Check if proposal in terminal state and not pending
-			if (proposal.status == ProposalStatus::Executed ||
-				proposal.status == ProposalStatus::Expired ||
-				proposal.status == ProposalStatus::Cancelled) &&
-				proposal.status != ProposalStatus::Pending
+			if (proposal.status == ProposalStatus::Executed
+				|| proposal.status == ProposalStatus::Expired
+				|| proposal.status == ProposalStatus::Cancelled)
+				&& proposal.status != ProposalStatus::Pending
 			{
 				// Cancelled proposals are always eligible for cleanup immediately
 				if proposal.status == ProposalStatus::Cancelled {
@@ -936,7 +939,7 @@ pub mod pallet {
 						.map(|(id, block, account, desc)| {
 							(id.clone(), *block, account.clone(), desc.clone())
 						})
-						.collect()
+						.collect();
 				}
 			}
 			Vec::new()
@@ -1155,8 +1158,7 @@ pub mod pallet {
 			storage_id_description: Option<Vec<u8>>,
 			auto_execute: Option<bool>,
 		) -> DispatchResultWithPostInfo {
-			// Check extrinsic was signed
-			let who = ensure_signed(origin)?;
+			let (who, _) = Self::ensure_signed_or_collective(origin.clone())?;
 			let current_block = <frame_system::Pallet<T>>::block_number();
 			let submission_timepoint = Self::current_timepoint();
 
@@ -1304,7 +1306,7 @@ pub mod pallet {
 			storage_id: Option<Vec<u8>>,
 			storage_id_description: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			let (who, is_collective) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			let approval_timepoint = Self::current_timepoint();
 
@@ -1401,6 +1403,8 @@ pub mod pallet {
 					proposal_hash,
 					proposal_origin_id,
 					proposal_info.clone(),
+					who.clone(),
+					is_collective,
 				) {
 					// Success case results in proposal being executed
 					Ok(_) => {
@@ -1479,7 +1483,7 @@ pub mod pallet {
 			storage_id: Option<Vec<u8>>,
 			storage_id_description: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			let (who, _) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			let update_timepoint = Self::current_timepoint();
 
@@ -1544,7 +1548,7 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 			proposal_origin_id: T::OriginId,
 		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
+			let (who, is_collective) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			// Get proposal info
 			let mut proposal = <Proposals<T>>::get(&proposal_hash, &proposal_origin_id)
@@ -1556,7 +1560,13 @@ pub mod pallet {
 			}
 
 			// Execute the proposal
-			Self::check_and_execute_proposal(proposal_hash, proposal_origin_id, proposal)?;
+			Self::check_and_execute_proposal(
+				proposal_hash,
+				proposal_origin_id,
+				proposal,
+				who,
+				is_collective,
+			)?;
 
 			Ok(().into())
 		}
@@ -1569,8 +1579,7 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 			proposal_origin_id: T::OriginId,
 		) -> DispatchResultWithPostInfo {
-			// Check extrinsic was signed
-			let who = ensure_signed(origin)?;
+			let (who, _) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			// Get proposal info
 			let mut proposal_info = Proposals::<T>::get(&proposal_hash, &proposal_origin_id)
@@ -1642,7 +1651,7 @@ pub mod pallet {
 			proposal_origin_id: T::OriginId,
 			withdrawing_origin_id: T::OriginId,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			let (who, _) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			// Get proposal info
 			let mut proposal = <Proposals<T>>::get(&proposal_hash, &proposal_origin_id)
@@ -1741,7 +1750,7 @@ pub mod pallet {
 			proposal_hash: T::Hash,
 			proposal_origin_id: T::OriginId,
 		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
+			Self::ensure_signed_or_collective(origin.clone())?;
 
 			// Get proposal info
 			let proposal = <Proposals<T>>::get(&proposal_hash, &proposal_origin_id)
@@ -1750,10 +1759,10 @@ pub mod pallet {
 			// Ensure proposal is in terminal state (Expired, Executed, or Cancelled)
 			// and not in the Pending state
 			ensure!(
-				(proposal.status == ProposalStatus::Expired ||
-					proposal.status == ProposalStatus::Executed ||
-					proposal.status == ProposalStatus::Cancelled) &&
-					proposal.status != ProposalStatus::Pending,
+				(proposal.status == ProposalStatus::Expired
+					|| proposal.status == ProposalStatus::Executed
+					|| proposal.status == ProposalStatus::Cancelled)
+					&& proposal.status != ProposalStatus::Pending,
 				Error::<T>::ProposalNotInExpiredOrExecutedState
 			);
 
@@ -1798,7 +1807,7 @@ pub mod pallet {
 			storage_id: Vec<u8>,
 			storage_id_description: Option<Vec<u8>>,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
+			let (who, _) = Self::ensure_signed_or_collective(origin.clone())?;
 
 			let (bounded_storage_id, bounded_storage_id_description) =
 				Self::convert_to_bounded_types(Some(storage_id), storage_id_description)?;
@@ -1917,8 +1926,8 @@ pub mod pallet {
 
 						// Signed origins cannot use collective origin IDs
 						// so if it is ROOT (0) or TECH_FELLOWSHIP (4) then return BadOrigin
-						if (collective_id == 0 || collective_id == 4) &&
-							<Proposals<T>>::contains_key(proposal_hash, &proposal_origin_id)
+						if (collective_id == 0 || collective_id == 4)
+							&& <Proposals<T>>::contains_key(proposal_hash, &proposal_origin_id)
 						{
 							return Err(sp_runtime::traits::BadOrigin.into());
 						}
@@ -1947,7 +1956,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			remark: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
+			Self::ensure_signed_or_collective(origin.clone())?;
 			Ok(().into())
 		}
 	}
@@ -2001,6 +2010,7 @@ pub mod pallet {
 			proposal_origin_id: T::OriginId,
 			result: Result<(), DispatchError>,
 			timepoint: Timepoint<BlockNumberFor<T>>,
+			is_collective: bool,
 		},
 		/// A proposal has expired.
 		ProposalExpired {
