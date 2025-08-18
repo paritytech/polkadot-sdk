@@ -56,7 +56,9 @@ pub struct ContractBlob<T: Config> {
 	code_hash: H256,
 }
 
-#[derive(Copy, Clone, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+#[derive(
+	PartialEq, Eq, Debug, Copy, Clone, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo,
+)]
 pub enum BytecodeType {
 	/// The code is a PVM bytecode.
 	Pvm,
@@ -142,7 +144,7 @@ impl<T: Config> Token<T> for CodeLoadToken {
 
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32) -> Weight {
-	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
+	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type: BytecodeType::Pvm })
 }
 
 impl<T: Config> ContractBlob<T>
@@ -216,6 +218,7 @@ impl<T: Config> CodeInfo<T> {
 			deposit: Default::default(),
 			refcount: 0,
 			code_len: 0,
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		}
 	}
@@ -234,6 +237,11 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the code length.
 	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
+	}
+
+	/// Returns true if the executable is a PVM blob.
+	pub fn is_pvm(&self) -> bool {
+		matches!(self.code_type, BytecodeType::Pvm)
 	}
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
@@ -295,7 +303,7 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		if self.is_pvm() {
+		if self.code_info().is_pvm() {
 			let prepared_call =
 				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
