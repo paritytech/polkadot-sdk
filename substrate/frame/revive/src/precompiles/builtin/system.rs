@@ -109,17 +109,24 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
 				Ok(account_id.encode())
 			},
-			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall { }) => {
+			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
 				let is_origin = match env.origin() {
 					Origin::Root => {
 						// `Root` does not have an address
 						false
 					},
-					Origin::Signed(account_id) => {
-						let origin_address = T::AddressMapper::to_address(&account_id).0;
-						let origin_address = T::AddressMapper::to_address(&env.caller()).0;
-						origin_address == caller_address
+					Origin::Signed(origin_account_id) => {
+						let origin_address = T::AddressMapper::to_address(&origin_account_id).0;
+						//let caller_address = T::AddressMapper::to_address(&env.caller()).0;
+						match env.caller() {
+							Origin::Signed(caller_account_id) => {
+								let caller_address =
+									T::AddressMapper::to_address(&caller_account_id).0;
+								origin_address == caller_address
+							},
+							Origin::Root => false,
+						}
 					},
 				};
 				Ok(vec![is_origin as u8])

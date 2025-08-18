@@ -19,7 +19,7 @@
 #![no_main]
 include!("../panic_handler.rs");
 
-use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api, solidity_selector};
+use uapi::{u256_bytes, u64_output, HostFn, HostFnImpl as api};
 
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
@@ -39,7 +39,7 @@ pub extern "C" fn call() {
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&u256_bytes(0),
-		&solidity_selector("minimumBalance()"),
+		&uapi::solidity_selector("minimumBalance()"),
 		Some(output1),
 	).unwrap();
 	assert_ne!(output_buf1, [0u8; 8]);

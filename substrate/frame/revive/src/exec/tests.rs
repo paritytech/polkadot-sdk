@@ -911,18 +911,20 @@ fn root_caller_succeeds() {
 
 		 */
 
-
-		let ret = ctx.ext.delegate_call(Weight::MAX, U256::zero(),
-										H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-										pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-		)
+		let ret = ctx
+			.ext
+			.delegate_call(
+				Weight::MAX,
+				U256::zero(),
+				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+			)
 			.map(|_| ctx.ext.last_frame_output().clone());
 
-		let data = ret.unwrap().data ;
+		let data = ret.unwrap().data;
 		eprintln!("data: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(caller_is_root);
-
 
 		exec_success()
 	});
@@ -949,9 +951,11 @@ fn root_caller_succeeds() {
 fn root_caller_does_not_succeed_when_value_not_zero() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert_ok!(ctx.ext.delegate_call(Weight::MAX, U256::zero(),
-										H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-										pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+		assert_ok!(ctx.ext.delegate_call(
+			Weight::MAX,
+			U256::zero(),
+			H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+			pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 		));
 
 		/*
@@ -992,11 +996,14 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		eprintln!("charlie received call");
 		// BOB is not root, even though the origin is root.
 
-
-		let ret = ctx.ext.delegate_call(Weight::MAX, U256::zero(),
-										H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-										pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-		)
+		let ret = ctx
+			.ext
+			.delegate_call(
+				Weight::MAX,
+				U256::zero(),
+				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+			)
 			.map(|_| ctx.ext.last_frame_output().clone());
 
 		/*
@@ -1011,7 +1018,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		)
 		.map(|_| ctx.ext.last_frame_output().clone());
 		 */
-		let data = ret.unwrap().data ;
+		let data = ret.unwrap().data;
 		eprintln!("data: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(!caller_is_root);
@@ -1034,13 +1041,17 @@ fn root_caller_succeeds_with_consecutive_calls() {
 		)
 		.map(|_| ctx.ext.last_frame_output().clone());
 		 */
-		let ret = ctx.ext.delegate_call(Weight::MAX, U256::zero(),
-										H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-										pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-		)
+		let ret = ctx
+			.ext
+			.delegate_call(
+				Weight::MAX,
+				U256::zero(),
+				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+			)
 			.map(|_| ctx.ext.last_frame_output().clone());
 
-		let data = ret.unwrap().data ;
+		let data = ret.unwrap().data;
 		eprintln!("data 2: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(caller_is_root);
