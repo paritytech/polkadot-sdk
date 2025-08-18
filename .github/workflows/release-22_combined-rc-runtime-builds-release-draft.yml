@@ -27,6 +27,7 @@ on:
           - cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
           - cumulus/parachains/runtimes/collectives/collectives-westend
           - cumulus/parachains/runtimes/coretime/coretime-westend
+          - cumulus/parachains/runtimes/people/people-westend
           - cumulus/parachains/runtimes/glutton/glutton-westend
       binary:
         description: Binary to be built for the release candidate
