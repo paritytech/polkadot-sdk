@@ -25,11 +25,30 @@ use crate::{
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::bytes::BufMut;
+use codec::{Decode, Encode};
 use frame_support::weights::Weight;
+use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
 /// The transaction details captured by the revive pallet.
 pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
+
+/// Details needed to reconstruct the receipt info in the RPC
+/// layer without losing accuracy.
+#[derive(Encode, Decode, TypeInfo)]
+pub struct ReconstructReceiptInfo {
+	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
+	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
+	/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
+	///
+	/// Note: Since there's a runtime API to extract the base gas fee (`fn gas_price()`)
+	/// and we have access to the `TransactionSigned` struct, we can compute the effective gas
+	/// price in the RPC layer.
+	effective_gas_price: U256,
+
+	/// The amount of gas used for this specific transaction alone.
+	gas_used: U256,
+}
 
 /// Builder of the ETH block.
 pub struct EthBlockBuilder {
@@ -38,7 +57,7 @@ pub struct EthBlockBuilder {
 	/// Parent block hash.
 	parent_hash: H256,
 	/// The base gas price of the block.
-	_base_gas_price: U256,
+	base_gas_price: U256,
 	/// The timestamp of the block.
 	timestamp: U256,
 	/// The author of the block.
@@ -50,8 +69,10 @@ pub struct EthBlockBuilder {
 	logs_bloom: Bytes256,
 	/// Total gas used by transactions in the block.
 	total_gas_used: U256,
-	// The transaction hashes that will be placed in the ETH block.
+	/// The transaction hashes that will be placed in the ETH block.
 	tx_hashes: Vec<H256>,
+	/// The data needed to reconstruct the receipt info.
+	receipt_data: Vec<ReconstructReceiptInfo>,
 }
 
 impl EthBlockBuilder {
@@ -71,7 +92,7 @@ impl EthBlockBuilder {
 		Self {
 			block_number,
 			parent_hash,
-			_base_gas_price: base_gas_price,
+			base_gas_price,
 			timestamp,
 			block_author,
 			gas_limit,
@@ -79,6 +100,7 @@ impl EthBlockBuilder {
 			tx_hashes: Vec::new(),
 			total_gas_used: U256::zero(),
 			logs_bloom: Bytes256::default(),
+			receipt_data: Vec::new(),
 		}
 	}
 
@@ -102,7 +124,7 @@ impl EthBlockBuilder {
 	pub fn build<T>(
 		mut self,
 		details: impl IntoIterator<Item = TransactionDetails<T>>,
-	) -> (H256, EthBlock)
+	) -> (H256, EthBlock, Vec<ReconstructReceiptInfo>)
 	where
 		T: crate::pallet::Config,
 	{
@@ -137,7 +159,7 @@ impl EthBlockBuilder {
 			..Default::default()
 		};
 
-		(block_hash, block)
+		(block_hash, block, self.receipt_data)
 	}
 
 	/// Returns a tuple of the RLP encoded transaction and receipt.
@@ -158,6 +180,11 @@ impl EthBlockBuilder {
 		let transaction_hash = H256(keccak_256(&payload));
 		self.tx_hashes.push(transaction_hash);
 
+		self.receipt_data.push(ReconstructReceiptInfo {
+			effective_gas_price: signed_tx.effective_gas_price(self.base_gas_price),
+			gas_used: gas.ref_time().into(),
+		});
+
 		let logs = events
 			.into_iter()
 			.filter_map(|event| {
@@ -177,12 +204,6 @@ impl EthBlockBuilder {
 			.collect();
 
 		self.total_gas_used += gas.ref_time().into();
-
-		// Note: an event can be emitted here if we need extra transaction details.
-		// let _event: Event<T> = Event::Receipt {
-		// 	effective_gas_price: self.base_gas_price.into(),
-		// 	gas_used: gas.ref_time().into(),
-		// };
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
