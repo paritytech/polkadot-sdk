@@ -1514,6 +1514,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Next intake (candidate/membership) rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next rotation period (voting + claim periods).
 	pub fn next_intake_at() -> BlockNumberFor<T, I> {
 		match NextIntakeAt::<T, I>::get() {
 			Some(next) => next,
