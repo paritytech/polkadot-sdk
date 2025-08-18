@@ -73,7 +73,8 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_process_deletion_queue_batch() -> Weight;
 	fn on_initialize_per_trie_key(k: u32, ) -> Weight;
-	fn call_with_code_per_byte(c: u32, ) -> Weight;
+	fn call_with_pvm_code_per_byte(c: u32, ) -> Weight;
+	fn call_with_evm_code_per_byte(c: u32, ) -> Weight { Self::call_with_pvm_code_per_byte(c) }
 	fn basic_block_compilation(b: u32, ) -> Weight;
 	fn instantiate_with_code(c: u32, i: u32, ) -> Weight;
 	fn eth_instantiate_with_code(c: u32, i: u32, d: u32, ) -> Weight;
@@ -206,7 +207,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `c` is `[0, 102400]`.
-	fn call_with_code_per_byte(c: u32, ) -> Weight {
+	fn call_with_pvm_code_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1171 + c * (1 ±0)`
 		//  Estimated: `7106 + c * (1 ±0)`
@@ -1266,7 +1267,7 @@ impl WeightInfo for () {
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
 	/// The range of component `c` is `[0, 102400]`.
-	fn call_with_code_per_byte(c: u32, ) -> Weight {
+	fn call_with_pvm_code_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1171 + c * (1 ±0)`
 		//  Estimated: `7106 + c * (1 ±0)`
