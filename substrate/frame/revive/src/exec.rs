@@ -139,7 +139,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 	}
 }
 
-/// The type of origins supported by the contracts pallet.
+/// The type of origins supported by the revive pallet.
 #[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
