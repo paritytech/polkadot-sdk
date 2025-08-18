@@ -416,19 +416,6 @@ impl VmBinaryModule {
 		Self::with_num_instructions(size / 3)
 	}
 
-	// Same as sized but using EVM bytecode.
-	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::{JUMPDEST, STOP};
-
-		if size == 0 {
-			return Self::new(vec![])
-		}
-
-		let mut code = vec![STOP];
-		code.extend(vec![JUMPDEST; (size - 1) as usize]);
-		Self::new(code)
-	}
-
 	/// A contract code of specified number of instructions that uses all its bytes for instructions
 	/// but will return immediately.
 	///
