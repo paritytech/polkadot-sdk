@@ -124,6 +124,12 @@ pub enum ClientError {
 	/// Failed to filter logs.
 	#[error("Failed to filter logs")]
 	LogFilterFailed(#[from] anyhow::Error),
+	/// Receipt storage was not found.
+	#[error("Receipt storage not found")]
+	ReceiptDataNotFound,
+	/// Ethereum block was not found.
+	#[error("Ethereum block not found")]
+	EthereumBlockNotFound,
 }
 
 const REVERT_CODE: i32 = 3;
@@ -346,7 +352,10 @@ impl Client {
 		let last = self.latest_block().await.number().saturating_sub(1);
 		let range = last.saturating_sub(index_last_n_blocks)..last;
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
+
 		self.subscribe_past_blocks(range, |block| async move {
+			let _storage_api = self.storage_api(block.hash());
+
 			self.receipt_provider.insert_block_receipts(&block).await?;
 			Ok(())
 		})

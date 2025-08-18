@@ -21,7 +21,7 @@ use crate::{
 };
 use subxt::{storage::Storage, OnlineClient};
 
-use pallet_revive::evm::block_hash::ReconstructReceiptInfo;
+use pallet_revive::evm::{block_hash::ReconstructReceiptInfo, Block};
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -63,7 +63,17 @@ impl StorageApi {
 			return Err(ClientError::ReceiptDataNotFound);
 		};
 		let bytes = info.into_encoded();
-		let receipt_data: Vec<ReconstructReceiptInfo> = codec::Decode::decode(&mut &bytes[..])?;
-		Ok(receipt_data)
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+	}
+
+	/// Get the Ethereum block from storage.
+	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
+		let query = subxt::dynamic::storage("Revive", "EthereumBlock", ());
+
+		let Some(info) = self.0.fetch(&query).await? else {
+			return Err(ClientError::EthereumBlockNotFound);
+		};
+		let bytes = info.into_encoded();
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
 }
