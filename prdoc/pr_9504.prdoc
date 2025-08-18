@@ -1,0 +1,14 @@
+title: Fix `pallet_session` benchmarks
+doc:
+- audience: Todo
+  description: |-
+    Fixes the benchmarking code of `pallet_session` such that it works with any `KeyDeposit`.
+
+    Reported by @bkontur in https://github.com/polkadot-fellows/runtimes/pull/855
+crates:
+- name: westend-runtime
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-session
+  bump: patch
