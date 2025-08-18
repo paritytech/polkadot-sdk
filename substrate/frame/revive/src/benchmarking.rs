@@ -147,34 +147,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
-	// the execution engine.
-	/// This is similar to `call_with_code_per_byte` but for EVM bytecode.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_call_with_code_per_byte(
-		c: Linear<1, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(),
-			VmBinaryModule::evm_sized(c - 1),
-			vec![],
-		)?;
-		let value = Pallet::<T>::min_balance();
-		let storage_deposit = default_deposit_limit::<T>();
-
-		#[extrinsic_call]
-		call(
-			RawOrigin::Signed(instance.caller.clone()),
-			instance.address,
-			value,
-			Weight::MAX,
-			storage_deposit,
-			vec![],
-		);
-
-		Ok(())
-	}
-
 	// Measure the amount of time it takes to compile a single basic block.
 	//
 	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
@@ -2235,29 +2207,6 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		Ok(())
-	}
-
-	/// Benchmark the cost of EVM instructions.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
-		use crate::vm::evm;
-		use revm::bytecode::Bytecode;
-
-		let module = VmBinaryModule::evm_noop(r);
-		let inputs = evm::EVMInputs::new(vec![]);
-
-		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
-		let mut setup = CallSetup::<T>::new(module);
-		let (mut ext, _) = setup.ext();
-
-		let result;
-		#[block]
-		{
-			result = evm::call(code, &mut ext, inputs);
-		}
-
-		assert!(result.is_ok());
 		Ok(())
 	}
 

@@ -37,7 +37,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
@@ -275,12 +275,6 @@ where
 			let prepared_call =
 				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
-		} else if T::AllowEVMBytecode::get() {
-			use crate::vm::evm::EVMInputs;
-			use revm::bytecode::Bytecode;
-			let inputs = EVMInputs::new(input_data);
-			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
-			evm::call(bytecode, ext, inputs)
 		} else {
 			Err(Error::<T>::CodeRejected.into())
 		}

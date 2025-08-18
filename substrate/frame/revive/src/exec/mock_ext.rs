@@ -37,12 +37,6 @@ pub struct MockExt<T: Config> {
 	_phantom: PhantomData<T>,
 }
 
-impl<T: Config> MockExt<T> {
-	pub fn new() -> Self {
-		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
-	}
-}
-
 impl<T: Config> PrecompileExt for MockExt<T> {
 	type T = T;
 
