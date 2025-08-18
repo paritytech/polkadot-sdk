@@ -80,17 +80,6 @@ pub mod v0 {
 	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
-		BlockNumberFor<T, I>,
-		BoundedCallOf<T, I>,
-		BalanceOf<T, I>,
-		TallyOf<T, I>,
-		<T as frame_system::Config>::AccountId,
-		ScheduleAddressOf<T, I>,
-	>;
-
-	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
-		TrackIdOf<T, I>,
-		PalletsOriginOf<T>,
 		SystemBlockNumberFor<T>,
 		BoundedCallOf<T, I>,
 		BalanceOf<T, I>,
@@ -146,6 +135,17 @@ pub mod v0 {
 		Killed(Moment),
 	}
 
+	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		SystemBlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
 	#[storage_alias]
 	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
 		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
@@ -156,23 +156,6 @@ pub mod v1 {
 
 	/// The log target.
 	const TARGET: &'static str = "runtime::referenda::migration::v1";
-
-	// okay.. this really wouldn't be an issue but for some reason they want to do the block migration without
-	// updating the storage version. But basically it goes v0 -> v1 -> v1::NewBlockType
-	// I guess the question is can you treat v1 and v1::NewBlockType as the same? Is that why they did this?
-	// Or do I just need to get the actual struct data from when these things were written?
-	// And I suppose even if I am able to get that to work. Which seems possible considering they'll be similar
-	// do I still need to go in and make sure that the structs are correct for the old migrations? I think so
-	// because what I did was pull them from right before these changes, and there's been two migrations
-	// well I guess not really. Because the second migration was just. No definitely v0 -> v1 was different
-	// and I should reflect that or make sure it's reflected I guess.
-	// Okay so v0 and v1 have the correct types
-	// Well.. so then it went from v1 to v1::NewBlockType, which didn't actually change any fields on
-	// the struct but more just said it may be this new type. But if you say 'may be this new type' the compiler
-	// is going to treat it like they're not defacto compatible. So when I try and put this v1::ref into v1::ref
-	// again, but this time with the possibly new type. It complains. I suppose I see why they didn't want
-	// to increment the storage version, but that seems to have only made it more complicated unnecessarily.
-	// like I don't see what we're getting out of this
 
 	#[derive(
 		Encode,
@@ -559,6 +542,8 @@ pub mod test {
 				}
 			}
 
+			StorageVersion::new(1).put::<Pallet<T, ()>>();
+
 			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
 			let referendum_approved = v1::ReferendumInfoOf::<T, ()>::Approved(
 				50, //old block number
@@ -584,7 +569,7 @@ pub mod test {
 			assert_eq!(
 				approved_v2,
 				ReferendumInfoOf::<T, ()>::Approved(
-					50,
+					60,
 					Some(Deposit { who: 1, amount: 10 }),
 					Some(Deposit { who: 2, amount: 20 })
 				)
