@@ -576,7 +576,7 @@ pub mod pallet {
 	/// by a few hashes and the vector of transaction hashes, we store the block here.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+	pub type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
 
 	/// Mapping for block number and hashes.
 	///
