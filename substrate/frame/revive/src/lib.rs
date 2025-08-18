@@ -1157,6 +1157,10 @@ where
 						let executable = ContractBlob::from_evm_code(code, origin)?;
 						(executable, Default::default())
 					} else {
+						log::debug!(
+							target: LOG_TARGET,
+							"Rejected upload of EVM bytecode because AllowEVMBytecode is false"
+						);
 						return Err(<Error<T>>::CodeRejected.into())
 					},
 				Code::Existing(code_hash) =>
@@ -1345,7 +1349,7 @@ where
 			None => {
 				// Extract code and data from the input.
 				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-					match polkavm::ProgramBlob::blob_length(&input) {
+					let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
 						Some(blob_len) => blob_len
 							.try_into()
 							.ok()
@@ -1355,10 +1359,10 @@ where
 							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
 							(&input[..], &[][..])
 						},
-					}
+					};
+					(code.to_vec(), data.to_vec())
 				} else {
-					// TODO support EVM
-					return Err(EthTransactError::Message("Invalid transaction".into()));
+					(input, vec![])
 				};
 
 				// Dry run the call.
@@ -1367,8 +1371,8 @@ where
 					value,
 					gas_limit,
 					storage_deposit_limit,
-					Code::Upload(code.to_vec()),
-					data.to_vec(),
+					Code::Upload(code.clone()),
+					data.clone(),
 					None,
 					BumpNonce::No,
 				);
@@ -1403,8 +1407,8 @@ where
 						value,
 						gas_limit,
 						storage_deposit_limit,
-						code: code.to_vec(),
-						data: data.to_vec(),
+						code,
+						data,
 					}
 					.into();
 				(result, dispatch_call)
