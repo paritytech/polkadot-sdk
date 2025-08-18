@@ -176,7 +176,7 @@ pub fn generate_decl_runtime_metadata<'a>(
 			#[inline(always)]
 			pub fn runtime_metadata #impl_generics (
 				impl_version: u32,
-				mut impl_deprecations: #crate_::scale_info::prelude::collections::BTreeMap<&str, #crate_::metadata_ir::DeprecationStatusIR>
+				mut impl_deprecations: #crate_::scale_info::prelude::collections::BTreeMap<&str, #crate_::metadata_ir::ItemDeprecationInfoIR>
 			) -> #crate_::metadata_ir::RuntimeApiMetadataIR
 				#where_clause
 			{
