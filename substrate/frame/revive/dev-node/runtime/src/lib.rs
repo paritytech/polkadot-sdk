@@ -317,7 +317,6 @@ impl pallet_transaction_payment::Config for Runtime {
 
 parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub const BlockHashCountRevive: u32 = 256;
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
@@ -331,7 +330,6 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
 	type LengthToFee = <Runtime as pallet_transaction_payment::Config>::LengthToFee;
-	type BlockHashCount = BlockHashCountRevive;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive!(

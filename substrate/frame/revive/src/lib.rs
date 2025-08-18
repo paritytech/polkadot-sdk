@@ -122,6 +122,9 @@ pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_paym
 /// that this value makes sense for a memory location or length.
 const SENTINEL: u32 = u32::MAX;
 
+/// The maximum number of block hashes to keep in the history.
+const BLOCK_HASH_COUNT: u32 = 256;
+
 /// The target that is used for the log output emitted by this crate.
 ///
 /// Hence you can use this target to selectively increase the log level for this crate.
@@ -283,11 +286,6 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
-
-		/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-		#[pallet::constant]
-		#[pallet::no_default_bounds]
-		type BlockHashCount: Get<BlockNumberFor<Self>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -312,7 +310,6 @@ pub mod pallet {
 			pub const DepositPerItem: Balance = deposit(1, 0);
 			pub const DepositPerByte: Balance = deposit(0, 1);
 			pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-			pub const BlockHashCount: u64 = 256;
 		}
 
 		/// A type providing default configurations for this pallet in testing environment.
@@ -360,7 +357,6 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
-			type BlockHashCount = BlockHashCount;
 		}
 	}
 
@@ -584,7 +580,7 @@ pub mod pallet {
 
 	/// Mapping for block number and hashes.
 	///
-	/// The maximum number of elements stored is capped by the block hash count `BlockHashCount`.
+	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
 	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
@@ -723,7 +719,7 @@ pub mod pallet {
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
 			// Prune older block hashes.
-			let block_hash_count = <T as pallet::Config>::BlockHashCount::get();
+			let block_hash_count = BLOCK_HASH_COUNT;
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 			if !to_remove.is_zero() {
@@ -1626,8 +1622,7 @@ where
 	/// # Note
 	///
 	/// The Ethereum block number is identical to the Substrate block number.
-	/// If the provided block number is outside of the pruning window defined by
-	/// `BlockHashCount` constant, then None is returned.
+	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let hash = <BlockHash<T>>::get(number);
 		if hash == H256::zero() {
