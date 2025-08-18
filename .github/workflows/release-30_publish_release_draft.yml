@@ -25,7 +25,7 @@ on:
   workflow_call:
     inputs:
       release_tag:
-        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM(-X)
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
         required: true
         type: string
       build_run_id:
