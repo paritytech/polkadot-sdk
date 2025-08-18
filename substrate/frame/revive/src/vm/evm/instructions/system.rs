@@ -32,6 +32,8 @@ use revm::{
 };
 use sp_io::hashing::keccak_256;
 
+// TODO: Fix the gas handling for the memory operations
+
 /// Implements the KECCAK256 instruction.
 ///
 /// Computes Keccak-256 hash of memory data.

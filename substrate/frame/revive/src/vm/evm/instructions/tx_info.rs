@@ -16,10 +16,7 @@
 // limitations under the License.
 
 use crate::{address::AddressMapper, evm::runtime::GAS_PRICE, vm::RuntimeCosts};
-use revm::{
-	interpreter::gas as revm_gas,
-	primitives::{Address, U256},
-};
+use revm::primitives::{Address, U256};
 
 use super::Context;
 use crate::{vm::Ext, Config};
@@ -43,7 +40,9 @@ pub fn origin<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			push!(context.interpreter, address.into_word().into());
 		},
 		Err(_) => {
-			context.interpreter.halt(revm::interpreter::InstructionResult::FatalExternalError);
+			context
+				.interpreter
+				.halt(revm::interpreter::InstructionResult::FatalExternalError);
 		},
 	}
 }
@@ -52,6 +51,5 @@ pub fn origin<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// EIP-4844: Shard Blob Transactions - gets the hash of a transaction blob.
 pub fn blob_hash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
 	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
 }
