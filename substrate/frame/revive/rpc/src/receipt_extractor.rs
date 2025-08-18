@@ -48,11 +48,17 @@ type FetchReceiptDataFn = Arc<
 		+ Sync,
 >;
 
+type FetchEthBlockHashFn =
+	Arc<dyn Fn(H256, u64) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>> + Send + Sync>;
+
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
 	/// Fetch the receipt data info.
 	fetch_receipt_data: FetchReceiptDataFn,
+
+	/// Fetch ethereum block hash.
+	fetch_eth_block_hash: FetchEthBlockHashFn,
 
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
@@ -83,12 +89,24 @@ impl ReceiptExtractor {
 	) -> Result<Self, ClientError> {
 		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
 
-		let gas_api = api.clone();
-		let fetch_gas_price = Arc::new(move |block_hash| {
-			let api_clone = gas_api.clone();
+		let api_inner = api.clone();
+		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
+			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let runtime_api = api_clone.runtime_api().at(block_hash);
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
+				storage_api.get_ethereum_block_hash(block_number).await.ok()
+			};
+
+			Box::pin(fut) as Pin<Box<_>>
+		});
+
+		let api_inner = api.clone();
+		let fetch_gas_price = Arc::new(move |block_hash| {
+			let api_inner = api_inner.clone();
+
+			let fut = async move {
+				let runtime_api = api_inner.runtime_api().at(block_hash);
 				let payload = subxt_client::apis().revive_api().gas_price();
 				let base_gas_price = runtime_api.call(payload).await?;
 				Ok(*base_gas_price)
@@ -97,11 +115,12 @@ impl ReceiptExtractor {
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
+		let api_inner = api.clone();
 		let fetch_receipt_data = Arc::new(move |block_hash| {
-			let api_clone = api.clone();
+			let api_inner = api_inner.clone();
 
 			let fut = async move {
-				let storage_api = StorageApi::new(api_clone.storage().at(block_hash));
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
 				storage_api.get_receipt_data().await.ok()
 			};
 
@@ -110,6 +129,7 @@ impl ReceiptExtractor {
 
 		Ok(Self {
 			fetch_receipt_data,
+			fetch_eth_block_hash,
 			fetch_gas_price,
 			native_to_eth_ratio,
 			earliest_receipt_block,
@@ -119,11 +139,13 @@ impl ReceiptExtractor {
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None) as Pin<Box<_>>));
+		let fetch_eth_block_hash = Arc::new(|_| Box::pin(std::future::ready(None) as Pin<Box<_>>));
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
 		Self {
 			fetch_receipt_data,
+			fetch_eth_block_hash,
 			fetch_gas_price,
 			native_to_eth_ratio: 1_000_000,
 			earliest_receipt_block: None,
