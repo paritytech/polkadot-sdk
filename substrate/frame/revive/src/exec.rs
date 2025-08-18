@@ -478,11 +478,6 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
-
-	/// Returns true if the executable is a PVM blob.
-	fn is_pvm(&self) -> bool {
-		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
-	}
 }
 
 /// The complete call stack of a contract execution.
@@ -578,7 +573,7 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 
 	fn is_pvm(&self) -> bool {
 		match self {
-			Self::Executable(e) => e.is_pvm(),
+			Self::Executable(e) => e.code_info().is_pvm(),
 			_ => false,
 		}
 	}

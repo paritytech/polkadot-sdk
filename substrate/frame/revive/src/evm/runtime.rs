@@ -666,13 +666,17 @@ mod test {
 
 	#[test]
 	fn check_instantiate_data() {
-		let code = b"invalid code".to_vec();
+		let code: Vec<u8> = polkavm_common::program::BLOB_MAGIC
+			.into_iter()
+			.chain(b"invalid code".iter().cloned())
+			.collect();
 		let data = vec![1];
+
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
+			builder.check(),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}
