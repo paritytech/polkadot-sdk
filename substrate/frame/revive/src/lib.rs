@@ -1345,7 +1345,6 @@ where
 						},
 					}
 				} else {
-					// TODO support EVM
 					return Err(EthTransactError::Message("Invalid transaction".into()));
 				};
 
