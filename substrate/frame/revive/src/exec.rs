@@ -61,6 +61,9 @@ use sp_runtime::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub mod mock_ext;
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
@@ -477,6 +480,11 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
+
+	/// Returns true if the executable is a PVM blob.
+	fn is_pvm(&self) -> bool {
+		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
+	}
 }
 
 /// The complete call stack of a contract execution.
@@ -567,6 +575,13 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 			Some(executable)
 		} else {
 			None
+		}
+	}
+
+	fn is_pvm(&self) -> bool {
+		match self {
+			Self::Executable(e) => e.is_pvm(),
+			_ => false,
 		}
 	}
 
@@ -1090,6 +1105,7 @@ where
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
@@ -1119,6 +1135,7 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
+			let skip_transfer = self.skip_transfer;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1160,12 +1177,14 @@ where
 					<System<T>>::inc_account_nonce(caller.account_id()?);
 				}
 				// The incremented refcount should be visible to the constructor.
-				<CodeInfo<T>>::increment_refcount(
-					*executable
-						.as_executable()
-						.expect("Precompiles cannot be instantiated; qed")
-						.code_hash(),
-				)?;
+				if is_pvm {
+					<CodeInfo<T>>::increment_refcount(
+						*executable
+							.as_executable()
+							.expect("Precompiles cannot be instantiated; qed")
+							.code_hash(),
+					)?;
+				}
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
@@ -1200,12 +1219,12 @@ where
 				}
 			}
 
-			let code_deposit = executable
+			let mut code_deposit = executable
 				.as_executable()
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let output = match executable {
+			let mut output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1232,7 +1251,20 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			if entry_point == ExportedFunction::Constructor {
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				let contract_info = frame.contract_info();
+				// if we are dealing with EVM bytecode
+				// We upload the new runtime code, and update the code
+				if !is_pvm {
+					let caller = caller.account_id()?.clone();
+					let addr = T::AddressMapper::to_address(account_id).0.to_vec();
+					let data = core::mem::replace(&mut output.data, addr);
+
+					let mut module = crate::ContractBlob::<T>::from_evm_code(data, caller)?;
+					code_deposit = module.store_code(skip_transfer)?;
+					contract_info.code_hash = *module.code_hash();
+				}
+
+				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
@@ -2082,6 +2114,8 @@ mod sealing {
 	use super::*;
 
 	pub trait Sealed {}
-
 	impl<'a, T: Config, E> Sealed for Stack<'a, T, E> {}
+
+	#[cfg(test)]
+	impl<T: Config> sealing::Sealed for mock_ext::MockExt<T> {}
 }
