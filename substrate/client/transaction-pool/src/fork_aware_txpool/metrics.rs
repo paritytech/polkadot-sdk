@@ -139,11 +139,20 @@ impl EventsHistograms {
 				registry,
 			)?,
 			in_block: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_in_block",
-					"Histogram of timings for reporting InBlock event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_in_block",
+						"Histogram of timings for reporting InBlock event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			retracted: register(
@@ -163,35 +172,71 @@ impl EventsHistograms {
 				registry,
 			)?,
 			finalized: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_finalized",
-					"Histogram of timings for reporting Finalized event",
-					linear_buckets(0.0, 40.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_finalized",
+						"Histogram of timings for reporting Finalized event"
+					)
+					.buckets(
+						[
+							// requested in #9158
+							linear_buckets(0.0, 5.0, 8).unwrap(),
+							linear_buckets(40.0, 40.0, 19).unwrap(),
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			usurped: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_usurped",
-					"Histogram of timings for reporting Usurped event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_usurped",
+						"Histogram of timings for reporting Usurped event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			dropped: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_dropped",
-					"Histogram of timings for reporting Dropped event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_dropped",
+						"Histogram of timings for reporting Dropped event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 			invalid: register(
-				Histogram::with_opts(histogram_opts!(
-					"substrate_sub_txpool_timing_event_invalid",
-					"Histogram of timings for reporting Invalid event",
-					linear_buckets(0.0, 3.0, 20).unwrap()
-				))?,
+				Histogram::with_opts(
+					histogram_opts!(
+						"substrate_sub_txpool_timing_event_invalid",
+						"Histogram of timings for reporting Invalid event"
+					)
+					.buckets(
+						[
+							linear_buckets(0.0, 3.0, 20).unwrap(),
+							// requested in #9158
+							vec![60.0, 75.0, 90.0, 120.0, 180.0],
+						]
+						.concat(),
+					),
+				)?,
 				registry,
 			)?,
 		})

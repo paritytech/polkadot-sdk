@@ -27,6 +27,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
 	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -322,9 +323,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
-
-	/// Returns the account id for the given `address`.
-	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
 
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
@@ -1121,6 +1119,13 @@ where
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
+			if u32::try_from(input_data.len())
+				.map(|len| len > limits::CALLDATA_BYTES)
+				.unwrap_or(true)
+			{
+				Err(<Error<T>>::CallDataTooLarge)?;
+			}
+
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
@@ -1203,6 +1208,15 @@ where
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
 					instance.call(input_data, self),
 			}
+			.and_then(|output| {
+				if u32::try_from(output.data.len())
+					.map(|len| len > limits::CALLDATA_BYTES)
+					.unwrap_or(true)
+				{
+					Err(<Error<T>>::ReturnDataTooLarge)?;
+				}
+				Ok(output)
+			})
 			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
@@ -1279,6 +1293,8 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
+
+		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
 		output.map(|output| {
@@ -1918,10 +1934,6 @@ where
 
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
-	}
-
-	fn to_account_id(&self, address: &H160) -> T::AccountId {
-		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
