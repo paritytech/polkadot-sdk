@@ -35,7 +35,7 @@ pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo)]
+#[derive(Encode, Decode, TypeInfo, Clone)]
 pub struct ReconstructReceiptInfo {
 	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
 	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
@@ -44,10 +44,10 @@ pub struct ReconstructReceiptInfo {
 	/// Note: Since there's a runtime API to extract the base gas fee (`fn gas_price()`)
 	/// and we have access to the `TransactionSigned` struct, we can compute the effective gas
 	/// price in the RPC layer.
-	effective_gas_price: U256,
+	pub effective_gas_price: U256,
 
 	/// The amount of gas used for this specific transaction alone.
-	gas_used: U256,
+	pub gas_used: U256,
 }
 
 /// Builder of the ETH block.
