@@ -33,7 +33,7 @@ use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing::{blake2_128, keccak_256};
+use sp_io::hashing::keccak_256;
 use sp_runtime::DispatchError;
 
 impl<T: Config> ContractBlob<T> {
@@ -921,21 +921,6 @@ pub mod env {
 			},
 			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
 		}
-	}
-
-	/// Computes the BLAKE2 128-bit hash on the given input buffer.
-	/// See [`pallet_revive_uapi::HostFn::hash_blake2_128`].
-	fn hash_blake2_128(
-		&mut self,
-		memory: &mut M,
-		input_ptr: u32,
-		input_len: u32,
-		output_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::HashBlake128(input_len))?;
-		Ok(self.compute_hash_on_intermediate_buffer(
-			memory, blake2_128, input_ptr, input_len, output_ptr,
-		)?)
 	}
 
 	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
