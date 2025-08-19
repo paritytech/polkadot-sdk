@@ -1622,8 +1622,12 @@ mod invulnerables {
 			// Check that expected events were emitted for the rejection
 			assert_eq!(
 				signed_events(),
-				vec![Event::Registered(0, 99, invalid_score), Event::Slashed(0, 99, 7)]
-				// slash amount is indeed the invulnerable deposit (7) ^^^^
+				vec![Event::Registered(0, 99, invalid_score), Event::Slashed(0, 99, 7)] /* slash
+				                                                                         * amount
+				                                                                         * is indeed
+				                                                                         * the invulnerable
+				                                                                         * deposit
+				                                                                         * (7) ^^^^ */
 			);
 
 			// Verify invulnerable is expelled

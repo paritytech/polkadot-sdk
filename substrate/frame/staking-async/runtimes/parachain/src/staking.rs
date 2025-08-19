@@ -82,9 +82,9 @@ parameter_types! {
 	pub storage Pages: u32 = 4;
 
 	/// * Polkadot: 16 * 32 (512 blocks, 51.2m).
-    /// * Kusama: 8 * 16 (12 blocks, 12.8m).
-    ///
-    /// (MaxSubmissions * Pages) for both, enough to verify all solutions.
+	/// * Kusama: 8 * 16 (12 blocks, 12.8m).
+	///
+	/// (MaxSubmissions * Pages) for both, enough to verify all solutions.
 	///
 	/// Reasoning: Less security needed in Kusama, to compensate for the shorter session duration.
 	pub storage SignedValidationPhase: u32 = Pages::get() * 2;
