@@ -102,7 +102,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"sp-runtime/try-runtime",
 ]
-experimental = ["frame-support/experimental"]
+experimental = ["frame-support/experimental", "frame-system/experimental"]
 runtime = [
 	"frame-executive",
 	"frame-system-rpc-runtime-api",

@@ -26,7 +26,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
+use sp_runtime::{generic, testing::TestXt, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type TxExtension = (
@@ -49,6 +49,8 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type BlockNumber = u32;
 pub type AccountId = AccountId32;
 
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+
 construct_runtime!(
 	pub enum Test {
 		System: frame_system,
@@ -58,6 +60,23 @@ construct_runtime!(
 		XcmPallet: pallet_xcm,
 	}
 );
+
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type RuntimeCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+		Extrinsic::new_bare(call)
+	}
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
