@@ -107,7 +107,11 @@ pub struct StorageParams {
 	#[arg(long, default_value_t = 1)]
 	pub warmups: u32,
 
-	/// The `StateVersion` to use. Substrate `--dev` should use `V1` and Polkadot `V0`.
+	/// The `StateVersion` to use.
+	///
+	/// Substrate `--dev` should use `V1` and Polkadot `V0`.
+	/// To specify the state version, pass `--state-version=1` for `V1`
+	/// or `--state-version=0` for `V0`.
 	/// Selecting the wrong version can corrupt the DB.
 	#[arg(long, value_parser = clap::value_parser!(u8).range(0..=1))]
 	pub state_version: u8,
