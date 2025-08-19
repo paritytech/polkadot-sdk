@@ -160,7 +160,7 @@ pub trait WeightInfo {
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
-	fn finalize_block(c: u32, ) -> Weight;
+	fn finalize_block_transaction_processing(c: u32, ) -> Weight;
 	fn finalize_block_event_processing(e: u32, ) -> Weight;
 	fn finalize_block_event_data_processing(d: u32, ) -> Weight;
 }
@@ -1283,7 +1283,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block(c: u32, ) -> Weight {
+	fn finalize_block_transaction_processing(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1976`
 		//  Estimated: `7916 + c * (2475 ±0)`
@@ -2444,7 +2444,7 @@ impl WeightInfo for () {
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block(c: u32, ) -> Weight {
+	fn finalize_block_transaction_processing(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1976`
 		//  Estimated: `7916 + c * (2475 ±0)`

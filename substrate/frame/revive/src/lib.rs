@@ -1108,7 +1108,7 @@ pub mod pallet {
 				// Calculate per-event weight
 				let event_processing_weight = T::WeightInfo::finalize_block_per_event()
 					.saturating_mul(event_count.into());
-				
+
 				// Calculate total event data size for per-byte weight accounting
 				let total_event_data_size: u32 = InflightEvents::<T>::iter()
 					.filter_map(|(_, event)| {
@@ -1118,15 +1118,15 @@ pub mod pallet {
 						}
 					})
 					.sum();
-				
+
 				// Calculate per-data-byte weight
 				let data_processing_weight = T::WeightInfo::finalize_block_per_data_byte()
 					.saturating_mul(total_event_data_size.into());
-				
+
 				// Register combined additional weight for event processing during finalize_block
 				let total_event_weight = event_processing_weight
 					.saturating_add(data_processing_weight);
-				
+
 				frame_system::Pallet::<T>::register_extra_weight_unchecked(
 					total_event_weight,
 					DispatchClass::Normal,
@@ -1289,12 +1289,12 @@ pub mod pallet {
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
 			// Call finalize_block with tx_count = 0 → only `a`
-			W::finalize_block(0)
+			W::finalize_block_transaction_processing(0)
 		}
 
 		fn finalize_block_per_tx() -> Weight {
 			// Call with 1 tx and subtract the fixed part → gives `b`
-			W::finalize_block(1).saturating_sub(W::finalize_block(0))
+			W::finalize_block_transaction_processing(1).saturating_sub(W::finalize_block_transaction_processing(0))
 		}
 
 		fn finalize_block_per_event() -> Weight {

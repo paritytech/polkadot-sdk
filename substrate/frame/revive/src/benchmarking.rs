@@ -2357,7 +2357,7 @@ mod benchmarks {
 
 	// `c`: number of transactions to fit in the block
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
+	fn finalize_block_transaction_processing(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		// Setup test signer
 		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
 		whitelist_account!(signer_caller);
