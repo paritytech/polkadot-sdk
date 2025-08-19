@@ -52,6 +52,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
+		Revive: pallet_revive,
 	}
 );
 
@@ -102,12 +103,20 @@ impl frame_system::Config for Test {
 	type Block = frame_system::mocking::MockBlock<Test>;
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type MaxLocks = frame_support::traits::ConstU32<1024>;
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
+	type Currency = Balances;
+	type Precompiles = (crate::precompiles::StakingPrecompile<Self>,);
 }
 
 parameter_types! {

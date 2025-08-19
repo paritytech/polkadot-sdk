@@ -13185,6 +13185,7 @@ name = "pallet-staking-async"
 version = "0.1.0"
 dependencies = [
  "alloy-core",
+ "const-hex",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",

@@ -1431,7 +1431,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 			ensure!(!T::Filter::contains(&stash), Error::<T>::Restricted);
-			Self::do_bond_extra(&stash, max_additional)
+			Self::do_bond_extra(&stash, max_additional).map(|_added| ())
 		}
 
 		/// Schedule a portion of the stash to be unlocked ready for transfer out after the bond

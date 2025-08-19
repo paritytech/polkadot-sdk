@@ -15,16 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::precompiles::staking::IStaking::bondReturn;
 use crate::{
-	weights::WeightInfo, ActiveEra, BalanceOf, Call, Config, Ledger, MaxNominatorsCount,
-	MinCommission, MinNominatorBond, MinValidatorBond, Nominators, Pallet, RewardDestination,
-	StakingLedger, ValidatorPrefs, Validators,
+	precompiles::staking::IStaking::bondReturn, weights::WeightInfo, ActiveEra, BalanceOf, Call,
+	Config, Ledger, MaxNominatorsCount, MinCommission, MinNominatorBond, MinValidatorBond,
+	Nominators, Pallet, RewardDestination, StakingLedger, ValidatorPrefs, Validators,
 };
 use alloc::vec::Vec;
 use alloy_core as alloy;
 use alloy_core::{
-	primitives::IntoLogData,
+	primitives::{IntoLogData, U256},
 	sol,
 	sol_types::{Revert, SolCall},
 };
@@ -462,12 +461,11 @@ pub struct StakingPrecompile<T>(core::marker::PhantomData<T>);
 impl<T> Precompile for StakingPrecompile<T>
 where
 	T: Config + pallet_revive::Config,
-	T::AccountId: From<[u8; 20]> + Into<[u8; 20]>,
-	BalanceOf<T>: TryFrom<alloy::primitives::U256> + Into<alloy::primitives::U256>,
-	Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+	U256: TryInto<BalanceOf<T>> + TryFrom<BalanceOf<T>>,
 {
 	type T = T;
 	type Interface = IStaking::IStakingCalls;
+	// TODO: make location configurable.
 	const MATCHER: AddressMatcher = AddressMatcher::Fixed(core::num::NonZero::new(0x0800).unwrap());
 	const HAS_CONTRACT_INFO: bool = false;
 
@@ -512,9 +510,7 @@ const ERR_COMMISSION_TOO_HIGH: &str = "Commission rate too high";
 impl<T> StakingPrecompile<T>
 where
 	T: Config + pallet_revive::Config,
-	T::AccountId: From<[u8; 20]> + Into<[u8; 20]>,
-	BalanceOf<T>: TryFrom<alloy::primitives::U256> + Into<alloy::primitives::U256>,
-	Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+	U256: TryInto<BalanceOf<T>> + TryFrom<BalanceOf<T>>,
 {
 	/// Get the caller as an `H160` address.
 	fn caller(env: &mut impl Ext<T = T>) -> Result<H160, Error> {
@@ -533,15 +529,17 @@ where
 	}
 
 	/// Convert a `U256` value to the balance type of the pallet.
-	fn to_balance(value: alloy::primitives::U256) -> Result<BalanceOf<T>, Error> {
+	fn to_balance(value: U256) -> Result<BalanceOf<T>, Error> {
 		value
 			.try_into()
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
 	/// Convert a balance to a `U256` value.
-	fn to_u256(value: BalanceOf<T>) -> alloy::primitives::U256 {
-		value.into()
+	fn to_u256(value: BalanceOf<T>) -> U256 {
+		value.try_into().map_err(|_| ()).expect(
+			"Runtime Balance is always at most u128; can be converted to U256 without overflow; qed",
+		)
 	}
 
 	/// Deposit an event to the runtime.
@@ -559,11 +557,6 @@ where
 		Ok(())
 	}
 
-	/// Execute the bond call.
-	///
-	/// Note: The pallet internally uses `value.min(stash_balance)` to determine the actual
-	/// bonded amount. The event emitted by the pallet will contain the actual bonded amount,
-	/// not necessarily the requested amount.
 	fn bond(call: &IStaking::bondCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
 		env.charge(<T as crate::Config>::WeightInfo::bond())?;
 
@@ -579,8 +572,6 @@ where
 				.unwrap_or_default(),
 		);
 
-		// // Note: We emit the requested amount here, but the pallet's internal event
-		// // will emit the actual bonded amount which may be different due to balance constraints
 		Self::deposit_event(
 			env,
 			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
@@ -592,40 +583,30 @@ where
 		Ok(Default::default())
 	}
 
-	/// Execute the bond_extra call.
-	///
-	/// Note: The pallet internally uses `max_additional.min(free_balance)` to determine the
-	/// actual bonded amount. The event emitted by the pallet will contain the actual bonded amount,
-	/// not necessarily the requested maxAdditional amount.
 	fn bond_extra(
 		call: &IStaking::bondExtraCall,
 		env: &mut impl Ext<T = T>,
 	) -> Result<Vec<u8>, Error> {
-		todo!()
-		// env.charge(<T as crate::Config>::WeightInfo::bond_extra())?;
+		env.charge(<T as crate::Config>::WeightInfo::bond_extra())?;
 
-		// let stash = Self::caller(env)?;
-		// let max_additional = Self::to_balance(call.maxAdditional)?;
+		let stash_address = Self::caller(env)?;
+		let stash_id = Self::account_id(&stash_address);
+		let max_additional = Self::to_balance(call.maxAdditional)?;
 
-		// // Call pallet function
-		// // Note: Pallet internally handles max_additional.min(free_balance) logic
-		// Pallet::<T>::bond_extra(
-		// 	frame_system::RawOrigin::Signed(stash.clone()).into(),
-		// 	max_additional,
-		// )
-		// .map_err(|_| Error::Revert(Revert { reason: "Bond extra failed".into() }))?;
+		// TODO: some places we do the dispatch and some places direct fn call. Only difference is
+		// call filter, which is already applied in the revive level. Likely best to move all to fn
+		// calls.
+		let extra = Pallet::<T>::do_bond_extra(&stash_id, max_additional)?;
 
-		// // Note: We emit the requested amount here, but the pallet's internal event
-		// // will emit the actual bonded amount which may be different due to balance constraints
-		// Self::deposit_event(
-		// 	env,
-		// 	IStaking::IStakingEvents::Bonded(IStaking::Bonded {
-		// 		stash: Self::to_address(&stash),
-		// 		amount: call.maxAdditional,
-		// 	}),
-		// )?;
+		Self::deposit_event(
+			env,
+			IStaking::IStakingEvents::Bonded(IStaking::Bonded {
+				stash: stash_address.0.into(),
+				amount: Self::to_u256(extra),
+			}),
+		)?;
 
-		// Ok(IStaking::bondExtraCall::abi_encode_returns(&true))
+		Ok(Default::default())
 	}
 
 	/// Execute the unbond call.
@@ -670,7 +651,7 @@ where
 		// 	env,
 		// 	IStaking::IStakingEvents::Unbonded(IStaking::Unbonded {
 		// 		stash: Self::to_address(&stash),
-		// 		amount: alloy::primitives::U256::ZERO, // We don't know the exact amount unbonded
+		// 		amount: U256::ZERO, // We don't know the exact amount unbonded
 		// 	}),
 		// )?;
 
@@ -699,7 +680,7 @@ where
 		// 	env,
 		// 	IStaking::IStakingEvents::Withdrawn(IStaking::Withdrawn {
 		// 		stash: Self::to_address(&stash),
-		// 		amount: alloy::primitives::U256::ZERO,
+		// 		amount: U256::ZERO,
 		// 	}),
 		// )?;
 
@@ -888,9 +869,7 @@ where
 impl<T> StakingPrecompile<T>
 where
 	T: Config + pallet_revive::Config,
-	T::AccountId: From<[u8; 20]> + Into<[u8; 20]>,
-	BalanceOf<T>: TryFrom<alloy::primitives::U256> + Into<alloy::primitives::U256>,
-	Call<T>: Into<<T as pallet_revive::Config>::RuntimeCall>,
+	U256: TryInto<BalanceOf<T>> + TryFrom<BalanceOf<T>>,
 {
 	/// Execute the ledger query.
 	fn ledger(call: &IStaking::ledgerCall, env: &mut impl Ext<T = T>) -> Result<Vec<u8>, Error> {
@@ -910,7 +889,7 @@ where
 		// 		.map(|chunk| {
 		// 			Ok(IStaking::UnlockChunk {
 		// 				value: Self::to_u256(chunk.value)?,
-		// 				era: alloy::primitives::U256::from(chunk.era),
+		// 				era: U256::from(chunk.era),
 		// 			})
 		// 		})
 		// 		.collect();
@@ -923,8 +902,8 @@ where
 		// } else {
 		// 	// Return empty ledger for non-stakers
 		// 	Ok(IStaking::ledgerCall::abi_encode_returns(&IStaking::ledgerReturn {
-		// 		total: alloy::primitives::U256::ZERO,
-		// 		active: alloy::primitives::U256::ZERO,
+		// 		total: U256::ZERO,
+		// 		active: U256::ZERO,
 		// 		unlocking: Vec::<IStaking::UnlockChunk>::new(),
 		// 	}))
 		// }
@@ -946,14 +925,14 @@ where
 
 		// 	Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
 		// 		targets,
-		// 		submittedIn: alloy::primitives::U256::from(nominations.submitted_in),
+		// 		submittedIn: U256::from(nominations.submitted_in),
 		// 		suppressed: nominations.suppressed,
 		// 	}))
 		// } else {
 		// 	// Return empty nominations for non-nominators
 		// 	Ok(IStaking::nominatorsCall::abi_encode_returns(&IStaking::nominatorsReturn {
 		// 		targets: Vec::<alloy::primitives::Address>::new(),
-		// 		submittedIn: alloy::primitives::U256::ZERO,
+		// 		submittedIn: U256::ZERO,
 		// 		suppressed: false,
 		// 	}))
 		// }
@@ -970,7 +949,7 @@ where
 		// let validator = Self::to_account_id(&call.validator);
 
 		// let prefs = Validators::<T>::get(&validator);
-		// let commission = alloy::primitives::U256::from(prefs.commission.deconstruct());
+		// let commission = U256::from(prefs.commission.deconstruct());
 
 		// Ok(IStaking::validatorsCall::abi_encode_returns(&IStaking::validatorsReturn {
 		// 	commission,
@@ -987,7 +966,7 @@ where
 		// 	.map(|info| info.index)
 		// 	.unwrap_or_default();
 
-		// Ok(IStaking::currentEraCall::abi_encode_returns(&alloy::primitives::U256::from(era)))
+		// Ok(IStaking::currentEraCall::abi_encode_returns(&U256::from(era)))
 	}
 
 	/// Execute the min_nominator_bond query.
@@ -1018,7 +997,7 @@ where
 		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
 		// let min_commission = MinCommission::<T>::get();
-		// let commission = alloy::primitives::U256::from(min_commission.deconstruct());
+		// let commission = U256::from(min_commission.deconstruct());
 
 		// Ok(IStaking::minCommissionCall::abi_encode_returns(&commission))
 	}
@@ -1040,7 +1019,7 @@ where
 		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
 		// let max_count = MaxNominatorsCount::<T>::get().unwrap_or(0);
-		// let count = alloy::primitives::U256::from(max_count);
+		// let count = U256::from(max_count);
 
 		// Ok(IStaking::maxNominatorsCountCall::abi_encode_returns(&count))
 	}
@@ -1051,7 +1030,7 @@ where
 		// env.charge(frame_support::weights::Weight::from_parts(1000, 0))?;
 
 		// let max_chunks = T::MaxUnlockingChunks::get();
-		// let count = alloy::primitives::U256::from(max_chunks);
+		// let count = U256::from(max_chunks);
 
 		// Ok(IStaking::maxUnlockingChunksCall::abi_encode_returns(&count))
 	}

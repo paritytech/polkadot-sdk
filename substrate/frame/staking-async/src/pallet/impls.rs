@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
+	pub(crate) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> Result<BalanceOf<T>, DispatchError> {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
 		// for virtual stakers, we don't need to check the balance. Since they are only accessed
@@ -207,7 +207,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::Bonded { stash: stash.clone(), amount: extra });
 
-		Ok(())
+		Ok(extra)
 	}
 
 	/// Calculate the earliest era that withdrawals are allowed for, considering:

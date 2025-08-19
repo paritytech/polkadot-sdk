@@ -45,6 +45,7 @@ rand_chacha = { workspace = true, default-features = true }
 sp-npos-elections = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-utils = { workspace = true }
+const-hex = { workspace = true }
 
 [features]
 default = ["std"]
