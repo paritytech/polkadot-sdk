@@ -33,14 +33,14 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-staking = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, path = "../benchmarking" }
-frame-support = { features = ["experimental"], default-features = true, path = "../support" }
-pallet-bags-list = { default-features = true, path = "../bags-list" }
-pallet-balances = { default-features = true, path = "../balances" }
+frame-benchmarking = { default-features = true, workspace = true }
+frame-support = { features = ["experimental"], default-features = true, workspace = true }
+pallet-bags-list = { default-features = true, workspace = true }
+pallet-balances = { default-features = true, workspace = true }
 rand_chacha = { workspace = true, default-features = true }
-sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-utils = { path = "../../test-utils" }
+sp-npos-elections = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-utils = { workspace = true }
 
 [features]
 default = ["std"]

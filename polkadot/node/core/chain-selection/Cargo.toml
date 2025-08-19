@@ -31,5 +31,5 @@ thiserror = { workspace = true }
 assert_matches = { workspace = true }
 kvdb-memorydb = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+sp-core = { default-features = true, workspace = true }

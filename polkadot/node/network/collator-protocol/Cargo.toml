@@ -47,16 +47,16 @@ tokio = { features = ["macros"], workspace = true, default-features = true, opti
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sp-tracing = { default-features = false, path = "../../../../substrate/primitives/tracing" }
+sp-tracing = { default-features = false, workspace = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
-sc-keystore = { default-features = true, path = "../../../../substrate/client/keystore" }
-sc-network = { default-features = true, path = "../../../../substrate/client/network" }
-sp-core = { features = ["std"], default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+sc-keystore = { default-features = true, workspace = true }
+sc-network = { default-features = true, workspace = true }
+sp-core = { features = ["std"], default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
 
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []

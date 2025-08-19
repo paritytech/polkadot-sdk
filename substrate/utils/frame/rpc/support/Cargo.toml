@@ -27,8 +27,8 @@ sp-storage.workspace = true
 sp-storage.default-features = true
 
 [dev-dependencies]
-frame-system = { default-features = true, path = "../../../../frame/system" }
+frame-system = { default-features = true, workspace = true }
 jsonrpsee = { features = ["jsonrpsee-types", "ws-client"], workspace = true }
-sp-core = { default-features = true, path = "../../../../primitives/core" }
-sp-runtime = { default-features = true, path = "../../../../primitives/runtime" }
+sp-core = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
 tokio = { workspace = true, default-features = true }

@@ -25,5 +25,5 @@ sp-runtime.workspace = true
 sp-runtime.default-features = true
 
 [dev-dependencies]
-sp-core = { default-features = true, path = "../../../../primitives/core" }
+sp-core = { default-features = true, workspace = true }
 tokio = { features = ["macros", "rt-multi-thread", "sync"], workspace = true, default-features = true }

@@ -26,10 +26,10 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { default-features = true, path = "../balances" }
-pallet-collective = { default-features = true, path = "../collective" }
-pallet-root-testing = { default-features = true, path = "../root-testing" }
-pallet-timestamp = { default-features = true, path = "../timestamp" }
+pallet-balances = { default-features = true, workspace = true }
+pallet-collective = { default-features = true, workspace = true }
+pallet-root-testing = { default-features = true, workspace = true }
+pallet-timestamp = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

@@ -58,11 +58,11 @@ sysinfo = { workspace = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 criterion = { workspace = true, default-features = true }
-kitchensink-runtime = { path = "../../bin/node/runtime" }
+kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
-sp-tracing = { default-features = true, path = "../../primitives/tracing" }
-substrate-test-runtime-client = { path = "../../test-utils/runtime/client" }
+sp-tracing = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 
 [features]

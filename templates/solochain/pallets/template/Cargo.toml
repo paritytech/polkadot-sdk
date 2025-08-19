@@ -23,9 +23,9 @@ frame-system.workspace = true
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-io = { default-features = true, path = "../../../../substrate/primitives/io" }
-sp-runtime = { default-features = true, path = "../../../../substrate/primitives/runtime" }
+sp-core = { default-features = true, workspace = true }
+sp-io = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

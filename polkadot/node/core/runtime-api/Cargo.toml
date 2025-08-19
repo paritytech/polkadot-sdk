@@ -30,9 +30,9 @@ sp-consensus-babe.default-features = true
 [dev-dependencies]
 async-trait = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
-polkadot-node-primitives = { default-features = true, path = "../../primitives" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
-polkadot-primitives-test-helpers = { path = "../../../primitives/test-helpers" }
-sp-api = { default-features = true, path = "../../../../substrate/primitives/api" }
-sp-core = { default-features = true, path = "../../../../substrate/primitives/core" }
-sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
+polkadot-node-primitives = { default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
+sp-api = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }

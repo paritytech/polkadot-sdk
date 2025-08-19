@@ -55,14 +55,14 @@ sp-maybe-compressed-blob = { optional = true, workspace = true, default-features
 assert_matches = { workspace = true }
 criterion = { features = ["async_tokio", "cargo_bench_support"], workspace = true }
 
-polkadot-node-core-pvf-common = { features = ["test-utils"], default-features = true, path = "common" }
-polkadot-node-subsystem-test-helpers = { path = "../../subsystem-test-helpers" }
+polkadot-node-core-pvf-common = { features = ["test-utils"], default-features = true, workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true }
 # For benches and integration tests, depend on ourselves with the test-utils feature.
-polkadot-node-core-pvf = { features = ["test-utils"], default-features = true, path = "" }
-rococo-runtime = { path = "../../../runtime/rococo" }
+polkadot-node-core-pvf = { features = ["test-utils"], default-features = true, workspace = true }
+rococo-runtime = { workspace = true }
 
-test-parachain-adder = { path = "../../../parachain/test-parachains/adder" }
-test-parachain-halt = { path = "../../../parachain/test-parachains/halt" }
+test-parachain-adder = { workspace = true }
+test-parachain-halt = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 libc = { workspace = true }
