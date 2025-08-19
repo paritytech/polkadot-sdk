@@ -1172,7 +1172,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 					]
 				);
 				let mq_prc_ids = find_all_mq_processed_ids::<AssetHubWestend>();
-				assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubWestend");
+				assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubWestend");
 				topic_id_tracker.insert_all("AssetHubWestend", &mq_prc_ids);
 			});
 		});
@@ -1201,7 +1201,7 @@ fn send_back_rocs_from_penpal_westend_through_asset_hub_westend_to_asset_hub_roc
 			]
 		);
 		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
-		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubRococo");
+		assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubRococo");
 		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 	});
 	topic_id_tracker.assert_only_id_seen_on_all_chains("PenpalB");
@@ -1484,7 +1484,7 @@ fn send_pens_and_wnds_from_penpal_westend_via_ahw_to_ahr() {
 	AssetHubRococo::execute_with(|| {
 		type RuntimeEvent = <AssetHubRococo as Chain>::RuntimeEvent;
 		let mq_prc_ids = find_all_mq_processed_ids::<AssetHubRococo>();
-		assert!(mq_prc_ids.len() >= 1, "Missing Processed Event on AssetHubRococo");
+		assert!(!mq_prc_ids.is_empty(), "Missing Processed Event on AssetHubRococo");
 		topic_id_tracker.insert_all("AssetHubRococo", &mq_prc_ids);
 		assert_expected_events!(
 			AssetHubRococo,
