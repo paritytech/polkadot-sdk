@@ -82,7 +82,7 @@ fn generate_impl_call(
 		quote!(
 			if !#input.is_empty() {
 				panic!(
-					"Bad input data provided to {}: expected no parameters, but input buffer is not empty.",
+					"Bad input data provided to {}: expected no parameters, but input buffer is not empty. Nothing bad happened: someone sent an invalid transaction to the node.",
 					#fn_name_str
 				);
 			}
@@ -104,7 +104,7 @@ fn generate_impl_call(
 					&mut #input,
 				) {
 					Ok(res) => res,
-					Err(e) => panic!("Bad input data provided to {}: {}", #fn_name_str, e),
+					Err(e) => panic!("Bad input data provided to {}: {}. Nothing bad happened: someone sent an invalid transaction to the node.", #fn_name_str, e),
 				};
 		)
 	};
@@ -322,6 +322,10 @@ fn generate_runtime_api_base_structures() -> Result<TokenStream> {
 
 				fn record_proof(&mut self) {
 					self.recorder = std::option::Option::Some(std::default::Default::default());
+				}
+
+				fn record_proof_with_recorder(&mut self, recorder: #crate_::ProofRecorder<Block>) {
+					self.recorder = std::option::Option::Some(recorder);
 				}
 
 				fn proof_recorder(&self) -> std::option::Option<#crate_::ProofRecorder<Block>> {

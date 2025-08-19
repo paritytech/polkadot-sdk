@@ -439,6 +439,33 @@ jobs:
           path: artifacts.tar
           retention-days: 1
 
+  prepare-parachain-templates-zombienet-artifacts:
+    needs: [preflight]
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          forklift cargo nextest --manifest-path templates/zombienet/Cargo.toml archive --locked --features zombienet --archive-file parachain-templates-zombienet-tests.tar.zst
+      - name: pack artifacts
+        run: |
+          mkdir -p artifacts
+          cp parachain-templates-zombienet-tests.tar.zst ./artifacts
+
+      - name: tar
+        run: tar -cvf artifacts.tar artifacts
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.job }}-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          path: artifacts.tar
+          retention-days: 1
+
   ### Publish ########################
 
   #

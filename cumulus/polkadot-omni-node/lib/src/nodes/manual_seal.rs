@@ -261,6 +261,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
+					None,
 				)?;
 				module
 					.merge(ManualSeal::new(manual_seal_sink.clone()).into_rpc())

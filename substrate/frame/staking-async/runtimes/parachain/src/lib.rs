@@ -1107,9 +1107,7 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-// impl pallet_root_offences::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// }
+impl pallet_staking_async_preset_store::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1173,13 +1171,13 @@ construct_runtime!(
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingNextRcClient: pallet_staking_async_rc_client = 89,
+		StakingRcClient: pallet_staking_async_rc_client = 89,
 
 		// Election apparatus.
-		MultiBlock: pallet_election_provider_multi_block = 85,
-		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
-		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
-		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
+		MultiBlockElection: pallet_election_provider_multi_block = 85,
+		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		Preimage: pallet_preimage = 90,
@@ -1196,7 +1194,7 @@ construct_runtime!(
 
 		// AHN specific.
 		Sudo: pallet_sudo = 110,
-		// RootOffences: pallet_root_offences = 111,
+		PresetStore: pallet_staking_async_preset_store = 111,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1334,10 +1332,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
@@ -1850,9 +1848,6 @@ impl_runtime_apis! {
 				crate::staking::Pages::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::staking::SolutionImprovementThreshold::key().to_vec().into()
-			);
-			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::SignedPhase::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
@@ -2166,26 +2161,32 @@ impl_runtime_apis! {
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			let res = build_state::<RuntimeGenesisConfig>(config);
-			// tweak some of our parameter-types as well..
-			match pallet_staking_async::ValidatorCount::<Runtime>::get() {
-				500 => {
-					log::info!(target: "runtime", "detected a polkadot-like chain during `build_state`");
-					// this is a polkadot-like chain
-					crate::staking::MaxElectingVoters::set(&22_500);
-					crate::staking::Pages::set(&32);
+			match PresetStore::preset().unwrap().as_str() {
+				"real-s" => {
+					log::info!(target: "runtime", "detected a real-s preset");
+					// used for slashing, better make it faster.
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				},
-				1000 => {
-					log::info!(target: "runtime", "detected a kusama-like chain during `build_state`");
-					// this is a kusama-like chain
-					crate::staking::MaxElectingVoters::set(&12_500);
-					crate::staking::Pages::set(&16);
+				"real-m" => {
+					log::info!(target: "runtime", "detected a real-m preset");
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				}
-				10 => {
-					log::info!(target: "runtime", "detected a dev chain during `build_state`");
-					// this is a dev-chain -- no change needed
+				"fake-dev" => {
+					log::info!(target: "runtime", "detected a fake-dev preset");
+					// noop, default values are for dev.
+				},
+				"fake-ksm" => {
+					log::info!(target: "runtime", "detected fake-ksm preset");
+					crate::staking::enable_ksm_preset(true);
+				},
+				"fake-dot" => {
+					log::info!(target: "runtime", "detected fake-dot preset");
+					crate::staking::enable_dot_preset(true);
 				},
 				_ => {
-					panic!("Unrecognized validator count -- genesis-config and this block should match");
+					panic!("Unrecognized preset to build");
 				}
 			}
 

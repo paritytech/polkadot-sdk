@@ -14,8 +14,8 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+tracing = { workspace = true }
 
 # Bridge Dependencies
 bp-header-chain = { workspace = true }
@@ -47,11 +47,11 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"sp-consensus-grandpa/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"bp-test-utils",

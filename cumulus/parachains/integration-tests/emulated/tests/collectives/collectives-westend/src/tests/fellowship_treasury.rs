@@ -39,6 +39,12 @@ fn fellowship_treasury_spend() {
 		)
 	});
 
+	let check_account = AssetHubWestend::execute_with(|| {
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::check_account()
+	});
+	// prefund Asset Hub checking account so we accept teleport from relay
+	AssetHubWestend::fund_accounts(vec![(check_account, treasury_balance)]);
+
 	Westend::execute_with(|| {
 		type RuntimeEvent = <Westend as Chain>::RuntimeEvent;
 		type RuntimeCall = <Westend as Chain>::RuntimeCall;

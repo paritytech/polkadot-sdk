@@ -481,9 +481,6 @@ pub enum Error<B: BlockT> {
 	/// Client Error
 	#[error(transparent)]
 	Client(sp_blockchain::Error),
-	/// Unknown inherent error for identifier
-	#[error("Unknown inherent error for identifier: {}", String::from_utf8_lossy(.0))]
-	UnknownInherentError(sp_inherents::InherentIdentifier),
 	/// Inherents Error
 	#[error("Inherent error: {0}")]
 	Inherent(sp_inherents::Error),

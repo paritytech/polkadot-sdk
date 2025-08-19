@@ -27,5 +27,7 @@ zombie-metadata = []
 zombie-ci = []
 
 [build-dependencies]
+sc-executor = { workspace = true, default-features = true }
+sc-runtime-utilities = { workspace = true, default-features = true }
+sp-io = { workspace = true }
 substrate-build-script-utils = { workspace = true, default-features = true }
-subwasmlib = { git = "https://github.com/chevdor/subwasm", rev = "v0.21.3" }

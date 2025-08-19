@@ -333,7 +333,7 @@ fn filtering_works() {
 			ProxyEvent::ProxyExecuted { result: Err(SystemError::CallFiltered.into()) }.into(),
 		);
 
-		let derivative_id = Utility::derivative_account_id(1, 0);
+		let derivative_id = pallet_utility::derivative_account_id(1, 0);
 		Balances::make_free_balance_be(&derivative_id, 1000);
 		let inner = Box::new(call_transfer(6, 1));
 
@@ -546,6 +546,8 @@ fn pure_works() {
 				who: 1,
 				proxy_type: ProxyType::Any,
 				disambiguation_index: 0,
+				at: <Test as Config>::BlockNumberProvider::current_block_number(),
+				extrinsic_index: System::extrinsic_index().unwrap(),
 			}
 			.into(),
 		);

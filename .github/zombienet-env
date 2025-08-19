@@ -1,11 +1,23 @@
-ZOMBIENET_IMAGE=docker.io/paritytech/zombienet:v1.3.132
-ZOMBIENET_RUNNER=parity-zombienet
-PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
+# zombienet settings
+ZOMBIENET_PROVIDER=native
+ZOMBIENET_IMAGE_FOR_NATIVE=docker.io/paritytech/zombienet:v1.3.133
+ZOMBIENET_DEFAULT_RUNNER_FOR_NATIVE=parity-zombienet-native-default
+ZOMBIENET_LARGE_RUNNER_FOR_NATIVE=parity-zombienet-native-large
+ZOMBIENET_IMAGE_FOR_K8S=docker.io/paritytech/zombienet:v1.3.133
+ZOMBIENET_RUNNER_FOR_K8S=parity-zombienet
 DEBUG=zombie,zombie::network-node,zombie::kube::client::logs
-ZOMBIE_PROVIDER=k8s
-RUST_LOG=info,zombienet_orchestrator=debug
-RUN_IN_CI=1
+
+# zombienet-sdk settings
+ZOMBIE_PROVIDER=native
+ZOMBIENET_SDK_IMAGE_FOR_NATIVE=docker.io/paritytech/ci-unified:bullseye-1.84.1-2025-01-28-v202502131220
+ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE=parity-zombienet-native-default
+ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE=parity-zombienet-native-large
+ZOMBIENET_SDK_IMAGE_FOR_K8S=docker.io/paritytech/zombienet:v1.3.133
+ZOMBIENET_SDK_RUNNER_FOR_K8S=parity-zombienet
+RUST_LOG=info,zombienet_orchestrator=trace,cumulus_zombienet_sdk_helpers=debug
+
+# common settings
+PUSHGATEWAY_URL=http://prometheus-pushgateway.monitoring.svc.cluster.local:9091/metrics/job/zombie-metrics
 KUBERNETES_CPU_REQUEST=512m
 KUBERNETES_MEMORY_REQUEST=1Gi
 TEMP_IMAGES_BASE=europe-docker.pkg.dev/parity-ci-2024/temp-images
-FLAKY_TESTS="zombienet-polkadot-coretime-revenue, zombienet-polkadot-smoke-0003-deregister-register-validator"

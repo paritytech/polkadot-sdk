@@ -44,6 +44,9 @@ pub mod xcm_config;
 // Fellowship configurations.
 pub mod fellowship;
 
+// Secretary Configuration
+pub mod secretary;
+
 extern crate alloc;
 
 pub use ambassador::pallet_ambassador_origins;
@@ -126,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_018_001,
+	spec_version: 1_019_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -312,6 +315,8 @@ pub enum ProxyType {
 	Fellowship,
 	/// Ambassador proxy. Allows calls related to the Ambassador Program.
 	Ambassador,
+	/// Secretary proxy. Allows calls related to the Secretary collective
+	Secretary,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -359,6 +364,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::AmbassadorContent { .. } |
 					RuntimeCall::AmbassadorCore { .. } |
 					RuntimeCall::AmbassadorSalary { .. } |
+					RuntimeCall::Utility { .. } |
+					RuntimeCall::Multisig { .. }
+			),
+			ProxyType::Secretary => matches!(
+				c,
+				RuntimeCall::SecretaryCollective { .. } |
+					RuntimeCall::SecretarySalary { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -734,6 +746,12 @@ construct_runtime!(
 		AmbassadorContent: pallet_collective_content::<Instance1> = 75,
 
 		StateTrieMigration: pallet_state_trie_migration = 80,
+
+		// The Secretary Collective
+		// pub type SecretaryCollectiveInstance = pallet_ranked_collective::instance3;
+		SecretaryCollective: pallet_ranked_collective::<Instance3> = 90,
+		// pub type SecretarySalaryInstance = pallet_salary::Instance3;
+		SecretarySalary: pallet_salary::<Instance3> = 91,
 	}
 );
 
@@ -818,12 +836,14 @@ mod benches {
 		[pallet_ranked_collective, FellowshipCollective]
 		[pallet_core_fellowship, FellowshipCore]
 		[pallet_salary, FellowshipSalary]
+		[pallet_treasury, FellowshipTreasury]
 		[pallet_referenda, AmbassadorReferenda]
 		[pallet_ranked_collective, AmbassadorCollective]
 		[pallet_collective_content, AmbassadorContent]
 		[pallet_core_fellowship, AmbassadorCore]
 		[pallet_salary, AmbassadorSalary]
-		[pallet_treasury, FellowshipTreasury]
+		[pallet_ranked_collective, SecretaryCollective]
+		[pallet_salary, SecretarySalary]
 		[pallet_asset_rate, AssetRate]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
 		// XCM
@@ -1136,6 +1156,7 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 			use xcm_config::WndLocation;
+			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
 			parameter_types! {
 				pub ExistentialDepositAsset: Option<Asset> = Some((
@@ -1146,14 +1167,16 @@ impl_runtime_apis! {
 
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem,
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1161,9 +1184,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(WndLocation::get())
 						}.into(),
-						Parent.into(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1176,8 +1199,8 @@ impl_runtime_apis! {
 				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
-					let native_location = Parent.into();
-					let dest = Parent.into();
+					let native_location = WndLocation::get();
+					let dest = AssetHubLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -1186,7 +1209,7 @@ impl_runtime_apis! {
 
 				fn get_asset() -> Asset {
 					Asset {
-						id: AssetId(Location::parent()),
+						id: AssetId(WndLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
 				}
@@ -1195,13 +1218,15 @@ impl_runtime_apis! {
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem
+					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(WndLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just concrete assets according to relay chain.
@@ -1216,8 +1241,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					WndLocation::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WndLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1256,15 +1281,15 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((WndLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(WndLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = WndLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(WndLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))

@@ -27,13 +27,7 @@ pub mod weights;
 pub mod mock;
 
 #[cfg(test)]
-pub mod mock_electra;
-
-#[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod tests_electra;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

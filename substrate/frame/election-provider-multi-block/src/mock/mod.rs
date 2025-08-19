@@ -254,8 +254,9 @@ impl ElectionProvider for MockFallback {
 	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()
@@ -409,6 +410,12 @@ impl ExtBuilder {
 		SignedMaxSubmissions::set(s);
 		self
 	}
+
+	pub(crate) fn max_winners_per_page(self, w: u32) -> Self {
+		MaxWinnersPerPage::set(w);
+		self
+	}
+
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));

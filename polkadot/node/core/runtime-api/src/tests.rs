@@ -323,6 +323,10 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn validation_code_bomb_limit(&self, _: Hash) -> Result<u32, ApiError> {
 		todo!("Not required for tests")
 	}
+
+	async fn para_ids(&self, _: Hash) -> Result<Vec<ParaId>, ApiError> {
+		todo!("Not required for tests")
+	}
 }
 
 #[test]

@@ -32,14 +32,15 @@ use crate::{
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
 	vm::{PreparedCall, Runtime},
-	BalanceOf, BumpNonce, Code, CodeInfoOf, Config, ContractBlob, ContractInfo, ContractInfoOf,
-	DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts, PristineCode, Weight,
+	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
+	PristineCode, Weight,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
 use frame_system::RawOrigin;
 use pallet_revive_fixtures::bench as bench_fixtures;
-use sp_core::{Get, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::{Bounded, Hash};
 
@@ -94,7 +95,7 @@ where
 			// Whitelist the contract's contractInfo as it is already accounted for in the call
 			// benchmark
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::ContractInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
+				crate::AccountInfoOf::<T>::hashed_key_for(&T::AddressMapper::to_address(
 					&contract.account_id,
 				))
 				.into(),
@@ -124,7 +125,7 @@ where
 	}
 
 	/// Set the contract's balance.
-	pub fn set_balance(&mut self, value: BalanceOf<T>) {
+	pub fn set_balance(&mut self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
 		self.contract.set_balance(value);
 	}
 
@@ -202,8 +203,7 @@ where
 
 /// The deposit limit we use for benchmarks.
 pub fn default_deposit_limit<T: Config>() -> BalanceOf<T> {
-	(T::DepositPerByte::get() * 1024u32.into() * 1024u32.into()) +
-		T::DepositPerItem::get() * 1024u32.into()
+	<BalanceOf<T>>::max_value()
 }
 
 /// The funding that each account that either calls or instantiates contracts is funded with.
@@ -264,7 +264,7 @@ where
 
 		let outcome = Contracts::<T>::bare_instantiate(
 			origin,
-			0u32.into(),
+			U256::zero(),
 			Weight::MAX,
 			DepositLimit::Balance(default_deposit_limit::<T>()),
 			Code::Upload(module.code),
@@ -277,8 +277,7 @@ where
 		let account_id = T::AddressMapper::to_fallback_account_id(&address);
 		let result = Contract { caller, address, account_id };
 
-		ContractInfoOf::<T>::insert(&address, result.info()?);
-
+		AccountInfo::<T>::insert_contract(&address, result.info()?);
 		Ok(result)
 	}
 
@@ -309,7 +308,8 @@ where
 			info.write(&Key::Fix(item.0), Some(item.1.clone()), None, false)
 				.map_err(|_| "Failed to write storage to restoration dest")?;
 		}
-		<ContractInfoOf<T>>::insert(&self.address, info);
+
+		AccountInfo::<T>::insert_contract(&self.address, info);
 		Ok(())
 	}
 
@@ -321,7 +321,7 @@ where
 		/// Number of layers in a Radix16 unbalanced trie.
 		const UNBALANCED_TRIE_LAYERS: u32 = 20;
 
-		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
+		if (key.len() as u32) < UNBALANCED_TRIE_LAYERS.div_ceil(2) {
 			return Err("Key size too small to create the specified trie");
 		}
 
@@ -351,7 +351,7 @@ where
 
 	/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
 	pub fn address_info(addr: &T::AccountId) -> Result<ContractInfo<T>, &'static str> {
-		ContractInfoOf::<T>::get(T::AddressMapper::to_address(addr))
+		<AccountInfo<T>>::load_contract(&T::AddressMapper::to_address(addr))
 			.ok_or("Expected contract to exist at this point.")
 	}
 
@@ -361,8 +361,12 @@ where
 	}
 
 	/// Set the balance of the contract to the supplied amount.
-	pub fn set_balance(&self, balance: BalanceOf<T>) {
-		T::Currency::set_balance(&self.account_id, balance);
+	pub fn set_balance(&self, value: impl Into<BalanceWithDust<BalanceOf<T>>>) {
+		let (value, dust) = value.into().deconstruct();
+		T::Currency::set_balance(&self.account_id, value);
+		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
 	}
 
 	/// Returns `true` iff all storage entries related to code storage exist.

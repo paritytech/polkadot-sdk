@@ -4,7 +4,7 @@ error[E0277]: the trait bound `T: frame_system::Config` is not satisfied
 30 |         noop(1);
    |              ^ the trait `frame_system::Config` is not implemented for `T`
    |
-help: consider further restricting type parameter `T`
+help: consider further restricting type parameter `T` with trait `Config`
    |
 23 | #[benchmarks], T: frame_system::Config
    |              +++++++++++++++++++++++++

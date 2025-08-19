@@ -25,6 +25,7 @@ use crate::{
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
+use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
@@ -60,7 +61,6 @@ pub type SnowbridgeExporter = EthereumBlobExporter<
 	snowbridge_core::AgentIdOf,
 	EthereumSystem,
 >;
-use hex_literal::hex;
 
 pub type SnowbridgeExporterV2 = EthereumBlobExporterV2<
 	UniversalLocation,
@@ -223,7 +223,7 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("05000000"),
-			epoch: 80000000000, // setting to a future epoch for local testing to remain on Deneb.
+			epoch: 0,
 		},
 	};
 }

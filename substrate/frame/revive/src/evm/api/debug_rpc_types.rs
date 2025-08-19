@@ -223,14 +223,16 @@ pub struct PrestateTraceInfo {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	/// The storage of the contract account.
-	#[serde(
-		skip_serializing_if = "BTreeMap::is_empty",
-		serialize_with = "serialize_map_skip_none"
-	)]
+	#[serde(skip_serializing_if = "is_empty", serialize_with = "serialize_map_skip_none")]
 	pub storage: BTreeMap<Bytes, Option<Bytes>>,
 }
 
-/// Serializes a map of `K -> Option<V>`, omitting any entries whose value is `None`.
+/// Returns true if the map has no `Some` element
+pub fn is_empty<K, V>(map: &BTreeMap<K, Option<V>>) -> bool {
+	!map.values().any(|v| v.is_some())
+}
+
+/// Serializes a map, skipping `None` values.
 pub fn serialize_map_skip_none<S, K, V>(
 	map: &BTreeMap<K, Option<V>>,
 	serializer: S,

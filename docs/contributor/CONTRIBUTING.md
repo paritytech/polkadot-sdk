@@ -82,10 +82,7 @@ The reviewers are also responsible to check:
 All Pull Requests must contain proper title & description, as described in [Pull Request
 Template](./PULL_REQUEST_TEMPLATE.md). Moreover, all pull requests must have a proper `prdoc` file attached.
 
-Some Pull Requests can be exempt of `prdoc` documentation, those must be labelled with
-[`R0-silent`](https://github.com/paritytech/labels/blob/main/ruled_labels/specs_polkadot-sdk.yaml#L95-L97).
-
-Non "silent" PRs must come with documentation in the form of a `.prdoc` file.
+Pull Requests labelled with ⁠`R0-no-crate-publish-required` are exempt from ⁠prdoc documentation requirements.
 
 See more about `prdoc` [here](./prdoc.md)
 
@@ -184,6 +181,11 @@ If you're member of **paritytech** org - you can use command-bot to run various 
 
 Start with comment in PR: `/cmd --help` to see the list of available commands.
 
+## Debug builds
+
+In order to improve build times for debug builds, the workspace `Cargo.toml` is configured to emit
+source line debug information only. If you need full debug info in your local debug builds,
+search for the line `debug = "line-tables-only"`  and comment it out.
 
 ## Deprecating code
 

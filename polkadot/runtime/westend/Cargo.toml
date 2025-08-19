@@ -132,7 +132,6 @@ substrate-wasm-builder = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 no_std = []
-only-staking = []
 std = [
 	"binary-merkle-tree/std",
 	"bitvec/std",
@@ -287,6 +286,7 @@ runtime-benchmarks = [
 	"polkadot-runtime-parachains/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"westend-runtime-constants/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",

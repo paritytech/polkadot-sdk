@@ -50,7 +50,10 @@ use frame_system::{EnsureRoot, EnsureSigned};
 pub use pallet_balances::Call as BalancesCall;
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
-use pallet_session::historical as session_historical;
+use pallet_session::{
+	disabling::{DisablingDecision, DisablingStrategy},
+	historical as session_historical,
+};
 use pallet_staking_async_ah_client::{self as ah_client};
 use pallet_staking_async_rc_client::{self as rc_client};
 pub use pallet_timestamp::Call as TimestampCall;
@@ -111,7 +114,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{offence::OffenceSeverity, SessionIndex};
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -343,7 +346,7 @@ impl pallet_preimage::Config for Runtime {
 parameter_types! {
 	pub const EpochDuration: u64 = prod_or_fast!(
 		EPOCH_DURATION_IN_SLOTS as u64,
-		1 * MINUTES as u64
+		MINUTES as u64
 	);
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub const ReportLongevity: u64 = 256 * EpochDuration::get();
@@ -497,7 +500,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = AssetHubStakingClient;
+	type EventHandler = StakingAhClient;
 }
 
 parameter_types! {
@@ -524,18 +527,23 @@ impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for IdentityValid
 }
 
 /// A testing type that implements SessionManager, it receives a new validator set from
-/// `AssetHubStakingClient`, but it prevents them from being passed over to the session pallet and
+/// `StakingAhClient`, but it prevents them from being passed over to the session pallet and
 /// just uses the previous session keys.
-pub struct AckButPreviousSessionValidatorsPersist<I>(core::marker::PhantomData<I>);
+pub struct MaybeUsePreviousValidatorsElse<I>(core::marker::PhantomData<I>);
 
 impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManager<AccountId>
-	for AckButPreviousSessionValidatorsPersist<I>
+	for MaybeUsePreviousValidatorsElse<I>
 {
 	fn end_session(end_index: SessionIndex) {
 		<I as pallet_session::SessionManager<_>>::end_session(end_index);
 	}
 	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
-		match <I as pallet_session::SessionManager<_>>::new_session(new_index) {
+		let force_use_previous = UsePreviousValidators::get();
+		let actual_session_manager =
+			<I as pallet_session::SessionManager<_>>::new_session(new_index);
+
+		match actual_session_manager {
+			Some(new_used) if !force_use_previous => Some(new_used),
 			Some(_new_ignored) => {
 				let current_validators = pallet_session::Validators::<Runtime>::get();
 				log::info!(target: "runtime", ">> received {} validators, but overriding with {} old ones", _new_ignored.len(), current_validators.len());
@@ -552,18 +560,57 @@ impl<I: pallet_session::SessionManager<AccountId>> pallet_session::SessionManage
 	}
 }
 
+parameter_types! {
+	pub DisablingLimit: Perbill = Perbill::from_percent(25);
+	pub storage UsePreviousValidators: bool = false;
+}
+
+/// A naive disabling strategy that always disables the offender for any slash more than `S`
+/// severity.
+///
+/// Only useful for testing.
+///
+/// Never re-enables any validators.
+pub struct AlwaysDisableForSlashGreaterThan<S>(core::marker::PhantomData<S>);
+impl<S: Get<Perbill>> DisablingStrategy<Runtime> for AlwaysDisableForSlashGreaterThan<S> {
+	fn decision(
+		offender_stash: &AccountId,
+		offender_slash_severity: OffenceSeverity,
+		_currently_disabled: &Vec<(u32, OffenceSeverity)>,
+	) -> DisablingDecision {
+		let meets_threshold = offender_slash_severity.0 >= S::get();
+		let offender_index = pallet_session::Validators::<Runtime>::get()
+			.iter()
+			.position(|v| v == offender_stash)
+			.map(|i| i as u32);
+		let disable = match offender_index {
+			Some(index) if meets_threshold => Some(index),
+			_ => {
+				log::warn!(
+					target: "runtime",
+					"Offender {:?} (index = {:?}) with severity {:?} does not meet the threshold of {:?}, or index not found",
+					offender_stash, offender_index, offender_slash_severity, S::get()
+				);
+				None
+			},
+		};
+
+		DisablingDecision { disable, reenable: None }
+	}
+}
+
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = IdentityValidatorIdeOf;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
-	type SessionManager = AckButPreviousSessionValidatorsPersist<
-		session_historical::NoteHistoricalRoot<Self, AssetHubStakingClient>,
+	type SessionManager = MaybeUsePreviousValidatorsElse<
+		session_historical::NoteHistoricalRoot<Self, StakingAhClient>,
 	>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
+	type DisablingStrategy = AlwaysDisableForSlashGreaterThan<DisablingLimit>;
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 	type Currency = Balances;
 	type KeyDeposit = ();
@@ -573,6 +620,11 @@ impl session_historical::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = sp_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
+}
+
+impl pallet_root_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type OffenceHandler = StakingAhClient;
 }
 
 pub struct AssetHubLocation;
@@ -674,6 +726,10 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 	}
 }
 
+parameter_types! {
+	pub const MaxOffenceBatchSize: u32 = 50;
+}
+
 impl pallet_staking_async_ah_client::Config for Runtime {
 	type CurrencyBalance = Balance;
 	type AssetHubOrigin =
@@ -681,10 +737,12 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type SendToAssetHub = StakingXcmToAssetHub;
-	type MinimumValidatorSetSize = ConstU32<10>;
+	type MinimumValidatorSetSize = ConstU32<1>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
+	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type Fallback = Staking;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -878,6 +936,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = ();
 	type BagThresholds = BagThresholds;
 	type Score = sp_npos_elections::VoteWeight;
+	type MaxAutoRebagPerBlock = ();
 }
 
 parameter_types! {
@@ -943,7 +1002,7 @@ impl pallet_treasury::Config for Runtime {
 impl pallet_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type IdentificationTuple = session_historical::IdentificationTuple<Self>;
-	type OnOffenceHandler = AssetHubStakingClient;
+	type OnOffenceHandler = StakingAhClient;
 }
 
 impl pallet_authority_discovery::Config for Runtime {
@@ -1340,7 +1399,7 @@ impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
@@ -1517,7 +1576,7 @@ impl assigned_slots::Config for Runtime {
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, AssetHubStakingClient>;
+		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
@@ -1664,6 +1723,8 @@ impl OnSwap for SwapLeases {
 		coretime::Pallet::<Runtime>::on_legacy_lease_swap(one, other);
 	}
 }
+
+impl pallet_staking_async_preset_store::Config for Runtime {}
 
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {
@@ -1826,7 +1887,9 @@ mod runtime {
 	pub type Coretime = coretime;
 
 	#[runtime::pallet_index(67)]
-	pub type AssetHubStakingClient = pallet_staking_async_ah_client;
+	pub type StakingAhClient = pallet_staking_async_ah_client;
+	#[runtime::pallet_index(68)]
+	pub type PresetStore = pallet_staking_async_preset_store;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -1847,6 +1910,10 @@ mod runtime {
 	// Root testing pallet.
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
+
+	// Root offences pallet
+	#[runtime::pallet_index(103)]
+	pub type RootOffences = pallet_root_offences;
 
 	// BEEFY Bridges support.
 	#[runtime::pallet_index(200)]
@@ -2063,7 +2130,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(13)]
+	#[api_version(14)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2240,6 +2307,10 @@ sp_api::impl_runtime_apis! {
 
 		fn scheduling_lookahead() -> u32 {
 			parachains_staging_runtime_api_impl::scheduling_lookahead::<Runtime>()
+		}
+
+		fn para_ids() -> Vec<ParaId> {
+			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
 		}
 	}
 
@@ -2844,7 +2915,38 @@ sp_api::impl_runtime_apis! {
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
-			build_state::<RuntimeGenesisConfig>(config)
+			let res = build_state::<RuntimeGenesisConfig>(config);
+
+			match PresetStore::preset().unwrap().as_str() {
+				"real-m" => {
+					log::info!(target: "runtime", "detected real-m preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 4,
+						"incorrect validator count for real-m preset"
+					);
+				},
+				"real-s" => {
+					log::info!(target: "runtime", "detected real-s preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 2,
+						"incorrect validator count for real-s preset"
+					);
+				},
+				"fake-s" => {
+					log::info!(target: "runtime", "detected fake-s preset");
+					assert_eq!(
+						pallet_session::Validators::<Runtime>::get().len(), 2,
+						"incorrect validator count for fake-s preset"
+					);
+					UsePreviousValidators::set(&true);
+				},
+				_ => {
+					panic!("unrecognized min nominator bond in genesis config: {}",
+						pallet_staking::MinNominatorBond::<Runtime>::get()
+					);
+				}
+			}
+			res
 		}
 
 		fn get_preset(id: &Option<sp_genesis_builder::PresetId>) -> Option<Vec<u8>> {

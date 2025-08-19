@@ -19,6 +19,7 @@ use crate::{
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
+		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
@@ -44,6 +45,7 @@ use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock};
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
+use sc_statement_store::Store;
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
 use sc_tracing::tracing::Instrument;
@@ -277,6 +279,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
 		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		Store,
 	>;
 
 	type StartConsensus: StartConsensus<
@@ -333,10 +336,18 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let prometheus_registry = parachain_config.prometheus_registry().cloned();
 			let transaction_pool = params.transaction_pool.clone();
 			let import_queue_service = params.import_queue.service();
-			let net_config = FullNetworkConfiguration::<_, _, Net>::new(
+			let mut net_config = FullNetworkConfiguration::<_, _, Net>::new(
 				&parachain_config.network,
 				prometheus_registry.clone(),
 			);
+
+			let metrics = Net::register_notification_metrics(
+				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+			);
+
+			let statement_handler_proto = node_extra_args.enable_statement_store.then(|| {
+				new_statement_handler_proto(&*client, &parachain_config, &metrics, &mut net_config)
+			});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 				build_network(BuildNetworkParams {
@@ -349,10 +360,37 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					sybil_resistance_level: Self::SYBIL_RESISTANCE,
+					metrics,
 				})
 				.await?;
 
+			let statement_store = statement_handler_proto
+				.map(|statement_handler_proto| {
+					build_statement_store(
+						&parachain_config,
+						&mut task_manager,
+						client.clone(),
+						network.clone(),
+						sync_service.clone(),
+						params.keystore_container.local_keystore(),
+						statement_handler_proto,
+					)
+				})
+				.transpose()?;
+
 			if parachain_config.offchain_worker.enabled {
+				let custom_extensions = {
+					let statement_store = statement_store.clone();
+					move |_hash| {
+						if let Some(statement_store) = &statement_store {
+							vec![Box::new(statement_store.clone().as_statement_store_ext())
+								as Box<_>]
+						} else {
+							vec![]
+						}
+					}
+				};
+
 				let offchain_workers =
 					sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 						runtime_api_provider: client.clone(),
@@ -364,7 +402,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						network_provider: Arc::new(network.clone()),
 						is_validator: parachain_config.role.is_authority(),
 						enable_http_requests: true,
-						custom_extensions: move |_| vec![],
+						custom_extensions,
 					})?;
 				task_manager.spawn_handle().spawn(
 					"offchain-workers-runner",
@@ -377,12 +415,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
+				let statement_store = statement_store.clone();
 
 				Box::new(move |_| {
 					Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
+						statement_store.clone(),
 					)
 				})
 			};

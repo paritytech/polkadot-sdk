@@ -91,7 +91,17 @@ pub struct BalanceLock<Balance> {
 }
 
 /// Store named reserved balance.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct ReserveData<ReserveIdentifier, Balance> {
 	/// The identifier for the named reserve.
 	pub id: ReserveIdentifier,
@@ -100,7 +110,18 @@ pub struct ReserveData<ReserveIdentifier, Balance> {
 }
 
 /// All balance information for an account.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	Default,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct AccountData<Balance> {
 	/// Non-reserved part of the balance which the account holder may be able to control.
 	///
@@ -122,7 +143,17 @@ pub struct AccountData<Balance> {
 
 const IS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub struct ExtraFlags(pub(crate) u128);
 impl Default for ExtraFlags {
 	fn default() -> Self {

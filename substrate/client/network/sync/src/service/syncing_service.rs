@@ -21,7 +21,9 @@ use crate::types::{ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, Syn
 use futures::{channel::oneshot, Stream};
 use sc_network_types::PeerId;
 
-use sc_consensus::{BlockImportError, BlockImportStatus, JustificationSyncLink, Link};
+use sc_consensus::{
+	BlockImportError, BlockImportStatus, JustificationImportResult, JustificationSyncLink, Link,
+};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
@@ -44,7 +46,7 @@ pub enum ToServiceCommand<B: BlockT> {
 		usize,
 		Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	),
-	JustificationImported(PeerId, B::Hash, NumberFor<B>, bool),
+	JustificationImported(PeerId, B::Hash, NumberFor<B>, JustificationImportResult),
 	AnnounceBlock(B::Hash, Option<Vec<u8>>),
 	NewBestBlockImported(B::Hash, NumberFor<B>),
 	EventStream(TracingUnboundedSender<SyncEvent>),
@@ -192,11 +194,14 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 		who: PeerId,
 		hash: &B::Hash,
 		number: NumberFor<B>,
-		success: bool,
+		import_result: JustificationImportResult,
 	) {
-		let _ = self
-			.tx
-			.unbounded_send(ToServiceCommand::JustificationImported(who, *hash, number, success));
+		let _ = self.tx.unbounded_send(ToServiceCommand::JustificationImported(
+			who,
+			*hash,
+			number,
+			import_result,
+		));
 	}
 
 	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
