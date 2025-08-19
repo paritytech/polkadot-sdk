@@ -17,7 +17,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test},
+	tests::{builder, ExtBuilder, Test, test_utils::decode_revert_message},
 	Code, Config,
 };
 
@@ -25,6 +25,7 @@ use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Memory, FixtureType};
 use pretty_assertions::assert_eq;
+use pallet_revive_uapi::ReturnFlags;
 
 #[test]
 fn memory_works() {
@@ -36,13 +37,24 @@ fn memory_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
-            builder::bare_call(addr)
+            let result = builder::bare_call(addr)
                 .gas_limit(1_000_000_000.into())
                 .data(
                     Memory::MemoryCalls::testMemory(Memory::testMemoryCall { })
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
+            if result.flags == ReturnFlags::REVERT {
+                if let Some(revert_msg) = decode_revert_message(&result.data) {
+                    log::error!("Revert message: {}", revert_msg);
+                } else {
+                    log::error!("Revert without message, raw data: {:?}", result.data);
+                }
+            }
+            assert!(
+                result.flags != ReturnFlags::REVERT,
+                "test reverted"
+            );
         });
     }
 }
@@ -66,6 +78,10 @@ fn mstore8_works() {
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
+            assert!(
+                result.flags != ReturnFlags::REVERT,
+                "test reverted"
+            );
             let expected_bytes = [expected_byte; 32];
             let expected = U256::from_be_bytes(expected_bytes);
             assert_eq!(
@@ -96,6 +112,10 @@ fn msize_works() {
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
+            assert!(
+                result.flags != ReturnFlags::REVERT,
+                "test reverted"
+            );
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(offset+32),
@@ -129,6 +149,10 @@ fn mcopy_works() {
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
+            assert!(
+                result.flags != ReturnFlags::REVERT,
+                "test reverted"
+            );
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 expected_value,

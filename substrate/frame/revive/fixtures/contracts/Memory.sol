@@ -27,7 +27,7 @@ contract Memory {
         assembly {
             result := msize()
         }
-        require(result == 61, "Memory size test failed");
+        require(result == 96, "Memory size test failed");
 	}
 
 	function testMstore8(uint256 offset, uint256 value) public returns (uint256) {

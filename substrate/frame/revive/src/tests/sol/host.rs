@@ -26,6 +26,7 @@ use crate::{
     Key,
     System,
 };
+use pallet_revive_uapi::ReturnFlags;
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
@@ -62,11 +63,15 @@ fn balance_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
-                let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
+                let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
 
                 assert_eq!(
                     expected_balance,
-                    result_balance,
+                    result,
                     "BALANCE should return BOB's balance for {:?}", fixture_type
                 );
             }
@@ -100,6 +105,10 @@ fn selfbalance_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
 
                 assert_eq!(
@@ -138,6 +147,10 @@ fn extcodesize_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 
                 let result_size = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
 
@@ -175,6 +188,10 @@ fn extcodehash_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 
                 let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
                 let result_hash = H256::from(result_hash.to_be_bytes());
@@ -228,6 +245,10 @@ fn extcodecopy_works() {
                     .abi_encode(),
             )
             .build_and_unwrap_result();
+        assert!(
+            result.flags != ReturnFlags::REVERT,
+            "test reverted"
+        );
         let actual_code = {
             let length = u32::from_be_bytes([result.data[60], result.data[61], result.data[62], result.data[63]]) as usize;
             &result.data[64..64+length]
@@ -272,6 +293,10 @@ fn blockhash_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 
                 let result_hash = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
                 let result_hash = H256::from(result_hash.to_be_bytes());
@@ -321,6 +346,10 @@ fn sload_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
 
                 assert_eq!(
@@ -361,12 +390,16 @@ fn sstore_works() {
             }
 
             {
-                builder::bare_call(addr)
+                let result = builder::bare_call(addr)
                     .data(
                         Host::HostCalls::sstoreOp(Host::sstoreOpCall { slot: index, value: expected_value })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
 
                 let written_value = {
                     let contract_info = test_utils::get_contract(&addr);
@@ -406,6 +439,10 @@ fn transient_storage_works() {
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
+            assert!(
+                result.flags != ReturnFlags::REVERT,
+                "test reverted"
+            );
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(0),
@@ -449,13 +486,17 @@ fn selfdestruct_works() {
             }
 
             {
-                let _ = builder::bare_call(addr)
+                let result = builder::bare_call(addr)
                     .gas_limit(1_000_000_000.into())
                     .data(
                         HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(HostSelfDestructEvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
+                assert!(
+                    result.flags != ReturnFlags::REVERT,
+                    "test reverted"
+                );
                 
                 let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
                 assert_eq!(bobs_balance, expected_bobs_balance,

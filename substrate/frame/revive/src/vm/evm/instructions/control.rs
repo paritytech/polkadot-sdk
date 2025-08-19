@@ -139,7 +139,6 @@ pub fn stop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn invalid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	log::info!("INVALID");
 	context.interpreter.extend.gas_meter_mut().consume_all();
-	// return_inner(context.interpreter, InstructionResult::Revert);
 	context.interpreter.halt(InstructionResult::InvalidFEOpcode);
 }
 
