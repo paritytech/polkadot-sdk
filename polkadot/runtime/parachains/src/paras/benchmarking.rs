@@ -249,6 +249,79 @@ mod benchmarks {
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	#[benchmark]
+	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
+		let para_id = ParaId::from(1000);
+		let old_code_hash = ValidationCode(vec![0]).hash();
+		CurrentCodeHash::<T>::insert(&para_id, old_code_hash);
+		frame_system::Pallet::<T>::set_block_number(10u32.into());
+		let inclusion = frame_system::Pallet::<T>::block_number().saturating_add(10u32.into());
+		let config = HostConfiguration::<BlockNumberFor<T>>::default();
+		Pallet::<T>::schedule_code_upgrade(
+			para_id,
+			ValidationCode(vec![0u8; MIN_CODE_SIZE as usize]),
+			inclusion,
+			&config,
+			UpgradeStrategy::SetGoAheadSignal,
+		);
+
+		let who: T::AccountId = whitelisted_caller();
+
+		T::Fungible::mint_into(
+			&who,
+			T::CooldownRemovalMultiplier::get().saturating_mul(1_000_000u32.into()),
+		)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id);
+
+		assert_last_event::<T>(Event::UpgradeCooldownRemoved { para_id }.into());
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn authorize_force_set_current_code_hash() {
+		let para_id = ParaId::from(1000);
+		let code = ValidationCode(vec![0; 32]);
+		let new_code_hash = code.hash();
+		let valid_period = BlockNumberFor::<T>::from(1_000_000_u32);
+		ParaLifecycles::<T>::insert(&para_id, ParaLifecycle::Parachain);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, new_code_hash, valid_period);
+
+		assert_last_event::<T>(
+			Event::CodeAuthorized {
+				para_id,
+				code_hash: new_code_hash,
+				expire_at: frame_system::Pallet::<T>::block_number().saturating_add(valid_period),
+			}
+			.into(),
+		);
+	}
+
+	#[benchmark]
+	fn apply_authorized_force_set_current_code(c: Linear<MIN_CODE_SIZE, MAX_CODE_SIZE>) {
+		let code = ValidationCode(vec![0; c as usize]);
+		let para_id = ParaId::from(1000);
+		let expire_at =
+			frame_system::Pallet::<T>::block_number().saturating_add(BlockNumberFor::<T>::from(c));
+		AuthorizedCodeHash::<T>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((code.hash(), expire_at)),
+		);
+		generate_disordered_pruning::<T>();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, para_id, code);
+
+		assert_last_event::<T>(Event::CurrentCodeUpdated(para_id).into());
+	}
+
+>>>>>>> 7f1949d (Paras: Clean up `AuthorizedCodeHash` when offboarding (#9514))
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext(Default::default()),

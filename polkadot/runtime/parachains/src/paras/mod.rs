@@ -1160,6 +1160,132 @@ pub mod pallet {
 			MostRecentContext::<T>::insert(&para, context);
 			Ok(())
 		}
+<<<<<<< HEAD
+=======
+
+		/// Remove an upgrade cooldown for a parachain.
+		///
+		/// The cost for removing the cooldown earlier depends on the time left for the cooldown
+		/// multiplied by [`Config::CooldownRemovalMultiplier`]. The paid tokens are burned.
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as Config>::WeightInfo::remove_upgrade_cooldown())]
+		pub fn remove_upgrade_cooldown(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let removed = UpgradeCooldowns::<T>::mutate(|cooldowns| {
+				let Some(pos) = cooldowns.iter().position(|(p, _)| p == &para) else {
+					return Ok::<_, DispatchError>(false)
+				};
+				let (_, cooldown_until) = cooldowns.remove(pos);
+
+				let cost = Self::calculate_remove_upgrade_cooldown_cost(cooldown_until);
+
+				// burn...
+				T::Fungible::burn_from(
+					&who,
+					cost,
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+
+				Ok(true)
+			})?;
+
+			if removed {
+				UpgradeRestrictionSignal::<T>::remove(para);
+
+				Self::deposit_event(Event::UpgradeCooldownRemoved { para_id: para });
+			}
+
+			Ok(())
+		}
+
+		/// Sets the storage for the authorized current code hash of the parachain.
+		/// If not applied, it will be removed at the `System::block_number() + valid_period` block.
+		///
+		/// This can be useful, when triggering `Paras::force_set_current_code(para, code)`
+		/// from a different chain than the one where the `Paras` pallet is deployed.
+		///
+		/// The main purpose is to avoid transferring the entire `code` Wasm blob between chains.
+		/// Instead, we authorize `code_hash` with `root`, which can later be applied by
+		/// `Paras::apply_authorized_force_set_current_code(para, code)` by anyone.
+		///
+		/// Authorizations are stored in an **overwriting manner**.
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as Config>::WeightInfo::authorize_force_set_current_code_hash())]
+		pub fn authorize_force_set_current_code_hash(
+			origin: OriginFor<T>,
+			para: ParaId,
+			new_code_hash: ValidationCodeHash,
+			valid_period: BlockNumberFor<T>,
+		) -> DispatchResult {
+			T::AuthorizeCurrentCodeOrigin::ensure_origin(origin, &para)?;
+			// The requested para must be a valid para (neither onboarding nor offboarding).
+			ensure!(Self::is_valid_para(para), Error::<T>::NotRegistered);
+
+			let now = frame_system::Pallet::<T>::block_number();
+			let expire_at = now.saturating_add(valid_period);
+
+			// Insert the authorized code hash and ensure it overwrites the existing one for a para.
+			AuthorizedCodeHash::<T>::insert(
+				&para,
+				AuthorizedCodeHashAndExpiry::from((new_code_hash, expire_at)),
+			);
+			Self::deposit_event(Event::CodeAuthorized {
+				para_id: para,
+				code_hash: new_code_hash,
+				expire_at,
+			});
+
+			Ok(())
+		}
+
+		/// Applies the already authorized current code for the parachain,
+		/// triggering the same functionality as `force_set_current_code`.
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::apply_authorized_force_set_current_code(new_code.0.len() as u32))]
+		pub fn apply_authorized_force_set_current_code(
+			_origin: OriginFor<T>,
+			para: ParaId,
+			new_code: ValidationCode,
+		) -> DispatchResultWithPostInfo {
+			// no need to ensure anybody can do this
+
+			// Ensure `new_code` is authorized
+			let _ = Self::validate_code_is_authorized(&new_code, &para)?;
+			// Remove authorization
+			AuthorizedCodeHash::<T>::remove(para);
+
+			// apply/dispatch
+			Self::do_force_set_current_code_update(para, new_code);
+
+			Ok(Pays::No.into())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub(crate) fn calculate_remove_upgrade_cooldown_cost(
+			cooldown_until: BlockNumberFor<T>,
+		) -> BalanceOf<T> {
+			let time_left =
+				cooldown_until.saturating_sub(frame_system::Pallet::<T>::block_number());
+
+			BalanceOf::<T>::from(time_left).saturating_mul(T::CooldownRemovalMultiplier::get())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the cost for removing an upgrade cooldown for the given `para`.
+		pub fn remove_upgrade_cooldown_cost(para: ParaId) -> BalanceOf<T> {
+			UpgradeCooldowns::<T>::get()
+				.iter()
+				.find(|(p, _)| p == &para)
+				.map(|(_, c)| Self::calculate_remove_upgrade_cooldown_cost(*c))
+				.unwrap_or_default()
+		}
+>>>>>>> 7f1949d (Paras: Clean up `AuthorizedCodeHash` when offboarding (#9514))
 	}
 
 	#[pallet::validate_unsigned]
@@ -1366,6 +1492,7 @@ impl<T: Config> Pallet<T> {
 					UpgradeGoAheadSignal::<T>::remove(&para);
 					UpgradeRestrictionSignal::<T>::remove(&para);
 					ParaLifecycles::<T>::remove(&para);
+					AuthorizedCodeHash::<T>::remove(&para);
 					let removed_future_code_hash = FutureCodeHash::<T>::take(&para);
 					if let Some(removed_future_code_hash) = removed_future_code_hash {
 						Self::decrease_code_ref(&removed_future_code_hash);
