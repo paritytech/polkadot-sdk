@@ -556,7 +556,7 @@ pub trait SteppedMigration {
 }
 
 /// Error that can occur during a [`SteppedMigration`].
-#[derive(Debug, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo)]
+#[derive(Debug, Encode, Decode, MaxEncodedLen, PartialEq, Eq, scale_info::TypeInfo)]
 pub enum SteppedMigrationError {
 	// Transient errors:
 	/// The remaining weight is not enough to do anything.
@@ -725,11 +725,10 @@ pub trait SteppedMigrations {
 	) -> Option<Result<Option<Vec<u8>>, SteppedMigrationError>>;
 
 	/// Get the storage prefixes modified by the `n`th migration.
-    ///
-    /// Returns `None` if the index is out of bounds.
-    /// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
-    fn nth_migrating_prefixes(n: usize)
-        -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>>;
+	///
+	/// Returns `None` if the index is out of bounds.
+	/// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
+	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>>;
 
 	/// Call the pre-upgrade hooks of the `n`th migration.
 	///
@@ -807,8 +806,7 @@ impl SteppedMigrations for () {
 		None
 	}
 
-	fn nth_migrating_prefixes(_n: usize) 
-	-> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+	fn nth_migrating_prefixes(_n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
 		None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
 	}
 
@@ -897,13 +895,12 @@ impl<T: SteppedMigration> SteppedMigrations for T {
 		)
 	}
 
-	fn nth_migrating_prefixes(n: usize) 
-    -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
 		if n == 0 {
-            Some(Ok(T::migrating_prefixes().into_iter().collect()))
-        } else {
-            None
-        }
+			Some(Ok(T::migrating_prefixes().into_iter().collect()))
+		} else {
+			None
+		}
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -988,18 +985,17 @@ impl SteppedMigrations for Tuple {
 		None
 	}
 
-	fn nth_migrating_prefixes(n: usize)
-    -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-        let mut i = 0;
-        for_tuples!( #(
-            let len = Tuple::len() as usize;
+	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+		let mut i = 0;
+		for_tuples!( #(
+            let len = Tuple::len() as u32;
             if n < i + len {
                 return Tuple::nth_migrating_prefixes(n - i);
             }
             i += len;
         )* );
-        None
-    }
+		None
+	}
 
 	#[cfg(feature = "try-runtime")]
 	fn nth_pre_upgrade(n: u32) -> Option<Result<Vec<u8>, sp_runtime::TryRuntimeError>> {
@@ -1094,6 +1090,10 @@ mod tests {
 			unhashed::put(&[0], &());
 			Ok(None)
 		}
+
+		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
+			vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]
+		}
 	}
 
 	pub struct M1;
@@ -1116,6 +1116,10 @@ mod tests {
 
 		fn max_steps() -> Option<u32> {
 			Some(1)
+		}
+
+		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
+			vec![b"M1_prefix".to_vec()]
 		}
 	}
 
@@ -1140,6 +1144,30 @@ mod tests {
 		fn max_steps() -> Option<u32> {
 			Some(2)
 		}
+
+		fn migrating_prefixes() -> impl IntoIterator<Item = Vec<u8>> {
+			vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()]
+		}
+	}
+	
+	pub struct M3;
+	impl SteppedMigration for M3 {
+		type Cursor = ();
+		type Identifier = u8;
+
+		fn id() -> Self::Identifier {
+			3
+		}
+
+		fn step(
+			_cursor: Option<Self::Cursor>,
+			_meter: &mut WeightMeter,
+		) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+			log::info!("M3");
+			Ok(None)
+		}
+
+		// Default implementation returns empty iterator
 	}
 
 	pub struct F0;
@@ -1148,7 +1176,7 @@ mod tests {
 		type Identifier = u8;
 
 		fn id() -> Self::Identifier {
-			3
+			4
 		}
 
 		fn step(
@@ -1242,5 +1270,58 @@ mod tests {
 			.unwrap()
 			.is_err());
 		});
+	}
+
+	#[test]
+	fn nth_migrating_prefixes_works() {
+		// Test single migration
+		assert_eq!(
+			M0::nth_migrating_prefixes(0),
+			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+		assert_eq!(M0::nth_migrating_prefixes(1), None);
+
+		// Test migration with no prefixes
+		assert_eq!(
+			M3::nth_migrating_prefixes(0),
+			Some(Ok(Vec::new()))
+		);
+
+		// Test tuple migrations
+		type Pair = (M0, M1);
+		assert_eq!(Pair::len(), 2);
+
+		// First migration in tuple
+		assert_eq!(
+			Pair::nth_migrating_prefixes(0),
+			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+
+		// Second migration in tuple
+		assert_eq!(Pair::nth_migrating_prefixes(1), Some(Ok(vec![b"M1_prefix".to_vec()])));
+
+		// Out of bounds
+		assert_eq!(Pair::nth_migrating_prefixes(2), None);
+
+		// Test nested tuples
+		type Nested = (M0, (M1, M2));
+		assert_eq!(Nested::len(), 3);
+
+		// First migration
+		assert_eq!(
+			Nested::nth_migrating_prefixes(0),
+			Some(Ok(vec![b"M0_prefix1".to_vec(), b"M0_prefix2".to_vec()]))
+		);
+
+		// Second migration (first in inner tuple)
+		assert_eq!(Nested::nth_migrating_prefixes(1), Some(Ok(vec![b"M1_prefix".to_vec()])));
+
+		// Third migration (second in inner tuple)
+		assert_eq!(
+			Nested::nth_migrating_prefixes(2),
+			Some(Ok(vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()]))
+		);
+
+		assert_eq!(Nested::nth_migrating_prefixes(3), None);
 	}
 }
