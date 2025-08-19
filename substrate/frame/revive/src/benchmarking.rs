@@ -2455,7 +2455,6 @@ mod benchmarks {
 				};
 				// Simulate the event being stored during transaction execution
 				Pallet::<T>::deposit_event(test_event);
-				// InflightEvents::<T>::insert(i, test_event);
 			}
 
 			// Execute a single dummy transaction to trigger the finalize_block event processing
@@ -2470,6 +2469,86 @@ mod benchmarks {
 			);
 
 			// This is where the event processing cost is incurred
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify that events were processed
+		let next_block = BlockNumberFor::<T>::from(2u32);
+		frame_system::Pallet::<T>::set_block_number(next_block);
+		let _ = Pallet::<T>::on_initialize(next_block);
+
+		// Verify block was properly finalized
+		let block_author = Pallet::<T>::block_author();
+		assert!(block_author.is_some());
+
+		Ok(())
+	}
+
+	// `d`: total event data size in bytes to process during finalize_block
+	#[benchmark(pov_mode = Measured)]
+	fn finalize_block_event_data_processing(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
+		// Setup test signer
+		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
+		whitelist_account!(signer_caller);
+
+		// Setup contract instance
+		let instance =
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let origin = RawOrigin::Signed(signer_caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
+		let value = Pallet::<T>::min_balance();
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+
+		// Create signed transaction
+		let signed_payload = create_signed_transaction(&signer_key, instance.address, value.into());
+
+		// Setup block
+		let current_block = BlockNumberFor::<T>::from(1u32);
+		frame_system::Pallet::<T>::set_block_number(current_block);
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Create events with varying data sizes to reach target total data size `d`
+			if d > 0 {
+				// Distribute data across multiple events to test realistic scenarios
+				let target_events = if d <= 1024 { 1 } else if d <= 4096 { 4 } else { 8 };
+				let data_per_event = d / target_events;
+				let remaining_data = d % target_events;
+
+				for i in 0..target_events {
+					// Calculate data size for this event
+					let event_data_size = data_per_event + if i == 0 { remaining_data } else { 0 };
+
+					// Create event data of specified size
+					let event_data = vec![0x42u8; event_data_size as usize];
+
+					let test_event = Event::<T>::ContractEmitted {
+						contract: instance.address,
+						data: event_data,
+						topics: vec![H256::from_low_u64_be(i as u64)],
+					};
+
+					// Simulate the event being stored during transaction execution
+					Pallet::<T>::deposit_event(test_event);
+				}
+			}
+
+			// Execute a single dummy transaction to trigger the finalize_block event processing
+			let _ = Pallet::<T>::eth_call(
+				origin.clone().into(),
+				instance.address,
+				evm_value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+				signed_payload.clone(),
+			);
+
+			// This is where the data-dependent processing cost is incurred
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 

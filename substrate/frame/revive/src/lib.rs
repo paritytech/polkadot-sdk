@@ -1105,12 +1105,30 @@ pub mod pallet {
 			// Account for event processing costs in finalize_block
 			let event_count = InflightEvents::<T>::count();
 			if event_count > 0 {
+				// Calculate per-event weight
 				let event_processing_weight = T::WeightInfo::finalize_block_per_event()
 					.saturating_mul(event_count.into());
 				
-				// Register additional weight for event processing during finalize_block
+				// Calculate total event data size for per-byte weight accounting
+				let total_event_data_size: u32 = InflightEvents::<T>::iter()
+					.filter_map(|(_, event)| {
+						match event {
+							Event::ContractEmitted { data, .. } => Some(data.len() as u32),
+							_ => None,
+						}
+					})
+					.sum();
+				
+				// Calculate per-data-byte weight
+				let data_processing_weight = T::WeightInfo::finalize_block_per_data_byte()
+					.saturating_mul(total_event_data_size.into());
+				
+				// Register combined additional weight for event processing during finalize_block
+				let total_event_weight = event_processing_weight
+					.saturating_add(data_processing_weight);
+				
 				frame_system::Pallet::<T>::register_extra_weight_unchecked(
-					event_processing_weight,
+					total_event_weight,
 					DispatchClass::Normal,
 				);
 			}
@@ -1252,17 +1270,22 @@ pub mod pallet {
 
 		/// Returns the per-event part `c` of finalize_block weight.
 		fn finalize_block_per_event() -> Weight;
+
+		/// Returns the per-data-byte part `d` of finalize_block weight.
+		fn finalize_block_per_data_byte() -> Weight;
 	}
 
-	/// Splits finalize_block weight into fixed, per-transaction, and per-event components.
+	/// Splits finalize_block weight into fixed, per-transaction, per-event, and per-data-byte components.
 	///
-	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count * per_event_part)
+	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count * per_event_part) + (data_bytes * per_data_byte_part)
 	///
 	/// - `finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
 	/// - `finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
 	///   to enforce gas limits and reject transactions early if needed.
 	/// - `finalize_block_per_event()`: Per-event weight for processing events during `on_finalize()`,
 	///   added dynamically in each `eth_call()` based on actual event count.
+	/// - `finalize_block_per_data_byte()`: Per-byte weight for processing event data during `on_finalize()`,
+	///   accounts for bloom filter computation, RLP encoding, and data copying costs.
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
 			// Call finalize_block with tx_count = 0 → only `a`
@@ -1278,6 +1301,12 @@ pub mod pallet {
 			// Extract per-event cost from dedicated benchmark
 			W::finalize_block_event_processing(1)
 				.saturating_sub(W::finalize_block_event_processing(0))
+		}
+
+		fn finalize_block_per_data_byte() -> Weight {
+			// Extract per-data-byte cost from dedicated benchmark
+			W::finalize_block_event_data_processing(1)
+				.saturating_sub(W::finalize_block_event_data_processing(0))
 		}
 	}
 }

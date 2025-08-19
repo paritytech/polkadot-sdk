@@ -162,6 +162,7 @@ pub trait WeightInfo {
 	fn v1_migration_step() -> Weight;
 	fn finalize_block(c: u32, ) -> Weight;
 	fn finalize_block_event_processing(e: u32, ) -> Weight;
+	fn finalize_block_event_data_processing(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1311,6 +1312,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(e.into())))
 			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
 	}
+	/// The range of component `d` is `[0, 16384]`.
+	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `300`
+		//  Estimated: `2000 + d * (1 ±0)`
+		// Minimum execution time: 8_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 2000)
+			// Standard Error: 100
+			.saturating_add(Weight::from_parts(500, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -2458,5 +2472,18 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(e.into())))
 			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
+	}
+	/// The range of component `d` is `[0, 16384]`.
+	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `300`
+		//  Estimated: `2000 + d * (1 ±0)`
+		// Minimum execution time: 8_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 2000)
+			// Standard Error: 100
+			.saturating_add(Weight::from_parts(500, 0).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
 	}
 }
