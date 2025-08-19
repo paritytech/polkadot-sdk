@@ -1,0 +1,15 @@
+title: "Snowbridge: Refactor inbound message conversion"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Refactor MessageToXcm inbound converter to make it more compact and organized, 
+    update runtime configuration accordingly
+crates:
+- name: snowbridge-inbound-queue-primitives
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: patch
