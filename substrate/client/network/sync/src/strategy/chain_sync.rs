@@ -337,6 +337,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Is block pruning enabled? This indicates that the user is not
+	/// interested in historical blocks, so gap sync will be skipped.
+	block_pruning_enabled: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -889,7 +892,7 @@ where
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			trace!(
 				target: LOG_TARGET,
-				"Created `StrategyRequest` to {peer_id}.",
+				"Created `StateRequest` to {peer_id}.",
 			);
 
 			let (tx, rx) = oneshot::channel();
@@ -944,6 +947,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+		block_pruning_enabled: bool,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -965,6 +969,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			block_pruning_enabled,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1716,11 +1721,19 @@ where
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
 			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
 			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
-			self.gap_sync = Some(GapSync {
-				best_queued_number: start - One::one(),
-				target: end,
-				blocks: BlockCollection::new(),
-			});
+			// Start gap sync, unless block pruning is enabled.
+			if self.block_pruning_enabled {
+				debug!(
+					target: LOG_TARGET,
+					"Block pruning is enabled, skipping gap sync."
+				);
+			} else {
+				self.gap_sync = Some(GapSync {
+					best_queued_number: start - One::one(),
+					target: end,
+					blocks: BlockCollection::new(),
+				});
+			}
 		}
 		trace!(
 			target: LOG_TARGET,
