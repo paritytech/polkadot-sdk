@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthBlockBuilder, ReconstructReceiptInfo},
+		block_hash::{EthBlockBuilder, ReceiptGasInfo},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, HashesOrTransactionInfos, PrestateTracer,
 		Trace, Tracer, TracerType, TYPE_EIP1559,
@@ -130,7 +130,7 @@ const BLOCK_HASH_COUNT: u32 = 256;
 /// Hence you can use this target to selectively increase the log level for this crate.
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
-pub(crate) const LOG_TARGET: &str = "runtime::revive";
+const LOG_TARGET: &str = "runtime::revive";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -489,7 +489,7 @@ pub mod pallet {
 		ReturnDataTooLarge = 0x31,
 	}
 
-	/// A reason for the pallet contracts placing a hold on funds.
+	/// A reason for the pallet revive placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The Pallet has reserved it for storing code on-chain.
@@ -548,6 +548,10 @@ pub mod pallet {
 	pub(crate) type InflightEvents<T: Config> =
 		CountedStorageMap<_, Identity, u32, Event<T>, OptionQuery>;
 
+	/// True if the events must be collected.
+	#[pallet::storage]
+	pub(crate) type CollectInflightEvents<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// The EVM submitted transactions that are inflight for the current block.
 	///
 	/// The transactions are needed to construct the ETH block.
@@ -589,7 +593,7 @@ pub mod pallet {
 	/// This contains valuable information about the gas used by the transaction.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReconstructReceiptInfo>, ValueQuery>;
+	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -699,7 +703,7 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-			let base_gas_price = GAS_PRICE.into();
+			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
 			let transactions = InflightTransactions::<T>::drain().map(|(_index, details)| details);
@@ -1031,6 +1035,8 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			CollectInflightEvents::<T>::put(true);
+
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1053,6 +1059,7 @@ pub mod pallet {
 			// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
 			// If so, we might need to capture this from inside the `dispatch_result`.
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+			CollectInflightEvents::<T>::put(false);
 
 			dispatch_result(
 				output.result.map(|result| result.result),
@@ -1078,6 +1085,7 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			CollectInflightEvents::<T>::put(true);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1094,6 +1102,7 @@ pub mod pallet {
 			}
 
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+			CollectInflightEvents::<T>::put(false);
 
 			dispatch_result(
 				output.result,
@@ -1689,6 +1698,11 @@ where
 		GAS_PRICE.into()
 	}
 
+	/// Get the base gas price.
+	pub fn evm_base_gas_price() -> U256 {
+		GAS_PRICE.into()
+	}
+
 	/// Build an EVM tracer from the given tracer type.
 	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
 	where
@@ -1803,7 +1817,7 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		if matches!(event, Event::ContractEmitted { .. }) {
+		if CollectInflightEvents::<T>::get() && matches!(event, Event::ContractEmitted { .. }) {
 			let events_count = InflightEvents::<T>::count();
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::insert(events_count, event.clone());

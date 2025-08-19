@@ -22,7 +22,7 @@ use crate::{
 use sp_core::H256;
 use subxt::{storage::Storage, OnlineClient};
 
-use pallet_revive::evm::{block_hash::ReconstructReceiptInfo, Block};
+use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -57,7 +57,7 @@ impl StorageApi {
 	}
 
 	/// Get the receipt data from storage.
-	pub async fn get_receipt_data(&self) -> Result<Vec<ReconstructReceiptInfo>, ClientError> {
+	pub async fn get_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
 		let query = subxt::dynamic::storage("Revive", "ReceiptInfoData", ());
 
 		let Some(info) = self.0.fetch(&query).await? else {

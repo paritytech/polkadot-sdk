@@ -19,7 +19,7 @@
 
 use crate::{
 	evm::{Block as EthBlock, Bytes256, TransactionSigned},
-	Event, HashesOrTransactionInfos, LOG_TARGET,
+	Event, HashesOrTransactionInfos,
 };
 
 use alloc::vec::Vec;
@@ -30,13 +30,15 @@ use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
+const LOG_TARGET: &str = "runtime::revive::hash";
+
 /// The transaction details captured by the revive pallet.
 pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
 #[derive(Encode, Decode, TypeInfo, Clone)]
-pub struct ReconstructReceiptInfo {
+pub struct ReceiptGasInfo {
 	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
 	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
 	/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
@@ -51,6 +53,7 @@ pub struct ReconstructReceiptInfo {
 }
 
 /// Builder of the ETH block.
+#[derive(Default)]
 pub struct EthBlockBuilder {
 	/// Current block number.
 	block_number: U256,
@@ -72,7 +75,7 @@ pub struct EthBlockBuilder {
 	/// The transaction hashes that will be placed in the ETH block.
 	tx_hashes: Vec<H256>,
 	/// The data needed to reconstruct the receipt info.
-	receipt_data: Vec<ReconstructReceiptInfo>,
+	receipt_data: Vec<ReceiptGasInfo>,
 }
 
 impl EthBlockBuilder {
@@ -96,11 +99,9 @@ impl EthBlockBuilder {
 			timestamp,
 			block_author,
 			gas_limit,
-			// The following fields are populated by `process_transaction_details`.
-			tx_hashes: Vec::new(),
-			total_gas_used: U256::zero(),
-			logs_bloom: Bytes256::default(),
-			receipt_data: Vec::new(),
+
+			// The remaining fields are populated by `process_transaction_details`.
+			..Default::default()
 		}
 	}
 
@@ -124,7 +125,7 @@ impl EthBlockBuilder {
 	pub fn build<T>(
 		mut self,
 		details: impl IntoIterator<Item = TransactionDetails<T>>,
-	) -> (H256, EthBlock, Vec<ReconstructReceiptInfo>)
+	) -> (H256, EthBlock, Vec<ReceiptGasInfo>)
 	where
 		T: crate::pallet::Config,
 	{
@@ -180,7 +181,7 @@ impl EthBlockBuilder {
 		let transaction_hash = H256(keccak_256(&payload));
 		self.tx_hashes.push(transaction_hash);
 
-		self.receipt_data.push(ReconstructReceiptInfo {
+		self.receipt_data.push(ReceiptGasInfo {
 			effective_gas_price: signed_tx.effective_gas_price(self.base_gas_price),
 			gas_used: gas.ref_time().into(),
 		});

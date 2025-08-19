@@ -1519,13 +1519,13 @@ fn cannot_self_destruct_in_constructor() {
 }
 
 #[test]
-fn crypto_hashes() {
-	let (binary, _code_hash) = compile_module("crypto_hashes").unwrap();
+fn crypto_hash_keccak_256() {
+	let (binary, _code_hash) = compile_module("crypto_hash_keccak_256").unwrap();
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Instantiate the CRYPTO_HASHES contract.
+		// Instantiate the CRYPTO_HASH_KECCAK_256 contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(100_000)
 			.build_and_unwrap_contract();
@@ -1538,18 +1538,14 @@ fn crypto_hashes() {
 				Box::new(|input| $name(input).as_ref().to_vec().into_boxed_slice())
 			};
 		}
-		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] =
-			&[(2, dyn_hash_fn!(keccak_256), 32), (4, dyn_hash_fn!(blake2_128), 16)];
-		// Test the given hash functions for the input: "_DEAD_BEEF"
-		for (n, hash_fn, expected_size) in test_cases.iter() {
-			let mut params = vec![*n];
-			params.extend_from_slice(input);
-			let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
-			assert!(!result.did_revert());
-			let expected = hash_fn(input.as_ref());
-			assert_eq!(&result.data[..*expected_size], &*expected);
-		}
+		// The hash function and its associated output byte lengths.
+		let hash_fn: Box<dyn Fn(&[u8]) -> Box<[u8]>> = dyn_hash_fn!(keccak_256);
+		let expected_size: usize = 32;
+		// Test the hash function for the input: "_DEAD_BEEF"
+		let result = builder::bare_call(addr).data(input.to_vec()).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let expected = hash_fn(input.as_ref());
+		assert_eq!(&result.data[..expected_size], &*expected);
 	})
 }
 
@@ -2720,7 +2716,7 @@ fn storage_deposit_callee_works() {
 #[test]
 fn set_code_extrinsic() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
-	let (new_binary, new_code_hash) = compile_module("crypto_hashes").unwrap();
+	let (new_binary, new_code_hash) = compile_module("crypto_hash_keccak_256").unwrap();
 
 	assert_ne!(code_hash, new_code_hash);
 
@@ -4035,43 +4031,6 @@ fn origin_api_works() {
 
 		// Call the contract: Asserts the origin API to work as expected
 		assert_ok!(builder::call(addr).build());
-	});
-}
-
-#[test]
-fn to_account_id_works() {
-	let (code_hash_code, _) = compile_module("to_account_id").unwrap();
-
-	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&EVE, 1_000_000);
-
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
-
-		// mapped account
-		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		let expected_mapped_account_id = &<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR);
-		assert_ne!(
-			expected_mapped_account_id.encode()[20..32],
-			[0xEE; 12],
-			"fallback suffix found where none should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((EVE_ADDR, expected_mapped_account_id).encode())
-			.build());
-
-		// fallback for unmapped accounts
-		let expected_fallback_account_id =
-			&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
-		assert_eq!(
-			expected_fallback_account_id.encode()[20..32],
-			[0xEE; 12],
-			"no fallback suffix found where one should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((BOB_ADDR, expected_fallback_account_id).encode())
-			.build());
 	});
 }
 

@@ -30,8 +30,8 @@ use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
 	evm::{
-		block_hash::ReconstructReceiptInfo, GenericTransaction, Log, ReceiptInfo,
-		TransactionSigned, H256, U256,
+		block_hash::ReceiptGasInfo, GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256,
+		U256,
 	},
 };
 use sp_core::keccak_256;
@@ -43,9 +43,7 @@ type FetchGasPriceFn = Arc<
 >;
 
 type FetchReceiptDataFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReconstructReceiptInfo>>> + Send>>
-		+ Send
-		+ Sync,
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
 >;
 
 type FetchEthBlockHashFn =
@@ -159,7 +157,7 @@ impl ReceiptExtractor {
 		block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
-		maybe_receipt: Option<ReconstructReceiptInfo>,
+		maybe_receipt: Option<ReceiptGasInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
 		let events = ext.events().await?;
@@ -304,7 +302,7 @@ impl ReceiptExtractor {
 			Item = (
 				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
 				EthTransact,
-				Option<ReconstructReceiptInfo>,
+				Option<ReceiptGasInfo>,
 			),
 		>,
 		ClientError,
