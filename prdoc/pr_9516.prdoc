@@ -1,0 +1,15 @@
+title: Fix for `promote_fast` benchmark
+doc:
+- audience: Runtime Dev
+  description: "Discovered by: https://github.com/polkadot-fellows/runtimes/pull/853\n\
+    \nIt\u2019s likely that this PR: [https://github.com/paritytech/polkadot-sdk/pull/7720](https://github.com/paritytech/polkadot-sdk/pull/7720)\
+    \ broke weight generation/compilation. For example, for `promote_fast`, the weight\
+    \ file is [generated with `u32`\u2014see the screenshot below](https://github.com/polkadot-fellows/runtimes/pull/853/commits/3cc49e40421b1b0c96c5ed2d3b5d56e27344b3a2#diff-35dfb1113ee202c1375fb2d8982d02a665e5857fec2e0a07b684494c056c8901L190-R194),\
+    \ which causes compilation errors when `MaxRank = u16`.\n\n<img width=\"541\"\
+    \ height=\"67\" alt=\"image\" src=\"https://github.com/user-attachments/assets/03bb3d90-7c09-46c7-8990-21878fc50c61\"\
+    \ />\n\n## TODO\n\n- [ ] find possible fix"
+crates:
+- name: collectives-westend-runtime
+  bump: patch
+- name: pallet-core-fellowship
+  bump: patch
