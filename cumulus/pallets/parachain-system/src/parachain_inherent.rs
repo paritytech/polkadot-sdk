@@ -16,11 +16,7 @@
 
 //! Cumulus parachain inherent related structures.
 
-use alloc::{
-	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
-	vec,
-	vec::Vec,
-};
+use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use core::fmt::Debug;
 use cumulus_primitives_core::{
 	relay_chain::{
@@ -307,15 +303,6 @@ pub type AbridgedInboundHrmpMessages =
 	AbridgedInboundMessagesCollection<(ParaId, InboundHrmpMessage)>;
 
 impl AbridgedInboundHrmpMessages {
-	/// Returns a list of all the unique senders.
-	pub fn get_senders(&self) -> BTreeSet<ParaId> {
-		self.full_messages
-			.iter()
-			.map(|(sender, _msg)| *sender)
-			.chain(self.hashed_messages.iter().map(|(sender, _msg)| *sender))
-			.collect()
-	}
-
 	/// Returns an iterator over the deconstructed messages.
 	pub fn flat_msgs_iter(&self) -> impl Iterator<Item = (ParaId, RelayChainBlockNumber, &[u8])> {
 		self.full_messages

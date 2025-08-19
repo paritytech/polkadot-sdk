@@ -1,0 +1,11 @@
+title: 'substrate-prometheus-endpoint: directly require the feature "tokio/net"'
+doc:
+- audience: Node Dev
+  description: |-
+    The crate `substrate-prometheus-endpoint` use tokio items given by the feature "net" but it doesn't explictly requires it in the `Cargo.toml`. It compiles on master because `hyper-util` enables the feature "tokio/net". But upgrading `hyper-util` break this indirect enabling.
+
+    This fix the issue by directly setting "net" feature as required, as it is used.
+    We should also backport this ideally. It is not a breaking change given the code doesn't compile without the feature and only compiles if indirectly enabled by another crate.
+crates:
+- name: substrate-prometheus-endpoint
+  bump: patch

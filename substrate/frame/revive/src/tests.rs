@@ -32,7 +32,7 @@ use crate::{
 	weights::WeightInfo,
 	AccountId32Mapper, AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, BumpNonce, Code,
 	CodeInfoOf, Config, ContractInfo, DeletionQueueCounter, DepositLimit, Error, EthTransactError,
-	HoldReason, Origin, Pallet, PristineCode, H160,
+	HoldReason, Origin, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -518,6 +518,15 @@ fn transfer_with_dust_works() {
 			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(2, 0),
 			total_issuance_diff: -1,
 		},
+		TestCase {
+			description: "receiver dust less than 1 plank",
+			from_balance: BalanceWithDust::new_unchecked::<Test>(100, plank / 10),
+			to_balance: BalanceWithDust::new_unchecked::<Test>(0, plank / 2),
+			amount: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 3),
+			expected_from_balance: BalanceWithDust::new_unchecked::<Test>(98, plank / 10 * 8),
+			expected_to_balance: BalanceWithDust::new_unchecked::<Test>(1, plank / 10 * 8),
+			total_issuance_diff: 1,
+		},
 	];
 
 	for TestCase {
@@ -600,6 +609,41 @@ fn contract_call_transfer_with_dust_works() {
 		assert_ok!(builder::call(addr_caller).data((balance, addr_callee).encode()).build());
 
 		assert_eq!(Pallet::<Test>::evm_balance(&addr_callee), balance);
+	});
+}
+
+#[test]
+fn deposit_limit_enforced_on_plain_transfer() {
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		// sending balance to a new account should fail when the limit is lower than the ed
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(190.into())
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositLimitExhausted);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(test_utils::get_balance(&CHARLIE), 0);
+
+		// works when the account is prefunded
+		let result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(0.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
+		assert_eq!(test_utils::get_balance(&BOB), 1_000_001);
+
+		// also works allowing enough deposit
+		let result = builder::bare_call(CHARLIE_ADDR)
+			.native_value(1)
+			.storage_deposit_limit(200.into())
+			.build();
+		assert_ok!(result.result);
+		assert_eq!(result.storage_deposit, StorageDeposit::Charge(200));
+		assert_eq!(test_utils::get_balance(&CHARLIE), 201);
 	});
 }
 
@@ -1474,13 +1518,13 @@ fn cannot_self_destruct_in_constructor() {
 }
 
 #[test]
-fn crypto_hashes() {
-	let (binary, _code_hash) = compile_module("crypto_hashes").unwrap();
+fn crypto_hash_keccak_256() {
+	let (binary, _code_hash) = compile_module("crypto_hash_keccak_256").unwrap();
 
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		// Instantiate the CRYPTO_HASHES contract.
+		// Instantiate the CRYPTO_HASH_KECCAK_256 contract.
 		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
 			.native_value(100_000)
 			.build_and_unwrap_contract();
@@ -1493,21 +1537,14 @@ fn crypto_hashes() {
 				Box::new(|input| $name(input).as_ref().to_vec().into_boxed_slice())
 			};
 		}
-		// All hash functions and their associated output byte lengths.
-		let test_cases: &[(u8, Box<dyn Fn(&[u8]) -> Box<[u8]>>, usize)] = &[
-			(2, dyn_hash_fn!(keccak_256), 32),
-			(3, dyn_hash_fn!(blake2_256), 32),
-			(4, dyn_hash_fn!(blake2_128), 16),
-		];
-		// Test the given hash functions for the input: "_DEAD_BEEF"
-		for (n, hash_fn, expected_size) in test_cases.iter() {
-			let mut params = vec![*n];
-			params.extend_from_slice(input);
-			let result = builder::bare_call(addr).data(params).build_and_unwrap_result();
-			assert!(!result.did_revert());
-			let expected = hash_fn(input.as_ref());
-			assert_eq!(&result.data[..*expected_size], &*expected);
-		}
+		// The hash function and its associated output byte lengths.
+		let hash_fn: Box<dyn Fn(&[u8]) -> Box<[u8]>> = dyn_hash_fn!(keccak_256);
+		let expected_size: usize = 32;
+		// Test the hash function for the input: "_DEAD_BEEF"
+		let result = builder::bare_call(addr).data(input.to_vec()).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		let expected = hash_fn(input.as_ref());
+		assert_eq!(&result.data[..expected_size], &*expected);
 	})
 }
 
@@ -2678,7 +2715,7 @@ fn storage_deposit_callee_works() {
 #[test]
 fn set_code_extrinsic() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
-	let (new_binary, new_code_hash) = compile_module("crypto_hashes").unwrap();
+	let (new_binary, new_code_hash) = compile_module("crypto_hash_keccak_256").unwrap();
 
 	assert_ne!(code_hash, new_code_hash);
 
@@ -3517,6 +3554,35 @@ fn balance_api_returns_free_balance() {
 }
 
 #[test]
+fn call_depth_is_enforced() {
+	let (binary, _code_hash) = compile_module("recurse").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let extra_recursions = 1024;
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary.to_vec())).build_and_unwrap_contract();
+
+		// takes the number of recursions
+		// returns the number of left over recursions
+		assert_eq!(
+			u32::from_le_bytes(
+				builder::bare_call(addr)
+					.data((limits::CALL_STACK_DEPTH + extra_recursions).encode())
+					.build_and_unwrap_result()
+					.data
+					.try_into()
+					.unwrap()
+			),
+			// + 1 because when the call depth is reached the caller contract is trapped without
+			// the ability to return any data. hence the last call frame is untracked.
+			extra_recursions + 1,
+		);
+	});
+}
+
+#[test]
 fn gas_consumed_is_linear_for_nested_calls() {
 	let (code, _code_hash) = compile_module("recurse").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -3530,7 +3596,10 @@ fn gas_consumed_is_linear_for_nested_calls() {
 				.iter()
 				.map(|i| {
 					let result = builder::bare_call(addr).data(i.encode()).build();
-					assert_ok!(result.result);
+					assert_eq!(
+						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
+						0
+					);
 					result.gas_consumed
 				})
 				.collect::<Vec<_>>()
@@ -3961,43 +4030,6 @@ fn origin_api_works() {
 
 		// Call the contract: Asserts the origin API to work as expected
 		assert_ok!(builder::call(addr).build());
-	});
-}
-
-#[test]
-fn to_account_id_works() {
-	let (code_hash_code, _) = compile_module("to_account_id").unwrap();
-
-	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&EVE, 1_000_000);
-
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code_hash_code)).build_and_unwrap_contract();
-
-		// mapped account
-		<Pallet<Test>>::map_account(RuntimeOrigin::signed(EVE)).unwrap();
-		let expected_mapped_account_id = &<Test as Config>::AddressMapper::to_account_id(&EVE_ADDR);
-		assert_ne!(
-			expected_mapped_account_id.encode()[20..32],
-			[0xEE; 12],
-			"fallback suffix found where none should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((EVE_ADDR, expected_mapped_account_id).encode())
-			.build());
-
-		// fallback for unmapped accounts
-		let expected_fallback_account_id =
-			&<Test as Config>::AddressMapper::to_account_id(&BOB_ADDR);
-		assert_eq!(
-			expected_fallback_account_id.encode()[20..32],
-			[0xEE; 12],
-			"no fallback suffix found where one should be"
-		);
-		assert_ok!(builder::call(addr)
-			.data((BOB_ADDR, expected_fallback_account_id).encode())
-			.build());
 	});
 }
 
@@ -4945,6 +4977,38 @@ fn precompiles_work() {
 			Panic::from(PanicKind::ResourceError).abi_encode(),
 			RuntimeReturnCode::CalleeReverted,
 		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::passData(INoInfo::passDataCall {
+				inputLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			Vec::new(),
+			RuntimeReturnCode::CalleeTrapped,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES - 4,
+			})
+			.abi_encode(),
+			vec![42u8; limits::CALLDATA_BYTES as usize - 4],
+			RuntimeReturnCode::Success,
+		),
+		(
+			INoInfo::INoInfoCalls::returnData(INoInfo::returnDataCall {
+				returnLen: limits::CALLDATA_BYTES + 1,
+			})
+			.abi_encode(),
+			vec![],
+			RuntimeReturnCode::CalleeTrapped,
+		),
 	];
 
 	for (input, output, error_code) in cases {
@@ -5094,5 +5158,143 @@ fn code_size_for_precompiles_works() {
 		builder::bare_call(addr)
 			.data((&builtin_precompile, 5u64).encode())
 			.build_and_unwrap_result();
+	});
+}
+
+#[test]
+fn call_data_limit_is_enforced_subcalls() {
+	let (code, _code_hash) = compile_module("call_with_input_size").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+		];
+
+		for (callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(callee_input_size.encode()).build().result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn call_data_limit_is_enforced_root_call() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(H160, u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				addr,
+				0_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				addr,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::CallDataTooLarge);
+				}),
+			),
+			(
+				// limit is not enforced when tx calls EOA
+				BOB_ADDR,
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+		];
+
+		for (addr, callee_input_size, assert_result) in cases {
+			let result = builder::bare_call(addr)
+				.data(vec![42; callee_input_size as usize])
+				.build()
+				.result;
+			assert_result(result);
+		}
+	});
+}
+
+#[test]
+fn return_data_limit_is_enforced() {
+	let (code, _code_hash) = compile_module("return_sized").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let cases: Vec<(u32, Box<dyn FnOnce(_)>)> = vec![
+			(
+				1_u32,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES,
+				Box::new(|result| {
+					assert_ok!(result);
+				}),
+			),
+			(
+				limits::CALLDATA_BYTES + 1,
+				Box::new(|result| {
+					assert_err!(result, <Error<Test>>::ReturnDataTooLarge);
+				}),
+			),
+		];
+
+		for (return_size, assert_result) in cases {
+			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
+			assert_result(result);
+		}
 	});
 }
