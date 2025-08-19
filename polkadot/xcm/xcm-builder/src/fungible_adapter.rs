@@ -113,11 +113,13 @@ impl<
 
 	fn accrue_checked(checking_account: AccountId, amount: Fungible::Balance) {
 		let ok = Fungible::mint_into(&checking_account, amount).is_ok();
+		<Fungible as fungible::Unbalanced<_>>::deactivate(amount);
 		debug_assert!(ok, "`can_accrue_checked` must have returned `true` immediately prior; qed");
 	}
 
 	fn reduce_checked(checking_account: AccountId, amount: Fungible::Balance) {
 		let ok = Fungible::burn_from(&checking_account, amount, Expendable, Exact, Polite).is_ok();
+		<Fungible as fungible::Unbalanced<_>>::reactivate(amount);
 		debug_assert!(ok, "`can_reduce_checked` must have returned `true` immediately prior; qed");
 	}
 }
