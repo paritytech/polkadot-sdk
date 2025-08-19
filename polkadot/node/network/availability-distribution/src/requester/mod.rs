@@ -213,7 +213,7 @@ impl Requester {
 		Ok(())
 	}
 
-	/// Handle early chunk request timing and execution
+	/// wait until halfway to the next slot and then request chunks for the activated leaf.
 	async fn schedule_chunk_prefetch<Context>(
 		&mut self,
 		ctx: &mut Context,
@@ -237,7 +237,7 @@ impl Requester {
 		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, groups)
 			.await
 			.inspect_err(|err| {
-				gum::trace!(
+				gum::warn!(
 					target: LOG_TARGET,
 					error = ?err,
 					"Failed to early request chunks for activated leaf"
@@ -247,6 +247,11 @@ impl Requester {
 
 	/// Calculate time until next half slot
 	async fn time_until_next_half_slot() -> u64 {
+		#[cfg(test)]
+		{
+			// In tests, don't delay to keep them fast and deterministic.
+			return 0;
+		}
 		const SLOT_DURATION_MS: u64 = 6_000;
 
 		use std::time::{SystemTime, UNIX_EPOCH};
@@ -331,6 +336,8 @@ impl Requester {
 			.await
 	}
 
+	/// Requests the hashes of backable candidates from prospective parachains subsystem,
+	/// and then requests the backable candidates from the candidate backing subsystem.
 	async fn fetch_backable_candidates<Sender>(
 		&mut self,
 		activated_leaf: &ActivatedLeaf,
