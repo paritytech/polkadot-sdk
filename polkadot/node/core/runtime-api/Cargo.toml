@@ -13,19 +13,19 @@ workspace = true
 
 [dependencies]
 futures = { workspace = true }
-gum.workspace = true
 gum.default-features = true
-polkadot-node-metrics.workspace = true
+gum.workspace = true
 polkadot-node-metrics.default-features = true
-polkadot-node-subsystem.workspace = true
+polkadot-node-metrics.workspace = true
 polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-types.default-features = true
-polkadot-primitives.workspace = true
+polkadot-node-subsystem-types.workspace = true
 polkadot-primitives.default-features = true
+polkadot-primitives.workspace = true
 schnellru = { workspace = true }
-sp-consensus-babe.workspace = true
 sp-consensus-babe.default-features = true
+sp-consensus-babe.workspace = true
 
 [dev-dependencies]
 async-trait = { workspace = true }

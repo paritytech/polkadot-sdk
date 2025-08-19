@@ -117,6 +117,7 @@ std = [
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",
+	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
@@ -135,10 +136,10 @@ runtime-benchmarks = [
 	"static_assertions",
 	"xcm-executor/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"frame-support-test/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support?/try-runtime",
+	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-authority-discovery/try-runtime",
@@ -152,7 +153,6 @@ try-runtime = [
 	"pallet-staking/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
-	"frame-support-test/try-runtime"
 ]
 runtime-metrics = [
 	"polkadot-runtime-metrics/runtime-metrics",
