@@ -74,8 +74,10 @@ pub fn dup<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Swaps the top stack item with the Nth stack item.
 pub fn swap<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
+	log::info!("swap: N: {N}, stack: {:?}", context.interpreter.stack);
 	assert!(N != 0);
 	if !context.interpreter.stack.exchange(0, N) {
+		log::info!("swap: failed: {:?}", context.interpreter.stack);
 		context.interpreter.halt(InstructionResult::StackOverflow);
 	}
 }

@@ -22,4 +22,5 @@ mod control;
 mod host;
 mod memory;
 mod misc;
+mod stack;
 mod system;

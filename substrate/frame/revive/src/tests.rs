@@ -18,6 +18,7 @@
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
+mod revm_test_utils;
 mod sol;
 
 use crate::{
