@@ -1719,8 +1719,6 @@ where
 		}
 
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 			// Start gap sync, unless block pruning is enabled.
 			if self.block_pruning_enabled {
 				debug!(
@@ -1728,6 +1726,8 @@ where
 					"Block pruning is enabled, skipping gap sync."
 				);
 			} else {
+				let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
+				debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 				self.gap_sync = Some(GapSync {
 					best_queued_number: start - One::one(),
 					target: end,
