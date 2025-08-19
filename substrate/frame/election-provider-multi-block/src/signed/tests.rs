@@ -213,7 +213,7 @@ mod calls {
 	}
 
 	#[test]
-	fn metadata_submission_sorted_based_on_stake() {
+	fn metadata_submission_sorted_based_on_score() {
 		ExtBuilder::signed().build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -1395,7 +1395,7 @@ mod invulnerables {
 	}
 
 	#[test]
-	fn ejected_invulnerable_gets_deposit_back() {
+	fn invulnerable_cannot_eject() {
 		ExtBuilder::signed().max_signed_submissions(2).build_and_execute(|| {
 			roll_to_signed_open();
 			assert_full_snapshot();
@@ -1420,7 +1420,7 @@ mod invulnerables {
 			// submit 98 as normal
 			assert_ok!(SignedPallet::register(
 				RuntimeOrigin::signed(98),
-				ElectionScore { minimal_stake: 101, ..Default::default() }
+				ElectionScore { minimal_stake: 99, ..Default::default() }
 			));
 			assert!(matches!(
 				Submissions::<Runtime>::metadata_of(0, 98).unwrap(),
@@ -1430,38 +1430,63 @@ mod invulnerables {
 			assert_eq!(balances(99), (93, 7));
 			assert_eq!(balances(98), (95, 5));
 
-			// submit 97 and 96 with higher scores, eject both of the previous ones
+			assert_eq!(
+				Submissions::<Runtime>::leaderboard(0),
+				vec![
+					(98, ElectionScore { minimal_stake: 99, ..Default::default() }), /* can be ejected */
+					(99, ElectionScore { minimal_stake: 100, ..Default::default() }), /* our invulnerable */
+				]
+			);
+
+			// we can kick out 98, next in line to be ejected is invulnerable.
 			assert_ok!(SignedPallet::register(
 				RuntimeOrigin::signed(97),
 				ElectionScore { minimal_stake: 200, ..Default::default() }
 			));
-			assert_ok!(SignedPallet::register(
-				RuntimeOrigin::signed(96),
-				ElectionScore { minimal_stake: 201, ..Default::default() }
-			));
-
+			assert_eq!(
+				Submissions::<Runtime>::leaderboard(0),
+				vec![
+					(99, ElectionScore { minimal_stake: 100, ..Default::default() }), /* our invulnerable */
+					(97, ElectionScore { minimal_stake: 200, ..Default::default() }),
+				]
+			);
 			assert_eq!(
 				signed_events_since_last_call(),
 				vec![
-					Event::Ejected(0, 99),
+					Event::Ejected(0, 98),
 					Event::Registered(
 						0,
 						97,
 						ElectionScore { minimal_stake: 200, sum_stake: 0, sum_stake_squared: 0 }
-					),
-					Event::Ejected(0, 98),
-					Event::Registered(
-						0,
-						96,
-						ElectionScore { minimal_stake: 201, sum_stake: 0, sum_stake_squared: 0 }
 					)
 				]
 			);
 
-			// 99 gets everything back
-			assert_eq!(balances(99), (100, 0));
-			// 98 gets 20% x 5 = 1 back
-			assert_eq!(balances(98), (96, 0));
+			// registering a new weak one will give us `QueueFull`
+			assert_noop!(
+				SignedPallet::register(
+					RuntimeOrigin::signed(96),
+					ElectionScore { minimal_stake: 50, ..Default::default() }
+				),
+				Error::<T>::QueueFull
+			);
+
+			// registering a better one in pos 0 will also give us `QueueFull`
+			assert_noop!(
+				SignedPallet::register(
+					RuntimeOrigin::signed(96),
+					ElectionScore { minimal_stake: 150, ..Default::default() }
+				),
+				Error::<T>::QueueFull
+			);
+			// registering a better one in pos 1 will also give us `QueueFull`
+			assert_noop!(
+				SignedPallet::register(
+					RuntimeOrigin::signed(96),
+					ElectionScore { minimal_stake: 250, ..Default::default() }
+				),
+				Error::<T>::QueueFull
+			);
 		})
 	}
 

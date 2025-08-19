@@ -472,6 +472,10 @@ pub mod pallet {
 				match sorted_scores.force_insert_keep_right(pos, record) {
 					Ok(None) => false,
 					Ok(Some((discarded, _score))) => {
+						if Pallet::<T>::is_invulnerable(&discarded) {
+							// invulnerable accounts are never ejected.
+							return Err(Error::<T>::QueueFull.into());
+						}
 						let maybe_metadata =
 							SubmissionMetadataStorage::<T>::take(round, &discarded).defensive();
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
@@ -486,11 +490,7 @@ pub mod pallet {
 							Pallet::<T>::settle_deposit(
 								&discarded,
 								metadata.deposit,
-								if Pallet::<T>::is_invulnerable(&discarded) {
-									One::one()
-								} else {
-									T::EjectGraceRatio::get()
-								},
+								T::EjectGraceRatio::get(),
 							);
 						}
 
