@@ -945,6 +945,11 @@ fn full_parachain_cleanup_storage() {
 		run_to_block(7, None);
 		assert_eq!(frame_system::Pallet::<Test>::block_number(), 7);
 		Paras::note_new_head(para_id, Default::default(), expected_at);
+		AuthorizedCodeHash::<Test>::insert(
+			&para_id,
+			AuthorizedCodeHashAndExpiry::from((ValidationCode(vec![7]).hash(), 1000)),
+		);
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_some());
 
 		assert_ok!(Paras::schedule_para_cleanup(para_id));
 
@@ -968,6 +973,7 @@ fn full_parachain_cleanup_storage() {
 		assert!(FutureCodeUpgrades::<Test>::get(&para_id).is_none());
 		assert!(FutureCodeHash::<Test>::get(&para_id).is_none());
 		assert!(Paras::current_code(&para_id).is_none());
+		assert!(AuthorizedCodeHash::<Test>::get(&para_id).is_none());
 
 		// run to do the final cleanup
 		let cleaned_up_at = 8 + code_retention_period + 1;

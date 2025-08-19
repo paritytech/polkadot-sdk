@@ -1590,6 +1590,7 @@ impl<T: Config> Pallet<T> {
 					UpgradeGoAheadSignal::<T>::remove(&para);
 					UpgradeRestrictionSignal::<T>::remove(&para);
 					ParaLifecycles::<T>::remove(&para);
+					AuthorizedCodeHash::<T>::remove(&para);
 					let removed_future_code_hash = FutureCodeHash::<T>::take(&para);
 					if let Some(removed_future_code_hash) = removed_future_code_hash {
 						Self::decrease_code_ref(&removed_future_code_hash);
