@@ -2173,7 +2173,33 @@ fn authorize_force_set_current_code_hash_works() {
 			DispatchError::BadOrigin,
 		);
 
-		// root can authorize
+		// para not registered
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Onboarding);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::OffboardingParachain);
+		assert!(!Paras::is_valid_para(para_a));
+		assert_err!(
+			Paras::authorize_force_set_current_code_hash(
+				RuntimeOrigin::root(),
+				para_a,
+				code_1_hash,
+				valid_period
+			),
+			Error::<Test>::NotRegistered,
+		);
+
+		// root can authorize for registered para
+		ParaLifecycles::<Test>::insert(&para_a, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_a));
 		System::set_block_number(1);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
@@ -2185,6 +2211,8 @@ fn authorize_force_set_current_code_hash_works() {
 			AuthorizedCodeHash::<Test>::get(&para_a),
 			Some((code_1_hash, 1 + valid_period).into())
 		);
+		ParaLifecycles::<Test>::insert(&para_b, ParaLifecycle::Parachain);
+		assert!(Paras::is_valid_para(para_b));
 		System::set_block_number(5);
 		assert_ok!(Paras::authorize_force_set_current_code_hash(
 			RuntimeOrigin::root(),
