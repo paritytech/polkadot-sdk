@@ -36,12 +36,18 @@ The pallet includes **event-aware weight accounting** for `finalize_block()` ope
 the computational cost of processing events during Ethereum block construction:
 
 ```
-Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost)
+Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost) + (event_data_bytes × per_byte_cost)
 ```
 
-This ensures that transactions emitting many events are properly accounted for, preventing resource exhaustion attacks
-and enabling accurate block packing. The event processing costs include bloom filter computation, RLP encoding, and 
-log conversion operations that occur during `on_finalize()` when building Ethereum block headers.
+This comprehensive weight model accounts for both the number of events and their data size, ensuring that:
+- Transactions emitting many events are properly weighted based on event count
+- Large event payloads are accounted for based on their data size in bytes
+- Resource exhaustion attacks via oversized event data are prevented
+- Accurate block packing calculations include all processing costs
+
+The event processing costs include bloom filter computation, RLP encoding, and log conversion operations that occur 
+during `on_finalize()` when building Ethereum block headers. The data size component specifically accounts for the 
+computational overhead of processing variable-length event data during these operations.
 
 ### Revert Behaviour
 
