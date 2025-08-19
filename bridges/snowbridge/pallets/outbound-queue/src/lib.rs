@@ -227,7 +227,6 @@ pub mod pallet {
 	/// `on_initialize`, so should never go into block PoV.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	#[pallet::getter(fn message_leaves)]
 	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for each message origin
@@ -236,7 +235,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::hooks]
