@@ -18,8 +18,8 @@
 #![warn(missing_docs)]
 
 use crate::{
-	evm::{Block as EthBlock, Bytes256, TransactionSigned},
-	Event, HashesOrTransactionInfos,
+	evm::{Block, TransactionSigned},
+	Event,
 };
 
 use alloc::vec::Vec;
@@ -52,59 +52,7 @@ pub struct ReceiptGasInfo {
 	pub gas_used: U256,
 }
 
-/// Builder of the ETH block.
-#[derive(Default)]
-pub struct EthBlockBuilder {
-	/// Current block number.
-	block_number: U256,
-	/// Parent block hash.
-	parent_hash: H256,
-	/// The base gas price of the block.
-	base_gas_price: U256,
-	/// The timestamp of the block.
-	timestamp: U256,
-	/// The author of the block.
-	block_author: H160,
-	/// The gas limit of the block.
-	gas_limit: U256,
-
-	/// Logs bloom of the receipts.
-	logs_bloom: Bytes256,
-	/// Total gas used by transactions in the block.
-	total_gas_used: U256,
-	/// The transaction hashes that will be placed in the ETH block.
-	tx_hashes: Vec<H256>,
-	/// The data needed to reconstruct the receipt info.
-	receipt_data: Vec<ReceiptGasInfo>,
-}
-
-impl EthBlockBuilder {
-	/// Constructs a new [`EthBlockBuilder`].
-	///
-	/// # Note
-	///
-	/// Obtaining some of the fields from the pallet's storage must be accounted.
-	pub fn new(
-		block_number: U256,
-		parent_hash: H256,
-		base_gas_price: U256,
-		timestamp: U256,
-		block_author: H160,
-		gas_limit: U256,
-	) -> Self {
-		Self {
-			block_number,
-			parent_hash,
-			base_gas_price,
-			timestamp,
-			block_author,
-			gas_limit,
-
-			// The remaining fields are populated by `process_transaction_details`.
-			..Default::default()
-		}
-	}
-
+impl Block {
 	/// Build the Ethereum block.
 	///
 	/// # Note
@@ -123,44 +71,54 @@ impl EthBlockBuilder {
 	///
 	/// (III) Block hash is computed from the provided information.
 	pub fn build<T>(
-		mut self,
 		details: impl IntoIterator<Item = TransactionDetails<T>>,
-	) -> (H256, EthBlock, Vec<ReceiptGasInfo>)
+		block_number: U256,
+		parent_hash: H256,
+		timestamp: U256,
+		block_author: H160,
+		gas_limit: U256,
+		base_gas_price: U256,
+	) -> (H256, Block, Vec<ReceiptGasInfo>)
 	where
 		T: crate::pallet::Config,
 	{
-		let (signed_tx, receipt): (Vec<_>, Vec<_>) = details
-			.into_iter()
-			.filter_map(|detail| self.process_transaction_details(detail))
-			.unzip();
+		let mut block = Self {
+			number: block_number,
+			parent_hash,
+			timestamp,
+			miner: block_author,
+			gas_limit,
 
-		// Compute expensive trie roots.
-		let transactions_root = Self::compute_trie_root(&signed_tx);
-		let receipts_root = Self::compute_trie_root(&receipt);
-
-		// Compute the ETH header hash.
-		let block_hash = self.header_hash(transactions_root, receipts_root);
-
-		let block = EthBlock {
-			state_root: transactions_root.0.into(),
-			transactions_root: transactions_root.0.into(),
-			receipts_root: receipts_root.0.into(),
-
-			parent_hash: self.parent_hash.into(),
-			miner: self.block_author.into(),
-			logs_bloom: self.logs_bloom,
-			total_difficulty: Some(U256::zero()),
-			number: self.block_number.into(),
-			gas_limit: self.gas_limit,
-			gas_used: self.total_gas_used,
-			timestamp: self.timestamp,
-
-			transactions: HashesOrTransactionInfos::Hashes(self.tx_hashes),
-
+			// The remaining fields are populated by `process_transaction_details`.
 			..Default::default()
 		};
 
-		(block_hash, block, self.receipt_data)
+		let transaction_details: Vec<_> = details
+			.into_iter()
+			.filter_map(|detail| block.process_transaction_details(detail, base_gas_price))
+			.collect();
+
+		let mut signed_tx = Vec::with_capacity(transaction_details.len());
+		let mut receipts = Vec::with_capacity(transaction_details.len());
+		let mut gas_infos = Vec::with_capacity(transaction_details.len());
+		for (signed, receipt, gas_info) in transaction_details {
+			signed_tx.push(signed);
+			receipts.push(receipt);
+			gas_infos.push(gas_info);
+		}
+
+		// Compute expensive trie roots.
+		let transactions_root = Self::compute_trie_root(&signed_tx);
+		let receipts_root = Self::compute_trie_root(&receipts);
+
+		block.state_root = transactions_root.0.into();
+		block.transactions_root = transactions_root.0.into();
+		block.receipts_root = receipts_root.0.into();
+
+		// Compute the ETH header hash.
+		let block_hash = block.header_hash();
+
+		(block_hash, block, gas_infos)
 	}
 
 	/// Returns a tuple of the RLP encoded transaction and receipt.
@@ -169,7 +127,8 @@ impl EthBlockBuilder {
 	fn process_transaction_details<T>(
 		&mut self,
 		detail: TransactionDetails<T>,
-	) -> Option<(Vec<u8>, Vec<u8>)>
+		base_gas_price: U256,
+	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo)>
 	where
 		T: crate::pallet::Config,
 	{
@@ -179,12 +138,12 @@ impl EthBlockBuilder {
         }).ok()?;
 
 		let transaction_hash = H256(keccak_256(&payload));
-		self.tx_hashes.push(transaction_hash);
+		self.transactions.push_hash(transaction_hash);
 
-		self.receipt_data.push(ReceiptGasInfo {
-			effective_gas_price: signed_tx.effective_gas_price(self.base_gas_price),
+		let gas_info = ReceiptGasInfo {
+			effective_gas_price: signed_tx.effective_gas_price(base_gas_price),
 			gas_used: gas.ref_time().into(),
-		});
+		};
 
 		let logs = events
 			.into_iter()
@@ -204,11 +163,11 @@ impl EthBlockBuilder {
 			})
 			.collect();
 
-		self.total_gas_used += gas.ref_time().into();
+		self.gas_used += gas.ref_time().into();
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
-			cumulative_gas_used: self.total_gas_used.as_u64(),
+			cumulative_gas_used: self.gas_used.as_u64(),
 			logs,
 		};
 
@@ -219,22 +178,18 @@ impl EthBlockBuilder {
 			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-		Some((signed_tx.signed_payload(), encoded_receipt))
+		Some((signed_tx.signed_payload(), encoded_receipt, gas_info))
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
-	fn compute_trie_root(items: &[Vec<u8>]) -> alloy_primitives::B256 {
+	pub fn compute_trie_root(items: &[Vec<u8>]) -> alloy_primitives::B256 {
 		alloy_consensus::proofs::ordered_trie_root_with_encoder(items, |item, buf| {
 			buf.put_slice(item)
 		})
 	}
 
 	/// Compute the ETH header hash.
-	fn header_hash(
-		&self,
-		transactions_root: alloy_primitives::B256,
-		receipts_root: alloy_primitives::B256,
-	) -> H256 {
+	fn header_hash(&self) -> H256 {
 		// Note: Cap the gas limit to u64::MAX.
 		// In practice, it should be impossible to fill a u64::MAX gas limit
 		// of an either Ethereum or Substrate block.
@@ -242,16 +197,16 @@ impl EthBlockBuilder {
 			if self.gas_limit > u64::MAX.into() { u64::MAX } else { self.gas_limit.as_u64() };
 
 		let alloy_header = alloy_consensus::Header {
-			state_root: transactions_root,
-			transactions_root,
-			receipts_root,
+			state_root: self.transactions_root.0.into(),
+			transactions_root: self.transactions_root.0.into(),
+			receipts_root: self.receipts_root.0.into(),
 
 			parent_hash: self.parent_hash.0.into(),
-			beneficiary: self.block_author.0.into(),
-			number: self.block_number.as_u64(),
+			beneficiary: self.miner.0.into(),
+			number: self.number.as_u64(),
 			logs_bloom: self.logs_bloom.0.into(),
 			gas_limit,
-			gas_used: self.total_gas_used.as_u64(),
+			gas_used: self.gas_used.as_u64(),
 			timestamp: self.timestamp.as_u64(),
 
 			..alloy_consensus::Header::default()

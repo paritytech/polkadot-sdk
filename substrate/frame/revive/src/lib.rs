@@ -45,10 +45,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthBlockBuilder, ReceiptGasInfo},
-		runtime::GAS_PRICE,
-		CallTracer, GasEncoder, GenericTransaction, HashesOrTransactionInfos, PrestateTracer,
-		Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::ReceiptGasInfo, runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction,
+		HashesOrTransactionInfos, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -652,17 +650,15 @@ pub mod pallet {
 			// This touches the storage, must account for weights.
 			let transactions = InflightTransactions::<T>::take();
 
-			let block_builder = EthBlockBuilder::new(
+			let (block_hash, block, receipt_data) = EthBlock::build(
+				transactions,
 				eth_block_num,
 				parent_hash,
-				base_gas_price,
 				T::Time::now().into(),
 				block_author,
 				gas_limit,
+				base_gas_price,
 			);
-			// The most expensive operation of this hook. Please check
-			// the method's documentation for computational details.
-			let (block_hash, block, receipt_data) = block_builder.build(transactions);
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
