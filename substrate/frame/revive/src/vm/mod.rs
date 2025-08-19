@@ -298,12 +298,7 @@ where
 	}
 
 	fn from_bytecode(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		let blob = ContractBlob::from_evm_code(code, owner)?;
-		if blob.code_info.is_pvm() {
-			Err(Error::<T>::CodeRejected.into())
-		} else {
-			Ok(blob)
-		}
+		ContractBlob::from_evm_code(code, owner)
 	}
 
 	fn execute<E: Ext<T = T>>(

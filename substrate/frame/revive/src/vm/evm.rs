@@ -20,7 +20,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
+	AccountIdOf, BalanceOf, Code, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -248,10 +248,10 @@ fn run_create<'a, E: Ext>(
 		CreateScheme::Custom { .. } => None, // To check
 	};
 
-	let call_result = interpreter.extend.instantiate_with_code(
+	let call_result = interpreter.extend.instantiate(
 		Weight::from_parts(u64::MAX, u64::MAX),
 		U256::MAX,
-		create_input.init_code.to_vec(),
+		Code::Upload(create_input.init_code.to_vec()),
 		U256::from_little_endian(create_input.value.as_le_slice()),
 		vec![],
 		salt.as_ref(),
