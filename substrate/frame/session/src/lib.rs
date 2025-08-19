@@ -680,7 +680,8 @@ pub mod pallet {
 			let deposit = T::KeyDeposit::get();
 			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
 			if let Some(deficit) = deposit.checked_sub(&has) {
-				T::Currency::mint_into(who, deficit).map(|_inc| ())
+				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
+					.map(|_inc| ())
 			} else {
 				Ok(())
 			}
