@@ -2920,7 +2920,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 		// Peer is supposedly connected.
 		ctx.send_message(NetworkBridgeTxMessage::SendRequests(
 			vec![Requests::AttestedCandidateV2(request)],
-			IfDisconnected::ImmediateError,
+			IfDisconnected::TryConnect,
 		))
 		.await;
 	}
