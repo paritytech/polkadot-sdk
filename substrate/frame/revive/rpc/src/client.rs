@@ -354,8 +354,6 @@ impl Client {
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
 
 		self.subscribe_past_blocks(range, |block| async move {
-			let maybe_receipt_data = self.storage_api(block.hash()).get_receipt_data().await.ok();
-
 			self.receipt_provider.insert_block_receipts(&block).await?;
 			Ok(())
 		})
