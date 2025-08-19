@@ -2,7 +2,7 @@
 
 # Script for building only the WASM binary of the given project.
 
-set -e
+set -e -x
 
 PROJECT_ROOT=`git rev-parse --show-toplevel`
 
@@ -14,11 +14,7 @@ fi
 WASM_BUILDER_RUNNER="$PROJECT_ROOT/target/release/wbuild-runner/$1"
 
 fl_cargo () {
-    if command -v forklift >/dev/null 2>&1; then
-        forklift cargo "$@";
-    else
-        cargo "$@";
-    fi
+    cargo "$@";
 }
 
 if [ -z "$2" ]; then
@@ -27,11 +23,17 @@ else
   export WASM_TARGET_DIRECTORY=$2
 fi
 
+
+
 if [ -d $WASM_BUILDER_RUNNER ]; then
   export DEBUG=false
   export OUT_DIR="$PROJECT_ROOT/target/release/build"
-  fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" \
+  fl_cargo run --release --manifest-path="$WASM_BUILDER_RUNNER/Cargo.toml" --features fast-runtime \
     | grep -vE "cargo:rerun-if-|Executing build command"
 else
-  fl_cargo build --release -p $1
+  fl_cargo build --release -p $1 --features fast-runtime
 fi
+
+echo "ROCOCO_EPOCH_DURATION=$ROCOCO_EPOCH_DURATION checksums"
+
+md5sum $WASM_TARGET_DIRECTORY/*
