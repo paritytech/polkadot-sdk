@@ -136,8 +136,9 @@ impl ReceiptExtractor {
 
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
-		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None) as Pin<Box<_>>));
-		let fetch_eth_block_hash = Arc::new(|_| Box::pin(std::future::ready(None) as Pin<Box<_>>));
+		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
+		let fetch_eth_block_hash =
+			Arc::new(|_, _| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
