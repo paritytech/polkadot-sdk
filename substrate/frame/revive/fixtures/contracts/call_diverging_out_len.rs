@@ -23,21 +23,17 @@
 //! and also instantiate our own code hash (constructor and recursive calls
 //! always return `BUF_SIZE` bytes of data).
 
-#![allow(unused_imports)]
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
 
-use core::num::NonZero;
 use uapi::{HostFn, HostFnImpl as api, u256_bytes};
-use hex_literal::hex;
 
 const BUF_SIZE: usize = 8;
 static DATA: [u8; BUF_SIZE] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /// Call `callee_address` with an output buf of size `N`
 /// and expect the call output to match `expected_output`.
-#[allow(dead_code)]
 fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf = [0u8; BUF_SIZE];
 	let output_buf_capped = &mut &mut output_buf[..N];
@@ -61,7 +57,6 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 
 /// Instantiate this contract with an output buf of size `N`
 /// and expect the instantiate output to match `expected_output`.
-#[allow(dead_code)]
 fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf1 = [0u8; 32];
 	let output1 = &mut &mut output_buf1[..];

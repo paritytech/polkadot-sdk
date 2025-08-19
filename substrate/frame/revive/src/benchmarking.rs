@@ -669,7 +669,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let result;
 		#[block]

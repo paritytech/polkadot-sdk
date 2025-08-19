@@ -103,7 +103,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				use codec::Encode;
 				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
 				let account_id =
-					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
+					T::AddressMapper::to_account_id(&H160::from_slice(input.as_slice()));
 				Ok(account_id.encode())
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
@@ -165,7 +165,6 @@ mod tests {
 		pallet,
 		precompiles::{tests::run_test_vectors, BuiltinPrecompile},
 		tests::{ExtBuilder, Test},
-		H160,
 	};
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
