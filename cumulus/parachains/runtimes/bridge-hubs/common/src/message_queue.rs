@@ -83,6 +83,12 @@ impl From<CumulusAggregateMessageOrigin> for AggregateMessageOrigin {
 	}
 }
 
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl From<u32> for AggregateMessageOrigin {
 	fn from(x: u32) -> Self {
