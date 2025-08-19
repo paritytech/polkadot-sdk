@@ -6,8 +6,8 @@ doc:
     from deprecating chain extensions, stabilizing `block_hash` in overlooked crates, …).
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: pallet-revive-fixtures
-  bump: major
+  bump: patch
 - name: pallet-revive-uapi
-  bump: major
+  bump: minor
