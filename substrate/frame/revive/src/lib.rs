@@ -699,7 +699,7 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-			let base_gas_price = GAS_PRICE.into();
+			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
 			let transactions = InflightTransactions::<T>::drain().map(|(_index, details)| details);
@@ -1686,6 +1686,11 @@ where
 
 	/// Get the gas price.
 	pub fn evm_gas_price() -> U256 {
+		GAS_PRICE.into()
+	}
+
+	/// Get the base gas price.
+	pub fn evm_base_gas_price() -> U256 {
 		GAS_PRICE.into()
 	}
 
