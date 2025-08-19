@@ -78,9 +78,7 @@ jobs:
 
       - name: Install parity-publish
         # Set the target dir to cache the build.
-        run: |
-          # CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
-          CARGO_TARGET_DIR=./target/ cargo install --git https://github.com/iulianbarbu/parity-publish.git --branch add-support-for-up-to-1.88
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
 
       - name: Get original PR number
         shell: bash
