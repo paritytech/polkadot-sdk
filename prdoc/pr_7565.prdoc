@@ -1,0 +1,13 @@
+title: Implement a handful of traits for fixed types
+doc:
+  - audience: Runtime Dev
+    description: |
+      This change implements a handful of traits for fixed types:
+      * The `sum` helper for iterators,
+      * `Rem`/`CheckedRem`,
+      * `Signed`/`Unsigned` and `Num`,
+        * matching the bounds for the blanket impl for `MultiplyArg` to be used with `PerThing`,
+      * and a companion function `to_u32` to match `to_float`.
+crates:
+  - name: sp-arithmetic
+    bump: minor
