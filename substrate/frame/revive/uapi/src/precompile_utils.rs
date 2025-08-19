@@ -37,10 +37,3 @@ pub const fn solidity_selector(fn_sig: &str) -> [u8; 4] {
 		const_crypto::sha3::Keccak256::new().update(fn_sig.as_bytes()).finalize();
 	[output[0], output[1], output[2], output[3]]
 }
-
-/// Encodes a `[u8; 20]` address for Solidity.
-pub fn solidity_address(address: &[u8; 20]) -> [u8; 32] {
-	let mut buf = [0u8; 32];
-	buf[12..32].copy_from_slice(address);
-	buf
-}
