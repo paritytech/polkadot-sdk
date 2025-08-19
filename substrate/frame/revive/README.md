@@ -30,6 +30,19 @@ calls are reverted. Assuming correct error handling by contract A, A's other cal
 
 One `ref_time` `Weight` is defined as one picosecond of execution time on the runtime's reference machine.
 
+#### Event-Aware Weight Accounting
+
+The pallet includes **event-aware weight accounting** for `finalize_block()` operations. The weight model accounts for 
+the computational cost of processing events during Ethereum block construction:
+
+```
+Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost)
+```
+
+This ensures that transactions emitting many events are properly accounted for, preventing resource exhaustion attacks
+and enabling accurate block packing. The event processing costs include bloom filter computation, RLP encoding, and 
+log conversion operations that occur during `on_finalize()` when building Ethereum block headers.
+
 ### Revert Behaviour
 
 Contract call failures are not cascading. When failures occur in a sub-call, they do not "bubble up", and the call will
