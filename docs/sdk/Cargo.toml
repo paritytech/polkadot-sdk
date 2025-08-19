@@ -121,6 +121,7 @@ xcm-simulator = { workspace = true }
 
 # Runtime guides
 chain-spec-guide-runtime = { workspace = true, default-features = true }
+frame-omni-bencher-guide = { workspace = true, default-features = true }
 
 # Templates
 minimal-template-runtime = { workspace = true, default-features = true }
