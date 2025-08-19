@@ -334,8 +334,14 @@ impl Client {
 			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-			let evm_block =
-				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
+			let evm_block = if let Some(block) =
+				self.storage_api(block.hash()).get_ethereum_block().await.ok()
+			{
+				block
+			} else {
+				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await
+			};
+
 			self.block_provider.update_latest(block, subscription_type).await;
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
