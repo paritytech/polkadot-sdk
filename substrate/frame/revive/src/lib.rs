@@ -587,6 +587,9 @@ pub mod pallet {
 	/// The details needed to reconstruct the receipt info offchain.
 	///
 	/// This contains valuable information about the gas used by the transaction.
+	///
+	/// NOTE: The item is unbound and should therefore never be read on chain.
+	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
