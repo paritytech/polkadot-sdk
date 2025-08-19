@@ -1335,7 +1335,7 @@ where
 					Some(blob_len) => blob_len
 						.try_into()
 						.ok()
-						.and_then(|blob_len| (input.split_at_checked(blob_len)))
+						.and_then(|blob_len| input.split_at_checked(blob_len))
 						.unwrap_or_else(|| (&input[..], &[][..])),
 					_ => {
 						log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");

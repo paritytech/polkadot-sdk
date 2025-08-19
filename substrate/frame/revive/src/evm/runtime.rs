@@ -352,7 +352,7 @@ pub trait EthExtra {
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
 				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
+					blob_len.try_into().ok().and_then(|blob_len| data.split_at_checked(blob_len)),
 				_ => None,
 			};
 
