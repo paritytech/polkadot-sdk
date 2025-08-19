@@ -29,15 +29,9 @@ use pallet_mmr::{Nodes, Pallet as Mmr};
 use sp_consensus_beefy::Payload;
 use sp_runtime::traits::One;
 
-pub trait Config:
-	pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
-{
-}
+pub trait Config: pallet_mmr::Config + crate::Config {}
 
-impl<T> Config for T where
-	T: pallet_mmr::Config<Hashing = sp_consensus_beefy::MmrHashing> + crate::Config
-{
-}
+impl<T> Config for T where T: pallet_mmr::Config + crate::Config {}
 
 fn init_block<T: Config>(block_num: u32) {
 	let block_num = block_num.into();
