@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Returns the gas price back to the caller.
+//! This fixture calls `gas_price` `n` times.
 
 #![no_std]
 #![no_main]

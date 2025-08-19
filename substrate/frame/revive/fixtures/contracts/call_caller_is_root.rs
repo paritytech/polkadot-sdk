@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This fixture calls caller_is_origin `n` times.
+//! This fixture calls the `callerIsRoot` function on the
+//! `System` pre-compile.
 
 #![no_std]
 #![no_main]

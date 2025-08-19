@@ -15,13 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This tests that the correct output data is written when the provided
-//! output buffer length is smaller than what was actually returned during
-//! calls and instantiations.
-//!
-//! To not need an additional callee fixture, we call ourself recursively
-//! and also instantiate our own code hash (constructor and recursive calls
-//! always return `BUF_SIZE` bytes of data).
+//! This fixture calls the `ownCodeHash` function on the
+//! `System` pre-compile.
 
 #![allow(unused_imports)]
 #![no_std]

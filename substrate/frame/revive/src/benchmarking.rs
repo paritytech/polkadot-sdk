@@ -669,7 +669,6 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
@@ -699,21 +698,29 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn weight_left() {
-		// use correct max_encoded_len when new version of parity-scale-codec is released
-		let len = 18u32;
-		assert!(<Weight as MaxEncodedLen>::max_encoded_len() as u32 != len);
-		build_runtime!(runtime, memory: [32u32.to_le_bytes(), vec![0u8; len as _], ]);
+		let input_bytes =
+			ISystem::ISystemCalls::weightLeft(ISystem::weightLeftCall {}).abi_encode();
 
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let weight_left_before = ext.gas_meter().gas_left();
 		let result;
 		#[block]
 		{
-			result = runtime.bench_weight_left(memory.as_mut_slice(), 4, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_ok!(result);
-		assert_eq!(
-			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().gas_meter().gas_left()
-		);
+		let weight_left_after = ext.gas_meter().gas_left();
+		assert_ne!(weight_left_after.ref_time(), 0);
+		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
+
+		let mut data = result.unwrap().data;
+		let ret: Weight = Decode::decode(&mut &data[..]).unwrap();
+		assert_eq!(weight_left_after.ref_time(), ret.ref_time());
 	}
 
 	#[benchmark(pov_mode = Measured)]

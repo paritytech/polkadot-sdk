@@ -2047,24 +2047,4 @@ pub mod env {
 		self.ext.terminate(&beneficiary)?;
 		Err(TrapReason::Termination)
 	}
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_left`].
-	fn weight_left(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::WeightLeft)?;
-		let gas_left = &self.ext.gas_meter().gas_left().encode();
-		Ok(self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			gas_left,
-			false,
-			already_charged,
-		)?)
-	}
 }

@@ -834,7 +834,6 @@ fn code_hash_returns_proper_values() {
 fn own_code_hash_returns_proper_values() {
 	let bob_ch = MockLoader::insert(Call, |ctx, _| {
 		let code_hash = ctx.ext.code_hash(&BOB_ADDR);
-
 		let ret = ctx
 			.ext
 			.delegate_call(
@@ -844,10 +843,7 @@ fn own_code_hash_returns_proper_values() {
 				pallet_revive_uapi::solidity_selector("ownCodeHash()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let data = ret.unwrap().data;
-		assert_eq!(data, code_hash.0.to_vec());
-
+		assert_eq!(ret.unwrap().data, code_hash.0.to_vec());
 		exec_success()
 	});
 
@@ -1003,7 +999,6 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not root, even though the origin is root.
-
 		let ret = ctx
 			.ext
 			.delegate_call(
