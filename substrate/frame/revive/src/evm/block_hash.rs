@@ -19,7 +19,7 @@
 
 use crate::{
 	evm::{Block as EthBlock, Bytes256, TransactionSigned},
-	Event, HashesOrTransactionInfos, LOG_TARGET,
+	Event, HashesOrTransactionInfos,
 };
 
 use alloc::vec::Vec;
@@ -29,6 +29,8 @@ use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
+
+const LOG_TARGET: &str = "runtime::revive::hash";
 
 /// The transaction details captured by the revive pallet.
 pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
