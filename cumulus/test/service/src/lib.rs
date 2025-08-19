@@ -288,6 +288,7 @@ async fn build_relay_chain_interface(
 			},
 			None,
 			polkadot_service::CollatorOverseerGen,
+			Some("Relaychain"),
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>

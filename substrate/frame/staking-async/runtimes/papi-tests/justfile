@@ -47,11 +47,15 @@ setup:
 
 # Clean generated files and dependencies
 clean:
+    #!/usr/bin/env bash
+    set -euo pipefail
     rm -rf .papi node_modules bun.lockb
     echo "🧹 Cleaned .papi, node_modules, and lockfile"
 
 # Generate descriptors from running chains (assumes chains are already running)
 generate-descriptors:
+    #!/usr/bin/env bash
+    set -euo pipefail
     echo "📋 Generating PAPI descriptors from ws endpoints..."
     npx papi add -w ws://localhost:9946 parachain
     npx papi add -w ws://localhost:9945 rc
@@ -121,7 +125,9 @@ help:
 # kill all relevant processes. This is useful in case you see weird errors, most likely it is
 # because you have other old stale ones running.
 killall:
-  pkill -f zombienet || true
-  pkill -f chain-spec-builder || true
-  pkill -f polkadot || true
-  pkill -f polkadot-parachain || true
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pkill -f zombienet || true
+    pkill -f chain-spec-builder || true
+    pkill -f polkadot || true
+    pkill -f polkadot-parachain || true
