@@ -51,8 +51,8 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, ISystem, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
-	WithInfo as BenchmarkWithInfo,
+	IBenchmarking, IStorage, ISystem, NoInfo as BenchmarkNoInfo, Storage as BenchmarkStorage,
+	System as BenchmarkSystem, WithInfo as BenchmarkWithInfo,
 };
 
 const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_with_info`";
@@ -370,9 +370,12 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} with {:x?}", address, input);
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
-		<Self as BuiltinPrecompile>::call(address, &call, env)
+		let res = <Self as BuiltinPrecompile>::call(address, &call, env);
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} result: {:x?}", address, res);
+		res
 	}
 
 	fn call_with_info(
@@ -380,9 +383,12 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		input: Vec<u8>,
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} with {:x?}", address, input);
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
 			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
-		<Self as BuiltinPrecompile>::call_with_info(address, &call, env)
+		let res = <Self as BuiltinPrecompile>::call_with_info(address, &call, env);
+		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} result: {:x?}", address, res);
+		res
 	}
 }
 

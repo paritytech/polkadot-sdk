@@ -78,6 +78,7 @@ pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 /// Combined key type for both fixed and variable sized storage keys.
+#[derive(Debug)]
 pub enum Key {
 	/// Variant for fixed sized keys.
 	Fix([u8; 32]),
@@ -948,6 +949,7 @@ where
 							return Ok(None);
 						},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
+						log::trace!(target: crate::LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
@@ -1826,6 +1828,8 @@ where
 		allows_reentry: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
+		log::debug!(target: crate::LOG_TARGET, "attempting to call pre-compile at {dest_addr:?}");
+
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -1897,6 +1901,7 @@ where
 						&mut frame.nested_storage,
 					)
 				};
+				log::debug!(target: crate::LOG_TARGET, "result of calling {dest_addr:?} pre-compile: {:?}", result);
 
 				if_tracing(|t| match result {
 					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
