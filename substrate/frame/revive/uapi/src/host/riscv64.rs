@@ -126,7 +126,6 @@ mod sys {
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn call_chain_extension(
 			id: u32,
 			input_ptr: *const u8,
@@ -506,11 +505,6 @@ impl HostFn for HostFnImpl {
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]) {
-		unsafe { sys::hash_blake2_128(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
 	}
 
 	#[unstable_hostfn]
