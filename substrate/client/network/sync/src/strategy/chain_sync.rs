@@ -1202,8 +1202,20 @@ where
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
-										body: block_data.block.body,
-										indexed_body: block_data.block.indexed_body,
+										// If block pruning is enabled, the user does not care about
+										// historical data. Don't store block bodies, only store
+										// headers since they're necessary for correct node
+										// operation.
+										body: if self.block_pruning_enabled {
+											None
+										} else {
+											block_data.block.body
+										},
+										indexed_body: if self.block_pruning_enabled {
+											None
+										} else {
+											block_data.block.indexed_body
+										},
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,
@@ -1719,21 +1731,13 @@ where
 		}
 
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			// Start gap sync, unless block pruning is enabled.
-			if self.block_pruning_enabled {
-				debug!(
-					target: LOG_TARGET,
-					"Block pruning is enabled, skipping gap sync."
-				);
-			} else {
-				let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
-				debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
-				self.gap_sync = Some(GapSync {
-					best_queued_number: start - One::one(),
-					target: end,
-					blocks: BlockCollection::new(),
-				});
-			}
+			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
+			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
+			self.gap_sync = Some(GapSync {
+				best_queued_number: start - One::one(),
+				target: end,
+				blocks: BlockCollection::new(),
+			});
 		}
 		trace!(
 			target: LOG_TARGET,
