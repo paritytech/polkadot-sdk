@@ -51,6 +51,7 @@ pub struct ReceiptGasInfo {
 }
 
 /// Builder of the ETH block.
+#[derive(Default)]
 pub struct EthBlockBuilder {
 	/// Current block number.
 	block_number: U256,
@@ -96,11 +97,9 @@ impl EthBlockBuilder {
 			timestamp,
 			block_author,
 			gas_limit,
-			// The following fields are populated by `process_transaction_details`.
-			tx_hashes: Vec::new(),
-			total_gas_used: U256::zero(),
-			logs_bloom: Bytes256::default(),
-			receipt_data: Vec::new(),
+
+			// The remaining fields are populated by `process_transaction_details`.
+			..Default::default()
 		}
 	}
 
