@@ -556,13 +556,8 @@ pub mod pallet {
 	/// the gas consumed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightTransactions<T: Config> = CountedStorageMap<
-		_,
-		Identity,
-		u32,
-		(Vec<u8>, u32, Vec<Event<T>>, bool, Weight),
-		OptionQuery,
-	>;
+	pub(crate) type InflightTransactions<T: Config> =
+		StorageValue<_, Vec<(Vec<u8>, u32, Vec<Event<T>>, bool, Weight)>, ValueQuery>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
@@ -690,7 +685,7 @@ pub mod pallet {
 			let Some(block_author) = Self::block_author() else {
 				// Drain storage in case of errors.
 				InflightEvents::<T>::kill();
-				InflightTransactions::<T>::drain();
+				InflightTransactions::<T>::kill();
 				return;
 			};
 
@@ -704,7 +699,7 @@ pub mod pallet {
 			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
-			let transactions = InflightTransactions::<T>::drain().map(|(_index, details)| details);
+			let transactions = InflightTransactions::<T>::take();
 
 			let block_builder = EthBlockBuilder::new(
 				eth_block_num,
@@ -1832,11 +1827,9 @@ impl<T: Config> Pallet<T> {
 			0
 		});
 
-		let transactions_count = InflightTransactions::<T>::count();
-		InflightTransactions::<T>::insert(
-			transactions_count,
-			(payload, extrinsic_index, events, success, gas_consumed),
-		);
+		InflightTransactions::<T>::mutate(|transactions| {
+			transactions.push((payload, extrinsic_index, events, success, gas_consumed));
+		});
 	}
 
 	/// The address of the validator that produced the current block.
