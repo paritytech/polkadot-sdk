@@ -676,6 +676,9 @@ pub mod pallet {
 			//
 			// Note: This does not account for the cost of computing the state tries.
 
+			ReceiptInfoData::<T>::kill();
+			EthereumBlock::<T>::kill();
+
 			Weight::zero()
 		}
 
