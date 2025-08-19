@@ -2470,7 +2470,7 @@ mod ah_stop_gap {
 	fn permissionless_collators_are_rejected_when_connection_limit_is_hit() {
 		let mut test_state = TestState::with_one_scheduled_para();
 		let invulnerable_collator = PeerId::random();
-		let invulnerables = HashSet::from_iter([invulnerable_collator.clone()]);
+		let invulnerables = HashSet::from_iter([invulnerable_collator]);
 		let invulnerables_len = invulnerables.len();
 
 		let mut claim_queue = BTreeMap::new();
@@ -2537,7 +2537,7 @@ mod ah_stop_gap {
 				//connecting an invulnerable collator should succeed
 				connect_and_declare_collator(
 					&mut virtual_overseer,
-					invulnerable_collator.clone(),
+					invulnerable_collator,
 					CollatorPair::generate().0,
 					ASSET_HUB_PARA_ID,
 					CollationVersion::V2,
@@ -2556,7 +2556,7 @@ mod ah_stop_gap {
 	fn invulnerable_collations_are_preferred_over_permissionless_ones() {
 		let mut test_state = TestState::with_one_scheduled_para();
 		let invulnerable_collator = PeerId::random();
-		let invulnerables = HashSet::from_iter([invulnerable_collator.clone()]);
+		let invulnerables = HashSet::from_iter([invulnerable_collator]);
 
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
@@ -2592,7 +2592,7 @@ mod ah_stop_gap {
 				//connecting an invulnerable collator should succeed
 				connect_and_declare_collator(
 					&mut virtual_overseer,
-					invulnerable_collator.clone(),
+					invulnerable_collator,
 					CollatorPair::generate().0,
 					ASSET_HUB_PARA_ID,
 					CollationVersion::V2,
@@ -2692,7 +2692,7 @@ mod ah_stop_gap {
 		let mut test_state = TestState::with_one_scheduled_para();
 		let permissionless_collator = PeerId::random();
 		let invulnerable_collator = PeerId::random();
-		let invulnerables = HashSet::from_iter([invulnerable_collator.clone()]);
+		let invulnerables = HashSet::from_iter([invulnerable_collator]);
 
 		let mut claim_queue = BTreeMap::new();
 		claim_queue.insert(
