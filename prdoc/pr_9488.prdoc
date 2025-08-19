@@ -2,17 +2,13 @@ title: 'prdoc: add missing crates bumps'
 doc:
 - audience: Node Dev
   description:  
-    Adds a few crate bumps associated to PRs which missed to bump them.
-    - `sp-wasmtime-interface` needs a bump because it exposes a trait used by `sc-executor-wasmtime`, which contains types pulled from `wasmtime` dependency, so both crates need to reference same crate.
-    - `sp-rpc` is a transitive dependency pulled by `polkadot-cli`, and both pull `sp-core` directly, but `sp-core`/`polkadot-cli` have been bumped, while `polkadot-cli` transitive dependency still relies on an `sp-rpc` with a dependency on the pre-bump latest version of `sp-core`, which results in compilation errors.
-    - `sc-storage-monitor` is in the same situation as `sp-rpc`.
-    - `sp-keystore` needs to be bumped because `sp-core` is a dependency of it, and given it was bumped until now, it results in `sp-io` compilation fail, due to `sp-io` having a dependency of `sp-core` directly, and on `sp-keystore` too (which if not bumped has a dependency on a pre-bump latest version `sp-core`).
+    Adds a few crate bumps associated to PRs which missed to bump them due to a corner case missed by the release tooling.
 crates:
   - name: sp-wasm-interface
-    bump: major
+    bump: patch
   - name: sp-rpc
-    bump: major
+    bump: patch
   - name: sc-storage-monitor
-    bump: minor
+    bump: patch
   - name: sp-keystore
-    bump: minor
+    bump: patch
