@@ -127,7 +127,7 @@ use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
 
 /// Adapted from
 /// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
-pub fn record_memory_expansion<'a, E: Ext>(
+pub fn record_memory_expansion<E: Ext>(
 	memory: &mut MemoryGas,
 	ext: &mut E,
 	new_len: usize,

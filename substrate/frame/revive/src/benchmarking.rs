@@ -27,7 +27,7 @@ use crate::{
 		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
 	},
 	storage::WriteOutcome,
-	vm::pvm,
+	vm::{pvm, BytecodeType},
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
@@ -2030,16 +2030,26 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 16], vec![0u8; n as usize], ]);
+	fn hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake128(ISystem::hashBlake128Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_128(memory.as_mut_slice(), 16, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_128(&memory[16..]), &memory[0..16]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_128(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2367,6 +2377,43 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v2_migration_step() {
+		use crate::migrations::v2;
+		let code_hash = H256::from([0; 32]);
+		v2::old::CodeInfoOf::<T>::insert(
+			code_hash,
+			v2::old::CodeInfo {
+				owner: whitelisted_caller(),
+				deposit: 1000u32.into(),
+				refcount: 1,
+				code_len: 100,
+				behaviour_version: 0,
+			},
+		);
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v2::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert_eq!(
+			v2::new::CodeInfoOf::<T>::get(&code_hash).unwrap(),
+			v2::new::CodeInfo {
+				owner: whitelisted_caller(),
+				deposit: 1000u32.into(),
+				refcount: 1,
+				code_len: 100,
+				code_type: BytecodeType::Pvm,
+				behaviour_version: 0,
+			},
+		);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(

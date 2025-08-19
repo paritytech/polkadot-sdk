@@ -54,7 +54,7 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	vm::{CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -484,7 +484,7 @@ pub mod pallet {
 		ReturnDataTooLarge = 0x31,
 	}
 
-	/// A reason for the pallet contracts placing a hold on funds.
+	/// A reason for the pallet revive placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The Pallet has reserved it for storing code on-chain.
@@ -1345,18 +1345,7 @@ where
 			None => {
 				// Extract code and data from the input.
 				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-					let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
-						Some(blob_len) => blob_len
-							.try_into()
-							.ok()
-							.and_then(|blob_len| (input.split_at_checked(blob_len)))
-							.unwrap_or_else(|| (&input[..], &[][..])),
-						_ => {
-							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-							(&input[..], &[][..])
-						},
-					};
-					(code.to_vec(), data.to_vec())
+					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
 				} else {
 					(input, vec![])
 				};
@@ -1604,7 +1593,7 @@ impl<T: Config> Pallet<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}
 
-	/// Deposit a pallet contracts event.
+	/// Deposit a pallet revive event.
 	fn deposit_event(event: Event<T>) {
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
