@@ -17,7 +17,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE, },
-	tests::{builder, ExtBuilder, Test, test_utils::get_balance},
+	tests::{builder, ExtBuilder, Test, },
 	Code, Config,
 };
 use alloy_core::primitives::U256;
@@ -275,7 +275,7 @@ fn stop_works() {
 
 #[test]
 fn invalid_works() {
-    let expected_value = 0xfefefefe_u64;
+    let expected_gas = 12_345_000_u64;
     let runtime_code: Vec<u8> = vec![
         vec![INVALID],
     ]
@@ -289,23 +289,20 @@ fn invalid_works() {
         let Contract { addr, .. } =
             builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-        let result = builder::bare_call(addr)
-            // .gas_limit(5_000_000.into())
+        let output = builder::bare_call(addr)
+            .gas_limit(expected_gas.into())
             .data(vec![])
-            .build().result;
+            .build();
         
-        println!("result: {:?}", result);
+        let result = output.result;
         assert!(result.is_err(), "test did not error");
         let err = result.err().unwrap();
-        println!("error: {:?}", err);
         if let sp_runtime::DispatchError::Module(module_error) = err {
             assert!(module_error.message.is_some(), "no message in module error");
             assert_eq!(module_error.message.unwrap(), "ContractTrapped", "Expected ContractTrapped error");
-            let balance = get_balance(&ALICE);
-            println!("Balance after invalid operation: {}", balance);
-            // assert!(balance == 500_000_000, "Expected zero balance after invalid operation");
+            assert_eq!(output.gas_consumed.ref_time(), expected_gas, "Gas consumed does not match expected gas");
+            assert_eq!(output.gas_consumed.proof_size(), expected_gas, "Gas consumed does not match expected gas");
         } else {
-            println!("Unexpected error type: {:?}", err);
             panic!("Expected ModuleError, got: {:?}", err);
         }
     });
