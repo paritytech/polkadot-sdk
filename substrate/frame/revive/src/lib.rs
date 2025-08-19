@@ -548,10 +548,6 @@ pub mod pallet {
 	pub(crate) type InflightEvents<T: Config> =
 		CountedStorageMap<_, Identity, u32, Event<T>, OptionQuery>;
 
-	/// True if the events must be collected.
-	#[pallet::storage]
-	pub(crate) type CollectInflightEvents<T: Config> = StorageValue<_, bool, ValueQuery>;
-
 	/// The EVM submitted transactions that are inflight for the current block.
 	///
 	/// The transactions are needed to construct the ETH block.
@@ -1035,8 +1031,6 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			CollectInflightEvents::<T>::put(true);
-
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1059,7 +1053,6 @@ pub mod pallet {
 			// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
 			// If so, we might need to capture this from inside the `dispatch_result`.
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
-			CollectInflightEvents::<T>::put(false);
 
 			dispatch_result(
 				output.result.map(|result| result.result),
@@ -1085,7 +1078,6 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
-			CollectInflightEvents::<T>::put(true);
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -1102,7 +1094,6 @@ pub mod pallet {
 			}
 
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
-			CollectInflightEvents::<T>::put(false);
 
 			dispatch_result(
 				output.result,
@@ -1817,7 +1808,7 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		if CollectInflightEvents::<T>::get() && matches!(event, Event::ContractEmitted { .. }) {
+		if matches!(event, Event::ContractEmitted { .. }) {
 			let events_count = InflightEvents::<T>::count();
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::insert(events_count, event.clone());
