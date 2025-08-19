@@ -59,7 +59,7 @@ parameter_types! {
 	pub static Polls: BTreeMap<u8, TestPollState> = vec![
 		(1, Completed(1, true)),
 		(2, Completed(2, false)),
-		(3, Ongoing(Tally::from_parts(0, 0, 0), 1)),
+		(3, Ongoing(Tally::from_parts(0, 0, 0, 0, 0), 1)),
 	].into_iter().collect();
 }
 
@@ -253,7 +253,7 @@ fn completed_poll_should_panic() {
 #[test]
 fn basic_stuff() {
 	ExtBuilder::default().build_and_execute(|| {
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 0, 0, 0));
 	});
 }
 
@@ -411,23 +411,25 @@ fn voting_works() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
-		assert_noop!(Club::vote(RuntimeOrigin::signed(0), 3, true), Error::<Test>::RankTooLow);
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
+		assert_ok!(Club::vote(RuntimeOrigin::signed(0), 3, true));
+		assert_eq!(tally(3), Tally::from_parts(0, 1, 0, 0, 0));
+		assert_ok!(Club::vote(RuntimeOrigin::signed(0), 3, false));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 1, 0, 0));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 1, 0));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 1, 1, 0));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(1), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 1));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 1, 0, 1));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(2), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 3, 1));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 1, 3, 1));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(2), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 4));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 1, 0, 4));
 
 		assert_ok!(Club::vote(RuntimeOrigin::signed(3), 3, true));
-		assert_eq!(tally(3), Tally::from_parts(1, 6, 4));
+		assert_eq!(tally(3), Tally::from_parts(1, 0, 1, 6, 4));
 		assert_ok!(Club::vote(RuntimeOrigin::signed(3), 3, false));
-		assert_eq!(tally(3), Tally::from_parts(0, 0, 10));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 1, 0, 10));
 	});
 }
 
@@ -588,7 +590,7 @@ fn tally_support_correct() {
 		assert_ok!(Club::promote_member(RuntimeOrigin::root(), 3));
 
 		// init tally with 1 aye vote.
-		let tally: TallyOf<Test> = Tally::from_parts(1, 1, 0);
+		let tally: TallyOf<Test> = Tally::from_parts(1, 0, 0, 1, 0);
 
 		// with minRank(Class) = Class
 		// for class 3, 100% support.
