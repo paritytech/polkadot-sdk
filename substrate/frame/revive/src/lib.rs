@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthBlockBuilder, ReconstructReceiptInfo},
+		block_hash::{EthBlockBuilder, ReceiptGasInfo},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, HashesOrTransactionInfos, PrestateTracer,
 		Trace, Tracer, TracerType, TYPE_EIP1559,
@@ -589,7 +589,7 @@ pub mod pallet {
 	/// This contains valuable information about the gas used by the transaction.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReconstructReceiptInfo>, ValueQuery>;
+	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

@@ -35,8 +35,8 @@ pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo)]
-pub struct ReconstructReceiptInfo {
+#[derive(Encode, Decode, TypeInfo, Clone)]
+pub struct ReceiptGasInfo {
 	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
 	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
 	/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
@@ -44,10 +44,10 @@ pub struct ReconstructReceiptInfo {
 	/// Note: Since there's a runtime API to extract the base gas fee (`fn gas_price()`)
 	/// and we have access to the `TransactionSigned` struct, we can compute the effective gas
 	/// price in the RPC layer.
-	effective_gas_price: U256,
+	pub effective_gas_price: U256,
 
 	/// The amount of gas used for this specific transaction alone.
-	gas_used: U256,
+	pub gas_used: U256,
 }
 
 /// Builder of the ETH block.
@@ -72,7 +72,7 @@ pub struct EthBlockBuilder {
 	/// The transaction hashes that will be placed in the ETH block.
 	tx_hashes: Vec<H256>,
 	/// The data needed to reconstruct the receipt info.
-	receipt_data: Vec<ReconstructReceiptInfo>,
+	receipt_data: Vec<ReceiptGasInfo>,
 }
 
 impl EthBlockBuilder {
@@ -124,7 +124,7 @@ impl EthBlockBuilder {
 	pub fn build<T>(
 		mut self,
 		details: impl IntoIterator<Item = TransactionDetails<T>>,
-	) -> (H256, EthBlock, Vec<ReconstructReceiptInfo>)
+	) -> (H256, EthBlock, Vec<ReceiptGasInfo>)
 	where
 		T: crate::pallet::Config,
 	{
@@ -180,7 +180,7 @@ impl EthBlockBuilder {
 		let transaction_hash = H256(keccak_256(&payload));
 		self.tx_hashes.push(transaction_hash);
 
-		self.receipt_data.push(ReconstructReceiptInfo {
+		self.receipt_data.push(ReceiptGasInfo {
 			effective_gas_price: signed_tx.effective_gas_price(self.base_gas_price),
 			gas_used: gas.ref_time().into(),
 		});
