@@ -878,9 +878,7 @@ fn caller_is_origin_returns_proper_values() {
 				pallet_revive_uapi::solidity_selector("callerIsOrigin()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let data = ret.unwrap().data;
-		let caller_is_origin = data == vec![1];
+		let caller_is_origin = ret.unwrap().data == vec![1];
 		assert!(!caller_is_origin);
 		exec_success()
 	});
@@ -896,10 +894,9 @@ fn caller_is_origin_returns_proper_values() {
 				pallet_revive_uapi::solidity_selector("callerIsOrigin()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let data = ret.unwrap().data;
-		let caller_is_origin = data == vec![1];
+		let caller_is_origin = ret.unwrap().data == vec![1];
 		assert!(caller_is_origin);
+
 		// BOB calls CHARLIE
 		ctx.ext
 			.call(Weight::MAX, U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
@@ -938,11 +935,8 @@ fn root_caller_succeeds() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let data = ret.unwrap().data;
-		let caller_is_root = data == vec![1];
+		let caller_is_root = ret.unwrap().data == vec![1];
 		assert!(caller_is_root);
-
 		exec_success()
 	});
 
@@ -1008,8 +1002,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-		let data = ret.unwrap().data;
-		let caller_is_root = data == vec![1];
+		let caller_is_root = ret.unwrap().data == vec![1];
 		assert!(!caller_is_root);
 		exec_success()
 	});
@@ -1025,9 +1018,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let data = ret.unwrap().data;
-		let caller_is_root = data == vec![1];
+		let caller_is_root = ret.unwrap().data == vec![1];
 		assert!(caller_is_root);
 
 		// BOB calls CHARLIE.
