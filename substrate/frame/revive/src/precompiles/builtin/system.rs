@@ -21,7 +21,7 @@ use crate::{
 	vm::RuntimeCosts,
 	Config, Origin, H160,
 };
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use alloy_core::sol;
 use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
