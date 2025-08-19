@@ -2439,23 +2439,23 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// PRE-SETUP: Create events OUTSIDE the benchmark block to avoid measuring
+		// string formatting and storage insertion costs
+		for i in 0..e {
+			// Create a test event for each iteration (NOT measured)
+			let test_event = Event::<T>::ContractEmitted {
+				contract: instance.address,
+				data: format!("test_event_{}", i).into_bytes(),
+				topics: vec![H256::from_low_u64_be(i as u64)],
+			};
+			// Store event for processing during finalize_block (NOT measured)
+			Pallet::<T>::deposit_event(test_event);
+		}
+
 		#[block]
 		{
 			// Initialize block
 			let _ = Pallet::<T>::on_initialize(current_block);
-
-			// We'll simulate events by calling deposit_event directly in a loop
-			// This measures the cost of processing `e` events during finalize_block
-			for i in 0..e {
-				// Create a test event for each iteration
-				let test_event = Event::<T>::ContractEmitted {
-					contract: instance.address,
-					data: format!("test_event_{}", i).into_bytes(),
-					topics: vec![H256::from_low_u64_be(i as u64)],
-				};
-				// Simulate the event being stored during transaction execution
-				Pallet::<T>::deposit_event(test_event);
-			}
 
 			// Execute a single dummy transaction to trigger the finalize_block event processing
 			let _ = Pallet::<T>::eth_call(
@@ -2468,7 +2468,7 @@ mod benchmarks {
 				signed_payload.clone(),
 			);
 
-			// This is where the event processing cost is incurred
+			// This is where the event processing cost is incurred (MEASURED)
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
@@ -2507,35 +2507,36 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// PRE-SETUP: Create events with varying data sizes OUTSIDE the benchmark block
+		// This avoids measuring vector allocation and storage costs
+		if d > 0 {
+			// Distribute data across multiple events to test realistic scenarios
+			let target_events = if d <= 1024 { 1 } else if d <= 4096 { 4 } else { 8 };
+			let data_per_event = d / target_events;
+			let remaining_data = d % target_events;
+
+			for i in 0..target_events {
+				// Calculate data size for this event
+				let event_data_size = data_per_event + if i == 0 { remaining_data } else { 0 };
+
+				// Create event data of specified size (NOT measured)
+				let event_data = vec![0x42u8; event_data_size as usize];
+
+				let test_event = Event::<T>::ContractEmitted {
+					contract: instance.address,
+					data: event_data,
+					topics: vec![H256::from_low_u64_be(i as u64)],
+				};
+
+				// Store event for processing during finalize_block (NOT measured)
+				Pallet::<T>::deposit_event(test_event);
+			}
+		}
+
 		#[block]
 		{
 			// Initialize block
 			let _ = Pallet::<T>::on_initialize(current_block);
-
-			// Create events with varying data sizes to reach target total data size `d`
-			if d > 0 {
-				// Distribute data across multiple events to test realistic scenarios
-				let target_events = if d <= 1024 { 1 } else if d <= 4096 { 4 } else { 8 };
-				let data_per_event = d / target_events;
-				let remaining_data = d % target_events;
-
-				for i in 0..target_events {
-					// Calculate data size for this event
-					let event_data_size = data_per_event + if i == 0 { remaining_data } else { 0 };
-
-					// Create event data of specified size
-					let event_data = vec![0x42u8; event_data_size as usize];
-
-					let test_event = Event::<T>::ContractEmitted {
-						contract: instance.address,
-						data: event_data,
-						topics: vec![H256::from_low_u64_be(i as u64)],
-					};
-
-					// Simulate the event being stored during transaction execution
-					Pallet::<T>::deposit_event(test_event);
-				}
-			}
 
 			// Execute a single dummy transaction to trigger the finalize_block event processing
 			let _ = Pallet::<T>::eth_call(
@@ -2548,7 +2549,7 @@ mod benchmarks {
 				signed_payload.clone(),
 			);
 
-			// This is where the data-dependent processing cost is incurred
+			// This is where the data-dependent processing cost is incurred (MEASURED)
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
