@@ -20,6 +20,7 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
+	vm::pvm::extract_code_and_data,
 	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
 	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
@@ -351,13 +352,7 @@ pub trait EthExtra {
 			}
 		} else {
 			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-				let try_parse = || {
-					let blob_len = polkavm::ProgramBlob::blob_length(&data)?;
-					let blob_len = blob_len.try_into().ok()?;
-					let (code, data) = data.split_at_checked(blob_len)?;
-					Some((code.to_vec(), data.to_vec()))
-				};
-				let Some((code, data)) = try_parse() else {
+				let Some((code, data)) = extract_code_and_data(&data) else {
 					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
 					return Err(InvalidTransaction::Call);
 				};
