@@ -25,11 +25,7 @@ use codec::Decode;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	assert_ok,
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
-		Get, KeyOwnerProofSystem, OnInitialize,
-	},
+	traits::{Get, KeyOwnerProofSystem, OnInitialize},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{historical::Pallet as Historical, Pallet as Session, *};
@@ -37,7 +33,6 @@ use pallet_staking::{
 	benchmarking::create_validator_with_nominators, testing_utils::create_validators,
 	MaxNominationsOf, RewardDestination,
 };
-use sp_runtime::{traits::CheckedSub, DispatchError};
 
 const MAX_VALIDATORS: u32 = 1000;
 
@@ -57,22 +52,6 @@ impl<T: Config> OnInitialize<BlockNumberFor<T>> for Pallet<T> {
 mod benchmarks {
 	use super::*;
 
-	fn ensure_controller_can_pay_deposit<T: Config>(
-		who: &T::AccountId,
-	) -> Result<(), DispatchError> {
-		let deposit = <T as pallet_session::Config>::KeyDeposit::get();
-		let has = <T as pallet_session::Config>::Currency::reducible_balance(
-			who,
-			Preservation::Protect,
-			Fortitude::Force,
-		);
-		if let Some(deficit) = deposit.checked_sub(&has) {
-			<T as pallet_session::Config>::Currency::mint_into(who, deficit).map(|_inc| ())
-		} else {
-			Ok(())
-		}
-	}
-
 	#[benchmark]
 	fn set_keys() -> Result<(), BenchmarkError> {
 		let n = MaxNominationsOf::<T>::get();
@@ -90,7 +69,7 @@ mod benchmarks {
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
 		frame_benchmarking::benchmarking::add_to_whitelist(v_controller_key.into());
-		assert_ok!(ensure_controller_can_pay_deposit::<T>(&v_controller));
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(v_controller), keys, proof);
@@ -111,7 +90,7 @@ mod benchmarks {
 		let v_controller = pallet_staking::Pallet::<T>::bonded(&v_stash).ok_or("not stash")?;
 		let keys = T::Keys::decode(&mut TrailingZeroInput::zeroes()).unwrap();
 		let proof: Vec<u8> = vec![0, 1, 2, 3];
-		assert_ok!(ensure_controller_can_pay_deposit::<T>(&v_controller));
+		assert_ok!(Session::<T>::ensure_can_pay_key_deposit(&v_controller));
 		Session::<T>::set_keys(RawOrigin::Signed(v_controller.clone()).into(), keys, proof)?;
 		// Whitelist controller account from further DB operations.
 		let v_controller_key = frame_system::Account::<T>::hashed_key_for(&v_controller);
