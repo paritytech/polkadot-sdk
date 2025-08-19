@@ -46,7 +46,7 @@ pub mod weights;
 use crate::{
 	evm::{
 		block_hash::ReceiptGasInfo, runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction,
-		HashesOrTransactionInfos, PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
