@@ -50,7 +50,7 @@ sol! {
 		function toAccountId(address input) external view returns (bytes memory account_id);
 
 		/// Checks whether the contract caller is the origin of the whole call stack.
-		function callerIsOrigin() external pure returns (bool);
+		function callerIsOrigin() external view returns (bool);
 
 		/// Checks whether the caller of the current contract is root.
 		///
@@ -59,18 +59,18 @@ sol! {
 		///
 		/// A return value of `true` indicates that this contract is being called by a root origin,
 		/// and `false` indicates that the caller is a signed origin.
-		function callerIsRoot() external pure returns (bool);
+		function callerIsRoot() external view returns (bool);
 
 		/// Returns the minimum balance that is required for creating an account
 		/// (the existential deposit).
-		function minimumBalance() external pure returns (uint);
+		function minimumBalance() external view returns (uint);
 
 		/// Returns the code hash of the currently executing contract.
-		function ownCodeHash() external pure returns (bytes32);
+		function ownCodeHash() external view returns (bytes32);
 
 		/// Returns the amount of weight left.
 		/// The data is encoded as `Weight`.
-		function weightLeft() external pure returns (uint);
+		function weightLeft() external view returns (uint);
 	}
 }
 
