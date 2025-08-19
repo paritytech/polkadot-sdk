@@ -718,7 +718,7 @@ mod benchmarks {
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
-		let mut data = result.unwrap().data;
+		let data = result.unwrap().data;
 		let ret: Weight = Decode::decode(&mut &data[..]).unwrap();
 		assert_eq!(weight_left_after.ref_time(), ret.ref_time());
 	}
