@@ -32,8 +32,6 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
-	/// cost of an EVM gas unit.
-	EVMGas(u64),
 	/// Base Weight of calling a host function.
 	HostFn,
 	/// Weight charged for copying data from the sandbox.
@@ -139,11 +137,12 @@ pub enum RuntimeCosts {
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
 	HashSha256(u32),
-	/// Weight of calling `seal_hash_keccak_256` for the given input size.
+	/// Weight of calling the `System::hashBlake256` precompile function for the given input
 	HashKeccak256(u32),
-	/// Weight of calling `seal_hash_blake2_256` for the given input size.
+	/// Weight of calling the `System::hash_blake2_256` precompile function for the given input
+	/// size.
 	HashBlake256(u32),
-	/// Weight of calling `seal_hash_blake2_128` for the given input size.
+	/// Weight of calling `System::hashBlake128` precompile function for the given input size.
 	HashBlake128(u32),
 	/// Weight of calling `ECERecover` precompile.
 	EcdsaRecovery,
@@ -296,8 +295,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
-			HashBlake256(len) => T::WeightInfo::seal_hash_blake2_256(len),
-			HashBlake128(len) => T::WeightInfo::seal_hash_blake2_128(len),
+			HashBlake256(len) => T::WeightInfo::hash_blake2_256(len),
+			HashBlake128(len) => T::WeightInfo::hash_blake2_128(len),
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
@@ -311,10 +310,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
-			EVMGas(gas) => {
-				// TODO replace this by a proper benchmark value
-				Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0)
-			},
 		}
 	}
 }

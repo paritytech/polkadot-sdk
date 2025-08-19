@@ -73,60 +73,40 @@ pub use polkadot_service::{FullBackend, GetLastTimestamp};
 use sc_service::config::{ExecutorConfiguration, RpcConfiguration};
 
 /// Create a new full node.
-#[sc_tracing::logging::prefix_logs_with(config.network.node_name.as_str())]
+#[sc_tracing::logging::prefix_logs_with(custom_log_prefix.unwrap_or(config.network.node_name.as_str()))]
 pub fn new_full<OverseerGenerator: OverseerGen>(
 	config: Configuration,
 	is_parachain_node: IsParachainNode,
 	workers_path: Option<PathBuf>,
 	overseer_gen: OverseerGenerator,
+	custom_log_prefix: Option<&'static str>,
 ) -> Result<NewFull, Error> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
+	let params = polkadot_service::NewFullParams {
+		is_parachain_node,
+		enable_beefy: true,
+		force_authoring_backoff: false,
+		telemetry_worker_handle: None,
+		node_version: None,
+		secure_validator_mode: false,
+		workers_path,
+		workers_names: None,
+		overseer_gen,
+		overseer_message_channel_capacity_override: None,
+		malus_finality_delay: None,
+		hwbench: None,
+		execute_workers_max_num: None,
+		prepare_workers_hard_max_num: None,
+		prepare_workers_soft_max_num: None,
+		keep_finalized_for: None,
+	};
+
 	match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p =>
-			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
-				config,
-				polkadot_service::NewFullParams {
-					is_parachain_node,
-					enable_beefy: true,
-					force_authoring_backoff: false,
-					telemetry_worker_handle: None,
-					node_version: None,
-					secure_validator_mode: false,
-					workers_path,
-					workers_names: None,
-					overseer_gen,
-					overseer_message_channel_capacity_override: None,
-					malus_finality_delay: None,
-					hwbench: None,
-					execute_workers_max_num: None,
-					prepare_workers_hard_max_num: None,
-					prepare_workers_soft_max_num: None,
-					keep_finalized_for: None,
-				},
-			),
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params),
 		sc_network::config::NetworkBackendType::Litep2p =>
-			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(
-				config,
-				polkadot_service::NewFullParams {
-					is_parachain_node,
-					enable_beefy: true,
-					force_authoring_backoff: false,
-					telemetry_worker_handle: None,
-					node_version: None,
-					secure_validator_mode: false,
-					workers_path,
-					workers_names: None,
-					overseer_gen,
-					overseer_message_channel_capacity_override: None,
-					malus_finality_delay: None,
-					hwbench: None,
-					execute_workers_max_num: None,
-					prepare_workers_hard_max_num: None,
-					prepare_workers_soft_max_num: None,
-					keep_finalized_for: None,
-				},
-			),
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params),
 	}
 }
 
@@ -281,6 +261,7 @@ pub async fn run_validator_node(
 		IsParachainNode::No,
 		worker_program_path,
 		polkadot_service::ValidatorOverseerGen,
+		None,
 	)
 	.expect("could not create Polkadot test service");
 
@@ -318,6 +299,7 @@ pub async fn run_collator_node(
 		IsParachainNode::Collator(collator_pair),
 		None,
 		polkadot_service::CollatorOverseerGen,
+		None,
 	)
 	.expect("could not create Polkadot test service");
 

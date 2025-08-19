@@ -27,6 +27,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
 	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -141,7 +142,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 	}
 }
 
-/// The type of origins supported by the contracts pallet.
+/// The type of origins supported by the revive pallet.
 #[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
@@ -341,9 +342,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Returns the account id for the given `address`.
-	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
-
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
@@ -503,11 +501,6 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
-
-	/// Returns true if the executable is a PVM blob.
-	fn is_pvm(&self) -> bool {
-		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
-	}
 }
 
 /// The complete call stack of a contract execution.
@@ -603,7 +596,7 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 
 	fn is_pvm(&self) -> bool {
 		match self {
-			Self::Executable(e) => e.is_pvm(),
+			Self::Executable(e) => e.code_info().is_pvm(),
 			_ => false,
 		}
 	}
@@ -1162,6 +1155,13 @@ where
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
+			if u32::try_from(input_data.len())
+				.map(|len| len > limits::CALLDATA_BYTES)
+				.unwrap_or(true)
+			{
+				Err(<Error<T>>::CallDataTooLarge)?;
+			}
+
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
@@ -1170,7 +1170,7 @@ where
 				let origin = &self.origin.account_id()?;
 
 				let ed = <Contracts<T>>::min_balance();
-				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed));
+				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
 				if self.skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
@@ -1246,6 +1246,15 @@ where
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
 					instance.call(input_data, self),
 			}
+			.and_then(|output| {
+				if u32::try_from(output.data.len())
+					.map(|len| len > limits::CALLDATA_BYTES)
+					.unwrap_or(true)
+				{
+					Err(<Error<T>>::ReturnDataTooLarge)?;
+				}
+				Ok(output)
+			})
 			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
 
 			// Avoid useless work that would be reverted anyways.
@@ -1335,6 +1344,8 @@ where
 		} else {
 			self.transient_storage.rollback_transaction();
 		}
+
+		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
 		output.map(|output| {
@@ -1435,41 +1446,36 @@ where
 		to: &T::AccountId,
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-	) -> ExecResult {
+	) -> DispatchResult {
 		fn transfer_with_dust<T: Config>(
 			from: &AccountIdOf<T>,
 			to: &AccountIdOf<T>,
 			value: BalanceWithDust<BalanceOf<T>>,
-		) -> Result<(), ExecError> {
+		) -> DispatchResult {
 			let (value, dust) = value.deconstruct();
 
 			fn transfer_balance<T: Config>(
 				from: &AccountIdOf<T>,
 				to: &AccountIdOf<T>,
 				value: BalanceOf<T>,
-			) -> Result<(), ExecError> {
+			) -> DispatchResult {
 				T::Currency::transfer(from, to, value, Preservation::Preserve)
 				.map_err(|err| {
 					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-					ExecError::from(Error::<T>::TransferFailed)
+					Error::<T>::TransferFailed
 				})?;
-				return Ok(())
+				Ok(())
 			}
 
 			fn transfer_dust<T: Config>(
 				from: &mut AccountInfo<T>,
 				to: &mut AccountInfo<T>,
 				dust: u32,
-			) -> Result<(), ExecError> {
-				from.dust = from
-					.dust
-					.checked_sub(dust)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-				to.dust = to
-					.dust
-					.checked_add(dust)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
-				Ok::<(), ExecError>(())
+			) -> DispatchResult {
+				from.dust =
+					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				Ok(())
 			}
 
 			if dust.is_zero() {
@@ -1494,24 +1500,20 @@ where
 				)
 				.map_err(|err| {
 					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-					ExecError::from(Error::<T>::TransferFailed)
+					Error::<T>::TransferFailed
 				})?;
 
-				from_info.dust = from_info
-					.dust
-					.checked_add(plank)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				from_info.dust =
+					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 			}
 
 			transfer_balance::<T>(from, to, value)?;
 			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
 
-			if to_info.dust.saturating_add(dust) >= plank {
+			if to_info.dust >= plank {
 				T::Currency::mint_into(to, 1u32.into())?;
-				to_info.dust = to_info
-					.dust
-					.checked_sub(plank)
-					.ok_or_else(|| ExecError::from(Error::<T>::TransferFailed))?;
+				to_info.dust =
+					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 			}
 
 			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
@@ -1522,26 +1524,25 @@ where
 
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
-			return Ok(Default::default());
+			return Ok(());
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value).map(|_| Default::default())
+			return transfer_with_dust::<T>(from, to, value)
 		}
 
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
-		with_transaction(|| -> TransactionOutcome<ExecResult> {
-			match T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+		with_transaction(|| -> TransactionOutcome<DispatchResult> {
+			match storage_meter
+				.record_charge(&StorageDeposit::Charge(ed))
+				.and_then(|_| {
+					T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value))
 			{
-				Ok(_) => {
-					// ed is taken from the transaction signer so it should be
-					// limited by the storage deposit
-					storage_meter.record_charge(&StorageDeposit::Charge(ed));
-					TransactionOutcome::Commit(Ok(Default::default()))
-				},
+				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
 			}
 		})
@@ -1563,6 +1564,8 @@ where
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
 		Self::transfer(origin, from, to, value, storage_meter)
+			.map(|_| Default::default())
+			.map_err(Into::into)
 	}
 
 	/// Reference to the current (top) frame.
@@ -2021,10 +2024,6 @@ where
 
 	fn origin(&self) -> &Origin<T> {
 		&self.origin
-	}
-
-	fn to_account_id(&self, address: &H160) -> T::AccountId {
-		T::AddressMapper::to_account_id(address)
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {

@@ -84,12 +84,7 @@ macro_rules! gas_legacy {
 		gas_legacy!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
-		if $interpreter
-			.extend
-			.gas_meter_mut()
-			.charge($crate::RuntimeCosts::EVMGas($gas))
-			.is_err()
-		{
+		if $interpreter.extend.gas_meter_mut().charge_evm_gas($gas).is_err() {
 			$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 			return $ret;
 		}
@@ -102,7 +97,8 @@ macro_rules! gas {
 		gas!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
-		if $interpreter.extend.gas_meter_mut().charge($gas).is_err() {
+		let meter = $interpreter.extend.gas_meter_mut();
+		if meter.charge_evm_base_cost().is_err() || meter.charge($gas).is_err() {
 			$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 			return $ret;
 		}
@@ -126,7 +122,7 @@ macro_rules! gas_or_fail {
 	};
 }
 
-use crate::{vm::Ext, RuntimeCosts};
+use crate::vm::Ext;
 use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
 
 /// Adapted from
@@ -140,7 +136,7 @@ pub fn record_memory_expansion<'a, E: Ext>(
 		return MemoryExtensionResult::Same;
 	};
 
-	if ext.gas_meter_mut().charge(RuntimeCosts::EVMGas(additional_cost)).is_err() {
+	if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
 		return MemoryExtensionResult::OutOfGas;
 	}
 

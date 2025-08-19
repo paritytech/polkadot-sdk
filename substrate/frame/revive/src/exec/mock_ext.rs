@@ -84,10 +84,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::origin")
 	}
 
-	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
-		panic!("MockExt::to_account_id")
-	}
-
 	fn code_hash(&self, _address: &H160) -> H256 {
 		panic!("MockExt::code_hash")
 	}

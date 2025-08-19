@@ -104,7 +104,18 @@ pub struct Timepoint<BlockNumber> {
 }
 
 /// An open multisig operation.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	Default,
+	RuntimeDebug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 #[scale_info(skip_type_params(MaxApprovals))]
 pub struct Multisig<BlockNumber, Balance, AccountId, MaxApprovals>
 where

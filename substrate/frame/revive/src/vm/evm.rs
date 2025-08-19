@@ -16,11 +16,10 @@
 // limitations under the License.
 
 mod instructions;
-
 use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vec,
-	vm::{ExecResult, Ext},
+	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
 };
@@ -85,6 +84,7 @@ where
 			deposit: Default::default(),
 			refcount: 0,
 			code_len,
+			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
@@ -94,6 +94,8 @@ where
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
+	ext.gas_meter_mut().charge_evm_init_cost()?;
+
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),

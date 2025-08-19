@@ -23,12 +23,15 @@ use crate::{
 	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	precompiles::{self, run::builtin as run_builtin_precompile},
+	precompiles::{
+		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+	},
 	storage::WriteOutcome,
-	vm::pvm,
+	vm::{pvm, BytecodeType},
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
+use alloy_core::sol_types::SolInterface;
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -119,7 +122,7 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
@@ -128,11 +131,35 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) -> Result<(), BenchmarkError> {
+	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[extrinsic_call]
+		call(
+			RawOrigin::Signed(instance.caller.clone()),
+			instance.address,
+			value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+		);
+
+		Ok(())
+	}
+
+	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
+	// the execution engine.
+	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte(c: Linear<1, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_sized(c - 1),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -158,7 +185,7 @@ mod benchmarks {
 	// we will always charge one max sized block per contract call.
 	//
 	// We ignore the proof size component when using this benchmark as this is already accounted
-	// for in `call_with_code_per_byte`.
+	// for in `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
@@ -188,8 +215,8 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
@@ -229,8 +256,8 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
 	) {
 		let input = vec![42u8; i as usize];
@@ -282,7 +309,7 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -327,7 +354,7 @@ mod benchmarks {
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
 	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
 	// part of this benchmark because we cannot know the size of the contract when issuing a call
-	// transaction. See `call_with_code_per_byte` for this.
+	// transaction. See `call_with_pvm_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
 		let data = vec![42u8; 1024];
@@ -417,9 +444,7 @@ mod benchmarks {
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) {
+	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
@@ -553,35 +578,40 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_to_account_id() {
+	fn to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
+		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
-			let caller = account("seal_to_account_id", 0, 0);
-			T::Currency::set_balance(&caller, caller_funding::<T>());
-			T::AddressMapper::map(&caller).unwrap();
-			T::AddressMapper::to_address(&caller)
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::AddressMapper::map(&account_id).unwrap();
+			T::AddressMapper::to_address(&account_id)
 		};
 
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
-		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+		let input_bytes = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
+			input: address.0.into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-
-		assert_ok!(result);
+		let data = result.unwrap().data;
 		assert_ne!(
-			memory.as_slice()[20..32],
+			data.as_slice()[20..32],
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(
-			T::AccountId::decode(&mut memory.as_slice()),
-			Ok(runtime.ext().to_account_id(&address))
-		);
+		assert_eq!(T::AccountId::decode(&mut data.as_slice()), Ok(account_id),);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1060,7 +1090,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_return(n: Linear<0, { limits::CALLDATA_BYTES }>) {
 		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
 		let result;
@@ -1730,7 +1760,7 @@ mod benchmarks {
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::CALLDATA_BYTES - 100 }>) {
 		use alloy_core::sol_types::SolInterface;
 		use precompiles::{BenchmarkNoInfo, BenchmarkWithInfo, BuiltinPrecompile, IBenchmarking};
 
@@ -1750,7 +1780,7 @@ mod benchmarks {
 		let value_len = value_bytes.len() as u32;
 
 		let input_bytes = IBenchmarking::IBenchmarkingCalls::bench(IBenchmarking::benchCall {
-			input: vec![42; i as usize].into(),
+			input: vec![42_u8; i as usize].into(),
 		})
 		.abi_encode();
 		let input_len = input_bytes.len() as u32;
@@ -1833,7 +1863,7 @@ mod benchmarks {
 	fn seal_instantiate(
 		t: Linear<0, 1>,
 		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
@@ -1976,30 +2006,50 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_256(memory.as_mut_slice(), 32, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 16], vec![0u8; n as usize], ]);
+	fn hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake128(ISystem::hashBlake128Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_128(memory.as_mut_slice(), 16, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_128(&memory[16..]), &memory[0..16]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_128(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2201,6 +2251,29 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark the cost of EVM instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+		use crate::vm::evm;
+		use revm::bytecode::Bytecode;
+
+		let module = VmBinaryModule::evm_noop(r);
+		let inputs = evm::EVMInputs::new(vec![]);
+
+		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
+		let mut setup = CallSetup::<T>::new(module);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert!(result.is_ok());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
@@ -2304,6 +2377,43 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v2_migration_step() {
+		use crate::migrations::v2;
+		let code_hash = H256::from([0; 32]);
+		v2::old::CodeInfoOf::<T>::insert(
+			code_hash,
+			v2::old::CodeInfo {
+				owner: whitelisted_caller(),
+				deposit: 1000u32.into(),
+				refcount: 1,
+				code_len: 100,
+				behaviour_version: 0,
+			},
+		);
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v2::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert_eq!(
+			v2::new::CodeInfoOf::<T>::get(&code_hash).unwrap(),
+			v2::new::CodeInfo {
+				owner: whitelisted_caller(),
+				deposit: 1000u32.into(),
+				refcount: 1,
+				code_len: 100,
+				code_type: BytecodeType::Pvm,
+				behaviour_version: 0,
+			},
+		);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(
