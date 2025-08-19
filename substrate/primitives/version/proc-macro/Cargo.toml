@@ -26,4 +26,4 @@ quote = { workspace = true }
 syn = { features = ["extra-traits", "fold", "full", "visit"], workspace = true }
 
 [dev-dependencies]
-sp-version = { default-features = true, workspace = true }
+sp-version = { default-features = true, path = ".." }

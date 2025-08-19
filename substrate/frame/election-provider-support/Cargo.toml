@@ -16,8 +16,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-election-provider-solution-type.default-features = true
 frame-election-provider-solution-type.workspace = true
+frame-election-provider-solution-type.default-features = true
 frame-support.workspace = true
 frame-system.workspace = true
 scale-info = { features = ["derive"], workspace = true }
@@ -30,8 +30,8 @@ sp-std.workspace = true
 
 [dev-dependencies]
 rand = { features = ["small_rng"], workspace = true, default-features = true }
-sp-io = { default-features = true, workspace = true }
-sp-npos-elections = { default-features = true, workspace = true }
+sp-io = { default-features = true, path = "../../primitives/io" }
+sp-npos-elections = { default-features = true, path = "../../primitives/npos-elections" }
 
 [features]
 default = ["std"]

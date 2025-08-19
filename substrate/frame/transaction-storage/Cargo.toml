@@ -31,7 +31,7 @@ sp-runtime.workspace = true
 sp-transaction-storage-proof.workspace = true
 
 [dev-dependencies]
-sp-transaction-storage-proof = { default-features = true, workspace = true }
+sp-transaction-storage-proof = { default-features = true, path = "../../primitives/transaction-storage-proof" }
 
 [features]
 default = ["std"]

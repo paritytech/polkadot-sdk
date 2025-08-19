@@ -15,7 +15,7 @@ collectives-westend-runtime.workspace = true
 cumulus-primitives-core.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
-parachains-common.default-features = true
 parachains-common.workspace = true
+parachains-common.default-features = true
 sp-core.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }

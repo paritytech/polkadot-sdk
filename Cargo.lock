@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.27.0"
+version = "0.28.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.33.0"
+version = "0.34.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -1356,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "cumulus-primitives-core",
  "ethereum-standards",
@@ -2145,7 +2145,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-rococo"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2162,7 +2162,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2196,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-cumulus"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "bp-messages",
  "bp-polkadot-core",
@@ -2211,7 +2211,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-rococo"
-version = "0.23.0"
+version = "0.24.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2226,7 +2226,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-westend"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2506,7 +2506,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2610,7 +2610,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -2710,7 +2710,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "21.0.0"
+version = "22.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3727,7 +3727,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-rococo-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -3826,7 +3826,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4229,7 +4229,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-bootnodes"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -4511,7 +4511,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-service"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "async-channel 1.9.0",
  "cumulus-client-cli",
@@ -4860,7 +4860,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-inprocess-interface"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "async-channel 1.9.0",
  "async-trait",
@@ -4909,7 +4909,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-relay-chain-minimal-node"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -5903,7 +5903,7 @@ dependencies = [
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "23.0.0"
+version = "24.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -7516,7 +7516,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -9059,7 +9059,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10301,7 +10301,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
 ]
 
 [[package]]
@@ -10310,7 +10310,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "scale-info",
  "serde_json",
 ]
@@ -11474,7 +11474,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "44.0.0"
+version = "45.0.0"
 dependencies = [
  "ethereum-standards",
  "frame-benchmarking",
@@ -11493,7 +11493,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets-freezer"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "log",
  "pallet-assets",
@@ -11505,7 +11505,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets-holder"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12005,7 +12005,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-contracts-mock-network"
-version = "19.0.0"
+version = "20.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12687,7 +12687,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "scale-info",
 ]
 
@@ -12730,7 +12730,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-fractionalization"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "log",
  "pallet-assets",
@@ -13095,7 +13095,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "alloy-core",
  "array-bytes 6.2.2",
@@ -13151,7 +13151,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -13189,7 +13189,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -13202,7 +13202,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-proc-macro"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
@@ -13211,7 +13211,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-uapi"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bitflags 1.3.2",
  "pallet-revive-proc-macro",
@@ -13477,7 +13477,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-parachain-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -13604,7 +13604,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-rc-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
@@ -14049,7 +14049,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "21.0.1"
+version = "22.0.0"
 dependencies = [
  "bounded-collections 0.3.2",
  "frame-benchmarking",
@@ -14160,7 +14160,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -14175,7 +14175,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -14184,7 +14184,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "23.0.0"
+version = "24.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
@@ -14228,7 +14228,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "24.0.0"
+version = "25.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -14459,7 +14459,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.31.0"
+version = "0.32.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -14556,7 +14556,7 @@ dependencies = [
 
 [[package]]
 name = "people-rococo-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14657,7 +14657,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -14874,7 +14874,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -15019,7 +15019,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-cli"
-version = "26.0.0"
+version = "27.0.0"
 dependencies = [
  "clap",
  "frame-benchmarking-cli",
@@ -15814,7 +15814,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
@@ -15824,7 +15824,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-omni-node-lib"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -16194,7 +16194,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2507.0.0"
+version = "2507.1.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -16619,7 +16619,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -16733,7 +16733,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-service"
-version = "26.0.0"
+version = "27.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
@@ -17108,7 +17108,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-voter-bags"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "clap",
  "generate-bags",
@@ -18511,7 +18511,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "revive-dev-runtime",
 ]
 
@@ -18521,7 +18521,7 @@ version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "scale-info",
  "serde_json",
 ]
@@ -18630,7 +18630,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-parachain-runtime"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -18682,7 +18682,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
@@ -22427,7 +22427,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-common"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -22445,7 +22445,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -22497,7 +22497,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-test-utils"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bp-relayers",
  "frame-benchmarking",
@@ -24565,7 +24565,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2507.0.0",
+ "polkadot-sdk 2507.1.0",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -27789,7 +27789,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "25.0.0"
+version = "26.0.0"
 dependencies = [
  "approx",
  "binary-merkle-tree",
@@ -28471,7 +28471,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
@@ -28584,7 +28584,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-simulator-example"
-version = "22.0.0"
+version = "23.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -28709,7 +28709,7 @@ dependencies = [
 
 [[package]]
 name = "yet-another-parachain-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
