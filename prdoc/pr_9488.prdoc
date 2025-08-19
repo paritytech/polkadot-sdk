@@ -5,12 +5,10 @@ doc:
     Adds a few crate bumps associated to PRs which missed to bump them due to a corner case missed by the release tooling.
 crates:
   - name: sp-wasm-interface
-    bump: patch
+    bump: major 
   - name: sp-rpc
-    bump: patch
+    bump: major 
   - name: sc-storage-monitor
-    bump: patch
+    bump: minor 
   - name: sp-keystore
-    bump: patch
-  - name: sc-allocator
-    bump: patch 
+    bump: minor 
