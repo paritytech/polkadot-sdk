@@ -608,7 +608,7 @@ mod benchmarks {
 
 	/*
 	#[benchmark(pov_mode = Measured)]
-	fn seal_own_code_hash() {
+	fn own_code_hash() {
 		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
 		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
 		let result;
@@ -641,7 +641,7 @@ mod benchmarks {
 
 	/*
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_origin() {
+	fn caller_is_origin() {
 		build_runtime!(runtime, memory: []);
 
 		let result;
@@ -653,7 +653,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root() {
+	fn caller_is_root() {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
@@ -825,7 +825,7 @@ mod benchmarks {
 
 	/*
 	#[benchmark(pov_mode = Measured)]
-	fn seal_minimum_balance() {
+	fn minimum_balance() {
 		build_runtime!(runtime, memory: [[0u8;32], ]);
 		let result;
 		#[block]

@@ -275,25 +275,25 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
-	/// Weight of calling `seal_to_account_id`.
+	/// Weight of calling `toAccountId` on the `System` pre-compile.
 	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
 	/// Weight of calling `seal_code_hash`.
 	CodeHash,
-	/// Weight of calling `seal_own_code_hash`.
+	/// Weight of calling `ownCodeHash` on the `System` pre-compile.
 	OwnCodeHash,
 	/// Weight of calling `seal_code_size`.
 	CodeSize,
-	/// Weight of calling `seal_caller_is_origin`.
+	/// Weight of calling `callerIsOrigin` on the `System` pre-compile.
 	CallerIsOrigin,
-	/// Weight of calling `caller_is_root`.
+	/// Weight of calling `callerIsRoot` on the `System` pre-compile.
 	CallerIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
 	/// Weight of calling `seal_ref_time_left`.
 	RefTimeLeft,
-	/// Weight of calling `seal_weight_left`.
+	/// Weight of calling `weightLeft` on the `System` pre-compile.
 	WeightLeft,
 	/// Weight of calling `seal_balance`.
 	Balance,
@@ -301,7 +301,7 @@ pub enum RuntimeCosts {
 	BalanceOf,
 	/// Weight of calling `seal_value_transferred`.
 	ValueTransferred,
-	/// Weight of calling `seal_minimum_balance`.
+	/// Weight of calling `minimumBalance` on the `System` pre-compile.
 	MinimumBalance,
 	/// Weight of calling `seal_block_number`.
 	BlockNumber,
@@ -472,7 +472,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Balance => T::WeightInfo::seal_balance(),
 			BalanceOf => T::WeightInfo::seal_balance_of(),
 			ValueTransferred => T::WeightInfo::seal_value_transferred(),
-			MinimumBalance => T::WeightInfo::seal_minimum_balance(),
+			MinimumBalance => T::WeightInfo::minimum_balance(),
 			BlockNumber => T::WeightInfo::seal_block_number(),
 			BlockHash => T::WeightInfo::seal_block_hash(),
 			BlockAuthor => T::WeightInfo::seal_block_author(),
