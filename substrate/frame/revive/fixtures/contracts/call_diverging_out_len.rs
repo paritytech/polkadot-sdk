@@ -29,9 +29,6 @@
 include!("../panic_handler.rs");
 
 use core::num::NonZero;
-//use uapi::{HostFn, HostFnImpl as api};
-//use alloy_sol_macro::sol;
-//use alloy_core::sol_types::SolInterface;
 use uapi::{HostFn, HostFnImpl as api, u256_bytes};
 use hex_literal::hex;
 
@@ -61,22 +58,6 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 	assert_eq!(output_buf_capped.len(), N);
 	assert_eq!(output_buf, expected_output);
 }
-
-/*
-use alloy_sol_types::sol;
-sol! {
-	//interface ISystem {
-		/// Returns the code hash of the currently executing contract.
-		function ownCodeHash() external pure returns (bytes32);
-	//}
-}
-
- */
-
-//use alloy_primitives::const_keccak256;
-
-//const TRANSFER_SELECTOR: [u8; 4] =
-	//const_keccak256!("transfer(address,uint256)").truncate();
 
 /// Instantiate this contract with an output buf of size `N`
 /// and expect the instantiate output to match `expected_output`.

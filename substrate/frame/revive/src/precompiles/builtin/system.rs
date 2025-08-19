@@ -115,7 +115,6 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					},
 					Origin::Signed(origin_account_id) => {
 						let origin_address = T::AddressMapper::to_address(&origin_account_id).0;
-						//let caller_address = T::AddressMapper::to_address(&env.caller()).0;
 						match env.caller() {
 							Origin::Signed(caller_account_id) => {
 								let caller_address =

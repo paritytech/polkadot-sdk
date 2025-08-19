@@ -884,7 +884,6 @@ fn caller_is_origin_returns_proper_values() {
 			.map(|_| ctx.ext.last_frame_output().clone());
 
 		let data = ret.unwrap().data;
-		eprintln!("data: {:?}", data);
 		let caller_is_origin = data == vec![1];
 		assert!(!caller_is_origin);
 		exec_success()
@@ -903,7 +902,6 @@ fn caller_is_origin_returns_proper_values() {
 			.map(|_| ctx.ext.last_frame_output().clone());
 
 		let data = ret.unwrap().data;
-		eprintln!("data: {:?}", data);
 		let caller_is_origin = data == vec![1];
 		assert!(caller_is_origin);
 		// BOB calls CHARLIE
@@ -946,7 +944,6 @@ fn root_caller_succeeds() {
 			.map(|_| ctx.ext.last_frame_output().clone());
 
 		let data = ret.unwrap().data;
-		eprintln!("data: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(caller_is_root);
 
@@ -1005,7 +1002,6 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 #[test]
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
-		eprintln!("charlie received call");
 		// BOB is not root, even though the origin is root.
 
 		let ret = ctx
@@ -1017,24 +1013,9 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-
-		/*
-		let ret = ctx.ext.call(
-			Weight::MAX,
-			U256::zero(),
-			&H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-			U256::zero(),
-			pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-			true,
-			true
-		)
-		.map(|_| ctx.ext.last_frame_output().clone());
-		 */
 		let data = ret.unwrap().data;
-		eprintln!("data: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(!caller_is_root);
-		//assert!(!ctx.ext.caller_is_root());
 		exec_success()
 	});
 
@@ -1051,12 +1032,10 @@ fn root_caller_succeeds_with_consecutive_calls() {
 			.map(|_| ctx.ext.last_frame_output().clone());
 
 		let data = ret.unwrap().data;
-		eprintln!("data 2: {:?}", data);
 		let caller_is_root = data == vec![1];
 		assert!(caller_is_root);
 
 		// BOB calls CHARLIE.
-		eprintln!("bob calls charlie");
 		ctx.ext
 			.call(Weight::MAX, U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
 			.map(|_| ctx.ext.last_frame_output().clone())

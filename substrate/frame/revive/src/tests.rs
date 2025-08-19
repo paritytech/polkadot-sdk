@@ -867,7 +867,7 @@ fn gas_syncs_work() {
 		assert_ok!(result.result.clone());
 		assert!(!result.result.clone().unwrap().did_revert());
 		let gas_consumed_once = result.gas_consumed.ref_time();
-		let host_consumed_once = <Test as Config>::WeightInfo::seal_caller_is_origin().ref_time();
+		let host_consumed_once = <Test as Config>::WeightInfo::caller_is_origin().ref_time();
 		let engine_consumed_once = gas_consumed_once - host_consumed_once - engine_consumed_noop;
 
 		let result = builder::bare_call(contract.addr).data(2u32.encode()).build();

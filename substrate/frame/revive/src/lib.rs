@@ -479,7 +479,7 @@ pub mod pallet {
 		ReturnDataTooLarge = 0x31,
 	}
 
-	/// A reason for the `pallet-revive` placing a hold on funds.
+	/// A reason for the pallet revive placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The Pallet has reserved it for storing code on-chain.
