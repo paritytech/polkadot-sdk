@@ -1102,6 +1102,19 @@ pub mod pallet {
 				}
 			}
 
+			// Account for event processing costs in finalize_block
+			let event_count = InflightEvents::<T>::count();
+			if event_count > 0 {
+				let event_processing_weight = T::WeightInfo::finalize_block_per_event()
+					.saturating_mul(event_count.into());
+				
+				// Register additional weight for event processing during finalize_block
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					event_processing_weight,
+					DispatchClass::Normal,
+				);
+			}
+
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
 			dispatch_result(
@@ -1236,15 +1249,20 @@ pub mod pallet {
 
 		/// Returns the per-transaction part `b` of finalize_block weight.
 		fn finalize_block_per_tx() -> Weight;
+
+		/// Returns the per-event part `c` of finalize_block weight.
+		fn finalize_block_per_event() -> Weight;
 	}
 
-	/// Splits finalize_block weight into fixed and per-transaction components.
+	/// Splits finalize_block weight into fixed, per-transaction, and per-event components.
 	///
-	/// Total weight = fixed_part + (transaction_count * per_tx_part)
+	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count * per_event_part)
 	///
 	/// - `finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
 	/// - `finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
 	///   to enforce gas limits and reject transactions early if needed.
+	/// - `finalize_block_per_event()`: Per-event weight for processing events during `on_finalize()`,
+	///   added dynamically in each `eth_call()` based on actual event count.
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
 			// Call finalize_block with tx_count = 0 → only `a`
@@ -1254,6 +1272,12 @@ pub mod pallet {
 		fn finalize_block_per_tx() -> Weight {
 			// Call with 1 tx and subtract the fixed part → gives `b`
 			W::finalize_block(1).saturating_sub(W::finalize_block(0))
+		}
+
+		fn finalize_block_per_event() -> Weight {
+			// Extract per-event cost from dedicated benchmark
+			W::finalize_block_event_processing(1)
+				.saturating_sub(W::finalize_block_event_processing(0))
 		}
 	}
 }

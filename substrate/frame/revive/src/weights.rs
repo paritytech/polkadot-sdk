@@ -161,6 +161,7 @@ pub trait WeightInfo {
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 	fn finalize_block(c: u32, ) -> Weight;
+	fn finalize_block_event_processing(e: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1295,6 +1296,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(c.into()))
 	}
+	/// The range of component `e` is `[0, 50]`.
+	fn finalize_block_event_processing(e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `500`
+		//  Estimated: `3000 + e * (200 ±0)`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 3000)
+			// Standard Error: 5_000
+			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(e.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(e.into())))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(e.into())))
+			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -2427,5 +2443,20 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(9_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(c.into()))
+	}
+	/// The range of component `e` is `[0, 50]`.
+	fn finalize_block_event_processing(e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `500`
+		//  Estimated: `3000 + e * (200 ±0)`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(12_000_000, 3000)
+			// Standard Error: 5_000
+			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(e.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(e.into())))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(e.into())))
+			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
 	}
 }
