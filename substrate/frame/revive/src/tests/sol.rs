@@ -16,5 +16,7 @@
 // limitations under the License.
 
 mod block_info;
+mod contract;
 mod misc;
 mod system;
+mod tx_info;

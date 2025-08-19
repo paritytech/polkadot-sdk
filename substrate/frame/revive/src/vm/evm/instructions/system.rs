@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use super::Context;
-use crate::vm::Ext;
+use crate::{
+	address::AddressMapper,
+	vm::{Ext, RuntimeCosts},
+	Config,
+};
 use core::ptr;
 use revm::{
 	interpreter::{
@@ -24,8 +28,11 @@ use revm::{
 		interpreter_types::{InputsTr, LegacyBytecode, MemoryTr, ReturnData, RuntimeFlag, StackTr},
 		CallInput, InstructionResult, Interpreter,
 	},
-	primitives::{B256, KECCAK_EMPTY, U256},
+	primitives::{Address, B256, KECCAK_EMPTY, U256},
 };
+use sp_io::hashing::keccak_256;
+
+// TODO: Fix the gas handling for the memory operations
 
 /// Implements the KECCAK256 instruction.
 ///
@@ -33,15 +40,13 @@ use revm::{
 pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([offset], top, context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, top);
-	gas_or_fail!(context.interpreter, revm_gas::keccak256_cost(len));
+	gas!(context.interpreter, RuntimeCosts::HashKeccak256(len as u32));
 	let hash = if len == 0 {
 		KECCAK_EMPTY
 	} else {
 		let from = as_usize_or_fail!(context.interpreter, offset);
 		resize_memory!(context.interpreter, from, len);
-		let data = context.interpreter.memory.slice_len(from, len);
-		let data: &[u8] = data.as_ref();
-		revm::primitives::keccak256(data)
+		keccak_256(context.interpreter.memory.slice_len(from, len).as_ref()).into()
 	};
 	*top = hash.into();
 }
@@ -50,16 +55,27 @@ pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the current contract's address onto the stack.
 pub fn address<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.target_address().into_word().into());
+	gas!(context.interpreter, RuntimeCosts::Address);
+	let address: Address = context.interpreter.extend.address().0.into();
+	push!(context.interpreter, address.into_word().into());
 }
 
 /// Implements the CALLER instruction.
 ///
 /// Pushes the caller's address onto the stack.
 pub fn caller<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.caller_address().into_word().into());
+	gas!(context.interpreter, RuntimeCosts::Caller);
+	match context.interpreter.extend.caller().account_id() {
+		Ok(account_id) => {
+			let address: Address = <E::T as Config>::AddressMapper::to_address(account_id).0.into();
+			push!(context.interpreter, address.into_word().into());
+		},
+		Err(_) => {
+			context
+				.interpreter
+				.halt(revm::interpreter::InstructionResult::FatalExternalError);
+		},
+	}
 }
 
 /// Implements the CODESIZE instruction.
@@ -141,8 +157,9 @@ pub fn calldatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the value sent with the current call onto the stack.
 pub fn callvalue<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.interpreter.input.call_value());
+	gas!(context.interpreter, RuntimeCosts::ValueTransferred);
+	let call_value = context.interpreter.extend.value_transferred();
+	push!(context.interpreter, U256::from_limbs(call_value.0));
 }
 
 /// Implements the CALLDATACOPY instruction.
@@ -213,8 +230,9 @@ pub fn returndatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Pushes the amount of remaining gas onto the stack.
 pub fn gas<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, U256::from(context.interpreter.gas.remaining()));
+	gas!(context.interpreter, RuntimeCosts::RefTimeLeft);
+	let gas = context.interpreter.extend.gas_meter().gas_left().ref_time();
+	push!(context.interpreter, U256::from(gas));
 }
 
 /// Common logic for copying data from a source buffer to the EVM's memory.

@@ -20,21 +20,23 @@ mod call_helpers;
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 
 use super::{utility::IntoAddress, Context};
-use crate::vm::Ext;
+use crate::vm::{evm::EVM_INITCODE_LIMIT, Ext};
 use alloc::boxed::Box;
 use revm::{
+	context::journaled_state::AccountLoad,
 	context_interface::CreateScheme,
 	interpreter::{
 		gas as revm_gas,
-		host::Host,
 		interpreter_action::{
 			CallInputs, CallScheme, CallValue, CreateInputs, FrameInput, InterpreterAction,
 		},
-		interpreter_types::{InputsTr, LoopControl, RuntimeFlag, StackTr},
-		CallInput, InstructionResult,
+		interpreter_types::{LoopControl, RuntimeFlag, StackTr},
+		CallInput, InstructionResult, StateLoad,
 	},
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
+
+// TODO: Implement correct gas handling for all instructions below
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -55,7 +57,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		// EIP-3860: Limit and meter initcode
 		if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::SHANGHAI) {
 			// Limit is set as double of max contract bytecode size
-			if len > context.host.max_initcode_size() {
+			if len > 2 * EVM_INITCODE_LIMIT {
 				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
 				return;
 			}
@@ -93,7 +95,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Create(Box::new(CreateInputs {
-			caller: context.interpreter.input.target_address(),
+			caller: Default::default(),
 			scheme,
 			value,
 			init_code: code,
@@ -121,10 +123,12 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(account_load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let account_load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(account_load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	let Some(mut gas_limit) =
 		calc_call_gas(context.interpreter, account_load, has_transfer, local_gas_limit)
@@ -147,7 +151,7 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
 			target_address: to,
-			caller: context.interpreter.input.target_address(),
+			caller: Address::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(value),
 			scheme: CallScheme::Call,
@@ -171,10 +175,12 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(mut load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	// Set `is_empty` to false as we are not creating this account.
 	load.is_empty = false;
@@ -198,8 +204,8 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.target_address(),
+			target_address: Default::default(),
+			caller: Default::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(value),
 			scheme: CallScheme::CallCode,
@@ -223,10 +229,12 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(mut load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
 
 	// Set is_empty to false as we are not creating this account.
 	load.is_empty = false;
@@ -243,10 +251,10 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.caller_address(),
+			target_address: Default::default(),
+			caller: Default::default(),
 			bytecode_address: to,
-			value: CallValue::Apparent(context.interpreter.input.call_value()),
+			value: CallValue::Apparent(Default::default()),
 			scheme: CallScheme::DelegateCall,
 			is_static: context.interpreter.runtime_flag.is_static(),
 			return_memory_offset,
@@ -268,10 +276,13 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
+	// TODO: Handle the cold/warm storage correctly
+	let mut load: StateLoad<AccountLoad> = StateLoad::new(Default::default(), true);
+	// let Some(mut load) = context.host.load_account_delegated(to) else {
+	// 	context.interpreter.halt(InstructionResult::FatalExternalError);
+	// 	return;
+	// };
+
 	// Set `is_empty` to false as we are not creating this account.
 	load.is_empty = false;
 	let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
@@ -287,7 +298,7 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			input: CallInput::SharedBuffer(input),
 			gas_limit,
 			target_address: to,
-			caller: context.interpreter.input.target_address(),
+			caller: Default::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(U256::ZERO),
 			scheme: CallScheme::StaticCall,

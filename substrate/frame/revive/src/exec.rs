@@ -25,7 +25,7 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf, Config,
 	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
 	LOG_TARGET,
 };
@@ -182,7 +182,6 @@ impl<T: Config> Origin<T> {
 		}
 	}
 }
-
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -265,11 +264,26 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError>;
+
+	// /// Instantiate a contract from the given bytecode.
+	// ///
+	// /// Returns the original code size of the called contract.
+	// /// The newly created account will be associated with `code`. `value` specifies the amount of
+	// /// value transferred from the caller to the newly created account.
+	// fn instantiate_with_code(
+	// 	&mut self,
+	// 	gas_limit: Weight,
+	// 	deposit_limit: U256,
+	// 	code: Vec<u8>,
+	// 	value: U256,
+	// 	input_data: Vec<u8>,
+	// 	salt: Option<&[u8; 32]>,
+	// ) -> Result<H160, ExecError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
@@ -382,6 +396,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the author of the current block.
 	fn block_author(&self) -> Option<H160>;
 
+	/// Returns the block gas limit.
+	fn gas_limit(&self) -> u64;
+
+	/// Returns the chain id.
+	fn chain_id(&self) -> u64;
+
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
@@ -452,6 +472,9 @@ pub trait Executable<T: Config>: Sized {
 	/// # Note
 	/// Charges size base load weight from the gas meter.
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+
+	/// Load the executable from EVM bytecode
+	fn from_bytecode(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -1784,7 +1807,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code_hash: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -1792,9 +1815,16 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
-
-		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = &self.top_frame().account_id;
+		let sender = self.top_frame().account_id.clone();
+		let executable = match &code {
+			Code::Upload(bytecode) => {
+				if !T::AllowEVMBytecode::get() {
+					return Err(<Error<T>>::CodeRejected.into());
+				}
+				E::from_bytecode(bytecode.clone(), sender.clone())?
+			},
+			Code::Existing(hash) => E::from_storage(hash.clone(), self.gas_meter_mut())?,
+		};
 		let executable = self.push_frame(
 			FrameArgs::Instantiate {
 				sender: sender.clone(),
@@ -1808,7 +1838,7 @@ where
 			self.is_read_only(),
 		)?;
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
+		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
 			.map(|_| address)
 	}
@@ -2040,7 +2070,15 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		crate::Pallet::<T>::block_author()
+		Contracts::<Self::T>::block_author()
+	}
+
+	fn gas_limit(&self) -> u64 {
+		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+	}
+
+	fn chain_id(&self) -> u64 {
+		<T as Config>::ChainId::get()
 	}
 
 	fn max_value_size(&self) -> u32 {

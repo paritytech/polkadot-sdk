@@ -29,7 +29,7 @@ use crate::{
 	limits,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
-	BalanceOf, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
+	BalanceOf, Code, Config, Error, Pallet, RuntimeCosts, LOG_TARGET, SENTINEL,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -880,7 +880,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		match self.ext.instantiate(
 			weight,
 			deposit_limit,
-			code_hash,
+			Code::Existing(code_hash),
 			value,
 			input_data,
 			salt.as_ref(),
