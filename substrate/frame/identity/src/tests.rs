@@ -94,6 +94,7 @@ impl pallet_identity::Config for Test {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

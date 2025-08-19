@@ -1210,6 +1210,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 		>,
 		u32,
 	>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -1274,6 +1275,7 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
@@ -1689,6 +1691,7 @@ impl pallet_identity::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -2228,6 +2231,7 @@ impl pallet_collective::Config<AllianceCollective> for Runtime {
 	type DisapproveOrigin = EnsureRoot<Self::AccountId>;
 	type KillOrigin = EnsureRoot<Self::AccountId>;
 	type Consideration = ();
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 parameter_types! {
@@ -2271,6 +2275,7 @@ impl pallet_alliance::Config for Runtime {
 	type AllyDeposit = AllyDeposit;
 	type WeightInfo = pallet_alliance::weights::SubstrateWeight<Runtime>;
 	type RetirementPeriod = RetirementPeriod;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 impl frame_benchmarking_pallet_pov::Config for Runtime {
