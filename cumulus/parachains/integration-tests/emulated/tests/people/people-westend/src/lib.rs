@@ -39,7 +39,7 @@ mod imports {
 			},
 			PeopleWestendParaPallet as PeopleWestendPallet,
 		},
-		westend_emulated_chain::{genesis::ED as WESTEND_ED, WestendRelayPallet as WestendPallet},
+		westend_emulated_chain::genesis::ED as WESTEND_ED,
 		AssetHubWestendPara as AssetHubWestend,
 		AssetHubWestendParaReceiver as AssetHubWestendReceiver,
 		BridgeHubWestendPara as BridgeHubWestend, CollectivesWestendPara as CollectivesWestend,

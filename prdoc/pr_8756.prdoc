@@ -1,0 +1,13 @@
+title: Introduce dry_execute_with for testing/emulated environment purposes
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds `dry_execute_with`, which behaves like `execute_with` but runs in a cloned temporary environment. The environment is discarded after execution, returning only the results without affecting original state.
+
+crates:
+- name: emulated-integration-tests-common
+  bump: patch
+- name: xcm-emulator
+  bump: patch
+- name: sp-state-machine
+  bump: patch
