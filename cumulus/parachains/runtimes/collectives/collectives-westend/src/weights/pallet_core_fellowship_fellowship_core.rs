@@ -194,6 +194,7 @@ impl<T: frame_system::Config> pallet_core_fellowship::WeightInfo for WeightInfo<
 	/// The range of component `r` is `[1, 9]`.
 	/// The range of component `r` is `[1, 9]`.
 	fn promote_fast(r: u16, ) -> Weight {
+		// TODO: let's see u32 vs u16 generation?
 		// Proof Size summary in bytes:
 		//  Measured:  `65996`
 		//  Estimated: `69046 + r * (2489 ±0)`
