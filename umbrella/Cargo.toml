@@ -361,6 +361,7 @@ runtime-benchmarks = [
 	"staging-xcm-executor?/runtime-benchmarks",
 	"staging-xcm?/runtime-benchmarks",
 	"xcm-runtime-apis?/runtime-benchmarks",
+	"pallet-session?/runtime-benchmarks"
 ]
 try-runtime = [
 	"assets-common?/try-runtime",

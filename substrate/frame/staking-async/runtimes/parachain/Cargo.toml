@@ -206,6 +206,7 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks"
 ]
 try-runtime = [
 	"assets-common/try-runtime",

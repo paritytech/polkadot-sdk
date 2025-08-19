@@ -77,4 +77,5 @@ runtime-benchmarks = [
 	"pallet-mmr/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks"
 ]
