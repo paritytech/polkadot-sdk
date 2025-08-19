@@ -168,6 +168,7 @@ impl Config for Test {
 	type MinEligibleCollators = ConstU32<1>;
 	type MaxInvulnerables = ConstU32<20>;
 	type KickThreshold = Period;
+	type UnbondingPeriod = Period;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	type ValidatorIdOf = IdentityCollator;
 	type ValidatorRegistration = IsRegistered;

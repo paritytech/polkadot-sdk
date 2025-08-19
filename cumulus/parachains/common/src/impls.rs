@@ -197,7 +197,7 @@ mod tests {
 	use super::*;
 	use frame_support::{
 		derive_impl, parameter_types,
-		traits::{ConstU32, FindAuthor, ValidatorRegistration},
+		traits::{ConstU32, ConstU64, FindAuthor, ValidatorRegistration},
 		PalletId,
 	};
 	use frame_system::{limits, EnsureRoot};
@@ -291,6 +291,7 @@ mod tests {
 		type ValidatorIdOf = IdentityCollator;
 		type ValidatorRegistration = IsRegistered;
 		type KickThreshold = ();
+		type UnbondingPeriod = ConstU64<10>;
 		type WeightInfo = ();
 	}
 
