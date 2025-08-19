@@ -31,6 +31,8 @@ sol! {
 	interface ISystem {
 		/// Computes the BLAKE2 256-bit hash on the given input.
 		function hashBlake256(bytes memory input) external pure returns (bytes32 digest);
+		/// Computes the BLAKE2 128-bit hash on the given input.
+		function hashBlake128(bytes memory input) external pure returns (bytes32 digest);
 		/// Retrieve the account id for a specified `H160` address.
 		///
 		/// Calling this function on a native `H160` chain (`type AccountId = H160`)
@@ -63,6 +65,11 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
 				Ok(output.to_vec())
 			},
+			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
+				Ok(output.to_vec())
+			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
 				use crate::address::AddressMapper;
 				use codec::Encode;
@@ -92,6 +99,7 @@ mod tests {
 	#[test]
 	fn test_system_precompile() {
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
+		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_128.json"));
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-to_account_id.json"));
 	}
 
