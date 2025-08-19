@@ -7,8 +7,8 @@ crates:
   - name: sp-wasm-interface
     bump: major 
   - name: sp-rpc
-    bump: major 
+    bump: patch
   - name: sc-storage-monitor
-    bump: minor 
+    bump: patch 
   - name: sp-keystore
-    bump: minor 
+    bump: patch 
