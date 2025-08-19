@@ -32,10 +32,11 @@ use sp_io::hashing::keccak_256;
 
 #[test]
 fn keccak_256_works() {
-	for fixture_type in [
-		FixtureType::Resolc,
-		// FixtureType::Solc, TODO uncomment once implemented
-	] {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc]
+		// TODO remove take(1) once Solc supported
+		.into_iter()
+		.take(1)
+	{
 		let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);

@@ -58,10 +58,11 @@ fn basic_evm_flow_works() {
 /// Tests that the sstore and sload storage opcodes work as expected.
 #[test]
 fn flipper() {
-	for fixture_type in [
-		FixtureType::Resolc,
-		// FixtureType::Solc, TODO uncomment once implemented
-	] {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc]
+		// TODO remove take(1) once Solc supported
+		.into_iter()
+		.take(1)
+	{
 		let (code, _) = compile_module_with_type("Flipper", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
