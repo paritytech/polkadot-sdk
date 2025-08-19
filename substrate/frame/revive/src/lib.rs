@@ -679,15 +679,15 @@ pub mod pallet {
 			//
 			// Note: This does not account for the cost of computing the state tries.
 
-			Weight::zero()
-		}
-
-		fn on_finalize(block_number: BlockNumberFor<T>) {
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
 				DispatchClass::Normal,
 			);
 
+			Weight::zero()
+		}
+
+		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// If we cannot fetch the block author there's nothing we can do.
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
