@@ -82,18 +82,6 @@ impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
-impl Bytes256 {
-	/// Combine the logs bloom by bitwise OR operation.
-	///
-	/// This ensures that we can compute the block's logs bloom by
-	/// combining the logs bloom of all transactions in the block.
-	pub fn combine(&mut self, other: &Self) {
-		for (a, b) in self.0.iter_mut().zip(other.0.iter()) {
-			*a |= b;
-		}
-	}
-}
-
 #[test]
 fn serialize_works() {
 	let a = Byte(42);
