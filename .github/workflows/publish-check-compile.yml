@@ -38,9 +38,36 @@ jobs:
 
       - name: install parity-publish
         run: |
-          cargo install parity-publish@0.10.4 --locked -q
+          cargo install parity-publish@0.10.6 --locked -q
 
-      - name: parity-publish update plan
+      - name: set current PR's prdoc name in a variable
+        env:
+          GITHUB_PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          echo "CURRENT_PRDOC=pr_${GITHUB_PR_NUM}.prdoc" >> $GITHUB_ENV
+
+      - name: parity-publish update plan w/o current prdoc
+        run: |
+          mv prdoc/$CURRENT_PRDOC .
+          parity-publish --color always plan --skip-check --prdoc prdoc/
+
+      # The code base is not in master's state (due to commits brought by the
+      # current PR), but we're interested in all master's prdocs to be applied
+      # as if master is a stable branch, and in next steps we're following up with
+      # a patch release of all crates based on some newly added prdocs
+      # (meaning only the current prdoc).
+      - name: parity-publish apply plan on the code state prior to current prdoc
+        run: parity-publish --color always apply --registry
+
+      - name: move all prdocs except current one to unstable dir
+        run: |
+          mkdir prdoc/unstable
+          mv prdoc/pr_*.prdoc prdoc/unstable
+          if [ -f $CURRENT_PRDOC ]; then
+            mv $CURRENT_PRDOC prdoc
+          fi
+
+      - name: parity-publish update plan just for PR's prdoc
         run: parity-publish --color always plan --skip-check --prdoc prdoc/
 
       - name: parity-publish apply plan
