@@ -245,13 +245,9 @@ impl Requester {
 			})
 	}
 
+	#[cfg(not(test))]
 	/// Calculate time until next half slot
 	async fn time_until_next_half_slot() -> u64 {
-		#[cfg(test)]
-		{
-			// In tests, don't delay to keep them fast and deterministic.
-			return 0;
-		}
 		const SLOT_DURATION_MS: u64 = 6_000;
 
 		use std::time::{SystemTime, UNIX_EPOCH};
@@ -264,6 +260,12 @@ impl Requester {
 				SLOT_DURATION_MS.saturating_sub(remainder) / 2
 			})
 			.unwrap_or_default()
+	}
+
+	#[cfg(test)]
+	// In tests, don't delay to keep them fast and deterministic.
+	async fn time_until_next_half_slot() -> u64 {
+		return 0;
 	}
 
 	async fn early_request_chunks<Context>(
