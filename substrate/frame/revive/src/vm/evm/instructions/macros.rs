@@ -208,12 +208,13 @@ macro_rules! push {
 macro_rules! as_u64_saturated {
 	($v:expr) => {
 		match $v.as_limbs() {
-			x =>
+			x => {
 				if (x[1] == 0) & (x[2] == 0) & (x[3] == 0) {
 					x[0]
 				} else {
 					u64::MAX
-				},
+				}
+			},
 		}
 	};
 }

@@ -288,7 +288,7 @@ impl<T: Config> CodeInfo<T> {
 
 impl<T: Config> Executable<T> for ContractBlob<T>
 where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,// + Bounded,
+	BalanceOf<T>: Into<U256> + TryFrom<U256>, // + Bounded,
 {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;

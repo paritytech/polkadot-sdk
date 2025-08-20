@@ -347,7 +347,6 @@ impl<T: Config> GasMeter<T> {
 		self.gas_left = self.gas_left.saturating_sub(self.gas_left);
 		log::info!("consume_all: gas_left={:?}", self.gas_left);
 	}
-
 }
 
 #[cfg(test)]

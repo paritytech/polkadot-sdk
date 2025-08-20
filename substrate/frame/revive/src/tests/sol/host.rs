@@ -431,46 +431,45 @@ fn log_works() {
 
 #[test]
 fn selfdestruct_works() {
-    use pallet_revive_fixtures::HostSelfDestructEvm;
-    let fixture_type = FixtureType::Solc;
-    let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
+	use pallet_revive_fixtures::HostSelfDestructEvm;
+	let fixture_type = FixtureType::Solc;
+	let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
 
-    let expected_bobs_balance = 100_000_000_000u64;
+	let expected_bobs_balance = 100_000_000_000u64;
 
-    ExtBuilder::default().build().execute_with(|| {
-        <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-        <Test as Config>::Currency::set_balance(&BOB, 0);
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		<Test as Config>::Currency::set_balance(&BOB, 0);
 
-        let Contract { addr, .. } =
-            builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-        assert!(test_utils::get_contract_checked(&addr).is_some());
-        {
-            let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		assert!(test_utils::get_contract_checked(&addr).is_some());
+		{
+			let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
 
-            <Test as Config>::Currency::set_balance(&account_id32, expected_bobs_balance);
-        }
+			<Test as Config>::Currency::set_balance(&account_id32, expected_bobs_balance);
+		}
 
-        {
-            let result = builder::bare_call(addr)
-                .data(
-                    HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(
-                        HostSelfDestructEvm::selfdestructOpCall {
-                            recipient: BOB_ADDR.0.into(),
-                        },
-                    )
-                    .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            assert!(!result.did_revert(), "test reverted: {result:?}");
+		{
+			let result = builder::bare_call(addr)
+				.data(
+					HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(
+						HostSelfDestructEvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() },
+					)
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted: {result:?}");
 
-            let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
-            assert_eq!(
-                bobs_balance, expected_bobs_balance-1,
-                "BOB's balance should be updated after selfdestruct for {:?}",
-                fixture_type
-            );
-        }
-        // the contract should not be deleted so check if it is still there.
-        assert!(test_utils::get_contract_checked(&addr).is_some());
-    });
+			let bobs_balance = <Test as Config>::Currency::free_balance(&BOB);
+			assert_eq!(
+				bobs_balance,
+				expected_bobs_balance - 1,
+				"BOB's balance should be updated after selfdestruct for {:?}",
+				fixture_type
+			);
+		}
+		// the contract should not be deleted so check if it is still there.
+		assert!(test_utils::get_contract_checked(&addr).is_some());
+	});
 }

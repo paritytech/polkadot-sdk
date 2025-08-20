@@ -344,22 +344,20 @@ fn compile_solidity_contracts(
 		return Ok(());
 	}
 
-	let pvm_only = vec![
-		"HostSelfDestructPvm",
-	];
-	let evm_only = vec![
-		"HostSelfDestructEvm",
-	];
+	let pvm_only = vec!["HostSelfDestructPvm"];
+	let evm_only = vec!["HostSelfDestructEvm"];
 
 	let solidity_entries_evm: Vec<_> = solidity_entries
-	.iter().cloned()
-	.filter(|entry| !pvm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
-	.collect();
+		.iter()
+		.cloned()
+		.filter(|entry| !pvm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
+		.collect();
 
 	let solidity_entries_pvm: Vec<_> = solidity_entries
-	.iter().cloned()
-	.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
-	.collect();
+		.iter()
+		.cloned()
+		.filter(|entry| !evm_only.contains(&entry.path.file_stem().unwrap().to_str().unwrap()))
+		.collect();
 
 	// Compile with solc for EVM bytecode
 	let json = compile_with_standard_json("solc", contracts_dir, &solidity_entries_evm)?;

@@ -138,8 +138,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -175,32 +175,31 @@ pub mod test_utils {
 		if data.len() < 4 {
 			return None;
 		}
-		
+
 		// Check if it's a standard Error(string) - selector is 0x08c379a0
 		let error_selector = [0x08, 0xc3, 0x79, 0xa0];
 		if data[0..4] != error_selector {
 			return None;
 		}
-		
+
 		// Skip the selector (first 4 bytes)
 		let abi_data = &data[4..];
-		
+
 		if abi_data.len() < 64 {
 			return None;
 		}
-		
+
 		// ABI encoding: first 32 bytes = offset to string data (should be 0x20)
 		// Next 32 bytes = length of string
 		// Remaining bytes = string data
-		
-		let string_length = u32::from_be_bytes([
-			abi_data[28], abi_data[29], abi_data[30], abi_data[31]
-		]) as usize;
-		
+
+		let string_length =
+			u32::from_be_bytes([abi_data[28], abi_data[29], abi_data[30], abi_data[31]]) as usize;
+
 		if abi_data.len() < 64 + string_length {
 			return None;
 		}
-		
+
 		// Extract the string data
 		let string_data = &abi_data[64..64 + string_length];
 		String::from_utf8(string_data.to_vec()).ok()
