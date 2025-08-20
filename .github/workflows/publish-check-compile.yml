@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "CURRENT_PRDOC=pr_${{ github.event.pull_request.number }}.prdoc" >> $GITHUB_ENV
 
-      - name: parity-publish update plan w/o this PRs prdoc
+      - name: parity-publish update plan w/o current prdoc
         run: |
           mv prdoc/$CURRENT_PRDOC .
           parity-publish --color always plan --skip-check --prdoc prdoc/
