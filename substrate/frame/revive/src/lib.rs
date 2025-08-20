@@ -120,15 +120,30 @@ pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_paym
 /// that this value makes sense for a memory location or length.
 const SENTINEL: u32 = u32::MAX;
 
-/// The maximum number of block hashes to keep in the history.
-const BLOCK_HASH_COUNT: u32 = 256;
-
 /// The target that is used for the log output emitted by this crate.
 ///
 /// Hence you can use this target to selectively increase the log level for this crate.
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
+
+mod block_storage {
+	use environmental::environmental;
+
+	/// The maximum number of block hashes to keep in the history.
+	pub const BLOCK_HASH_COUNT: u32 = 256;
+
+	// Indicates whether an Ethereum call is currently being executed.
+	environmental!(executing_call: bool);
+
+	pub fn is_executing_ethereum_call() -> bool {
+		executing_call::with(|ctx| *ctx).unwrap_or(false)
+	}
+
+	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+		executing_call::using(&mut true, f)
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -666,7 +681,7 @@ pub mod pallet {
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
 			// Prune older block hashes.
-			let block_hash_count = BLOCK_HASH_COUNT;
+			let block_hash_count = block_storage::BLOCK_HASH_COUNT;
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 			if !to_remove.is_zero() {
@@ -980,38 +995,40 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
-			let code_len = code.len() as u32;
-			let data_len = data.len() as u32;
-			let mut output = Self::bare_instantiate(
-				origin,
-				value,
-				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
-				Code::Upload(code),
-				data,
-				None,
-				BumpNonce::No,
-			);
+			block_storage::with_ethereum_context(|| {
+				let code_len = code.len() as u32;
+				let data_len = data.len() as u32;
+				let mut output = Self::bare_instantiate(
+					origin,
+					value,
+					gas_limit,
+					DepositLimit::Balance(storage_deposit_limit),
+					Code::Upload(code),
+					data,
+					None,
+					BumpNonce::No,
+				);
 
-			if let Ok(retval) = &output.result {
-				if retval.result.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
+				if let Ok(retval) = &output.result {
+					if retval.result.did_revert() {
+						output.result = Err(<Error<T>>::ContractReverted.into());
+					}
 				}
-			}
 
-			// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
-			// If so, we might need to capture this from inside the `dispatch_result`.
-			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+				// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
+				// If so, we might need to capture this from inside the `dispatch_result`.
+				Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
-			dispatch_result(
-				output.result.map(|result| result.result),
-				output.gas_consumed,
-				T::WeightInfo::eth_instantiate_with_code(
-					code_len,
-					data_len,
-					Pallet::<T>::has_dust(value).into(),
-				),
-			)
+				dispatch_result(
+					output.result.map(|result| result.result),
+					output.gas_consumed,
+					T::WeightInfo::eth_instantiate_with_code(
+						code_len,
+						data_len,
+						Pallet::<T>::has_dust(value).into(),
+					),
+				)
+			})
 		}
 
 		/// Same as [`Self::call`], but intended to be dispatched **only**
@@ -1029,28 +1046,30 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
-			let mut output = Self::bare_call(
-				origin,
-				dest,
-				value,
-				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
-				data,
-			);
+			block_storage::with_ethereum_context(|| {
+				let mut output = Self::bare_call(
+					origin,
+					dest,
+					value,
+					gas_limit,
+					DepositLimit::Balance(storage_deposit_limit),
+					data,
+				);
 
-			if let Ok(return_value) = &output.result {
-				if return_value.did_revert() {
-					output.result = Err(<Error<T>>::ContractReverted.into());
+				if let Ok(return_value) = &output.result {
+					if return_value.did_revert() {
+						output.result = Err(<Error<T>>::ContractReverted.into());
+					}
 				}
-			}
 
-			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+				Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
-			dispatch_result(
-				output.result,
-				output.gas_consumed,
-				T::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
-			)
+				dispatch_result(
+					output.result,
+					output.gas_consumed,
+					T::WeightInfo::eth_call(Pallet::<T>::has_dust(value).into()),
+				)
+			})
 		}
 
 		/// Upload new `code` without instantiating a contract from it.
@@ -1765,7 +1784,9 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		if matches!(event, Event::ContractEmitted { .. }) {
+		if matches!(event, Event::ContractEmitted { .. }) &&
+			block_storage::is_executing_ethereum_call()
+		{
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::mutate(|events| {
 				events.push(event.clone());
