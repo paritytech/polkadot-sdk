@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_primitives_core::ParaId;
 use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::{ChainSpec, ChainType};
 use std::str::FromStr;
@@ -118,7 +117,6 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
-	use super::ParaId;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
@@ -157,7 +155,6 @@ pub mod rococo {
 
 /// Sub-module for Westend setup.
 pub mod westend {
-	use super::ParaId;
 	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 	use sc_chain_spec::ChainType;
 
