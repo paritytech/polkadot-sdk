@@ -2327,6 +2327,22 @@ mod benchmarks {
 		(signer_caller, signer_key, signer_address)
 	}
 
+	// Helper function to extract contract events from system events
+	fn get_contract_events<T: Config>() -> Vec<
+		frame_system::EventRecord<
+			<T as frame_system::Config>::RuntimeEvent,
+			<T as frame_system::Config>::Hash,
+		>,
+	> {
+		frame_system::Pallet::<T>::events()
+			.into_iter()
+			.filter(|event_record| {
+				// Use string representation to identify contract events
+				format!("{:?}", event_record.event).contains("ContractEmitted")
+			})
+			.collect()
+	}
+
 	// Helper function to create and sign a transaction for finalize_block benchmark
 	fn create_signed_transaction(
 		signer_key: &SigningKey,
@@ -2355,28 +2371,54 @@ mod benchmarks {
 		signed_tx.signed_payload()
 	}
 
+	// Macro to generate common finalize_block benchmark setup
+	macro_rules! setup_finalize_block_benchmark {
+		() => {{
+			// Setup test signer
+			let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
+			whitelist_account!(signer_caller);
+
+			// Setup contract instance
+			let instance =
+				Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+			let origin = RawOrigin::Signed(signer_caller.clone());
+			let storage_deposit = default_deposit_limit::<T>();
+			let value = Pallet::<T>::min_balance();
+			let evm_value =
+				Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+
+			// Create signed transaction
+			let signed_payload =
+				create_signed_transaction(&signer_key, instance.address, value.into());
+
+			// Setup block
+			let current_block = BlockNumberFor::<T>::from(1u32);
+			frame_system::Pallet::<T>::set_block_number(current_block);
+
+			(
+				signer_caller,
+				instance,
+				origin,
+				storage_deposit,
+				evm_value,
+				signed_payload,
+				current_block,
+			)
+		}};
+	}
+
 	// `c`: number of transactions to fit in the block
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block_transaction_processing(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		// Setup test signer
-		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
-		whitelist_account!(signer_caller);
-
-		// Setup contract instance
-		let instance =
-			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-		let origin = RawOrigin::Signed(signer_caller.clone());
-		let storage_deposit = default_deposit_limit::<T>();
-		let value = Pallet::<T>::min_balance();
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
-
-		// Create signed transaction
-		let signed_payload = create_signed_transaction(&signer_key, instance.address, value.into());
-
-		// Setup block
-		let current_block = BlockNumberFor::<T>::from(1u32);
-		frame_system::Pallet::<T>::set_block_number(current_block);
+		let (
+			_signer_caller,
+			instance,
+			origin,
+			storage_deposit,
+			evm_value,
+			signed_payload,
+			current_block,
+		) = setup_finalize_block_benchmark!();
 
 		#[block]
 		{
@@ -2400,55 +2442,40 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Setup next block and verify results
-		let next_block = BlockNumberFor::<T>::from(2u32);
-		frame_system::Pallet::<T>::set_block_number(next_block);
-		let _ = Pallet::<T>::on_initialize(next_block);
-
 		// Verify block was properly finalized
-		let block_author = Pallet::<T>::block_author();
-		assert!(block_author.is_some());
+		assert!(Pallet::<T>::block_author().is_some());
 
-		let block = Pallet::<T>::eth_block();
-		assert_eq!(block.transactions.len(), c as usize);
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), c as usize);
+
+		// Verify contract events count
+		let contract_events = get_contract_events::<T>();
+		assert_eq!(contract_events.len(), 0);
 
 		Ok(())
 	}
 
 	// `e`: number of events to emit during finalize_block processing
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block_event_processing(e: Linear<0, 50>) -> Result<(), BenchmarkError> {
-		// Setup test signer
-		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
-		whitelist_account!(signer_caller);
-
-		// For this benchmark, we'll use a simple approach: create a contract and call it
-		// multiple times to generate exactly `e` events total
-		let instance =
-			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-		let origin = RawOrigin::Signed(signer_caller.clone());
-		let storage_deposit = default_deposit_limit::<T>();
-		let value = Pallet::<T>::min_balance();
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
-
-		// Create signed transaction
-		let signed_payload = create_signed_transaction(&signer_key, instance.address, value.into());
-
-		// Setup block
-		let current_block = BlockNumberFor::<T>::from(1u32);
-		frame_system::Pallet::<T>::set_block_number(current_block);
+	fn finalize_block_event_processing(e: Linear<2, 50>) -> Result<(), BenchmarkError> {
+		let (
+			_signer_caller,
+			instance,
+			origin,
+			storage_deposit,
+			evm_value,
+			signed_payload,
+			current_block,
+		) = setup_finalize_block_benchmark!();
 
 		// PRE-SETUP: Create events OUTSIDE the benchmark block to avoid measuring
 		// string formatting and storage insertion costs
 		for i in 0..e {
-			// Create a test event for each iteration (NOT measured)
 			let test_event = Event::<T>::ContractEmitted {
 				contract: instance.address,
 				data: format!("test_event_{}", i).into_bytes(),
 				topics: vec![H256::from_low_u64_be(i as u64)],
 			};
-			// Store event for processing during finalize_block (NOT measured)
 			Pallet::<T>::deposit_event(test_event);
 		}
 
@@ -2472,14 +2499,15 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify that events were processed
-		let next_block = BlockNumberFor::<T>::from(2u32);
-		frame_system::Pallet::<T>::set_block_number(next_block);
-		let _ = Pallet::<T>::on_initialize(next_block);
-
 		// Verify block was properly finalized
-		let block_author = Pallet::<T>::block_author();
-		assert!(block_author.is_some());
+		assert!(Pallet::<T>::block_author().is_some());
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		// Verify contract events count
+		let contract_events = get_contract_events::<T>();
+		assert_eq!(contract_events.len(), e as usize);
 
 		Ok(())
 	}
@@ -2487,39 +2515,34 @@ mod benchmarks {
 	// `d`: total event data size in bytes to process during finalize_block
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block_event_data_processing(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
-		// Setup test signer
-		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
-		whitelist_account!(signer_caller);
+		let (
+			_signer_caller,
+			instance,
+			origin,
+			storage_deposit,
+			evm_value,
+			signed_payload,
+			current_block,
+		) = setup_finalize_block_benchmark!();
 
-		// Setup contract instance
-		let instance =
-			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-		let origin = RawOrigin::Signed(signer_caller.clone());
-		let storage_deposit = default_deposit_limit::<T>();
-		let value = Pallet::<T>::min_balance();
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
-
-		// Create signed transaction
-		let signed_payload = create_signed_transaction(&signer_key, instance.address, value.into());
-
-		// Setup block
-		let current_block = BlockNumberFor::<T>::from(1u32);
-		frame_system::Pallet::<T>::set_block_number(current_block);
-
+		let mut target_events = 0;
 		// PRE-SETUP: Create events with varying data sizes OUTSIDE the benchmark block
 		// This avoids measuring vector allocation and storage costs
 		if d > 0 {
 			// Distribute data across multiple events to test realistic scenarios
-			let target_events = if d <= 1024 { 1 } else if d <= 4096 { 4 } else { 8 };
+			target_events = if d <= 1024 {
+				1
+			} else if d <= 4096 {
+				4
+			} else {
+				8
+			};
 			let data_per_event = d / target_events;
 			let remaining_data = d % target_events;
 
 			for i in 0..target_events {
 				// Calculate data size for this event
 				let event_data_size = data_per_event + if i == 0 { remaining_data } else { 0 };
-
-				// Create event data of specified size (NOT measured)
 				let event_data = vec![0x42u8; event_data_size as usize];
 
 				let test_event = Event::<T>::ContractEmitted {
@@ -2528,7 +2551,6 @@ mod benchmarks {
 					topics: vec![H256::from_low_u64_be(i as u64)],
 				};
 
-				// Store event for processing during finalize_block (NOT measured)
 				Pallet::<T>::deposit_event(test_event);
 			}
 		}
@@ -2553,14 +2575,15 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify that events were processed
-		let next_block = BlockNumberFor::<T>::from(2u32);
-		frame_system::Pallet::<T>::set_block_number(next_block);
-		let _ = Pallet::<T>::on_initialize(next_block);
-
 		// Verify block was properly finalized
-		let block_author = Pallet::<T>::block_author();
-		assert!(block_author.is_some());
+		assert!(Pallet::<T>::block_author().is_some());
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		// Verify contract events count
+		let contract_events = get_contract_events::<T>();
+		assert_eq!(contract_events.len(), target_events as usize);
 
 		Ok(())
 	}
