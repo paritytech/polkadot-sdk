@@ -206,6 +206,14 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
 
+	/// Transfer all funds to `beneficiary`.
+	///
+	/// The contract is *NOT* deleted.
+	///
+	/// This function will fail if the same contract is present on the contract
+	/// call stack.
+	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult;
+
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -1672,6 +1680,30 @@ where
 		ImmutableDataOf::<T>::remove(&account_address);
 		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
+		Ok(())
+	}
+
+	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
+		if self.is_recursive() {
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
+		}
+		let frame = self.top_frame_mut();
+		if frame.entry_point == ExportedFunction::Constructor {
+			return Err(Error::<T>::TerminatedInConstructor.into());
+		}
+		let from = self.account_id();
+		let to = T::AddressMapper::to_account_id(beneficiary);
+		let value: U256 = self.balance();
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+		if value.is_zero() {
+			return Ok(());
+		}
+		let (value, dust) = value.deconstruct();
+		T::Currency::transfer(from, &to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
 		Ok(())
 	}
 

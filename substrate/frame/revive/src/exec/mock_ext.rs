@@ -243,6 +243,10 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::terminate")
 	}
 
+	fn selfdestruct(&mut self, _beneficiary: &H160) -> DispatchResult {
+		panic!("MockExt::terminate")
+	}
+
 	fn own_code_hash(&mut self) -> &H256 {
 		panic!("MockExt::own_code_hash")
 	}
