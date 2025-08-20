@@ -3,8 +3,6 @@ doc:
 - audience: Runtime Dev
   description: |-
     - Update serde encoding for eth-rpc to match serialization behavior of Geth
-    - Update GAS_PRICE to 1_000_000 to make the gas fit on u64 on Kitchensink
-    - Update gas_price reported by block transaction for eip1559 to be the effective_gas_price (min(max_gas_per_fee, base_fee_per_gas + priority_gas_per_fee)
 crates:
 - name: pallet-revive
   bump: patch
