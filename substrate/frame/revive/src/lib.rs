@@ -978,6 +978,8 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin.clone())?;
+
 			let code_len = code.len() as u32;
 			let data_len = data.len() as u32;
 			let mut output = Self::bare_instantiate(
@@ -1025,6 +1027,8 @@ pub mod pallet {
 			data: Vec<u8>,
 			payload: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin.clone())?;
+
 			let mut output = Self::bare_call(
 				origin,
 				dest,
