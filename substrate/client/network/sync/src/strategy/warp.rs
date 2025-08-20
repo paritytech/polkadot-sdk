@@ -744,7 +744,7 @@ mod test {
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
-	use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
+	use sp_consensus_grandpa::{AuthorityList, SetId};
 	use sp_core::H256;
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 	use std::{io::ErrorKind, sync::Arc};
@@ -849,8 +849,13 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_db_with_finalized_state_is_noop() {
 		let client = mock_client_with_state();
-		let config =
-			WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(1, Default::default()));
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
@@ -894,8 +899,13 @@ mod test {
 	#[test]
 	fn warp_sync_to_target_for_empty_db_doesnt_finish_instantly() {
 		let client = mock_client_without_state();
-		let config =
-			WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(1, Default::default()));
+		let config = WarpSyncConfig::WithTarget(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 		let mut warp_sync = WarpSync::new(
 			Arc::new(client),
 			config,
@@ -1091,7 +1101,13 @@ mod test {
 		}
 
 		// Manually set to another phase.
-		warp_sync.phase = Phase::TargetBlock(<Block as BlockT>::Header::new(1, Default::default()));
+		warp_sync.phase = Phase::TargetBlock(<Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		));
 
 		// No request is made.
 		assert!(warp_sync.warp_proof_request().is_none());
@@ -1214,33 +1230,19 @@ mod test {
 
 	#[test]
 	fn partial_warp_proof_doesnt_advance_phase() {
-		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let client = mock_client_without_state();
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		provider
 			.expect_current_authorities()
 			.once()
 			.return_const(AuthorityList::default());
-		let target_block = BlockBuilderBuilder::new(&*client)
-			.on_parent_block(client.chain_info().best_hash)
-			.with_parent_block_number(client.chain_info().best_number)
-			.build()
-			.unwrap()
-			.build()
-			.unwrap()
-			.block;
-		let target_header = target_block.header().clone();
-		let justifications = Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is partial.
-		{
-			let target_header = target_header.clone();
-			let justifications = justifications.clone();
-			provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-				Ok(VerificationResult::Partial(set_id, authorities, target_header.hash()))
-			});
-		}
+		provider.expect_verify().return_once(|_proof, set_id, authorities| {
+			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
+		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
-			client,
+			Arc::new(client),
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
@@ -1265,29 +1267,7 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert_eq!(warp_sync.actions.len(), 1);
-		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
-		else {
-			panic!("Expected `ImportBlocks` action.");
-		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
-		assert_eq!(blocks.len(), 1);
-		let import_block = blocks.pop().unwrap();
-		assert_eq!(
-			import_block,
-			IncomingBlock {
-				hash: target_header.hash(),
-				header: Some(target_header),
-				body: None,
-				indexed_body: None,
-				justifications: Some(justifications),
-				origin: Some(request_peer_id),
-				allow_missing_state: true,
-				skip_execution: true,
-				import_existing: false,
-				state: None,
-			}
-		);
+		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
@@ -1308,15 +1288,10 @@ mod test {
 			.unwrap()
 			.block;
 		let target_header = target_block.header().clone();
-		let justifications = Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is complete.
-		{
-			let target_header = target_header.clone();
-			let justifications = justifications.clone();
-			provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-				Ok(VerificationResult::Complete(set_id, authorities, target_header.clone()))
-			});
-		}
+		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			client,
@@ -1344,29 +1319,7 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert_eq!(warp_sync.actions.len(), 1);
-		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
-		else {
-			panic!("Expected `ImportBlocks` action.");
-		};
-		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
-		assert_eq!(blocks.len(), 1);
-		let import_block = blocks.pop().unwrap();
-		assert_eq!(
-			import_block,
-			IncomingBlock {
-				hash: target_header.hash(),
-				header: Some(target_header),
-				body: None,
-				indexed_body: None,
-				justifications: Some(justifications),
-				origin: Some(request_peer_id),
-				allow_missing_state: true,
-				skip_execution: true,
-				import_existing: false,
-				state: None,
-			}
-		);
+		assert!(warp_sync.actions.is_empty(), "No extra actions generated.");
 		assert!(
 			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
 		);
