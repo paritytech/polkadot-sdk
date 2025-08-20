@@ -17,15 +17,10 @@
 
 use super::Context;
 
-use crate::{
-	vm::Ext,
-	RuntimeCosts,
-	Key,
-	storage::WriteOutcome,
-};
+use crate::{storage::WriteOutcome, vm::Ext, Key, RuntimeCosts};
 use revm::{
 	interpreter::{
-		gas::self,
+		gas,
 		host::Host,
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
@@ -82,16 +77,16 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
-    
+
 	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
-    let Some(code) = crate::PristineCode::<E::T>::get(&code_hash)
-        .map(|bounded_vec| bounded_vec.into_inner())
-    else {
-        context.interpreter.halt(InstructionResult::Revert);
-        return;
-    };
+	let Some(code) =
+		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.into_inner())
+	else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
 
 	let Ok(code_offset) = code_offset.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
@@ -101,7 +96,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-    let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
+	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
@@ -109,18 +104,21 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-    let Ok(memory_offset) = memory_offset.try_into() else {
+	let Ok(memory_offset) = memory_offset.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
 
 	// Copy cost: 3 gas per 32-byte word
-    let copy_gas = (memory_len.div_ceil(32) * 3) as u32; // Round up to nearest 32-byte boundary
-	// static gas for this instruction 100
-    // gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
+	let copy_gas = (memory_len.div_ceil(32) * 3) as u32; // Round up to nearest 32-byte boundary
+													  // static gas for this instruction 100
+													  // gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
 	gas!(context.interpreter, RuntimeCosts::CallDataCopy(100 + copy_gas));
 
-    context.interpreter.memory.set_data(memory_offset, code_offset, memory_len, &code);
+	context
+		.interpreter
+		.memory
+		.set_data(memory_offset, code_offset, memory_len, &code);
 }
 
 /// Implements the BLOCKHASH instruction.
@@ -142,11 +140,7 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let diff = if diff > sp_core::U256::from(u64::MAX) {
-    	u64::MAX
-	} else {
-		diff.low_u64()
-	};
+	let diff = if diff > sp_core::U256::from(u64::MAX) { u64::MAX } else { diff.low_u64() };
 
 	// blockhash should push zero if number is same as current block number.
 	if diff == 0 {
@@ -172,22 +166,22 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
 	gas!(context.interpreter, RuntimeCosts::GetStorage(32)); // TODO: correct number here?
-    let key = Key::Fix(index.to_be_bytes());
-    let value = context.interpreter.extend.get_storage(&key);
+	let key = Key::Fix(index.to_be_bytes());
+	let value = context.interpreter.extend.get_storage(&key);
 
-    *index = if let Some(storage_value) = value {
+	*index = if let Some(storage_value) = value {
 		if storage_value.len() != 32 {
 			// sload always reads a word
 			context.interpreter.halt(InstructionResult::Revert);
 			return;
 		}
 		let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(&storage_value);
-        U256::from_be_bytes(bytes)
-    } else {
+		bytes.copy_from_slice(&storage_value);
+		U256::from_be_bytes(bytes)
+	} else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
-    };
+	};
 }
 
 /// Implements the SSTORE instruction.
@@ -197,23 +191,30 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
-	
-    let key = Key::Fix(index.to_be_bytes());
+
+	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-    let Ok(write_outcome) = context.interpreter.extend.set_storage(&key, Some(value.to_be_bytes::<32>().to_vec()), take_old) else {
+	let Ok(write_outcome) = context.interpreter.extend.set_storage(
+		&key,
+		Some(value.to_be_bytes::<32>().to_vec()),
+		take_old,
+	) else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
 	match write_outcome {
 		WriteOutcome::New => {
-			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
-		}
+			gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: 0, new_bytes: 32 });
+		},
 		WriteOutcome::Overwritten(overwritten_bytes) => {
-			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: overwritten_bytes, new_bytes: 32});
-		}
+			gas!(
+				context.interpreter,
+				RuntimeCosts::SetStorage { old_bytes: overwritten_bytes, new_bytes: 32 }
+			);
+		},
 		WriteOutcome::Taken(_) => {
-			gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 32, new_bytes: 32});
-		}
+			gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: 32, new_bytes: 32 });
+		},
 	}
 }
 
@@ -226,18 +227,18 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
-    let key = Key::Fix(index.to_be_bytes());
+	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
 	let _write_outcome = context.interpreter.extend.set_transient_storage(
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
-		take_old
+		take_old,
 	);
 
 	// TODO: decide if we need to handle this outcome
 	// match write_outcome {
 	// 	WriteOutcome::New => {
-	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32}); 
+	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32});
 	// 	}
 	// 	WriteOutcome::Overwritten(overwritten_bytes) => {
 	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: overwritten_bytes, new_bytes: 32});
@@ -319,11 +320,11 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		Ok(_) => {
 			context.interpreter.halt(InstructionResult::SelfDestruct);
 			return;
-		}
+		},
 		Err(e) => {
 			log::error!("Selfdestruct failed: {:?}", e);
 			context.interpreter.halt(InstructionResult::Revert);
 			return;
-		}
+		},
 	}
 }
