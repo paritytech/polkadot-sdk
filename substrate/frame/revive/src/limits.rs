@@ -32,11 +32,16 @@
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
 
+/// The amount of total memory we require to safely operate.
+///
+/// This is not a config knob but derived from the limits in this file.
+pub const MEMORY_REQUIRED: u32 = memory_required();
+
 /// The maximum depth of the call stack.
 ///
 /// A 0 means that no callings of other contracts are possible. In other words only the origin
 /// called "root contract" is allowed to execute then.
-pub const CALL_STACK_DEPTH: u32 = 5;
+pub const CALL_STACK_DEPTH: u32 = 25;
 
 /// The maximum number of topics a call to [`crate::SyscallDoc::deposit_event`] can emit.
 ///
@@ -45,6 +50,11 @@ pub const NUM_EVENT_TOPICS: u32 = 4;
 
 /// Maximum size of events (including topics) and storage values.
 pub const PAYLOAD_BYTES: u32 = 416;
+
+/// The maximum size for calldata and return data.
+///
+/// Please note that the calldata is limited to 128KB on geth anyways.
+pub const CALLDATA_BYTES: u32 = 128 * 1024;
 
 /// The maximum size of the transient storage in bytes.
 ///
@@ -79,17 +89,11 @@ pub mod code {
 	/// The maximum length of a code blob in bytes.
 	///
 	/// This mostly exist to prevent parsing too big blobs and to
-	/// have a maximum encoded length. The actual memory calculation
-	/// is purely based off [`STATIC_MEMORY_BYTES`].
-	pub const BLOB_BYTES: u32 = 256 * 1024;
+	/// have a maximum encoded length.
+	pub const BLOB_BYTES: u32 = 1024 * 1024;
 
-	/// Maximum size the program is allowed to take in memory.
-	///
-	/// This includes data and code. Increasing this limit will allow
-	/// for more code or more data. However, since code will decompress
-	/// into a bigger representation on compilation it will only increase
-	/// the allowed code size by [`BYTE_PER_INSTRUCTION`].
-	pub const STATIC_MEMORY_BYTES: u32 = 2 * 1024 * 1024;
+	/// The maximum amount of memory the interpreter is allowed to use for compilation artifacts.
+	pub const INTERPRETER_CACHE_BYTES: u32 = 1024 * 1024;
 
 	/// The maximum size of a basic block in number of instructions.
 	///
@@ -98,26 +102,30 @@ pub mod code {
 	/// of the whole program by creating one giant basic block otherwise.
 	pub const BASIC_BLOCK_SIZE: u32 = 1000;
 
-	/// How much memory each instruction will take in-memory after compilation.
+	/// The limit for memory that can be purged on demand.
 	///
-	/// This is `size_of<usize>() + 16`. But we don't use `usize` here so it isn't
-	/// different on the native runtime (used for testing).
-	pub const BYTES_PER_INSTRUCTION: u32 = 20;
+	/// We purge this memory every time we call into another contract.
+	/// Hence we effectively only need to hold it once in RAM.
+	pub const PURGABLE_MEMORY_LIMIT: u32 = INTERPRETER_CACHE_BYTES + 2 * 1024 * 1024;
 
-	/// The code is stored multiple times as part of the compiled program.
-	const EXTRA_OVERHEAD_PER_CODE_BYTE: u32 = 4;
+	/// The limit for memory that needs to be kept alive for a contracts whole life time.
+	///
+	/// This means tuning this number affects the call stack depth.
+	pub const BASELINE_MEMORY_LIMIT: u32 = BLOB_BYTES + 512 * 1024;
 
 	/// Make sure that the various program parts are within the defined limits.
 	pub fn enforce<T: Config>(
 		blob: Vec<u8>,
 		available_syscalls: &[&[u8]],
 	) -> Result<CodeVec, DispatchError> {
-		fn round_page(n: u32) -> u64 {
-			// performing the rounding in u64 in order to prevent overflow
-			u64::from(n).next_multiple_of(PAGE_SIZE.into())
-		}
+		use polkavm::program::ISA64_V1 as ISA;
+		use polkavm_common::program::EstimateInterpreterMemoryUsageArgs;
 
-		let blob: CodeVec = blob.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+		let len: u64 = blob.len() as u64;
+		let blob: CodeVec = blob.try_into().map_err(|_| {
+			log::debug!(target: LOG_TARGET, "contract blob too large: {len} limit: {}", BLOB_BYTES);
+			<Error<T>>::BlobTooLarge
+		})?;
 
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
@@ -158,17 +166,18 @@ pub mod code {
 		// This scans the whole program but we only do it once on code deployment.
 		// It is safe to do unchecked math in u32 because the size of the program
 		// was already checked above.
-		use polkavm::program::ISA64_V1 as ISA;
-		let mut num_instructions: u32 = 0;
-		let mut max_basic_block_size: u32 = 0;
-		let mut basic_block_size: u32 = 0;
+		let mut max_block_size: u32 = 0;
+		let mut block_size: u32 = 0;
+		let mut basic_block_count: u32 = 0;
+		let mut instruction_count: u32 = 0;
 		for inst in program.instructions(ISA) {
 			use polkavm::program::Instruction;
-			num_instructions += 1;
-			basic_block_size += 1;
+			block_size += 1;
+			instruction_count += 1;
 			if inst.kind.opcode().starts_new_basic_block() {
-				max_basic_block_size = max_basic_block_size.max(basic_block_size);
-				basic_block_size = 0;
+				max_block_size = max_block_size.max(block_size);
+				block_size = 0;
+				basic_block_count += 1;
 			}
 			match inst.kind {
 				Instruction::invalid => {
@@ -190,37 +199,62 @@ pub mod code {
 				_ => (),
 			}
 		}
+		max_block_size = max_block_size.max(block_size);
 
-		if max_basic_block_size > BASIC_BLOCK_SIZE {
-			log::debug!(target: LOG_TARGET, "basic block too large: {max_basic_block_size} limit: {BASIC_BLOCK_SIZE}");
+		if max_block_size > BASIC_BLOCK_SIZE {
+			log::debug!(target: LOG_TARGET, "basic block too large: {max_block_size} limit: {BASIC_BLOCK_SIZE}");
 			return Err(Error::<T>::BasicBlockTooLarge.into())
 		}
 
-		// The memory consumptions is the byte size of the whole blob,
-		// minus the RO data payload in the blob,
-		// minus the RW data payload in the blob,
-		// plus the RO data in memory (which is always equal or bigger than the RO payload),
-		// plus RW data in memory, plus stack size in memory.
-		// plus the overhead of instructions in memory which is derived from the code
-		// size itself and the number of instruction
-		let memory_size = (blob.len() as u64)
-			.saturating_add(round_page(program.ro_data_size()))
-			.saturating_sub(program.ro_data().len() as u64)
-			.saturating_add(round_page(program.rw_data_size()))
-			.saturating_sub(program.rw_data().len() as u64)
-			.saturating_add(round_page(program.stack_size()))
-			.saturating_add(
-				u64::from(num_instructions).saturating_mul(BYTES_PER_INSTRUCTION.into()),
-			)
-			.saturating_add(
-				(program.code().len() as u64).saturating_mul(EXTRA_OVERHEAD_PER_CODE_BYTE.into()),
-			);
+		let usage_args = EstimateInterpreterMemoryUsageArgs::BoundedCache {
+			max_cache_size_bytes: INTERPRETER_CACHE_BYTES,
+			instruction_count,
+			max_block_size,
+			basic_block_count,
+			page_size: PAGE_SIZE,
+		};
 
-		if memory_size > STATIC_MEMORY_BYTES.into() {
-			log::debug!(target: LOG_TARGET, "static memory too large: {memory_size} limit: {STATIC_MEMORY_BYTES}");
+		let program_info =
+			program.estimate_interpreter_memory_usage(usage_args).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "failed to estimate memory usage of program: {err:?}");
+				Error::<T>::CodeRejected
+			})?;
+
+		log::debug!(
+			target: LOG_TARGET, "Contract memory usage: purgable={}/{} KB baseline={}/{}",
+			program_info.purgeable_ram_consumption, PURGABLE_MEMORY_LIMIT,
+			program_info.baseline_ram_consumption, BASELINE_MEMORY_LIMIT,
+		);
+
+		if program_info.purgeable_ram_consumption > PURGABLE_MEMORY_LIMIT {
+			log::debug!(target: LOG_TARGET, "contract uses too much purgeable memory: {} limit: {}",
+				program_info.purgeable_ram_consumption,
+				PURGABLE_MEMORY_LIMIT,
+			);
+			return Err(Error::<T>::StaticMemoryTooLarge.into())
+		}
+
+		if program_info.baseline_ram_consumption > BASELINE_MEMORY_LIMIT {
+			log::debug!(target: LOG_TARGET, "contract uses too much baseline memory: {} limit: {}",
+				program_info.baseline_ram_consumption,
+				BASELINE_MEMORY_LIMIT,
+			);
 			return Err(Error::<T>::StaticMemoryTooLarge.into())
 		}
 
 		Ok(blob)
 	}
+}
+
+/// The amount of total memory we require.
+///
+/// Unchecked math is okay since we evaluate at compile time.
+const fn memory_required() -> u32 {
+	// The root frame is not accounted for in CALL_STACK_DEPTH
+	let max_call_depth = CALL_STACK_DEPTH + 1;
+
+	let per_stack_memory = code::PURGABLE_MEMORY_LIMIT + TRANSIENT_STORAGE_BYTES * 2;
+	let per_frame_memory = code::BASELINE_MEMORY_LIMIT + CALLDATA_BYTES * 2;
+
+	per_stack_memory + max_call_depth * per_frame_memory
 }
