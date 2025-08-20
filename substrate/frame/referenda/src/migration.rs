@@ -203,6 +203,17 @@ pub mod v1 {
 		pub alarm: Option<(Moment, ScheduleAddress)>,
 	}
 
+	pub type ReferendumStatusOf<T, I> = ReferendumStatus<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		SystemBlockNumberFor<T>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
 	#[derive(
 		Encode,
 		Decode,
@@ -249,7 +260,7 @@ pub mod v1 {
 		Killed(Moment),
 	}
 
-	pub(crate) type ReferendumInfoOf<T, I> = ReferendumInfo<
+	pub type ReferendumInfoOf<T, I> = ReferendumInfo<
 		TrackIdOf<T, I>,
 		PalletsOriginOf<T>,
 		SystemBlockNumberFor<T>,
@@ -478,7 +489,7 @@ pub mod v2 {
 	use super::*;
 
 	/// The log target.
-	const TARGET: &'static str = "runtime::referenda::migration::v2";
+	const _TARGET: &'static str = "runtime::referenda::migration::v2";
 
 	/// v2 ReferendumStatus (decision_deposit structure changed).
 	#[derive(
@@ -608,124 +619,147 @@ pub mod v2 {
 		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, v2::ReferendumInfoOf<T, I>>;
 }
 
-// #[cfg(test)]
-// pub mod test {
-// 	use super::*;
-// 	use crate::{
-// 		migration::switch_block_number_provider::{
-// 			migrate_block_number_provider, BlockNumberConversion,
-// 		},
-// 		mock::{Test as T, *},
-// 	};
-// 	use core::str::FromStr;
+#[cfg(test)]
+pub mod test {
+	use super::*;
+	use crate::{
+		migration::switch_block_number_provider::{
+			migrate_block_number_provider, BlockNumberConversion,
+		},
+		mock::{Test as T, *},
+	};
+	use core::str::FromStr;
 
-// 	// create referendum status v0.
-// 	fn create_status_v0() -> v0::ReferendumStatusOf<T, ()> {
-// 		let origin: OriginCaller = frame_system::RawOrigin::Root.into();
-// 		let track = <T as Config<()>>::Tracks::track_for(&origin).unwrap();
-// 		v0::ReferendumStatusOf::<T, ()> {
-// 			track,
-// 			in_queue: true,
-// 			origin,
-// 			proposal: set_balance_proposal_bounded(1),
-// 			enactment: DispatchTime::At(1),
-// 			tally: TallyOf::<T, ()>::new(track),
-// 			submission_deposit: Deposit { who: 1, amount: 10 },
-// 			submitted: 1,
-// 			decision_deposit: None,
-// 			alarm: None,
-// 			deciding: None,
-// 		}
-// 	}
-// 	#[test]
-// 	pub fn referendum_status_v0() {
-// 		// make sure the bytes of the encoded referendum v0 is decodable.
-// 		let ongoing_encoded =
-// sp_core::Bytes::from_str("
-// 0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100"
-// ).unwrap(); 		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut
-// &*ongoing_encoded).unwrap(); 		let ongoing = v0::ReferendumInfoOf::<T,
-// ()>::Ongoing(create_status_v0()); 		assert_eq!(ongoing, ongoing_dec);
-// 	}
+	// create referendum status v0.
+	fn create_status_v0() -> v0::ReferendumStatusOf<T, ()> {
+		let origin: OriginCaller = frame_system::RawOrigin::Root.into();
+		let track = <T as Config<()>>::Tracks::track_for(&origin).unwrap();
+		v0::ReferendumStatusOf::<T, ()> {
+			track,
+			in_queue: true,
+			origin,
+			proposal: set_balance_proposal_bounded(1),
+			enactment: DispatchTime::At(1),
+			tally: TallyOf::<T, ()>::new(track),
+			submission_deposit: Deposit { who: 1, amount: 10 },
+			submitted: 1,
+			decision_deposit: None,
+			alarm: None,
+			deciding: None,
+		}
+	}
 
-// 	#[test]
-// 	fn migration_v0_to_v1_works() {
-// 		ExtBuilder::default().build_and_execute(|| {
-// 			// create and insert into the storage an ongoing referendum v0.
-// 			let status_v0 = create_status_v0();
-// 			let ongoing_v0 = v0::ReferendumInfoOf::<T, ()>::Ongoing(status_v0.clone());
-// 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
-// 			v0::ReferendumInfoFor::<T, ()>::insert(2, ongoing_v0);
-// 			// create and insert into the storage an approved referendum v0.
-// 			let approved_v0 = v0::ReferendumInfoOf::<T, ()>::Approved(
-// 				123,
-// 				Deposit { who: 1, amount: 10 },
-// 				Some(Deposit { who: 2, amount: 20 }),
-// 			);
-// 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
-// 			v0::ReferendumInfoFor::<T, ()>::insert(5, approved_v0);
-// 			// run migration from v0 to v1.
-// 			v1::MigrateV0ToV1::<T, ()>::on_runtime_upgrade();
-// 			// fetch and assert migrated into v1 the ongoing referendum.
-// 			let ongoing_v1 = v1::ReferendumInfoFor::<T, ()>::get(2).unwrap();
-// 			// referendum status schema is the same for v0 and v1.
-// 			assert_eq!(v1::ReferendumInfoOf::<T, ()>::Ongoing(status_v0), ongoing_v1);
-// 			// fetch and assert migrated into v1 the approved referendum.
-// 			let approved_v1 = v1::ReferendumInfoFor::<T, ()>::get(5).unwrap();
-// 			assert_eq!(
-// 				approved_v1,
-// 				v1::ReferendumInfoOf::<T, ()>::Approved(
-// 					123,
-// 					Some(Deposit { who: 1, amount: 10 }),
-// 					Some(Deposit { who: 2, amount: 20 }),
-// 				)
-// 			);
-// 		});
-// 	}
+	// create referendum status v1.
+	fn create_status_v1() -> v1::ReferendumStatusOf<T, ()> {
+		let origin: OriginCaller = frame_system::RawOrigin::Root.into();
+		let track = <T as Config<()>>::Tracks::track_for(&origin).unwrap();
+		v1::ReferendumStatusOf::<T, ()> {
+			track,
+			in_queue: true,
+			origin,
+			proposal: set_balance_proposal_bounded(1),
+			enactment: DispatchTime::At(1),
+			tally: TallyOf::<T, ()>::new(track),
+			submission_deposit: Deposit { who: 1, amount: 10 },
+			submitted: 1,
+			decision_deposit: None,
+			alarm: None,
+			deciding: None,
+		}
+	}
 
-// 	#[test]
-// 	fn migration_v1_to_switch_block_number_provider_works() {
-// 		ExtBuilder::default().build_and_execute(|| {
-// 			pub struct MockBlockConverter;
+	#[test]
+	pub fn referendum_status_v0() {
+		// make sure the bytes of the encoded referendum v0 is decodable.
+		let ongoing_encoded = sp_core::Bytes::from_str(
+			"0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100"
+		).unwrap(); 		
+		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut &*ongoing_encoded).unwrap(); 
+		let ongoing = v0::ReferendumInfoOf::<T,()>::Ongoing(create_status_v0());
+		assert_eq!(ongoing, ongoing_dec);
+	}
 
-// 			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for
-// MockBlockConverter { 				fn convert_block_number(block_number: SystemBlockNumberFor<T>) ->
-// BlockNumberFor<T, ()> { 					block_number as u64 + 10u64
-// 				}
-// 			}
+	#[test]
+	fn migration_v0_to_v1_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			// create and insert into the storage an ongoing referendum v0.
+			let status_v0 = create_status_v0();
+			let ongoing_v0 = v0::ReferendumInfoOf::<T, ()>::Ongoing(status_v0.clone());
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v0::ReferendumInfoFor::<T, ()>::insert(2, ongoing_v0);
+			// create and insert into the storage an approved referendum v0.
+			let approved_v0 = v0::ReferendumInfoOf::<T, ()>::Approved(
+				123,
+				Deposit { who: 1, amount: 10 },
+				Some(Deposit { who: 2, amount: 20 }),
+			);
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v0::ReferendumInfoFor::<T, ()>::insert(5, approved_v0);
+			// run migration from v0 to v1.
+			v1::MigrateV0ToV1::<T, ()>::on_runtime_upgrade();
+			// fetch and assert migrated into v1 the ongoing referendum.
+			let ongoing_v1 = v1::ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			// referendum status schema is the same for v0 and v1.
+			let v1::ReferendumInfo::Ongoing(status_v1) = ongoing_v1 else {
+				panic!("Expected ReferendumInfo::Ongoing");
+			};
+			assert_eq!(status_v0.encode(), status_v1.encode());
+			// fetch and assert migrated into v1 the approved referendum.
+			let approved_v1 = v1::ReferendumInfoFor::<T, ()>::get(5).unwrap();
+			assert_eq!(
+				approved_v1,
+				v1::ReferendumInfoOf::<T, ()>::Approved(
+					123,
+					Some(Deposit { who: 1, amount: 10 }),
+					Some(Deposit { who: 2, amount: 20 }),
+				)
+			);
+		});
+	}
 
-// 			StorageVersion::new(1).put::<Pallet<T, ()>>();
+	#[test]
+	fn migration_v1_to_switch_block_number_provider_works() {
+		ExtBuilder::default().build_and_execute(|| {
+			pub struct MockBlockConverter;
 
-// 			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
-// 			let referendum_approved = v1::ReferendumInfoOf::<T, ()>::Approved(
-// 				50, //old block number
-// 				Some(Deposit { who: 1, amount: 10 }),
-// 				Some(Deposit { who: 2, amount: 20 }),
-// 			);
+			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for MockBlockConverter {
+				fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T, ()> {
+					block_number as u64 + 10u64
+				}
+			}
 
-// 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
-// 			v1::ReferendumInfoFor::<T, ()>::insert(1, referendum_ongoing);
+			StorageVersion::new(1).put::<Pallet<T, ()>>();
 
-// 			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
-// 			v1::ReferendumInfoFor::<T, ()>::insert(2, referendum_approved);
+			let referendum_ongoing = v1::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v1());
+			let referendum_approved = v1::ReferendumInfoOf::<T, ()>::Approved(
+				50, //old block number.
+				Some(Deposit { who: 1, amount: 10 }),
+				Some(Deposit { who: 2, amount: 20 }),
+			);
 
-// 			migrate_block_number_provider::<MockBlockConverter, T, ()>();
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v1::ReferendumInfoFor::<T, ()>::insert(1, referendum_ongoing);
 
-// 			let ongoing_v2 = ReferendumInfoFor::<T, ()>::get(1).unwrap();
-// 			assert_eq!(
-// 				ongoing_v2,
-// 				ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0())
-// 			);
+			ReferendumCount::<T, ()>::mutate(|x| x.saturating_inc());
+			v1::ReferendumInfoFor::<T, ()>::insert(2, referendum_approved);
 
-// 			let approved_v2 = ReferendumInfoFor::<T, ()>::get(2).unwrap();
-// 			assert_eq!(
-// 				approved_v2,
-// 				ReferendumInfoOf::<T, ()>::Approved(
-// 					60,
-// 					Some(Deposit { who: 1, amount: 10 }),
-// 					Some(Deposit { who: 2, amount: 20 })
-// 				)
-// 			);
-// 		});
-// 	}
-// }
+			migrate_block_number_provider::<MockBlockConverter, T, ()>();
+
+			let ongoing_post = switch_block_number_provider::ReferendumInfoFor::<T, ()>::get(1).unwrap();
+			assert_eq!(
+				ongoing_post,
+				switch_block_number_provider::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v1())
+			);
+
+			let approved_post = switch_block_number_provider::ReferendumInfoFor::<T, ()>::get(2).unwrap();
+			assert_eq!(
+				approved_post,
+				switch_block_number_provider::ReferendumInfoOf::<T, ()>::Approved(
+					60, // old + 10.
+					Some(Deposit { who: 1, amount: 10 }),
+					Some(Deposit { who: 2, amount: 20 })
+				)
+			);
+		});
+	}
+}
