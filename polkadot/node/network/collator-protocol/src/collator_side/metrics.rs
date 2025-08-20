@@ -231,17 +231,17 @@ pub(crate) const MAX_BACKING_DELAY: BlockNumber = 3;
 // Paras availability period. In practice, candidates time out in exceptional situations.
 pub(crate) const MAX_AVAILABILITY_DELAY: BlockNumber = 10;
 
-// Collations are kept in the tracker, until they are included or expired
+/// Collations are kept in the tracker, until they are included or expired
 #[derive(Default)]
 pub(crate) struct CollationTracker {
-	// All un-expired collation entries
+	/// All un-expired collation entries
 	entries: HashMap<Hash, CollationStats>,
 }
 
 impl CollationTracker {
-	// Mark a tracked collation as backed.
-	//
-	// Block built on top of N is earliest backed at N + 1.
+	/// Mark a tracked collation as backed.
+	///
+	/// Block built on top of N is earliest backed at N + 1.
 	pub fn collation_backed(
 		&mut self,
 		block_number: BlockNumber,
@@ -285,9 +285,9 @@ impl CollationTracker {
 		}
 	}
 
-	// Mark a previously backed collation as included.
-	//
-	// Block built on top of N is earliest included at N + 2.
+	/// Mark a previously backed collation as included.
+	///
+	/// Block built on top of N is earliest included at N + 2.
 	pub fn collation_included(
 		&mut self,
 		block_number: BlockNumber,
@@ -327,7 +327,7 @@ impl CollationTracker {
 		}
 	}
 
-	// Returns all the collations that have expired at `block_number`.
+	/// Returns all the collations that have expired at `block_number`.
 	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
 		let expired = self
 			.entries
@@ -344,7 +344,7 @@ impl CollationTracker {
 			.collect::<Vec<_>>()
 	}
 
-	// Returns all the collations that possibly finalized at `block_number`
+	/// Drain and then returns all the collations that possibly finalized at `block_number`
 	pub fn drain_finalized(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
 		let finalized = self
 			.entries
@@ -357,9 +357,9 @@ impl CollationTracker {
 			.collect::<Vec<_>>()
 	}
 
-	// Track a collation for a given period of time (TTL). TTL depends
-	// on the collation state.
-	// Collation is evicted after it expires.
+	/// Track a collation for a given period of time (TTL). TTL depends
+	/// on the collation state.
+	/// Collation is evicted after it expires.
 	pub fn track(&mut self, mut stats: CollationStats) {
 		// Disable the fetch timer, to prevent bogus observe on drop.
 		if let Some(fetch_latency_metric) = stats.fetch_latency_metric.take() {
@@ -384,30 +384,30 @@ impl CollationTracker {
 	}
 }
 
-// Information about how collations live their lives.
+/// Information about how collations live their lives.
 pub(crate) struct CollationStats {
-	// The pre-backing collation status information
+	/// The pre-backing collation status information
 	pre_backing_status: CollationStatus,
-	// The block header hash.
+	/// The block header hash.
 	head: Hash,
-	// The relay parent on top of which collation was built
+	/// The relay parent on top of which collation was built
 	relay_parent_number: BlockNumber,
-	// The relay parent hash.
+	/// The relay parent hash.
 	relay_parent: Hash,
-	// The expiration block number if expired.
+	/// The expiration block number if expired.
 	expired_at: Option<BlockNumber>,
-	// The backed block number.
+	/// The backed block number.
 	backed_at: Option<BlockNumber>,
-	// The included block number if backed.
+	/// The included block number if backed.
 	included_at: Option<BlockNumber>,
-	// The collation fetch time.
+	/// The collation fetch time.
 	fetched_at: Option<Instant>,
-	// Advertisement time
+	/// Advertisement time
 	advertised_at: Instant,
-	// The collation fetch latency (seconds).
+	/// The collation fetch latency (seconds).
 	fetch_latency_metric: Option<HistogramTimer>,
-	// The collation backing latency (seconds). Duration since collation fetched
-	// until the import of a relay chain block where collation is backed.
+	/// The collation backing latency (seconds). Duration since collation fetched
+	/// until the import of a relay chain block where collation is backed.
 	backed_latency_metric: Option<HistogramTimer>,
 }
 
@@ -484,6 +484,7 @@ impl CollationStats {
 		self.included_at = Some(included_at);
 	}
 
+	/// Set the timestamp at which collation is expired.
 	pub fn set_expired_at(&mut self, expired_at: BlockNumber) {
 		self.expired_at = Some(expired_at);
 	}
@@ -546,6 +547,7 @@ impl CollationStats {
 		expiry_block <= current_block
 	}
 
+	/// Returns true if the collation was included in a block before (or in) last finalized.
 	pub fn is_possibly_finalized(&self, last_finalized: BlockNumber) -> bool {
 		self.included_at
 			.map(|included_at| included_at <= last_finalized)
