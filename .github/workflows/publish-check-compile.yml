@@ -49,7 +49,12 @@ jobs:
           mv prdoc/$CURRENT_PRDOC .
           parity-publish --color always plan --skip-check --prdoc prdoc/
 
-      - name: parity-publish apply plan here for previous "local release"
+      # The code base is not in master's state (due to commits brought by the
+      # current PR), but we're interested in all master's prdocs to be applied
+      # as if master is a stable branch, and in next steps we're following up with
+      # a patch release of all crates based on some newly added prdocs
+      # (meaning only the current prdoc).
+      - name: parity-publish apply plan on the code state prior to current prdoc
         run: parity-publish --color always apply --registry
 
       - name: move all prdocs except current one to unstable dir
