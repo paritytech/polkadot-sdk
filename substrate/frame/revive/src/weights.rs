@@ -144,11 +144,11 @@ pub trait WeightInfo {
 	fn seal_delegate_call() -> Weight;
 	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight;
 	fn sha2_256(n: u32, ) -> Weight;
+	fn hash_blake2_256(n: u32, ) -> Weight;
+	fn hash_blake2_128(n: u32, ) -> Weight;
 	fn identity(n: u32, ) -> Weight;
 	fn ripemd_160(n: u32, ) -> Weight;
 	fn seal_hash_keccak_256(n: u32, ) -> Weight;
-	fn hash_blake2_256(n: u32, ) -> Weight;
-	fn seal_hash_blake2_128(n: u32, ) -> Weight;
 	fn seal_sr25519_verify(n: u32, ) -> Weight;
 	fn ecdsa_recover() -> Weight;
 	fn bn128_add() -> Weight;
@@ -1143,7 +1143,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(1_781, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 262144]`.
-	fn seal_hash_blake2_128(n: u32, ) -> Weight {
+	fn hash_blake2_128(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -2304,7 +2304,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(1_781, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 262144]`.
-	fn seal_hash_blake2_128(n: u32, ) -> Weight {
+	fn hash_blake2_128(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

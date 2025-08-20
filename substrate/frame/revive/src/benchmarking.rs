@@ -23,11 +23,15 @@ use crate::{
 	evm::{runtime::GAS_PRICE, TransactionLegacyUnsigned, TransactionUnsigned},
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
-	precompiles::{self, run::builtin as run_builtin_precompile},
+	precompiles::{
+		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+	},
 	storage::WriteOutcome,
+	vm::pvm,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
+use alloy_core::sol_types::SolInterface;
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -78,7 +82,7 @@ macro_rules! build_runtime(
 		let $contract = setup.contract();
 		let input = setup.data();
 		let (mut ext, _) = setup.ext();
-		let mut $runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut $runtime = $crate::vm::pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 	};
 );
 
@@ -554,35 +558,40 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_to_account_id() {
+	fn to_account_id() {
 		// use a mapped address for the benchmark, to ensure that we bench the worst
 		// case (and not the fallback case).
+		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
-			let caller = account("seal_to_account_id", 0, 0);
-			T::Currency::set_balance(&caller, caller_funding::<T>());
-			T::AddressMapper::map(&caller).unwrap();
-			T::AddressMapper::to_address(&caller)
+			T::Currency::set_balance(&account_id, caller_funding::<T>());
+			T::AddressMapper::map(&account_id).unwrap();
+			T::AddressMapper::to_address(&account_id)
 		};
 
-		let len = <T::AccountId as MaxEncodedLen>::max_encoded_len();
-		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
+		let input_bytes = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
+			input: address.0.into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_to_account_id(memory.as_mut_slice(), len as u32, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-
-		assert_ok!(result);
+		let data = result.unwrap().data;
 		assert_ne!(
-			memory.as_slice()[20..32],
+			data.as_slice()[20..32],
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(
-			T::AccountId::decode(&mut memory.as_slice()),
-			Ok(runtime.ext().to_account_id(&address))
-		);
+		assert_eq!(T::AccountId::decode(&mut data.as_slice()), Ok(account_id),);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -652,7 +661,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
@@ -791,7 +800,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.override_export(crate::exec::ExportedFunction::Constructor);
 
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let result;
 		#[block]
@@ -831,7 +840,7 @@ mod benchmarks {
 	fn seal_return_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(vec![],);
 		*runtime.ext().last_frame_output_mut() =
 			ExecReturnValue { data: vec![42; 256], ..Default::default() };
@@ -847,7 +856,7 @@ mod benchmarks {
 	fn seal_call_data_size() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; 128 as usize]);
 		let mut memory = memory!(vec![0u8; 4],);
 		let result;
 		#[block]
@@ -960,7 +969,7 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		ext.set_block_number(BlockNumberFor::<T>::from(1u32));
 
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, input);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, input);
 
 		let block_hash = H256::from([1; 32]);
 		frame_system::BlockHash::<T>::insert(
@@ -1011,7 +1020,7 @@ mod benchmarks {
 	fn seal_copy_to_contract(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 		let mut memory = memory!(n.encode(), vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -1034,7 +1043,7 @@ mod benchmarks {
 	fn seal_call_data_load() {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; 32]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; 32]);
 		let mut memory = memory!(vec![0u8; 32],);
 		let result;
 		#[block]
@@ -1049,7 +1058,7 @@ mod benchmarks {
 	fn seal_call_data_copy(n: Linear<0, { limits::code::BLOB_BYTES }>) {
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::new(&mut ext, vec![42u8; n as usize]);
+		let mut runtime = pvm::Runtime::new(&mut ext, vec![42u8; n as usize]);
 		let mut memory = memory!(vec![0u8; n as usize],);
 		let result;
 		#[block]
@@ -1070,7 +1079,10 @@ mod benchmarks {
 			result = runtime.bench_seal_return(memory.as_mut_slice(), 0, 0, n);
 		}
 
-		assert!(matches!(result, Err(crate::vm::TrapReason::Return(crate::vm::ReturnData { .. }))));
+		assert!(matches!(
+			result,
+			Err(crate::vm::pvm::TrapReason::Return(crate::vm::pvm::ReturnData { .. }))
+		));
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1085,7 +1097,7 @@ mod benchmarks {
 			result = runtime.bench_terminate(memory.as_mut_slice(), 0);
 		}
 
-		assert!(matches!(result, Err(crate::vm::TrapReason::Termination)));
+		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
 
 		Ok(())
 	}
@@ -1389,7 +1401,7 @@ mod benchmarks {
 		let value = Some(vec![42u8; max_value_len as _]);
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1412,7 +1424,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		let result;
 		#[block]
@@ -1434,7 +1446,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1460,7 +1472,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime
 			.ext()
@@ -1487,7 +1499,7 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_transient_storage_size(limits::TRANSIENT_STORAGE_BYTES);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		runtime.ext().transient_storage().meter().current_mut().limit = u32::MAX;
 		runtime.ext().transient_storage().start_transaction();
 		runtime
@@ -1700,7 +1712,7 @@ mod benchmarks {
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
 		let result;
@@ -1757,7 +1769,7 @@ mod benchmarks {
 		setup.set_storage_deposit_limit(deposit);
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes, input_bytes,);
 
 		let mut do_benchmark = || {
@@ -1803,7 +1815,7 @@ mod benchmarks {
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
 
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
 		let result;
@@ -1854,7 +1866,7 @@ mod benchmarks {
 
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
-		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 
 		let input = vec![42u8; i as _];
 		let input_len = hash_bytes.len() as u32 + input.len() as u32;
@@ -1975,9 +1987,6 @@ mod benchmarks {
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
 	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
-		use alloy_core::sol_types::SolInterface;
-
 		let input = vec![0u8; n as usize];
 		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
 			input: input.clone().into(),
@@ -2001,16 +2010,26 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 16], vec![0u8; n as usize], ]);
+	fn hash_blake2_128(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake128(ISystem::hashBlake128Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_128(memory.as_mut_slice(), 16, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_128(&memory[16..]), &memory[0..16]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_128(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Message input length to verify in bytes.
@@ -2067,7 +2086,9 @@ mod benchmarks {
 	fn bn128_add() {
 		use hex_literal::hex;
 		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b3625f8c89ea3437f44f8fc8b6bfbb6312074dc6f983809a5e809ff4e1d076dd5850b38c7ced6e4daef9c4347f370d6d8b58f4b1d8dc61a3c59d651a0644a2a27cf").to_vec();
-		let expected = hex!("0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb");
+		let expected = hex!(
+			"0a6678fd675aa4d8f0d03a1feb921a27f38ebdcb860cc083653519655acd6d79172fd5b3b2bfdd44e43bcec3eace9347608f9f0a16f1e184cb3f52e6f259cbeb"
+		);
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
@@ -2085,7 +2106,9 @@ mod benchmarks {
 	fn bn128_mul() {
 		use hex_literal::hex;
 		let input = hex!("089142debb13c461f61523586a60732d8b69c5b38a3380a74da7b2961d867dbf2d5fc7bbc013c16d7945f190b232eacc25da675c0eb093fe6b9f1b4b4e107b36ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").to_vec();
-		let expected = hex!("0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6");
+		let expected = hex!(
+			"0bf982b98a2757878c051bfe7eee228b12bc69274b918f08d9fcb21e9184ddc10b17c77cbf3c19d5d27e18cbd4a8c336afb488d0e92c18d56e64dd4ea5c437e6"
+		);
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
@@ -2152,7 +2175,9 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn blake2f(n: Linear<0, 1200>) {
 		use hex_literal::hex;
-		let input = hex!("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001");
+		let input = hex!(
+			"48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001"
+		);
 		let input = n.to_be_bytes().to_vec().into_iter().chain(input.to_vec()).collect::<Vec<_>>();
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();

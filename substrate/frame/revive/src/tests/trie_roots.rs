@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::evm::block_hash::EthBlockBuilder;
+use crate::evm::Block;
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 
@@ -71,8 +71,8 @@ fn test_transactions_root_verification() {
 		let transactions_rlp: Vec<Vec<u8>> =
 			test_data.transactions_rlp.iter().map(|hex_str| hex_to_bytes(hex_str)).collect();
 
-		// Calculate the receipts root using EthBlockBuilder
-		let calculated_root = EthBlockBuilder::compute_trie_root(&transactions_rlp);
+		// Calculate the transactions root
+		let calculated_root = Block::compute_trie_root(&transactions_rlp);
 		let calculated_root = H256::from_slice(&calculated_root.0);
 
 		// Parse the expected root from the test data
@@ -102,8 +102,8 @@ fn test_receipts_root_verification() {
 		let receipts_rlp: Vec<Vec<u8>> =
 			test_data.receipts_rlp.iter().map(|hex_str| hex_to_bytes(hex_str)).collect();
 
-		// Calculate the receipts root using EthBlockBuilder
-		let calculated_root = EthBlockBuilder::compute_trie_root(&receipts_rlp);
+		// Calculate the receipts root
+		let calculated_root = Block::compute_trie_root(&receipts_rlp);
 		let calculated_root = H256::from_slice(&calculated_root.0);
 
 		// Parse the expected root from the test data

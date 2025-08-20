@@ -504,6 +504,14 @@ impl Default for HashesOrTransactionInfos {
 		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
+impl HashesOrTransactionInfos {
+	pub fn push_hash(&mut self, hash: H256) {
+		match self {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes.push(hash),
+			_ => {},
+		}
+	}
+}
 
 impl HashesOrTransactionInfos {
 	pub fn len(&self) -> usize {
