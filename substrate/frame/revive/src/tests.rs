@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod block_hash;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
