@@ -43,6 +43,9 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 	/// The corresponding signature type in this application scheme.
 	type Signature: AppSignature;
 
+	/// The corresponding signature type in this application scheme.
+	type ProofOfPossession: AppSignature;
+
 	/// The corresponding key pair type in this application scheme.
 	type Pair: AppPair;
 }
@@ -67,9 +70,9 @@ pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
 	type Generic: IsWrappedBy<Self> + Public + Debug + MaybeHash + Codec;
 }
 
-/// Application-specific signature.
+/// Application-specific signature and Proof Of Possession
 pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
-	/// The wrapped type which is just a plain instance of `Signature`.
+	/// The wrapped type which is just a plain instancet of `Signature`.
 	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
 }
 
@@ -77,6 +80,9 @@ pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
 pub trait RuntimePublic: Sized {
 	/// The signature that will be generated when signing with the corresponding private key.
 	type Signature: Debug + Eq + PartialEq + Clone;
+
+	/// The Proof Of Possession the corresponding private key.
+	type ProofOfPossession: Debug + Eq + PartialEq + Clone;
 
 	/// Returns all public keys for the given key type in the keystore.
 	fn all(key_type: KeyTypeId) -> crate::Vec<Self>;
@@ -106,10 +112,14 @@ pub trait RuntimePublic: Sized {
 	///
 	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
 	/// so.
-	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature>;
+	fn generate_proof_of_possession(
+		&mut self,
+		key_type: KeyTypeId,
+		owner: &[u8],
+	) -> Option<Self::ProofOfPossession>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
-	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -122,6 +132,9 @@ pub trait RuntimeAppPublic: Sized {
 
 	/// The signature that will be generated when signing with the corresponding private key.
 	type Signature: Debug + Eq + PartialEq + Clone + TypeInfo + Codec;
+
+	/// The Proof Of Possession the corresponding private key.
+	type ProofOfPossession: Debug + Eq + PartialEq + TypeInfo + Clone;
 
 	/// Returns all public keys for this application in the keystore.
 	fn all() -> crate::Vec<Self>;
@@ -150,10 +163,10 @@ pub trait RuntimeAppPublic: Sized {
 	///
 	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
 	/// so.
-	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature>;
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
-	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool;
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -167,10 +180,15 @@ where
 		+ Codec
 		+ From<<<T as AppPublic>::Generic as RuntimePublic>::Signature>
 		+ AsRef<<<T as AppPublic>::Generic as RuntimePublic>::Signature>,
+	<T as AppCrypto>::ProofOfPossession: TypeInfo
+		+ Codec
+		+ From<<<T as AppPublic>::Generic as RuntimePublic>::ProofOfPossession>
+		+ AsRef<<<T as AppPublic>::Generic as RuntimePublic>::ProofOfPossession>,
 {
 	const ID: KeyTypeId = <T as AppCrypto>::ID;
 
 	type Signature = <T as AppCrypto>::Signature;
+	type ProofOfPossession = <T as AppCrypto>::ProofOfPossession;
 
 	fn all() -> crate::Vec<Self> {
 		<<T as AppPublic>::Generic as RuntimePublic>::all(Self::ID)
@@ -192,17 +210,19 @@ where
 		<<T as AppPublic>::Generic as RuntimePublic>::verify(self.as_ref(), msg, signature.as_ref())
 	}
 
-	fn generate_proof_of_possession(&mut self) -> Option<Self::Signature> {
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession> {
 		<<T as AppPublic>::Generic as RuntimePublic>::generate_proof_of_possession(
 			self.as_mut(),
 			Self::ID,
+			owner,
 		)
 		.map(|s| s.into())
 	}
 
-	fn verify_proof_of_possession(&self, pop: &Self::Signature) -> bool {
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool {
 		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(
 			self.as_ref(),
+			owner,
 			pop.as_ref(),
 		)
 	}

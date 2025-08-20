@@ -58,22 +58,34 @@ impl RuntimePublic for Public {
 		false
 	}
 
-	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
+	fn generate_proof_of_possession(
+		&mut self,
+		key_type: KeyTypeId,
+		owner: &[u8],
+	) -> Option<Self::Signature> {
 		let pub_key_as_bytes = self.to_raw_vec();
 		let (ecdsa_pub_as_bytes, bls381_pub_as_bytes) = split_pub_key_bytes(&pub_key_as_bytes)?;
 		let ecdsa_proof_of_possession =
-			generate_ecdsa_proof_of_possession(key_type, ecdsa_pub_as_bytes)?;
+			generate_ecdsa_proof_of_possession(key_type, ecdsa_pub_as_bytes, owner)?;
 		let bls381_proof_of_possession =
-			generate_bls381_proof_of_possession(key_type, bls381_pub_as_bytes)?;
+			generate_bls381_proof_of_possession(key_type, bls381_pub_as_bytes, owner)?;
 		let combined_proof_of_possession_raw =
 			combine_proof_of_possession(&ecdsa_proof_of_possession, &bls381_proof_of_possession)?;
 		Some(Self::Signature::from_raw(combined_proof_of_possession_raw))
 	}
 
-	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+	fn verify_proof_of_possession(
+		&self,
+		owner: &[u8],
+		proof_of_possession: &Self::Signature,
+	) -> bool {
 		let proof_of_possession = AppSignature::from(*proof_of_possession);
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&proof_of_possession, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
+			owner,
+			&proof_of_possession,
+			&pub_key,
+		)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
@@ -96,9 +108,10 @@ fn split_pub_key_bytes(
 fn generate_ecdsa_proof_of_possession(
 	key_type: KeyTypeId,
 	ecdsa_pub_as_bytes: [u8; ecdsa::PUBLIC_KEY_SERIALIZED_SIZE],
+	owner: &[u8],
 ) -> Option<ecdsa::Signature> {
 	let ecdsa_pub = ecdsa::Public::from_raw(ecdsa_pub_as_bytes);
-	let proof_of_possession_statement = ecdsa::Pair::proof_of_possession_statement(&ecdsa_pub);
+	let proof_of_possession_statement = ecdsa::Pair::proof_of_possession_statement(owner);
 	sp_io::crypto::ecdsa_sign(key_type, &ecdsa_pub, &proof_of_possession_statement)
 }
 
@@ -106,9 +119,10 @@ fn generate_ecdsa_proof_of_possession(
 fn generate_bls381_proof_of_possession(
 	key_type: KeyTypeId,
 	bls381_pub_as_bytes: [u8; bls381::PUBLIC_KEY_SERIALIZED_SIZE],
+	owner: &[u8],
 ) -> Option<bls381::Signature> {
 	let bls381_pub = bls381::Public::from_raw(bls381_pub_as_bytes);
-	sp_io::crypto::bls381_generate_proof_of_possession(key_type, &bls381_pub)
+	sp_io::crypto::bls381_generate_proof_of_possession(key_type, &bls381_pub, owner)
 }
 
 /// Helper: Combine ECDSA and BLS381 proof_of_possessions into a single raw proof_of_possession

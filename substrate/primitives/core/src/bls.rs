@@ -67,6 +67,8 @@ pub mod bls377 {
 	pub type Public = super::Public<BlsEngine>;
 	/// BLS12-377 signature.
 	pub type Signature = super::Signature<BlsEngine>;
+	/// BLS12-377 Proof Of Possesion.
+	pub type ProofOfPossession = super::ProofOfPossession<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12377HDKD";
@@ -79,7 +81,7 @@ pub mod bls381 {
 		PROOF_OF_POSSESSION_SERIALIZED_SIZE, PUBLIC_KEY_SERIALIZED_SIZE, SIGNATURE_SERIALIZED_SIZE,
 	};
 	use crate::crypto::CryptoTypeId;
-	pub(crate) use w3f_bls::TinyBLS381 as BlsEngine;
+	pub use w3f_bls::TinyBLS381 as BlsEngine;
 
 	/// An identifier used to match public keys against BLS12-381 keys
 	pub const CRYPTO_ID: CryptoTypeId = CryptoTypeId(*b"bls8");
@@ -93,6 +95,9 @@ pub mod bls381 {
 	pub type Public = super::Public<BlsEngine>;
 	/// BLS12-381 signature.
 	pub type Signature = super::Signature<BlsEngine>;
+
+	/// BLS12-381 Proof Of Possesion.
+	pub type ProofOfPossession = super::ProofOfPossession<BlsEngine>;
 
 	impl super::HardJunctionId for BlsEngine {
 		const ID: &'static str = "BLS12381HDKD";

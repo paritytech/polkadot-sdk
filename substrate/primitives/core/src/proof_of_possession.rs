@@ -97,7 +97,12 @@ pub fn statement_of_ownership(owner: &[u8]) -> Vec<u8> {
 /// possible to aggregate it to generate a valid proof for a key the attack does not
 /// possess. Therefore we do not require non-aggregatable schemes to prevent proof_of_possession
 /// confirming signatures at API level
-pub trait NonAggregatable: Pair {}
+pub trait NonAggregatable: Pair {
+	/// Default proof_of_possession statement.
+	fn proof_of_possession_statement(owner: &[u8]) -> Vec<u8> {
+		statement_of_ownership(owner)
+	}
+}
 
 impl<T> ProofOfPossessionVerifier for T
 where

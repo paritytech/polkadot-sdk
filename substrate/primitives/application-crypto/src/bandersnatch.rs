@@ -57,15 +57,27 @@ impl RuntimePublic for Public {
 		<AppPublic as CryptoType>::Pair::verify(&sig, msg.as_ref(), &pub_key)
 	}
 
-	fn generate_proof_of_possession(&mut self, key_type: KeyTypeId) -> Option<Self::Signature> {
-		let proof_of_possession_statement = Pair::proof_of_possession_statement(self);
+	fn generate_proof_of_possession(
+		&mut self,
+		key_type: KeyTypeId,
+		owner: &[u8],
+	) -> Option<Self::Signature> {
+		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
 		sp_io::crypto::bandersnatch_sign(key_type, self, &proof_of_possession_statement)
 	}
 
-	fn verify_proof_of_possession(&self, proof_of_possession: &Self::Signature) -> bool {
+	fn verify_proof_of_possession(
+		&self,
+		owner: &[u8],
+		proof_of_possession: &Self::Signature,
+	) -> bool {
 		let proof_of_possession = AppSignature::from(*proof_of_possession);
 		let pub_key = AppPublic::from(*self);
-		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(&proof_of_possession, &pub_key)
+		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
+			owner,
+			&proof_of_possession,
+			&pub_key,
+		)
 	}
 
 	fn to_raw_vec(&self) -> Vec<u8> {
