@@ -7,3 +7,5 @@ doc:
 crates:
 - name: pallet-election-provider-multi-block
   bump: patch
+- name: pallet-staking-async
+  bump: patch
