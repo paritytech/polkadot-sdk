@@ -33,6 +33,7 @@ pub mod pallet_balances;
 pub mod pallet_bridge_grandpa;
 pub mod pallet_bridge_messages;
 pub mod pallet_bridge_parachains;
+pub mod pallet_bridge_proof_root_sync;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
 pub mod pallet_message_queue;

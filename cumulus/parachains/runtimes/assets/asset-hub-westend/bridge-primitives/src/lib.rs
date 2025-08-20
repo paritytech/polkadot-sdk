@@ -20,6 +20,7 @@
 
 extern crate alloc;
 
+use alloc::{vec, vec::Vec};
 pub use bp_bridge_hub_cumulus::*;
 use bp_messages::*;
 pub use bp_proof_root_store::ProofRootStoreCall;
@@ -29,12 +30,15 @@ use bp_runtime::{
 pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use frame_support::{
 	dispatch::DispatchClass,
-	sp_runtime::{MultiAddress, MultiSigner, RuntimeDebug, StateVersion},
+	sp_runtime::{
+		traits::{Convert, Get},
+		MultiAddress, MultiSigner, RuntimeDebug, StateVersion,
+	},
 };
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use testnet_parachains_constants::westend::currency::UNITS;
+use testnet_parachains_constants::westend::{currency::UNITS, locations::AssetHubLocation};
 use xcm::latest::prelude::*;
 
 /// `AssetHubWestend` Runtime `Call` enum.
@@ -59,6 +63,27 @@ pub enum Call {
 	AssetHubRococoProofRootStore(ProofRootStoreCall<Hash, Hash>),
 }
 
+/// A converter between a list of roots to `AssetHubRococoProofRootStore(ProofRootStoreCall`.
+impl Convert<Vec<(Hash, Hash)>, Xcm<()>> for Call {
+	fn convert(roots: Vec<(Hash, Hash)>) -> Xcm<()> {
+		Xcm::builder_unpaid()
+			.unpaid_execution(Unlimited, None)
+			.transact(
+				OriginKind::Xcm,
+				None,
+				Self::AssetHubRococoProofRootStore(ProofRootStoreCall::note_new_roots { roots })
+					.encode(),
+			)
+			.expect_transact_status(MaybeErrorCode::Success)
+			.build()
+	}
+}
+impl Get<Location> for Call {
+	fn get() -> Location {
+		AssetHubLocation::get()
+	}
+}
+
 frame_support::parameter_types! {
 	/// Some sane weight to execute `xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)`.
 	pub const XcmBridgeHubRouterTransactCallMaxWeight: frame_support::weights::Weight = frame_support::weights::Weight::from_parts(200_000_000, 6144);
@@ -72,8 +97,8 @@ frame_support::parameter_types! {
 pub fn build_congestion_message<RuntimeCall>(
 	bridge_id: sp_core::H256,
 	is_congested: bool,
-) -> alloc::vec::Vec<Instruction<RuntimeCall>> {
-	alloc::vec![
+) -> Vec<Instruction<RuntimeCall>> {
+	vec![
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		Transact {
 			origin_kind: OriginKind::Xcm,

@@ -2461,8 +2461,12 @@ dependencies = [
 name = "bridge-hub-common"
 version = "0.1.0"
 dependencies = [
+ "bp-parachains",
+ "bp-runtime",
+ "bp-test-utils",
  "cumulus-primitives-core",
  "frame-support",
+ "pallet-bridge-proof-root-sync",
  "pallet-message-queue",
  "parity-scale-codec",
  "scale-info",
@@ -2473,6 +2477,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "tracing",
 ]
 
 [[package]]
@@ -2577,6 +2582,7 @@ dependencies = [
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
  "pallet-bridge-parachains",
+ "pallet-bridge-proof-root-sync",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
@@ -2787,6 +2793,7 @@ dependencies = [
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
  "pallet-bridge-parachains",
+ "pallet-bridge-proof-root-sync",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
  "pallet-message-queue",
@@ -11677,6 +11684,21 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-io 30.0.0",
+ "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-bridge-proof-root-sync"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "tracing",
 ]
 
 [[package]]

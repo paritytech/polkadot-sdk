@@ -24,8 +24,11 @@
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use bp_relayers::RewardsAccountParams;
 use frame_support::{parameter_types, traits::ConstU32};
+use rococo_runtime_constants::system_parachain::ASSET_HUB_ID;
+use xcm::latest::prelude::*;
 
 parameter_types! {
+	pub AssetHubLocation: Location = Location::new(1, [Parachain(ASSET_HUB_ID)]);
 	pub const RelayChainHeadersToKeep: u32 = 1024;
 	pub const ParachainHeadsToKeep: u32 = 64;
 
@@ -61,7 +64,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		(bp_bridge_hub_westend::BridgeHubWestend, bp_asset_hub_westend::AssetHubWestend);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
-	type OnNewHead = ();
+	type OnNewHead = (crate::bridge_to_westend_config::AssetHubWestendHeadersSync,);
 }
 
 /// Allows collect and claim rewards for relayers

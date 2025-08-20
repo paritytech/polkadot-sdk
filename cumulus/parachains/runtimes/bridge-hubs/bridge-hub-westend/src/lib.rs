@@ -590,6 +590,7 @@ construct_runtime!(
 		BridgeRococoParachains: pallet_bridge_parachains::<Instance1> = 43,
 		BridgeRococoMessages: pallet_bridge_messages::<Instance1> = 44,
 		XcmOverBridgeHubRococo: pallet_xcm_bridge_hub::<Instance1> = 45,
+		AssetHubRococoStateRootSync: pallet_bridge_proof_root_sync::<Instance1> = 46,
 
 		EthereumInboundQueue: snowbridge_pallet_inbound_queue = 80,
 		EthereumOutboundQueue: snowbridge_pallet_outbound_queue = 81,
@@ -652,6 +653,7 @@ mod benches {
 		[pallet_bridge_grandpa, RococoFinality]
 		[pallet_bridge_parachains, WithinRococo]
 		[pallet_bridge_messages, WestendToRococo]
+		[pallet_bridge_proof_root_sync, AssetHubRococoStateRootSync]
 		// Ethereum Bridge V1
 		[snowbridge_pallet_system, EthereumSystem]
 		[snowbridge_pallet_ethereum_client, EthereumBeaconClient]

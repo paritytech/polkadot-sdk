@@ -25,6 +25,7 @@ use bp_messages::{
 	source_chain::FromBridgedChainMessagesDeliveryProof,
 	target_chain::FromBridgedChainMessagesProof, LegacyLaneId,
 };
+use bp_parachains::{ParaHead, ParaId};
 use bridge_hub_common::xcm_version::XcmVersionOfDestAndRemoteBridge;
 use pallet_xcm_bridge_hub::{BridgeId, XcmAsPlainPayload};
 
@@ -125,7 +126,32 @@ impl pallet_bridge_parachains::Config<BridgeParachainRococoInstance> for Runtime
 		(bp_bridge_hub_rococo::BridgeHubRococo, bp_asset_hub_rococo::AssetHubRococo);
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxRococoParaHeadDataSize;
-	type OnNewHead = ();
+	type OnNewHead = (AssetHubRococoHeadersSync,);
+}
+
+// Utility for syncing AHR headers with state roots to the AHW.
+type AssetHubRococoHeadersSync = bridge_hub_common::header_sync::SyncParaHeadersFor<
+	Runtime,
+	AssetHubRococoStateRootSyncInstance,
+	bp_asset_hub_rococo::AssetHubRococo,
+	XcmRouter,
+	bp_asset_hub_westend::Call,
+>;
+
+/// Simple mechanism that syncs/sends validated Asset Hub Rococo headers to other local chains.
+/// For example,
+///  1. We need AHR headers for direct bridge messaging on AHW (ToAssetHubWestendProofRootSender).
+///  2. We may need AHR headers for D-Day detection on Collectives (ToCollectivesProofRootSender).
+pub type AssetHubRococoStateRootSyncInstance = pallet_bridge_proof_root_sync::Instance1;
+impl pallet_bridge_proof_root_sync::Config<AssetHubRococoStateRootSyncInstance> for Runtime {
+	type WeightInfo = weights::pallet_bridge_proof_root_sync::WeightInfo<Runtime>;
+	type Key = ParaId;
+	type Value = ParaHead;
+	type RootsToKeep = ParachainHeadsToKeep;
+	type MaxRootsToSend = ParachainHeadsToKeep;
+	type OnSend = (AssetHubRococoHeadersSync,);
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = AssetHubRococoHeadersSync;
 }
 
 /// Add XCM messages support for BridgeHubWestend to support Westend->Rococo XCM messages

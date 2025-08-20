@@ -22,7 +22,7 @@
 pub use bp_header_chain::StoredHeaderData;
 pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
+pub use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
