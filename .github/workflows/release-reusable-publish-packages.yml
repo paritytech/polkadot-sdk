@@ -75,6 +75,7 @@ jobs:
             fetch_debian_package_from_s3 polkadot
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             # TODO: implement fetch_rpm_package_from_s3 polkadot
+            # TODO: also one possibility - implement fetch_package with package as an input and remove if from here
           else
             echo "Error: Unsupported package_type: ${{ inputs.package_type }}"
             exit 1
@@ -150,7 +151,7 @@ jobs:
             aws s3 sync "$AWS_REPO_PATH/pool" "$LOCAL_REPO_PATH/pool" || true
             aws s3 sync "$AWS_REPO_PATH/dists" "$LOCAL_REPO_PATH/dists" || true
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO
+            # TODO: maybe this if will not be needed at all because the step will look the same for both package types
           fi
 
       - name: Add package to local repo
@@ -171,7 +172,7 @@ jobs:
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO: Implement RPM package addition
+            # TODO: Implement RPM package addition - if there is a way to add both packages the same way, this if will not be needed
           fi
 
       - name: Upload updated repo to S3
