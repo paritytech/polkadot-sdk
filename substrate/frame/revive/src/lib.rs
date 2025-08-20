@@ -102,7 +102,7 @@ pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
-pub use crate::vm::SyscallDoc;
+pub use crate::vm::pvm::SyscallDoc;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -1135,9 +1135,9 @@ where
 
 			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
 			let (executable, upload_deposit) = match code {
-				Code::Upload(code) => {
+				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_code(
+					let (executable, upload_deposit) = Self::try_upload_pvm_code(
 						upload_account,
 						code,
 						storage_deposit_limit,
@@ -1146,6 +1146,7 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
+				Code::Upload(_code) => return Err(<Error<T>>::CodeRejected.into()),
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
@@ -1245,10 +1246,10 @@ where
 				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
-				return Err(EthTransactError::Message(
-						format!("insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
-							tx.gas.unwrap_or_default()))
-					);
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
+					tx.gas.unwrap_or_default()
+				)));
 			}
 
 			return Err(EthTransactError::Message(format!(
@@ -1331,16 +1332,20 @@ where
 			// A contract deployment
 			None => {
 				// Extract code and data from the input.
-				let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
-					Some(blob_len) => blob_len
-						.try_into()
-						.ok()
-						.and_then(|blob_len| (input.split_at_checked(blob_len)))
-						.unwrap_or_else(|| (&input[..], &[][..])),
-					_ => {
-						log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-						(&input[..], &[][..])
-					},
+				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+					match polkavm::ProgramBlob::blob_length(&input) {
+						Some(blob_len) => blob_len
+							.try_into()
+							.ok()
+							.and_then(|blob_len| (input.split_at_checked(blob_len)))
+							.unwrap_or_else(|| (&input[..], &[][..])),
+						_ => {
+							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+							(&input[..], &[][..])
+						},
+					}
+				} else {
+					return Err(EthTransactError::Message("Invalid transaction".into()));
 				};
 
 				// Dry run the call.
@@ -1501,7 +1506,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_code(origin, code, storage_deposit_limit, false)?;
+		let (module, deposit) =
+			Self::try_upload_pvm_code(origin, code, storage_deposit_limit, false)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -1528,13 +1534,13 @@ where
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_code(
+	fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_code(code, origin)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
