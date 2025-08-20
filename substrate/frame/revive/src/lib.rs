@@ -1046,15 +1046,16 @@ pub mod pallet {
 			}
 
 			// Account for event processing costs in finalize_block
-			let event_count = InflightEvents::<T>::count();
-			if event_count > 0 {
+			let events = InflightEvents::<T>::get();
+			let events_count = events.len() as u64;
+			if events.len() > 0 {
 				// Calculate per-event weight
 				let event_processing_weight =
-					T::WeightInfo::finalize_block_per_event().saturating_mul(event_count.into());
+					T::WeightInfo::finalize_block_per_event().saturating_mul(events_count);
 
 				// Calculate total event data size for per-byte weight accounting
-				let total_event_data_size: u32 = InflightEvents::<T>::iter()
-					.filter_map(|(_, event)| match event {
+				let total_event_data_size: u32 = events.iter()
+					.filter_map(|event| match event {
 						Event::ContractEmitted { data, .. } => Some(data.len() as u32),
 						_ => None,
 					})
