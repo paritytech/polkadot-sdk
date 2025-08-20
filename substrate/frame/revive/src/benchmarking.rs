@@ -2397,72 +2397,64 @@ mod benchmarks {
 	}
 
 	// Macro to generate common finalize_block benchmark setup
-	macro_rules! setup_finalize_block_benchmark {
-		() => {{
-			// Setup test signer
-			let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
-			whitelist_account!(signer_caller);
+	fn setup_finalize_block_benchmark<T>() -> Result<
+		(Contract<T>, T::RuntimeOrigin, BalanceOf<T>, U256, Vec<u8>, BlockNumberFor<T>),
+		BenchmarkError,
+	>
+	where
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		T: Config,
+		MomentOf<T>: Into<U256>,
+		<T as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
+	{
+		// Setup test signer
+		let (signer_caller, signer_key, _signer_address) = create_test_signer::<T>();
+		whitelist_account!(signer_caller);
 
-			// Setup contract instance
-			let instance =
-				Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
-			let origin = RawOrigin::Signed(signer_caller.clone());
-			let storage_deposit = default_deposit_limit::<T>();
-			let value = Pallet::<T>::min_balance();
-			let evm_value =
-				Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
+		// Setup contract instance
+		let instance =
+			Contract::<T>::with_caller(signer_caller.clone(), VmBinaryModule::dummy(), vec![])?;
+		let origin = RawOrigin::Signed(signer_caller.clone()).into();
+		let storage_deposit = default_deposit_limit::<T>();
+		let value = Pallet::<T>::min_balance();
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
 
-			// Create signed transaction
-			let signed_payload =
-				create_signed_transaction(&signer_key, instance.address, value.into());
+		// Create signed transaction
+		let signed_payload =
+			create_signed_transaction::<T>(&signer_key, instance.address, value.into());
 
-			// Setup block
-			let current_block = BlockNumberFor::<T>::from(1u32);
-			frame_system::Pallet::<T>::set_block_number(current_block);
+		// Setup block
+		let current_block = BlockNumberFor::<T>::from(1u32);
+		frame_system::Pallet::<T>::set_block_number(current_block);
 
-			(
-				signer_caller,
-				instance,
-				origin,
-				storage_deposit,
-				evm_value,
-				signed_payload,
-				current_block,
-			)
-		}};
+		Ok((instance, origin, storage_deposit, evm_value, signed_payload, current_block))
 	}
 
 	// `c`: number of transactions to fit in the block
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block_transaction_processing(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
-		let (
-			_signer_caller,
-			instance,
-			origin,
-			storage_deposit,
-			evm_value,
-			signed_payload,
-			current_block,
-		) = setup_finalize_block_benchmark!();
+		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Execute transactions
+		for _ in 0..c {
+			let _ = Pallet::<T>::eth_call(
+				origin.clone(),
+				instance.address,
+				evm_value,
+				Weight::MAX,
+				storage_deposit,
+				vec![],
+				signed_payload.clone(),
+			);
+		}
 
 		#[block]
 		{
-			// Initialize block
-			let _ = Pallet::<T>::on_initialize(current_block);
-
-			// Execute transactions
-			for _ in 0..c {
-				let _ = Pallet::<T>::eth_call(
-					origin.clone().into(),
-					instance.address,
-					evm_value,
-					Weight::MAX,
-					storage_deposit,
-					vec![],
-					signed_payload.clone(),
-				);
-			}
-
 			// Finalize block
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
@@ -2483,15 +2475,8 @@ mod benchmarks {
 	// `e`: number of events to emit during finalize_block processing
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block_event_processing(e: Linear<2, 50>) -> Result<(), BenchmarkError> {
-		let (
-			_signer_caller,
-			instance,
-			origin,
-			storage_deposit,
-			evm_value,
-			signed_payload,
-			current_block,
-		) = setup_finalize_block_benchmark!();
+		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
 
 		// PRE-SETUP: Create events OUTSIDE the benchmark block to avoid measuring
 		// string formatting and storage insertion costs
@@ -2511,7 +2496,7 @@ mod benchmarks {
 
 			// Execute a single dummy transaction to trigger the finalize_block event processing
 			let _ = Pallet::<T>::eth_call(
-				origin.clone().into(),
+				origin.clone(),
 				instance.address,
 				evm_value,
 				Weight::MAX,
@@ -2540,15 +2525,8 @@ mod benchmarks {
 	// `d`: total event data size in bytes to process during finalize_block
 	#[benchmark(pov_mode = Measured)]
 	fn finalize_block_event_data_processing(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
-		let (
-			_signer_caller,
-			instance,
-			origin,
-			storage_deposit,
-			evm_value,
-			signed_payload,
-			current_block,
-		) = setup_finalize_block_benchmark!();
+		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
 
 		let mut target_events = 0;
 		// PRE-SETUP: Create events with varying data sizes OUTSIDE the benchmark block
@@ -2587,7 +2565,7 @@ mod benchmarks {
 
 			// Execute a single dummy transaction to trigger the finalize_block event processing
 			let _ = Pallet::<T>::eth_call(
-				origin.clone().into(),
+				origin.clone(),
 				instance.address,
 				evm_value,
 				Weight::MAX,
