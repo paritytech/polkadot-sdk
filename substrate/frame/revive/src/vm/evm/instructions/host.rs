@@ -236,17 +236,7 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	);
 
 	// TODO: decide if we need to handle this outcome
-	// match write_outcome {
-	// 	WriteOutcome::New => {
-	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 0, new_bytes: 32});
-	// 	}
-	// 	WriteOutcome::Overwritten(overwritten_bytes) => {
-	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: overwritten_bytes, new_bytes: 32});
-	// 	}
-	// 	WriteOutcome::Taken(_) => {
-	// 		gas!(context.interpreter, RuntimeCosts::SetStorage{old_bytes: 32, new_bytes: 32});
-	// 	}
-	// }
+	// Does it matter if the value was new or overwritten?
 }
 
 /// EIP-1153: Transient storage opcodes
