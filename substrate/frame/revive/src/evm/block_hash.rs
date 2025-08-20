@@ -25,6 +25,7 @@ use crate::{
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::bytes::BufMut;
+use alloy_primitives::Bloom;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -37,7 +38,7 @@ pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo, Clone)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
 	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
@@ -101,10 +102,14 @@ impl Block {
 		let mut signed_tx = Vec::with_capacity(transaction_details.len());
 		let mut receipts = Vec::with_capacity(transaction_details.len());
 		let mut gas_infos = Vec::with_capacity(transaction_details.len());
-		for (signed, receipt, gas_info) in transaction_details {
+
+		let mut logs_bloom = Bloom::default();
+		for (signed, receipt, gas_info, bloom) in transaction_details {
 			signed_tx.push(signed);
 			receipts.push(receipt);
 			gas_infos.push(gas_info);
+
+			logs_bloom.accrue_bloom(&bloom);
 		}
 
 		// Compute expensive trie roots.
@@ -114,6 +119,7 @@ impl Block {
 		block.state_root = transactions_root.0.into();
 		block.transactions_root = transactions_root.0.into();
 		block.receipts_root = receipts_root.0.into();
+		block.logs_bloom = (*logs_bloom.data()).into();
 
 		// Compute the ETH header hash.
 		let block_hash = block.header_hash();
@@ -128,7 +134,7 @@ impl Block {
 		&mut self,
 		detail: TransactionDetails<T>,
 		base_gas_price: U256,
-	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo)>
+	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo, Bloom)>
 	where
 		T: crate::pallet::Config,
 	{
@@ -172,13 +178,12 @@ impl Block {
 		};
 
 		let receipt_bloom = receipt.bloom_slow();
-		self.logs_bloom.combine(&(*receipt_bloom.0).into());
 
 		let mut encoded_receipt =
 			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-		Some((signed_tx.signed_payload(), encoded_receipt, gas_info))
+		Some((signed_tx.signed_payload(), encoded_receipt, gas_info, receipt_bloom))
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
