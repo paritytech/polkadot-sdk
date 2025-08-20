@@ -19,12 +19,12 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test, test_utils::decode_revert_message},
+	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
 	Code, Config,
 };
 use pallet_revive_uapi::ReturnFlags;
 
-use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface};
+use alloy_core::{primitives::I256, primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Arithmetic, FixtureType};
 use pretty_assertions::assert_eq;
@@ -38,26 +38,25 @@ fn arithmetic_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-            {
-                let result = builder::bare_call(addr)
-                    .data(
-                        Arithmetic::ArithmeticCalls::testArithmetic(Arithmetic::testArithmeticCall { })
-                            .abi_encode(),
-                    )
-                    .build_and_unwrap_result();
-                if result.did_revert() {
-                    if let Some(revert_msg) = decode_revert_message(&result.data) {
-                        log::error!("Revert message: {}", revert_msg);
-                    } else {
-                        log::error!("Revert without message, raw data: {:?}", result.data);
-                    }
-                }
-                
-                assert!(
-                    !result.did_revert(),
-                    "arithmetic test reverted"
-                );
-            }
+			{
+				let result = builder::bare_call(addr)
+					.data(
+						Arithmetic::ArithmeticCalls::testArithmetic(
+							Arithmetic::testArithmeticCall {},
+						)
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+				if result.did_revert() {
+					if let Some(revert_msg) = decode_revert_message(&result.data) {
+						log::error!("Revert message: {}", revert_msg);
+					} else {
+						log::error!("Revert without message, raw data: {:?}", result.data);
+					}
+				}
+
+				assert!(!result.did_revert(), "arithmetic test reverted");
+			}
 		});
 	}
 }

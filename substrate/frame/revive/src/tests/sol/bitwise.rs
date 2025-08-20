@@ -16,15 +16,14 @@
 // limitations under the License.
 
 /// Tests for bitwise operations.
-
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test, test_utils::decode_revert_message},
+	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
 	Code, Config,
 };
 use pallet_revive_uapi::ReturnFlags;
 
-use alloy_core::{primitives::U256, primitives::I256, sol_types::SolInterface, hex};
+use alloy_core::{hex, primitives::I256, primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Bitwise, FixtureType};
 use pretty_assertions::assert_eq;
@@ -39,23 +38,17 @@ fn bitwise_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 			let result = builder::bare_call(addr)
-				.data(
-					Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall { })
-						.abi_encode(),
-				)
+				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
 				.build_and_unwrap_result();
-                if result.did_revert() {
-                    if let Some(revert_msg) = decode_revert_message(&result.data) {
-                        log::error!("Revert message: {}", revert_msg);
-                    } else {
-                        log::error!("Revert without message, raw data: {:?}", result.data);
-                    }
-                }
-                
-                assert!(
-                    !result.did_revert(),
-                    "bitwise test reverted"
-                );
+			if result.did_revert() {
+				if let Some(revert_msg) = decode_revert_message(&result.data) {
+					log::error!("Revert message: {}", revert_msg);
+				} else {
+					log::error!("Revert without message, raw data: {:?}", result.data);
+				}
+			}
+
+			assert!(!result.did_revert(), "bitwise test reverted");
 		});
 	}
 }

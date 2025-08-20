@@ -17,45 +17,39 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, ExtBuilder, Test, test_utils::decode_revert_message},
+	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
 	Code, Config,
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, Memory, FixtureType};
-use pretty_assertions::assert_eq;
+use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Memory};
 use pallet_revive_uapi::ReturnFlags;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn memory_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-        ExtBuilder::default().build().execute_with(|| {
-            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
-            let result = builder::bare_call(addr)
-                .data(
-                    Memory::MemoryCalls::testMemory(Memory::testMemoryCall { })
-                        .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            if result.flags == ReturnFlags::REVERT {
-                if let Some(revert_msg) = decode_revert_message(&result.data) {
-                    log::error!("Revert message: {}", revert_msg);
-                } else {
-                    log::error!("Revert without message, raw data: {:?}", result.data);
-                }
-            }
-            assert!(
-                !result.did_revert(),
-                "test reverted"
-            );
-        });
-    }
+
+			let result = builder::bare_call(addr)
+				.data(Memory::MemoryCalls::testMemory(Memory::testMemoryCall {}).abi_encode())
+				.build_and_unwrap_result();
+			if result.flags == ReturnFlags::REVERT {
+				if let Some(revert_msg) = decode_revert_message(&result.data) {
+					log::error!("Revert message: {}", revert_msg);
+				} else {
+					log::error!("Revert without message, raw data: {:?}", result.data);
+				}
+			}
+			assert!(!result.did_revert(), "test reverted");
+		});
+	}
 }
 
 #[test]
@@ -63,30 +57,30 @@ fn msize_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-        let offset = 512u64;
+		let offset = 512u64;
 
-        ExtBuilder::default().build().execute_with(|| {
-            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
-            let result = builder::bare_call(addr)
-                .data(
-                    Memory::MemoryCalls::testMsize(Memory::testMsizeCall { offset: U256::from(512) })
-                        .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            assert!(
-                !result.did_revert(),
-                "test reverted"
-            );
-            assert_eq!(
-                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                U256::from(offset+32),
-                "memory test should return {}", offset + 32 
-            );
-        });
-    }
+
+			let result = builder::bare_call(addr)
+				.data(
+					Memory::MemoryCalls::testMsize(Memory::testMsizeCall {
+						offset: U256::from(512),
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+			assert_eq!(
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				U256::from(offset + 32),
+				"memory test should return {}",
+				offset + 32
+			);
+		});
+	}
 }
 
 #[test]
@@ -94,33 +88,30 @@ fn mcopy_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
 
-        let expected_value = U256::from(0xBE);
+		let expected_value = U256::from(0xBE);
 
-        ExtBuilder::default().build().execute_with(|| {
-            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
-            let result = builder::bare_call(addr)
-                .data(
-                    Memory::MemoryCalls::testMcopy(Memory::testMcopyCall { 
-                        dstOffset: U256::from(512),
-                        offset: U256::from(0),
-                        size: U256::from(32),
-                        value: expected_value,
-                    })
-                        .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            assert!(
-                !result.did_revert(),
-                "test reverted"
-            );
-            assert_eq!(
-                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                expected_value,
-                "memory test should return {expected_value}"
-            );
-        });
-    }
+
+			let result = builder::bare_call(addr)
+				.data(
+					Memory::MemoryCalls::testMcopy(Memory::testMcopyCall {
+						dstOffset: U256::from(512),
+						offset: U256::from(0),
+						size: U256::from(32),
+						value: expected_value,
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+			assert_eq!(
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+				expected_value,
+				"memory test should return {expected_value}"
+			);
+		});
+	}
 }
