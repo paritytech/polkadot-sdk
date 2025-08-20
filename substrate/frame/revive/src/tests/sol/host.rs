@@ -64,7 +64,7 @@ fn balance_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
@@ -106,7 +106,7 @@ fn selfbalance_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 let result_balance = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
@@ -148,7 +148,7 @@ fn extcodesize_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 
@@ -189,7 +189,7 @@ fn extcodehash_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 
@@ -235,7 +235,6 @@ fn extcodecopy_works() {
         };
         
         let result = builder::bare_call(addr)
-            .gas_limit(1_000_000_000.into())
             .data(
                 HostSelfDestructEvmCalls::extcodecopyOp(HostSelfDestructEvm::extcodecopyOpCall {        
                     account: dummy_addr.0.into(),
@@ -246,7 +245,7 @@ fn extcodecopy_works() {
             )
             .build_and_unwrap_result();
         assert!(
-            result.flags != ReturnFlags::REVERT,
+            !result.did_revert(),
             "test reverted"
         );
         let actual_code = {
@@ -287,14 +286,13 @@ fn blockhash_works() {
                     <Test as frame_system::Config>::Hash::from(&block_hash),
                 );
                 let result = builder::bare_call(addr)
-                    .gas_limit(1_000_000_000.into())
                     .data(
                         Host::HostCalls::blockhashOp(Host::blockhashOpCall { blockNumber: U256::from(block_number_to_test) })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 
@@ -347,7 +345,7 @@ fn sload_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 let result = U256::from_be_bytes::<32>(result.data.try_into().unwrap());
@@ -397,7 +395,7 @@ fn sstore_works() {
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
 
@@ -440,7 +438,7 @@ fn transient_storage_works() {
                 )
                 .build_and_unwrap_result();
             assert!(
-                result.flags != ReturnFlags::REVERT,
+                !result.did_revert(),
                 "test reverted"
             );
             assert_eq!(
@@ -487,14 +485,13 @@ fn selfdestruct_works() {
 
             {
                 let result = builder::bare_call(addr)
-                    .gas_limit(1_000_000_000.into())
                     .data(
                         HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(HostSelfDestructEvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "test reverted"
                 );
                 
@@ -524,7 +521,6 @@ fn selfdestruct_works() {
 
     //         {
     //             let _ = builder::bare_call(addr)
-    //                 .gas_limit(1_000_000_000.into())
     //                 .data(
     //                     HostSelfDestructPvm::HostSelfDestructPvmCalls::selfdestructOp(HostSelfDestructPvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() })
     //                         .abi_encode(),

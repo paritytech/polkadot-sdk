@@ -45,7 +45,7 @@ fn arithmetic_works() {
                             .abi_encode(),
                     )
                     .build_and_unwrap_result();
-                if result.flags == ReturnFlags::REVERT {
+                if result.did_revert() {
                     if let Some(revert_msg) = decode_revert_message(&result.data) {
                         log::error!("Revert message: {}", revert_msg);
                     } else {
@@ -54,7 +54,7 @@ fn arithmetic_works() {
                 }
                 
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "arithmetic test reverted"
                 );
             }

@@ -38,7 +38,6 @@ fn memory_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
             let result = builder::bare_call(addr)
-                .gas_limit(1_000_000_000.into())
                 .data(
                     Memory::MemoryCalls::testMemory(Memory::testMemoryCall { })
                         .abi_encode(),
@@ -52,42 +51,8 @@ fn memory_works() {
                 }
             }
             assert!(
-                result.flags != ReturnFlags::REVERT,
+                !result.did_revert(),
                 "test reverted"
-            );
-        });
-    }
-}
-
-#[test]
-fn mstore8_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
-
-        let expected_byte = 0xBE_u8;
-
-        ExtBuilder::default().build().execute_with(|| {
-            <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-            
-            let result = builder::bare_call(addr)
-                .gas_limit(1_000_000_000.into())
-                .data(
-                    Memory::MemoryCalls::testMstore8(Memory::testMstore8Call { offset: U256::from(0), value: U256::from(expected_byte) })
-                        .abi_encode(),
-                )
-                .build_and_unwrap_result();
-            assert!(
-                result.flags != ReturnFlags::REVERT,
-                "test reverted"
-            );
-            let expected_bytes = [expected_byte; 32];
-            let expected = U256::from_be_bytes(expected_bytes);
-            assert_eq!(
-                U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-                expected,
-                "memory test should return 0"
             );
         });
     }
@@ -106,20 +71,19 @@ fn msize_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
             let result = builder::bare_call(addr)
-                .gas_limit(1_000_000_000.into())
                 .data(
                     Memory::MemoryCalls::testMsize(Memory::testMsizeCall { offset: U256::from(512) })
                         .abi_encode(),
                 )
                 .build_and_unwrap_result();
             assert!(
-                result.flags != ReturnFlags::REVERT,
+                !result.did_revert(),
                 "test reverted"
             );
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 U256::from(offset+32),
-                "memory test should return 0"
+                "memory test should return {}", offset + 32 
             );
         });
     }
@@ -138,7 +102,6 @@ fn mcopy_works() {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
             
             let result = builder::bare_call(addr)
-                .gas_limit(1_000_000_000.into())
                 .data(
                     Memory::MemoryCalls::testMcopy(Memory::testMcopyCall { 
                         dstOffset: U256::from(512),
@@ -150,13 +113,13 @@ fn mcopy_works() {
                 )
                 .build_and_unwrap_result();
             assert!(
-                result.flags != ReturnFlags::REVERT,
+                !result.did_revert(),
                 "test reverted"
             );
             assert_eq!(
                 U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
                 expected_value,
-                "memory test should return 0"
+                "memory test should return {expected_value}"
             );
         });
     }

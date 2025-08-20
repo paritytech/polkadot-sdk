@@ -38,14 +38,13 @@ fn bitwise_works() {
 			let Contract { addr, .. } =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			// Test: 5 < 10 should return 1 (true)
 			let result = builder::bare_call(addr)
 				.data(
 					Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall { })
 						.abi_encode(),
 				)
 				.build_and_unwrap_result();
-                if result.flags == ReturnFlags::REVERT {
+                if result.did_revert() {
                     if let Some(revert_msg) = decode_revert_message(&result.data) {
                         log::error!("Revert message: {}", revert_msg);
                     } else {
@@ -54,7 +53,7 @@ fn bitwise_works() {
                 }
                 
                 assert!(
-                    result.flags != ReturnFlags::REVERT,
+                    !result.did_revert(),
                     "bitwise test reverted"
                 );
 		});

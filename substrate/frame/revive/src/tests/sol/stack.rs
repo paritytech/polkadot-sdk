@@ -1,7 +1,7 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, },
 	tests::{builder, ExtBuilder, Test, 
-    revm_test_utils::make_evm_bytecode_from_runtime_code},
+    sol::make_evm_bytecode_from_runtime_code},
 	Code, Config,
 };
 use alloy_core::primitives::U256;
@@ -33,18 +33,17 @@ fn push_works() {
             builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
         
         let result = builder::bare_call(addr)
-            .gas_limit(1_000_000_000.into())
             .data(vec![])
             .build_and_unwrap_result();
         
         assert!(
-            result.flags != ReturnFlags::REVERT,
+            !result.did_revert(),
             "test reverted"
         );
         assert_eq!(
             U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
             U256::from(expected_value),
-            "memory test should return 0xfefefefe"
+            "memory test should return {expected_value}"
         );
     });
 }
@@ -73,18 +72,17 @@ fn pop_works() {
             builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
         
         let result = builder::bare_call(addr)
-            .gas_limit(1_000_000_000.into())
             .data(vec![])
             .build_and_unwrap_result();
         
         assert!(
-            result.flags != ReturnFlags::REVERT,
+            !result.did_revert(),
             "test reverted"
         );
         assert_eq!(
             U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
             U256::from(expected_value),
-            "memory test should return 0xfefefefe"
+            "memory test should return {expected_value}"
         );
     });
 }
@@ -113,18 +111,17 @@ fn dup_works() {
             builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
         
         let result = builder::bare_call(addr)
-            .gas_limit(1_000_000_000.into())
             .data(vec![])
             .build_and_unwrap_result();
         
         assert!(
-            result.flags != ReturnFlags::REVERT,
+            !result.did_revert(),
             "test reverted"
         );
         assert_eq!(
             U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
             U256::from(expected_value),
-            "memory test should return 0xfefefefe"
+            "memory test should return {expected_value}"
         );
     });
 }
@@ -154,18 +151,17 @@ fn swap_works() {
             builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
         
         let result = builder::bare_call(addr)
-            .gas_limit(1_000_000_000.into())
             .data(vec![])
             .build_and_unwrap_result();
         
         assert!(
-            result.flags != ReturnFlags::REVERT,
+            !result.did_revert(),
             "test reverted"
         );
         assert_eq!(
             U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
             U256::from(expected_value),
-            "memory test should return 0xfefefefe"
+            "memory test should return {expected_value}"
         );
     });
 }
