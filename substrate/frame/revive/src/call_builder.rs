@@ -31,7 +31,7 @@ use crate::{
 	limits,
 	storage::meter::Meter,
 	transient_storage::MeterEntry,
-	vm::{PreparedCall, Runtime},
+	vm::pvm::{PreparedCall, Runtime},
 	AccountInfo, BalanceOf, BalanceWithDust, BumpNonce, Code, CodeInfoOf, Config, ContractBlob,
 	ContractInfo, DepositLimit, Error, GasMeter, MomentOf, Origin, Pallet as Contracts,
 	PristineCode, Weight,
