@@ -268,11 +268,6 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
-<<<<<<< HEAD
-	"pallet-society/runtime-benchmarks",
-=======
-	"pallet-session/runtime-benchmarks",
->>>>>>> b183b7e (Fix `pallet_session` benchmarks (#9504))
 	"pallet-staking-async-ah-client/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
