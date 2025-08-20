@@ -625,6 +625,9 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
+			InflightEvents::<T>::kill();
+			InflightTransactions::<T>::kill();
+
 			Weight::zero()
 		}
 
