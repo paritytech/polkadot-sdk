@@ -1698,7 +1698,7 @@ where
 		if value.is_zero() {
 			return Ok(());
 		}
-		let (value, dust) = value.deconstruct();
+		let (value, _dust) = value.deconstruct();
 		T::Currency::transfer(from, &to, value, Preservation::Preserve)
 				.map_err(|err| {
 					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
