@@ -1597,21 +1597,7 @@ async fn process_possibly_finalized_collations(
 	}
 
 	for collation in collations {
-		if finalized.contains(&collation.relay_parent()) {
-			// Report metrics for finalized collations
-			if let Some(latency) = collation.backed() {
-				metrics.on_collation_backed(latency as f64);
-			}
-			if let Some(latency) = collation.included() {
-				metrics.on_collation_included(latency as f64);
-			}
-			gum::debug!(
-				target: crate::LOG_TARGET_STATS,
-				relay_parent = ?collation.relay_parent(),
-				head = ?collation.head(),
-				"Collation finalized, stop tracking",
-			);
-		} else {
+		if !finalized.contains(&collation.relay_parent()) {
 			// Omit collations built on forks: they're dropped but it's expected
 			gum::debug!(
 				target: crate::LOG_TARGET_STATS,
@@ -1619,7 +1605,22 @@ async fn process_possibly_finalized_collations(
 				head = ?collation.head(),
 				"Collation is built on a fork, skipping",
 			);
+			continue;
 		}
+
+		// Report metrics for finalized collations
+		if let Some(latency) = collation.backed() {
+			metrics.on_collation_backed(latency as f64);
+		}
+		if let Some(latency) = collation.included() {
+			metrics.on_collation_included(latency as f64);
+		}
+		gum::debug!(
+			target: crate::LOG_TARGET_STATS,
+			relay_parent = ?collation.relay_parent(),
+			head = ?collation.head(),
+			"Collation finalized, stop tracking",
+		);
 	}
 }
 
