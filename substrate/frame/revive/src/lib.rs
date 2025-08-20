@@ -1054,7 +1054,8 @@ pub mod pallet {
 					T::WeightInfo::finalize_block_per_event().saturating_mul(events_count);
 
 				// Calculate total event data size for per-byte weight accounting
-				let total_event_data_size: u32 = events.iter()
+				let total_event_data_size: u32 = events
+					.iter()
 					.filter_map(|event| match event {
 						Event::ContractEmitted { data, .. } => Some(data.len() as u32),
 						_ => None,
