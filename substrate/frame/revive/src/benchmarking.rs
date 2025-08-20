@@ -2369,7 +2369,7 @@ mod benchmarks {
 	}
 
 	// Helper function to create and sign a transaction for finalize_block benchmark
-	fn create_signed_transaction(
+	fn create_signed_transaction<T: Config>(
 		signer_key: &SigningKey,
 		target_address: H160,
 		value: U256,
@@ -2377,7 +2377,7 @@ mod benchmarks {
 		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
 			to: Some(target_address),
 			value,
-			chain_id: Some(1.into()),
+			chain_id: Some(T::ChainId::get().into()),
 			input: vec![].into(),
 			..Default::default()
 		}
