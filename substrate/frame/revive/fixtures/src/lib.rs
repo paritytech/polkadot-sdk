@@ -22,14 +22,45 @@ extern crate alloc;
 // generated file that tells us where to find the fixtures
 include!(concat!(env!("OUT_DIR"), "/fixture_location.rs"));
 
-/// Load a given polkavm module and returns a polkavm binary contents along with its hash.
+/// Enum for different fixture types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FixtureType {
+	/// Polkavm (compiled Rust contracts)
+	Rust,
+	/// Resolc (compiled Solidity contracts to Polkavm)
+	Resolc,
+	/// Solc (compiled Solidity contracts to EVM bytecode)
+	Solc,
+}
+
 #[cfg(feature = "std")]
-pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
+impl FixtureType {
+	fn file_extension(&self) -> &'static str {
+		match self {
+			Self::Rust => ".polkavm",
+			Self::Resolc => ".resolc.polkavm",
+			Self::Solc => ".sol.bin",
+		}
+	}
+}
+
+/// Load a fixture module with the specified type and return binary contents along with its hash.
+#[cfg(feature = "std")]
+pub fn compile_module_with_type(
+	fixture_name: &str,
+	fixture_type: FixtureType,
+) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
 	let out_dir: std::path::PathBuf = FIXTURE_DIR.into();
-	let fixture_path = out_dir.join(format!("{fixture_name}.polkavm"));
+	let fixture_path = out_dir.join(format!("{fixture_name}{}", fixture_type.file_extension()));
 	let binary = std::fs::read(fixture_path)?;
 	let code_hash = sp_io::hashing::keccak_256(&binary);
 	Ok((binary, sp_core::H256(code_hash)))
+}
+
+/// Load a given polkavm module and returns a polkavm binary contents along with its hash.
+#[cfg(feature = "std")]
+pub fn compile_module(fixture_name: &str) -> anyhow::Result<(Vec<u8>, sp_core::H256)> {
+	compile_module_with_type(fixture_name, FixtureType::Rust)
 }
 
 /// Fixtures used in runtime benchmarks.
