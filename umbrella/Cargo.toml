@@ -106,6 +106,7 @@ std = [
 	"pallet-meta-tx?/std",
 	"pallet-migrations?/std",
 	"pallet-mixnet?/std",
+	"pallet-multi-asset-bounties?/std",
 	"pallet-mmr?/std",
 	"pallet-multisig?/std",
 	"pallet-nft-fractionalization?/std",
@@ -294,6 +295,7 @@ runtime-benchmarks = [
 	"pallet-message-queue?/runtime-benchmarks",
 	"pallet-meta-tx?/runtime-benchmarks",
 	"pallet-migrations?/runtime-benchmarks",
+	"pallet-multi-asset-bounties?/runtime-benchmarks",
 	"pallet-mmr?/runtime-benchmarks",
 	"pallet-multisig?/runtime-benchmarks",
 	"pallet-nft-fractionalization?/runtime-benchmarks",
@@ -431,6 +433,7 @@ try-runtime = [
 	"pallet-meta-tx?/try-runtime",
 	"pallet-migrations?/try-runtime",
 	"pallet-mixnet?/try-runtime",
+	"pallet-multi-asset-bounties?/try-runtime",
 	"pallet-mmr?/try-runtime",
 	"pallet-multisig?/try-runtime",
 	"pallet-nft-fractionalization?/try-runtime",
@@ -641,6 +644,7 @@ runtime-full = [
 	"pallet-meta-tx",
 	"pallet-migrations",
 	"pallet-mixnet",
+	"pallet-multi-asset-bounties",
 	"pallet-mmr",
 	"pallet-multisig",
 	"pallet-nft-fractionalization",
@@ -1500,6 +1504,11 @@ path = "../substrate/frame/migrations"
 default-features = false
 optional = true
 path = "../substrate/frame/mixnet"
+
+[dependencies.pallet-multi-asset-bounties]
+default-features = false
+optional = true
+path = "../substrate/frame/multi-asset-bounties"
 
 [dependencies.pallet-mmr]
 default-features = false
