@@ -160,7 +160,7 @@ impl<T: Config<I>, I: 'static> fungible::Unbalanced<T::AccountId> for Pallet<T, 
 	) -> Result<Option<Self::Balance>, DispatchError> {
 		let max_reduction =
 			<Self as fungible::Inspect<_>>::reducible_balance(who, Expendable, Force);
-		let (result, maybe_dust) = Self::mutate_account(who, |account| -> DispatchResult {
+		let (result, maybe_dust) = Self::mutate_account(who, false, |account| -> DispatchResult {
 			// Make sure the reduction (if there is one) is no more than the maximum allowed.
 			let reduction = account.free.saturating_sub(amount);
 			ensure!(reduction <= max_reduction, Error::<T, I>::InsufficientBalance);
@@ -319,10 +319,11 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 			new_account.reserved.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
 		};
 
-		let (result, maybe_dust) = Self::try_mutate_account(who, |a, _| -> DispatchResult {
-			*a = new_account;
-			Ok(())
-		})?;
+		let (result, maybe_dust) =
+			Self::try_mutate_account(who, false, |a, _| -> DispatchResult {
+				*a = new_account;
+				Ok(())
+			})?;
 		debug_assert!(
 			maybe_dust.is_none(),
 			"Does not alter main balance; dust only happens when it is altered; qed"

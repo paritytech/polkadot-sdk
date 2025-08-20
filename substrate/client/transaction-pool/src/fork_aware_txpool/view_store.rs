@@ -521,13 +521,7 @@ where
 
 	/// Inserts new view into the view store.
 	///
-	/// All the views associated with the blocks which are on enacted path (including common
-	/// ancestor) will be:
-	/// - moved to the inactive views set (`inactive_views`),
-	/// - removed from the multi view listeners.
-	///
-	/// The `most_recent_view` is updated with the reference to the newly inserted view.
-	///
+	/// Refer to [`Self::insert_new_view_sync`] more details.
 	/// If there are any pending tx replacments, they are applied to the new view.
 	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::insert_new_view")]
 	pub(super) async fn insert_new_view(
@@ -538,7 +532,29 @@ where
 		self.apply_pending_tx_replacements(view.clone()).await;
 
 		let start = Instant::now();
+		self.insert_new_view_sync(view, tree_route);
 
+		debug!(
+			target: LOG_TARGET,
+			inactive_views = ?self.inactive_views.read().keys(),
+			duration = ?start.elapsed(),
+			"insert_new_view"
+		);
+	}
+
+	/// Inserts new view into the view store.
+	///
+	/// All the views associated with the blocks which are on enacted path (including common
+	/// ancestor) will be:
+	/// - moved to the inactive views set (`inactive_views`),
+	/// - removed from the multi view listeners.
+	///
+	/// The `most_recent_view` is updated with the reference to the newly inserted view.
+	pub(super) fn insert_new_view_sync(
+		&self,
+		view: Arc<View<ChainApi>>,
+		tree_route: &TreeRoute<Block>,
+	) {
 		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
@@ -556,12 +572,6 @@ where
 			active_views.insert(view.at.hash, view.clone());
 			most_recent_view_lock.replace(view.clone());
 		};
-		debug!(
-			target: LOG_TARGET,
-			inactive_views = ?self.inactive_views.read().keys(),
-			duration = ?start.elapsed(),
-			"insert_new_view"
-		);
 	}
 
 	/// Returns an optional reference to the view at given hash.

@@ -972,11 +972,17 @@ pub mod pallet {
 		pub _config: core::marker::PhantomData<T>,
 		/// The default version to encode outgoing XCM messages with.
 		pub safe_xcm_version: Option<XcmVersion>,
+		/// The default versioned locations to support at genesis.
+		pub supported_version: Vec<(Location, XcmVersion)>,
 	}
 
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self { safe_xcm_version: Some(XCM_VERSION), _config: Default::default() }
+			Self {
+				_config: Default::default(),
+				safe_xcm_version: Some(XCM_VERSION),
+				supported_version: Vec::new(),
+			}
 		}
 	}
 
@@ -984,6 +990,14 @@ pub mod pallet {
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			SafeXcmVersion::<T>::set(self.safe_xcm_version);
+			// Set versioned locations to support at genesis.
+			self.supported_version.iter().for_each(|(location, version)| {
+				SupportedVersion::<T>::insert(
+					XCM_VERSION,
+					LatestVersionedLocation(location),
+					version,
+				);
+			});
 		}
 	}
 
@@ -3719,7 +3733,6 @@ impl<T: Config> xcm_executor::traits::AssetLock for Pallet<T> {
 		use xcm_executor::traits::LockError::*;
 		let sovereign_account = T::SovereignAccountOf::convert_location(&owner).ok_or(BadOwner)?;
 		let amount = T::CurrencyMatcher::matches_fungible(&asset).ok_or(UnknownAsset)?;
-		ensure!(T::Currency::free_balance(&sovereign_account) >= amount, AssetNotOwned);
 		let locks = LockedFungibles::<T>::get(&sovereign_account).unwrap_or_default();
 		let item_index =
 			locks.iter().position(|x| x.1.try_as::<_>() == Ok(&unlocker)).ok_or(NotLocked)?;

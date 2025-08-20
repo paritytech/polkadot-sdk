@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2024-11-19
+  TOOLCHAIN: nightly-2025-01-26
 
 jobs:
   isdraft:
@@ -78,7 +78,7 @@ jobs:
 
       - name: Install parity-publish
         # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.4 --locked -q
+        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.5 --locked -q
 
       - name: Get original PR number
         shell: bash
@@ -130,8 +130,8 @@ jobs:
           fi
           
           # Only enforce SemVer restrictions for backports targeting stable branches
-          if [[ "$BASE_BRANCH" != stable* ]]; then
-              echo "ℹ️ Branch '$BASE_BRANCH' is not a stable branch. Skipping SemVer backport-specific enforcements."
+          if [[ "$BASE_BRANCH" != stable* && "$BASE_BRANCH" != unstable* ]]; then
+              echo "ℹ️ Branch '$BASE_BRANCH' is not a (un)stable branch. Skipping SemVer backport-specific enforcements."
               exit 0
           fi
 

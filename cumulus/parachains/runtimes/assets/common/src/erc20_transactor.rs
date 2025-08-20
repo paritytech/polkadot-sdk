@@ -18,10 +18,7 @@
 
 use core::marker::PhantomData;
 use ethereum_standards::IERC20;
-use frame_support::{
-	pallet_prelude::Zero,
-	traits::{fungible::Inspect, OriginTrait},
-};
+use frame_support::traits::{fungible::Inspect, OriginTrait};
 use pallet_revive::{
 	precompiles::alloy::{
 		primitives::{Address, U256 as EU256},
@@ -127,7 +124,7 @@ where
 			pallet_revive::Pallet::<T>::bare_call(
 				T::RuntimeOrigin::signed(who.clone()),
 				asset_id,
-				BalanceOf::<T>::zero(),
+				U256::zero(),
 				gas_limit,
 				DepositLimit::Balance(StorageDepositLimit::get()),
 				data,
@@ -185,7 +182,7 @@ where
 			pallet_revive::Pallet::<T>::bare_call(
 				T::RuntimeOrigin::signed(TransfersCheckingAccount::get()),
 				asset_id,
-				BalanceOf::<T>::zero(),
+				U256::zero(),
 				gas_limit,
 				DepositLimit::Balance(StorageDepositLimit::get()),
 				data,

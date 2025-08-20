@@ -463,7 +463,7 @@ fn deducting_balance_should_work() {
 fn refunding_balance_should_work() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 42);
-		assert_ok!(Balances::mutate_account(&1, |a| a.reserved = 69));
+		assert_ok!(Balances::mutate_account(&1, false, |a| a.reserved = 69));
 		Balances::unreserve(&1, 69);
 		assert_eq!(Balances::free_balance(1), 111);
 		assert_eq!(Balances::reserved_balance(1), 0);
@@ -1384,22 +1384,22 @@ fn freezing_and_locking_should_work() {
 			assert_eq!(System::consumers(&1), 1);
 
 			// Frozen and locked balances update correctly.
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 6));
-			assert_eq!(Balances::account(&1).frozen, 6);
+			assert_eq!(get_test_account_data(1).frozen, 6);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 4));
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 			Balances::set_lock(ID_1, &1, 3, WithdrawReasons::all());
-			assert_eq!(Balances::account(&1).frozen, 4);
+			assert_eq!(get_test_account_data(1).frozen, 4);
 			Balances::set_lock(ID_1, &1, 5, WithdrawReasons::all());
-			assert_eq!(Balances::account(&1).frozen, 5);
+			assert_eq!(get_test_account_data(1).frozen, 5);
 
 			// Locks update correctly.
 			Balances::remove_lock(ID_1, &1);
-			assert_eq!(Balances::account(&1).frozen, 4);
+			assert_eq!(get_test_account_data(1).frozen, 4);
 			assert_eq!(System::consumers(&1), 1);
 			assert_ok!(<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Foo, &1, 0));
-			assert_eq!(Balances::account(&1).frozen, 0);
+			assert_eq!(get_test_account_data(1).frozen, 0);
 			assert_eq!(System::consumers(&1), 0);
 		});
 }
