@@ -29,21 +29,6 @@ on:
         required: false
         type: string
 
-    secrets:
-      PGP_KMS_KEY:
-        required: true
-      PGP_KMS_HASH:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      AWS_DEFAULT_REGION:
-        required: true
-      AWS_RELEASE_ACCESS_KEY_ID:
-        required: true
-      AWS_RELEASE_SECRET_ACCESS_KEY:
-        required: true
 
 permissions:
   id-token: write
