@@ -1444,7 +1444,7 @@ mod invulnerables {
 				vec![(98, score_from(100)), (99, score_from(150)), (97, score_from(200))]
 			);
 
-			// worst than all
+			// worse than all
 			assert_noop!(
 				SignedPallet::register(RuntimeOrigin::signed(96), score_from(50)),
 				Error::<T>::QueueFull,
