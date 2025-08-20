@@ -114,7 +114,7 @@ impl ReceiptExtractor {
 		)?;
 		let transaction_hash = H256(keccak_256(&call.payload));
 
-		let mut signed_tx =
+		let signed_tx =
 			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
 		let from = signed_tx.recover_eth_address().map_err(|_| {
 			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
@@ -125,8 +125,6 @@ impl ReceiptExtractor {
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 		let gas_price = tx_info.gas_price.unwrap_or_default();
-		signed_tx.set_effective_gas_price(gas_price);
-
 		let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
 			.saturating_mul(self.native_to_eth_ratio.into())
 			.checked_div(gas_price)

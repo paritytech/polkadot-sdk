@@ -154,17 +154,6 @@ impl TransactionSigned {
 		addr.assign_from_slice(&keccak_256(&pk[..])[12..]);
 		Ok(addr)
 	}
-
-	/// Set EIP-1559 effective gas price.
-	pub fn set_effective_gas_price(&mut self, gas_price: U256) {
-		use TransactionSigned::*;
-		match self {
-			Transaction1559Signed(tx) => {
-				tx.transaction_1559_unsigned.gas_price = gas_price;
-			},
-			_ => {},
-		}
-	}
 }
 
 #[test]

@@ -55,7 +55,7 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 /// - Not too high, ensuring the gas value is large enough (at least 7 digits) to encode the
 ///   ref_time, proof_size, and deposit into the less significant (6 lower) digits of the gas value.
 /// - Not too low, enabling users to adjust the gas price to define a tip.
-pub(crate) const GAS_PRICE: u64 = 1_000_000u64;
+pub(crate) const GAS_PRICE: u64 = 1_000u64;
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
@@ -494,7 +494,6 @@ mod test {
 				Weight::MAX,
 				|eth_call, dispatch_call| {
 					let mut info = dispatch_call.get_dispatch_info();
-
 					info.extension_weight =
 						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
 					let uxt: Ex =
@@ -679,7 +678,7 @@ mod test {
 			(
 				"Eth fees too low",
 				Box::new(|tx| {
-					tx.gas_price = Some(100u64.into());
+					tx.gas_price = Some(tx.gas_price.unwrap() / 2);
 				}),
 				InvalidTransaction::Payment,
 			),
@@ -703,7 +702,7 @@ mod test {
 	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
-		let data = vec![42u8; 1_000_000];
+		let data = vec![];
 		let (_, extra, tx) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
@@ -713,7 +712,6 @@ mod test {
 				.unwrap();
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
-
 		assert_eq!(extra.1.tip(), expected_tip);
 	}
 
