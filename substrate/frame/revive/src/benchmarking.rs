@@ -2432,8 +2432,12 @@ mod benchmarks {
 	}
 
 	// `c`: number of transactions to fit in the block
+	// `e`: number of events per transaction
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block_transaction_processing(c: Linear<0, 100>) -> Result<(), BenchmarkError> {
+	fn finalize_block_processing(
+		c: Linear<0, 100>,
+		e: Linear<0, 50>,
+	) -> Result<(), BenchmarkError> {
 		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
@@ -2442,6 +2446,16 @@ mod benchmarks {
 
 		// Execute transactions
 		for _ in 0..c {
+			// PRE-SETUP: Create events for current transaction
+			for i in 0..e {
+				let test_event = Event::<T>::ContractEmitted {
+					contract: instance.address,
+					data: format!("test_event_{}", i).into_bytes(),
+					topics: vec![H256::from_low_u64_be(i as u64)],
+				};
+				Pallet::<T>::deposit_event(test_event);
+			}
+
 			let _ = Pallet::<T>::eth_call(
 				origin.clone(),
 				instance.address,
@@ -2467,57 +2481,7 @@ mod benchmarks {
 
 		// Verify contract events count
 		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), 0);
-
-		Ok(())
-	}
-
-	// `e`: number of events to emit during finalize_block processing
-	#[benchmark(pov_mode = Measured)]
-	fn finalize_block_event_processing(e: Linear<2, 50>) -> Result<(), BenchmarkError> {
-		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
-			setup_finalize_block_benchmark::<T>()?;
-
-		// PRE-SETUP: Create events OUTSIDE the benchmark block to avoid measuring
-		// string formatting and storage insertion costs
-		for i in 0..e {
-			let test_event = Event::<T>::ContractEmitted {
-				contract: instance.address,
-				data: format!("test_event_{}", i).into_bytes(),
-				topics: vec![H256::from_low_u64_be(i as u64)],
-			};
-			Pallet::<T>::deposit_event(test_event);
-		}
-
-		// Initialize block
-		let _ = Pallet::<T>::on_initialize(current_block);
-
-		// Execute a single dummy transaction to trigger the finalize_block event processing
-		let _ = Pallet::<T>::eth_call(
-			origin.clone(),
-			instance.address,
-			evm_value,
-			Weight::MAX,
-			storage_deposit,
-			vec![],
-			signed_payload.clone(),
-		);
-
-		#[block]
-		{
-			// This is where the event processing cost is incurred (MEASURED)
-			let _ = Pallet::<T>::on_finalize(current_block);
-		}
-
-		// Verify block was properly finalized
-		assert!(Pallet::<T>::block_author().is_some());
-
-		// Verify transaction count
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
-
-		// Verify contract events count
-		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), e as usize);
+		assert_eq!(contract_events.len(), (c * e) as usize);
 
 		Ok(())
 	}

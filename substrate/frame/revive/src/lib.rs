@@ -1191,8 +1191,7 @@ pub mod pallet {
 		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight;
 	}
 
-	/// Splits finalize_block weight into fixed, per-transaction, per-event, and per-data-byte
-	/// components.
+	/// Splits finalize_block weight into fixed, per-transaction, per-event components.
 	///
 	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count *
 	/// per_event_part)
@@ -1205,14 +1204,13 @@ pub mod pallet {
 	///   and event data length
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
-			// Call finalize_block with tx_count = 0 → only `a`
-			W::finalize_block_transaction_processing(0)
+			// Call finalize_block with tx_count = 0 and event_cnt = 0 → only `fixed_part`
+			W::finalize_block_processing(0, 0)
 		}
 
 		fn finalize_block_per_tx() -> Weight {
-			// Call with 1 tx and subtract the fixed part → gives `b`
-			W::finalize_block_transaction_processing(1)
-				.saturating_sub(W::finalize_block_transaction_processing(0))
+			// Call with 1 tx with 0 event and subtract 0 tx with 0 event → gives `per_tx_part`
+			W::finalize_block_processing(1, 0).saturating_sub(W::finalize_block_processing(0, 0))
 		}
 
 		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight {
@@ -1223,8 +1221,9 @@ pub mod pallet {
 			};
 			let weight_per_data_len = W::finalize_block_event_data_processing(data_len);
 
-			W::finalize_block_event_processing(1)
-				.saturating_sub(W::finalize_block_event_processing(0))
+			// Call with 1 tx with 1 event and subtract 1 tx with 0 events → gives `per_event_part`
+			W::finalize_block_processing(1, 1)
+				.saturating_sub(W::finalize_block_processing(1, 0))
 				.saturating_add(weight_per_data_len)
 		}
 	}

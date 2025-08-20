@@ -67,6 +67,7 @@
 #![allow(dead_code)]
 
 use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use serde::de::IntoDeserializer;
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_revive`.
@@ -160,8 +161,7 @@ pub trait WeightInfo {
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
-	fn finalize_block_transaction_processing(c: u32, ) -> Weight;
-	fn finalize_block_event_processing(e: u32, ) -> Weight;
+	fn finalize_block_processing(c: u32, e: u32) -> Weight;
 	fn finalize_block_event_data_processing(d: u32, ) -> Weight;
 }
 
@@ -1283,34 +1283,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block_transaction_processing(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1976`
-		//  Estimated: `7916 + c * (2475 ±0)`
-		// Minimum execution time: 20_560_000 picoseconds.
-		Weight::from_parts(62_604_501, 7916)
-			// Standard Error: 17_180
-			.saturating_add(Weight::from_parts(73_609_055, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(11_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(c.into())))
-			.saturating_add(T::DbWeight::get().writes(9_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(c.into())))
-			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(c.into()))
-	}
-	/// The range of component `e` is `[0, 50]`.
-	fn finalize_block_event_processing(e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `500`
-		//  Estimated: `3000 + e * (200 ±0)`
-		// Minimum execution time: 10_000_000 picoseconds.
-		Weight::from_parts(12_000_000, 3000)
-			// Standard Error: 5_000
-			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(e.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(e.into())))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(e.into())))
-			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
+	fn finalize_block_processing(c: u32, e: u32) -> Weight {
+	    Weight::from_parts(10_000_000, 2000)
+			.saturating_mul(c.into())
+			.saturating_mul(e.into())
 	}
 	/// The range of component `d` is `[0, 16384]`.
 	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
@@ -2444,34 +2420,10 @@ impl WeightInfo for () {
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block_transaction_processing(c: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1976`
-		//  Estimated: `7916 + c * (2475 ±0)`
-		// Minimum execution time: 20_560_000 picoseconds.
-		Weight::from_parts(62_604_501, 7916)
-			// Standard Error: 17_180
-			.saturating_add(Weight::from_parts(73_609_055, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(11_u64))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(c.into())))
-			.saturating_add(RocksDbWeight::get().writes(9_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(c.into())))
-			.saturating_add(Weight::from_parts(0, 2475).saturating_mul(c.into()))
-	}
-	/// The range of component `e` is `[0, 50]`.
-	fn finalize_block_event_processing(e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `500`
-		//  Estimated: `3000 + e * (200 ±0)`
-		// Minimum execution time: 10_000_000 picoseconds.
-		Weight::from_parts(12_000_000, 3000)
-			// Standard Error: 5_000
-			.saturating_add(Weight::from_parts(1_000_000, 0).saturating_mul(e.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(e.into())))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(e.into())))
-			.saturating_add(Weight::from_parts(0, 200).saturating_mul(e.into()))
+	fn finalize_block_processing(c: u32, e: u32) -> Weight {
+	    Weight::from_parts(10_000_000, 2000)
+			.saturating_mul(c.into())
+			.saturating_mul(e.into())
 	}
 	/// The range of component `d` is `[0, 16384]`.
 	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
