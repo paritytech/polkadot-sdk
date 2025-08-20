@@ -629,6 +629,10 @@ pub mod pallet {
 			);
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
+			// Some benchmarks push some events to InflightEvents (via `deposit_events()`)
+			// before calling `on_initialize()` and they expect to collect those events when
+			// finalizing the block.
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			InflightEvents::<T>::kill();
 			InflightTransactions::<T>::kill();
 
