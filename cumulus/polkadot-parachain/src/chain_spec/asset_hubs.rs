@@ -80,7 +80,6 @@ pub fn asset_hub_rococo_development_config() -> GenericChainSpec {
 		properties,
 		"Rococo Asset Hub Development",
 		"asset-hub-rococo-dev",
-		1000,
 	)
 }
 
@@ -88,7 +87,6 @@ fn asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
-	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
@@ -111,7 +109,6 @@ pub fn asset_hub_rococo_local_config() -> GenericChainSpec {
 		properties,
 		"Rococo Asset Hub Local",
 		"asset-hub-rococo-local",
-		1000,
 	)
 }
 
@@ -119,7 +116,6 @@ fn asset_hub_rococo_like_local_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
-	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
