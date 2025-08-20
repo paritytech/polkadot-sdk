@@ -45,10 +45,8 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthBlockBuilder, ReconstructReceiptInfo},
-		runtime::GAS_PRICE,
-		CallTracer, GasEncoder, GenericTransaction, HashesOrTransactionInfos, PrestateTracer,
-		Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::ReceiptGasInfo, runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction,
+		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -105,7 +103,7 @@ pub use sp_runtime;
 pub use weights::WeightInfo;
 
 #[cfg(doc)]
-pub use crate::vm::SyscallDoc;
+pub use crate::vm::pvm::SyscallDoc;
 
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
@@ -130,7 +128,7 @@ const BLOCK_HASH_COUNT: u32 = 256;
 /// Hence you can use this target to selectively increase the log level for this crate.
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
-pub(crate) const LOG_TARGET: &str = "runtime::revive";
+const LOG_TARGET: &str = "runtime::revive";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -489,7 +487,7 @@ pub mod pallet {
 		ReturnDataTooLarge = 0x31,
 	}
 
-	/// A reason for the pallet contracts placing a hold on funds.
+	/// A reason for the pallet revive placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
 		/// The Pallet has reserved it for storing code on-chain.
@@ -545,8 +543,7 @@ pub mod pallet {
 	/// completed and moved to the `InflightTransactions` storage object.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightEvents<T: Config> =
-		CountedStorageMap<_, Identity, u32, Event<T>, OptionQuery>;
+	pub(crate) type InflightEvents<T: Config> = StorageValue<_, Vec<Event<T>>, ValueQuery>;
 
 	/// The EVM submitted transactions that are inflight for the current block.
 	///
@@ -557,13 +554,8 @@ pub mod pallet {
 	/// the gas consumed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightTransactions<T: Config> = CountedStorageMap<
-		_,
-		Identity,
-		u32,
-		(Vec<u8>, u32, Vec<Event<T>>, bool, Weight),
-		OptionQuery,
-	>;
+	pub(crate) type InflightTransactions<T: Config> =
+		StorageValue<_, Vec<(Vec<u8>, u32, Vec<Event<T>>, bool, Weight)>, ValueQuery>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
@@ -587,9 +579,12 @@ pub mod pallet {
 	/// The details needed to reconstruct the receipt info offchain.
 	///
 	/// This contains valuable information about the gas used by the transaction.
+	///
+	/// NOTE: The item is unbound and should therefore never be read on chain.
+	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReconstructReceiptInfo>, ValueQuery>;
+	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -628,57 +623,8 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// TODO: Account for future transactions here in the on_finalize.
-
-			// The pallet executes the following memory operations:
-			//
-			// For every emitted event of type `Event::ContractEmitted`:
-			//  (I) During collection:
-			// 		- read: InflightEvents::<T>::count()
-			// 		- write: InflightEvents::<T>::insert
-			//
-			//	(II) After transaction is executed:
-			// 		- read: InflightEvents::<T>::count() internally by InflightEvents::<T>::drain()
-			// 		- read: Provide the key, value internally by InflightEvents::<T>::drain()
-			// 		- write: Remove key internally by InflightEvents::<T>::drain()
-			// Therefore, we have 2 reads and 2 writes per event, plus one extra read per total
-			// (count).
-			//
-			// Cost(Events) = (2r + 2w) * N + 1r
-			//
-			// For every transaction:
-			//  (I) Cost incurred by the emitted event
-			//
-			//  (II) After transaction is executed:
-			// 		- read: frame_system::Pallet::<T>::extrinsic_index()
-			//  	- read: InflightTransactions::<T>::count()
-			//  	- write: InflightTransactions::<T>::insert()
-			//
-			// Cost(Txs) = Cost(Events) + (1r + 1r) * M + 1r
-			//
-			// On finalize operations:
-			// (I) Operating with transactions:
-			// 		- read: InflightTransactions::<T>::count() internally by
-			//     InflightTransactions::<T>::drain()
-			// 		- read: Provide key, value internally by InflightTransactions::<T>::drain()
-			// 		- write: Remove key internally by InflightTransactions::<T>::drain()
-			//
-			// (II) Parent hash
-			// 		- read: BlockHash::<T>::get()
-			//
-			// (III) Storage propagation
-			// 		- write: BlockHash::<T>::insert() (insert number to hash mapping)
-			// 		- write EthereumBlock::<T>::put() (insert block into storage)
-			// 		- write ReceiptInfoData::<T>::put() (insert receipt data into storage)
-			//
-			// Cost(on_finalize) = Cost(Txs) + (1r + 1r) * M + 1r + 1r + 3w
-			//
-			// Total cost:
-			// (2r + 2w) * N + 1r + (1r + 1r) * M + 1r + (1r + 1r) * M + 1r + 1r + 3w
-			// = 4 M (r + w) + 2 N * (r + w) + 4r + 3w
-			//
-			// Note: This does not account for the cost of computing the state tries.
-
+			ReceiptInfoData::<T>::kill();
+			EthereumBlock::<T>::kill();
 			Weight::zero()
 		}
 
@@ -687,8 +633,8 @@ pub mod pallet {
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
 				// Drain storage in case of errors.
-				InflightEvents::<T>::drain();
-				InflightTransactions::<T>::drain();
+				InflightEvents::<T>::kill();
+				InflightTransactions::<T>::kill();
 				return;
 			};
 
@@ -699,22 +645,20 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-			let base_gas_price = GAS_PRICE.into();
+			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
-			let transactions = InflightTransactions::<T>::drain().map(|(_index, details)| details);
+			let transactions = InflightTransactions::<T>::take();
 
-			let block_builder = EthBlockBuilder::new(
+			let (block_hash, block, receipt_data) = EthBlock::build(
+				transactions,
 				eth_block_num,
 				parent_hash,
-				base_gas_price,
 				T::Time::now().into(),
 				block_author,
 				gas_limit,
+				base_gas_price,
 			);
-			// The most expensive operation of this hook. Please check
-			// the method's documentation for computational details.
-			let (block_hash, block, receipt_data) = block_builder.build(transactions);
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
@@ -1324,9 +1268,9 @@ where
 
 			if_tracing(|t| t.instantiate_code(&code, salt.as_ref()));
 			let (executable, upload_deposit) = match code {
-				Code::Upload(code) => {
+				Code::Upload(code) if code.starts_with(&polkavm_common::program::BLOB_MAGIC) => {
 					let upload_account = T::UploadOrigin::ensure_origin(origin)?;
-					let (executable, upload_deposit) = Self::try_upload_code(
+					let (executable, upload_deposit) = Self::try_upload_pvm_code(
 						upload_account,
 						code,
 						storage_deposit_limit,
@@ -1335,6 +1279,7 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
+				Code::Upload(_code) => return Err(<Error<T>>::CodeRejected.into()),
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
@@ -1434,10 +1379,10 @@ where
 				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
-				return Err(EthTransactError::Message(
-						format!("insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
-							tx.gas.unwrap_or_default()))
-					);
+				return Err(EthTransactError::Message(format!(
+					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
+					tx.gas.unwrap_or_default()
+				)));
 			}
 
 			return Err(EthTransactError::Message(format!(
@@ -1524,16 +1469,20 @@ where
 			// A contract deployment
 			None => {
 				// Extract code and data from the input.
-				let (code, data) = match polkavm::ProgramBlob::blob_length(&input) {
-					Some(blob_len) => blob_len
-						.try_into()
-						.ok()
-						.and_then(|blob_len| (input.split_at_checked(blob_len)))
-						.unwrap_or_else(|| (&input[..], &[][..])),
-					_ => {
-						log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-						(&input[..], &[][..])
-					},
+				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+					match polkavm::ProgramBlob::blob_length(&input) {
+						Some(blob_len) => blob_len
+							.try_into()
+							.ok()
+							.and_then(|blob_len| (input.split_at_checked(blob_len)))
+							.unwrap_or_else(|| (&input[..], &[][..])),
+						_ => {
+							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
+							(&input[..], &[][..])
+						},
+					}
+				} else {
+					return Err(EthTransactError::Message("Invalid transaction".into()));
 				};
 
 				// Dry run the call.
@@ -1689,6 +1638,11 @@ where
 		GAS_PRICE.into()
 	}
 
+	/// Get the base gas price.
+	pub fn evm_base_gas_price() -> U256 {
+		GAS_PRICE.into()
+	}
+
 	/// Build an EVM tracer from the given tracer type.
 	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
 	where
@@ -1714,7 +1668,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) = Self::try_upload_code(origin, code, storage_deposit_limit, false)?;
+		let (module, deposit) =
+			Self::try_upload_pvm_code(origin, code, storage_deposit_limit, false)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -1741,13 +1696,13 @@ where
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
-	fn try_upload_code(
+	fn try_upload_pvm_code(
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_code(code, origin)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
 		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
@@ -1804,9 +1759,10 @@ impl<T: Config> Pallet<T> {
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		if matches!(event, Event::ContractEmitted { .. }) {
-			let events_count = InflightEvents::<T>::count();
 			// TODO: ensure we don't exceed a maximum number of events per tx.
-			InflightEvents::<T>::insert(events_count, event.clone());
+			InflightEvents::<T>::mutate(|events| {
+				events.push(event.clone());
+			});
 		}
 
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
@@ -1817,18 +1773,16 @@ impl<T: Config> Pallet<T> {
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(payload: Vec<u8>, success: bool, gas_consumed: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
-		let events = InflightEvents::<T>::drain().map(|(_idx, event)| event).collect::<Vec<_>>();
+		let events = InflightEvents::<T>::take();
 
 		let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
 			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
 			0
 		});
 
-		let transactions_count = InflightTransactions::<T>::count();
-		InflightTransactions::<T>::insert(
-			transactions_count,
-			(payload, extrinsic_index, events, success, gas_consumed),
-		);
+		InflightTransactions::<T>::mutate(|transactions| {
+			transactions.push((payload, extrinsic_index, events, success, gas_consumed));
+		});
 	}
 
 	/// The address of the validator that produced the current block.
