@@ -2489,22 +2489,22 @@ mod benchmarks {
 			Pallet::<T>::deposit_event(test_event);
 		}
 
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Execute a single dummy transaction to trigger the finalize_block event processing
+		let _ = Pallet::<T>::eth_call(
+			origin.clone(),
+			instance.address,
+			evm_value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+			signed_payload.clone(),
+		);
+
 		#[block]
 		{
-			// Initialize block
-			let _ = Pallet::<T>::on_initialize(current_block);
-
-			// Execute a single dummy transaction to trigger the finalize_block event processing
-			let _ = Pallet::<T>::eth_call(
-				origin.clone(),
-				instance.address,
-				evm_value,
-				Weight::MAX,
-				storage_deposit,
-				vec![],
-				signed_payload.clone(),
-			);
-
 			// This is where the event processing cost is incurred (MEASURED)
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
@@ -2558,22 +2558,22 @@ mod benchmarks {
 			}
 		}
 
+		// Initialize block
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Execute a single dummy transaction to trigger the finalize_block event processing
+		let _ = Pallet::<T>::eth_call(
+			origin.clone(),
+			instance.address,
+			evm_value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+			signed_payload.clone(),
+		);
+
 		#[block]
 		{
-			// Initialize block
-			let _ = Pallet::<T>::on_initialize(current_block);
-
-			// Execute a single dummy transaction to trigger the finalize_block event processing
-			let _ = Pallet::<T>::eth_call(
-				origin.clone(),
-				instance.address,
-				evm_value,
-				Weight::MAX,
-				storage_deposit,
-				vec![],
-				signed_payload.clone(),
-			);
-
 			// This is where the data-dependent processing cost is incurred (MEASURED)
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
