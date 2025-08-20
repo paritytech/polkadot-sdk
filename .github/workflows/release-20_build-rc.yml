@@ -15,6 +15,7 @@ on:
           - chain-spec-builder
           - substrate-node
           - eth-rpc
+          - subkey
           - all
 
       release_tag:
@@ -172,14 +173,7 @@ jobs:
       package: subkey
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: x86_64-unknown-linux-gnu
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
@@ -300,14 +294,7 @@ jobs:
       package: subkey
       release_tag: ${{ needs.validate-inputs.outputs.release_tag }}
       target: aarch64-apple-darwin
-    secrets:
-      PGP_KMS_KEY:  ${{ secrets.PGP_KMS_KEY }}
-      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
-      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
-      AWS_RELEASE_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
-      AWS_RELEASE_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+    secrets: inherit
     permissions:
       id-token: write
       attestations: write
