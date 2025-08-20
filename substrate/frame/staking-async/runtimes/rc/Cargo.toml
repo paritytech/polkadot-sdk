@@ -291,6 +291,8 @@ runtime-benchmarks = [
 	"xcm-executor/runtime-benchmarks",
 	"xcm-runtime-apis/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"pallet-society/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
