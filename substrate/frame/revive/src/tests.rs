@@ -206,6 +206,13 @@ pub(crate) mod builder {
 	pub fn eth_call(dest: H160) -> EthCallBuilder<Test> {
 		EthCallBuilder::<Test>::eth_call(RuntimeOrigin::signed(ALICE), dest)
 	}
+
+	pub fn eth_instantiate_with_code(code: Vec<u8>) -> EthInstantiateWithCodeBuilder<Test> {
+		EthInstantiateWithCodeBuilder::<Test>::eth_instantiate_with_code(
+			RuntimeOrigin::signed(ALICE),
+			code,
+		)
+	}
 }
 
 impl Test {

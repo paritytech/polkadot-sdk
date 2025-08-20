@@ -254,7 +254,32 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
-			payload: vec![],
+			payload: vec![1],
+		}
+	}
+);
+
+builder!(
+	eth_instantiate_with_code(
+			origin: OriginFor<T>,
+			value: U256,
+			gas_limit: Weight,
+			storage_deposit_limit: BalanceOf<T>,
+			code: Vec<u8>,
+			data: Vec<u8>,
+			payload: Vec<u8>,
+	) -> DispatchResultWithPostInfo;
+
+	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
+	pub fn eth_instantiate_with_code(origin: OriginFor<T>, code: Vec<u8>) -> Self {
+		Self {
+			origin,
+			value: 0u32.into(),
+			gas_limit: GAS_LIMIT,
+			storage_deposit_limit: deposit_limit::<T>(),
+			code,
+			data: vec![],
+			payload: vec![2],
 		}
 	}
 );
