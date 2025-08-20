@@ -23,7 +23,6 @@ use crate::{
 	tests::{builder, test_utils, ExtBuilder, Test},
 	Code, Config, Key, System, H256,
 };
-use pallet_revive_uapi::ReturnFlags;
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;

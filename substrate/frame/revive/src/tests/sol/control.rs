@@ -195,7 +195,6 @@ fn revert_works() {
 
 #[test]
 fn stop_works() {
-	let expected_value = 0xfefefefe_u64;
 	let runtime_code: Vec<u8> = vec![vec![STOP]].into_iter().flatten().collect();
 	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
 

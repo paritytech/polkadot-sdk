@@ -21,12 +21,10 @@ use crate::{
 	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
 	Code, Config,
 };
-use pallet_revive_uapi::ReturnFlags;
 
-use alloy_core::{hex, primitives::I256, primitives::U256, sol_types::SolInterface};
+use alloy_core::sol_types::SolInterface;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Bitwise, FixtureType};
-use pretty_assertions::assert_eq;
 
 #[test]
 fn bitwise_works() {

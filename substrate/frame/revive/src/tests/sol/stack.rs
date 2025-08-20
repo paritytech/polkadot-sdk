@@ -5,7 +5,6 @@ use crate::{
 };
 use alloy_core::primitives::U256;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 
 use revm::bytecode::opcode::*;
