@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The pallet-revive shared VM integration test suite.
-
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
