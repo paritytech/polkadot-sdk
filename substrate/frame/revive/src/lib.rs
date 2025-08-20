@@ -1052,37 +1052,6 @@ pub mod pallet {
 				}
 			}
 
-			// Account for event processing costs in finalize_block
-			let events = InflightEvents::<T>::get();
-			let events_count = events.len() as u64;
-			if events.len() > 0 {
-				// Calculate per-event weight
-				let event_processing_weight =
-					T::WeightInfo::finalize_block_per_event().saturating_mul(events_count);
-
-				// Calculate total event data size for per-byte weight accounting
-				let total_event_data_size: u32 = events
-					.iter()
-					.filter_map(|event| match event {
-						Event::ContractEmitted { data, .. } => Some(data.len() as u32),
-						_ => None,
-					})
-					.sum();
-
-				// Calculate per-data-byte weight
-				let data_processing_weight = T::WeightInfo::finalize_block_per_data_byte()
-					.saturating_mul(total_event_data_size.into());
-
-				// Register combined additional weight for event processing during finalize_block
-				let total_event_weight =
-					event_processing_weight.saturating_add(data_processing_weight);
-
-				frame_system::Pallet::<T>::register_extra_weight_unchecked(
-					total_event_weight,
-					DispatchClass::Normal,
-				);
-			}
-
 			Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
 			dispatch_result(
@@ -1219,26 +1188,21 @@ pub mod pallet {
 		fn finalize_block_per_tx() -> Weight;
 
 		/// Returns the per-event part `c` of finalize_block weight.
-		fn finalize_block_per_event() -> Weight;
-
-		/// Returns the per-data-byte part `d` of finalize_block weight.
-		fn finalize_block_per_data_byte() -> Weight;
+		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight;
 	}
 
 	/// Splits finalize_block weight into fixed, per-transaction, per-event, and per-data-byte
 	/// components.
 	///
 	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count *
-	/// per_event_part) + (data_bytes * per_data_byte_part)
+	/// per_event_part)
 	///
 	/// - `finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
 	/// - `finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
 	///   to enforce gas limits and reject transactions early if needed.
-	/// - `finalize_block_per_event()`: Per-event weight for processing events during
-	///   `on_finalize()`, added dynamically in each `eth_call()` based on actual event count.
-	/// - `finalize_block_per_data_byte()`: Per-byte weight for processing event data during
-	///   `on_finalize()`, accounts for bloom filter computation, RLP encoding, and data copying
-	///   costs.
+	/// - `finalize_block_per_event(event)`: Per-event weight for processing events during
+	///   `on_finalize()`, added dynamically in each `deposit_event()` based on actual event count
+	///   and event data length
 	impl<W: WeightInfo> FinalizeBlockParts for W {
 		fn finalize_block_fixed() -> Weight {
 			// Call finalize_block with tx_count = 0 → only `a`
@@ -1251,16 +1215,17 @@ pub mod pallet {
 				.saturating_sub(W::finalize_block_transaction_processing(0))
 		}
 
-		fn finalize_block_per_event() -> Weight {
-			// Extract per-event cost from dedicated benchmark
+		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight {
+			// Extract per-event cost from dedicated benchmarks
+			let data_len = match event {
+				Event::ContractEmitted { data, .. } => data.len() as u32,
+				_ => 0,
+			};
+			let weight_per_data_len = W::finalize_block_event_data_processing(data_len);
+
 			W::finalize_block_event_processing(1)
 				.saturating_sub(W::finalize_block_event_processing(0))
-		}
-
-		fn finalize_block_per_data_byte() -> Weight {
-			// Extract per-data-byte cost from dedicated benchmark
-			W::finalize_block_event_data_processing(1)
-				.saturating_sub(W::finalize_block_event_data_processing(0))
+				.saturating_add(weight_per_data_len)
 		}
 	}
 }
@@ -1858,6 +1823,11 @@ impl<T: Config> Pallet<T> {
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		if matches!(event, Event::ContractEmitted { .. }) {
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				<T as pallet::Config>::WeightInfo::finalize_block_per_event(&event),
+				DispatchClass::Normal,
+			);
+
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::mutate(|events| {
 				events.push(event.clone());

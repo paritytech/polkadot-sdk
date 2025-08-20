@@ -32,11 +32,11 @@ One `ref_time` `Weight` is defined as one picosecond of execution time on the ru
 
 #### Event-Aware Weight Accounting
 
-The pallet includes **event-aware weight accounting** for `finalize_block()` operations. The weight model accounts for 
+The pallet includes **event-aware weight accounting** for `finalize_block()` operations. The weight model accounts for
 the computational cost of processing events during Ethereum block construction:
 
 ```
-Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost) + (event_data_bytes × per_byte_cost)
+Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost)
 ```
 
 This comprehensive weight model accounts for both the number of events and their data size, ensuring that:
@@ -45,8 +45,8 @@ This comprehensive weight model accounts for both the number of events and their
 - Resource exhaustion attacks via oversized event data are prevented
 - Accurate block packing calculations include all processing costs
 
-The event processing costs include bloom filter computation, RLP encoding, and log conversion operations that occur 
-during `on_finalize()` when building Ethereum block headers. The data size component specifically accounts for the 
+The event processing costs include bloom filter computation, RLP encoding, and log conversion operations that occur
+during `on_finalize()` when building Ethereum block headers. The data size component specifically accounts for the
 computational overhead of processing variable-length event data during these operations.
 
 ### Revert Behaviour
