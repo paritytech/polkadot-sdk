@@ -1544,6 +1544,7 @@ fn process_expired_collations(
 		);
 
 		// Report metrics for collations that were expired after being backed.
+		// The only way this can happen is if they time out availability.
 		if let Some(latency) = expired_collation.backed() {
 			metrics.on_collation_backed(latency as f64);
 		}
@@ -1553,7 +1554,7 @@ fn process_expired_collations(
 
 /// Process collations that may have been finalized on the relay chain.
 ///
-/// Collations no more tracked after this call.
+/// Collations are no longer tracked after this call.
 async fn process_possibly_finalized_collations(
 	collations: Vec<CollationStats>,
 	last_finalized: (Hash, BlockNumber),
