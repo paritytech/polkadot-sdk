@@ -17,7 +17,7 @@
 //! Generated JSON-RPC types.
 #![allow(missing_docs)]
 
-use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
+use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use derive_more::{From, TryInto};
@@ -110,6 +110,9 @@ pub struct Block {
 	pub parent_hash: H256,
 	/// Receipts root
 	pub receipts_root: H256,
+	/// Requests root
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub requests_hash: Option<H256>,
 	/// Ommers hash
 	pub sha_3_uncles: H256,
 	/// Block size
@@ -397,6 +400,7 @@ pub struct TransactionInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum TransactionUnsigned {
+	Transaction7702Unsigned(Transaction7702Unsigned),
 	Transaction4844Unsigned(Transaction4844Unsigned),
 	Transaction1559Unsigned(Transaction1559Unsigned),
 	Transaction2930Unsigned(Transaction2930Unsigned),
@@ -634,9 +638,71 @@ pub struct TransactionLegacyUnsigned {
 	pub value: U256,
 }
 
+/// EIP-7702 transaction.
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct Transaction7702Unsigned {
+	/// accessList
+	/// EIP-2930 access list
+	pub access_list: AccessList,
+	/// authorizationList
+	/// List of account code authorizations
+	pub authorization_list: Vec<AuthorizationListEntry>,
+	/// chainId
+	/// Chain ID that this transaction is valid on.
+	pub chain_id: U256,
+	/// gas limit
+	pub gas: U256,
+	/// gas price
+	/// The effective gas price paid by the sender in wei. For transactions not yet included in a
+	/// block, this value should be set equal to the max fee per gas. This field is DEPRECATED,
+	/// please transition to using effectiveGasPrice in the receipt object going forward.
+	pub gas_price: U256,
+	/// input data
+	pub input: Bytes,
+	/// max fee per gas
+	/// The maximum total fee per gas the sender is willing to pay (includes the network / base fee
+	/// and miner / priority fee) in wei
+	pub max_fee_per_gas: U256,
+	/// max priority fee per gas
+	/// Maximum fee per gas the sender is willing to pay to miners in wei
+	pub max_priority_fee_per_gas: U256,
+	/// nonce
+	pub nonce: U256,
+	/// to address
+	pub to: Option<Address>,
+	/// type
+	pub r#type: TypeEip7702,
+	/// value
+	pub value: U256,
+}
+
+/// Authorization list entry for EIP-7702
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorizationListEntry {
+	/// Chain ID that this authorization is valid on
+	pub chain_id: U256,
+	/// Address to authorize
+	pub address: Address,
+	/// Nonce of the authorization
+	pub nonce: U256,
+	/// y-parity of the signature
+	pub y_parity: U256,
+	/// r component of signature
+	pub r: U256,
+	/// s component of signature
+	pub s: U256,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum TransactionSigned {
+	Transaction7702Signed(Transaction7702Signed),
 	Transaction4844Signed(Transaction4844Signed),
 	Transaction1559Signed(Transaction1559Signed),
 	Transaction2930Signed(Transaction2930Signed),
@@ -645,6 +711,26 @@ pub enum TransactionSigned {
 impl Default for TransactionSigned {
 	fn default() -> Self {
 		TransactionSigned::TransactionLegacySigned(Default::default())
+	}
+}
+
+impl TransactionSigned {
+	/// Get the effective gas price.
+	pub fn effective_gas_price(&self, base_gas_price: U256) -> U256 {
+		match &self {
+			TransactionSigned::TransactionLegacySigned(tx) =>
+				tx.transaction_legacy_unsigned.gas_price,
+			TransactionSigned::Transaction7702Signed(tx) => base_gas_price
+				.saturating_add(tx.transaction_7702_unsigned.max_priority_fee_per_gas)
+				.min(tx.transaction_7702_unsigned.max_fee_per_gas),
+			TransactionSigned::Transaction4844Signed(tx) => base_gas_price
+				.saturating_add(tx.transaction_4844_unsigned.max_priority_fee_per_gas)
+				.min(tx.transaction_4844_unsigned.max_fee_per_blob_gas),
+			TransactionSigned::Transaction1559Signed(tx) => base_gas_price
+				.saturating_add(tx.transaction_1559_unsigned.max_priority_fee_per_gas)
+				.min(tx.transaction_1559_unsigned.max_fee_per_gas),
+			TransactionSigned::Transaction2930Signed(tx) => tx.transaction_2930_unsigned.gas_price,
+		}
 	}
 }
 
@@ -685,6 +771,28 @@ impl Default for FilterTopic {
 	fn default() -> Self {
 		FilterTopic::Single(Default::default())
 	}
+}
+
+/// Signed 7702 Transaction
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct Transaction7702Signed {
+	#[serde(flatten)]
+	pub transaction_7702_unsigned: Transaction7702Unsigned,
+	/// r
+	pub r: U256,
+	/// s
+	pub s: U256,
+	/// v
+	/// For backwards compatibility, `v` is optionally provided as an alternative to `yParity`.
+	/// This field is DEPRECATED and all use of it should migrate to `yParity`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub v: Option<U256>,
+	/// yParity
+	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
+	pub y_parity: U256,
 }
 
 /// Signed 1559 Transaction
@@ -779,4 +887,53 @@ pub struct FeeHistoryResult {
 	/// ascending order, weighted by gas used. Zeroes are returned if the block is empty.
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub reward: Vec<Vec<U256>>,
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_block_serialization_roundtrip() {
+		let json_input = r#"{
+			"baseFeePerGas": "0x126f2347",
+			"blobGasUsed": "0x100000",
+			"difficulty": "0x0",
+			"excessBlobGas": "0x0",
+			"extraData": "0x546974616e2028746974616e6275696c6465722e78797a29",
+			"gasLimit": "0x2aca2c9",
+			"gasUsed": "0x1c06043",
+			"hash": "0xe6064637def8a5a9a90c8a666005975e4a6c46acf8af57e1f2adb20dfced133a",
+			"logsBloom": "0xbf7bf1afcf57ea95fbb5c6fd8db37db9dbffec27cfc6a39b3417e7786defd7e3d6fd577ecddd5676eee8bf79df8faddcefa7e169def77f7e7d6dbbfd1dfef9aebd9e707b4c4ed979fda2cdeeb96b3bfed5d5fabb68ff9e7f2dfb075eff643a93feebbc07877f0dff66fedf4ede0fbcfbf56f98a1626eaed77ed4e6be388f162f9b2deeff1eefa93bdacbf3fbbd7b6757cddb7ae5b3f9b7af9c3bbff7e7f6ddef9f2dff7f17997ea6867675c29fcbe6bf725efbffe1507589bfd47a3bf7b6f5dfde50776fd94fe772d2c7b6b58baf554de55c176f27efa6fdcff7f17689bafa7f7c7bf4fd5fb9b05c2f4ed785f17ac9779feeaf1f5bbdadfc42ebad367fdcf7ad",
+			"miner": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+			"mixHash": "0x7e53d2d6772895d024eb00da80213aec81fb4a15bec34a5a39403ad6162274af",
+			"nonce": "0x0000000000000000",
+			"number": "0x1606672",
+			"parentBeaconBlockRoot": "0xd9ef51c8f4155f238ba66df0d35a4d0a6bb043c0dacb5c5dbd5a231bbd4c8a01",
+			"parentHash": "0x37b527c98c86436f292d4e19fac3aba6d8c7768684ea972f50adc305fd9a1475",
+			"receiptsRoot": "0x2abab67c41b350435eb34f9dc0478dd7d262f35544cecf62a85af2da075bd38d",
+			"requestsHash": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+			"sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+			"size": "0x29e6c",
+			"stateRoot": "0x5159c56472adff9a760275ac63524a71f5645ede822a5547dd9ad333586d5157",
+			"timestamp": "0x6895a93f",
+			"transactions": [],
+			"transactionsRoot": "0xfb0b9f5b28bc927db98d82e18070d2b17434c31bd2773c5dd699e96fa76a34cd",
+			"uncles": [],
+			"withdrawals": [],
+			"withdrawalsRoot": "0x531480435633d56a52433b33f41ac9322f51a2df3364c4c112236fc6ac583118"
+		}"#;
+
+		// Deserialize the JSON into a Block
+		let block: Block = serde_json::from_str(json_input).expect("Failed to deserialize block");
+		
+		// Serialize it back to JSON
+		let serialized = serde_json::to_string(&block).expect("Failed to serialize block");
+		
+		// Deserialize again to ensure roundtrip consistency
+		let block_roundtrip: Block = serde_json::from_str(&serialized).expect("Failed to deserialize roundtrip block");
+		
+		// Verify that deserializing and serializing leads to the same result
+		assert_eq!(block, block_roundtrip);
+	}
 }
