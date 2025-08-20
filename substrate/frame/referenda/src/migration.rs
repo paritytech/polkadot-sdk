@@ -213,7 +213,7 @@ pub mod v1 {
 		RuntimeDebug,
 		TypeInfo,
 		MaxEncodedLen,
-	)]	
+	)]
 	pub enum ReferendumInfo<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -332,6 +332,148 @@ pub mod v1 {
 	}
 }
 
+/// Migration for when changing the block number type to block number provider.
+///
+/// This migration does not increment the storage version.
+pub mod switch_block_number_provider {
+	use super::*;
+
+	/// The log target.
+	const TARGET: &'static str = "runtime::referenda::migration::change_block_number_provider";
+
+	pub type ReferendumInfoOf<T, I> = v1::ReferendumInfo<
+		TrackIdOf<T, I>,
+		PalletsOriginOf<T>,
+		BlockNumberFor<T, I>,
+		BoundedCallOf<T, I>,
+		BalanceOf<T, I>,
+		TallyOf<T, I>,
+		<T as frame_system::Config>::AccountId,
+		ScheduleAddressOf<T, I>,
+	>;
+
+	#[storage_alias]
+	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
+		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf<T, I>>;
+
+	/// Convert from one to another block number provider/type.
+	pub trait BlockNumberConversion<Old, New> {
+		/// Convert the `old` block number type to the new block number type.
+		///
+		/// Any changes in the rate of blocks need to be taken into account.
+		fn convert_block_number(block_number: Old) -> New;
+	}
+
+	/// Transforms `SystemBlockNumberFor<T>` to `BlockNumberFor<T,I>`
+	pub struct MigrateBlockNumberProvider<BlockConverter, T, I = ()>(
+		PhantomData<(T, I)>,
+		PhantomData<BlockConverter>,
+	);
+	impl<BlockConverter: BlockNumberConversion<T, I>, T: Config<I>, I: 'static> OnRuntimeUpgrade
+		for MigrateBlockNumberProvider<BlockConverter, T, I>
+	where
+		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
+		T: Config<I>,
+	{
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			let referendum_count = v1::ReferendumInfoFor::<T, I>::iter().count();
+			log::info!(
+				target: TARGET,
+				"pre-upgrade state contains '{}' referendums.",
+				referendum_count
+			);
+			Ok((referendum_count as u32).encode())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let mut weight = Weight::zero();
+			weight.saturating_accrue(migrate_block_number_provider::<BlockConverter, T, I>());
+			weight
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+			ensure!(on_chain_version == 1, "must upgrade from version 1.");
+			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
+				.expect("failed to decode the state from pre-upgrade.");
+			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
+			ensure!(post_referendum_count == pre_referendum_count, "must migrate all referendums.");
+			log::info!(target: TARGET, "migrated all referendums.");
+			Ok(())
+		}
+	}
+
+	pub fn migrate_block_number_provider<BlockConverter, T, I: 'static>() -> Weight
+	where
+		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
+		T: Config<I>,
+	{
+		let in_code_version = Pallet::<T, I>::in_code_storage_version();
+		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
+		let mut weight = T::DbWeight::get().reads(1);
+		log::info!(
+			target: "runtime::referenda::migration::change_block_number_provider",
+			"running migration with in-code storage version {:?} / onchain {:?}.",
+			in_code_version,
+			on_chain_version
+		);
+		if on_chain_version != 1 {
+			log::error!(target: TARGET, "skipping switch_block_number_provider migration. must migrate from storage version 1.");
+			return weight
+		}
+
+		// Migration logic here
+		v1::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
+			let maybe_new_value = match value {
+				v1::ReferendumInfo::Ongoing(_) | v1::ReferendumInfo::Killed(_) => None,
+				v1::ReferendumInfo::Approved(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Approved(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
+				},
+				v1::ReferendumInfo::Rejected(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Rejected(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
+				},
+				v1::ReferendumInfo::Cancelled(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::Cancelled(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
+				},
+				v1::ReferendumInfo::TimedOut(when, submission_deposit, decision_deposit) => {
+					let new_when = BlockConverter::convert_block_number(when);
+					Some(v1::ReferendumInfo::TimedOut(
+						new_when,
+						submission_deposit,
+						decision_deposit,
+					))
+				},
+			};
+			if let Some(new_value) = maybe_new_value {
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+				log::info!(target: TARGET, "migrating referendum #{:?}", &key);
+				switch_block_number_provider::ReferendumInfoFor::<T, I>::insert(key, new_value);
+			} else {
+				weight.saturating_accrue(T::DbWeight::get().reads(1));
+			}
+		});
+
+		weight
+	}
+}
+
 pub mod v2 {
 	use super::*;
 
@@ -339,7 +481,17 @@ pub mod v2 {
 	const TARGET: &'static str = "runtime::referenda::migration::v2";
 
 	/// v2 ReferendumStatus (decision_deposit structure changed).
-	#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEqNoBound, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		PartialEqNoBound,
+		Eq,
+		DebugNoBound,
+		TypeInfo,
+		MaxEncodedLen,
+	)]
 	#[scale_info(skip_type_params(MaxContributors))]
 	pub struct ReferendumStatus<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -379,7 +531,15 @@ pub mod v2 {
 
 	/// v2 Referendum info (MaxContributors generic added).
 	#[derive(
-		Encode, Decode, DecodeWithMemTracking, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, TypeInfo, MaxEncodedLen,
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		PartialEqNoBound,
+		EqNoBound,
+		DebugNoBound,
+		TypeInfo,
+		MaxEncodedLen,
 	)]
 	#[scale_info(skip_type_params(MaxContributors))]
 	pub enum ReferendumInfo<
@@ -426,7 +586,9 @@ pub mod v2 {
 			submission_deposit: Option<Deposit<AccountId, Balance>>,
 			decision_deposit: DecisionDeposit<AccountId, Balance, MaxContributors>,
 		},
-		Killed { when: Moment },
+		Killed {
+			when: Moment,
+		},
 	}
 
 	pub type ReferendumInfoOf<T, I> = v2::ReferendumInfo<
@@ -444,133 +606,6 @@ pub mod v2 {
 	#[storage_alias]
 	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
 		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, v2::ReferendumInfoOf<T, I>>;
-}
-
-/// Migration for when changing the block number provider.
-///
-/// This migration is not guarded.
-pub mod switch_block_number_provider {
-	use super::*;
-
-	/// The log target.
-	const TARGET: &'static str = "runtime::referenda::migration::change_block_number_provider";
-
-	pub type ReferendumInfoOf<T, I> = v2::ReferendumInfo<
-		TrackIdOf<T, I>,
-		PalletsOriginOf<T>,
-		BlockNumberFor<T, I>,
-		BoundedCallOf<T, I>,
-		BalanceOf<T, I>,
-		TallyOf<T, I>,
-		<T as frame_system::Config>::AccountId,
-		ScheduleAddressOf<T, I>,
-		<T as Config<I>>::MaxDepositContributions,
-	>;
-
-	#[storage_alias]
-	pub type ReferendumInfoFor<T: Config<I>, I: 'static> =
-		StorageMap<Pallet<T, I>, Blake2_128Concat, ReferendumIndex, v2::ReferendumInfoOf<T, I>>;
-
-	/// Convert from one to another block number provider/type.
-	pub trait BlockNumberConversion<Old, New> {
-		/// Convert the `old` block number type to the new block number type.
-		///
-		/// Any changes in the rate of blocks need to be taken into account.
-		fn convert_block_number(block_number: Old) -> New;
-	}
-
-	/// Transforms `SystemBlockNumberFor<T>` to `BlockNumberFor<T,I>`
-	pub struct MigrateBlockNumberProvider<BlockConverter, T, I = ()>(
-		PhantomData<(T, I)>,
-		PhantomData<BlockConverter>,
-	);
-	impl<BlockConverter: BlockNumberConversion<T, I>, T: Config<I>, I: 'static> OnRuntimeUpgrade
-		for MigrateBlockNumberProvider<BlockConverter, T, I>
-	where
-		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
-		T: Config<I>,
-	{
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-			let referendum_count = v2::ReferendumInfoFor::<T, I>::iter().count();
-			log::info!(
-				target: TARGET,
-				"pre-upgrade state contains '{}' referendums.",
-				referendum_count
-			);
-			Ok((referendum_count as u32).encode())
-		}
-
-		fn on_runtime_upgrade() -> Weight {
-			let mut weight = Weight::zero();
-			weight.saturating_accrue(migrate_block_number_provider::<BlockConverter, T, I>());
-			weight
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-			let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-			ensure!(on_chain_version == 2, "must upgrade from version 2.");
-			let pre_referendum_count: u32 = Decode::decode(&mut &state[..])
-				.expect("failed to decode the state from pre-upgrade.");
-			let post_referendum_count = ReferendumInfoFor::<T, I>::iter().count() as u32;
-			ensure!(post_referendum_count == pre_referendum_count, "must migrate all referendums.");
-			log::info!(target: TARGET, "migrated all referendums.");
-			Ok(())
-		}
-	}
-
-	pub fn migrate_block_number_provider<BlockConverter, T, I: 'static>() -> Weight
-	where
-		BlockConverter: BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, I>>,
-		T: Config<I>,
-	{
-		let in_code_version = Pallet::<T, I>::in_code_storage_version();
-		let on_chain_version = Pallet::<T, I>::on_chain_storage_version();
-		let mut weight = T::DbWeight::get().reads(1);
-		log::info!(
-			target: "runtime::referenda::migration::change_block_number_provider",
-			"running migration with in-code storage version {:?} / onchain {:?}.",
-			in_code_version,
-			on_chain_version
-		);
-		if on_chain_version < 2 {
-			log::error!(target: TARGET, "skipping switch_block_number_provider migration.");
-			return weight
-		}
-
-		// Migration logic here
-		v2::ReferendumInfoFor::<T, I>::iter().for_each(|(key, value)| {
-			let maybe_new_value = match value {
-				v2::ReferendumInfo::Ongoing(_) | v2::ReferendumInfo::Killed(_) => None,
-				v2::ReferendumInfo::Approved(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(v2::ReferendumInfo::Approved(new_e, s, d))
-				},
-				v2::ReferendumInfo::Rejected(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(v2::ReferendumInfo::Rejected(new_e, s, d))
-				},
-				v2::ReferendumInfo::Cancelled(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(v2::ReferendumInfo::Cancelled(new_e, s, d))
-				},
-				v2::ReferendumInfo::TimedOut(e, s, d) => {
-					let new_e = BlockConverter::convert_block_number(e);
-					Some(v2::ReferendumInfo::TimedOut(new_e, s, d))
-				},
-			};
-			if let Some(new_value) = maybe_new_value {
-				weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-				log::info!(target: TARGET, "migrating referendum #{:?}", &key);
-				switch_block_number_provider::ReferendumInfoFor::<T, I>::insert(key, new_value);
-			} else {
-				weight.saturating_accrue(T::DbWeight::get().reads(1));
-			}
-		});
-
-		weight
-	}
 }
 
 // #[cfg(test)]
@@ -605,10 +640,12 @@ pub mod switch_block_number_provider {
 // 	#[test]
 // 	pub fn referendum_status_v0() {
 // 		// make sure the bytes of the encoded referendum v0 is decodable.
-// 		let ongoing_encoded = sp_core::Bytes::from_str("0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100").unwrap();
-// 		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut &*ongoing_encoded).unwrap();
-// 		let ongoing = v0::ReferendumInfoOf::<T, ()>::Ongoing(create_status_v0());
-// 		assert_eq!(ongoing, ongoing_dec);
+// 		let ongoing_encoded =
+// sp_core::Bytes::from_str("
+// 0x00000000012c01082a0000000000000004000100000000000000010000000000000001000000000000000a00000000000000000000000000000000000100"
+// ).unwrap(); 		let ongoing_dec = v0::ReferendumInfoOf::<T, ()>::decode(&mut
+// &*ongoing_encoded).unwrap(); 		let ongoing = v0::ReferendumInfoOf::<T,
+// ()>::Ongoing(create_status_v0()); 		assert_eq!(ongoing, ongoing_dec);
 // 	}
 
 // 	#[test]
@@ -651,9 +688,9 @@ pub mod switch_block_number_provider {
 // 		ExtBuilder::default().build_and_execute(|| {
 // 			pub struct MockBlockConverter;
 
-// 			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for MockBlockConverter {
-// 				fn convert_block_number(block_number: SystemBlockNumberFor<T>) -> BlockNumberFor<T, ()> {
-// 					block_number as u64 + 10u64
+// 			impl BlockNumberConversion<SystemBlockNumberFor<T>, BlockNumberFor<T, ()>> for
+// MockBlockConverter { 				fn convert_block_number(block_number: SystemBlockNumberFor<T>) ->
+// BlockNumberFor<T, ()> { 					block_number as u64 + 10u64
 // 				}
 // 			}
 
