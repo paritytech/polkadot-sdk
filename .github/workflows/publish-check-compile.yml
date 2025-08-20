@@ -41,8 +41,10 @@ jobs:
           cargo install parity-publish@0.10.6 --locked -q
 
       - name: set current PR's prdoc name in a variable
+        env:
+          GITHUB_PR_NUM: ${{ github.event.pull_request.number }}
         run: |
-          echo "CURRENT_PRDOC=pr_${{ github.event.pull_request.number }}.prdoc" >> $GITHUB_ENV
+          echo "CURRENT_PRDOC=pr_${GITHUB_PR_NUM}.prdoc" >> $GITHUB_ENV
 
       - name: parity-publish update plan w/o current prdoc
         run: |
