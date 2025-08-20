@@ -20,7 +20,7 @@ use super::Context;
 use crate::{storage::WriteOutcome, vm::Ext, Key, RuntimeCosts};
 use revm::{
 	interpreter::{
-		gas,
+		gas::{self},
 		host::Host,
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
