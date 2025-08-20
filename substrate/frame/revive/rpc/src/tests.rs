@@ -266,12 +266,11 @@ async fn invalid_transaction() -> anyhow::Result<()> {
 		.value(U256::from(1_000_000_000_000u128))
 		.to(ethan.address())
 		.mutate(|tx| match tx {
-          		TransactionUnsigned::TransactionLegacyUnsigned(tx) => tx.chain_id = Some(42u32.into()),
-          		TransactionUnsigned::Transaction1559Unsigned(tx) => tx.chain_id = 42u32.into(),
-          		TransactionUnsigned::Transaction2930Unsigned(tx) => tx.chain_id = 42u32.into(),
-          		TransactionUnsigned::Transaction4844Unsigned(tx) => tx.chain_id = 42u32.into(),
-    		}
-		)
+			TransactionUnsigned::TransactionLegacyUnsigned(tx) => tx.chain_id = Some(42u32.into()),
+			TransactionUnsigned::Transaction1559Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction2930Unsigned(tx) => tx.chain_id = 42u32.into(),
+			TransactionUnsigned::Transaction4844Unsigned(tx) => tx.chain_id = 42u32.into(),
+		})
 		.send()
 		.await
 		.unwrap_err();

@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloy_consensus::{Eip658Value, RlpEncodableReceipt};
 use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{BlockNumberOrTag, ReceiptInfo, TransactionInfo, H256, U256};
 use pallet_revive_eth_rpc::EthRpcClient;
 use serde::Serialize;
 use std::sync::Arc;
-use alloy_consensus::{RlpEncodableReceipt, Eip658Value};
 
 #[derive(Parser)]
 #[command(name = "collect-test-data")]
@@ -68,20 +68,23 @@ fn encode_receipt_rlp(receipt_info: &ReceiptInfo) -> Vec<u8> {
 	let alloy_receipt = alloy_consensus::Receipt {
 		status: Eip658Value::Eip658(receipt_info.is_success()),
 		cumulative_gas_used: receipt_info.cumulative_gas_used.as_u64(),
-		logs: receipt_info.logs.iter().map(|log| {
-		    let data = log.data.clone().unwrap_or_default().0;
-			alloy_primitives::Log::new_unchecked(
-				log.address.0.into(),
-				log.topics.iter().map(|t| alloy_primitives::FixedBytes::from(t.0)).collect(),
-				alloy_primitives::Bytes::from(data),
-			)
-		}).collect(),
+		logs: receipt_info
+			.logs
+			.iter()
+			.map(|log| {
+				let data = log.data.clone().unwrap_or_default().0;
+				alloy_primitives::Log::new_unchecked(
+					log.address.0.into(),
+					log.topics.iter().map(|t| alloy_primitives::FixedBytes::from(t.0)).collect(),
+					alloy_primitives::Bytes::from(data),
+				)
+			})
+			.collect(),
 	};
 
 	let receipt_bloom = alloy_receipt.bloom_slow();
-	let mut encoded_receipt = Vec::with_capacity(
-		alloy_receipt.rlp_encoded_length_with_bloom(&receipt_bloom)
-	);
+	let mut encoded_receipt =
+		Vec::with_capacity(alloy_receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 	alloy_receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 	encoded_receipt
 }

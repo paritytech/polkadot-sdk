@@ -1,12 +1,14 @@
 # Test Assets
 
-This directory contains test data files used for verifying the correctness of transaction and receipt root calculations in the Revive pallet.
+This directory contains test data files used for verifying the correctness of transaction and
+receipt root calculations in the Revive pallet.
 
 ## Test Data Sources
 
 ### Frontier RPC Node (Local Development)
 
-Test data was collected from a local Frontier node with test transactions. This provides controlled test scenarios with known transaction types.
+Test data was collected from a local Frontier node with test transactions. This provides controlled
+test scenarios with known transaction types.
 
 #### Setup Instructions
 
