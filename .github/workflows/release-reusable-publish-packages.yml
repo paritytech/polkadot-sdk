@@ -122,8 +122,7 @@ jobs:
           name: release-artifacts
           path: release-artifacts
 
-      - name: Setup local deb repo
-        if: ${{ inputs.package_type == 'deb' }} # Condition for DEB setup
+      - name: Setup local repo
         run: |
           sudo apt-get update
           sudo apt-get install -y reprepro
@@ -136,11 +135,6 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH/conf"
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
           cat "$LOCAL_REPO_PATH/conf/distributions"
-
-      - name: Install Podman and createrepo for RPM
-        if: ${{ inputs.package_type == 'rpm' }} # Condition for RPM setup
-        run: |
-          # TODO
 
       - name: Sync local repo (download from S3)
         env:
@@ -159,28 +153,26 @@ jobs:
             # TODO
           fi
 
-      - name: Add deb package to local repo
-        if: ${{ inputs.package_type == 'deb' }} # Condition for adding DEB package
+      - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
           PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
           AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
         run: |
-          # Find the downloaded .deb artifact
-          debname=$(find release-artifacts/ -name 'polkadot_*.deb' -print -quit)
-          if [ -z "$debname" ]; then
-            echo "Error: Debian package artifact not found in release-artifacts/"
-            exit 1
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            # Find the downloaded .deb artifact
+            debname=$(find release-artifacts/ -name 'polkadot_*.deb' -print -quit)
+            if [ -z "$debname" ]; then
+              echo "Error: Debian package artifact not found in release-artifacts/"
+              exit 1
+            fi
+            echo "Found DEB package: $debname"
+            # Add the package to the local Debian repository
+            reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
+          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+            # TODO: Implement RPM package addition
           fi
-          echo "Found DEB package: $debname"
-          # Add the package to the local Debian repository
-          reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
-
-      - name: Add rpm package to local repo (Sign and Createrepo)
-        if: ${{ inputs.package_type == 'rpm' }} # Condition for adding RPM package
-        run: |
-          # TODO
 
       - name: Upload updated repo to S3
         env:
@@ -194,7 +186,6 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             # TODO
           fi
-          # db and conf directories typically don't need public-read
           aws s3 sync "$LOCAL_REPO_PATH/db" "$AWS_REPO_PATH/db"
           aws s3 sync "$LOCAL_REPO_PATH/conf" "$AWS_REPO_PATH/conf" || true # conf might not exist for RPM, so allow failure
 
