@@ -1149,7 +1149,7 @@ mod tests {
 			vec![b"M2_prefix1".to_vec(), b"M2_prefix2".to_vec(), b"M2_prefix3".to_vec()]
 		}
 	}
-	
+
 	pub struct M3;
 	impl SteppedMigration for M3 {
 		type Cursor = ();
@@ -1282,10 +1282,7 @@ mod tests {
 		assert_eq!(M0::nth_migrating_prefixes(1), None);
 
 		// Test migration with no prefixes
-		assert_eq!(
-			M3::nth_migrating_prefixes(0),
-			Some(Ok(Vec::new()))
-		);
+		assert_eq!(M3::nth_migrating_prefixes(0), Some(Ok(Vec::new())));
 
 		// Test tuple migrations
 		type Pair = (M0, M1);
