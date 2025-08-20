@@ -951,7 +951,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
-		let deposit = deposit.unwrap_or(track.decision_deposit);
+		let mut deposit = deposit.unwrap_or(track.decision_deposit);
+		
+		// Take only the required amount if more given (can still take lb more than required in select situations). 
+		let max_c = BalanceOf::<T,I>::from(<T as Config<I>>::MaxDepositContributions::get());
+		// Lower bound needed in case remaining is less than the smallest contribution.
+		let mut lb = (track.decision_deposit / max_c) + BalanceOf::<T,I>::one();
+		if !status.decision_deposit.contributors.is_full() {
+			lb = BalanceOf::<T,I>::zero()
+		}
+		let lb = (track.decision_deposit / max_c) + BalanceOf::<T,I>::one();
+		let remaining = track.decision_deposit.saturating_sub(status.decision_deposit.collected_deposit);
+		let max_needed = BalanceOf::<T,I>::max(remaining, lb);
+		if deposit > max_needed {
+			deposit = max_needed;
+		}
 
 		if let Some(pos) =
 			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
