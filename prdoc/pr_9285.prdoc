@@ -1,85 +1,17 @@
 title: '[revive] revm backend'
 doc:
 - audience: Runtime Dev
-  description: "# EVM initial support  for pallet-revive\n\nInitial EVM support via\
-    \ the REVM crate to create a dual-VM system that can execute both PolkaVM and\
-    \ EVM\n\n- Added `AllowEVMBytecode: Get<bool>` to the config to enable/disable\
-    \ EVM call and instantiation\n- The basic flow of uploading an EVM contract and\
-    \ running it should work\n- instructions are copied and adapted from REVM they\
-    \ should be ignored in this PR and reviewed in follow-up PR\n(**reviewers** please\
-    \ ignore `substrate/frame/revive/src/vm/evm/instructions/*` for now)\n\n## Implementation\
-    \ Guidelines\n\n### Basic Instruction Structure\nA basic instruction looks like\
-    \ this:\n\n```rust\npub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>)\
-    \ {\n\tgas_legacy!(context.interpreter, revm_gas::BASE);\n\tpush!(context.interpreter,\
-    \ context.host.beneficiary().into_word().into());\n}\n```\n\n### Required Changes\
-    \ for REVM Instructions\n\nAll instructions have been copied from `REVM` and updated\
-    \ with generic types for pallet-revive. Two main changes are required:\n\n####\
-    \ 1. Gas Handling\nReplace REVM gas calls with existing benchmarks where available:\n\
-    \n```diff\n- gas_legacy!(context.interpreter, revm_gas::BASE);\n+ gas!(context.interpreter,\
-    \ RuntimeCosts::BlockAuthor);\n```\n\n#### 2. Context Access\nReplace `context.host`\
-    \ calls with `context.extend` (set to `&mut Ext`):\n\n```diff\n- push!(context.interpreter,\
-    \ context.host.beneficiary().into_word().into());\n+ let coinbase: Address = context.interpreter.extend.block_author().unwrap_or_default().0.into();\n\
-    + push!(context.interpreter, coinbase.into_word().into());\n```\n\n### Gas Benchmarking\
-    \ Notes\n- For cases without existing benchmarks (e.g arithmetic, bitwise) , we\
-    \ will keep  `gas_legacy!`\n- The u64 gas value will be multiplied by a gas-to-weight\
-    \ ratio (we will need a benchmark for that similar to instr for PVM)\n- We will\
-    \ also need an `base_op_code` benchmark to take into account the interpreter loop\
-    \ execution overhead\n\n### Important Rules\n- All calls to `context.host` should\
-    \ be removed (initialized to default values)\n- All calls to `context.interpreter.gas`\
-    \ should be removed (except `gas.memory` handled by `resize_memory!` macro)\n\
-    - See `block_number` implementation as a reference example\n\nThe following instructions\
-    \ in src/vm/evm/instructions/** need to be updated\n\n### Basic Instructions\n\
-    \nWe probably don't need to touch these implementations here, they use the gas_legacy!\
-    \ macro to charge a low gas value that will be scaled with our gas_to_weight benchmark.\
-    \ The only thing needed here are tests that exercise these instructions\n\n<details>\n\
-    \n#### Arithmetic Instructions\n\n- [ ] **add**\n- [ ] **mul**\n- [ ] **sub**\n\
-    - [ ] **div**\n- [ ] **sdiv**\n- [ ] **rem**\n- [ ] **smod**\n- [ ] **addmod**\n\
-    - [ ] **mulmod**\n- [ ] **exp**\n- [ ] **signextend**\n\n#### Bitwise Instructions\n\
-    \n- [ ] **lt**\n- [ ] **gt**\n- [ ] **slt**\n- [ ] **sgt**\n- [ ] **eq**\n- [\
-    \ ] **iszero**\n- [ ] **bitand**\n- [ ] **bitor**\n- [ ] **bitxor**\n- [ ] **not**\n\
-    - [ ] **byte**\n- [ ] **shl**\n- [ ] **shr**\n- [ ] **sar**\n- [ ] **clz**\n\n\
-    #### Control Flow Instructions\n\n- [ ] **jump**\n- [ ] **jumpi**\n- [ ] **jumpdest**\n\
-    - [ ] **pc**\n- [ ] **stop**\n- [ ] **ret**\n- [ ] **revert**\n- [ ] **invalid**\n\
-    \n### Memory Instructions\n- [ ] **mload**\n- [ ] **mstore**\n- [ ] **mstore8**\n\
-    - [ ] **msize**\n- [ ] **mcopy**\n\n#### Stack Instructions\n- [ ] **pop**\n-\
-    \ [ ] **push0**\n- [ ] **push**\n- [ ] **dup**\n- [ ] **swap**\n\n</details>\n\
-    \n### Sys calls instructions\n\nThese instructions should be updated from using\
-    \ gas_legacy! to gas! with the appropriate RuntimeCost, the returned value need\
-    \ to be pulled from our `&mut Ext` ctx.interpreter.extend  instead of the host\
-    \ or input context value\n\n<details>\n\n#### Block Info Instructions\n\n- [x]\
-    \ **block_number**\n- [ ] **coinbase**\n- [ ] **timestamp**\n- [ ] **difficulty**\n\
-    - [ ] **gaslimit**\n- [ ] **chainid**\n- [ ] **basefee**\n- [ ] **blob_basefee**\n\
-    \n#### Host Instructions\n\n- [ ] **balance**\n- [ ] **extcodesize**\n- [ ] **extcodecopy**\n\
-    - [ ] **extcodehash**\n- [ ] **blockhash**\n- [ ] **sload**\n- [ ] **sstore**\n\
-    - [ ] **tload**\n- [ ] **tstore**\n- [ ] **log**\n- [ ] **selfdestruct**\n- [\
-    \ ] **selfbalance**\n\n#### System Instructions\n- [ ] **keccak256**\n- [ ] **address**\n\
-    - [ ] **caller**\n- [ ] **callvalue**\n- [ ] **calldataload**\n- [ ] **calldatasize**\n\
-    - [ ] **calldatacopy**\n- [ ] **codesize**\n- [ ] **codecopy**\n- [ ] **returndatasize**\n\
-    - [ ] **returndatacopy**\n- [ ] **gas**\n\n#### Transaction Info Instructions\n\
-    - [ ] **origin**\n- [ ] **gasprice**\n- [ ] **blob_hash**\n\n</details>\n\n###\
-    \ Contract Instructions\n\nThese instructions should be updated,, that's where\
-    \ I expect the most code change in the instruction implementation.\nSee how it's\
-    \ done in vm/pvm module, the final result should look pretty similar to what we\
-    \ are doing there with the addition of custom gas_limit calculation that works\
-    \ with our gas model.\n\nsee also example code here https://github.com/paritytech/revm_example\n\
-    \n<details>\n\n- [ ] **create**\n- [ ] **create**\n- [ ] **call**\n- [ ] **call_code**\n\
-    - [ ] **delegate_call**\n- [ ] **static_call**\n\n</details>"
+  description: |
+    Initial EVM support for pallet-revive via the REVM crate to create a dual-VM system that can execute both PolkaVM and EVM
+    - Added AllowEVMBytecode: Get<bool> to the config to enable/disable EVM call and instantiation
+    - The basic flow of uploading an EVM contract and running it should work
+    - instructions are copied and adapted from REVM they should be ignored in this PR and reviewed in follow-up PR
 crates:
 - name: pallet-revive
   bump: patch
 - name: pallet-revive-fixtures
   bump: patch
-- name: assets-common
-  bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
-- name: pallet-xcm
-  bump: patch
-- name: pallet-assets
-  bump: patch
-- name: pallet-contracts
-  bump: patch
 - name: penpal-runtime
-  bump: patch
-- name: sp-runtime
   bump: patch
