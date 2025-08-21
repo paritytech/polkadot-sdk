@@ -17,7 +17,7 @@
 //!Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
-use crate::evm::{Block, TransactionSigned};
+use crate::evm::{Block, HashesOrTransactionInfos, TransactionSigned};
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::bytes::BufMut;
@@ -73,6 +73,15 @@ pub struct ReceiptGasInfo {
 	pub gas_used: U256,
 }
 
+/// A processed transaction by `Block::process_transaction_details`.
+struct TransactionProcessed {
+	encoded_tx: Vec<u8>,
+	tx_hash: H256,
+	gas_info: ReceiptGasInfo,
+	encoded_receipt: Vec<u8>,
+	receipt_bloom: Bloom,
+}
+
 impl Block {
 	/// Build the Ethereum block.
 	///
@@ -81,7 +90,6 @@ impl Block {
 	/// This is an expensive operation.
 	///
 	/// (I) For each transaction captured (with the unbounded number of events):
-	/// - transaction is RLP decoded into a `TransactionSigned`
 	/// - transaction hash is computed using `keccak256`
 	/// - transaction is 2718 RLP encoded
 	/// - the receipt is constructed and contains all the logs emitted by the transaction
@@ -92,7 +100,7 @@ impl Block {
 	///
 	/// (III) Block hash is computed from the provided information.
 	pub fn build(
-		details: impl IntoIterator<Item = TransactionDetails>,
+		transaction_details: impl IntoIterator<Item = TransactionDetails>,
 		block_number: U256,
 		parent_hash: H256,
 		timestamp: U256,
@@ -111,22 +119,26 @@ impl Block {
 			..Default::default()
 		};
 
-		let transaction_details: Vec<_> = details
-			.into_iter()
-			.filter_map(|detail| block.process_transaction_details(detail, base_gas_price))
-			.collect();
-
-		let mut signed_tx = Vec::with_capacity(transaction_details.len());
-		let mut receipts = Vec::with_capacity(transaction_details.len());
-		let mut gas_infos = Vec::with_capacity(transaction_details.len());
-
+		// Needed for computing the transaction root.
+		let mut signed_tx = Vec::new();
+		// Needed for computing the receipt root.
+		let mut receipts = Vec::new();
+		// Gas info will be stored in the pallet storage under `ReceiptInfoData`
+		// and is needed for reconstructing the Receipts.
+		let mut gas_infos = Vec::new();
+		// Transaction hashes are placed in the ETH block.
+		let mut tx_hashes = Vec::new();
+		// Bloom filter for the logs emitted by the transactions.
 		let mut logs_bloom = Bloom::default();
-		for (signed, receipt, gas_info, bloom) in transaction_details {
-			signed_tx.push(signed);
-			receipts.push(receipt);
-			gas_infos.push(gas_info);
 
-			logs_bloom.accrue_bloom(&bloom);
+		for detail in transaction_details {
+			let processed = block.process_transaction_details(detail, base_gas_price);
+
+			signed_tx.push(processed.encoded_tx);
+			tx_hashes.push(processed.tx_hash);
+			gas_infos.push(processed.gas_info);
+			receipts.push(processed.encoded_receipt);
+			logs_bloom.accrue_bloom(&processed.receipt_bloom);
 		}
 
 		// Compute expensive trie roots.
@@ -137,6 +149,7 @@ impl Block {
 		block.transactions_root = transactions_root.0.into();
 		block.receipts_root = receipts_root.0.into();
 		block.logs_bloom = (*logs_bloom.data()).into();
+		block.transactions = HashesOrTransactionInfos::Hashes(tx_hashes);
 
 		// Compute the ETH header hash.
 		let block_hash = block.header_hash();
@@ -146,22 +159,16 @@ impl Block {
 
 	/// Returns a tuple of the RLP encoded transaction and receipt.
 	///
-	/// Internally collects the total gas used, the log blooms and the transaction hashes.
+	/// Internally collects the total gas used.
 	fn process_transaction_details(
 		&mut self,
 		detail: TransactionDetails,
 		base_gas_price: U256,
-	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo, Bloom)> {
+	) -> TransactionProcessed {
 		let TransactionDetails { signed_transaction, index: _, logs, success, gas_used } = detail;
 
-		let tx_bytes = signed_transaction.signed_payload();
-		let transaction_hash = H256(keccak_256(&tx_bytes));
-		self.transactions.push_hash(transaction_hash);
-
-		let gas_info = ReceiptGasInfo {
-			effective_gas_price: signed_transaction.effective_gas_price(base_gas_price),
-			gas_used: gas_used.ref_time().into(),
-		};
+		let encoded_tx = signed_transaction.signed_payload();
+		let tx_hash = H256(keccak_256(&encoded_tx));
 
 		let logs = logs
 			.into_iter()
@@ -191,7 +198,16 @@ impl Block {
 			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-		Some((tx_bytes, encoded_receipt, gas_info, receipt_bloom))
+		TransactionProcessed {
+			encoded_tx,
+			tx_hash,
+			gas_info: ReceiptGasInfo {
+				effective_gas_price: signed_transaction.effective_gas_price(base_gas_price),
+				gas_used: gas_used.ref_time().into(),
+			},
+			encoded_receipt,
+			receipt_bloom,
+		}
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
