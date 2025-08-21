@@ -48,7 +48,7 @@ pub enum RuntimeCosts {
 	CallDataSize,
 	/// Weight of calling `seal_return_data_size`.
 	ReturnDataSize,
-	/// Weight of calling `seal_to_account_id`.
+	/// Weight of calling `to_account_id`.
 	ToAccountId,
 	/// Weight of calling `seal_origin`.
 	Origin,
@@ -233,7 +233,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
-			ToAccountId => T::WeightInfo::seal_to_account_id(),
+			ToAccountId => T::WeightInfo::to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
