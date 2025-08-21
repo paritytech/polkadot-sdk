@@ -116,6 +116,9 @@ pub struct Block {
 	/// Parent Beacon Block Root
 	#[serde(rename = "parentBeaconBlockRoot", skip_serializing_if = "Option::is_none")]
 	pub parent_beacon_block_root: Option<H256>,
+	/// Requests hash.
+	#[serde(rename = "requestsHash", skip_serializing_if = "Option::is_none")]
+	pub requests_hash: Option<H256>,
 	/// Parent block hash
 	#[serde(rename = "parentHash")]
 	pub parent_hash: H256,
