@@ -26,7 +26,7 @@ sp-authority-discovery.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-balances = { workspace = true, default-features = false }
+pallet-balances = { default-features = false, workspace = true }
 sp-core = { default-features = true, workspace = true }
 sp-io = { default-features = true, workspace = true }
 

@@ -15,21 +15,11 @@ workspace = true
 
 [dependencies]
 # Needed for all FRAME-based code
-codec = { workspace = true }
-frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
-pallet-contracts.workspace = true
-pallet-default-config-example.default-features = true
-pallet-default-config-example.workspace = true
-pallet-example-offchain-worker.default-features = true
-pallet-example-offchain-worker.workspace = true
-pallet-examples.workspace = true
-scale-info = { workspace = true }
-
-# How we build docs in rust-docs
 chain-spec-builder.default-features = true
 chain-spec-builder.workspace = true
 chain-spec-guide-runtime.default-features = true
 chain-spec-guide-runtime.workspace = true
+codec = { workspace = true }
 cumulus-client-service.default-features = true
 cumulus-client-service.workspace = true
 cumulus-pallet-aura-ext.default-features = true
@@ -43,6 +33,7 @@ cumulus-primitives-proof-size-hostfunction.workspace = true
 docify = { workspace = true }
 first-runtime.default-features = true
 first-runtime.workspace = true
+frame = { features = ["experimental", "runtime"], workspace = true, default-features = true }
 frame-benchmarking.workspace = true
 frame-executive.workspace = true
 frame-metadata-hash-extension.default-features = true
@@ -68,12 +59,18 @@ pallet-balances.default-features = true
 pallet-balances.workspace = true
 pallet-collective.default-features = true
 pallet-collective.workspace = true
+pallet-contracts.workspace = true
+pallet-default-config-example.default-features = true
+pallet-default-config-example.workspace = true
 pallet-democracy.default-features = true
 pallet-democracy.workspace = true
 pallet-example-authorization-tx-extension.default-features = true
 pallet-example-authorization-tx-extension.workspace = true
+pallet-example-offchain-worker.default-features = true
+pallet-example-offchain-worker.workspace = true
 pallet-example-single-block-migrations.default-features = true
 pallet-example-single-block-migrations.workspace = true
+pallet-examples.workspace = true
 pallet-grandpa.default-features = true
 pallet-grandpa.workspace = true
 pallet-nfts.default-features = true
@@ -124,6 +121,7 @@ sc-rpc-api.default-features = true
 sc-rpc-api.workspace = true
 sc-service.default-features = true
 sc-service.workspace = true
+scale-info = { workspace = true }
 serde_json = { workspace = true }
 simple-mermaid = { workspace = true }
 solochain-template-runtime.default-features = true

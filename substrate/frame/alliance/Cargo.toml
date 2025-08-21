@@ -35,7 +35,7 @@ sp-runtime.workspace = true
 array-bytes = { workspace = true, default-features = true }
 pallet-balances = { default-features = true, workspace = true }
 pallet-collective = { default-features = true, workspace = true }
-sp-crypto-hashing = { workspace = true, default-features = false }
+sp-crypto-hashing = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

@@ -40,7 +40,7 @@ frame-benchmarking = { default-features = true, workspace = true }
 pallet-balances = { default-features = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
-sp-npos-elections = { workspace = true, default-features = false }
+sp-npos-elections = { default-features = false, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 
 

@@ -88,8 +88,8 @@ tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
-cumulus-test-relay-sproof-builder = { workspace = true, default-features = false }
+cumulus-test-relay-sproof-builder = { default-features = false, workspace = true }
 rstest = { workspace = true }
-sp-keyring = { workspace = true, default-features = false }
-sp-tracing = { workspace = true, default-features = false }
-sp-version = { workspace = true, default-features = false }
+sp-keyring = { default-features = false, workspace = true }
+sp-tracing = { default-features = false, workspace = true }
+sp-version = { default-features = false, workspace = true }

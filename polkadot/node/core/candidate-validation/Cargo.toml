@@ -44,7 +44,7 @@ polkadot-node-core-pvf.default-features = true
 assert_matches = { workspace = true }
 futures = { features = ["thread-pool"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 rstest = { workspace = true }
 sp-core = { default-features = true, workspace = true }
