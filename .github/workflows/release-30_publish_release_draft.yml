@@ -22,7 +22,20 @@ on:
       runtimes:
         description: Runtimes to be published
         required: true
-
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
+        required: true
+        type: string
+      build_run_id:
+        description: Run ID of the current release workflow run to be used to download the artifacts
+        required: true
+        type: string
+      runtimes:
+        description: Runtimes to be published
+        required: true
+        type: string
 
 jobs:
   check-synchronization:
@@ -112,6 +125,11 @@ jobs:
           fi
           echo "REL_TAG=$REF2" >> $GITHUB_ENV
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
+
+          echo "Version: $VERSION"
+
+          ls -la ${{ github.workspace}}/runtimes
+          ls -la ${{ github.workspace}}/prdoc/stable2556
 
           ./scripts/release/build-changelogs.sh
 

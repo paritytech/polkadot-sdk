@@ -1,0 +1,14 @@
+title: 'prdoc: add missing crates bumps'
+doc:
+- audience: Node Dev
+  description:  
+    Adds a few crate bumps associated to PRs which missed to bump them due to a corner case missed by the release tooling.
+crates:
+  - name: sp-wasm-interface
+    bump: major 
+  - name: sp-rpc
+    bump: patch
+  - name: sc-storage-monitor
+    bump: patch 
+  - name: sp-keystore
+    bump: patch 
