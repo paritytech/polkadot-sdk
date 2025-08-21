@@ -17,6 +17,7 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	eth_block_storage,
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -26,8 +27,8 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, InflightEthTxEvents,
+	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -2020,7 +2021,15 @@ where
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+
+		let event = Event::ContractEmitted { contract, data, topics };
+		if eth_block_storage::is_executing_ethereum_call() {
+			InflightEthTxEvents::<T>::mutate(|events| {
+				events.push(event.clone());
+			});
+		}
+
+		Contracts::<Self::T>::deposit_event(event);
 	}
 
 	fn block_number(&self) -> U256 {

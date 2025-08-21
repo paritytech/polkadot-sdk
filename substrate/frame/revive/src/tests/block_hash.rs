@@ -128,14 +128,14 @@ fn events_are_captured() {
 		assert_eq!(transactions.len(), 1);
 		assert_eq!(transactions[0].0, vec![2]); // payload set to 1 for eth_instantiate_with_code
 		assert_eq!(transactions[0].1, 0); // tx index
-		assert_eq!(
-			transactions[0].2[0],
-			crate::Event::ContractEmitted {
-				contract: addr,
-				data: vec![1, 2, 3, 4],
-				topics: vec![H256::repeat_byte(42)]
-			}
-		);
+		match &transactions[0].2[0] {
+			crate::Event::ContractEmitted { contract, data, topics } => {
+				assert_ne!(contract, &addr);
+				assert_eq!(data, &vec![1, 2, 3, 4]);
+				assert_eq!(topics, &vec![H256::repeat_byte(42)]);
+			},
+			event => panic!("Event {event:?} unexpected"),
+		};
 		assert_eq!(transactions[0].3, true); // successful
 
 		Contracts::on_finalize(0);

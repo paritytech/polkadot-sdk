@@ -127,7 +127,7 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
-mod eth_block_storage {
+pub(crate) mod eth_block_storage {
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -1782,14 +1782,6 @@ impl<T: Config> Pallet<T> {
 	/// This method will be called by the EVM to deposit events emitted by the contract.
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
-		if matches!(event, Event::ContractEmitted { .. }) &&
-			eth_block_storage::is_executing_ethereum_call()
-		{
-			InflightEthTxEvents::<T>::mutate(|events| {
-				events.push(event.clone());
-			});
-		}
-
 		<frame_system::Pallet<T>>::deposit_event(<T as Config>::RuntimeEvent::from(event))
 	}
 
