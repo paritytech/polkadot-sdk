@@ -656,7 +656,7 @@ pub mod pallet {
 				return;
 			};
 
-			// Note: This read should be accounted for.
+			// Weights are accounted for in the `on_initialize`.
 			let eth_block_num: U256 = block_number.into();
 			let parent_hash = if eth_block_num > U256::zero() {
 				BlockHash::<T>::get(eth_block_num - 1)
@@ -1015,8 +1015,6 @@ pub mod pallet {
 					}
 				}
 
-				// TODO: Should we report `gas_consumed.saturating_add(base_weight)` instead?
-				// If so, we might need to capture this from inside the `dispatch_result`.
 				Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
 
 				dispatch_result(
