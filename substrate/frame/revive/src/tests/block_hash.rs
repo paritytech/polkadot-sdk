@@ -20,8 +20,8 @@
 use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEthTxEvents,
-	InflightTransactions, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
+	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEthTransactions,
+	InflightEthTxEvents, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -41,8 +41,8 @@ fn on_initialize_clears_storage() {
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
 
 		let transactions = vec![(vec![1, 2, 3], 1, vec![event], true, Weight::zero())];
-		InflightTransactions::<Test>::put(transactions.clone());
-		assert_eq!(InflightTransactions::<Test>::get(), transactions);
+		InflightEthTransactions::<Test>::put(transactions.clone());
+		assert_eq!(InflightEthTransactions::<Test>::get(), transactions);
 
 		let block = EthBlock { number: 1.into(), ..Default::default() };
 		EthereumBlock::<Test>::put(block.clone());
@@ -52,7 +52,7 @@ fn on_initialize_clears_storage() {
 
 		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
-		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
 }
@@ -79,7 +79,7 @@ fn transactions_are_captured() {
 		// Instantiate with code is not captured.
 		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
 
-		let transactions = InflightTransactions::<Test>::get();
+		let transactions = InflightEthTransactions::<Test>::get();
 		assert_eq!(transactions.len(), 2);
 		assert_eq!(transactions[0].0, vec![1]); // payload set to 1 for eth_call
 		assert_eq!(transactions[0].1, 0); // tx index
@@ -93,7 +93,7 @@ fn transactions_are_captured() {
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
 	});
 }
 
@@ -124,7 +124,7 @@ fn events_are_captured() {
 		// Events are cleared out by storing the transaction.
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 
-		let transactions = InflightTransactions::<Test>::get();
+		let transactions = InflightEthTransactions::<Test>::get();
 		assert_eq!(transactions.len(), 1);
 		assert_eq!(transactions[0].0, vec![2]); // payload set to 1 for eth_instantiate_with_code
 		assert_eq!(transactions[0].1, 0); // tx index
@@ -140,7 +140,7 @@ fn events_are_captured() {
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 	});
 }

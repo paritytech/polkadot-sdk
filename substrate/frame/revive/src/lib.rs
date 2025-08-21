@@ -555,7 +555,7 @@ pub mod pallet {
 	///
 	/// The events are needed to reconstruct the ReceiptInfo, as they represent the
 	/// logs emitted by the contract. The events are consumed when the transaction is
-	/// completed and moved to the `InflightTransactions` storage object.
+	/// completed and moved to the `InflightEthTransactions` storage object.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<Event<T>>, ValueQuery>;
@@ -569,7 +569,7 @@ pub mod pallet {
 	/// the gas consumed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightTransactions<T: Config> =
+	pub(crate) type InflightEthTransactions<T: Config> =
 		StorageValue<_, Vec<(Vec<u8>, u32, Vec<Event<T>>, bool, Weight)>, ValueQuery>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
@@ -641,7 +641,7 @@ pub mod pallet {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
 			InflightEthTxEvents::<T>::kill();
-			InflightTransactions::<T>::kill();
+			InflightEthTransactions::<T>::kill();
 
 			Weight::zero()
 		}
@@ -652,7 +652,7 @@ pub mod pallet {
 			let Some(block_author) = Self::block_author() else {
 				// Drain storage in case of errors.
 				InflightEthTxEvents::<T>::kill();
-				InflightTransactions::<T>::kill();
+				InflightEthTransactions::<T>::kill();
 				return;
 			};
 
@@ -666,7 +666,7 @@ pub mod pallet {
 			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
-			let transactions = InflightTransactions::<T>::take();
+			let transactions = InflightEthTransactions::<T>::take();
 
 			let (block_hash, block, receipt_data) = EthBlock::build(
 				transactions,
@@ -1808,7 +1808,7 @@ impl<T: Config> Pallet<T> {
 			0
 		});
 
-		InflightTransactions::<T>::mutate(|transactions| {
+		InflightEthTransactions::<T>::mutate(|transactions| {
 			transactions.push((payload, extrinsic_index, events, success, gas_consumed));
 		});
 	}
