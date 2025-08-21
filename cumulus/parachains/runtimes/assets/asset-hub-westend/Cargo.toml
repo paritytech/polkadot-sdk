@@ -95,9 +95,9 @@ sp-version = { workspace = true }
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 
 # Polkadot
+pallet-derivatives = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
-pallet-derivatives = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 westend-runtime-constants = { workspace = true }
@@ -170,6 +170,7 @@ runtime-benchmarks = [
 	"pallet-collator-selection/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
+	"pallet-derivatives/runtime-benchmarks",
 	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
@@ -199,7 +200,6 @@ runtime-benchmarks = [
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
-	"pallet-derivatives/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
 	"polkadot-runtime-common/runtime-benchmarks",
@@ -240,6 +240,7 @@ try-runtime = [
 	"pallet-collator-selection/try-runtime",
 	"pallet-conviction-voting/try-runtime",
 	"pallet-delegated-staking/try-runtime",
+	"pallet-derivatives/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-indices/try-runtime",
@@ -269,7 +270,6 @@ try-runtime = [
 	"pallet-whitelist/try-runtime",
 	"pallet-xcm-bridge-hub-router/try-runtime",
 	"pallet-xcm/try-runtime",
-	"pallet-derivatives/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
 	"polkadot-runtime-common/try-runtime",
@@ -318,6 +318,7 @@ std = [
 	"pallet-collator-selection/std",
 	"pallet-conviction-voting/std",
 	"pallet-delegated-staking/std",
+	"pallet-derivatives/std",
 	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
 	"pallet-indices/std",
@@ -352,7 +353,6 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router/std",
 	"pallet-xcm/std",
-	"pallet-derivatives/std",
 	"parachain-info/std",
 	"parachains-common/std",
 	"polkadot-parachain-primitives/std",
