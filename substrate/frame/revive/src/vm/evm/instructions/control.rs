@@ -126,7 +126,6 @@ pub fn ret<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-140: REVERT instruction
 pub fn revert<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	return_inner(context.interpreter, InstructionResult::Revert);
 }
 

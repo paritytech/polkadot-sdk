@@ -42,7 +42,6 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, ISTANBUL);
 	gas!(context.interpreter, RuntimeCosts::Balance);
 	let balance = context.interpreter.extend.balance();
 	println!("selfbalance: {:?}", balance);
@@ -64,7 +63,6 @@ pub fn extcodesize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-1052: EXTCODEHASH opcode
 pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CONSTANTINOPLE);
 	popn_top!([], top, context.interpreter);
 	gas!(context.interpreter, RuntimeCosts::CodeHash);
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
@@ -221,7 +219,6 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
 	require_non_staticcall!(context.interpreter);
 	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
@@ -242,7 +239,6 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
 pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
 	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
 	popn_top!([], index, context.interpreter);
