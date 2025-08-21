@@ -20,7 +20,7 @@ use crate::vm::Ext;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{Immediates, Jumps, RuntimeFlag, StackTr},
+		interpreter_types::{Immediates, Jumps, StackTr},
 		InstructionResult,
 	},
 	primitives::U256,

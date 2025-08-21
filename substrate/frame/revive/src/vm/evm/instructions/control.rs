@@ -21,7 +21,7 @@ use revm::{
 	interpreter::{
 		gas as revm_gas,
 		interpreter_action::InterpreterAction,
-		interpreter_types::{Jumps, LoopControl, RuntimeFlag, StackTr},
+		interpreter_types::{Jumps, LoopControl, StackTr},
 		InstructionResult, Interpreter,
 	},
 	primitives::{Bytes, U256},

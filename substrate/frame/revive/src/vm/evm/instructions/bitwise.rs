@@ -21,7 +21,7 @@ use core::cmp::Ordering;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{RuntimeFlag, StackTr},
+		interpreter_types::StackTr,
 	},
 	primitives::U256,
 };

@@ -21,7 +21,7 @@ use core::cmp::max;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
+		interpreter_types::{MemoryTr, StackTr},
 	},
 	primitives::U256,
 };
