@@ -48,6 +48,8 @@ impl TransactionUnsigned {
 				Self::Transaction1559Unsigned(signed.transaction_1559_unsigned),
 			TransactionSigned::Transaction2930Signed(signed) =>
 				Self::Transaction2930Unsigned(signed.transaction_2930_unsigned),
+			TransactionSigned::Transaction7702Signed(signed) =>
+				Self::Transaction7702Unsigned(signed.transaction_7702_unsigned),
 		}
 	}
 
@@ -61,6 +63,15 @@ impl TransactionUnsigned {
 			TransactionUnsigned::Transaction2930Unsigned(transaction_2930_unsigned) =>
 				Transaction2930Signed {
 					transaction_2930_unsigned,
+					r,
+					s,
+					v: None,
+					y_parity: U256::from(recovery_id),
+				}
+				.into(),
+			TransactionUnsigned::Transaction7702Unsigned(transaction_7702_unsigned) =>
+				Transaction7702Signed {
+					transaction_7702_unsigned,
 					r,
 					s,
 					v: None,
@@ -111,6 +122,7 @@ impl TransactionSigned {
 			Transaction4844Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction1559Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 			Transaction2930Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
+			Transaction7702Signed(tx) => (tx.r, tx.s, tx.y_parity.try_into().map_err(|_| ())?),
 		};
 		let mut sig = [0u8; 65];
 		r.write_as_big_endian(sig[0..32].as_mut());
@@ -141,6 +153,11 @@ impl TransactionSigned {
 			},
 			Transaction2930Signed(tx) => {
 				let tx = &tx.transaction_2930_unsigned;
+				s.append(&tx.r#type.value());
+				s.append(tx);
+			},
+			Transaction7702Signed(tx) => {
+				let tx = &tx.transaction_7702_unsigned;
 				s.append(&tx.r#type.value());
 				s.append(tx);
 			},
