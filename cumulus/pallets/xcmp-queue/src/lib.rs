@@ -697,7 +697,8 @@ impl<T: Config> Pallet<T> {
 			return Ok(None)
 		}
 
-		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
+		// Let's make sure that we can decode at least an empty xcm message.
+		if !meter.can_consume(T::WeightInfo::take_first_concatenated_xcm(0)) {
 			defensive!("Out of weight; could not decode all; dropping");
 			return Err(())
 		}
@@ -707,13 +708,16 @@ impl<T: Config> Pallet<T> {
 		VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut input).map_err(
 			|error| {
 				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode XCM with depth limit");
-				// println!("Failed to decode XCM with depth limit: {:?}", error);
 				()
 			},
 		)?;
-
 		let (xcm_data, remaining_data) = data.split_at(input.count() as usize);
 		*data = remaining_data;
+
+		// Consume the actual weight that it took to decode this message.
+		// Saturates if it's over the limit.
+		meter.consume(T::WeightInfo::take_first_concatenated_xcm(xcm_data.len() as u32));
+
 		let xcm = Some(BoundedSlice::try_from(xcm_data).map_err(|error| {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to take XCM after decoding");
 			()
