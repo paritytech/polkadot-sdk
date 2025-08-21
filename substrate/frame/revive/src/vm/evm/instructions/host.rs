@@ -44,7 +44,6 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Balance);
 	let balance = context.interpreter.extend.balance();
-	println!("selfbalance: {:?}", balance);
 	let bytes: [u8; 32] = balance.to_big_endian();
 	let alloy_balance = U256::from_be_bytes(bytes);
 	push!(context.interpreter, alloy_balance);
@@ -308,7 +307,7 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			return;
 		},
 		Err(e) => {
-			log::error!("Selfdestruct failed: {:?}", e);
+			log::error!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
 			context.interpreter.halt(InstructionResult::Revert);
 			return;
 		},
