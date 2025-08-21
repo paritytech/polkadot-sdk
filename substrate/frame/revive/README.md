@@ -35,7 +35,7 @@ One `ref_time` `Weight` is defined as one picosecond of execution time on the ru
 The pallet includes **event-aware weight accounting** for `finalize_block()` operations. The weight model accounts for
 the computational cost of processing events during Ethereum block construction:
 
-```
+```text
 Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost)
 ```
 
