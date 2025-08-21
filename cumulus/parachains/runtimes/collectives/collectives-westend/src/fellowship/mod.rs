@@ -107,6 +107,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = crate::System;
+	type MaxDepositContributions = ConstU32<512>;
 }
 
 pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
