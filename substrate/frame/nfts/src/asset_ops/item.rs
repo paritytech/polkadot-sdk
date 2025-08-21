@@ -131,6 +131,15 @@ impl<T: Config<I>, I: 'static> Update<CanUpdate<Owner<T::AccountId>>> for Item<P
 	}
 }
 
+impl<T: Config<I>, I: 'static> Inspect<asset_strategies::ItemConfig> for Item<Pallet<T, I>> {
+	fn inspect(
+		(collection, item): &Self::Id,
+		_strategy: asset_strategies::ItemConfig,
+	) -> Result<crate::ItemConfig, DispatchError> {
+		ItemConfigOf::<T, I>::get(collection, item).ok_or(Error::<T, I>::UnknownItem.into())
+	}
+}
+
 impl<T: Config<I>, I: 'static> Inspect<Bytes> for Item<Pallet<T, I>> {
 	fn inspect(
 		(collection, item): &Self::Id,
@@ -392,8 +401,12 @@ impl<T: Config<I>, I: 'static> Create<WithItemOwner<T::AccountId, T::CollectionI
 		let WithConfig { config: owner_cfg, extra } = strategy;
 		let (collection, ..) = extra.params;
 
+		let collection_config = asset_ops::Collection::<Pallet<T, I>>::inspect(
+			&collection,
+			asset_strategies::CollectionConfig::default(),
+		)?;
 		let item_config =
-			ItemConfig { settings: <Pallet<T, I>>::get_default_item_settings(&collection)? };
+			ItemConfig { settings: collection_config.mint_settings.default_item_settings };
 
 		Self::create(WithItemConfig::new(
 			(owner_cfg, ItemConfigStrategy::with_config_value(item_config)),

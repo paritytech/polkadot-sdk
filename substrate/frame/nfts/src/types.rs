@@ -330,7 +330,6 @@ impl CollectionSettings {
 	pub fn from_disabled(settings: BitFlags<CollectionSetting>) -> Self {
 		Self(settings)
 	}
-	// TODO test this
 	pub fn from_enabled(enabled: BitFlags<CollectionSetting>) -> Self {
 		let mut disabled = BitFlags::all();
 		disabled.remove(enabled);
@@ -521,7 +520,6 @@ impl ItemSettings {
 	pub fn from_disabled(settings: BitFlags<ItemSetting>) -> Self {
 		Self(settings)
 	}
-	// TODO test this
 	pub fn from_enabled(enabled: BitFlags<ItemSetting>) -> Self {
 		let mut disabled = BitFlags::all();
 		disabled.remove(enabled);

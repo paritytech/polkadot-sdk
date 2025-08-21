@@ -184,6 +184,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let mut collection_details =
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
+		if let Some(item) = &maybe_item {
+			ensure!(Item::<T, I>::get(&collection, item).is_some(), Error::<T, I>::UnknownItem);
+		}
+
 		let attribute = Attribute::<T, I>::get((collection, maybe_item, &namespace, &key));
 		if let Some((_, deposit)) = attribute {
 			if deposit.account != set_as && deposit.amount != Zero::zero() {
@@ -322,7 +326,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		namespace: AttributeNamespace<T::AccountId>,
 		key: BoundedVec<u8, T::KeyLimit>,
 	) -> DispatchResult {
-		let (_, deposit) = Attribute::<T, I>::take((collection, maybe_item, &namespace, &key))
+		let (_, deposit) = Attribute::<T, I>::get((collection, maybe_item, &namespace, &key))
 			.ok_or(Error::<T, I>::AttributeNotFound)?;
 
 		if let Some(check_origin) = &maybe_check_origin {
@@ -373,6 +377,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Collection::<T, I>::get(&collection).ok_or(Error::<T, I>::UnknownCollection)?;
 
 		collection_details.attributes.saturating_dec();
+
+		Attribute::<T, I>::remove((collection, maybe_item, &namespace, &key));
 
 		match deposit.account {
 			Some(deposit_account) => {
