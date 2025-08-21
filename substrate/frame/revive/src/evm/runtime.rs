@@ -295,7 +295,6 @@ pub trait EthExtra {
 		})?;
 
 		// Check transaction type and reject unsupported transaction types
-		// Only EIP-1559 (type 2), EIP-2930 (type 1), and legacy (type 0) transactions are supported
 		match &tx {
 			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
 			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
