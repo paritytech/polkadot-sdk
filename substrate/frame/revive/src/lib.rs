@@ -127,7 +127,7 @@ const SENTINEL: u32 = u32::MAX;
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
 
-mod block_storage {
+mod eth_block_storage {
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -681,7 +681,7 @@ pub mod pallet {
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
 			// Prune older block hashes.
-			let block_hash_count = block_storage::BLOCK_HASH_COUNT;
+			let block_hash_count = eth_block_storage::BLOCK_HASH_COUNT;
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 			if !to_remove.is_zero() {
@@ -995,7 +995,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
-			block_storage::with_ethereum_context(|| {
+			eth_block_storage::with_ethereum_context(|| {
 				let code_len = code.len() as u32;
 				let data_len = data.len() as u32;
 				let mut output = Self::bare_instantiate(
@@ -1046,7 +1046,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
-			block_storage::with_ethereum_context(|| {
+			eth_block_storage::with_ethereum_context(|| {
 				let mut output = Self::bare_call(
 					origin,
 					dest,
@@ -1785,7 +1785,7 @@ impl<T: Config> Pallet<T> {
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		if matches!(event, Event::ContractEmitted { .. }) &&
-			block_storage::is_executing_ethereum_call()
+			eth_block_storage::is_executing_ethereum_call()
 		{
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::mutate(|events| {
