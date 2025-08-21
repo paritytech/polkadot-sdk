@@ -31,14 +31,19 @@ use revm::bytecode::opcode::*;
 fn jump_works() {
 	let expected_value = 0xfefefefe_u64;
 	let runtime_code: Vec<u8> = vec![
+        // store 0xfefefefe at memory location 0
+        // This is the value we will return
 		vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
 		vec![PUSH0],
 		vec![MSTORE],
 		vec![PUSH1, 0x11_u8],
+        // jump over storing 0xdeadbeef
+        // this is the value we will return if JUMP is not executed
 		vec![JUMP],
 		vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
 		vec![PUSH0],
 		vec![MSTORE],
+        // return whatever is in memory at location 0
 		vec![JUMPDEST],
 		vec![PUSH1, 0x20_u8],
 		vec![PUSH0],
@@ -72,16 +77,19 @@ fn jumpi_works() {
 	let runtime_code: Vec<u8> = vec![
 		vec![PUSH0],
 		vec![CALLDATALOAD],
+        // Compare argument to 0xfefefefe and jump is they do not match
 		vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
 		vec![SUB],
 		vec![PUSH1, 0x16_u8],
 		vec![JUMPI],
+        // argument was 0xfefefefe, we did not jump so we return 0xfefefefe
 		vec![PUSH4, 0xfe, 0xfe, 0xfe, 0xfe],
 		vec![PUSH0],
 		vec![MSTORE],
 		vec![PUSH1, 0x20_u8],
 		vec![PUSH0],
 		vec![RETURN],
+        // argument was *NOT* 0xfefefefe so we return 0xdeadbeef
 		vec![JUMPDEST],
 		vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
 		vec![PUSH0],
