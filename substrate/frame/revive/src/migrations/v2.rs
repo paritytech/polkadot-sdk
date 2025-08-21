@@ -161,31 +161,17 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		for (key, value) in prev_map {
 			let new_value = new::CodeInfoOf::<T>::get(key)
 				.expect("Failed to get the value after the migration");
-			assert_eq!(
-				value.owner, new_value.owner,
-				"Migration failed: owner mismatch after migration"
-			);
-			assert_eq!(
-				value.deposit, new_value.deposit,
-				"Migration failed: deposit mismatch after migration"
-			);
-			assert_eq!(
-				value.refcount, new_value.refcount,
-				"Migration failed: refcount mismatch after migration"
-			);
-			assert_eq!(
-				value.code_len, new_value.code_len,
-				"Migration failed: code_len mismatch after migration"
-			);
-			assert_eq!(
-				value.behaviour_version, new_value.behaviour_version,
-				"Migration failed: behaviour_version mismatch after migration"
-			);
-			assert_eq!(
-				new_value.code_type,
-				BytecodeType::Pvm,
-				"Migration failed: code_type should be Pvm after migration"
-			);
+			
+			let expected = new::CodeInfo {
+				owner: value.owner,
+				deposit: value.deposit,
+				refcount: value.refcount,
+				code_len: value.code_len,
+				code_type: BytecodeType::Pvm,
+				behaviour_version: value.behaviour_version,
+			};
+			
+			assert_eq!(new_value, expected, "Migration failed: CodeInfo mismatch for key {:?}", key);
 		}
 
 		Ok(())
