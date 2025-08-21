@@ -134,7 +134,7 @@ impl<T: Config<I>, I: 'static>
 		>,
 		new_config: CollectionConfigFor<T, I>,
 	) -> DispatchResult {
-		<Pallet<T, I>>::do_force_collection_config(*collection, new_config.clone())
+		<Pallet<T, I>>::do_force_collection_config(*collection, new_config)
 	}
 }
 
@@ -481,7 +481,7 @@ impl<T: Config<I>, I: 'static> Destroy<IfOwnedBy<T::AccountId, WithWitness<Destr
 	) -> DispatchResult {
 		let CheckState(owner, CheckState(witness, ..)) = strategy;
 
-		<Pallet<T, I>>::do_destroy_collection(collection.clone(), witness, Some(owner))?;
+		<Pallet<T, I>>::do_destroy_collection(*collection, witness, Some(owner))?;
 
 		Ok(())
 	}
