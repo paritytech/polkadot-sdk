@@ -93,7 +93,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 	}
 }
 
-/// Runs the EVM interpreter until it returns an action.
+/// Runs the EVM interpreter
 fn run<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
@@ -103,8 +103,7 @@ fn run<WIRE: InterpreterTypes>(
 	match action {
 		InterpreterAction::Return(result) => return result,
 		InterpreterAction::NewFrame(_) => {
-			// We should never hit this as creating a new frame should be handled by the opcode
-			// directly
+			// TODO handle new frame
 			InterpreterResult::new(
 				revm::interpreter::InstructionResult::FatalExternalError,
 				Default::default(),
