@@ -31,45 +31,6 @@ use sp_runtime::{
 use xcm::latest::prelude::*;
 
 parameter_types! {
-<<<<<<< HEAD
-=======
-	/// Number of election pages that we operate upon.
-	///
-	/// * Polkadot: 32 (3.2m snapshot)
-	/// * Kusama: 16 (1.6m snapshot)
-	///
-	/// Reasoning: Both leads to around 700 nominators per-page, yielding the weights in
-	/// https://github.com/paritytech/polkadot-sdk/pull/8704, the maximum of which being around 1mb
-	/// compressed PoV and 2mb uncompressed.
-	///
-	/// NOTE: in principle, there is nothing preventing us from stretching these values further, it
-	/// will only reduce the per-page POVs. Although, some operations like the first snapshot, and
-	/// the last page of export (where we operate on `MaxValidatorSet` validators) will not get any
-	/// better.
-	pub storage Pages: u32 = 4;
-
-	/// * Polkadot: 16 * 32 (512 blocks, 51.2m).
-	/// * Kusama: 8 * 16 (12 blocks, 12.8m).
-	///
-	/// (MaxSubmissions * Pages) for both, enough to verify all solutions.
-	///
-	/// Reasoning: Less security needed in Kusama, to compensate for the shorter session duration.
-	pub storage SignedValidationPhase: u32 = Pages::get() * 2;
-
-	/// * Polkadot: 200 blocks, 20m.
-	/// * Kusama: 100 blocks, 10m.
-	///
-	/// Reasoning:
-	///
-	/// * Polkadot wishes at least 8 submitters to be able to submit. That is  8 * 32 = 256 pages
-	///   for all submitters. Weight of each submission page is roughly 0.0007 of block weight. 200
-	///   blocks is more than enough.
-	/// * Kusama wishes at least 4 submitters to be able to submit. That is 4 * 16 = 64 pages for
-	///   all submitters. Weight of each submission page is roughly 0.0007 of block weight. 100
-	///   blocks is more than enough.
-	///
-	/// See `signed_weight_ratios` test below for more info.
->>>>>>> 56d3c42 (EPMB/Signed: Make invulnerables non-eject-able (#9511))
 	pub storage SignedPhase: u32 = 4 * MINUTES;
 	pub storage UnsignedPhase: u32 = MINUTES;
 	pub storage SignedValidationPhase: u32 = Pages::get() *2;
