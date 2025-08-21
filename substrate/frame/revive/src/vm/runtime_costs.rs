@@ -15,11 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-	gas::Token,
-	weights::{OnFinalizeBlockParts, WeightInfo},
-	Config,
-};
+use crate::{gas::Token, weights::WeightInfo, weights_utils::OnFinalizeBlockParts, Config};
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 /// Current approximation of the gas/s consumption considering
