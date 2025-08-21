@@ -1785,7 +1785,6 @@ impl<T: Config> Pallet<T> {
 		if matches!(event, Event::ContractEmitted { .. }) &&
 			eth_block_storage::is_executing_ethereum_call()
 		{
-			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEthTxEvents::<T>::mutate(|events| {
 				events.push(event.clone());
 			});
