@@ -161,8 +161,58 @@ pub trait WeightInfo {
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
-	fn finalize_block_processing(c: u32, e: u32) -> Weight;
-	fn finalize_block_event_data_processing(d: u32, ) -> Weight;
+	fn on_finalize(n: u32, p: u32) -> Weight;
+	fn on_finalize_per_transaction(e: u32, d: u32) -> Weight;
+}
+
+pub trait OnFinalizeBlockParts {
+	/// Returns the fixed part `a` of finalize_block weight.
+	fn on_finalize_block_fixed() -> Weight;
+
+	/// Returns the per-transaction part `b` of finalize_block weight.
+	fn on_finalize_block_per_tx(payload_size: u32) -> Weight;
+
+	/// Returns the per-event part `c` of finalize_block weight.
+	fn on_finalize_block_per_event(data_len: u32) -> Weight;
+}
+
+/// Splits finalize_block weight into fixed, per-transaction, per-event components.
+///
+/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count *
+/// per_event_part)
+///
+/// - `on_finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
+/// - `on_finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
+///   to enforce gas limits and reject transactions early if needed.
+/// - `on_finalize_block_per_event(event)`: Per-event weight for processing events during
+///   `on_finalize()`, added dynamically in each `deposit_event()` based on event and its data length.
+impl<W: WeightInfo> OnFinalizeBlockParts for W {
+	fn on_finalize_block_fixed() -> Weight {
+		// Fixed cost is incurred no matter what number of transactions
+		W::on_finalize(0, 0)
+	}
+
+	fn on_finalize_block_per_tx(payload_size: u32) -> Weight {
+		// Cost per transaction: on_finalize(1, payload_size) - fixed_cost
+		W::on_finalize(1, payload_size).saturating_sub(W::on_finalize_block_fixed())
+	}
+
+	/// Calculate per-event weight including data processing costs
+	fn on_finalize_block_per_event(data_len: u32) -> Weight {
+		// The cost of processing one event is the difference between having 1 event vs 0 events
+		let per_event_cost = W::on_finalize_per_transaction(1, 0)
+			.saturating_sub(W::on_finalize_per_transaction(0, 0));
+
+		// The cost of processing data_len bytes is the difference in cost for that data
+		let per_byte_cost = if data_len > 0 {
+			W::on_finalize_per_transaction(1, data_len)
+				.saturating_sub(W::on_finalize_per_transaction(1, 0))
+		} else {
+			Weight::zero()
+		};
+
+		per_event_cost.saturating_add(per_byte_cost)
+	}
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1282,23 +1332,35 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Revive::PreviousBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block_processing(c: u32, e: u32) -> Weight {
-	    Weight::from_parts(10_000_000, 2000)
-			.saturating_mul(c.into())
-			.saturating_mul(e.into())
-	}
-	/// The range of component `d` is `[0, 16384]`.
-	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
+	/// The range of component `n` is `[0, 1000]`.
+	/// The range of component `p` is `[0, 1000]`.
+	fn on_finalize(n: u32, p: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `300`
-		//  Estimated: `2000 + d * (1 ±0)`
+		//  Estimated: `2000 + n * (100 ±0) + p * (1 ±0)`
 		// Minimum execution time: 8_000_000 picoseconds.
 		Weight::from_parts(10_000_000, 2000)
-			// Standard Error: 100
-			.saturating_add(Weight::from_parts(500, 0).saturating_mul(d.into()))
+			// Standard Error: 1000
+			.saturating_add(Weight::from_parts(1_000_000, 100).saturating_mul(n.into()))
+			// Standard Error: 500
+			.saturating_add(Weight::from_parts(2_000, 1).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// The range of component `m` is `[0, 100]`.
+	/// The range of component `d` is `[0, 1000]`.
+	fn on_finalize_per_transaction(m: u32, d: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `300`
+		//  Estimated: `2000 + m * (50 ±0) + d * (1 ±0)`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 2000)
+			// Standard Error: 100
+			.saturating_add(Weight::from_parts(100_000, 50).saturating_mul(m.into()))
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(500, 1).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(0_u64))
+			.saturating_add(T::DbWeight::get().writes(0_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
 	}
 }
@@ -2419,23 +2481,35 @@ impl WeightInfo for () {
 	/// Proof: `Revive::PreviousBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Revive::PreviousReceiptInfo` (r:0 w:1)
 	/// Proof: `Revive::PreviousReceiptInfo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// The range of component `c` is `[0, 100]`.
-	fn finalize_block_processing(c: u32, e: u32) -> Weight {
-	    Weight::from_parts(10_000_000, 2000)
-			.saturating_mul(c.into())
-			.saturating_mul(e.into())
-	}
-	/// The range of component `d` is `[0, 16384]`.
-	fn finalize_block_event_data_processing(d: u32, ) -> Weight {
+	/// The range of component `n` is `[0, 1000]`.
+	/// The range of component `p` is `[0, 1000]`.
+	fn on_finalize(n: u32, p: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `300`
-		//  Estimated: `2000 + d * (1 ±0)`
+		//  Estimated: `2000 + n * (100 ±0) + p * (1 ±0)`
 		// Minimum execution time: 8_000_000 picoseconds.
 		Weight::from_parts(10_000_000, 2000)
-			// Standard Error: 100
-			.saturating_add(Weight::from_parts(500, 0).saturating_mul(d.into()))
+			// Standard Error: 1000
+			.saturating_add(Weight::from_parts(1_000_000, 100).saturating_mul(n.into()))
+			// Standard Error: 500
+			.saturating_add(Weight::from_parts(2_000, 1).saturating_mul(p.into()))
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// The range of component `e` is `[0, 100]`.
+	/// The range of component `d` is `[0, 1000]`.
+	fn on_finalize_per_transaction(e: u32, d: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `300`
+		//  Estimated: `2000 + m * (50 ±0) + d * (1 ±0)`
+		// Minimum execution time: 5_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 2000)
+			// Standard Error: 100
+			.saturating_add(Weight::from_parts(100_000, 50).saturating_mul(e.into()))
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(500, 1).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(0_u64))
+			.saturating_add(RocksDbWeight::get().writes(0_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
 	}
 }

@@ -2373,12 +2373,13 @@ mod benchmarks {
 		signer_key: &SigningKey,
 		target_address: H160,
 		value: U256,
+		input_data: Vec<u8>,
 	) -> Vec<u8> {
 		let unsigned_tx: TransactionUnsigned = TransactionLegacyUnsigned {
 			to: Some(target_address),
 			value,
 			chain_id: Some(T::ChainId::get().into()),
-			input: vec![].into(),
+			input: input_data.into(),
 			..Default::default()
 		}
 		.into();
@@ -2398,7 +2399,7 @@ mod benchmarks {
 
 	// Macro to generate common finalize_block benchmark setup
 	fn setup_finalize_block_benchmark<T>() -> Result<
-		(Contract<T>, T::RuntimeOrigin, BalanceOf<T>, U256, Vec<u8>, BlockNumberFor<T>),
+		(Contract<T>, T::RuntimeOrigin, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>),
 		BenchmarkError,
 	>
 	where
@@ -2420,56 +2421,65 @@ mod benchmarks {
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, 0));
 
-		// Create signed transaction
-		let signed_payload =
-			create_signed_transaction::<T>(&signer_key, instance.address, value.into());
-
 		// Setup block
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
-		Ok((instance, origin, storage_deposit, evm_value, signed_payload, current_block))
+		Ok((instance, origin, storage_deposit, evm_value, signer_key, current_block))
 	}
 
-	// `c`: number of transactions to fit in the block
-	// `e`: number of events per transaction
+	/// Benchmark the `on_finalize_per_block` hook scaling with number of transactions
+	/// and payload size.
+	///
+	/// This benchmark measures the marginal computational cost of adding transactions
+	/// to a block during finalization. Each transaction uses identical fixed parameters
+	/// to isolate the pure transaction processing overhead.
+	///
+	/// ## Parameters:
+	/// - `n`: Number of transactions in the block
+	/// - `p`: Payload size (transaction data size in bytes)
+	///
+	/// ## Test Setup:
+	/// - Creates `n` transactions with payload size `p`
+	/// - Pre-populates `InflightTransactions::<T>` storage with test data
+	///
+	/// Note: While trie root computation is theoretically O(N log N), the computational cost
+	/// is dominated by storage I/O operations, so linear regression approximation is adequate.
+	///
+	/// ## Usage:
+	/// - Fixed cost: `on_finalize(0, 0)` - cost incurred no matter what number of transactions
+	/// - Per transaction: `on_finalize(1, payload_size) - fixed_cost`
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block_processing(
-		c: Linear<0, 100>,
-		e: Linear<0, 50>,
-	) -> Result<(), BenchmarkError> {
-		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
+	fn on_finalize(n: Linear<0, 200>, p: Linear<0, 1000>) -> Result<(), BenchmarkError> {
+		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
 		// Initialize block
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		// Execute transactions
-		for _ in 0..c {
-			// PRE-SETUP: Create events for current transaction
-			for i in 0..e {
-				let test_event = Event::<T>::ContractEmitted {
-					contract: instance.address,
-					data: format!("test_event_{}", i).into_bytes(),
-					topics: vec![H256::from_low_u64_be(i as u64)],
-				};
-				Pallet::<T>::deposit_event(test_event);
-			}
+		// Pre-populate InflightTransactions with n real transactions of input size p
+		// This isolates the on_finalize processing cost from transaction execution
+		if n > 0 {
+			// Create input data of size p for realistic transaction payloads
+			let input_data = vec![0x42u8; p as usize];
+			let gas_consumed = Weight::from_parts(1_000_000, 1000);
 
-			let _ = Pallet::<T>::eth_call(
-				origin.clone(),
-				instance.address,
-				evm_value,
-				Weight::MAX,
-				storage_deposit,
-				vec![],
-				signed_payload.clone(),
-			);
+			for _ in 0..n {
+				// Create real signed transaction with input data of size p
+				let signed_transaction = create_signed_transaction::<T>(
+					&signer_key,
+					instance.address,
+					evm_value,
+					input_data.clone(),
+				);
+
+				Pallet::<T>::store_transaction(signed_transaction, true, gas_consumed);
+			}
 		}
 
 		#[block]
 		{
-			// Finalize block
+			// Measure only the finalization cost with n transactions of size p
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
@@ -2477,68 +2487,77 @@ mod benchmarks {
 		assert!(Pallet::<T>::block_author().is_some());
 
 		// Verify transaction count
-		assert_eq!(Pallet::<T>::eth_block().transactions.len(), c as usize);
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
 
 		// Verify contract events count
 		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), (c * e) as usize);
+		assert_eq!(contract_events.len(), 0);
 
 		Ok(())
 	}
 
-	// `d`: total event data size in bytes to process during finalize_block
+	/// Benchmark the `on_finalize` per-transaction component costs.
+	///
+	/// This benchmark measures the computational cost of processing individual
+	/// transaction components (events and payload size) within the finalization process.
+	/// Uses a single transaction to isolate component-specific costs.
+	///
+	/// ## Parameters:
+	/// - `e`: Number of events per transaction
+	/// - `d`: Transaction payload size in bytes
+	///
+	/// ## Test Setup:
+	/// - Creates 1 transaction with specified parameters
+	/// - Transaction has `m` ContractEmitted events
+	/// - `d` number of data bytes in events
+	///
+	/// ## Usage:
+	/// Calculate marginal costs:
+	/// - Per event: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
+	/// - Per byte: `on_finalize_per_transaction(1, 1) - on_finalize_per_transaction(1, 0)`
 	#[benchmark(pov_mode = Measured)]
-	fn finalize_block_event_data_processing(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
-		let (instance, origin, storage_deposit, evm_value, signed_payload, current_block) =
+	fn on_finalize_per_transaction(
+		e: Linear<0, 100>,
+		d: Linear<0, 16384>,
+	) -> Result<(), BenchmarkError> {
+		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
-
-		let mut target_events = 0;
-		// PRE-SETUP: Create events with varying data sizes OUTSIDE the benchmark block
-		// This avoids measuring vector allocation and storage costs
-		if d > 0 {
-			// Distribute data across multiple events to test realistic scenarios
-			target_events = if d <= 1024 {
-				1
-			} else if d <= 4096 {
-				4
-			} else {
-				8
-			};
-			let data_per_event = d / target_events;
-			let remaining_data = d % target_events;
-
-			for i in 0..target_events {
-				// Calculate data size for this event
-				let event_data_size = data_per_event + if i == 0 { remaining_data } else { 0 };
-				let event_data = vec![0x42u8; event_data_size as usize];
-
-				let test_event = Event::<T>::ContractEmitted {
-					contract: instance.address,
-					data: event_data,
-					topics: vec![H256::from_low_u64_be(i as u64)],
-				};
-
-				Pallet::<T>::deposit_event(test_event);
-			}
-		}
 
 		// Initialize block
 		let _ = Pallet::<T>::on_initialize(current_block);
 
-		// Execute a single dummy transaction to trigger the finalize_block event processing
-		let _ = Pallet::<T>::eth_call(
-			origin.clone(),
+		// Create a single transaction with m events and d bytes of event data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
 			instance.address,
 			evm_value,
-			Weight::MAX,
-			storage_deposit,
-			vec![],
-			signed_payload.clone(),
+			input_data.clone(),
 		);
+		// Create m events, distributing d bytes across them
+		if e > 0 {
+			let bytes_per_event = if d > 0 { d / e } else { 0 };
+			let extra_bytes = if d > 0 { d % e } else { 0 };
+
+			for i in 0..e {
+				let event_data_size = bytes_per_event + if i == 0 { extra_bytes } else { 0 };
+				let event_data = vec![0x42u8; event_data_size as usize];
+
+				Pallet::<T>::deposit_event(Event::<T>::ContractEmitted {
+					contract: instance.address,
+					data: event_data,
+					topics: vec![H256::from_low_u64_be(i as u64)],
+				});
+			}
+		}
+
+		let gas_consumed = Weight::from_parts(1_000_000, 1000);
+
+		Pallet::<T>::store_transaction(signed_transaction, true, gas_consumed);
 
 		#[block]
 		{
-			// This is where the data-dependent processing cost is incurred (MEASURED)
+			// Measure the finalization cost with specific event/data parameters
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
@@ -2550,7 +2569,7 @@ mod benchmarks {
 
 		// Verify contract events count
 		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), target_events as usize);
+		assert_eq!(contract_events.len(), e as usize);
 
 		Ok(())
 	}

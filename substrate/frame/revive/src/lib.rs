@@ -100,7 +100,7 @@ pub use pallet_transaction_payment;
 pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
-pub use weights::WeightInfo;
+pub use weights::{OnFinalizeBlockParts, WeightInfo};
 
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
@@ -623,8 +623,9 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			// Account for the fixed part of the costs incurred in `on_finalize`.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				<T as pallet::Config>::WeightInfo::finalize_block_fixed(),
+				<T as Config>::WeightInfo::on_finalize_block_fixed(),
 				DispatchClass::Normal,
 			);
 			ReceiptInfoData::<T>::kill();
@@ -1026,7 +1027,7 @@ pub mod pallet {
 		#[pallet::weight(
 		    T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 				.saturating_add(*gas_limit)
-				.saturating_add(T::WeightInfo::finalize_block_per_tx())
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(payload.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1177,51 +1178,6 @@ pub mod pallet {
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
 			call.dispatch(RawOrigin::Signed(unmapped_account).into())
-		}
-	}
-
-	pub trait FinalizeBlockParts {
-		/// Returns the fixed part `a` of finalize_block weight.
-		fn finalize_block_fixed() -> Weight;
-
-		/// Returns the per-transaction part `b` of finalize_block weight.
-		fn finalize_block_per_tx() -> Weight;
-
-		/// Returns the per-event part `c` of finalize_block weight.
-		fn finalize_block_per_event<T: Config>(event: u32) -> Weight;
-	}
-
-	/// Splits finalize_block weight into fixed, per-transaction, per-event components.
-	///
-	/// Total weight = fixed_part + (transaction_count * per_tx_part) + (event_count *
-	/// per_event_part)
-	///
-	/// - `finalize_block_fixed()`: Fixed overhead added in `on_finalize()`
-	/// - `finalize_block_per_tx()`: Per-transaction weight added incrementally in each `eth_call()`
-	///   to enforce gas limits and reject transactions early if needed.
-	/// - `finalize_block_per_event(event)`: Per-event weight for processing events during
-	///   `on_finalize()`, added dynamically in each `deposit_event()` based on actual event count
-	///   and event data length
-	impl<W: WeightInfo> FinalizeBlockParts for W {
-		fn finalize_block_fixed() -> Weight {
-			// Call finalize_block with tx_count = 0 and event_cnt = 0 → only `fixed_part`
-			W::finalize_block_processing(0, 0)
-		}
-
-		fn finalize_block_per_tx() -> Weight {
-			// Call with 1 tx with 0 event and subtract 0 tx with 0 event → gives `per_tx_part`
-			W::finalize_block_processing(1, 0)
-				.saturating_sub(W::finalize_block_processing(0, 0))
-		}
-
-		fn finalize_block_per_event<T: Config>(data_len: u32) -> Weight {
-			// Extract per-event cost from dedicated benchmarks
-			let weight_per_data_len = W::finalize_block_event_data_processing(data_len);
-
-			// Call with 1 tx with 1 event and subtract 1 tx with 0 events → gives `per_event_part`
-			W::finalize_block_processing(1, 1)
-				.saturating_sub(W::finalize_block_processing(1, 0))
-				.saturating_add(weight_per_data_len)
 		}
 	}
 }
