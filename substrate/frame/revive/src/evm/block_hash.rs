@@ -219,21 +219,3 @@ impl Block {
 		alloy_header.hash_slow().0.into()
 	}
 }
-
-#[cfg(test)]
-mod test {
-	use super::*;
-	use crate::evm::{Block, ReceiptInfo, TransactionSigned};
-	use std::fs::File;
-
-	#[test]
-	fn ensure_identical_hashes() {
-		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x161bd0f", true],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
-		const BLOCK_PATH: &str = "./test-assets/ethereum_block.json";
-		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["0x161bd0f"],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
-		const BLOCK_RECEIPTS: &str = "./test-assets/ethereum_receipts.json";
-
-		// Deserialize block from block path file.
-		let _block = serde_json::from_reader(File::open(BLOCK_PATH).unwrap());
-	}
-}

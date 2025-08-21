@@ -20,8 +20,10 @@
 use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeEvent, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, Pallet, Weight, H256,
+	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEvents,
+	InflightTransactions, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
 };
+
 use frame_support::traits::{fungible::Mutate, Hooks};
 use pallet_revive_fixtures::compile_module;
 
@@ -29,32 +31,29 @@ use pallet_revive_fixtures::compile_module;
 fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let receipt_data =
-			vec![crate::ReceiptGasInfo { effective_gas_price: 1.into(), gas_used: 1.into() }];
-		crate::ReceiptInfoData::<Test>::put(receipt_data.clone());
-		assert_eq!(crate::ReceiptInfoData::<Test>::get(), receipt_data);
+			vec![ReceiptGasInfo { effective_gas_price: 1.into(), gas_used: 1.into() }];
+		ReceiptInfoData::<Test>::put(receipt_data.clone());
+		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
-		let event = crate::Event::ContractEmitted {
-			contract: Default::default(),
-			data: vec![1],
-			topics: vec![],
-		};
-		crate::InflightEvents::<Test>::put(vec![event.clone()]);
-		assert_eq!(crate::InflightEvents::<Test>::get(), vec![event.clone()]);
+		let event =
+			Event::ContractEmitted { contract: Default::default(), data: vec![1], topics: vec![] };
+		InflightEvents::<Test>::put(vec![event.clone()]);
+		assert_eq!(InflightEvents::<Test>::get(), vec![event.clone()]);
 
 		let transactions = vec![(vec![1, 2, 3], 1, vec![event], true, Weight::zero())];
-		crate::InflightTransactions::<Test>::put(transactions.clone());
-		assert_eq!(crate::InflightTransactions::<Test>::get(), transactions);
+		InflightTransactions::<Test>::put(transactions.clone());
+		assert_eq!(InflightTransactions::<Test>::get(), transactions);
 
-		let block = crate::EthBlock { number: 1.into(), ..Default::default() };
-		crate::EthereumBlock::<Test>::put(block.clone());
-		assert_eq!(crate::EthereumBlock::<Test>::get(), block);
+		let block = EthBlock { number: 1.into(), ..Default::default() };
+		EthereumBlock::<Test>::put(block.clone());
+		assert_eq!(EthereumBlock::<Test>::get(), block);
 
 		Contracts::on_initialize(0);
 
-		assert_eq!(crate::ReceiptInfoData::<Test>::get(), vec![]);
-		assert_eq!(crate::InflightEvents::<Test>::get(), vec![]);
-		assert_eq!(crate::InflightTransactions::<Test>::get(), vec![]);
-		assert_eq!(crate::EthereumBlock::<Test>::get(), Default::default());
+		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
+		assert_eq!(InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
 }
 
@@ -80,7 +79,7 @@ fn transactions_are_captured() {
 		// Instantiate with code is not captured.
 		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
 
-		let transactions = crate::InflightTransactions::<Test>::get();
+		let transactions = InflightTransactions::<Test>::get();
 		assert_eq!(transactions.len(), 2);
 		assert_eq!(transactions[0].0, vec![1]); // payload set to 1 for eth_call
 		assert_eq!(transactions[0].1, 0); // tx index
@@ -94,7 +93,7 @@ fn transactions_are_captured() {
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(crate::InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
 	});
 }
 
@@ -120,28 +119,28 @@ fn events_are_captured() {
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
 		// Capture the EthInstantiate.
-		assert_eq!(crate::InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEvents::<Test>::get(), vec![]);
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 		// Events are cleared out by storing the transaction.
-		assert_eq!(crate::InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEvents::<Test>::get(), vec![]);
 
-		let transactions = crate::InflightTransactions::<Test>::get();
+		let transactions = InflightTransactions::<Test>::get();
 		assert_eq!(transactions.len(), 1);
 		assert_eq!(transactions[0].0, vec![2]); // payload set to 1 for eth_instantiate_with_code
 		assert_eq!(transactions[0].1, 0); // tx index
-		match &transactions[0].2[0] {
-			crate::Event::ContractEmitted { contract, data, topics } => {
-				assert_ne!(contract, &addr);
-				assert_eq!(data, &vec![1, 2, 3, 4]);
-				assert_eq!(topics, &vec![H256::repeat_byte(42)]);
-			},
-			event => panic!("Event {event:?} unexpected"),
-		};
+		assert_eq!(
+			transactions[0].2[0],
+			crate::Event::ContractEmitted {
+				contract: addr,
+				data: vec![1, 2, 3, 4],
+				topics: vec![H256::repeat_byte(42)]
+			}
+		);
 		assert_eq!(transactions[0].3, true); // successful
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(crate::InflightTransactions::<Test>::get(), vec![]);
-		assert_eq!(crate::InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
+		assert_eq!(InflightEvents::<Test>::get(), vec![]);
 	});
 }
