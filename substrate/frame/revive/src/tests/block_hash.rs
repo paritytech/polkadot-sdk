@@ -140,7 +140,7 @@ fn events_are_captured() {
 		Contracts::on_initialize(1);
 
 		// Bare call must not be captured.
-		builder::bare_instantiate(Code::Existing(code_hash.clone())).build_and_unwrap_contract();
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
