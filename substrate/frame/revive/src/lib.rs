@@ -1805,15 +1805,9 @@ impl<T: Config> Pallet<T> {
 		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 
-		let index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
-			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
-			0
-		});
-
 		InflightEthTransactions::<T>::mutate(|transactions| {
 			transactions.push(TransactionDetails {
 				signed_transaction,
-				index,
 				logs,
 				success,
 				gas_used,

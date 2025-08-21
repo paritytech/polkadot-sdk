@@ -39,7 +39,6 @@ impl PartialEq for TransactionDetails {
 	// Ignore the weight since its subject to change.
 	fn eq(&self, other: &Self) -> bool {
 		self.signed_transaction == other.signed_transaction &&
-			self.index == other.index &&
 			self.logs == other.logs &&
 			self.success == other.success
 	}
@@ -59,7 +58,6 @@ fn on_initialize_clears_storage() {
 
 		let transactions = vec![TransactionDetails {
 			signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
-			index: 1,
 			logs: vec![event.clone()],
 			success: true,
 			gas_used: Weight::zero(),
@@ -107,14 +105,12 @@ fn transactions_are_captured() {
 		let expected = vec![
 			TransactionDetails {
 				signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
-				index: 0,
 				logs: vec![],
 				success: true,
 				gas_used: Weight::zero(),
 			},
 			TransactionDetails {
 				signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
-				index: 0,
 				logs: vec![],
 				success: true,
 				gas_used: Weight::zero(),
@@ -157,7 +153,6 @@ fn events_are_captured() {
 		let transactions = InflightEthTransactions::<Test>::get();
 		let expected = vec![TransactionDetails {
 			signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
-			index: 0,
 			logs: vec![EventLog {
 				data: vec![1, 2, 3, 4],
 				topics: vec![H256::repeat_byte(42)],

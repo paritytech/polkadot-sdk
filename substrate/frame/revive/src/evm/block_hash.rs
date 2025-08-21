@@ -46,8 +46,6 @@ pub struct EventLog {
 pub struct TransactionDetails {
 	/// The signed transaction.
 	pub signed_transaction: TransactionSigned,
-	/// The index of the transaction within the block.
-	pub index: u32,
 	/// The logs emitted by the transaction.
 	pub logs: Vec<EventLog>,
 	/// Whether the transaction was successful.
@@ -165,7 +163,7 @@ impl Block {
 		detail: TransactionDetails,
 		base_gas_price: U256,
 	) -> TransactionProcessed {
-		let TransactionDetails { signed_transaction, index: _, logs, success, gas_used } = detail;
+		let TransactionDetails { signed_transaction, logs, success, gas_used } = detail;
 
 		let encoded_tx = signed_transaction.signed_payload();
 		let tx_hash = H256(keccak_256(&encoded_tx));
