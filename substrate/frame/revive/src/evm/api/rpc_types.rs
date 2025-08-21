@@ -282,6 +282,19 @@ impl GenericTransaction {
 				access_list: Some(tx.access_list),
 				..Default::default()
 			},
+			Transaction7702Unsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: Some(tx.chain_id),
+				input: tx.input.into(),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: Some(tx.to),
+				gas: Some(tx.gas),
+				gas_price: Some(tx.gas_price),
+				access_list: Some(tx.access_list),
+				..Default::default()
+			},
 		}
 	}
 
