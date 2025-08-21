@@ -11790,7 +11790,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-balances",
  "pallet-bridge-grandpa",
  "pallet-bridge-messages",
@@ -11803,6 +11802,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",
+ "tracing",
 ]
 
 [[package]]
