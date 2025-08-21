@@ -1597,7 +1597,7 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		Some(System::<T>::block_hash(&block_number).into())
+		crate::Pallet::<T>::eth_block_hash_from_number(block_number.into())
 	}
 }
 
