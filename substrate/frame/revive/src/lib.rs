@@ -1188,7 +1188,7 @@ pub mod pallet {
 		fn finalize_block_per_tx() -> Weight;
 
 		/// Returns the per-event part `c` of finalize_block weight.
-		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight;
+		fn finalize_block_per_event<T: Config>(event: u32) -> Weight;
 	}
 
 	/// Splits finalize_block weight into fixed, per-transaction, per-event components.
@@ -1210,15 +1210,12 @@ pub mod pallet {
 
 		fn finalize_block_per_tx() -> Weight {
 			// Call with 1 tx with 0 event and subtract 0 tx with 0 event → gives `per_tx_part`
-			W::finalize_block_processing(1, 0).saturating_sub(W::finalize_block_processing(0, 0))
+			W::finalize_block_processing(1, 0)
+				.saturating_sub(W::finalize_block_processing(0, 0))
 		}
 
-		fn finalize_block_per_event<T: Config>(event: &Event<T>) -> Weight {
+		fn finalize_block_per_event<T: Config>(data_len: u32) -> Weight {
 			// Extract per-event cost from dedicated benchmarks
-			let data_len = match event {
-				Event::ContractEmitted { data, .. } => data.len() as u32,
-				_ => 0,
-			};
 			let weight_per_data_len = W::finalize_block_event_data_processing(data_len);
 
 			// Call with 1 tx with 1 event and subtract 1 tx with 0 events → gives `per_event_part`
@@ -1822,11 +1819,6 @@ impl<T: Config> Pallet<T> {
 	/// Therefore all events must be contract emitted events.
 	fn deposit_event(event: Event<T>) {
 		if matches!(event, Event::ContractEmitted { .. }) {
-			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				<T as pallet::Config>::WeightInfo::finalize_block_per_event(&event),
-				DispatchClass::Normal,
-			);
-
 			// TODO: ensure we don't exceed a maximum number of events per tx.
 			InflightEvents::<T>::mutate(|events| {
 				events.push(event.clone());

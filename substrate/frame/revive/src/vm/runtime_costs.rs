@@ -255,7 +255,19 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate => T::WeightInfo::seal_terminate(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			DepositEvent { num_topic, len } => {
+			    let weight = T::WeightInfo::seal_deposit_event(num_topic, len);
+
+				// Call with 1 tx with 1 event and subtract 1 tx with 0 events → gives `per_event_part`
+				let weight_per_data_len = T::WeightInfo::finalize_block_event_data_processing(len);
+				let weight_per_event = T::WeightInfo::finalize_block_processing(1, 1)
+					.saturating_sub(T::WeightInfo::finalize_block_processing(1, 0));
+
+				let weight = weight.saturating_add(weight_per_data_len).saturating_add(weight_per_event);
+
+				log::info!(target: "whatiwant", "rc dep {weight:?}");
+				weight
+			}
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},
