@@ -239,7 +239,7 @@ fn create_works() {
 
 		let echo_output = Callee::echoCall::abi_decode_returns(&echo_result.data).unwrap();
 
-		assert_eq!(echo_output, magic_number, "Callee.echo must return 42");
+		assert_eq!(magic_number, echo_output, "Callee.echo must return 42");
 	});
 }
 
@@ -284,6 +284,6 @@ fn create2_works() {
 
 		let echo_output = Callee::echoCall::abi_decode_returns(&echo_result.data).unwrap();
 
-		assert_eq!(echo_output, magic_number, "Callee.echo must return 42");
+		assert_eq!(magic_number, echo_output, "Callee.echo must return 42");
 	});
 }

@@ -52,16 +52,18 @@ contract System {
         return code;
     }
 
-    function returndatasize() public pure returns (uint256) {
+    function returndatasize(address _callee, bytes memory _data, uint _gas) public returns (uint256) {
         uint256 size;
+        _callee.staticcall{gas: _gas}(_data);
         assembly {
             size := returndatasize()
         }
         return size;
     }
 
-    function returndatacopy(uint256 destOffset, uint256 offset, uint256 size) public pure returns (bytes memory) {
+    function returndatacopy(address _callee, bytes memory _data, uint _gas, uint256 destOffset, uint256 offset, uint256 size) public returns (bytes memory) {
         bytes memory data = new bytes(size);
+        _callee.staticcall{gas: _gas}(_data);
         assembly {
             returndatacopy(add(data, 0x20), offset, size)
         }
