@@ -98,7 +98,6 @@ fn run<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 ) -> InterpreterResult {
-	log::info!("evm.rs::run()");
 	let host = &mut DummyHost {};
 	let action = interpreter.run_plain(table, host);
 	match action {

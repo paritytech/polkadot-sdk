@@ -137,7 +137,6 @@ pub fn stop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	log::info!("INVALID");
 	context.interpreter.extend.gas_meter_mut().consume_all();
 	context.interpreter.halt(InstructionResult::InvalidFEOpcode);
 }
