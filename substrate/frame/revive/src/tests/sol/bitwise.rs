@@ -18,8 +18,9 @@
 /// Tests for bitwise operations.
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
+	evm::decode_revert_reason,
 };
 
 use alloy_core::sol_types::SolInterface;
@@ -39,7 +40,7 @@ fn bitwise_works() {
 				.data(Bitwise::BitwiseCalls::testBitwise(Bitwise::testBitwiseCall {}).abi_encode())
 				.build_and_unwrap_result();
 			if result.did_revert() {
-				if let Some(revert_msg) = decode_revert_message(&result.data) {
+				if let Some(revert_msg) = decode_revert_reason(&result.data) {
 					log::error!("Revert message: {}", revert_msg);
 				} else {
 					log::error!("Revert without message, raw data: {:?}", result.data);

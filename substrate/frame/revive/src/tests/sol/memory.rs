@@ -17,8 +17,9 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, test_utils::decode_revert_message, ExtBuilder, Test},
+	tests::{builder, ExtBuilder, Test},
 	Code, Config,
+    evm::decode_revert_reason
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
@@ -41,7 +42,7 @@ fn memory_works() {
 				.data(Memory::MemoryCalls::testMemory(Memory::testMemoryCall {}).abi_encode())
 				.build_and_unwrap_result();
 			if result.flags == ReturnFlags::REVERT {
-				if let Some(revert_msg) = decode_revert_message(&result.data) {
+				if let Some(revert_msg) = decode_revert_reason(&result.data) {
 					log::error!("Revert message: {}", revert_msg);
 				} else {
 					log::error!("Revert without message, raw data: {:?}", result.data);
