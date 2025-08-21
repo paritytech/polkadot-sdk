@@ -198,8 +198,7 @@ impl Block {
 		// Note: Cap the gas limit to u64::MAX.
 		// In practice, it should be impossible to fill a u64::MAX gas limit
 		// of an either Ethereum or Substrate block.
-		let gas_limit =
-			if self.gas_limit > u64::MAX.into() { u64::MAX } else { self.gas_limit.as_u64() };
+		let gas_limit = self.gas_limit.try_into().unwrap_or(u64::MAX);
 
 		let alloy_header = alloy_consensus::Header {
 			state_root: self.transactions_root.0.into(),
