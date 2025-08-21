@@ -735,9 +735,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
-			Some(precompile) if precompile.has_contract_info() => {
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
-			},
+			Some(precompile) if precompile.has_contract_info() =>
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};

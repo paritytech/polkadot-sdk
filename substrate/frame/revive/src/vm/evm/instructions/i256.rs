@@ -126,8 +126,8 @@ pub fn i256_div(mut first: U256, mut second: U256) -> U256 {
 
 	// Two's complement only if the signs are different
 	// Note: This condition has better codegen than an exhaustive match, as of #582
-	if (first_sign == Sign::Minus && second_sign != Sign::Minus)
-		|| (second_sign == Sign::Minus && first_sign != Sign::Minus)
+	if (first_sign == Sign::Minus && second_sign != Sign::Minus) ||
+		(second_sign == Sign::Minus && first_sign != Sign::Minus)
 	{
 		two_compl(d)
 	} else {

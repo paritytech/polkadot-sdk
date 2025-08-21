@@ -186,9 +186,9 @@ fn extcodehash_works() {
 
 #[test]
 fn extcodecopy_works() {
-    use pallet_revive_fixtures::{
-            HostSelfDestructEvm, HostSelfDestructEvm::HostSelfDestructEvmCalls,
-    };
+	use pallet_revive_fixtures::{
+		HostSelfDestructEvm, HostSelfDestructEvm::HostSelfDestructEvmCalls,
+	};
 	let fixture_type = FixtureType::Solc;
 
 	let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();

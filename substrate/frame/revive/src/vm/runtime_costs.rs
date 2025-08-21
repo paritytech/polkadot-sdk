@@ -287,13 +287,12 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				cost_args!(seal_call, 1, dust_transfer.into(), 0)
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
+			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
 				T::WeightInfo::seal_instantiate(
 					input_data_len,
 					balance_transfer.into(),
 					dust_transfer.into(),
-				)
-			},
+				),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),

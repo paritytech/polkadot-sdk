@@ -17,10 +17,10 @@
 
 /// Tests for bitwise operations.
 use crate::{
+	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
-	evm::decode_revert_reason,
 };
 
 use alloy_core::sol_types::SolInterface;

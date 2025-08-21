@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
+	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
 	Code, Config,
-    evm::decode_revert_reason
 };
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
