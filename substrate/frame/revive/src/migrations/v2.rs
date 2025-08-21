@@ -23,7 +23,7 @@
 extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{vm::BytecodeType, weights::WeightInfo, AccountIdOf, BalanceOf, Config, H256};
+use crate::{vm::BytecodeType, weights::WeightInfo, Config, H256};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -191,8 +191,8 @@ impl<T: Config> Migration<T> {
 
 	/// Create an old CodeInfo struct for benchmarking.
 	pub fn create_old_code_info(
-		owner: AccountIdOf<T>,
-		deposit: BalanceOf<T>,
+		owner: crate::AccountIdOf<T>,
+		deposit: crate::BalanceOf<T>,
 		refcount: u64,
 		code_len: u32,
 		behaviour_version: u32,
