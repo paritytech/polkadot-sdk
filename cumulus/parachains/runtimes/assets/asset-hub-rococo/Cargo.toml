@@ -97,10 +97,11 @@ bp-asset-hub-rococo = { workspace = true }
 bp-asset-hub-westend = { workspace = true }
 bp-bridge-hub-rococo = { workspace = true }
 bp-bridge-hub-westend = { workspace = true }
-pallet-xcm-bridge-hub-router = { workspace = true }
+pallet-xcm-bridge-router = { workspace = true }
 
 [dev-dependencies]
 asset-test-utils = { workspace = true, default-features = true }
+bp-xcm-bridge = { workspace = true }
 parachains-runtimes-test-utils = { workspace = true, default-features = true }
 
 [build-dependencies]
@@ -139,7 +140,7 @@ runtime-benchmarks = [
 	"pallet-uniques/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
-	"pallet-xcm-bridge-hub-router/runtime-benchmarks",
+	"pallet-xcm-bridge-router/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -181,7 +182,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-uniques/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-xcm-bridge-hub-router/try-runtime",
+	"pallet-xcm-bridge-router/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
@@ -194,6 +195,7 @@ std = [
 	"bp-asset-hub-westend/std",
 	"bp-bridge-hub-rococo/std",
 	"bp-bridge-hub-westend/std",
+	"bp-xcm-bridge/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
@@ -234,7 +236,7 @@ std = [
 	"pallet-uniques/std",
 	"pallet-utility/std",
 	"pallet-xcm-benchmarks?/std",
-	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm-bridge-router/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

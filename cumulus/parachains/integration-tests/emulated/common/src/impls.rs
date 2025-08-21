@@ -64,17 +64,12 @@ use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData, MessageDispatch},
 	MessageKey, OutboundLaneData,
 };
-pub use bp_xcm_bridge_hub::XcmBridgeHubCall;
+pub use bp_xcm_bridge::{Receiver, XcmBridgeCall};
 use pallet_bridge_messages::{Config as BridgeMessagesConfig, LaneIdOf, OutboundLanes, Pallet};
 pub use pallet_bridge_messages::{
 	Instance1 as BridgeMessagesInstance1, Instance2 as BridgeMessagesInstance2,
 	Instance3 as BridgeMessagesInstance3,
 };
-use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
-
-pub struct BridgeHubMessageHandler<S, SI, T, TI> {
-	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
-}
 
 struct LaneIdWrapper<LaneId>(LaneId);
 impl<LaneId: Encode> From<LaneIdWrapper<LaneId>> for BridgeLaneId {
@@ -88,6 +83,11 @@ impl<LaneId: Decode> From<BridgeLaneId> for LaneIdWrapper<LaneId> {
 	}
 }
 
+/// Implementation of `BridgeMessageHandler` for `pallet_bridge_messages`,
+/// configured with `pallet_xcm_bridge_hub`.
+pub struct BridgeHubMessageHandler<S, SI, T, TI> {
+	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
+}
 impl<S, SI, T, TI> BridgeMessageHandler for BridgeHubMessageHandler<S, SI, T, TI>
 where
 	S: BridgeMessagesConfig<SI>,
@@ -96,7 +96,7 @@ where
 	TI: 'static,
 	<T as BridgeMessagesConfig<TI>>::InboundPayload: From<Vec<u8>>,
 	<T as BridgeMessagesConfig<TI>>::MessageDispatch:
-		MessageDispatch<DispatchLevelResult = XcmBlobMessageDispatchResult>,
+		MessageDispatch<DispatchLevelResult = pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult>,
 {
 	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
 		// get the source active outbound lanes
@@ -141,6 +141,94 @@ where
 			key: MessageKey { lane_id, nonce },
 			data: DispatchMessageData::<InboundPayload<T, TI>> { payload },
 		});
+
+		use pallet_xcm_bridge_hub::XcmBlobMessageDispatchResult;
+
+		let result = match dispatch_result.dispatch_level_result {
+			XcmBlobMessageDispatchResult::Dispatched => Ok(()),
+			XcmBlobMessageDispatchResult::InvalidPayload => Err(BridgeMessageDispatchError(
+				Box::new(XcmBlobMessageDispatchResult::InvalidPayload),
+			)),
+			XcmBlobMessageDispatchResult::NotDispatched(e) => Err(BridgeMessageDispatchError(
+				Box::new(XcmBlobMessageDispatchResult::NotDispatched(e)),
+			)),
+		};
+		result
+	}
+
+	fn notify_source_message_delivery(lane_id: BridgeLaneId) {
+		let lane_id: LaneIdOf<S, SI> = LaneIdWrapper::from(lane_id).0;
+		let data = OutboundLanes::<S, SI>::get(lane_id).unwrap();
+		let new_data = OutboundLaneData {
+			oldest_unpruned_nonce: data.oldest_unpruned_nonce + 1,
+			latest_received_nonce: data.latest_received_nonce + 1,
+			..data
+		};
+
+		OutboundLanes::<S, SI>::insert(lane_id, new_data);
+	}
+}
+
+/// Implementation of `BridgeMessageHandler` for `pallet_bridge_messages`,
+/// configured with `pallet_xcm_bridge`.
+pub struct BridgeMessagesHandler<S, SI, T, TI> {
+	_marker: std::marker::PhantomData<(S, SI, T, TI)>,
+}
+impl<S, SI, T, TI> BridgeMessageHandler for BridgeMessagesHandler<S, SI, T, TI>
+where
+	S: BridgeMessagesConfig<SI>,
+	SI: 'static,
+	T: BridgeMessagesConfig<TI>,
+	TI: 'static,
+	<T as BridgeMessagesConfig<TI>>::InboundPayload: From<Vec<u8>>,
+	<T as BridgeMessagesConfig<TI>>::MessageDispatch:
+		MessageDispatch<DispatchLevelResult = pallet_xcm_bridge::XcmBlobMessageDispatchResult>,
+{
+	fn get_source_outbound_messages() -> Vec<BridgeMessage> {
+		// get the source active outbound lanes
+		let active_outbound_lanes = OutboundLanes::<S, SI>::iter_keys();
+
+		let mut messages: Vec<BridgeMessage> = Default::default();
+
+		// collect messages from `OutboundMessages` for each active outbound lane in the source
+		for lane in active_outbound_lanes {
+			let latest_generated_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_generated_nonce;
+			let latest_received_nonce =
+				OutboundLanes::<S, SI>::get(lane).unwrap().latest_received_nonce;
+
+			(latest_received_nonce + 1..=latest_generated_nonce).for_each(|nonce| {
+				let encoded_payload: Vec<u8> = Pallet::<S, SI>::outbound_message_data(lane, nonce)
+					.expect("Bridge message does not exist")
+					.into();
+				let payload = Vec::<u8>::decode(&mut &encoded_payload[..])
+					.expect("Decoding XCM message failed");
+				let message = BridgeMessage { lane_id: LaneIdWrapper(lane).into(), nonce, payload };
+
+				messages.push(message);
+			});
+		}
+		messages
+	}
+
+	fn dispatch_target_inbound_message(
+		message: BridgeMessage,
+	) -> Result<(), BridgeMessageDispatchError> {
+		type TargetMessageDispatch<T, I> = <T as BridgeMessagesConfig<I>>::MessageDispatch;
+		type InboundPayload<T, I> = <T as BridgeMessagesConfig<I>>::InboundPayload;
+
+		let lane_id = LaneIdWrapper::from(message.lane_id).0;
+		let nonce = message.nonce;
+		let payload = Ok(From::from(message.payload));
+
+		// Directly dispatch outbound messages assuming everything is correct
+		// and bypassing the `Relayers`  and `InboundLane` logic
+		let dispatch_result = TargetMessageDispatch::<T, TI>::dispatch(DispatchMessage {
+			key: MessageKey { lane_id, nonce },
+			data: DispatchMessageData::<InboundPayload<T, TI>> { payload },
+		});
+
+		use pallet_xcm_bridge::XcmBlobMessageDispatchResult;
 
 		let result = match dispatch_result.dispatch_level_result {
 			XcmBlobMessageDispatchResult::Dispatched => Ok(()),
@@ -937,25 +1025,27 @@ macro_rules! impl_bridge_helpers_for_chain {
 	( $chain:ident, $pallet:ident, $pallet_xcm:ident, $runtime_call_wrapper:path ) => {
 		$crate::impls::paste::paste! {
 			impl<N: $crate::impls::Network> $chain<N> {
-				/// Open bridge with `dest`.
+				/// Open bridge with `dest` (works with `pallet-xcm-bridge`).
 				pub fn open_bridge(
 					bridge_location: $crate::impls::Location,
 					bridge_destination_universal_location: $crate::impls::InteriorLocation,
-					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>
+					maybe_paid: Option<($crate::impls::Asset, $crate::impls::AccountId)>,
+					maybe_notify: Option<$crate::impls::Receiver>,
 				) {
 					<Self as $crate::impls::TestExt>::execute_with(|| {
 						use $crate::impls::{bx, Chain};
-						use $crate::impls::XcmBridgeHubCall;
+						use $crate::impls::XcmBridgeCall;
 						use $crate::impls::Encode;
 
 						// important to use `root` and `OriginKind::Xcm`
 						let root_origin = <Self as Chain>::RuntimeOrigin::root();
 
 						// construct call
-						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeHubCall::open_bridge {
+						let call: $crate::impls::DoubleEncoded<()> = $runtime_call_wrapper(XcmBridgeCall::open_bridge {
 							bridge_destination_universal_location: bx!(
 								bridge_destination_universal_location.clone().into()
-							)
+							),
+							maybe_notify,
 						}).encode().into();
 
 						let xcm = if let Some((fee_asset, beneficiary)) = maybe_paid {

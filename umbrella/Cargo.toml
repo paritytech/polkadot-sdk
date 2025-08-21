@@ -19,6 +19,8 @@ std = [
 	"bp-test-utils?/std",
 	"bp-xcm-bridge-hub-router?/std",
 	"bp-xcm-bridge-hub?/std",
+	"bp-xcm-bridge-router?/std",
+	"bp-xcm-bridge?/std",
 	"bridge-hub-common?/std",
 	"bridge-hub-test-utils?/std",
 	"bridge-runtime-common?/std",
@@ -165,6 +167,8 @@ std = [
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm-bridge-hub-router?/std",
 	"pallet-xcm-bridge-hub?/std",
+	"pallet-xcm-bridge-router?/std",
+	"pallet-xcm-bridge?/std",
 	"pallet-xcm?/std",
 	"parachains-common?/std",
 	"parachains-runtimes-test-utils?/std",
@@ -342,6 +346,8 @@ runtime-benchmarks = [
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub-router?/runtime-benchmarks",
 	"pallet-xcm-bridge-hub?/runtime-benchmarks",
+	"pallet-xcm-bridge-router?/runtime-benchmarks",
+	"pallet-xcm-bridge?/runtime-benchmarks",
 	"pallet-xcm?/runtime-benchmarks",
 	"parachains-common?/runtime-benchmarks",
 	"polkadot-cli?/runtime-benchmarks",
@@ -480,6 +486,8 @@ try-runtime = [
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
 	"pallet-xcm-bridge-hub?/try-runtime",
+	"pallet-xcm-bridge-router?/try-runtime",
+	"pallet-xcm-bridge?/try-runtime",
 	"pallet-xcm?/try-runtime",
 	"parachains-common?/try-runtime",
 	"polkadot-cli?/try-runtime",
@@ -551,8 +559,10 @@ runtime-full = [
 	"bp-relayers",
 	"bp-runtime",
 	"bp-test-utils",
+	"bp-xcm-bridge",
 	"bp-xcm-bridge-hub",
 	"bp-xcm-bridge-hub-router",
+	"bp-xcm-bridge-router",
 	"bridge-hub-common",
 	"bridge-runtime-common",
 	"cumulus-pallet-aura-ext",
@@ -703,8 +713,10 @@ runtime-full = [
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
+	"pallet-xcm-bridge",
 	"pallet-xcm-bridge-hub",
 	"pallet-xcm-bridge-hub-router",
+	"pallet-xcm-bridge-router",
 	"parachains-common",
 	"polkadot-core-primitives",
 	"polkadot-parachain-primitives",
@@ -1047,6 +1059,11 @@ default-features = false
 optional = true
 path = "../bridges/primitives/test-utils"
 
+[dependencies.bp-xcm-bridge]
+default-features = false
+optional = true
+path = "../bridges/primitives/xcm-bridge"
+
 [dependencies.bp-xcm-bridge-hub]
 default-features = false
 optional = true
@@ -1056,6 +1073,11 @@ path = "../bridges/primitives/xcm-bridge-hub"
 default-features = false
 optional = true
 path = "../bridges/primitives/xcm-bridge-hub-router"
+
+[dependencies.bp-xcm-bridge-router]
+default-features = false
+optional = true
+path = "../bridges/primitives/xcm-bridge-router"
 
 [dependencies.bridge-hub-common]
 default-features = false
@@ -1807,6 +1829,11 @@ default-features = false
 optional = true
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
 
+[dependencies.pallet-xcm-bridge]
+default-features = false
+optional = true
+path = "../bridges/modules/xcm-bridge"
+
 [dependencies.pallet-xcm-bridge-hub]
 default-features = false
 optional = true
@@ -1816,6 +1843,11 @@ path = "../bridges/modules/xcm-bridge-hub"
 default-features = false
 optional = true
 path = "../bridges/modules/xcm-bridge-hub-router"
+
+[dependencies.pallet-xcm-bridge-router]
+default-features = false
+optional = true
+path = "../bridges/modules/xcm-bridge-router"
 
 [dependencies.parachains-common]
 default-features = false

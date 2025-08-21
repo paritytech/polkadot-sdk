@@ -633,14 +633,7 @@ pub mod bridging {
 		/// Router expects payment with this `AssetId`.
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
-
-		pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
-			alloc::vec::Vec::new().into_iter()
-			.chain(to_rococo::BridgeTable::get())
-			.collect();
 	}
-
-	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 	pub mod to_rococo {
 		use super::*;

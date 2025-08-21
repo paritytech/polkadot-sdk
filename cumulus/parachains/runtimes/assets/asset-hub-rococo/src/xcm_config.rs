@@ -525,18 +525,11 @@ pub mod bridging {
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = TokenLocation::get().into();
 
-		pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
-			alloc::vec::Vec::new().into_iter()
-			.chain(to_westend::BridgeTable::get())
-			.collect();
-
 		pub EthereumBridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
 			alloc::vec::Vec::new().into_iter()
 			.chain(to_ethereum::BridgeTable::get())
 			.collect();
 	}
-
-	pub type NetworkExportTable = xcm_builder::NetworkExportTable<BridgeTable>;
 
 	pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
 

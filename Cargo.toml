@@ -17,8 +17,10 @@ members = [
 	"bridges/modules/messages",
 	"bridges/modules/parachains",
 	"bridges/modules/relayers",
+	"bridges/modules/xcm-bridge",
 	"bridges/modules/xcm-bridge-hub",
 	"bridges/modules/xcm-bridge-hub-router",
+	"bridges/modules/xcm-bridge-router",
 	"bridges/primitives/beefy",
 	"bridges/primitives/header-chain",
 	"bridges/primitives/messages",
@@ -27,8 +29,10 @@ members = [
 	"bridges/primitives/relayers",
 	"bridges/primitives/runtime",
 	"bridges/primitives/test-utils",
+	"bridges/primitives/xcm-bridge",
 	"bridges/primitives/xcm-bridge-hub",
 	"bridges/primitives/xcm-bridge-hub-router",
+	"bridges/primitives/xcm-bridge-router",
 	"bridges/relays/client-substrate",
 	"bridges/relays/equivocation",
 	"bridges/relays/finality",
@@ -695,8 +699,10 @@ bp-rococo = { path = "polkadot/runtime/rococo/bridge-primitives", default-featur
 bp-runtime = { path = "bridges/primitives/runtime", default-features = false }
 bp-test-utils = { path = "bridges/primitives/test-utils", default-features = false }
 bp-westend = { path = "polkadot/runtime/westend/bridge-primitives", default-features = false }
+bp-xcm-bridge = { path = "bridges/primitives/xcm-bridge", default-features = false }
 bp-xcm-bridge-hub = { path = "bridges/primitives/xcm-bridge-hub", default-features = false }
 bp-xcm-bridge-hub-router = { path = "bridges/primitives/xcm-bridge-hub-router", default-features = false }
+bp-xcm-bridge-router = { path = "bridges/primitives/xcm-bridge-router", default-features = false }
 bridge-hub-common = { path = "cumulus/parachains/runtimes/bridge-hubs/common", default-features = false }
 bridge-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/bridges/bridge-hub-rococo" }
 bridge-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/bridge-hubs/bridge-hub-rococo", default-features = false }
@@ -1082,8 +1088,10 @@ pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false }
 pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false }
+pallet-xcm-bridge = { path = "bridges/modules/xcm-bridge", default-features = false }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
+pallet-xcm-bridge-router = { path = "bridges/modules/xcm-bridge-router", default-features = false }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
