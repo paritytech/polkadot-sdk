@@ -19,6 +19,7 @@
 
 use crate::{
 	evm::{Block, TransactionSigned},
+	pallet::Config,
 	Event,
 };
 
@@ -71,7 +72,7 @@ impl Block {
 	/// (II) Transaction trie root and receipt trie root are computed.
 	///
 	/// (III) Block hash is computed from the provided information.
-	pub fn build<T>(
+	pub fn build<T: Config>(
 		details: impl IntoIterator<Item = TransactionDetails<T>>,
 		block_number: U256,
 		parent_hash: H256,
@@ -79,10 +80,7 @@ impl Block {
 		block_author: H160,
 		gas_limit: U256,
 		base_gas_price: U256,
-	) -> (H256, Block, Vec<ReceiptGasInfo>)
-	where
-		T: crate::pallet::Config,
-	{
+	) -> (H256, Block, Vec<ReceiptGasInfo>) {
 		let mut block = Self {
 			number: block_number,
 			parent_hash,
