@@ -124,7 +124,7 @@ const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 
 // How long to hold off AssetHub advertisements from permissionless collators.
 #[cfg(not(test))]
-const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_secs(1);
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(100);
 
