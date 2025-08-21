@@ -48,7 +48,9 @@ jobs:
 
       - name: parity-publish update plan w/o current prdoc
         run: |
-          mv prdoc/$CURRENT_PRDOC .
+          if [ -f prdoc/$CURRENT_PRDOC ]; then
+            mv prdoc/$CURRENT_PRDOC .
+          fi
           parity-publish --color always plan --skip-check --prdoc prdoc/
 
       # The code base is not in master's state (due to commits brought by the
@@ -61,17 +63,23 @@ jobs:
 
       - name: move all prdocs except current one to unstable dir
         run: |
-          mkdir prdoc/unstable
-          mv prdoc/pr_*.prdoc prdoc/unstable
           if [ -f $CURRENT_PRDOC ]; then
+            mkdir prdoc/unstable
+            mv prdoc/pr_*.prdoc prdoc/unstable
             mv $CURRENT_PRDOC prdoc
           fi
 
       - name: parity-publish update plan just for PR's prdoc
-        run: parity-publish --color always plan --skip-check --prdoc prdoc/
+        run: |
+          if [ -f "prdoc/$CURRENT_PRDOC" ]; then
+            parity-publish --color always plan --skip-check --prdoc prdoc/
+          fi
 
       - name: parity-publish apply plan
-        run: parity-publish --color always apply --registry
+        run: |
+          if [ -f "prdoc/$CURRENT_PRDOC" ]; then
+            parity-publish --color always apply --registry
+          fi
 
       - name: parity-publish check compile
         run: |
