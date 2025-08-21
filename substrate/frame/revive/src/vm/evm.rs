@@ -103,8 +103,7 @@ fn run<WIRE: InterpreterTypes>(
 	match action {
 		InterpreterAction::Return(result) => return result,
 		InterpreterAction::NewFrame(_) => {
-			// We should never hit this as creating a new frame should be handled by the opcode
-			// directly
+			// TODO handle new frame
 			InterpreterResult::new(
 				revm::interpreter::InstructionResult::FatalExternalError,
 				Default::default(),
