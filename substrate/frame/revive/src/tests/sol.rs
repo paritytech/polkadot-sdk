@@ -17,12 +17,10 @@
 
 mod arithmetic;
 mod bitwise;
-mod block_info;
 mod control;
 mod host;
 mod memory;
 mod stack;
-mod system;
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
