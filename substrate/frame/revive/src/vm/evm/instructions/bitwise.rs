@@ -19,10 +19,7 @@ use super::{i256::i256_cmp, Context};
 use crate::vm::Ext;
 use core::cmp::Ordering;
 use revm::{
-	interpreter::{
-		gas as revm_gas,
-		interpreter_types::StackTr,
-	},
+	interpreter::{gas as revm_gas, interpreter_types::StackTr},
 	primitives::U256,
 };
 
