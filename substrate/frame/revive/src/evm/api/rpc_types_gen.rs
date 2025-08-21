@@ -316,9 +316,7 @@ pub struct GenericTransaction {
 }
 
 /// Receipt information
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ReceiptInfo {
 	/// blob gas price
 	/// The actual value per gas deducted from the sender's account for blob gas. Only specified
@@ -511,9 +509,7 @@ impl HashesOrTransactionInfos {
 }
 
 /// log
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Log {
 	/// address
 	pub address: Address,
