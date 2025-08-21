@@ -18,7 +18,6 @@
 #![warn(missing_docs)]
 
 use crate::evm::{Block, TransactionSigned};
-
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::bytes::BufMut;
@@ -27,8 +26,6 @@ use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
-
-const LOG_TARGET: &str = "runtime::revive::hash";
 
 /// The log emitted by executing the ethereum transaction.
 ///
@@ -48,7 +45,7 @@ pub struct EventLog {
 #[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 pub struct TransactionDetails {
 	/// The signed transaction.
-	pub payload: Vec<u8>,
+	pub signed_transaction: TransactionSigned,
 	/// The index of the transaction within the block.
 	pub index: u32,
 	/// The logs emitted by the transaction.
@@ -155,19 +152,14 @@ impl Block {
 		detail: TransactionDetails,
 		base_gas_price: U256,
 	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo, Bloom)> {
-		let TransactionDetails { payload, index, logs, success, gas_used } = detail;
+		let TransactionDetails { signed_transaction, index: _, logs, success, gas_used } = detail;
 
-		let signed_tx = TransactionSigned::decode(&mut &payload[..])
-			.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to decode transaction at index {index}: {err:?}");
-			})
-			.ok()?;
-
-		let transaction_hash = H256(keccak_256(&payload));
+		let tx_bytes = signed_transaction.signed_payload();
+		let transaction_hash = H256(keccak_256(&tx_bytes));
 		self.transactions.push_hash(transaction_hash);
 
 		let gas_info = ReceiptGasInfo {
-			effective_gas_price: signed_tx.effective_gas_price(base_gas_price),
+			effective_gas_price: signed_transaction.effective_gas_price(base_gas_price),
 			gas_used: gas_used.ref_time().into(),
 		};
 
@@ -199,7 +191,7 @@ impl Block {
 			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
-		Some((signed_tx.signed_payload(), encoded_receipt, gas_info, receipt_bloom))
+		Some((tx_bytes, encoded_receipt, gas_info, receipt_bloom))
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.

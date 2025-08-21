@@ -22,7 +22,7 @@ use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, InflightEthTransactions,
-	InflightEthTxEvents, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
+	InflightEthTxEvents, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned, Weight, H256,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -38,7 +38,7 @@ impl PartialEq for EventLog {
 impl PartialEq for TransactionDetails {
 	// Ignore the weight since its subject to change.
 	fn eq(&self, other: &Self) -> bool {
-		self.payload == other.payload &&
+		self.signed_transaction == other.signed_transaction &&
 			self.index == other.index &&
 			self.logs == other.logs &&
 			self.success == other.success
@@ -58,7 +58,7 @@ fn on_initialize_clears_storage() {
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
 
 		let transactions = vec![TransactionDetails {
-			payload: vec![1, 2, 3],
+			signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
 			index: 1,
 			logs: vec![event.clone()],
 			success: true,
@@ -106,14 +106,14 @@ fn transactions_are_captured() {
 		let transactions = InflightEthTransactions::<Test>::get();
 		let expected = vec![
 			TransactionDetails {
-				payload: vec![1],
+				signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
 				index: 0,
 				logs: vec![],
 				success: true,
 				gas_used: Weight::zero(),
 			},
 			TransactionDetails {
-				payload: vec![2],
+				signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
 				index: 0,
 				logs: vec![],
 				success: true,
@@ -156,7 +156,7 @@ fn events_are_captured() {
 
 		let transactions = InflightEthTransactions::<Test>::get();
 		let expected = vec![TransactionDetails {
-			payload: vec![2],
+			signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
 			index: 0,
 			logs: vec![EventLog {
 				data: vec![1, 2, 3, 4],

@@ -17,8 +17,9 @@
 
 use super::{deposit_limit, GAS_LIMIT};
 use crate::{
-	address::AddressMapper, AccountIdOf, BalanceOf, BumpNonce, Code, Config, ContractResult,
-	DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor, Pallet, Weight, U256,
+	address::AddressMapper, evm::TransactionSigned, AccountIdOf, BalanceOf, BumpNonce, Code,
+	Config, ContractResult, DepositLimit, ExecReturnValue, InstantiateReturnValue, OriginFor,
+	Pallet, Weight, U256,
 };
 use alloc::{vec, vec::Vec};
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
@@ -242,7 +243,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		payload: Vec<u8>,
+		signed_transaction: TransactionSigned,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -254,7 +255,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
-			payload: vec![1],
+			signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
 		}
 	}
 );
@@ -267,7 +268,7 @@ builder!(
 			storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			payload: Vec<u8>,
+			signed_transaction: TransactionSigned,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
@@ -279,7 +280,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			payload: vec![2],
+			signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
 		}
 	}
 );

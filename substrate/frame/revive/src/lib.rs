@@ -48,7 +48,7 @@ use crate::{
 		block_hash::{EventLog, ReceiptGasInfo, TransactionDetails},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
-		TYPE_EIP1559,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -807,7 +807,7 @@ pub mod pallet {
 		///
 		/// # Parameters
 		///
-		/// * `payload`: The encoded [`crate::evm::TransactionSigned`].
+		/// * `signed_transaction`: The [`crate::evm::TransactionSigned`].
 		/// * `gas_limit`: The gas limit enforced during contract execution.
 		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
 		///   storage usage.
@@ -821,7 +821,10 @@ pub mod pallet {
 		#[allow(unused_variables)]
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn eth_transact(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResultWithPostInfo {
+		pub fn eth_transact(
+			origin: OriginFor<T>,
+			signed_transaction: TransactionSigned,
+		) -> DispatchResultWithPostInfo {
 			Err(frame_system::Error::CallFiltered::<T>.into())
 		}
 
@@ -993,7 +996,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			payload: Vec<u8>,
+			signed_transaction: TransactionSigned,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1017,7 +1020,11 @@ pub mod pallet {
 					}
 				}
 
-				Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+				Self::store_transaction(
+					signed_transaction,
+					output.result.is_ok(),
+					output.gas_consumed,
+				);
 
 				dispatch_result(
 					output.result.map(|result| result.result),
@@ -1042,7 +1049,7 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
-			payload: Vec<u8>,
+			signed_transaction: TransactionSigned,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1062,7 +1069,11 @@ pub mod pallet {
 					}
 				}
 
-				Self::store_transaction(payload, output.result.is_ok(), output.gas_consumed);
+				Self::store_transaction(
+					signed_transaction,
+					output.result.is_ok(),
+					output.gas_consumed,
+				);
 
 				dispatch_result(
 					output.result,
@@ -1484,9 +1495,9 @@ where
 						storage_deposit_limit,
 						data: input.clone(),
 						// Since this is a dry run, we don't need to pass the signed transaction
-						// payload. Instead, use an empty vector. The signed transaction
+						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						payload: Vec::new(),
+						signed_transaction: TransactionSigned::default(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1556,21 +1567,21 @@ where
 						code: code.to_vec(),
 						data: data.to_vec(),
 						// Since this is a dry run, we don't need to pass the signed transaction
-						// payload. Instead, use an empty vector. The signed transaction
+						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						payload: Vec::new(),
+						signed_transaction: TransactionSigned::default(),
 					}
 					.into();
 				(result, dispatch_call)
 			},
 		};
 
-		let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
+		if tx.try_into_unsigned().is_err() {
 			return Err(EthTransactError::Message("Invalid transaction".into()));
-		};
+		}
 
 		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
+			crate::Call::<T>::eth_transact { signed_transaction: TransactionSigned::default() };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
@@ -1790,7 +1801,7 @@ impl<T: Config> Pallet<T> {
 	/// Store a transaction payload with extra details.
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-	fn store_transaction(payload: Vec<u8>, success: bool, gas_used: Weight) {
+	fn store_transaction(signed_transaction: TransactionSigned, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 
@@ -1800,7 +1811,13 @@ impl<T: Config> Pallet<T> {
 		});
 
 		InflightEthTransactions::<T>::mutate(|transactions| {
-			transactions.push(TransactionDetails { payload, index, logs, success, gas_used });
+			transactions.push(TransactionDetails {
+				signed_transaction,
+				index,
+				logs,
+				success,
+				gas_used,
+			});
 		});
 	}
 
