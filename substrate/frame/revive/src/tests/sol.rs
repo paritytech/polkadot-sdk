@@ -16,5 +16,41 @@
 // limitations under the License.
 
 mod block_info;
-mod misc;
 mod system;
+
+use crate::{
+	test_utils::{builder::Contract, ALICE},
+	tests::{
+		builder,
+		test_utils::{ensure_stored, get_contract_checked},
+		ExtBuilder, Test,
+	},
+	Code, Config,
+};
+use alloy_core::{primitives::U256, sol_types::SolInterface};
+use frame_support::traits::fungible::Mutate;
+use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
+use pretty_assertions::assert_eq;
+
+#[test]
+fn basic_evm_flow_works() {
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+		// check the code exists
+		let contract = get_contract_checked(&addr).unwrap();
+		ensure_stored(contract.code_hash);
+
+		let result = builder::bare_call(addr)
+			.data(
+				Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+					.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+	});
+}

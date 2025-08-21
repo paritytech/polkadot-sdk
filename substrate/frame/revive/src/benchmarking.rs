@@ -2383,16 +2383,14 @@ mod benchmarks {
 	fn v2_migration_step() {
 		use crate::migrations::v2;
 		let code_hash = H256::from([0; 32]);
-		v2::old::CodeInfoOf::<T>::insert(
-			code_hash,
-			v2::old::CodeInfo {
-				owner: whitelisted_caller(),
-				deposit: 1000u32.into(),
-				refcount: 1,
-				code_len: 100,
-				behaviour_version: 0,
-			},
+		let old_code_info = v2::Migration::<T>::create_old_code_info(
+			whitelisted_caller(),
+			1000u32.into(),
+			1,
+			100,
+			0,
 		);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info);
 		let mut meter = WeightMeter::new();
 
 		#[block]

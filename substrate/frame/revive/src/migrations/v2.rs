@@ -23,7 +23,7 @@
 extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{vm::BytecodeType, weights::WeightInfo, Config, H256};
+use crate::{vm::BytecodeType, weights::WeightInfo, AccountIdOf, BalanceOf, Config, H256};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -37,7 +37,7 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 
 /// Module containing the old storage items.
-pub mod old {
+mod old {
 	use super::Config;
 	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
 	use codec::{Decode, Encode};
@@ -175,6 +175,25 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		}
 
 		Ok(())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> Migration<T> {
+	/// Insert an old CodeInfo for benchmarking purposes.
+	pub fn insert_old_code_info(code_hash: H256, code_info: old::CodeInfo<T>) {
+		old::CodeInfoOf::<T>::insert(code_hash, code_info);
+	}
+
+	/// Create an old CodeInfo struct for benchmarking.
+	pub fn create_old_code_info(
+		owner: AccountIdOf<T>,
+		deposit: BalanceOf<T>,
+		refcount: u64,
+		code_len: u32,
+		behaviour_version: u32,
+	) -> old::CodeInfo<T> {
+		old::CodeInfo { owner, deposit, refcount, code_len, behaviour_version }
 	}
 }
 
