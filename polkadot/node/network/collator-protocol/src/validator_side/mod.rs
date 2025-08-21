@@ -996,6 +996,7 @@ fn hold_off_asset_hub_collation_if_needed(
 			target: LOG_TARGET,
 			peer_id = ?origin,
 			?relay_parent,
+			?prospective_candidate,
 			"AssetHub collation held off, not from invulnerable collator",
 		);
 		return true
