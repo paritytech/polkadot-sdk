@@ -19,7 +19,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeEvent, RuntimeOrigin, Test},
+	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEthTxEvents,
 	InflightTransactions, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
 };
