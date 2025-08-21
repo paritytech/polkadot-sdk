@@ -28,19 +28,57 @@ mod mock;
 mod tests;
 
 extern crate alloc;
-
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 pub use pallet::*;
 use pallet_session::historical::IdentificationTuple;
 use sp_runtime::{traits::Convert, Perbill};
-use sp_staking::offence::OnOffenceHandler;
+use sp_staking::offence::{Kind, Offence, OnOffenceHandler};
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_staking::SessionIndex;
+	use sp_staking::{offence::ReportOffence, SessionIndex};
+
+	/// Custom offence type for testing spam scenarios.
+	/// This allows creating offences with arbitrary kinds and time slots.
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo)]
+	pub struct TestSpamOffence<Offender> {
+		/// The validator being slashed
+		pub offender: Offender,
+		/// The session in which the offence occurred
+		pub session_index: SessionIndex,
+		/// Custom time slot (allows unique offences within same session)
+		pub time_slot: u128,
+		/// Slash fraction to apply
+		pub slash_fraction: Perbill,
+	}
+
+	impl<Offender: Clone> Offence<Offender> for TestSpamOffence<Offender> {
+		const ID: Kind = *b"spamspamspamspam";
+		type TimeSlot = u128;
+
+		fn offenders(&self) -> Vec<Offender> {
+			vec![self.offender.clone()]
+		}
+
+		fn session_index(&self) -> SessionIndex {
+			self.session_index
+		}
+
+		fn time_slot(&self) -> Self::TimeSlot {
+			self.time_slot
+		}
+
+		fn slash_fraction(&self, _offenders_count: u32) -> Perbill {
+			self.slash_fraction
+		}
+
+		fn validator_set_count(&self) -> u32 {
+			unreachable!()
+		}
+	}
 
 	#[pallet::config]
 	pub trait Config:
@@ -52,7 +90,17 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The offence handler provided by the runtime.
+		///
+		/// This is a way to give the offence directly to the handling system (staking, ah-client).
 		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;
+		/// The offence report system provided by the runtime.
+		///
+		/// This is a way to give the offence to the `pallet-offences` next.
+		type ReportOffence: ReportOffence<
+			Self::AccountId,
+			IdentificationTuple<Self>,
+			TestSpamOffence<IdentificationTuple<Self>>,
+		>;
 	}
 
 	#[pallet::pallet]
@@ -114,6 +162,28 @@ pub mod pallet {
 
 			Self::submit_offence(&offence_details, &slash_fraction, maybe_session_index);
 			Self::deposit_event(Event::OffenceCreated { offenders });
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		pub fn report_offence(
+			origin: OriginFor<T>,
+			offences: Vec<(IdentificationTuple<T>, SessionIndex, u128, u32)>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			for (offender, session_index, time_slot, slash_ppm) in offences {
+				let slash_fraction = Perbill::from_parts(slash_ppm);
+				Self::deposit_event(Event::OffenceCreated {
+					offenders: vec![(offender.0.clone(), slash_fraction.clone())],
+				});
+				let offence =
+					TestSpamOffence { offender, session_index, time_slot, slash_fraction };
+
+				T::ReportOffence::report_offence(Default::default(), offence).unwrap();
+			}
+
 			Ok(())
 		}
 	}

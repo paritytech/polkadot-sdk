@@ -6,13 +6,16 @@ chain_spec_path = "./rc.json"
 name = "alice"
 validator = true
 rpc_port = 9944
+args = [
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
+]
 
 [[relaychain.nodes]]
 name = "bob"
 validator = true
 rpc_port = 9945
 args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug",
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
 ]
 
 [[parachains]]

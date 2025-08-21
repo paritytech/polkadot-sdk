@@ -247,6 +247,7 @@ impl pallet_staking::Config for Runtime {
 impl pallet_root_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = StakingAhClient;
+	type ReportOffence = ();
 }
 
 #[derive(Clone, Debug, PartialEq)]

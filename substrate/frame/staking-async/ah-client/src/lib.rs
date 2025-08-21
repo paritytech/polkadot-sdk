@@ -958,7 +958,7 @@ pub mod pallet {
 
 			// Send offence report to Asset Hub
 			if !offenders_and_slashes_message.is_empty() {
-				log!(info, "sending offence report to AH");
+				log!(warn, "sending offence report of {:?} to AH", offenders_and_slashes_message);
 				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes_message);
 			}
 

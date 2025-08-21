@@ -1,5 +1,6 @@
 import { rcPresetFor, runPreset } from "./cmd";
 import { logger } from "./utils";
+import { monitorDmpQueue } from "./dmp-monitor";
 import { Command } from "commander";
 
 export enum Presets {
@@ -28,6 +29,32 @@ if (require.main === module) {
 		.action(async (options) => {
 			const { paraPreset } = options;
 			runPreset(paraPreset);
+		});
+
+	program
+		.command("monitor-dmp")
+		.description("Monitor DMP (Downward Message Passing) queue status and metrics")
+		.option(
+			"-p, --port <port>",
+			"WebSocket port to connect to the chain",
+			"9944"
+		)
+		.option(
+			"-r, --refresh <seconds>",
+			"Refresh interval in seconds",
+			"5"
+		)
+		.option(
+			"--para-id <id>",
+			"Specific parachain ID to monitor (default: 1100)"
+		)
+		.action(async (options) => {
+			const { port, refresh, paraId } = options;
+			await monitorDmpQueue({
+				port: parseInt(port),
+				refreshInterval: parseInt(refresh),
+				paraId: paraId ? parseInt(paraId) : 1100
+			});
 		});
 
 	program.parse(process.argv);

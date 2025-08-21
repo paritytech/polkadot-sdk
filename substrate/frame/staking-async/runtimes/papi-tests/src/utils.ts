@@ -6,6 +6,7 @@ import {
 	type PolkadotSigner,
 	type TypedApi,
 } from "polkadot-api";
+import { fromBufferToBase58 } from "@polkadot-api/substrate-bindings";
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { createLogger, format, log, transports } from "winston";
@@ -28,6 +29,14 @@ const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
 const derive = sr25519CreateDerive(miniSecret);
 const aliceKeyPair = derive("//Alice");
 export const alice = getPolkadotSigner(aliceKeyPair.publicKey, "Sr25519", aliceKeyPair.sign);
+
+export function derivePubkeyFrom(d: string): string {
+	const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
+	const derive = sr25519CreateDerive(miniSecret);
+	const keyPair = derive(d);
+	// Convert to SS58 address using Substrate format (42)
+	return fromBufferToBase58(42)(keyPair.publicKey);
+}
 
 export type ApiDeclarations = {
 	rcClient: PolkadotClient;
