@@ -17,7 +17,7 @@
 
 use super::Context;
 
-use crate::{storage::WriteOutcome, vm::Ext, Key, RuntimeCosts};
+use crate::{storage::WriteOutcome, vm::Ext, Key, RuntimeCosts, LOG_TARGET};
 use revm::{
 	interpreter::{
 		gas::{self},
@@ -110,7 +110,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let copy_gas = (memory_len.div_ceil(32) * 3) as u32; // Round up to nearest 32-byte boundary
 													  // static gas for this instruction 100
 													  // gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
-	gas!(context.interpreter, RuntimeCosts::CallDataCopy(100 + copy_gas));
+	gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
 	context
 		.interpreter
