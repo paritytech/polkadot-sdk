@@ -807,10 +807,8 @@ pub mod pallet {
 		///
 		/// # Parameters
 		///
-		/// * `signed_transaction`: The [`crate::evm::TransactionSigned`].
-		/// * `gas_limit`: The gas limit enforced during contract execution.
-		/// * `storage_deposit_limit`: The maximum balance that can be charged to the caller for
-		///   storage usage.
+		/// * `signed_transaction`: The signed Ethereum transaction, represented as
+		///   [crate::evm::TransactionSigned], provided by the Ethereum wallet.
 		///
 		/// # Note
 		///
@@ -979,6 +977,20 @@ pub mod pallet {
 
 		/// Same as [`Self::instantiate_with_code`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
+		///
+		/// # Parameters
+		///
+		/// * `value`: The balance to transfer from the `origin` to the newly created contract.
+		/// * `gas_limit`: The gas limit enforced when executing the constructor.
+		/// * `storage_deposit_limit`: The maximum amount of balance that can be charged/reserved
+		///   from the caller to pay for the storage consumed.
+		/// * `code`: The contract code to deploy in raw bytes.
+		/// * `data`: The input data to pass to the contract constructor.
+		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
+		/// 	semantics are used. If `None` then `CRATE1` is used.
+		/// * `signed_transaction`: The signed Ethereum transaction, represented as
+		// 		[crate::evm::TransactionSigned], provided by the Ethereum wallet.
+		///
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1806,12 +1818,7 @@ impl<T: Config> Pallet<T> {
 		let logs = InflightEthTxEvents::<T>::take();
 
 		InflightEthTransactions::<T>::mutate(|transactions| {
-			transactions.push(TransactionDetails {
-				signed_transaction,
-				logs,
-				success,
-				gas_used,
-			});
+			transactions.push(TransactionDetails { signed_transaction, logs, success, gas_used });
 		});
 	}
 
