@@ -27,7 +27,7 @@ use crate::{
 		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
 	},
 	storage::WriteOutcome,
-	vm::{pvm, BytecodeType},
+	vm::pvm,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
@@ -2390,7 +2390,7 @@ mod benchmarks {
 			100,
 			0,
 		);
-		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info.clone());
 		let mut meter = WeightMeter::new();
 
 		#[block]
@@ -2398,17 +2398,7 @@ mod benchmarks {
 			v2::Migration::<T>::step(None, &mut meter).unwrap();
 		}
 
-		assert_eq!(
-			v2::new::CodeInfoOf::<T>::get(&code_hash).unwrap(),
-			v2::new::CodeInfo {
-				owner: whitelisted_caller(),
-				deposit: 1000u32.into(),
-				refcount: 1,
-				code_len: 100,
-				code_type: BytecodeType::Pvm,
-				behaviour_version: 0,
-			},
-		);
+		v2::Migration::<T>::assert_migrated_code_info_matches(code_hash, &old_code_info);
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
