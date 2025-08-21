@@ -223,7 +223,7 @@ impl Block {
 		let gas_limit = self.gas_limit.try_into().unwrap_or(u64::MAX);
 
 		let alloy_header = alloy_consensus::Header {
-			state_root: self.transactions_root.0.into(),
+			state_root: self.state_root.0.into(),
 			transactions_root: self.transactions_root.0.into(),
 			receipts_root: self.receipts_root.0.into(),
 
@@ -235,9 +235,42 @@ impl Block {
 			gas_used: self.gas_used.as_u64(),
 			timestamp: self.timestamp.as_u64(),
 
-			..alloy_consensus::Header::default()
+			ommers_hash: self.sha_3_uncles.0.into(),
+			extra_data: self.extra_data.clone().0.into(),
+			mix_hash: self.mix_hash.0.into(),
+			nonce: self.nonce.0.into(),
+			base_fee_per_gas: self.base_fee_per_gas.map(|gas| gas.as_u64()),
+			withdrawals_root: self.withdrawals_root.map(|root| root.0.into()),
+			blob_gas_used: self.blob_gas_used.map(|gas| gas.as_u64()),
+			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
+			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
+			requests_hash: self.requests_hash.map(|hash| hash.0.into()),
+
+			difficulty: Default::default(),
 		};
 
 		alloy_header.hash_slow().0.into()
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::evm::{Block, ReceiptInfo};
+
+	#[test]
+	fn ensure_identical_hashes() {
+		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x161bd0f", true],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
+		const BLOCK_PATH: &str = "./test-assets/eth_block.json";
+		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["0x161bd0f"],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
+		const BLOCK_RECEIPTS: &str = "./test-assets/eth_receipts.json";
+
+		let json = std::fs::read_to_string(BLOCK_PATH).unwrap();
+		let block: Block = serde_json::from_str(&json).unwrap();
+
+		let json = std::fs::read_to_string(BLOCK_RECEIPTS).unwrap();
+		let receipts: Vec<ReceiptInfo> = serde_json::from_str(&json).unwrap();
+
+		assert_eq!(block.header_hash(), receipts[0].block_hash);
 	}
 }
