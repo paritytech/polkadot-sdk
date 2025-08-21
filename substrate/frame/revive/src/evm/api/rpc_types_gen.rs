@@ -252,6 +252,10 @@ pub struct GenericTransaction {
 	/// EIP-2930 access list
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub access_list: Option<AccessList>,
+	/// authorizationList
+	/// List of account code authorizations (EIP-7702)
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub authorization_list: Vec<AuthorizationListEntry>,
 	/// blobVersionedHashes
 	/// List of versioned blob hashes associated with the transaction's EIP-4844 data blobs.
 	#[serde(default)]

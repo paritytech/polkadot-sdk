@@ -297,6 +297,7 @@ impl GenericTransaction {
 						.min(tx.max_fee_per_gas),
 				),
 				access_list: Some(tx.access_list),
+				authorization_list: tx.authorization_list,
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
 				..Default::default()
@@ -371,7 +372,7 @@ impl GenericTransaction {
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
 				max_priority_fee_per_gas: self.max_priority_fee_per_gas.unwrap_or_default(),
 				access_list: self.access_list.unwrap_or_default(),
-				authorization_list: Vec::new(), // TODO: Handle authorization list from GenericTransaction
+				authorization_list: self.authorization_list,
 			}
 			.into()),
 			_ => Err(()),
