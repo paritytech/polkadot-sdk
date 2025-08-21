@@ -20,7 +20,7 @@
 use crate::{
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeEvent, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEvents,
+	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEthTxEvents,
 	InflightTransactions, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
 };
 
@@ -37,8 +37,8 @@ fn on_initialize_clears_storage() {
 
 		let event =
 			Event::ContractEmitted { contract: Default::default(), data: vec![1], topics: vec![] };
-		InflightEvents::<Test>::put(vec![event.clone()]);
-		assert_eq!(InflightEvents::<Test>::get(), vec![event.clone()]);
+		InflightEthTxEvents::<Test>::put(vec![event.clone()]);
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
 
 		let transactions = vec![(vec![1, 2, 3], 1, vec![event], true, Weight::zero())];
 		InflightTransactions::<Test>::put(transactions.clone());
@@ -51,7 +51,7 @@ fn on_initialize_clears_storage() {
 		Contracts::on_initialize(0);
 
 		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
-		assert_eq!(InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
@@ -119,10 +119,10 @@ fn events_are_captured() {
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
 		// Capture the EthInstantiate.
-		assert_eq!(InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 		// Events are cleared out by storing the transaction.
-		assert_eq!(InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 
 		let transactions = InflightTransactions::<Test>::get();
 		assert_eq!(transactions.len(), 1);
@@ -141,6 +141,6 @@ fn events_are_captured() {
 		Contracts::on_finalize(0);
 
 		assert_eq!(InflightTransactions::<Test>::get(), vec![]);
-		assert_eq!(InflightEvents::<Test>::get(), vec![]);
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 	});
 }

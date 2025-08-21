@@ -558,7 +558,7 @@ pub mod pallet {
 	/// completed and moved to the `InflightTransactions` storage object.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightEvents<T: Config> = StorageValue<_, Vec<Event<T>>, ValueQuery>;
+	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<Event<T>>, ValueQuery>;
 
 	/// The EVM submitted transactions that are inflight for the current block.
 	///
@@ -640,7 +640,7 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
-			InflightEvents::<T>::kill();
+			InflightEthTxEvents::<T>::kill();
 			InflightTransactions::<T>::kill();
 
 			Weight::zero()
@@ -651,7 +651,7 @@ pub mod pallet {
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
 				// Drain storage in case of errors.
-				InflightEvents::<T>::kill();
+				InflightEthTxEvents::<T>::kill();
 				InflightTransactions::<T>::kill();
 				return;
 			};
@@ -1788,7 +1788,7 @@ impl<T: Config> Pallet<T> {
 			eth_block_storage::is_executing_ethereum_call()
 		{
 			// TODO: ensure we don't exceed a maximum number of events per tx.
-			InflightEvents::<T>::mutate(|events| {
+			InflightEthTxEvents::<T>::mutate(|events| {
 				events.push(event.clone());
 			});
 		}
@@ -1801,7 +1801,7 @@ impl<T: Config> Pallet<T> {
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(payload: Vec<u8>, success: bool, gas_consumed: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
-		let events = InflightEvents::<T>::take();
+		let events = InflightEthTxEvents::<T>::take();
 
 		let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
 			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
