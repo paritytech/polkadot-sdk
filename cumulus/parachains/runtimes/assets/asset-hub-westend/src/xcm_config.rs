@@ -40,7 +40,8 @@ use frame_support::{
 			},
 			imbalance::{ResolveAssetTo, ResolveTo},
 		},
-		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
+		ConstU32, Contains, EitherOfDiverse, Equals, Everything, LinearStoragePrice,
+		PalletInfoAccess,
 	},
 	PalletId,
 };
@@ -59,7 +60,7 @@ use parachains_common::{
 	xcm_config::{
 		AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 	},
-	CollectionId, ItemId,
+	BlockNumber, CollectionId, ItemId,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
@@ -702,12 +703,16 @@ impl ConvertLocation<AccountId> for SiblingAssetToReserveLocationConvert {
 }
 
 pub struct AssetIdDerivativeNftCollectionConvert;
-impl Convert<xcm::v5::AssetId, Result<WithCollectionDeposit<Runtime>, DispatchError>>
-	for AssetIdDerivativeNftCollectionConvert
+impl
+	Convert<
+		xcm::v5::AssetId,
+		Result<WithCollectionDeposit<AccountId, Balance, BlockNumber, CollectionId>, DispatchError>,
+	> for AssetIdDerivativeNftCollectionConvert
 {
 	fn convert(
 		asset_id: xcm::v5::AssetId,
-	) -> Result<WithCollectionDeposit<Runtime>, DispatchError> {
+	) -> Result<WithCollectionDeposit<AccountId, Balance, BlockNumber, CollectionId>, DispatchError>
+	{
 		let location = asset_id.0;
 
 		let sovereign_account =
@@ -742,10 +747,10 @@ impl pallet_derivatives::Config<pallet_derivatives::Instance1> for Runtime {
 	// the last item ID within the derivative collection
 	type DerivativeExtra = ItemId;
 
-	type CreateOrigin = GeneralAdmin;
+	type CreateOrigin = EitherOfDiverse<EnsureRoot<AccountId>, GeneralAdmin>;
 	type CreateOp = pallet_derivatives::StoreMapping<
 		DeriveStrategyThenCreate<
-			WithCollectionDeposit<Runtime>,
+			WithCollectionDeposit<AccountId, Balance, BlockNumber, CollectionId>,
 			AssetIdDerivativeNftCollectionConvert,
 			pallet_nfts::asset_ops::Collection<Nfts>,
 		>,
