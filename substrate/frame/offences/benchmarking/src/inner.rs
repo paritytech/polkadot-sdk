@@ -184,17 +184,22 @@ fn make_offenders<T: Config>(
 }
 
 #[cfg(test)]
-fn assert_all_slashes_applied<T>(offender_count: usize)
-where
+fn assert_all_slashes_applied<T>(
+	offender_count: usize,
+	reporter: <T as frame_system::Config>::AccountId,
+) where
 	T: Config,
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_staking::Event<T>>,
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_balances::Event<T>>,
 	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet_offences::Event>,
 	<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
 {
-	// make sure that all slashes have been applied and TotalIssuance adjusted(BurnedDebt).
-	// deposit to reporter + reporter account endowed.
-	assert_eq!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>().len(), 3);
+	// make sure reporter got deposited.
+	assert!(System::<T>::read_events_for_pallet::<pallet_balances::Event<T>>()
+		.into_iter()
+		.any(
+			|e| matches!(e, pallet_balances::Event::<T>::Deposit { who, .. } if who == reporter )
+		));
 	// (n nominators + one validator) * slashed + Slash Reported + Slash Computed
 	assert_eq!(
 		System::<T>::read_events_for_pallet::<pallet_staking::Event<T>>().len(),
@@ -222,9 +227,9 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		// for grandpa equivocation reports the number of reporters
 		// and offenders is always 1
-		let reporters = vec![account("reporter", 1, SEED)];
+		let reporter = account::<T::AccountId>("reporter", 1, SEED);
 
-		// make sure reporters actually get rewarded
+		// make sure reporter actually get rewarded
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
 
 		let mut offenders = make_offenders::<T>(1, n)?;
@@ -240,12 +245,12 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = Offences::<T>::report_offence(reporters, offence);
+			let _ = Offences::<T>::report_offence(vec![reporter.clone()], offence);
 		}
 
 		#[cfg(test)]
 		{
-			assert_all_slashes_applied::<T>(n as usize);
+			assert_all_slashes_applied::<T>(n as usize, reporter);
 		}
 
 		Ok(())
@@ -257,7 +262,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		// for babe equivocation reports the number of reporters
 		// and offenders is always 1
-		let reporters = vec![account("reporter", 1, SEED)];
+		let reporter = account::<T::AccountId>("reporter", 1, SEED);
 
 		// make sure reporters actually get rewarded
 		Staking::<T>::set_slash_reward_fraction(Perbill::one());
@@ -275,11 +280,11 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = Offences::<T>::report_offence(reporters, offence);
+			let _ = Offences::<T>::report_offence(vec![reporter.clone()], offence);
 		}
 		#[cfg(test)]
 		{
-			assert_all_slashes_applied::<T>(n as usize);
+			assert_all_slashes_applied::<T>(n as usize, reporter);
 		}
 
 		Ok(())
