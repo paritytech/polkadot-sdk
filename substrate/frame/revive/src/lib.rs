@@ -45,8 +45,10 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::ReceiptGasInfo, runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction,
-		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		block_hash::{EventLog, ReceiptGasInfo, TransactionDetails},
+		runtime::GAS_PRICE,
+		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
+		TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -558,7 +560,7 @@ pub mod pallet {
 	/// completed and moved to the `InflightEthTransactions` storage object.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<Event<T>>, ValueQuery>;
+	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<EventLog>, ValueQuery>;
 
 	/// The EVM submitted transactions that are inflight for the current block.
 	///
@@ -570,7 +572,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type InflightEthTransactions<T: Config> =
-		StorageValue<_, Vec<(Vec<u8>, u32, Vec<Event<T>>, bool, Weight)>, ValueQuery>;
+		StorageValue<_, Vec<TransactionDetails>, ValueQuery>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
@@ -1788,17 +1790,17 @@ impl<T: Config> Pallet<T> {
 	/// Store a transaction payload with extra details.
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-	fn store_transaction(payload: Vec<u8>, success: bool, gas_consumed: Weight) {
+	fn store_transaction(payload: Vec<u8>, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
-		let events = InflightEthTxEvents::<T>::take();
+		let logs = InflightEthTxEvents::<T>::take();
 
-		let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
+		let index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_else(|| {
 			log::warn!(target: LOG_TARGET, "Extrinsic index is not set, using default value 0");
 			0
 		});
 
 		InflightEthTransactions::<T>::mutate(|transactions| {
-			transactions.push((payload, extrinsic_index, events, success, gas_consumed));
+			transactions.push(TransactionDetails { payload, index, logs, success, gas_used });
 		});
 	}
 

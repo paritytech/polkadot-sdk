@@ -17,11 +17,7 @@
 //!Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
-use crate::{
-	evm::{Block, TransactionSigned},
-	pallet::Config,
-	Event,
-};
+use crate::evm::{Block, TransactionSigned};
 
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
@@ -34,8 +30,34 @@ use sp_core::{keccak_256, H160, H256, U256};
 
 const LOG_TARGET: &str = "runtime::revive::hash";
 
-/// The transaction details captured by the revive pallet.
-pub type TransactionDetails<T> = (Vec<u8>, u32, Vec<Event<T>>, bool, Weight);
+/// The log emitted by executing the ethereum transaction.
+///
+/// This is needed to compute the receipt bloom hash.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
+pub struct EventLog {
+	/// The contract that emitted the event.
+	pub contract: H160,
+	/// Data supplied by the contract. Metadata generated during contract compilation
+	/// is needed to decode it.
+	pub data: Vec<u8>,
+	/// A list of topics used to index the event.
+	pub topics: Vec<H256>,
+}
+
+/// The transaction details needed to build the ethereum block hash.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
+pub struct TransactionDetails {
+	/// The signed transaction.
+	pub payload: Vec<u8>,
+	/// The index of the transaction within the block.
+	pub index: u32,
+	/// The logs emitted by the transaction.
+	pub logs: Vec<EventLog>,
+	/// Whether the transaction was successful.
+	pub success: bool,
+	/// The accurate gas used by the transaction.
+	pub gas_used: Weight,
+}
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
@@ -72,8 +94,8 @@ impl Block {
 	/// (II) Transaction trie root and receipt trie root are computed.
 	///
 	/// (III) Block hash is computed from the provided information.
-	pub fn build<T: Config>(
-		details: impl IntoIterator<Item = TransactionDetails<T>>,
+	pub fn build(
+		details: impl IntoIterator<Item = TransactionDetails>,
 		block_number: U256,
 		parent_hash: H256,
 		timestamp: U256,
@@ -128,46 +150,42 @@ impl Block {
 	/// Returns a tuple of the RLP encoded transaction and receipt.
 	///
 	/// Internally collects the total gas used, the log blooms and the transaction hashes.
-	fn process_transaction_details<T>(
+	fn process_transaction_details(
 		&mut self,
-		detail: TransactionDetails<T>,
+		detail: TransactionDetails,
 		base_gas_price: U256,
-	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo, Bloom)>
-	where
-		T: crate::pallet::Config,
-	{
-		let (payload, transaction_index, events, success, gas) = detail;
-		let signed_tx = TransactionSigned::decode(&mut &payload[..]).inspect_err(|err| {
-            log::error!(target: LOG_TARGET, "Failed to decode transaction at index {transaction_index}: {err:?}");
-        }).ok()?;
+	) -> Option<(Vec<u8>, Vec<u8>, ReceiptGasInfo, Bloom)> {
+		let TransactionDetails { payload, index, logs, success, gas_used } = detail;
+
+		let signed_tx = TransactionSigned::decode(&mut &payload[..])
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "Failed to decode transaction at index {index}: {err:?}");
+			})
+			.ok()?;
 
 		let transaction_hash = H256(keccak_256(&payload));
 		self.transactions.push_hash(transaction_hash);
 
 		let gas_info = ReceiptGasInfo {
 			effective_gas_price: signed_tx.effective_gas_price(base_gas_price),
-			gas_used: gas.ref_time().into(),
+			gas_used: gas_used.ref_time().into(),
 		};
 
-		let logs = events
+		let logs = logs
 			.into_iter()
-			.filter_map(|event| {
-				if let Event::ContractEmitted { contract, data, topics } = event {
-					Some(alloy_primitives::Log::new_unchecked(
-						contract.0.into(),
-						topics
-							.into_iter()
-							.map(|h| alloy_primitives::FixedBytes::from(h.0))
-							.collect::<Vec<_>>(),
-						alloy_primitives::Bytes::from(data),
-					))
-				} else {
-					None
-				}
+			.map(|log| {
+				alloy_primitives::Log::new_unchecked(
+					log.contract.0.into(),
+					log.topics
+						.into_iter()
+						.map(|h| alloy_primitives::FixedBytes::from(h.0))
+						.collect::<Vec<_>>(),
+					alloy_primitives::Bytes::from(log.data),
+				)
 			})
 			.collect();
 
-		self.gas_used += gas.ref_time().into();
+		self.gas_used += gas_used.ref_time().into();
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),

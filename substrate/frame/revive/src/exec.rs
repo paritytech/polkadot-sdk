@@ -18,6 +18,7 @@
 use crate::{
 	address::{self, AddressMapper},
 	eth_block_storage,
+	evm::block_hash::EventLog,
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -2022,14 +2023,13 @@ where
 			tracer.log_event(contract, &topics, &data);
 		});
 
-		let event = Event::ContractEmitted { contract, data, topics };
 		if eth_block_storage::is_executing_ethereum_call() {
 			InflightEthTxEvents::<T>::mutate(|events| {
-				events.push(event.clone());
+				events.push(EventLog { contract, data: data.clone(), topics: topics.clone() });
 			});
 		}
 
-		Contracts::<Self::T>::deposit_event(event);
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 
 	fn block_number(&self) -> U256 {

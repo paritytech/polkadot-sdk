@@ -18,14 +18,32 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
+	evm::block_hash::{EventLog, TransactionDetails},
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Event, InflightEthTransactions,
+	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, InflightEthTransactions,
 	InflightEthTxEvents, Pallet, ReceiptGasInfo, ReceiptInfoData, Weight, H256,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
 use pallet_revive_fixtures::compile_module;
+
+impl PartialEq for EventLog {
+	// Dont care about the contract address, since eth instantiate cannot expose it.
+	fn eq(&self, other: &Self) -> bool {
+		self.data == other.data && self.topics == other.topics
+	}
+}
+
+impl PartialEq for TransactionDetails {
+	// Ignore the weight since its subject to change.
+	fn eq(&self, other: &Self) -> bool {
+		self.payload == other.payload &&
+			self.index == other.index &&
+			self.logs == other.logs &&
+			self.success == other.success
+	}
+}
 
 #[test]
 fn on_initialize_clears_storage() {
@@ -35,12 +53,18 @@ fn on_initialize_clears_storage() {
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
-		let event =
-			Event::ContractEmitted { contract: Default::default(), data: vec![1], topics: vec![] };
+		let event = EventLog { contract: Default::default(), data: vec![1], topics: vec![] };
 		InflightEthTxEvents::<Test>::put(vec![event.clone()]);
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
 
-		let transactions = vec![(vec![1, 2, 3], 1, vec![event], true, Weight::zero())];
+		let transactions = vec![TransactionDetails {
+			payload: vec![1, 2, 3],
+			index: 1,
+			logs: vec![event.clone()],
+			success: true,
+			gas_used: Weight::zero(),
+		}];
+
 		InflightEthTransactions::<Test>::put(transactions.clone());
 		assert_eq!(InflightEthTransactions::<Test>::get(), transactions);
 
@@ -80,16 +104,23 @@ fn transactions_are_captured() {
 		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
 
 		let transactions = InflightEthTransactions::<Test>::get();
-		assert_eq!(transactions.len(), 2);
-		assert_eq!(transactions[0].0, vec![1]); // payload set to 1 for eth_call
-		assert_eq!(transactions[0].1, 0); // tx index
-		assert_eq!(transactions[0].2, vec![]); // no events emitted
-		assert_eq!(transactions[0].3, true); // successful
-
-		assert_eq!(transactions[1].0, vec![2]); // payload set to 2 for eth_instantiate_with_code
-		assert_eq!(transactions[1].1, 0); // tx index
-		assert_eq!(transactions[1].2, vec![]); // no events emitted
-		assert_eq!(transactions[1].3, true); // successful
+		let expected = vec![
+			TransactionDetails {
+				payload: vec![1],
+				index: 0,
+				logs: vec![],
+				success: true,
+				gas_used: Weight::zero(),
+			},
+			TransactionDetails {
+				payload: vec![2],
+				index: 0,
+				logs: vec![],
+				success: true,
+				gas_used: Weight::zero(),
+			},
+		];
+		assert_eq!(transactions, expected);
 
 		Contracts::on_finalize(0);
 
@@ -113,8 +144,7 @@ fn events_are_captured() {
 		Contracts::on_initialize(1);
 
 		// Bare call must not be captured.
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Existing(code_hash.clone()))
-			.build_and_unwrap_contract();
+		builder::bare_instantiate(Code::Existing(code_hash.clone())).build_and_unwrap_contract();
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
@@ -125,18 +155,19 @@ fn events_are_captured() {
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 
 		let transactions = InflightEthTransactions::<Test>::get();
-		assert_eq!(transactions.len(), 1);
-		assert_eq!(transactions[0].0, vec![2]); // payload set to 1 for eth_instantiate_with_code
-		assert_eq!(transactions[0].1, 0); // tx index
-		match &transactions[0].2[0] {
-			crate::Event::ContractEmitted { contract, data, topics } => {
-				assert_ne!(contract, &addr);
-				assert_eq!(data, &vec![1, 2, 3, 4]);
-				assert_eq!(topics, &vec![H256::repeat_byte(42)]);
-			},
-			event => panic!("Event {event:?} unexpected"),
-		};
-		assert_eq!(transactions[0].3, true); // successful
+		let expected = vec![TransactionDetails {
+			payload: vec![2],
+			index: 0,
+			logs: vec![EventLog {
+				data: vec![1, 2, 3, 4],
+				topics: vec![H256::repeat_byte(42)],
+				contract: Default::default(),
+			}],
+			success: true,
+			gas_used: Weight::zero(),
+		}];
+
+		assert_eq!(transactions, expected);
 
 		Contracts::on_finalize(0);
 
