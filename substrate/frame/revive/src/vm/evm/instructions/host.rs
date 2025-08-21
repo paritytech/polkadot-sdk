@@ -81,7 +81,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let Some(code) =
 		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.into_inner())
 	else {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
 
@@ -105,11 +105,6 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-
-	// Copy cost: 3 gas per 32-byte word
-	let copy_gas = (memory_len.div_ceil(32) * 3) as u32; // Round up to nearest 32-byte boundary
-													  // static gas for this instruction 100
-													  // gas!(context.interpreter, RuntimeCosts::EVMGas(100+copy_gas));
 	gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
 	context
@@ -125,15 +120,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BlockHash);
 	popn_top!([], number, context.interpreter);
 
-	let requested_number = {
-		let bytes = number.to_be_bytes::<32>();
-		sp_core::U256::from_big_endian(&bytes)
-	};
+	let requested_number = sp_core::U256::from_big_endian(&number.to_be_bytes::<32>());
 
 	let block_number = context.interpreter.extend.block_number();
 
 	let Some(diff) = block_number.checked_sub(requested_number) else {
-		context.interpreter.halt(InstructionResult::Revert);
+		*number = U256::ZERO;
 		return;
 	};
 
@@ -162,7 +154,8 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Loads a word from storage.
 pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], index, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::GetStorage(32)); // TODO: correct number here?
+	// NB: SLOAD loads 32 bytes from storage (i.e. U256).
+	gas!(context.interpreter, RuntimeCosts::GetStorage(32));
 	let key = Key::Fix(index.to_be_bytes());
 	let value = context.interpreter.extend.get_storage(&key);
 
@@ -307,7 +300,7 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 			return;
 		},
 		Err(e) => {
-			log::error!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
+			log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
 			context.interpreter.halt(InstructionResult::Revert);
 			return;
 		},
