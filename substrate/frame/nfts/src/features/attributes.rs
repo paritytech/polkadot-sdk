@@ -208,7 +208,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	// TODO docs
+	/// Sets or clears the given attribute.
+	/// Depending on the `maybe_check_origin` parameter it will either the regular set/clear logic
+	/// or the force set/clear logic.
 	pub(crate) fn do_update_attribute(
 		maybe_check_origin: Option<T::AccountId>,
 		collection: T::CollectionId,

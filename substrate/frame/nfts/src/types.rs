@@ -675,15 +675,38 @@ pub mod asset_strategies {
 		InspectStrategy, UpdateStrategy,
 	};
 
+	/// A [Bytes](frame_support::traits::tokens::asset_ops::common_strategies::Bytes) `Request`
+	/// parameter.
+	///
+	/// This type allows one to inspect and update the regular attribute bytes via the `Bytes`
+	/// strategy.
+	///
+	/// The regular attributes are the ones located with the `CollectionOwner` namespace.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
 	pub struct RegularAttribute<'a>(pub &'a [u8]);
 
+	/// A [Bytes](frame_support::traits::tokens::asset_ops::common_strategies::Bytes) `Request`
+	/// parameter.
+	///
+	/// This type allows one to inspect and update the system attribute bytes via the `Bytes`
+	/// strategy.
+	///
+	/// The system attributes are the ones located with the `Pallet` namespace.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
 	pub struct SystemAttribute<'a>(pub &'a [u8]);
 
+	/// A [Bytes](frame_support::traits::tokens::asset_ops::common_strategies::Bytes) `Request`
+	/// parameter.
+	///
+	/// This type allows one to inspect and update the custom attribute bytes via the `Bytes`
+	/// strategy.
+	///
+	/// The custom attributes are the ones located with the `Account` namespace.
 	#[derive(RuntimeDebug, PartialEq, Eq, Clone)]
 	pub struct CustomAttribute<'a, AccountId>(pub &'a AccountId, pub &'a [u8]);
 
+	/// A collection strategy for inspecting and updating the
+	/// [CollectionConfig](super::CollectionConfig).
 	#[derive_where(Default)]
 	pub struct CollectionConfig<Balance, BlockNumber, CollectionId>(
 		PhantomData<(Balance, BlockNumber, CollectionId)>,
@@ -700,23 +723,41 @@ pub mod asset_strategies {
 		type Success = ();
 	}
 
+	/// A collection strategy for inspecting the creation deposit paid by the
+	/// collection owner.
 	#[derive_where(Default)]
 	pub struct CollectionDeposit<Balance>(PhantomData<Balance>);
 	impl<Balance> InspectStrategy for CollectionDeposit<Balance> {
 		type Value = Balance;
 	}
 
-	// TODO make good doc comments explaning that WithCollection* are defined in order,
-	// where each next type is a super-type of the previous one
-
+	/// A collection creation strategy that allows creating new collections
+	/// with the provided owner that will become its admin as well.
+	///
+	/// The collection config will be set to the default value.
+	/// The default collection creation deposit will be reserved from the owner account.
 	pub type WithCollectionOwner<AccountId, CollectionId> =
 		WithConfig<ConfigValue<Owner<AccountId>>, AutoId<CollectionId>>;
 
+	/// A collection creation strategy that allows creating new collections
+	/// with the provided owner and admin accounts.
+	///
+	/// The collection config will be set to the default value.
+	/// The default collection creation deposit will be reserved from the owner account.
+	///
+	/// NOTE: This strategy is the generalization of [WithCollectionOwner].
 	pub type WithCollectionManagers<AccountId, CollectionId> = WithConfig<
 		(ConfigValue<Owner<AccountId>>, ConfigValue<Admin<AccountId>>),
 		AutoId<CollectionId>,
 	>;
 
+	/// A collection creation strategy that allows creating new collections
+	/// with the provided owner and admin accounts, as well as the provided
+	/// [CollectionConfig](super::CollectionConfig).
+	///
+	/// The default collection creation deposit will be reserved from the owner account.
+	///
+	/// NOTE: This strategy is the generalization of [WithCollectionManagers].
 	pub type WithCollectionConfig<AccountId, Balance, BlockNumber, CollectionId> = WithConfig<
 		(
 			ConfigValue<Owner<AccountId>>,
@@ -726,6 +767,14 @@ pub mod asset_strategies {
 		AutoId<CollectionId>,
 	>;
 
+	/// A collection creation strategy that allows creating new collections
+	/// with the following settings:
+	/// * collection owner
+	/// * collection admin
+	/// * [CollectionConfig](super::CollectionConfig)
+	/// * custom collection creation deposit that will be reserved from the owner
+	///
+	/// NOTE: This strategy is the generalization of [WithCollectionConfig].
 	pub type WithCollectionDeposit<AccountId, Balance, BlockNumber, CollectionId> = WithConfig<
 		(
 			ConfigValue<Owner<AccountId>>,
@@ -736,11 +785,13 @@ pub mod asset_strategies {
 		AutoId<CollectionId>,
 	>;
 
+	/// A strategy for inspecting the [CollectionRoles] of the given account.
 	pub struct Roles<'a, AccountId>(pub &'a AccountId);
 	impl<'a, AccountId> InspectStrategy for Roles<'a, AccountId> {
 		type Value = CollectionRoles;
 	}
 
+	/// A strategy for inspecting and updating [ItemConfig](super::ItemConfig).
 	#[derive(Default)]
 	pub struct ItemConfig;
 	impl InspectStrategy for ItemConfig {
@@ -751,9 +802,19 @@ pub mod asset_strategies {
 		type Success = ();
 	}
 
+	/// An item creation strategy that allows creationg new items
+	/// with the predefined ID and the provided item's owner.
+	///
+	/// The item's config will be set to the default item config defined within the specified
+	/// collection.
 	pub type WithItemOwner<AccountId, CollectionId, ItemId> =
 		WithConfig<ConfigValue<Owner<AccountId>>, PredefinedId<(CollectionId, ItemId)>>;
 
+	/// An item creation strategy that allows creationg new items
+	/// with the predefined ID, the provided item's owner, and the specified
+	/// [ItemConfig](super::ItemConfig).
+	///
+	/// NOTE: This strategy is the generalization of [WithItemOwner].
 	pub type WithItemConfig<AccountId, CollectionId, ItemId> = WithConfig<
 		(ConfigValue<Owner<AccountId>>, ConfigValue<ItemConfig>),
 		PredefinedId<(CollectionId, ItemId)>,
