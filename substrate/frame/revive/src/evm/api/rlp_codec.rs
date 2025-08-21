@@ -445,10 +445,28 @@ impl Decodable for Transaction4844Signed {
 	}
 }
 
+// See https://eips.ethereum.org/EIPS/eip-7702
+impl Encodable for Transaction7702Unsigned {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(10);
+		s.append(&self.chain_id);
+		s.append(&self.nonce);
+		s.append(&self.max_priority_fee_per_gas);
+		s.append(&self.max_fee_per_gas);
+		s.append(&self.gas_price);
+		s.append(&self.gas);
+		s.append(&self.to);
+		s.append(&self.value);
+		s.append(&self.input.0);
+		s.append_list(&self.access_list);
+	}
+}
+
+// See https://eips.ethereum.org/EIPS/eip-7702
 impl Encodable for Transaction7702Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_7702_unsigned;
-		s.begin_list(10);
+		s.begin_list(14);
 		s.append(&tx.chain_id);
 		s.append(&tx.nonce);
 		s.append(&tx.max_priority_fee_per_gas);
