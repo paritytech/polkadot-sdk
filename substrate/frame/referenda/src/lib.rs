@@ -951,7 +951,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let track = T::Tracks::info(status.track).ok_or(Error::<T, I>::NoTrack)?;
 		ensure!(!status.decision_deposit.is_fully_collected(), Error::<T, I>::HasDeposit);
 
-		let mut deposit = deposit.unwrap_or(track.decision_deposit);
+		let deposit = deposit.unwrap_or(track.decision_deposit);
 
 		if let Some(pos) =
 			status.decision_deposit.contributors.iter().position(|c| c.0 == contributor)
