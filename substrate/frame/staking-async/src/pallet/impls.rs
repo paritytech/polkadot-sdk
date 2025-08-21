@@ -731,11 +731,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -755,11 +750,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -776,11 +766,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -798,11 +783,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
