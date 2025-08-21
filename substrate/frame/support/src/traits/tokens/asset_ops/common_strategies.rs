@@ -362,10 +362,7 @@ pub struct DeriveAndReportId<Params, ReportedId> {
 }
 impl<Params: Default, ReportedId> Default for DeriveAndReportId<Params, ReportedId> {
 	fn default() -> Self {
-		Self {
-			params: Default::default(),
-			_phantom: PhantomData,
-		}
+		Self { params: Default::default(), _phantom: PhantomData }
 	}
 }
 impl<Params, ReportedId> From<Params> for DeriveAndReportId<Params, ReportedId> {
