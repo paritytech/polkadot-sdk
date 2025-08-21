@@ -184,12 +184,20 @@ pub type UniquesTransactor = UniqueInstancesAdapter<
 /// Matcher for converting `ClassId`/`InstanceId` into a pallet-nfts asset.
 pub type NftsConvertedConcreteId = assets_common::NftsConvertedConcreteId<NftsPalletLocation>;
 
+/// Implements `Restore`, `Stash`, and `Update<ChangeOwnerFrom>` operations.
+///
+/// The `Update` implementation is the same as in the `Item<Nfts>`.
+/// The `Stash` transfers the token TO the `TreasuryAccount`.
+/// The `Restore` transfers the token FROM the `TreasuryAccount`.
 type NftsStash = StashAccountAssetOps<TreasuryAccount, pallet_nfts::asset_ops::Item<Nfts>>;
 
-// TODO docs
+/// Matches the NFTs from `pallet-nfts`.
+///
+/// Ensures that derivative NFTs identified as local `pallet-nfts` tokens won't be matched.
 type NftsMatcher =
 	EnsureNotDerivativeInstance<DerivativeNfts, MatchInClassInstances<NftsConvertedConcreteId>>;
 
+/// Matches derivative NFTs identified using their original XCM Asset.
 type DerivativeNftsMatcher = MatchDerivativeInstances<DerivativeNfts>;
 
 /// Means for transacting existing NFTs from pallet-nfts.
@@ -231,6 +239,7 @@ impl
 	}
 }
 
+/// Means for registering new derivative NFTs within pallet-nfts.
 pub type DerivativeNftsMinter = UniqueInstancesDepositAdapter<
 	AccountId,
 	LocationToAccountId,
