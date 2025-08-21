@@ -32,22 +32,32 @@ One `ref_time` `Weight` is defined as one picosecond of execution time on the ru
 
 #### Event-Aware Weight Accounting
 
-The pallet includes **event-aware weight accounting** for `finalize_block()` operations. The weight model accounts for
-the computational cost of processing events during Ethereum block construction:
+The pallet includes **event-aware weight accounting** for `finalize_block()` operations through the `OnFinalizeBlockParts`
+trait. The weight model uses differential benchmarking to precisely account for the computational cost of processing
+events during Ethereum block construction:
 
 ```text
-Total Weight = fixed_cost + (transaction_count × per_tx_cost) + (event_count × per_event_cost)
+Total Weight = fixed_part +
+               Σ(per_tx_part(payload_i)) +
+               Σ(per_event_part(data_len_j))
 ```
 
-This comprehensive weight model accounts for both the number of events and their data size, ensuring that:
-- Transactions emitting many events are properly weighted based on event count
-- Large event payloads are accounted for based on their data size in bytes
-- Resource exhaustion attacks via oversized event data are prevented
-- Accurate block packing calculations include all processing costs
+**Weight Components:**
+- **Fixed cost**: `on_finalize_block_fixed()` - Base overhead regardless of transaction/event count
+- **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
+- **Per-event cost**: `on_finalize_block_per_event(data_len)` - Applied dynamically during each `deposit_event()`
 
-The event processing costs include bloom filter computation, RLP encoding, and log conversion operations that occur
-during `on_finalize()` when building Ethereum block headers. The data size component specifically accounts for the
-computational overhead of processing variable-length event data during these operations.
+**Differential Calculation Methodology:**
+The system uses mathematical differencing to isolate marginal costs:
+- Per-transaction: `on_finalize(1, payload_size) - on_finalize(0, 0)`
+- Per-event base: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
+- Per-byte of event data: `on_finalize_per_transaction(1, data_len) - on_finalize_per_transaction(1, 0)`
+
+This comprehensive weight model ensures that:
+- Transactions emitting many events are properly weighted based on event count and data size
+- Resource exhaustion attacks via oversized event data are prevented through proactive weight enforcement
+- Accurate block packing calculations include all processing costs (bloom filters, RLP encoding, log conversion)
+- Gas limit enforcement occurs early in `eth_call()` to prevent block overruns
 
 ### Revert Behaviour
 

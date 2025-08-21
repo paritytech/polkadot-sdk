@@ -2504,17 +2504,17 @@ mod benchmarks {
 	///
 	/// ## Parameters:
 	/// - `e`: Number of events per transaction
-	/// - `d`: Transaction payload size in bytes
+	/// - `d`: Total size of event data in bytes
 	///
 	/// ## Test Setup:
 	/// - Creates 1 transaction with specified parameters
-	/// - Transaction has `m` ContractEmitted events
-	/// - `d` number of data bytes in events
+	/// - Transaction has `e` ContractEmitted events
+	/// - `d` total bytes of data across all events
 	///
 	/// ## Usage:
 	/// Calculate marginal costs:
 	/// - Per event: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
-	/// - Per byte: `on_finalize_per_transaction(1, 1) - on_finalize_per_transaction(1, 0)`
+	/// - Per byte of event data: `on_finalize_per_transaction(1, d) - on_finalize_per_transaction(1, 0)`
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_transaction(
 		e: Linear<0, 100>,
