@@ -99,11 +99,9 @@ where
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	let _guard = (
-		// FIXME: `host_get`s are still needed for backward compatibility
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
-		// sp_io::storage::host_get.replace_implementation(host_storage_get),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
 		sp_io::storage::host_root.replace_implementation(host_storage_root),
@@ -116,8 +114,6 @@ where
 			.replace_implementation(host_storage_rollback_transaction),
 		sp_io::storage::host_commit_transaction
 			.replace_implementation(host_storage_commit_transaction),
-		// sp_io::default_child_storage::host_get
-		// 	.replace_implementation(host_default_child_storage_get),
 		sp_io::default_child_storage::host_read
 			.replace_implementation(host_default_child_storage_read),
 		sp_io::default_child_storage::host_set
@@ -475,10 +471,6 @@ fn host_storage_set(key: &[u8], value: &[u8]) {
 	with_externalities(|ext| ext.place_storage(key.to_vec(), Some(value.to_vec())))
 }
 
-fn host_storage_get(key: &[u8]) -> Option<bytes::Bytes> {
-	with_externalities(|ext| ext.storage(key).map(|value| value.into()))
-}
-
 fn host_storage_exists(key: &[u8]) -> bool {
 	with_externalities(|ext| ext.exists_storage(key))
 }
@@ -552,11 +544,6 @@ fn host_storage_rollback_transaction() {
 fn host_storage_commit_transaction() {
 	with_externalities(|ext| ext.storage_commit_transaction().ok())
 		.expect("No open transaction that can be committed.");
-}
-
-fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
-	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage(&child_info, key))
 }
 
 fn host_default_child_storage_read(
