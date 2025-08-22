@@ -2535,19 +2535,40 @@ mod benchmarks {
 			evm_value,
 			input_data.clone(),
 		);
-		// Create m events, distributing d bytes across them
+		// Create e events, distributing d bytes across them
 		if e > 0 {
 			let bytes_per_event = if d > 0 { d / e } else { 0 };
 			let extra_bytes = if d > 0 { d % e } else { 0 };
 
 			for i in 0..e {
 				let event_data_size = bytes_per_event + if i == 0 { extra_bytes } else { 0 };
-				let event_data = vec![0x42u8; event_data_size as usize];
+
+				let (event_data, topics) = if d < 32 {
+					// If total data is less than 32 bytes, put all in data field
+					(vec![0x42u8; event_data_size as usize], vec![])
+				} else {
+					// Fill topics first, then put remaining bytes in data field
+					let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, event_data_size / 32);
+					let topic_bytes_used = num_topics * 32;
+					let data_bytes_remaining = event_data_size - topic_bytes_used;
+
+					// Create topics filled with topic index
+					let mut topics = Vec::new();
+					for topic_index in 0..num_topics {
+						let topic_data = [topic_index as u8; 32];
+						topics.push(H256::from(topic_data));
+					}
+
+					// Remaining bytes go to data field
+					let event_data = vec![0x42u8; data_bytes_remaining as usize];
+
+					(event_data, topics)
+				};
 
 				Pallet::<T>::deposit_event(Event::<T>::ContractEmitted {
 					contract: instance.address,
 					data: event_data,
-					topics: vec![H256::from_low_u64_be(i as u64)],
+					topics,
 				});
 			}
 		}
