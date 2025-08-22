@@ -66,11 +66,12 @@ jobs:
           PROFILE=${{ inputs.profile }}
           if [ "${{ inputs.binary }}" = "polkadot" ]; then
               for binary in polkadot polkadot-prepare-worker polkadot-execute-worker; do
-                  echo "Building $binary..."
-                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} "${PROFILE}" ${{ inputs.features }}
+                  echo "Building $binary with profile $PROFILE and features ${{ inputs.features }}"
+                  ./.github/scripts/release/build-linux-release.sh $binary ${{ inputs.package }} ${{ inputs.features }}
               done
           else
-            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} "${PROFILE}" ${{ inputs.features }}
+            echo "Building ${{ inputs.binary }} with profile $PROFILE and features ${{ inputs.features }}"
+            ./.github/scripts/release/build-linux-release.sh ${{ inputs.binary }} ${{ inputs.package }} ${{ inputs.features }}
           fi
 
       - name: Upload ${{ inputs.binary }} artifacts

@@ -140,13 +140,13 @@ type BlockNumberFor<T, I = ()> =
 )]
 pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The account proposing it.
-	proposer: AccountId,
+	pub proposer: AccountId,
 	/// The (total) amount that should be paid if the bounty is rewarded.
-	value: Balance,
+	pub value: Balance,
 	/// The curator fee. Included in value.
-	fee: Balance,
+	pub fee: Balance,
 	/// The deposit of curator.
-	curator_deposit: Balance,
+	pub curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
 	bond: Balance,
 	/// The status of this bounty.
