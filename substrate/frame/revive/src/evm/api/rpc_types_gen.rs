@@ -930,13 +930,14 @@ mod tests {
 
 		// Deserialize the JSON into a Block
 		let block: Block = serde_json::from_str(json_input).expect("Failed to deserialize block");
-		
+
 		// Serialize it back to JSON
 		let serialized = serde_json::to_string(&block).expect("Failed to serialize block");
-		
+
 		// Deserialize again to ensure roundtrip consistency
-		let block_roundtrip: Block = serde_json::from_str(&serialized).expect("Failed to deserialize roundtrip block");
-		
+		let block_roundtrip: Block =
+			serde_json::from_str(&serialized).expect("Failed to deserialize roundtrip block");
+
 		// Verify that deserializing and serializing leads to the same result
 		assert_eq!(block, block_roundtrip);
 	}
