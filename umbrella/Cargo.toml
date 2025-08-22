@@ -319,6 +319,7 @@ runtime-benchmarks = [
 	"pallet-salary?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
+	"pallet-session?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
