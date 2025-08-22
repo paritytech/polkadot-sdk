@@ -59,7 +59,7 @@ fn jump_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).data(vec![]).build_and_unwrap_result();
+		let result = builder::bare_call(addr).build_and_unwrap_result();
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
@@ -158,7 +158,7 @@ fn ret_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).data(vec![]).build_and_unwrap_result();
+		let result = builder::bare_call(addr).build_and_unwrap_result();
 
 		assert!(!result.did_revert(), "test reverted");
 		assert_eq!(
@@ -190,7 +190,7 @@ fn revert_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).data(vec![]).build_and_unwrap_result();
+		let result = builder::bare_call(addr).build_and_unwrap_result();
 
 		assert!(result.flags == ReturnFlags::REVERT, "test did not revert");
 		assert_eq!(
@@ -211,7 +211,7 @@ fn stop_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr).data(vec![]).build_and_unwrap_result();
+		let result = builder::bare_call(addr).build_and_unwrap_result();
 
 		assert!(!result.did_revert(), "test reverted");
 	});
