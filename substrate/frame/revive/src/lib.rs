@@ -42,11 +42,12 @@ pub mod precompiles;
 pub mod test_utils;
 pub mod tracing;
 pub mod weights;
+pub mod weights_utils;
 
 use crate::{
 	evm::{
 		block_hash::ReceiptGasInfo, runtime::GAS_PRICE, CallTracer, GasEncoder, GenericTransaction,
-		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
+		PrestateTracer, Trace, Tracer, TracerType, TransactionUnsigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -101,6 +102,7 @@ pub use primitives::*;
 pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
+pub use weights_utils::OnFinalizeBlockParts;
 
 #[cfg(doc)]
 pub use crate::vm::pvm::SyscallDoc;
@@ -623,8 +625,17 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			// Account for the fixed part of the costs incurred in `on_finalize`.
+			frame_system::Pallet::<T>::register_extra_weight_unchecked(
+				<T as Config>::WeightInfo::on_finalize_block_fixed(),
+				DispatchClass::Normal,
+			);
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
+			// Some benchmarks push some events to InflightEvents (via `deposit_events()`)
+			// before calling `on_initialize()` and they expect to collect those events when
+			// finalizing the block.
+			#[cfg(not(feature = "runtime-benchmarks"))]
 			InflightEvents::<T>::kill();
 			InflightTransactions::<T>::kill();
 
@@ -1015,7 +1026,11 @@ pub mod pallet {
 		/// Same as [`Self::call`], but intended to be dispatched **only**
 		/// by an EVM transaction through the EVM compatibility layer.
 		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into()).saturating_add(*gas_limit))]
+		#[pallet::weight(
+		    T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
+				.saturating_add(*gas_limit)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(payload.len() as u32))
+		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
 			dest: H160,
@@ -1393,6 +1408,8 @@ where
 			)));
 		};
 
+		let mut unsigned_tx: Option<TransactionUnsigned> = None;
+
 		// Dry run the call
 		let (mut result, dispatch_call) = match tx.to {
 			// A contract call.
@@ -1454,16 +1471,23 @@ where
 						result.gas_required,
 						result.storage_deposit,
 					);
+
+					match tx.clone().try_into_unsigned() {
+						Ok(tx) => unsigned_tx = Some(tx),
+						Err(_) =>
+							return Err(EthTransactError::Message("Invalid transaction".into())),
+					}
+
 					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
 						dest,
 						value,
 						gas_limit,
 						storage_deposit_limit,
 						data: input.clone(),
-						// Since this is a dry run, we don't need to pass the signed transaction
-						// payload. Instead, use an empty vector. The signed transaction
-						// will be provided by the user when the tx is submitted.
-						payload: Vec::new(),
+						// Payload is needed to determine costs.
+						// Safe to unwrap(), it is asserted when converting to TransactionUnsigned
+						// above
+						payload: unsigned_tx.clone().unwrap().dummy_signed_payload(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1525,6 +1549,7 @@ where
 					result.gas_required,
 					result.storage_deposit,
 				);
+
 				let dispatch_call: <T as Config>::RuntimeCall =
 					crate::Call::<T>::eth_instantiate_with_code {
 						value,
@@ -1542,12 +1567,16 @@ where
 			},
 		};
 
-		let Ok(unsigned_tx) = tx.clone().try_into_unsigned() else {
-			return Err(EthTransactError::Message("Invalid transaction".into()));
-		};
+		if unsigned_tx.is_none() {
+			match tx.clone().try_into_unsigned() {
+				Ok(tx) => unsigned_tx = Some(tx),
+				Err(_) => return Err(EthTransactError::Message("Invalid transaction".into())),
+			}
+		}
 
+		// Safe to unwrap(), it is asserted when converting to TransactionUnsigned above
 		let eth_transact_call =
-			crate::Call::<T>::eth_transact { payload: unsigned_tx.dummy_signed_payload() };
+			crate::Call::<T>::eth_transact { payload: unsigned_tx.unwrap().dummy_signed_payload() };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
@@ -1788,6 +1817,7 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	/// The address of the validator that produced the current block.
 	pub fn block_author() -> Option<H160> {
 		use frame_support::traits::FindAuthor;
@@ -1797,6 +1827,13 @@ impl<T: Config> Pallet<T> {
 
 		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
 		Some(T::AddressMapper::to_address(&account_id))
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	/// The address of the validator that produced the current block.
+	/// Block author is None when benchmarking, which is not acceptable in `on_finalize`
+	pub fn block_author() -> Option<H160> {
+		Some(H160::default())
 	}
 
 	/// Returns the code at `address`.

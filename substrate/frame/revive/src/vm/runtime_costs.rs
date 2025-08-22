@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{gas::Token, weights::WeightInfo, Config};
+use crate::{gas::Token, weights::WeightInfo, weights_utils::OnFinalizeBlockParts, Config};
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 /// Current approximation of the gas/s consumption considering
@@ -233,7 +233,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallDataCopy(len) => T::WeightInfo::seal_call_data_copy(len),
 			Caller => T::WeightInfo::seal_caller(),
 			Origin => T::WeightInfo::seal_origin(),
-			ToAccountId => T::WeightInfo::seal_to_account_id(),
+			ToAccountId => T::WeightInfo::to_account_id(),
 			CodeHash => T::WeightInfo::seal_code_hash(),
 			CodeSize => T::WeightInfo::seal_code_size(),
 			OwnCodeHash => T::WeightInfo::seal_own_code_hash(),
@@ -255,7 +255,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate => T::WeightInfo::seal_terminate(),
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
+			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len)),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
 			},

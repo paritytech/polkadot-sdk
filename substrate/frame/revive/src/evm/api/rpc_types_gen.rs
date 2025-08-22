@@ -513,6 +513,19 @@ impl HashesOrTransactionInfos {
 	}
 }
 
+impl HashesOrTransactionInfos {
+	pub fn len(&self) -> usize {
+		match self {
+			HashesOrTransactionInfos::Hashes(v) => v.len(),
+			HashesOrTransactionInfos::TransactionInfos(v) => v.len(),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+}
+
 /// log
 #[derive(
 	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,

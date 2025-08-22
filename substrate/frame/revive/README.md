@@ -30,6 +30,35 @@ calls are reverted. Assuming correct error handling by contract A, A's other cal
 
 One `ref_time` `Weight` is defined as one picosecond of execution time on the runtime's reference machine.
 
+#### Event-Aware Weight Accounting
+
+The pallet includes **event-aware weight accounting** for `finalize_block()` operations through the `OnFinalizeBlockParts`
+trait. The weight model uses differential benchmarking to precisely account for the computational cost of processing
+events during Ethereum block construction:
+
+```text
+Total Weight = fixed_part +
+               Σ(per_tx_part(payload_i)) +
+               Σ(per_event_part(data_len_j))
+```
+
+**Weight Components:**
+- **Fixed cost**: `on_finalize_block_fixed()` - Base overhead regardless of transaction/event count
+- **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
+- **Per-event cost**: `on_finalize_block_per_event(data_len)` - Applied dynamically during each `deposit_event()`
+
+**Differential Calculation Methodology:**
+The system uses mathematical differencing to isolate marginal costs:
+- Per-transaction: `on_finalize(1, payload_size) - on_finalize(0, 0)`
+- Per-event base: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
+- Per-byte of event data: `on_finalize_per_transaction(1, data_len) - on_finalize_per_transaction(1, 0)`
+
+This comprehensive weight model ensures that:
+- Transactions emitting many events are properly weighted based on event count and data size
+- Resource exhaustion attacks via oversized event data are prevented through proactive weight enforcement
+- Accurate block packing calculations include all processing costs (bloom filters, RLP encoding, log conversion)
+- Gas limit enforcement occurs early in `eth_call()` to prevent block overruns
+
 ### Revert Behaviour
 
 Contract call failures are not cascading. When failures occur in a sub-call, they do not "bubble up", and the call will
