@@ -19,7 +19,7 @@
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeLegacy};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
@@ -319,9 +319,7 @@ pub struct GenericTransaction {
 }
 
 /// Receipt information
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ReceiptInfo {
 	/// blob gas price
 	/// The actual value per gas deducted from the sender's account for blob gas. Only specified
@@ -504,19 +502,8 @@ impl Default for HashesOrTransactionInfos {
 		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
-impl HashesOrTransactionInfos {
-	pub fn push_hash(&mut self, hash: H256) {
-		match self {
-			HashesOrTransactionInfos::Hashes(hashes) => hashes.push(hash),
-			_ => {},
-		}
-	}
-}
-
 /// log
-#[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
-)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Log {
 	/// address
 	pub address: Address,
@@ -562,7 +549,17 @@ pub struct SyncingProgress {
 
 /// EIP-1559 transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction1559Unsigned {
 	/// accessList
@@ -604,7 +601,17 @@ pub struct Transaction1559Unsigned {
 
 /// EIP-2930 transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction2930Unsigned {
 	/// accessList
@@ -635,7 +642,17 @@ pub struct Transaction2930Unsigned {
 
 /// EIP-4844 transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction4844Unsigned {
 	/// accessList
@@ -679,7 +696,17 @@ pub struct Transaction4844Unsigned {
 
 /// Legacy transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
@@ -705,7 +732,18 @@ pub struct TransactionLegacyUnsigned {
 }
 
 #[derive(
-	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	From,
+	TryInto,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(untagged)]
 pub enum TransactionSigned {
@@ -756,7 +794,17 @@ pub struct Withdrawal {
 
 /// Access list entry
 #[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+	Debug,
+	Default,
+	Clone,
+	Encode,
+	Decode,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	DecodeWithMemTracking,
 )]
 pub struct AccessListEntry {
 	pub address: Address,
@@ -781,7 +829,17 @@ impl Default for FilterTopic {
 
 /// Signed 1559 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
@@ -803,7 +861,17 @@ pub struct Transaction1559Signed {
 
 /// Signed 2930 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
@@ -825,7 +893,17 @@ pub struct Transaction2930Signed {
 
 /// Signed 4844 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
@@ -842,7 +920,17 @@ pub struct Transaction4844Signed {
 
 /// Signed Legacy Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
