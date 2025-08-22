@@ -372,6 +372,13 @@ jobs:
         run: brew install protobuf
       - name: install solc
         run: brew install solidity
+      - name: install resolc
+        run: |
+          echo "Download the resolc binary"
+          wget -O resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-x86_64-unknown-linux-musl -q
+          chmod +x resolc
+          mv resolc /usr/local/bin
+          resolc --version
       - name: cargo info
         run: |
           echo "######## rustup show ########"
