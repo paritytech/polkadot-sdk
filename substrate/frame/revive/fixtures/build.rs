@@ -344,8 +344,8 @@ fn compile_solidity_contracts(
 		return Ok(());
 	}
 
-	let pvm_only = vec!["HostSelfDestructPvm"];
-	let evm_only = vec!["HostSelfDestructEvm"];
+	let pvm_only = vec![];
+	let evm_only = vec!["HostEvmOnly"];
 
 	let solidity_entries_evm: Vec<_> = solidity_entries
 		.iter()

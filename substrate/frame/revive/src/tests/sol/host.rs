@@ -187,12 +187,12 @@ fn extcodehash_works() {
 #[test]
 fn extcodecopy_works() {
 	use pallet_revive_fixtures::{
-		HostSelfDestructEvm, HostSelfDestructEvm::HostSelfDestructEvmCalls,
+		HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls,
 	};
 	let fixture_type = FixtureType::Solc;
 
-	let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
-	let (dummy_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
+	let (dummy_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	let code_start = 3;
 	let code_len = 17;
@@ -215,7 +215,7 @@ fn extcodecopy_works() {
 
 		let result = builder::bare_call(addr)
 			.data(
-				HostSelfDestructEvmCalls::extcodecopyOp(HostSelfDestructEvm::extcodecopyOpCall {
+				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
 					account: dummy_addr.0.into(),
 					offset: U256::from(code_start),
 					size: U256::from(code_len),
@@ -431,9 +431,9 @@ fn log_works() {
 
 #[test]
 fn selfdestruct_works() {
-	use pallet_revive_fixtures::HostSelfDestructEvm;
+	use pallet_revive_fixtures::HostEvmOnly;
 	let fixture_type = FixtureType::Solc;
-	let (code, _) = compile_module_with_type("HostSelfDestructEvm", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
 
 	let expected_bobs_balance = 100_000_000_000u64;
 
@@ -453,8 +453,8 @@ fn selfdestruct_works() {
 		{
 			let result = builder::bare_call(addr)
 				.data(
-					HostSelfDestructEvm::HostSelfDestructEvmCalls::selfdestructOp(
-						HostSelfDestructEvm::selfdestructOpCall { recipient: BOB_ADDR.0.into() },
+					HostEvmOnly::HostEvmOnlyCalls::selfdestructOp(
+						HostEvmOnly::selfdestructOpCall { recipient: BOB_ADDR.0.into() },
 					)
 					.abi_encode(),
 				)
