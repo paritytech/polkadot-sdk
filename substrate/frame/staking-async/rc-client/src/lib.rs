@@ -473,12 +473,28 @@ pub trait AHStakingInterface {
 	type MaxValidatorSet: Get<u32>;
 
 	/// New session report from the relay chain.
-	fn on_relay_session_report(report: SessionReport<Self::AccountId>);
+	fn on_relay_session_report(report: SessionReport<Self::AccountId>) -> Weight;
+
+	/// Return the weight of `on_relay_session_report` call without executing it.
+	///
+	/// This will return the worst case estimate of the weight. The actual execution will return the
+	/// accurate amount.
+	fn weigh_on_relay_session_report(report: &SessionReport<Self::AccountId>) -> Weight;
 
 	/// Report one or more offences on the relay chain.
+	fn on_new_offences(
+		slash_session: SessionIndex,
+		offences: Vec<Offence<Self::AccountId>>,
+	) -> Weight;
+
+	/// Return the weight of `on_new_offences` call without executing it.
 	///
-	/// This returns its consumed weight because its complexity is hard to measure.
-	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence<Self::AccountId>>);
+	/// This will return the worst case estimate of the weight. The actual execution will return the
+	/// accurate amount.
+	fn weigh_on_new_offences(
+		slash_session: SessionIndex,
+		offences: &[Offence<Self::AccountId>],
+	) -> Weight;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -602,15 +618,15 @@ pub mod pallet {
 		#[pallet::weight(
 			// `LastSessionReportEndingIndex`: rw
 			// `IncompleteSessionReport`: rw
-			// NOTE: what happens inside `AHStakingInterface` is benchmarked and registered in `pallet-staking-async`
-			T::DbWeight::get().reads_writes(2, 2)
+			T::DbWeight::get().reads_writes(2, 2) + T::AHStakingInterface::weigh_on_relay_session_report(report)
 		)]
 		pub fn relay_session_report(
 			origin: OriginFor<T>,
 			report: SessionReport<T::AccountId>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			log!(debug, "Received session report: {}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+			let local_weight = T::DbWeight::get().reads_writes(2, 2);
 
 			match LastSessionReportEndingIndex::<T>::get() {
 				None => {
@@ -638,7 +654,7 @@ pub mod pallet {
 					);
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionAlreadyProcessed));
 					IncompleteSessionReport::<T>::kill();
-					return Ok(());
+					return Ok(Some(local_weight).into());
 				},
 			}
 
@@ -661,35 +677,34 @@ pub mod pallet {
 					IncompleteSessionReport::<T>::get().is_none(),
 					"we have ::take() it above, we don't want to keep the old data"
 				);
-				return Ok(());
+				return Ok(().into());
 			}
 			let new_session_report = maybe_new_session_report.expect("checked above; qed");
 
 			if new_session_report.leftover {
 				// this is still not final -- buffer it.
 				IncompleteSessionReport::<T>::put(new_session_report);
+				Ok(().into())
 			} else {
 				// this is final, report it.
 				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
-				T::AHStakingInterface::on_relay_session_report(new_session_report);
+				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
+				Ok((Some(local_weight + weight)).into())
 			}
-
-			Ok(())
 		}
 
 		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			// `on_new_offences` is benchmarked by `pallet-staking-async`
 			// events are free
 			// origin check is negligible.
-			Weight::default()
+			T::AHStakingInterface::weigh_on_new_offences(*slash_session, offences)
 		)]
 		pub fn relay_new_offence(
 			origin: OriginFor<T>,
 			slash_session: SessionIndex,
 			offences: Vec<Offence<T::AccountId>>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			log!(info, "Received new offence at slash_session: {:?}", slash_session);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
 
@@ -698,8 +713,8 @@ pub mod pallet {
 				offences_count: offences.len() as u32,
 			});
 
-			T::AHStakingInterface::on_new_offences(slash_session, offences);
-			Ok(())
+			let weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
+			Ok(Some(weight).into())
 		}
 	}
 }

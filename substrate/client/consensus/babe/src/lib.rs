@@ -1016,19 +1016,9 @@ where
 		let hash = block.header.hash();
 		let parent_hash = *block.header.parent_hash();
 
-		let info = self.client.info();
-		let number = *block.header.number();
+		let number = block.header.number();
 
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block.with_state()
-		{
-			// Verification for imported blocks is skipped in two cases:
-			// 1. When importing blocks below the last finalized block during network initial
-			//    synchronization.
-			// 2. When importing whole state we don't calculate epoch descriptor, but rather read it
-			//    from the state after import. We also skip all verifications because there's no
-			//    parent state and we trust the sync module to verify that the state is correct and
-			//    finalized.
+		if is_state_sync_or_gap_sync_import(&*self.client, &block) {
 			return Ok(block)
 		}
 
@@ -1046,7 +1036,7 @@ where
 				&self.epoch_changes,
 				self.client.as_ref(),
 				&self.config,
-				number,
+				*number,
 				pre_digest.slot(),
 				parent_hash,
 			)?;
@@ -1095,6 +1085,21 @@ where
 			},
 		}
 	}
+}
+
+/// Verification for imported blocks is skipped in two cases:
+/// 1. When importing blocks below the last finalized block during network initial synchronization.
+/// 2. When importing whole state we don't calculate epoch descriptor, but rather read it from the
+///    state after import. We also skip all verifications because there's no parent state and we
+///    trust the sync module to verify that the state is correct and finalized.
+fn is_state_sync_or_gap_sync_import<B: BlockT>(
+	client: &impl HeaderBackend<B>,
+	block: &BlockImportParams<B>,
+) -> bool {
+	let number = *block.header.number();
+	let info = client.info();
+	info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
+		block.with_state()
 }
 
 /// A block-import handler for BABE.
@@ -1173,6 +1178,7 @@ where
 		+ Sync,
 	Client::Api: BlockBuilderApi<Block> + BabeApi<Block> + ApiExt<Block>,
 	CIDP: CreateInherentDataProviders<Block, ()>,
+	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 	SC: sp_consensus::SelectChain<Block> + 'static,
 {
 	/// Import whole state after warp sync.
@@ -1222,6 +1228,67 @@ where
 		.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
 
 		Ok(ImportResult::Imported(aux))
+	}
+
+	/// Check the inherents and equivocations.
+	async fn check_inherents_and_equivocations(
+		&self,
+		block: &mut BlockImportParams<Block>,
+	) -> Result<(), ConsensusError> {
+		if is_state_sync_or_gap_sync_import(&*self.client, block) {
+			return Ok(())
+		}
+
+		let parent_hash = *block.header.parent_hash();
+		let number = *block.header.number();
+
+		let create_inherent_data_providers = self
+			.create_inherent_data_providers
+			.create_inherent_data_providers(parent_hash, ())
+			.await?;
+
+		let slot_now = create_inherent_data_providers.slot();
+
+		let babe_pre_digest = find_pre_digest::<Block>(&block.header)
+			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
+		let slot = babe_pre_digest.slot();
+
+		// Check inherents.
+		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
+			.await?;
+
+		// Check for equivocation and report it to the runtime if needed.
+		let author = {
+			let viable_epoch = query_epoch_changes(
+				&self.epoch_changes,
+				self.client.as_ref(),
+				&self.config,
+				number,
+				slot,
+				parent_hash,
+			)
+			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?
+			.1;
+			match viable_epoch
+				.as_ref()
+				.authorities
+				.get(babe_pre_digest.authority_index() as usize)
+			{
+				Some(author) => author.0.clone(),
+				None =>
+					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
+			}
+		};
+		if let Err(err) = self
+			.check_and_report_equivocation(slot_now, slot, &block.header, &author, &block.origin)
+			.await
+		{
+			warn!(
+				target: LOG_TARGET,
+				"Error checking/reporting BABE equivocation: {}", err
+			);
+		}
+		Ok(())
 	}
 
 	async fn check_inherents(
@@ -1389,54 +1456,8 @@ where
 		let hash = block.post_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
-		let parent_hash = *block.header.parent_hash();
 
-		let create_inherent_data_providers = self
-			.create_inherent_data_providers
-			.create_inherent_data_providers(parent_hash, ())
-			.await?;
-
-		let slot_now = create_inherent_data_providers.slot();
-
-		let babe_pre_digest = find_pre_digest::<Block>(&block.header)
-			.map_err(|e| ConsensusError::Other(Box::new(e)))?;
-		let slot = babe_pre_digest.slot();
-
-		// Check inherents.
-		self.check_inherents(&mut block, parent_hash, slot, create_inherent_data_providers)
-			.await?;
-
-		// Check for equivocation and report it to the runtime if needed.
-		let author = {
-			let viable_epoch = query_epoch_changes(
-				&self.epoch_changes,
-				self.client.as_ref(),
-				&self.config,
-				number,
-				slot,
-				parent_hash,
-			)
-			.map_err(|e| ConsensusError::Other(babe_err(e).into()))?
-			.1;
-			match viable_epoch
-				.as_ref()
-				.authorities
-				.get(babe_pre_digest.authority_index() as usize)
-			{
-				Some(author) => author.0.clone(),
-				None =>
-					return Err(ConsensusError::Other(Error::<Block>::SlotAuthorNotFound.into())),
-			}
-		};
-		if let Err(err) = self
-			.check_and_report_equivocation(slot_now, slot, &block.header, &author, &block.origin)
-			.await
-		{
-			warn!(
-				target: LOG_TARGET,
-				"Error checking/reporting BABE equivocation: {}", err
-			);
-		}
+		self.check_inherents_and_equivocations(&mut block).await?;
 
 		let block_status = self
 			.client
