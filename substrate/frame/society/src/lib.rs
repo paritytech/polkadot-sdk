@@ -812,8 +812,7 @@ pub mod pallet {
 
 			// Run a candidate/membership rotation
 			let is_intake_moment = match Self::period() {
-				Period::Voting { elapsed, .. } if elapsed.is_zero() => true,
-				Period::IntakeDelay { .. } => true,
+				Period::Intake { .. } => true,
 				_ => false,
 			};
 			if is_intake_moment {
@@ -1493,7 +1492,7 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 pub enum Period<BlockNumber> {
 	Voting { elapsed: BlockNumber, more: BlockNumber },
 	Claim { elapsed: BlockNumber, more: BlockNumber },
-	IntakeDelay { elapsed: BlockNumber },
+	Intake { elapsed: BlockNumber },
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1504,8 +1503,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let rotation_period = voting_period + claim_period;
 		let now = T::BlockNumberProvider::current_block_number();
 		let phase = now % rotation_period;
-		if now > Self::next_intake_at() {
-			Period::IntakeDelay { elapsed: now - Self::next_intake_at() }
+		if now >= Self::next_intake_at() {
+			Period::Intake { elapsed: now - Self::next_intake_at() }
 		} else if phase < voting_period {
 			Period::Voting { elapsed: phase, more: voting_period - phase }
 		} else {
