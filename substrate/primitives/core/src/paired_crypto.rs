@@ -165,7 +165,7 @@ pub mod ecdsa_bls381 {
 	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
-	const POP_LEN: usize =
+	pub const POP_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
 
 	#[doc(hidden)]

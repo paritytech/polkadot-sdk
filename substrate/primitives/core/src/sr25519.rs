@@ -137,6 +137,9 @@ impl<'de> Deserialize<'de> for Public {
 /// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Sr25519Tag>;
 
+/// Proof of Possession is the same as Signature for sr25519
+pub type ProofOfPossession = Signature;
+
 #[cfg(feature = "full_crypto")]
 impl From<schnorrkel::Signature> for Signature {
 	fn from(s: schnorrkel::Signature) -> Signature {
@@ -204,7 +207,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Get the public key.
 	fn public(&self) -> Public {

@@ -28,7 +28,10 @@ mod app {
 	crate::app_crypto!(super, sp_core::testing::SR25519);
 }
 
-pub use app::{Pair as AppPair, Public as AppPublic, Signature as AppSignature};
+pub use app::{
+	Pair as AppPair, ProofOfPossession as AppProofOfPossession, Public as AppPublic,
+	Signature as AppSignature,
+};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;

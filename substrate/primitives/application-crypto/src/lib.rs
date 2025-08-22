@@ -86,11 +86,11 @@ macro_rules! app_crypto {
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
 		$crate::app_crypto_proof_of_possession_full_crypto!(
-			$module::Signature,
+			$module::ProofOfPossession,
 			$key_type,
 			$module::CRYPTO_ID
 		);
-		$crate::app_crypto_proof_of_possession_common!($module::Signature, $key_type);
+		$crate::app_crypto_proof_of_possession_common!($module::ProofOfPossession, $key_type);
 		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
@@ -122,12 +122,12 @@ macro_rules! app_crypto {
 			$module::CRYPTO_ID
 		);
 		$crate::app_crypto_signature_common!($module::Signature, $key_type);
-		$crate::app_crypto_proof_of_possession__not_full_crypto!(
-			$module::Signature,
+		$crate::app_crypto_proof_of_possession_not_full_crypto!(
+			$module::ProofOfPossession,
 			$key_type,
 			$module::CRYPTO_ID
 		);
-		$crate::app_crypto_proof_of_possession_common!($module::Signature, $key_type);
+		$crate::app_crypto_proof_of_possession_common!($module::ProofOfPossession, $key_type);
 		$crate::app_crypto_pair_common!($module::Pair, $key_type, $module::CRYPTO_ID);
 	};
 }
@@ -334,6 +334,7 @@ macro_rules! app_crypto_public_not_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
@@ -516,6 +517,7 @@ macro_rules! app_crypto_signature_not_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}
@@ -648,6 +650,7 @@ macro_rules! app_crypto_proof_of_possession_not_full_crypto {
 			type Public = Public;
 			type Pair = Pair;
 			type Signature = Signature;
+			type ProofOfPossession = ProofOfPossession;
 			const ID: $crate::KeyTypeId = $key_type;
 			const CRYPTO_ID: $crate::CryptoTypeId = $crypto_type;
 		}

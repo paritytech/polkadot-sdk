@@ -52,6 +52,9 @@ pub type Public = PublicBytes<PUBLIC_KEY_SERIALIZED_SIZE, Ed25519Tag>;
 /// A signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, Ed25519Tag>;
 
+/// Proof of Possession is the same as Signature for ed25519
+pub type ProofOfPossession = Signature;
+
 /// A key pair.
 #[derive(Copy, Clone)]
 pub struct Pair {
@@ -69,7 +72,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.

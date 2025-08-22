@@ -102,6 +102,9 @@ impl From<Pair> for Public {
 /// A signature (a 512-bit value, plus 8 bits for recovery ID).
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, EcdsaTag>;
 
+/// Proof of Possession is the same as Signature for ecdsa
+pub type ProofOfPossession = Signature;
+
 impl Signature {
 	/// Recover the public key from this signature and a message.
 	pub fn recover<M: AsRef<[u8]>>(&self, message: M) -> Option<Public> {
@@ -167,7 +170,7 @@ impl TraitPair for Pair {
 	type Public = Public;
 	type Seed = Seed;
 	type Signature = Signature;
-	type ProofOfPossession = Signature;
+	type ProofOfPossession = ProofOfPossession;
 
 	/// Make a new key pair from secret seed material. The slice must be 32 bytes long or it
 	/// will return `None`.

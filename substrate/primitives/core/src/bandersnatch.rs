@@ -69,6 +69,9 @@ impl CryptoType for Public {
 /// Bandersnatch Schnorr signature.
 pub type Signature = SignatureBytes<SIGNATURE_SERIALIZED_SIZE, BandersnatchTag>;
 
+/// Proof of Possession is the same as Signature for Bandersnatch
+pub type ProofOfPossession = Signature;
+
 impl CryptoType for Signature {
 	type Pair = Pair;
 }

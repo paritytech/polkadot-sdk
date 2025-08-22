@@ -33,10 +33,13 @@ mod app {
 
 #[cfg(feature = "full_crypto")]
 pub use app::Pair as AppPair;
-pub use app::{Public as AppPublic, Signature as AppSignature};
+pub use app::{
+	ProofOfPossession as AppProofOfPossession, Public as AppPublic, Signature as AppSignature,
+};
 
 impl RuntimePublic for Public {
 	type Signature = Signature;
+	type ProofOfPossession = Signature;
 
 	/// Dummy implementation. Returns an empty vector.
 	fn all(_key_type: KeyTypeId) -> Vec<Self> {
@@ -61,7 +64,7 @@ impl RuntimePublic for Public {
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
-	) -> Option<Self::Signature> {
+	) -> Option<Self::ProofOfPossession> {
 		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
 		sp_io::crypto::bandersnatch_sign(key_type, self, &proof_of_possession_statement)
 	}
@@ -71,7 +74,7 @@ impl RuntimePublic for Public {
 		owner: &[u8],
 		proof_of_possession: &Self::Signature,
 	) -> bool {
-		let proof_of_possession = AppSignature::from(*proof_of_possession);
+		//let proof_of_possession = AppSignature::from(*proof_of_possession);
 		let pub_key = AppPublic::from(*self);
 		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
 			owner,

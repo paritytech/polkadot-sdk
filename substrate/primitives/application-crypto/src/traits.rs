@@ -119,7 +119,7 @@ pub trait RuntimePublic: Sized {
 	) -> Option<Self::ProofOfPossession>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool;
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -166,7 +166,7 @@ pub trait RuntimeAppPublic: Sized {
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool;
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
 
 	/// Returns `Self` as raw vec.
 	fn to_raw_vec(&self) -> Vec<u8>;
@@ -219,7 +219,7 @@ where
 		.map(|s| s.into())
 	}
 
-	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::Signature) -> bool {
+	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool {
 		<<T as AppPublic>::Generic as RuntimePublic>::verify_proof_of_possession(
 			self.as_ref(),
 			owner,
