@@ -143,6 +143,8 @@ impl Block {
 		let transactions_root = Self::compute_trie_root(&signed_tx);
 		let receipts_root = Self::compute_trie_root(&receipts);
 
+		// We use the transaction root as state root since the state
+		// root is not yet computed by the substrate block.
 		block.state_root = transactions_root.0.into();
 		block.transactions_root = transactions_root.0.into();
 		block.receipts_root = receipts_root.0.into();
@@ -192,8 +194,10 @@ impl Block {
 
 		let receipt_bloom = receipt.bloom_slow();
 
-		let mut encoded_receipt =
-			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		// Receipt encoding must be prefixed with the rlp(transaction type).
+		let mut encoded_receipt = signed_transaction.signed_type();
+		encoded_receipt
+			.reserve(encoded_receipt.len() + receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
@@ -223,7 +227,7 @@ impl Block {
 		let gas_limit = self.gas_limit.try_into().unwrap_or(u64::MAX);
 
 		let alloy_header = alloy_consensus::Header {
-			state_root: self.transactions_root.0.into(),
+			state_root: self.state_root.0.into(),
 			transactions_root: self.transactions_root.0.into(),
 			receipts_root: self.receipts_root.0.into(),
 
@@ -235,7 +239,17 @@ impl Block {
 			gas_used: self.gas_used.as_u64(),
 			timestamp: self.timestamp.as_u64(),
 
-			..alloy_consensus::Header::default()
+			ommers_hash: self.sha_3_uncles.0.into(),
+			extra_data: self.extra_data.clone().0.into(),
+			mix_hash: self.mix_hash.0.into(),
+			nonce: self.nonce.0.into(),
+			base_fee_per_gas: self.base_fee_per_gas.map(|gas| gas.as_u64()),
+			withdrawals_root: self.withdrawals_root.map(|root| root.0.into()),
+			blob_gas_used: self.blob_gas_used.map(|gas| gas.as_u64()),
+			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
+			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
+
+			..Default::default()
 		};
 
 		alloy_header.hash_slow().0.into()
