@@ -165,6 +165,8 @@ pub mod ecdsa_bls381 {
 	pub const SIGNATURE_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::SIGNATURE_SERIALIZED_SIZE;
 
+	/// Size of Proof Of Possession for (ECDSA, BLS12-381) type (this is one ECDSA and two BLS12-381
+	/// signature)
 	pub const POP_LEN: usize =
 		ecdsa::SIGNATURE_SERIALIZED_SIZE + bls381::PROOF_OF_POSSESSION_SERIALIZED_SIZE;
 

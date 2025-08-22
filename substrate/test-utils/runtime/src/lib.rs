@@ -206,10 +206,6 @@ mod bls {
 }
 pub use bls::*;
 
-pub type EcdsaPop = ecdsa::AppProofOfPossession;
-pub type Sr25519Pop = sr25519::AppProofOfPossession;
-pub type Ed25519Pop = ed25519::AppProofOfPossession;
-
 decl_runtime_apis! {
 	#[api_version(2)]
 	pub trait TestAPI {
@@ -238,15 +234,15 @@ decl_runtime_apis! {
 		/// Test that `ed25519` crypto works in the runtime.
 		///
 		/// Returns the signature generated for the message `ed25519` both the public key and proof of possession.
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, Ed25519Pop);
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession);
 		/// Test that `sr25519` crypto works in the runtime.
 		///
 		/// Returns the signature generated for the message `sr25519` both the public key and proof of possession.
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519Pop);
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession);
 		/// Test that `ecdsa` crypto works in the runtime.
 		///
 		/// Returns the signature generated for the message `ecdsa` both the public key and proof of possession.
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop);
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession);
 		/// Test that `bls381` crypto works in the runtime
 		///
 		/// Returns both the proof of possession and public key.
@@ -615,15 +611,15 @@ impl_runtime_apis! {
 			System::block_number()
 		}
 
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, Ed25519Pop) {
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
 			test_ed25519_crypto()
 		}
 
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519Pop) {
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
 			test_sr25519_crypto()
 		}
 
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
 			test_ecdsa_crypto()
 		}
 
@@ -847,7 +843,8 @@ fn test_ed25519_crypto(
 	(signature, public0, proof_of_possession)
 }
 
-fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519Pop) {
+fn test_sr25519_crypto(
+) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
 	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
@@ -867,7 +864,7 @@ fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, Sr25519P
 	(signature, public0, proof_of_possession)
 }
 
-fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, EcdsaPop) {
+fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
 	let mut public0 = ecdsa::AppPublic::generate_pair(None);
 	let public1 = ecdsa::AppPublic::generate_pair(None);
 	let public2 = ecdsa::AppPublic::generate_pair(None);

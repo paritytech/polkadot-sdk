@@ -36,7 +36,6 @@ pub use app::{
 	ProofOfPossession as AppProofOfPossession, Public as AppPublic, Signature as AppSignature,
 };
 
-type Bls381ProofOfPossession = BLSPoP<Bls381Engine>;
 impl RuntimePublic for Public {
 	type Signature = Signature;
 	type ProofOfPossession = ProofOfPossession;
