@@ -176,6 +176,10 @@ impl Executable<Test> for MockExecutable {
 		self.code_hash.as_ref()
 	}
 
+	fn is_pvm(&self) -> bool {
+		true
+	}
+
 	fn code_hash(&self) -> &H256 {
 		&self.code_hash
 	}
