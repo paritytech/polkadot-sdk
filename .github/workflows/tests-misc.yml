@@ -370,6 +370,8 @@ jobs:
           components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install protobuf
         run: brew install protobuf
+      - name: install solc
+        run: brew install solidity
       - name: cargo info
         run: |
           echo "######## rustup show ########"
