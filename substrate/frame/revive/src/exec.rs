@@ -1599,7 +1599,14 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		crate::Pallet::<T>::eth_block_hash_from_number(block_number.into())
+
+		// Fallback to the system block hash for older blocks
+		// 256 entries should suffice for all use cases, this mostly ensures
+		// our benchmarks are passing.
+		match crate::Pallet::<T>::eth_block_hash_from_number(block_number.into()) {
+			Some(hash) => Some(hash),
+			None => Some(System::<T>::block_hash(&block_number).into()),
+		}
 	}
 }
 
