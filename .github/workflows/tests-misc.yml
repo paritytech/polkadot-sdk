@@ -380,7 +380,7 @@ jobs:
           mkdir -p ~/.local/bin
           mv resolc ~/.local/bin
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          resolc --version
+          resolc --version 
       - name: cargo info
         run: |
           echo "######## rustup show ########"
