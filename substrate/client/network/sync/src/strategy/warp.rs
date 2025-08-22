@@ -18,6 +18,8 @@
 
 //! Warp syncing strategy. Bootstraps chain by downloading warp proofs and state.
 
+use sc_consensus::IncomingBlock;
+use sp_consensus::BlockOrigin;
 pub use sp_consensus_grandpa::{AuthorityList, SetId};
 
 use crate::{
@@ -61,9 +63,9 @@ pub struct WarpProofRequest<B: BlockT> {
 /// Proof verification result.
 pub enum VerificationResult<Block: BlockT> {
 	/// Proof is valid, but the target was not reached.
-	Partial(SetId, AuthorityList, Block::Hash),
+	Partial(SetId, AuthorityList, Block::Hash, Vec<(Block::Header, Justifications)>),
 	/// Target finality is proved.
-	Complete(SetId, AuthorityList, Block::Header),
+	Complete(SetId, AuthorityList, Block::Header, Vec<(Block::Header, Justifications)>),
 }
 
 /// Warp sync backend. Handles retrieving and verifying warp sync proofs.
@@ -403,20 +405,43 @@ where
 			return
 		};
 
+		let proof_to_incoming_block =
+			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
+				IncomingBlock {
+					hash: header.hash(),
+					header: Some(header),
+					body: None,
+					indexed_body: None,
+					justifications: Some(justifications),
+					origin: Some(*peer_id),
+					// We are still in warp sync, so we don't have the state. This means
+					// we also can't execute the block.
+					allow_missing_state: true,
+					skip_execution: true,
+					// Shouldn't already exist in the database.
+					import_existing: false,
+					state: None,
+				}
+			};
+
 		match warp_sync_provider.verify(&response, *set_id, authorities.clone()) {
 			Err(e) => {
 				debug!(target: LOG_TARGET, "Bad warp proof response: {}", e);
 				self.actions
 					.push(SyncingAction::DropPeer(BadPeer(*peer_id, rep::BAD_WARP_PROOF)))
 			},
-			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash)) => {
+			Ok(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash, proofs)) => {
 				log::debug!(target: LOG_TARGET, "Verified partial proof, set_id={:?}", new_set_id);
 				*set_id = new_set_id;
 				*authorities = new_authorities;
 				*last_hash = new_last_hash;
 				self.total_proof_bytes += response.0.len() as u64;
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
 			},
-			Ok(VerificationResult::Complete(new_set_id, _, header)) => {
+			Ok(VerificationResult::Complete(new_set_id, _, header, proofs)) => {
 				log::debug!(
 					target: LOG_TARGET,
 					"Verified complete proof, set_id={:?}. Continuing with target block download: {} ({}).",
@@ -426,6 +451,10 @@ where
 				);
 				self.total_proof_bytes += response.0.len() as u64;
 				self.phase = Phase::TargetBlock(header);
+				self.actions.push(SyncingAction::ImportBlocks {
+					origin: BlockOrigin::NetworkInitialSync,
+					blocks: proofs.into_iter().map(proof_to_incoming_block).collect(),
+				});
 			},
 		}
 	}
@@ -744,7 +773,7 @@ mod test {
 	use crate::{mock::MockBlockDownloader, service::network::NetworkServiceProvider};
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_blockchain::{BlockStatus, Error as BlockchainError, HeaderBackend, Info};
-	use sp_consensus_grandpa::{AuthorityList, SetId};
+	use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 	use sp_core::H256;
 	use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 	use std::{io::ErrorKind, sync::Arc};
@@ -1230,19 +1259,38 @@ mod test {
 
 	#[test]
 	fn partial_warp_proof_doesnt_advance_phase() {
-		let client = mock_client_without_state();
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
 		let mut provider = MockWarpSyncProvider::<Block>::new();
 		provider
 			.expect_current_authorities()
 			.once()
 			.return_const(AuthorityList::default());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let target_header = target_block.header().clone();
+		let justifications = Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is partial.
-		provider.expect_verify().return_once(|_proof, set_id, authorities| {
-			Ok(VerificationResult::Partial(set_id, authorities, Hash::random()))
-		});
+		{
+			let target_header = target_header.clone();
+			let justifications = justifications.clone();
+			provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+				Ok(VerificationResult::Partial(
+					set_id,
+					authorities,
+					target_header.hash(),
+					vec![(target_header, justifications)],
+				))
+			});
+		}
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
-			Arc::new(client),
+			client,
 			config,
 			Some(ProtocolName::Static("")),
 			Arc::new(MockBlockDownloader::new()),
@@ -1267,7 +1315,29 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert!(warp_sync.actions.is_empty(), "No extra actions generated");
+		assert_eq!(warp_sync.actions.len(), 1);
+		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
+		else {
+			panic!("Expected `ImportBlocks` action.");
+		};
+		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(blocks.len(), 1);
+		let import_block = blocks.pop().unwrap();
+		assert_eq!(
+			import_block,
+			IncomingBlock {
+				hash: target_header.hash(),
+				header: Some(target_header),
+				body: None,
+				indexed_body: None,
+				justifications: Some(justifications),
+				origin: Some(request_peer_id),
+				allow_missing_state: true,
+				skip_execution: true,
+				import_existing: false,
+				state: None,
+			}
+		);
 		assert!(matches!(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
@@ -1288,10 +1358,20 @@ mod test {
 			.unwrap()
 			.block;
 		let target_header = target_block.header().clone();
+		let justifications = Justifications::new(vec![(GRANDPA_ENGINE_ID, vec![1, 2, 3, 4, 5])]);
 		// Warp proof is complete.
-		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
-		});
+		{
+			let target_header = target_header.clone();
+			let justifications = justifications.clone();
+			provider.expect_verify().return_once(move |_proof, set_id, authorities| {
+				Ok(VerificationResult::Complete(
+					set_id,
+					authorities,
+					target_header.clone(),
+					vec![(target_header, justifications)],
+				))
+			});
+		}
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync = WarpSync::new(
 			client,
@@ -1319,7 +1399,29 @@ mod test {
 
 		warp_sync.on_warp_proof_response(&request_peer_id, EncodedProof(Vec::new()));
 
-		assert!(warp_sync.actions.is_empty(), "No extra actions generated.");
+		assert_eq!(warp_sync.actions.len(), 1);
+		let SyncingAction::ImportBlocks { origin, mut blocks } = warp_sync.actions.pop().unwrap()
+		else {
+			panic!("Expected `ImportBlocks` action.");
+		};
+		assert_eq!(origin, BlockOrigin::NetworkInitialSync);
+		assert_eq!(blocks.len(), 1);
+		let import_block = blocks.pop().unwrap();
+		assert_eq!(
+			import_block,
+			IncomingBlock {
+				hash: target_header.hash(),
+				header: Some(target_header),
+				body: None,
+				indexed_body: None,
+				justifications: Some(justifications),
+				origin: Some(request_peer_id),
+				allow_missing_state: true,
+				skip_execution: true,
+				import_existing: false,
+				state: None,
+			}
+		);
 		assert!(
 			matches!(warp_sync.phase, Phase::TargetBlock(header) if header == *target_block.header())
 		);
@@ -1372,7 +1474,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1446,7 +1548,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1485,7 +1587,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1540,7 +1642,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1618,7 +1720,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =
@@ -1672,7 +1774,7 @@ mod test {
 		let target_header = target_block.header().clone();
 		// Warp proof is complete.
 		provider.expect_verify().return_once(move |_proof, set_id, authorities| {
-			Ok(VerificationResult::Complete(set_id, authorities, target_header))
+			Ok(VerificationResult::Complete(set_id, authorities, target_header, Default::default()))
 		});
 		let config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		let mut warp_sync =

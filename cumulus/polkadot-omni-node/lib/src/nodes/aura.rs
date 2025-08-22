@@ -45,7 +45,7 @@ use cumulus_client_consensus_aura::{
 	},
 	equivocation_import_queue::Verifier as EquivocationVerifier,
 };
-use cumulus_client_consensus_proposer::{Proposer, ProposerInterface};
+use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 #[allow(deprecated)]
 use cumulus_client_service::CollatorSybilResistance;
@@ -326,7 +326,7 @@ where
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
 	) -> Result<(), Error> {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -334,7 +334,6 @@ where
 			telemetry.clone(),
 		);
 
-		let proposer = Proposer::new(proposer_factory);
 		let collator_service = CollatorService::new(
 			client.clone(),
 			Arc::new(task_manager.spawn_handle()),
@@ -451,7 +450,7 @@ where
 		node_extra_args: NodeExtraArgs,
 		_: (),
 	) -> Result<(), Error> {
-		let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool,
@@ -485,7 +484,7 @@ where
 				para_id,
 				overseer_handle,
 				relay_chain_slot_duration,
-				proposer: Proposer::new(proposer_factory),
+				proposer,
 				collator_service,
 				authoring_duration: Duration::from_millis(2000),
 				reinitialize: false,

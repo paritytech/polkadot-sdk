@@ -176,6 +176,10 @@ impl Executable<Test> for MockExecutable {
 		self.code_hash.as_ref()
 	}
 
+	fn is_pvm(&self) -> bool {
+		true
+	}
+
 	fn code_hash(&self) -> &H256 {
 		&self.code_hash
 	}
@@ -791,40 +795,6 @@ fn origin_returns_proper_values() {
 
 	assert_eq!(WitnessedCallerBob::get(), Some(ALICE_ADDR));
 	assert_eq!(WitnessedCallerCharlie::get(), Some(ALICE_ADDR));
-}
-
-#[test]
-fn to_account_id_returns_proper_values() {
-	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
-		assert_eq!(ctx.ext.to_account_id(&ALICE_ADDR), alice_account_id);
-
-		const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
-		let mut unmapped_fallback_account_id = [0xEE; 32];
-		unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
-		assert_eq!(
-			ctx.ext.to_account_id(&UNMAPPED_ADDR),
-			AccountId32::new(unmapped_fallback_account_id)
-		);
-
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, bob_code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		let result = MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
-			&mut storage_meter,
-			U256::zero(),
-			vec![0],
-			false,
-		);
-		assert_matches!(result, Ok(_));
-	});
 }
 
 #[test]
