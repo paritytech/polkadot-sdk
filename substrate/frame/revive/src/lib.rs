@@ -1817,8 +1817,11 @@ impl<T: Config> Pallet<T> {
 		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 
-		InflightEthTransactions::<T>::mutate(|transactions| {
-			transactions.push(TransactionDetails { signed_transaction, logs, success, gas_used });
+		InflightEthTransactions::<T>::append(TransactionDetails {
+			signed_transaction,
+			logs,
+			success,
+			gas_used,
 		});
 	}
 
