@@ -37,7 +37,7 @@ pub struct HostState {
 	/// once.
 	pub(crate) allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
-	pub(crate) input_data: Vec<u8>,
+	pub(crate) input_data: Option<Vec<u8>>,
 }
 
 impl HostState {
@@ -46,7 +46,7 @@ impl HostState {
 		HostState {
 			allocator: Some(allocator),
 			panic_message: None,
-			input_data: input_data.as_ref().to_vec(),
+			input_data: Some(input_data.as_ref().to_vec()),
 		}
 	}
 
@@ -136,7 +136,11 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		ptr: Pointer<u8>,
 		size: WordSize,
 	) -> sp_wasm_interface::Result<()> {
-		let input_data = self.host_state_mut().input_data.clone(); // FIXME
+		let input_data = self
+			.host_state_mut()
+			.input_data
+			.take()
+			.expect("input data is not empty when calling a function in wasm; qed");
 		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
 		self.write_memory(ptr, &input_data[..])?;
 		Ok(())
