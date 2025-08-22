@@ -74,6 +74,7 @@ pub fn glutton_westend_config(para_id: ParaId) -> GenericChainSpec {
 
 	GenericChainSpec::builder(
 		glutton_westend_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "westend".into(), para_id: para_id.into() },
 	)
 	.with_name(format!("Glutton {}", para_id).as_str())
@@ -88,6 +89,18 @@ pub fn glutton_westend_config(para_id: ParaId) -> GenericChainSpec {
 	))
 	.with_protocol_id(format!("glutton-westend-{}", para_id).as_str())
 	.with_properties(properties)
+=======
+		Extensions::new_with_relay_chain(relay_chain.into()),
+	)
+	.with_name(&chain_type_name(para_id, &chain_type))
+	.with_id(&chain_id(para_id, &chain_type))
+	.with_chain_type(chain_type.clone())
+	.with_genesis_config_preset_name(match chain_type {
+		ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+		ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+		_ => panic!("chain_type: {chain_type:?} not supported here!"),
+	})
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	.build()
 }
 

@@ -28,7 +28,11 @@ use sp_core::{crypto::UncheckedInto, sr25519};
 pub fn rococo_parachain_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
+=======
+		Extensions::new_with_relay_chain("rococo-local".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Rococo Parachain Local")
 	.with_id("local_testnet")
@@ -59,7 +63,11 @@ pub fn staging_rococo_parachain_local_config() -> GenericChainSpec {
 	#[allow(deprecated)]
 	GenericChainSpec::builder(
 		rococo_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "rococo-local".into(), para_id: 1000 },
+=======
+		Extensions::new_with_relay_chain("rococo-local".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Staging Rococo Parachain Local")
 	.with_id("staging_testnet")

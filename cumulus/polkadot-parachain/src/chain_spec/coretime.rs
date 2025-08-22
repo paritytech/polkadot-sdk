@@ -180,6 +180,7 @@ pub mod rococo {
 
 		GenericChainSpec::builder(
 			wasm_binary,
+<<<<<<< HEAD
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(&chain_name)
@@ -238,6 +239,20 @@ pub mod rococo {
 				"key": Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 			},
 		})
+=======
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
+		)
+		.with_name(&chain_name)
+		.with_id(runtime_type.into())
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
+		.with_properties(properties)
+		.build()
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	}
 }
 
@@ -270,7 +285,11 @@ pub mod westend {
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
+=======
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 		)
 		.with_name(&chain_name)
 		.with_id(runtime_type.into())

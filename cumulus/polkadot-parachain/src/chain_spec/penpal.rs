@@ -30,10 +30,14 @@ pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec 
 
 	GenericChainSpec::builder(
 		penpal_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions {
 			relay_chain: relay_chain.into(), // You MUST set this to the correct network!
 			para_id: id.into(),
 		},
+=======
+		Extensions::new_with_relay_chain(relay_chain.into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Penpal Parachain")
 	.with_id(&format!("penpal-{}", relay_chain.replace("-local", "")))

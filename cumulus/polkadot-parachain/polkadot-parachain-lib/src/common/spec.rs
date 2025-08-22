@@ -6,6 +6,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -20,6 +21,19 @@ use crate::common::{
 	types::{
 		ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 		ParachainService,
+=======
+use crate::{
+	chain_spec::Extensions,
+	common::{
+		command::NodeCommandRunner,
+		rpc::BuildRpcExtensions,
+		statement_store::{build_statement_store, new_statement_handler_proto},
+		types::{
+			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
+			ParachainService,
+		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 	},
 	ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 };
@@ -39,7 +53,14 @@ use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock}
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 use sc_transaction_pool::FullPool;
+=======
+use sc_tracing::tracing::Instrument;
+use sc_transaction_pool::TransactionPoolHandle;
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_api::{ApiExt, ProvideRuntimeApi};
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -109,7 +130,49 @@ pub(crate) trait NodeSpec {
 
 	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
 
+<<<<<<< HEAD:cumulus/polkadot-parachain/polkadot-parachain-lib/src/common/spec.rs
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
+=======
+	/// Retrieves parachain id.
+	fn parachain_id(
+		client: &ParachainClient<Self::Block, Self::RuntimeApi>,
+		parachain_config: &Configuration,
+	) -> Option<ParaId> {
+		let best_hash = client.chain_info().best_hash;
+		let para_id = if client
+			.runtime_api()
+			.has_api::<dyn GetParachainInfo<Self::Block>>(best_hash)
+			.ok()
+			.filter(|has_api| *has_api)
+			.is_some()
+		{
+			client
+				.runtime_api()
+				.parachain_id(best_hash)
+				.inspect_err(|err| {
+					log::error!(
+								"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+								err
+							);
+				})
+				.ok()?
+		} else {
+			ParaId::from(
+				Extensions::try_get(&*parachain_config.chain_spec).and_then(|ext| ext.para_id())?,
+			)
+		};
+
+		let parachain_account =
+			AccountIdConversion::<polkadot_primitives::AccountId>::into_account_truncating(
+				&para_id,
+			);
+
+		info!("🪪 Parachain id: {:?}", para_id);
+		info!("🧾 Parachain Account: {}", parachain_account);
+
+		Some(para_id)
+	}
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201)):cumulus/polkadot-omni-node/lib/src/common/spec.rs
 
 	/// Starts a `ServiceBuilder` for a full service.
 	///

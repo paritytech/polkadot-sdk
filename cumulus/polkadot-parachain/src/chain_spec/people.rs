@@ -14,10 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+<<<<<<< HEAD
 use cumulus_primitives_core::ParaId;
 use parachains_common::Balance as PeopleBalance;
 use polkadot_parachain_lib::chain_spec::GenericChainSpec;
 use sc_chain_spec::ChainSpec;
+=======
+use polkadot_omni_node_lib::chain_spec::GenericChainSpec;
+use sc_chain_spec::{ChainSpec, ChainType};
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 use std::str::FromStr;
 
 /// Collects all supported People configurations.
@@ -73,13 +78,21 @@ impl PeopleRuntimeType {
 				rococo::PEOPLE_ROCOCO_LOCAL,
 				"Rococo People Local",
 				"rococo-local",
+<<<<<<< HEAD
 				ParaId::new(1004),
+=======
+				ChainType::Local,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 			))),
 			PeopleRuntimeType::RococoDevelopment => Ok(Box::new(rococo::local_config(
 				rococo::PEOPLE_ROCOCO_DEVELOPMENT,
 				"Rococo People Development",
 				"rococo-development",
+<<<<<<< HEAD
 				ParaId::new(1004),
+=======
+				ChainType::Development,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 			))),
 			PeopleRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/people-westend.json")[..],
@@ -88,13 +101,21 @@ impl PeopleRuntimeType {
 				westend::PEOPLE_WESTEND_LOCAL,
 				"Westend People Local",
 				"westend-local",
+<<<<<<< HEAD
 				ParaId::new(1004),
+=======
+				ChainType::Local,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 			))),
 			PeopleRuntimeType::WestendDevelopment => Ok(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_DEVELOPMENT,
 				"Westend People Development",
 				"westend-development",
+<<<<<<< HEAD
 				ParaId::new(1004),
+=======
+				ChainType::Development,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 			))),
 			other => Err(std::format!(
 				"No default config present for {:?}, you should provide a chain-spec as json file!",
@@ -119,12 +140,16 @@ fn ensure_id(id: &str) -> Result<&str, String> {
 
 /// Sub-module for Rococo setup.
 pub mod rococo {
+<<<<<<< HEAD
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+=======
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
@@ -134,10 +159,14 @@ pub mod rococo {
 	const PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
-		id: &str,
+		spec_id: &str,
 		chain_name: &str,
 		relay_chain: &str,
+<<<<<<< HEAD
 		para_id: ParaId,
+=======
+		chain_type: ChainType,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
@@ -147,6 +176,7 @@ pub mod rococo {
 		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
@@ -180,6 +210,18 @@ pub mod rococo {
 			],
 			para_id,
 		))
+=======
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
+		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(spec_id).expect("invalid id"))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 		.with_properties(properties)
 		.build()
 	}
@@ -229,12 +271,16 @@ pub mod rococo {
 
 /// Sub-module for Westend setup.
 pub mod westend {
+<<<<<<< HEAD
 	use super::{ParaId, PeopleBalance};
 	use crate::chain_spec::{
 		get_account_id_from_seed, get_collator_keys_from_seed, SAFE_XCM_VERSION,
 	};
 	use parachains_common::{AccountId, AuraId};
 	use polkadot_parachain_lib::chain_spec::{Extensions, GenericChainSpec};
+=======
+	use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	use sc_chain_spec::ChainType;
 	use sp_core::sr25519;
 
@@ -244,10 +290,14 @@ pub mod westend {
 	const PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	pub fn local_config(
-		id: &str,
+		spec_id: &str,
 		chain_name: &str,
 		relay_chain: &str,
+<<<<<<< HEAD
 		para_id: ParaId,
+=======
+		chain_type: ChainType,
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	) -> GenericChainSpec {
 		let mut properties = sc_chain_spec::Properties::new();
 		properties.insert("ss58Format".into(), 42.into());
@@ -257,6 +307,7 @@ pub mod westend {
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
 				.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
@@ -290,6 +341,18 @@ pub mod westend {
 			],
 			para_id,
 		))
+=======
+			Extensions::new_with_relay_chain(relay_chain.to_string()),
+		)
+		.with_name(chain_name)
+		.with_id(super::ensure_id(spec_id).expect("invalid id"))
+		.with_chain_type(chain_type.clone())
+		.with_genesis_config_preset_name(match chain_type {
+			ChainType::Development => sp_genesis_builder::DEV_RUNTIME_PRESET,
+			ChainType::Local => sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET,
+			_ => panic!("chain_type: {chain_type:?} not supported here!"),
+		})
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 		.with_properties(properties)
 		.build()
 	}

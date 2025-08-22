@@ -25,7 +25,11 @@ pub fn asset_hub_westend_development_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+=======
+		Extensions::new_with_relay_chain("westend".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Westend Asset Hub Development")
 	.with_id("asset-hub-westend-dev")
@@ -43,7 +47,11 @@ pub fn asset_hub_westend_local_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "westend-local".into(), para_id: 1000 },
+=======
+		Extensions::new_with_relay_chain("westend-local".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Westend Asset Hub Local")
 	.with_id("asset-hub-westend-local")
@@ -61,7 +69,11 @@ pub fn asset_hub_westend_config() -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "westend".into(), para_id: 1000 },
+=======
+		Extensions::new_with_relay_chain("westend".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Westend Asset Hub")
 	.with_id("asset-hub-westend")
@@ -80,7 +92,6 @@ pub fn asset_hub_rococo_development_config() -> GenericChainSpec {
 		properties,
 		"Rococo Asset Hub Development",
 		"asset-hub-rococo-dev",
-		1000,
 	)
 }
 
@@ -88,11 +99,14 @@ fn asset_hub_rococo_like_development_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
-	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "rococo-dev".into(), para_id },
+=======
+		Extensions::new_with_relay_chain("rococo-dev".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -111,7 +125,6 @@ pub fn asset_hub_rococo_local_config() -> GenericChainSpec {
 		properties,
 		"Rococo Asset Hub Local",
 		"asset-hub-rococo-local",
-		1000,
 	)
 }
 
@@ -119,11 +132,14 @@ fn asset_hub_rococo_like_local_config(
 	properties: sc_chain_spec::Properties,
 	name: &str,
 	chain_id: &str,
-	para_id: u32,
 ) -> GenericChainSpec {
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "rococo-local".into(), para_id },
+=======
+		Extensions::new_with_relay_chain("rococo-local".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -140,7 +156,11 @@ pub fn asset_hub_rococo_genesis_config() -> GenericChainSpec {
 	let para_id = 1000;
 	GenericChainSpec::builder(
 		asset_hub_rococo_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+<<<<<<< HEAD
 		Extensions { relay_chain: "rococo".into(), para_id },
+=======
+		Extensions::new_with_relay_chain("rococo".into()),
+>>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
 	)
 	.with_name("Rococo Asset Hub")
 	.with_id("asset-hub-rococo")

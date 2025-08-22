@@ -1,10 +1,10 @@
+# Chain Spec Builder
 
+Substrate's chain spec builder utility.
 
-## Release
+A chain-spec is short for `chain-specification`. See the [`sc-chain-spec`](https://crates.io/docs.rs/sc-chain-spec/latest/sc_chain_spec)
+for more information.
 
-<<<<<<< HEAD
-Polkadot SDK stable2409
-=======
 _Note:_ this binary is a more flexible alternative to the `build-spec` subcommand, contained in typical Substrate-based nodes.
 This particular binary is capable of interacting with [`sp-genesis-builder`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/index.html)
 implementation of any provided runtime allowing to build chain-spec JSON files.
@@ -48,46 +48,28 @@ chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" --para-id 1000 -r
 
 Query the default genesis config from the provided runtime WASM blob and use it in the chain spec.
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $runtime_path default
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_default) -->
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### Display the runtime's default `GenesisConfig`
 
-```rust,ignore
-bash!(
-	chain-spec-builder display-preset -r $runtime_path
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_display_default_preset) -->
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### Display the `GenesisConfig` preset with given name
 
-```rust,ignore
-fn cmd_display_preset(runtime_path: &str) -> String {
-	bash!(
-		chain-spec-builder display-preset -r $runtime_path -p "staging"
-	)
-}
-```
+<!-- docify::embed!("tests/test.rs", cmd_display_preset)-->
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime function is called.
 
 ### List the names of `GenesisConfig` presets provided by runtime
 
-```rust,ignore
-bash!(
-	chain-spec-builder list-presets -r $runtime_path
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_list_presets)-->
 
 _Note:_ [`GenesisBuilder::preset_names`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.preset_names)
 runtime function is called.
@@ -97,11 +79,7 @@ runtime function is called.
 Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
 version of chain spec:
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create --relay-chain "dev" -r $runtime_path named-preset "staging"
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_with_named_preset)-->
 
 _Note:_ [`GenesisBuilder::get_preset`](https://docs.rs/sp-genesis-builder/latest/sp_genesis_builder/trait.GenesisBuilder.html#method.get_preset)
 runtime functions are called.
@@ -111,11 +89,7 @@ runtime functions are called.
 Patch the runtime's default genesis config with provided `patch.json` and generate raw
 storage (`-s`) version of chain spec:
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path patch "tests/input/patch.json"
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_with_patch_raw)-->
 
 Refer to [_patch file_](#patch-file) for some details on the patch file format.
 
@@ -128,11 +102,7 @@ runtime functions are called.
 
 Build the chain spec using provided full genesis config json file. No defaults will be used:
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create -s -r $runtime_path full "tests/input/full.json"
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_full_raw)-->
 
 Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
@@ -141,21 +111,13 @@ runtime function is called.
 
 ### Generate human readable chain spec using provided genesis config patch
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $runtime_path patch "tests/input/patch.json"
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_with_patch_plain)-->
 
 Refer to [_patch file_](#patch-file) for some details on the patch file format.
 
 ### Generate human readable chain spec using provided full genesis config
 
-```rust,ignore
-bash!(
-	chain-spec-builder -c "/dev/stdout" create -r $runtime_path full "tests/input/full.json"
-)
-```
+<!-- docify::embed!("tests/test.rs", cmd_create_full_plain)-->
 
 Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
@@ -204,4 +166,3 @@ format of the file is similar to patch format. Example is not provided here as i
 The `chain-spec-builder` provides also some extra utilities: [`VerifyCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.VerifyCmd.html),
 [`ConvertToRawCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.ConvertToRawCmd.html),
 [`UpdateCodeCmd`](https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/struct.UpdateCodeCmd.html).
->>>>>>> 2660bf5f (`polkadot-omni-node`: fixes and changes related to `GetParachainInfo` (#9201))
