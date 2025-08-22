@@ -32,10 +32,8 @@ pub trait OnFinalizeBlockParts {
 /// Splits finalize_block weight into fixed, per-transaction, per-event components.
 ///
 /// **Weight Formula:**
-/// ```
-/// Total weight = fixed_part +
-///                Σ(per_tx_part(payload_i)) +
-///                Σ(per_event_part(data_len_j))
+/// ```text
+/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j))
 /// ```
 ///
 /// **Component Functions:**
