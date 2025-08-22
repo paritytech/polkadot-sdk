@@ -498,7 +498,7 @@ where
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let value = value.to_bytes();
-		context.write_memory(Pointer::new(arg), value)
+		context.write_memory(Pointer::new(arg), &value)
 	}
 }
 
@@ -510,7 +510,7 @@ where
 	type Destructor = ();
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		let value = value.to_bytes_mut();
+		let value = value.to_bytes();
 		(value.as_ptr() as u32, ())
 	}
 }
@@ -608,32 +608,28 @@ impl<'a, T: codec::Encode> IntoFFIValue for PassFatPointerAndDecodeSlice<&'a [T]
 
 /// A trait signifying a primitive type.
 trait Primitive: Copy + Default {
-	const SIZE: usize = core::mem::size_of::<Self>();
+	fn to_bytes(&self) -> Vec<u8>;
+}
 
-	#[cfg(not(substrate_runtime))]
-	fn to_bytes(&self) -> &[u8] {
-		// SAFETY: Representing a primitive type as a byte slice of corresponding size is always
-		// safe.
-		unsafe { core::slice::from_raw_parts(self as *const _ as *const u8, Self::SIZE) }
-	}
-
-	#[cfg(substrate_runtime)]
-	fn to_bytes_mut(&mut self) -> &mut [u8] {
-		// SAFETY: Representing a primitive type as a byte slice of corresponding size is always
-		// safe.
-		unsafe { core::slice::from_raw_parts_mut(self as *mut _ as *mut u8, Self::SIZE) }
+macro_rules! impl_primitive {
+	($ty:ty) => {
+		impl Primitive for $ty {
+			fn to_bytes(&self) -> Vec<u8> {
+				self.to_le_bytes().to_vec()
+			}
+		}
 	}
 }
 
-impl Primitive for u8 {}
-impl Primitive for u16 {}
-impl Primitive for u32 {}
-impl Primitive for u64 {}
+impl_primitive!(u8);
+impl_primitive!(u16);
+impl_primitive!(u32);
+impl_primitive!(u64);
 
-impl Primitive for i8 {}
-impl Primitive for i16 {}
-impl Primitive for i32 {}
-impl Primitive for i64 {}
+impl_primitive!(i8);
+impl_primitive!(i16);
+impl_primitive!(i32);
+impl_primitive!(i64);
 
 /// Pass `T` through the FFI boundary by first converting it to `U` in the runtime, and then
 /// converting it back to `T` on the host's side.
