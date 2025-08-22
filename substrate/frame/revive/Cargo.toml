@@ -28,6 +28,7 @@ ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
 humantime-serde = { optional = true, workspace = true }
 impl-trait-for-tuples = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true, optional = true }
 log = { workspace = true }
 num-bigint = { workspace = true }
 num-integer = { workspace = true }
@@ -41,7 +42,6 @@ revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
-k256 = { features = ["alloc", "ecdsa"], workspace = true, optional = true }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }
@@ -86,14 +86,19 @@ sp-tracing = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-consensus/std",
 	"alloy-core/std",
+	"alloy-primitives/std",
 	"codec/std",
 	"environmental/std",
 	"ethereum-types/std",
+	"ethereum/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"hash-db/std",
 	"humantime-serde",
+	"k256/std",
 	"log/std",
 	"num-bigint/std",
 	"num-integer/std",
@@ -122,12 +127,15 @@ std = [
 	"sp-io/std",
 	"sp-keystore/std",
 	"sp-runtime/std",
+	"sp-version/std",
 	"subxt-signer",
+	"trie-root/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"k256",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
@@ -140,7 +148,6 @@ runtime-benchmarks = [
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
-	"k256",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
