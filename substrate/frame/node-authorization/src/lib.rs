@@ -191,31 +191,6 @@ pub mod pallet {
 					);
 				},
 			}
-
-			// TODO: Check with network guys it's okay
-
-			// let network_state = sp_io::offchain::network_state();
-			// match network_state {
-			// 	Err(_) => log::error!(
-			// 		target: "runtime::node-authorization",
-			// 		"Error: failed to get network state of node at {:?}",
-			// 		now,
-			// 	),
-			// 	Ok(state) => {
-			// 		let encoded_peer = state.peer_id.0;
-			// 		match Decode::decode(&mut &encoded_peer[..]) {
-			// 			Err(_) => log::error!(
-			// 				target: "runtime::node-authorization",
-			// 				"Error: failed to decode PeerId at {:?}",
-			// 				now,
-			// 			),
-			// 			Ok(node) => sp_io::offchain::set_authorized_nodes(
-			// 				Self::get_authorized_nodes(&PeerId(node)),
-			// 				true,
-			// 			),
-			// 		}
-			// 	},
-			// }
 		}
 	}
 

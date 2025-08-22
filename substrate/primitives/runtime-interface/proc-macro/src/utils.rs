@@ -331,7 +331,6 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 			wrappers.insert(name.clone(), item.clone());
 			continue;
 		}
-		// TODO: Add a lint to check if every wrapped has a corresponding wrapper
 
 		let version = get_item_version(item)?.unwrap_or_default();
 
