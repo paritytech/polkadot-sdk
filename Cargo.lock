@@ -14810,9 +14810,9 @@ dependencies = [
 
 [[package]]
 name = "picoalloc"
-version = "5.1.0"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3b89f2d241d6621c301bfb56235a47abdb5d3fdebff771edb87f0eec237a8de"
+checksum = "6e1912f9b1d3aea43590e3986afdcf4ed1d9662edae24744a095738157d65b6a"
 
 [[package]]
 name = "pin-project"

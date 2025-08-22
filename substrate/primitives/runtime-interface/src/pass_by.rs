@@ -351,7 +351,7 @@ where
 	}
 }
 
-/// Pass a buffer into the host by a fat pointer, writing input data into it.
+/// Pass a buffer into the host by a fat pointer. The host will write input data into it.
 ///
 /// Handles a specific case of passing input data from the host to the runtime after the runtime
 /// has allocated memory for it.
