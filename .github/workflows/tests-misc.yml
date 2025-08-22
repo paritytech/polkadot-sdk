@@ -381,7 +381,6 @@ jobs:
           sudo chmod 755 /usr/local/bin/resolc
         with:
           version: 0.3.0        
-
       - name: cargo info
         run: |
           echo "######## rustup show ########"
