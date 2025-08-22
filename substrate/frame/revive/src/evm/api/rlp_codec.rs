@@ -96,6 +96,31 @@ impl TransactionSigned {
 		s.out().to_vec()
 	}
 
+	/// Encode the Ethereum transaction type into bytes.
+	///
+	/// This is needed to encode the receipts.
+	pub fn signed_type(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new();
+
+		match &self {
+			TransactionSigned::Transaction4844Signed(tx) => {
+				s.append(&tx.transaction_4844_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction1559Signed(tx) => {
+				s.append(&tx.transaction_1559_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction2930Signed(tx) => {
+				s.append(&tx.transaction_2930_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction7702Signed(tx) => {
+				s.append(&tx.transaction_7702_unsigned.r#type.value());
+			},
+			TransactionSigned::TransactionLegacySigned(_) => {},
+		};
+
+		s.out().to_vec()
+	}
+
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
 		if data.len() < 1 {
@@ -214,9 +239,9 @@ impl Encodable for SetCodeAuthorizationEntry {
 		s.append(&self.chain_id);
 		s.append(&self.address);
 		s.append(&self.nonce);
+		s.append(&self.y_parity);
 		s.append(&self.r);
 		s.append(&self.s);
-		s.append(&self.y_parity);
 	}
 }
 
@@ -226,9 +251,9 @@ impl Decodable for SetCodeAuthorizationEntry {
 			chain_id: rlp.val_at(0)?,
 			address: rlp.val_at(1)?,
 			nonce: rlp.val_at(2)?,
-			r: rlp.val_at(3)?,
-			s: rlp.val_at(4)?,
-			y_parity: rlp.val_at(5)?,
+			y_parity: rlp.val_at(3)?,
+			r: rlp.val_at(4)?,
+			s: rlp.val_at(5)?,
 		})
 	}
 }
@@ -453,12 +478,12 @@ impl Encodable for Transaction7702Unsigned {
 		s.append(&self.nonce);
 		s.append(&self.max_priority_fee_per_gas);
 		s.append(&self.max_fee_per_gas);
-		s.append(&self.gas_price);
 		s.append(&self.gas);
 		s.append(&self.to);
 		s.append(&self.value);
 		s.append(&self.input.0);
 		s.append_list(&self.access_list);
+		s.append_list(&self.auth_list);
 	}
 }
 
@@ -466,12 +491,11 @@ impl Encodable for Transaction7702Unsigned {
 impl Encodable for Transaction7702Signed {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
 		let tx = &self.transaction_7702_unsigned;
-		s.begin_list(14);
+		s.begin_list(13);
 		s.append(&tx.chain_id);
 		s.append(&tx.nonce);
 		s.append(&tx.max_priority_fee_per_gas);
 		s.append(&tx.max_fee_per_gas);
-		s.append(&tx.gas_price);
 		s.append(&tx.gas);
 		s.append(&tx.to);
 		s.append(&tx.value);
