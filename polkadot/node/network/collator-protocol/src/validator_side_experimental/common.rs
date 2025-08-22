@@ -14,12 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::num::NonZeroU16;
+use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
-use polkadot_node_network_protocol::peer_set::CollationVersion;
-use polkadot_primitives::Id as ParaId;
+use polkadot_node_network_protocol::{
+	peer_set::CollationVersion,
+	request_response::{outgoing::RequestError, v2 as request_v2},
+	PeerId,
+};
+use polkadot_node_primitives::PoV;
+use polkadot_primitives::{
+	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
+	PersistedValidationData,
+};
 
-/// Maximum reputation score.
+/// Maximum reputation score. Scores higher than this will be saturated to this value.
 pub const MAX_SCORE: u16 = 5000;
 
 /// Limit for the total number connected peers.
@@ -36,7 +44,7 @@ pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 /// notifications.
 pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 
-/// Reputation bump for getting a valid candidate included.
+/// Reputation bump for getting a valid candidate included in a finalized block.
 pub const VALID_INCLUDED_CANDIDATE_BUMP: u16 = 50;
 
 /// Reputation slash for peer inactivity (for each included candidate of the para that was not
@@ -46,6 +54,22 @@ pub const INACTIVITY_DECAY: u16 = 1;
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u8 = 150;
+
+/// Slashing value for a failed fetch that we can be fairly sure does not happen by accident.
+pub const FAILED_FETCH_SLASH: Score = Score::new(20).expect("20 is less than MAX_SCORE");
+
+/// Slashing value for an invalid collation.
+pub const INVALID_COLLATION_SLASH: Score = Score::new(1000).expect("1000 is less than MAX_SCORE");
+
+/// Minimum reputation threshold that warrants an instant fetch.
+pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(1000).expect("20 is less than MAX_SCORE");
+
+/// Delay for fetching collations when the reputation score is below the threshold
+/// defined by `INSTANT_FETCH_REP_THRESHOLD`.
+/// This gives us a chance to fetch collations from other peers with higher reputation
+/// before we try to fetch from this peer.
+pub const UNDER_THRESHOLD_FETCH_DELAY: Duration = Duration::from_millis(2000);
+
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default)]
 pub struct Score(u16);
@@ -97,6 +121,99 @@ pub enum PeerState {
 	Connected,
 	/// Peer has declared.
 	Collating(ParaId),
+}
+
+#[derive(Debug, PartialEq)]
+/// Outcome of triaging a new connection.
+pub enum TryAcceptOutcome {
+	/// Connection was accepted.
+	Added,
+	/// Connection was accepted, but it replaced the slot(s) of some peers
+	/// This can hold more than one `PeerId` because before receiving the `Declare` message,
+	/// one peer can hold connection slots for multiple paraids.
+	/// The set can also be empty if this peer replaced some other peer's slot but that other peer
+	/// maintained a connection slot for another para (therefore not disconnected).
+	/// The number of peers in the set is bound to the number of scheduled paras.
+	Replaced(HashSet<PeerId>),
+	/// Connection was rejected.
+	Rejected,
+}
+
+impl TryAcceptOutcome {
+	/// Combine two outcomes into one. If at least one of them allows the connection,
+	/// the connection is allowed.
+	pub fn combine(self, other: Self) -> Self {
+		use TryAcceptOutcome::*;
+		match (self, other) {
+			(Added, Added) => Added,
+			(Rejected, Rejected) => Rejected,
+			(Added, Rejected) | (Rejected, Added) => Added,
+			(Replaced(mut replaced_a), Replaced(replaced_b)) => {
+				replaced_a.extend(replaced_b);
+				Replaced(replaced_a)
+			},
+			(_, Replaced(replaced)) | (Replaced(replaced), _) => Replaced(replaced),
+		}
+	}
+}
+
+/// Candidate supplied with a para head it's built on top of.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub struct ProspectiveCandidate {
+	/// Candidate hash.
+	pub candidate_hash: CandidateHash,
+	/// Parent head-data hash as supplied in advertisement.
+	pub parent_head_data_hash: Hash,
+}
+
+/// Identifier of a collation being requested.
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Advertisement {
+	/// Candidate's relay parent.
+	pub relay_parent: Hash,
+	/// Parachain id.
+	pub para_id: ParaId,
+	/// Peer that advertised this collation.
+	pub peer_id: PeerId,
+	/// Optional candidate hash and parent head-data hash if were
+	/// supplied in advertisement.
+	pub prospective_candidate: Option<ProspectiveCandidate>,
+}
+
+/// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
+pub type CollationFetchResponse = (
+	Advertisement,
+	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
+);
+
+/// Any error that can occur when awaiting a collation fetch response.
+#[derive(Debug, thiserror::Error)]
+pub enum CollationFetchError {
+	#[error("Future was cancelled.")]
+	Cancelled,
+	#[error("{0}")]
+	Request(#[from] RequestError),
+}
+
+/// Whether we can start seconding a fetched candidate or not.
+pub enum CanSecond {
+	/// Seconding is not possible. Returns an optional reputation slash, together with the rejected
+	/// collation info.
+	No(Option<Score>, SecondingRejectionInfo),
+	/// Seconding can begin. Returns all the needed data for seconding.
+	Yes(CandidateReceipt, PoV, PersistedValidationData),
+	/// Seconding is blocked because we are waiting for the parent to be seconded.
+	/// Returns the hash of the parent candidate header, together with the rejected collation info.
+	BlockedOnParent(Hash, SecondingRejectionInfo),
+}
+
+/// Information that identifies a collation that was rejected from seconding.
+pub struct SecondingRejectionInfo {
+	pub relay_parent: Hash,
+	pub peer_id: PeerId,
+	pub para_id: ParaId,
+	pub maybe_output_head_hash: Option<Hash>,
+	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
 #[cfg(test)]
