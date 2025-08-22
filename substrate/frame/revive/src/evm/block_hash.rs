@@ -192,8 +192,10 @@ impl Block {
 
 		let receipt_bloom = receipt.bloom_slow();
 
-		let mut encoded_receipt =
-			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		// Receipt encoding must be prefixed with the rlp(transaction type).
+		let mut encoded_receipt = signed_transaction.signed_type();
+		encoded_receipt
+			.reserve(encoded_receipt.len() + receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
@@ -258,6 +260,47 @@ mod test {
 	use super::*;
 	use crate::evm::{Block, ReceiptInfo};
 
+	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
+		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
+
+		// Helper function to RLP-encode a transaction index
+		fn rlp_encode_index(index: u64) -> Vec<u8> {
+			let mut buffer = Vec::new();
+			alloy_consensus::private::alloy_rlp::Encodable::encode(&index, &mut buffer);
+			buffer
+		}
+
+		let mut hash_builder = HashBuilder::default();
+
+		let mut pairs: Vec<_> = encoded
+			.into_iter()
+			.enumerate()
+			.map(|(index, tx)| {
+				let key = rlp_encode_index(index as u64);
+				let mut nibbles = Nibbles::new();
+				for byte in key.iter() {
+					// Split each byte into two nibbles (high and low 4 bits)
+					let high_nibble = (byte >> 4) & 0x0F;
+					let low_nibble = byte & 0x0F;
+					nibbles.push(high_nibble);
+					nibbles.push(low_nibble);
+				}
+
+				(nibbles, tx)
+			})
+			.collect();
+		// Sort by nibble key.
+		// This gives the right lexicographical order to add leaves to the trie.
+		pairs.sort_by(|x, y| x.0.cmp(&y.0));
+
+		for (key, tx) in pairs {
+			hash_builder.add_leaf(key, &tx);
+		}
+
+		let tx_root_hash = hash_builder.root();
+		tx_root_hash.0.into()
+	}
+
 	#[test]
 	fn ensure_identical_hashes() {
 		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x161bd0f", true],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
@@ -272,5 +315,79 @@ mod test {
 		let receipts: Vec<ReceiptInfo> = serde_json::from_str(&json).unwrap();
 
 		assert_eq!(block.header_hash(), receipts[0].block_hash);
+
+		let tx = match &block.transactions {
+			HashesOrTransactionInfos::TransactionInfos(infos) => infos.clone(),
+			_ => panic!("Expected full tx body"),
+		};
+
+		let encoded_tx: Vec<_> = tx
+			.clone()
+			.into_iter()
+			.map(|tx| tx.transaction_signed.signed_payload())
+			.collect();
+
+		let transaction_details: Vec<_> = tx
+			.into_iter()
+			.zip(receipts.into_iter())
+			.map(|(tx_info, receipt_info)| {
+				if tx_info.transaction_index != receipt_info.transaction_index {
+					panic!("Transaction and receipt index do not match");
+				}
+
+				// println!("EthLog: {}", receipt_info.logs.len());
+				// for log in &receipt_info.logs {
+				// 	println!("	topics: {}", log.topics.len());
+				// 	println!("	data: {}", log.data.clone().map(|data| data.0.len()).unwrap_or(0));
+				// }
+
+				TransactionDetails {
+					signed_transaction: tx_info.transaction_signed,
+					logs: receipt_info
+						.logs
+						.into_iter()
+						.map(|log| EventLog {
+							contract: log.address.into(),
+							data: log.data.unwrap_or_default().0,
+							topics: log.topics,
+						})
+						.collect(),
+					success: receipt_info.status.unwrap_or_default() == 1.into(),
+					gas_used: receipt_info.gas_used.as_u64().into(),
+				}
+			})
+			.collect();
+
+		// The block hash would differ here because we don't take into account
+		// the ommers and other fields from the substrate perspective.
+		// However, the state roots must be identical.
+		let built_block = Block::build(
+			transaction_details,
+			block.number.into(),
+			block.parent_hash.into(),
+			block.timestamp.into(),
+			block.miner.into(),
+			Default::default(),
+			block.base_fee_per_gas.unwrap_or_default().into(),
+		)
+		.1;
+
+		assert_eq!(built_block.gas_used, block.gas_used);
+		assert_eq!(built_block.logs_bloom, block.logs_bloom);
+		// We are using the tx root for state root.
+		assert_eq!(built_block.state_root, block.transactions_root);
+
+		let manual_hash = manual_trie_root_compute(encoded_tx.clone());
+		println!("Manual Hash: {:?}", manual_hash);
+		println!("Built block Hash: {:?}", built_block.transactions_root);
+		println!("Real Block Tx Hash: {:?}", block.transactions_root);
+
+		// This double checks the compute logic.
+		assert_eq!(manual_hash, block.transactions_root);
+		// This ensures we can compute the same transaction root as Ethereum.
+		assert_eq!(block.transactions_root, built_block.transactions_root);
+
+		// Double check the receipts roots.
+		assert_eq!(built_block.receipts_root, block.receipts_root);
 	}
 }
