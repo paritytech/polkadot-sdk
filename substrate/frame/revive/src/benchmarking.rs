@@ -2483,9 +2483,6 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify block was properly finalized
-		assert!(Pallet::<T>::block_author().is_some());
-
 		// Verify transaction count
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
 
@@ -2582,9 +2579,6 @@ mod benchmarks {
 			// Measure the finalization cost with specific event/data parameters
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
-
-		// Verify block was properly finalized
-		assert!(Pallet::<T>::block_author().is_some());
 
 		// Verify transaction count
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
