@@ -139,13 +139,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	*number = if diff <= BLOCK_HASH_HISTORY {
 		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
-			context.interpreter.halt(InstructionResult::Revert);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		};
 		U256::from_be_bytes(hash.0)
 	} else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
+		U256::ZERO
 	}
 }
 
@@ -162,15 +161,15 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	*index = if let Some(storage_value) = value {
 		if storage_value.len() != 32 {
 			// sload always reads a word
-			context.interpreter.halt(InstructionResult::Revert);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		}
 		let mut bytes = [0u8; 32];
 		bytes.copy_from_slice(&storage_value);
 		U256::from_be_bytes(bytes)
 	} else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
+		// the key was never written before
+		U256::ZERO
 	};
 }
 
@@ -189,7 +188,7 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old,
 	) else {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
 	match write_outcome {
@@ -240,15 +239,15 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	*index = if let Some(storage_value) = bytes {
 		if storage_value.len() != 32 {
 			// tload always reads a word
-			context.interpreter.halt(InstructionResult::Revert);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		}
 		let mut bytes = [0u8; 32];
 		bytes.copy_from_slice(&storage_value);
 		U256::from_be_bytes(bytes)
 	} else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
+		// the key was never written before
+		U256::ZERO
 	};
 }
 
@@ -301,7 +300,7 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		},
 		Err(e) => {
 			log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
-			context.interpreter.halt(InstructionResult::Revert);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
 			return;
 		},
 	}
