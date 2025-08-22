@@ -346,6 +346,7 @@ pub trait EthExtra {
 					gas_limit,
 					storage_deposit_limit,
 					data,
+					storage_deposit_payer: None
 				}
 				.into()
 			}
@@ -601,7 +602,8 @@ mod test {
 				value: tx.value.unwrap_or_default().as_u64().into(),
 				data: tx.input.to_vec(),
 				gas_limit,
-				storage_deposit_limit
+				storage_deposit_limit,
+				storage_deposit_payer: None
 			}
 			.into()
 		);

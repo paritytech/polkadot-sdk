@@ -185,6 +185,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		storage_deposit_payer: Option<T::AccountId>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`CallBuilder`] with default values.
@@ -196,6 +197,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			storage_deposit_payer: None
 		}
 	}
 );
@@ -208,6 +210,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		storage_deposit_payer: Option<OriginFor<T>>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>>;
 
 	/// Set the call's evm_value using a native_value amount.
@@ -230,6 +233,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: DepositLimit::Balance(deposit_limit::<T>()),
 			data: vec![],
+			storage_deposit_payer: None
 		}
 	}
 );
@@ -242,6 +246,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		storage_deposit_payer: Option<T::AccountId>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -253,6 +258,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
+			storage_deposit_payer: None,
 		}
 	}
 );
