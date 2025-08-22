@@ -627,7 +627,6 @@ pub mod pallet {
 		// We need this to place the substrate block
 		// hash into the logs of the receipts.
 		T::Hash: frame_support::traits::IsType<H256>,
-		// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
