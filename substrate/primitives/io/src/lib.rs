@@ -739,7 +739,7 @@ pub trait Storage {
 		cursor_out_len as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `clear_prefix` host
+	/// A convenience wrapper providing a developer-friendly interface for the `clear_prefix` host
 	/// function.
 	#[wrapper]
 	fn clear_prefix(
@@ -809,7 +809,7 @@ pub trait Storage {
 		root.len() as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `root` host
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
 	/// function.
 	#[wrapper]
 	fn root() -> Vec<u8> {
@@ -858,7 +858,7 @@ pub trait Storage {
 		next_key_len as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `next_key` host
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
 	/// function.
 	#[wrapper]
 	fn next_key(key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
@@ -1093,7 +1093,7 @@ pub trait DefaultChildStorage {
 		cursor_out_len as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `storage_kill` host
+	/// A convenience wrapper providing a developer-friendly interface for the `storage_kill` host
 	/// function.
 	#[wrapper]
 	fn storage_kill(
@@ -1239,7 +1239,7 @@ pub trait DefaultChildStorage {
 		root.len() as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `root` host
+	/// A convenience wrapper providing a developer-friendly interface for the `root` host
 	/// function.
 	#[wrapper]
 	fn root(storage_key: impl AsRef<[u8]>) -> Vec<u8> {
@@ -1287,7 +1287,7 @@ pub trait DefaultChildStorage {
 		next_key_len as u32
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `next_key` host
+	/// A convenience wrapper providing a developer-friendly interface for the `next_key` host
 	/// function.
 	#[wrapper]
 	fn next_key(storage_key: impl AsRef<[u8]>, key: impl AsRef<[u8]>) -> Option<Vec<u8>> {
@@ -1343,8 +1343,8 @@ pub trait Trie {
 		out.0.copy_from_slice(&root.0);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `blake2_256_root` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `blake2_256_root`
+	/// host function.
 	#[wrapper]
 	fn blake2_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
@@ -1385,8 +1385,8 @@ pub trait Trie {
 		out.0.copy_from_slice(&root.0);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `blake2_256_ordered_root`
-	/// host function.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256_ordered_root` host function.
 	#[wrapper]
 	fn blake2_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
@@ -1428,8 +1428,8 @@ pub trait Trie {
 		out.0.copy_from_slice(&root.0);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `keccak_256_root` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `keccak_256_root`
+	/// host function.
 	#[wrapper]
 	fn keccak_256_root(data: Vec<(Vec<u8>, Vec<u8>)>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
@@ -1471,8 +1471,8 @@ pub trait Trie {
 		out.0.copy_from_slice(&root.0);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `keccak_256_ordered_root`
-	/// host function.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256_ordered_root` host function.
 	#[wrapper]
 	fn keccak_256_ordered_root(data: Vec<Vec<u8>>, state_version: StateVersion) -> H256 {
 		let mut root = H256::default();
@@ -1678,8 +1678,8 @@ pub trait Misc {
 		}
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `runtime_version` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `runtime_version`
+	/// host function.
 	#[wrapper]
 	fn runtime_version(code: impl AsRef<[u8]>) -> Option<Vec<u8>> {
 		let mut version = vec![0u8; 1024];
@@ -1799,8 +1799,8 @@ pub trait Crypto {
 		);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `ed25519_generate` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_generate`
+	/// host function.
 	#[wrapper]
 	fn ed25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ed25519::Public {
 		let mut public = ed25519::Public::default();
@@ -1849,7 +1849,7 @@ pub trait Crypto {
 			.ok_or(())
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `ed25519_sign` host
+	/// A convenience wrapper providing a developer-friendly interface for the `ed25519_sign` host
 	/// function.
 	#[wrapper]
 	fn ed25519_sign(
@@ -2073,8 +2073,8 @@ pub trait Crypto {
 		);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `sr25519_generate` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_generate`
+	/// host function.
 	#[wrapper]
 	fn sr25519_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> sr25519::Public {
 		let mut public = sr25519::Public::default();
@@ -2123,7 +2123,7 @@ pub trait Crypto {
 			.ok_or(())
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `sr25519_sign` host
+	/// A convenience wrapper providing a developer-friendly interface for the `sr25519_sign` host
 	/// function.
 	#[wrapper]
 	fn sr25519_sign(
@@ -2225,7 +2225,7 @@ pub trait Crypto {
 		);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `ecdsa_generate` host
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_generate` host
 	/// function.
 	#[wrapper]
 	fn ecdsa_generate(id: KeyTypeId, seed: Option<Vec<u8>>) -> ecdsa::Public {
@@ -2275,7 +2275,7 @@ pub trait Crypto {
 			.ok_or(())
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `ecdsa_sign` host
+	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_sign` host
 	/// function.
 	#[wrapper]
 	fn ecdsa_sign(
@@ -2478,8 +2478,8 @@ pub trait Crypto {
 		Ok(())
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `secp256k1_ecdsa_recover`
-	/// host function.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `secp256k1_ecdsa_recover` host function.
 	#[wrapper]
 	fn secp256k1_ecdsa_recover(
 		signature: &[u8; 65],
@@ -2567,7 +2567,7 @@ pub trait Crypto {
 		Ok(())
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the
+	/// A convenience wrapper providing a developer-friendly interface for the
 	/// `secp256k1_ecdsa_recover_compressed` host function.
 	#[wrapper]
 	fn secp256k1_ecdsa_recover_compressed(
@@ -2687,7 +2687,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::keccak_256(data));
 	}
 
-	/// Conduct a 256-bit Keccak hash.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_256` host function.
 	#[wrapper]
 	fn keccak_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
@@ -2707,7 +2708,8 @@ pub trait Hashing {
 		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
 	}
 
-	/// Conduct a 512-bit Keccak hash.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `keccak_512` host function.
 	#[wrapper]
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
 		let mut out = Val512::default();
@@ -2727,7 +2729,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::sha2_256(data));
 	}
 
-	/// Conduct a 256-bit Sha2 hash.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `sha2_256` host function.
 	#[wrapper]
 	fn sha2_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
@@ -2747,7 +2750,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_128(data));
 	}
 
-	/// Conduct a 128-bit Blake2 hash.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_128` host function.
 	#[wrapper]
 	fn blake2_128(data: &[u8]) -> [u8; 16] {
 		let mut out = [0u8; 16];
@@ -2767,7 +2771,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::blake2_256(data));
 	}
 
-	/// Conduct a 256-bit Blake2 hash.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `blake2_256` host function.
 	#[wrapper]
 	fn blake2_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
@@ -2787,13 +2792,15 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::twox_256(data));
 	}
 
-	/// Conduct four XX hashes to give a 256-bit result.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_256` host function.
 	#[wrapper]
 	fn twox_256(data: &[u8]) -> [u8; 32] {
 		let mut out = [0u8; 32];
 		twox_256__wrapped(data, &mut out);
 		out
 	}
+
 	/// Conduct two XX hashes to give a 128-bit result.
 	fn twox_128(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnPointer<[u8; 16], 16> {
 		sp_crypto_hashing::twox_128(data)
@@ -2806,7 +2813,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::twox_128(data));
 	}
 
-	/// Conduct two XX hashes to give a 128-bit result.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_128` host function.
 	#[wrapper]
 	fn twox_128(data: &[u8]) -> [u8; 16] {
 		let mut out = [0u8; 16];
@@ -2826,7 +2834,8 @@ pub trait Hashing {
 		out.copy_from_slice(&sp_crypto_hashing::twox_64(data));
 	}
 
-	/// Conduct two XX hashes to give a 64-bit result.
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `twox_64` host function.
 	#[wrapper]
 	fn twox_64(data: &[u8]) -> [u8; 8] {
 		let mut out = [0u8; 8];
@@ -2985,7 +2994,7 @@ pub trait Offchain {
 		);
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `random_seed` host
+	/// A convenience wrapper providing a developer-friendly interface for the `random_seed` host
 	/// function.
 	#[wrapper]
 	fn random_seed() -> [u8; 32] {
@@ -3237,8 +3246,8 @@ pub trait Offchain {
 		});
 	}
 
-	/// A convenience wrapper providing a user-friendly interface for the `http_response_wait` host
-	/// function.
+	/// A convenience wrapper providing a developer-friendly interface for the `http_response_wait`
+	/// host function.
 	#[wrapper]
 	fn http_response_wait(
 		ids: &[HttpRequestId],
