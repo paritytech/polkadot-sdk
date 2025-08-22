@@ -98,6 +98,8 @@ fn main() -> Result<()> {
 						prepare_workers_hard_max_num: None,
 						prepare_workers_soft_max_num: None,
 						keep_finalized_for: None,
+						invulnerable_ah_collators: None,
+						collator_protocol_hold_off: None,
 					},
 				)
 				.map_err(|e| e.to_string())?;

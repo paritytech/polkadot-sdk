@@ -417,6 +417,8 @@ fn build_polkadot_full_node(
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
 		keep_finalized_for: None,
+		invulnerable_ah_collators: None,
+		collator_protocol_hold_off: None,
 	};
 
 	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
