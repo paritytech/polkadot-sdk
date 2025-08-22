@@ -114,12 +114,18 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-serde",
  "alloy-trie",
  "alloy-tx-macros",
  "auto_impl",
+ "c-kzg",
  "derive_more 2.0.1",
  "either",
+ "k256",
  "once_cell",
+ "rand 0.8.5",
+ "secp256k1 0.30.0",
+ "serde",
  "thiserror 2.0.12",
 ]
 
@@ -362,6 +368,7 @@ dependencies = [
  "arrayvec 0.7.4",
  "derive_more 2.0.1",
  "nybbles",
+ "serde",
  "smallvec",
  "tracing",
 ]
@@ -1075,6 +1082,9 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "asn1-rs"
@@ -11104,6 +11114,7 @@ checksum = "63cb50036b1ad148038105af40aaa70ff24d8a14fbc44ae5c914e1348533d12e"
 dependencies = [
  "cfg-if",
  "ruint",
+ "serde",
  "smallvec",
 ]
 
@@ -18136,6 +18147,7 @@ dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+ "serde",
 ]
 
 [[package]]
@@ -21440,6 +21452,7 @@ dependencies = [
  "bitcoin_hashes 0.14.0",
  "rand 0.8.5",
  "secp256k1-sys 0.10.1",
+ "serde",
 ]
 
 [[package]]

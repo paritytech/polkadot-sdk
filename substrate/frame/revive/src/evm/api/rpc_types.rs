@@ -35,6 +35,7 @@ impl From<TransactionSigned> for TransactionUnsigned {
 			Transaction4844Signed(tx) => tx.transaction_4844_unsigned.into(),
 			Transaction1559Signed(tx) => tx.transaction_1559_unsigned.into(),
 			Transaction2930Signed(tx) => tx.transaction_2930_unsigned.into(),
+			Transaction7702Signed(tx) => tx.transaction_7702_unsigned.into(),
 			TransactionLegacySigned(tx) => tx.transaction_legacy_unsigned.into(),
 		}
 	}
@@ -276,6 +277,19 @@ impl GenericTransaction {
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
 				to: tx.to,
+				gas: Some(tx.gas),
+				gas_price: Some(tx.gas_price),
+				access_list: Some(tx.access_list),
+				..Default::default()
+			},
+			Transaction7702Unsigned(tx) => GenericTransaction {
+				from,
+				r#type: Some(tx.r#type.as_byte()),
+				chain_id: Some(tx.chain_id),
+				input: tx.input.into(),
+				nonce: Some(tx.nonce),
+				value: Some(tx.value),
+				to: Some(tx.to),
 				gas: Some(tx.gas),
 				gas_price: Some(tx.gas_price),
 				access_list: Some(tx.access_list),
