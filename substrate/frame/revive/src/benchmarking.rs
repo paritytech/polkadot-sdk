@@ -2428,7 +2428,7 @@ mod benchmarks {
 		Ok((instance, origin, storage_deposit, evm_value, signer_key, current_block))
 	}
 
-	/// Benchmark the `on_finalize_per_block` hook scaling with number of transactions
+	/// Benchmark the `on_finalize` hook scaling with number of transactions
 	/// and payload size.
 	///
 	/// This benchmark measures the marginal computational cost of adding transactions
@@ -2499,7 +2499,7 @@ mod benchmarks {
 	/// Benchmark the `on_finalize` per-transaction component costs.
 	///
 	/// This benchmark measures the computational cost of processing individual
-	/// transaction components (events and payload size) within the finalization process.
+	/// transaction components (events and their data) within the finalization process.
 	/// Uses a single transaction to isolate component-specific costs.
 	///
 	/// ## Parameters:
@@ -2514,7 +2514,8 @@ mod benchmarks {
 	/// ## Usage:
 	/// Calculate marginal costs:
 	/// - Per event: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
-	/// - Per byte of event data: `on_finalize_per_transaction(1, d) - on_finalize_per_transaction(1, 0)`
+	/// - Per byte of event data: `on_finalize_per_transaction(1, d) -
+	///   on_finalize_per_transaction(1, 0)`
 	#[benchmark(pov_mode = Measured)]
 	fn on_finalize_per_transaction(
 		e: Linear<0, 100>,
