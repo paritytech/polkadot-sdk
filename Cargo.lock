@@ -11551,6 +11551,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-staking",
+ "sp-state-machine",
  "sp-tracing 16.0.0",
 ]
 
