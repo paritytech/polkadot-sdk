@@ -192,8 +192,10 @@ impl Block {
 
 		let receipt_bloom = receipt.bloom_slow();
 
-		let mut encoded_receipt =
-			Vec::with_capacity(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		// Receipt encoding must be prefixed with the rlp(transaction type).
+		let mut encoded_receipt = signed_transaction.signed_type();
+		encoded_receipt
+			.reserve(encoded_receipt.len() + receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
