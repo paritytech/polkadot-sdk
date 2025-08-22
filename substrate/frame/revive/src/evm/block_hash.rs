@@ -20,8 +20,7 @@
 use crate::evm::{Block, HashesOrTransactionInfos, TransactionSigned};
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
-use alloy_core::primitives::bytes::BufMut;
-use alloy_primitives::Bloom;
+use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -173,13 +172,10 @@ impl Block {
 		let logs = logs
 			.into_iter()
 			.map(|log| {
-				alloy_primitives::Log::new_unchecked(
+				Log::new_unchecked(
 					log.contract.0.into(),
-					log.topics
-						.into_iter()
-						.map(|h| alloy_primitives::FixedBytes::from(h.0))
-						.collect::<Vec<_>>(),
-					alloy_primitives::Bytes::from(log.data),
+					log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+					log.data.into(),
 				)
 			})
 			.collect();
@@ -213,7 +209,7 @@ impl Block {
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
-	pub fn compute_trie_root(items: &[Vec<u8>]) -> alloy_primitives::B256 {
+	pub fn compute_trie_root(items: &[Vec<u8>]) -> B256 {
 		alloy_consensus::proofs::ordered_trie_root_with_encoder(items, |item, buf| {
 			buf.put_slice(item)
 		})
