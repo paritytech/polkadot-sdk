@@ -779,8 +779,7 @@ fn transfer_with_dust<T: Config>(
 		to: &mut AccountInfo<T>,
 		dust: u32,
 	) -> DispatchResult {
-		from.dust =
-			from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+		from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 		to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 		Ok(())
 	}
@@ -819,8 +818,7 @@ fn transfer_with_dust<T: Config>(
 
 	if to_info.dust >= plank {
 		T::Currency::mint_into(to, 1u32.into())?;
-		to_info.dust =
-			to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+		to_info.dust = to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 	}
 
 	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
@@ -828,7 +826,6 @@ fn transfer_with_dust<T: Config>(
 
 	Ok(())
 }
-
 
 impl<'a, T, E> Stack<'a, T, E>
 where
@@ -1508,7 +1505,6 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
-
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(());
