@@ -81,7 +81,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use strum::EnumCount;
+use strum::{EnumCount, FromRepr};
 
 #[cfg(not(substrate_runtime))]
 use tracing;
@@ -120,8 +120,8 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassMaybeFatPointerAndRead, PassPointerAndRead, PassPointerAndReadCopy,
-		PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
+		PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead, PassPointerAndRead,
+		PassPointerAndReadCopy, PassPointerAndWrite, PassPointerToPrimitiveAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -199,9 +199,10 @@ impl From<RIEcdsaVerifyError> for EcdsaVerifyError {
 }
 
 // The FFI representation of HttpError.
-#[derive(EnumCount)]
+#[derive(EnumCount, FromRepr)]
 #[repr(i16)]
-enum RIHttpError {
+#[allow(missing_docs)]
+pub enum RIHttpError {
 	DeadlineReached = -1_i16,
 	IoError = -2_i16,
 	Invalid = -3_i16,
@@ -210,6 +211,15 @@ enum RIHttpError {
 impl From<RIHttpError> for i64 {
 	fn from(error: RIHttpError) -> Self {
 		error as i64
+	}
+}
+
+impl TryFrom<i64> for RIHttpError {
+	type Error = ();
+
+	fn try_from(value: i64) -> Result<Self, Self::Error> {
+		let value: i16 = value.try_into().map_err(|_| ())?;
+		RIHttpError::from_repr(value).ok_or(())
 	}
 }
 
@@ -271,6 +281,12 @@ impl AsRef<[u8]> for Val512 {
 	}
 }
 
+impl AsMut<[u8]> for Val512 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
+	}
+}
+
 /// Wrapper type for 512-bit hashes.
 pub type Hash512 = Val512;
 /// Wrapper type for 512-bit pubkeys.
@@ -288,6 +304,12 @@ impl Default for Pubkey264 {
 impl AsRef<[u8]> for Pubkey264 {
 	fn as_ref(&self) -> &[u8] {
 		&self.0
+	}
+}
+
+impl AsMut<[u8]> for Pubkey264 {
+	fn as_mut(&mut self) -> &mut [u8] {
+		&mut self.0
 	}
 }
 
@@ -1455,8 +1477,6 @@ pub trait Misc {
 			},
 		}
 	}
-
-	// TODO: `input_read`
 }
 
 #[cfg(not(substrate_runtime))]
@@ -3156,6 +3176,16 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 	}
 }
 
+/// Input data handling functions
+#[runtime_interface]
+pub trait Input {
+	/// Read input data into the provided buffer.
+	fn read(_buffer: PassFatPointerAndWriteInputData<&mut [u8]>) {
+		// The body has been deliberately left empty. The logic is handled by a specific marshalling
+		// strategy (see [`PassFatPointerAndWriteInputData`]).
+	}
+}
+
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")] // NOTE: Deliberately isn't `not(substrate_runtime)`.
 pub type TestExternalities = sp_state_machine::TestExternalities<sp_core::Blake2Hasher>;
@@ -3179,6 +3209,7 @@ pub type SubstrateHostFunctions = (
 	crate::trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
+	input::HostFunctions,
 );
 
 #[cfg(test)]

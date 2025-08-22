@@ -351,6 +351,55 @@ where
 	}
 }
 
+/// Pass a buffer into the host by a fat pointer. The host will write input data into it.
+///
+/// Handles a specific case of passing input data from the host to the runtime after the runtime
+/// has allocated memory for it.
+///
+/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
+pub struct PassFatPointerAndWriteInputData<T>(PhantomData<T>);
+
+impl<T> RIType for PassFatPointerAndWriteInputData<T> {
+	type FFIType = u64;
+	type Inner = T;
+}
+
+#[cfg(not(substrate_runtime))]
+impl<'a> FromFFIValue<'a> for PassFatPointerAndWriteInputData<&'a mut [u8]> {
+	type Owned = ();
+
+	fn from_ffi_value(
+		_context: &mut dyn FunctionContext,
+		_arg: Self::FFIType,
+	) -> Result<Self::Owned> {
+		Ok(())
+	}
+
+	fn take_from_owned(_owned: &'a mut Self::Owned) -> Self::Inner {
+		// SAFETY: The result is never used. The dangling pointer is guaranteed to be non-null,
+		// so it is not a UB.
+		unsafe { core::slice::from_raw_parts_mut(core::ptr::dangling_mut(), 0) as _ }
+	}
+
+	fn write_back_into_runtime(
+		_value: Self::Owned,
+		context: &mut dyn FunctionContext,
+		arg: Self::FFIType,
+	) -> Result<()> {
+		let (ptr, len) = unpack_ptr_and_len(arg);
+		context.fill_input_data(Pointer::new(ptr), len)
+	}
+}
+
+#[cfg(substrate_runtime)]
+impl<'a> IntoFFIValue for PassFatPointerAndWriteInputData<&'a mut [u8]> {
+	type Destructor = ();
+
+	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
+		(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
+	}
+}
+
 /// Pass a pointer into the host and write to it after the host call ends.
 ///
 /// This casts a given type into `&mut [u8]` using `AsMut<[u8]>` and passes a pointer to
