@@ -249,7 +249,7 @@ pub mod pallet {
 			let (lane_id, lane_data) =
 				verify_and_decode_messages_proof::<T, I>(*proof, messages_count).map_err(
 					|err| {
-						log::trace!(target: LOG_TARGET, "Rejecting invalid messages proof: {:?}", err,);
+						tracing::trace!(target: LOG_TARGET, error=?err, "Rejecting invalid messages proof");
 
 						Error::<T, I>::InvalidMessagesProof
 					},
@@ -271,12 +271,12 @@ pub mod pallet {
 			if let Some(lane_state) = lane_data.lane_state {
 				let updated_latest_confirmed_nonce = lane.receive_state_update(lane_state);
 				if let Some(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}",
-						lane_id,
-						updated_latest_confirmed_nonce,
-						UnrewardedRelayersState::from(&lane.storage().data()),
+						?lane_id,
+						latest_confirmed_nonce=%updated_latest_confirmed_nonce,
+						unrewarded_relayers=?UnrewardedRelayersState::from(&lane.storage().data()),
+						"Received state update"
 					);
 				}
 			}
@@ -292,12 +292,12 @@ pub mod pallet {
 				// weight is not enough, let's move to next lane
 				let message_dispatch_weight = T::MessageDispatch::dispatch_weight(&mut message);
 				if message_dispatch_weight.any_gt(dispatch_weight_left) {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}",
-						lane_id,
-						message_dispatch_weight,
-						dispatch_weight_left,
+						?lane_id,
+						declared=%message_dispatch_weight,
+						left=%dispatch_weight_left,
+						"Cannot dispatch any more messages"
 					);
 
 					fail!(Error::<T, I>::InsufficientDispatchWeight);
@@ -339,13 +339,13 @@ pub mod pallet {
 				actual_weight,
 			);
 
-			log::debug!(
+			tracing::debug!(
 				target: LOG_TARGET,
-				"Received messages: total={}, valid={}. Weight used: {}/{}.",
-				total_messages,
-				valid_messages,
-				actual_weight,
-				declared_weight,
+				total=%total_messages,
+				valid=%valid_messages,
+				%actual_weight,
+				%declared_weight,
+				"Received messages."
 			);
 
 			Self::deposit_event(Event::MessagesReceived(messages_received_status));
@@ -370,10 +370,10 @@ pub mod pallet {
 			let confirmation_relayer = ensure_signed(origin)?;
 			let (lane_id, lane_data) = proofs::verify_messages_delivery_proof::<T, I>(proof)
 				.map_err(|err| {
-					log::trace!(
+					tracing::trace!(
 						target: LOG_TARGET,
-						"Rejecting invalid messages delivery proof: {:?}",
-						err,
+						error=?err,
+						"Rejecting invalid messages delivery proof"
 					);
 
 					Error::<T, I>::InvalidMessagesDeliveryProof
@@ -421,11 +421,11 @@ pub mod pallet {
 				);
 			};
 
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"Received messages delivery proof up to (and including) {} at lane {:?}",
-				last_delivered_nonce,
-				lane_id,
+				?lane_id,
+				%last_delivered_nonce,
+				"Received messages delivery proof up to (and including)"
 			);
 
 			// notify others about messages delivery
@@ -649,9 +649,12 @@ pub mod pallet {
 				}
 
 				if !unpruned_message_nonces.is_empty() {
-					log::warn!(
+					tracing::warn!(
 						target: LOG_TARGET,
-						"do_try_state_for_outbound_lanes for lane_id: {lane_id:?} with lane_data: {lane_data:?} found unpruned_message_nonces: {unpruned_message_nonces:?}",
+						?lane_id,
+						?lane_data,
+						?unpruned_message_nonces,
+						"do_try_state_for_outbound_lanes found",
 					);
 					unpruned_lanes.push((lane_id, lane_data, unpruned_message_nonces));
 				}
@@ -710,12 +713,12 @@ where
 		// return number of messages in the queue to let sender know about its state
 		let enqueued_messages = lane.data().queued_messages().saturating_len();
 
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"Accepted message {} to lane {:?}. Message size: {:?}",
-			nonce,
-			args.lane_id,
-			message_len,
+			lane_id=?args.lane_id,
+			%nonce,
+			message_size=?message_len,
+			"Accepted message"
 		);
 
 		Pallet::<T, I>::deposit_event(Event::MessageAccepted {

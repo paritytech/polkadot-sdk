@@ -121,8 +121,8 @@ impl<T: Config> Eras<T> {
 		<ErasRewardPoints<T>>::remove(era);
 		<ErasTotalStake<T>>::remove(era);
 
-		// register the weight of the pruning.
-		Pallet::<T>::register_weight(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
+		// weight is registered in the main `relay_session_report` code path.
+		Pallet::<T>::deposit_event(Event::<T>::EraPruned { index: era });
 	}
 
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
@@ -552,10 +552,16 @@ impl<T: Config> Rotator<T> {
 	}
 
 	/// End the session and start the next one.
-	pub(crate) fn end_session(end_index: SessionIndex, activation_timestamp: Option<(u64, u32)>) {
+	pub(crate) fn end_session(
+		end_index: SessionIndex,
+		activation_timestamp: Option<(u64, u32)>,
+	) -> Weight {
+		// baseline weight -- if we start a new era, we will add the pruning weight to it.
+		let mut weight = T::WeightInfo::rc_on_session_report();
+
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
-			return;
+			return weight;
 		};
 		let current_planned_era = Self::is_planning();
 		let starting = end_index + 1;
@@ -576,6 +582,8 @@ impl<T: Config> Rotator<T> {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
+				// accumulate pruning weight.
+				weight.saturating_accrue(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -634,6 +642,8 @@ impl<T: Config> Rotator<T> {
 			active_era: Self::active_era(),
 			planned_era: Self::planned_era(),
 		});
+
+		weight
 	}
 
 	pub(crate) fn start_era(
