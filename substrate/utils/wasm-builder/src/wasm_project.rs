@@ -1037,8 +1037,6 @@ fn compact_wasm(
 		.debug_info(true)
 		.add_pass(wasm_opt::Pass::StripDwarf)
 		.add_pass(wasm_opt::Pass::SignextLowering)
-		.add_pass(wasm_opt::Pass::MemoryPacking)
-		.zero_filled_memory(true)
 		.run(bloaty_binary.bloaty_path(), &wasm_compact_path)
 		.expect("Failed to compact generated WASM binary.");
 

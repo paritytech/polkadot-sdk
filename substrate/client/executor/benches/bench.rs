@@ -214,14 +214,9 @@ fn bench_call_instance(c: &mut Criterion) {
 		instance.call_export("test_dirty_plenty_memory", &(0, 16).encode()).unwrap();
 	}
 
-	fn test_abuse_the_allocator(instance: &mut Box<dyn WasmInstance>) {
-		instance.call_export("test_abuse_the_allocator", &[0]).unwrap();
-	}
-
 	let testcases = [
 		("call_empty_function", test_call_empty_function as fn(&mut Box<dyn WasmInstance>)),
 		("dirty_1mb_of_memory", test_dirty_1mb_of_memory),
-		("abuse_the_allocator", test_abuse_the_allocator),
 	];
 
 	let num_cpus = num_cpus::get_physical();
@@ -236,10 +231,6 @@ fn bench_call_instance(c: &mut Criterion) {
 					if thread_count > num_cpus {
 						// If there are not enough cores available the benchmark is pointless.
 						continue
-					}
-
-					if testcase_name == "abuse_the_allocator" && runtime_name == "kusama" {
-						continue; // Is test runtime only.
 					}
 
 					let benchmark_name = format!(

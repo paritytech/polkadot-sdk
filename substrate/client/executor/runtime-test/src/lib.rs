@@ -136,15 +136,6 @@ sp_core::wasm_export_functions! {
 		}
 	}
 
-	fn test_abuse_the_allocator() {
-		fn mb(n: usize) -> usize { n * 1024 * 1024 }
-		for _ in 0..32 {
-			for size in [8, 16, 32, 64, 128, 256, 1024, mb(8), mb(16), mb(32)] {
-				core::hint::black_box(vec![0_u8; size]);
-			}
-		}
-	}
-
 	fn test_allocate_vec(size: u32) -> Vec<u8> {
 		Vec::with_capacity(size as usize)
 	}
