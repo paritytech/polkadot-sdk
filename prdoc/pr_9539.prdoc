@@ -7,7 +7,7 @@ doc:
     - makes the benchmarks for `take_first_concatenated_xcm()` more granular, accounting for the number of bytes of the message
 crates:
 - name: cumulus-pallet-xcmp-queue
-  bump: patch
+  bump: major
 - name: asset-hub-rococo-runtime
   bump: patch
 - name: asset-hub-westend-runtime
