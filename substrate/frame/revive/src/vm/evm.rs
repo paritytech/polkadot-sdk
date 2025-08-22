@@ -21,7 +21,7 @@ use crate::{
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, BalanceOf, Code, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, RuntimeCosts, H256, LOG_TARGET, U256,
+	ExecReturnValue, Pallet, RuntimeCosts, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
@@ -194,7 +194,10 @@ fn run_call<'a, E: Ext>(
 			true,
 			call_input.is_static,
 		),
-		CallScheme::CallCode => unimplemented!(),
+		CallScheme::CallCode => {
+			interpreter.halt(revm::interpreter::InstructionResult::OpcodeNotFound);
+			return;
+		},
 		CallScheme::DelegateCall => interpreter.extend.delegate_call(
 			Weight::from_parts(u64::MAX, u64::MAX),
 			U256::MAX,
@@ -224,7 +227,7 @@ fn run_call<'a, E: Ext>(
 		},
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
-			// Map error into an appropriate InstructionResult
+			// TODO: Map error into an appropriate InstructionResult
 			let halt_reason = match err {
 				_ => InstructionResult::OutOfGas,
 			};
@@ -238,6 +241,21 @@ fn run_create<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	create_input: Box<CreateInputs>,
 ) {
+	let value = U256::from_little_endian(create_input.value.as_le_slice());
+	let meter = interpreter.extend.gas_meter_mut();
+
+	if meter
+		.charge(RuntimeCosts::Instantiate {
+			input_data_len: 0,
+			balance_transfer: Pallet::<E::T>::has_balance(value),
+			dust_transfer: Pallet::<E::T>::has_dust(value),
+		})
+		.is_err()
+	{
+		interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
+		return;
+	}
+
 	let salt = match create_input.scheme {
 		CreateScheme::Create => None,
 		CreateScheme::Create2 { salt } => {
@@ -245,14 +263,14 @@ fn run_create<'a, E: Ext>(
 			arr.copy_from_slice(salt.as_le_slice());
 			Some(arr)
 		},
-		CreateScheme::Custom { .. } => None, // To check
+		CreateScheme::Custom { .. } => None, // TODO: To check if we should implement it
 	};
 
 	let call_result = interpreter.extend.instantiate(
 		Weight::from_parts(u64::MAX, u64::MAX),
 		U256::MAX,
 		Code::Upload(create_input.init_code.to_vec()),
-		U256::from_little_endian(create_input.value.as_le_slice()),
+		value,
 		vec![],
 		salt.as_ref(),
 	);
@@ -277,7 +295,7 @@ fn run_create<'a, E: Ext>(
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
 			interpreter.return_data.clear();
-			// Map error into an appropriate InstructionResult
+			// TODO: Map error into an appropriate InstructionResult
 			let halt_reason = match err {
 				_ => InstructionResult::OutOfGas,
 			};
