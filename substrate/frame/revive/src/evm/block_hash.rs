@@ -249,7 +249,7 @@ impl Block {
 			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
 			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
 
-			..Default::default(),
+			..Default::default()
 		};
 
 		alloy_header.hash_slow().0.into()
