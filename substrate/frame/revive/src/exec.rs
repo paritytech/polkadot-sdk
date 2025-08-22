@@ -1216,7 +1216,7 @@ where
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let mut output = match executable {
+			let output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1247,11 +1247,10 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					let caller = caller.account_id()?.clone();
-					let addr = T::AddressMapper::to_address(account_id).0.to_vec();
-					let data = core::mem::replace(&mut output.data, addr);
-
-					let mut module = crate::ContractBlob::<T>::from_evm_code(data, caller)?;
+					let mut module = crate::ContractBlob::<T>::from_evm_code(
+						output.data.clone(),
+						caller.account_id()?.clone(),
+					)?;
 					code_deposit = module.store_code(skip_transfer)?;
 					contract_info.code_hash = *module.code_hash();
 				}
