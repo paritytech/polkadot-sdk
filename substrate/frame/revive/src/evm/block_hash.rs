@@ -335,12 +335,6 @@ mod test {
 					panic!("Transaction and receipt index do not match");
 				}
 
-				// println!("EthLog: {}", receipt_info.logs.len());
-				// for log in &receipt_info.logs {
-				// 	println!("	topics: {}", log.topics.len());
-				// 	println!("	data: {}", log.data.clone().map(|data| data.0.len()).unwrap_or(0));
-				// }
-
 				TransactionDetails {
 					signed_transaction: tx_info.transaction_signed,
 					logs: receipt_info
