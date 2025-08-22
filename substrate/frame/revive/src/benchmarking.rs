@@ -670,7 +670,6 @@ mod benchmarks {
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
