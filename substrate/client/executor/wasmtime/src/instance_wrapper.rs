@@ -118,7 +118,7 @@ pub struct InstanceWrapper {
 	// NOTE: We want to decrement the instance counter *after* the store has been dropped
 	// to avoid a potential race condition, so this field must always be kept
 	// as the last field in the struct!
-	_release_instance_handle: ReleaseInstanceHandle,
+	release_instance_handle: ReleaseInstanceHandle,
 }
 
 impl InstanceWrapper {
@@ -127,7 +127,7 @@ impl InstanceWrapper {
 		instance_pre: &InstancePre<StoreData>,
 		instance_counter: Arc<InstanceCounter>,
 	) -> Result<Self> {
-		let _release_instance_handle = instance_counter.acquire_instance();
+		let release_instance_handle = instance_counter.acquire_instance();
 		let mut store = Store::new(engine, Default::default());
 		let instance = instance_pre.instantiate(&mut store).map_err(|error| {
 			WasmError::Other(format!(
@@ -140,7 +140,7 @@ impl InstanceWrapper {
 
 		store.data_mut().memory = Some(memory);
 
-		Ok(InstanceWrapper { instance, store, _release_instance_handle })
+		Ok(InstanceWrapper { instance, store, release_instance_handle })
 	}
 
 	/// Resolves a substrate entrypoint by the given name.
@@ -180,6 +180,18 @@ impl InstanceWrapper {
 			.ok_or_else(|| Error::from("__heap_base is not a i32"))?;
 
 		Ok(heap_base as u32)
+	}
+
+	/// Return the runtime code hash of the underlying instance.
+	///
+	/// Note: the runtime code hash might correspond to a compressed runtime.
+	pub fn runtime_code_hash(&self) -> Option<&Vec<u8>> {
+		self.release_instance_handle.runtime_code_hash()
+	}
+
+	/// Return the instance id.
+	pub fn id(&self) -> u64 {
+		self.release_instance_handle.id()
 	}
 }
 
