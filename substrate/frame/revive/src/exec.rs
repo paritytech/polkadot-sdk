@@ -1247,7 +1247,11 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					let mut module = crate::ContractBlob::<T>::from_evm_code(
+					if output.data.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+						return Err(Error::<T>::BlobTooLarge.into());
+					}
+
+					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
 						output.data.clone(),
 						caller.account_id()?.clone(),
 					)?;

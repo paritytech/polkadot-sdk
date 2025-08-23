@@ -42,10 +42,16 @@ where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
 	/// Create a new contract from EVM code.
-	pub fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		use revm::{bytecode::Bytecode, primitives::Bytes};
 
 		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
+
+		// Also enforce the EIP-3860 limit on initcode size.
+		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+			return Err(<Error<T>>::BlobTooLarge.into());
+		}
+
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
 			<Error<T>>::CodeRejected

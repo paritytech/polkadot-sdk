@@ -1154,7 +1154,7 @@ where
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
 						let origin = T::UploadOrigin::ensure_origin(origin)?;
-						let executable = ContractBlob::from_evm_code(code, origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
