@@ -290,11 +290,11 @@ where
 			ProcessFutureResult::Success
 		},
 		Err(error) if error.is_connection_error() => {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"{}: {:?}. Going to restart",
-				error_pattern(),
-				error,
+				?error,
+				error_pattern=?error_pattern(),
+				"Going to restart"
 			);
 
 			retry_backoff.reset();
@@ -303,12 +303,12 @@ where
 		},
 		Err(error) => {
 			let retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"{}: {:?}. Retrying in {}",
-				error_pattern(),
-				error,
-				retry_delay.as_secs_f64(),
+				?error,
+				error_pattern=?error_pattern(),
+				retry_as_secs=%retry_delay.as_secs_f64(),
+				"Retrying"
 			);
 
 			go_offline_future.set(go_offline(retry_delay).fuse());
