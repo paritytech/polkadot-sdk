@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides some utilities to define a piecewise linear function.
+//! Provides various curves and their evaluations.
 
 use crate::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion},
@@ -23,6 +23,105 @@ use crate::{
 };
 use core::ops::Sub;
 use scale_info::TypeInfo;
+
+// enum Step {PctInc(Perbill), PctDec(Perbill), Linear(SomeType)}
+// let curve = SteppedCurve::make(Start, Option<End>, InitialValue: SomeType, Step::Pct(50), Period);
+// let value: SomeType = curve.evaluate(Point);
+
+/// The step type for the stepped curve.
+#[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
+pub enum Step<V> {
+	/// Increase the value by a percentage.
+	PctInc(Perbill),
+	/// Decrease the value by a percentage.
+	PctDec(Perbill),
+	/// Increment by a value.
+	Add(V),
+	/// Decrement by a value.
+	Subtract(V),
+}
+
+/// A stepped curve.
+///
+/// The value of the curve is `initial_value` at the `start` point. It then changes by `step`
+/// every `period`. The curve may be bounded by an `end` point.
+#[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
+pub struct SteppedCurve<P, V> {
+	/// The point at which the curve begins.
+	pub start: P,
+	/// An optional point at which the curve ends. If `None`, the curve continues indefinitely.
+	pub end: Option<P>,
+	/// The initial value of the curve at the `start` point.
+	pub initial_value: V,
+	/// The change to apply at each `period`.
+	pub step: Step<V>,
+	/// The duration of each step.
+	pub period: P,
+}
+
+impl<P, V> SteppedCurve<P, V>
+where
+	P: AtLeast32BitUnsigned + Clone,
+	V: AtLeast32BitUnsigned + Clone + From<P>,
+{
+	/// Creates a new `SteppedCurve`.
+	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
+		Self { start, end, initial_value, step, period }
+	}
+
+	/// Evaluate the curve at a given point.
+	pub fn evaluate(&self, point: P) -> V {
+		// If the point is before the curve starts, return the initial value.
+		if point < self.start {
+			return self.initial_value.clone()
+		}
+
+		// If the period is zero, the value never changes.
+		if self.period.is_zero() {
+			return self.initial_value.clone()
+		}
+
+		// Determine the effective point for calculation, capped by the end point if it exists.
+		let effective_point = self.end.clone().map_or(point.clone(), |e| point.min(e));
+
+		// Calculate how many full periods have passed.
+		let num_periods = (effective_point - self.start.clone()) / self.period.clone();
+
+		// Use u32 for the loop count, which is a reasonable limit for steps.
+		let num_periods_u32 = num_periods.clone().saturated_into::<u32>();
+
+		match self.step.clone() {
+			Step::Add(step_value) => {
+				// initial_value + num_periods * step_value
+				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
+				self.initial_value.clone().saturating_add(total_step)
+			},
+			Step::Subtract(step_value) => {
+				// initial_value - num_periods * step_value
+				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
+				self.initial_value.clone().saturating_sub(total_step)
+			},
+			Step::PctInc(percent) => {
+				// initial_value * (1 + percent) ^ num_periods
+				let mut current_value = self.initial_value.clone();
+				for _ in 0..num_periods_u32 {
+					let increase = percent * current_value.clone();
+					current_value = current_value.saturating_add(increase);
+				}
+				current_value
+			},
+			Step::PctDec(percent) => {
+				// initial_value * (1 - percent) ^ num_periods
+				let mut current_value = self.initial_value.clone();
+				for _ in 0..num_periods_u32 {
+					let decrease = percent * current_value.clone();
+					current_value = current_value.saturating_sub(decrease);
+				}
+				current_value
+			},
+		}
+	}
+}
 
 /// Piecewise Linear function in [0, 1] -> [0, 1].
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo)]
@@ -107,6 +206,92 @@ where
 
 	// Can saturate if p > q
 	result_divisor_part.saturating_add(result_remainder_part)
+}
+
+#[test]
+fn test_stepped_curve() {
+	// use sp_runtime::traits::{Saturating, Zero};
+
+	let start = 100u64;
+	let period = 10u64;
+	let initial_value = 1000u128;
+	let end = Some(200u64);
+	let point_before = 50u64;
+	let point_middle = 155u64;
+	let point_after = 250u64;
+
+	// Test with Step::Add
+	let step_value = 5u128;
+	let add_curve = SteppedCurve::new(
+		start,
+		end,
+		initial_value,
+		Step::Add(step_value),
+		period,
+	);
+	assert_eq!(add_curve.evaluate(point_before), initial_value);
+	assert_eq!(
+		add_curve.evaluate(point_middle),
+		initial_value.saturating_add(step_value.saturating_mul(5))
+	);
+	assert_eq!(
+		add_curve.evaluate(point_after),
+		initial_value.saturating_add(step_value.saturating_mul(10))
+	);
+
+	// Test with Step::Subtract
+	let subtract_curve = SteppedCurve::new(
+		start,
+		end,
+		initial_value,
+		Step::Subtract(step_value),
+		period,
+	);
+	assert_eq!(subtract_curve.evaluate(point_before), initial_value);
+	assert_eq!(
+		subtract_curve.evaluate(point_middle),
+		initial_value.saturating_sub(step_value.saturating_mul(5))
+	);
+	assert_eq!(
+		subtract_curve.evaluate(point_after),
+		initial_value.saturating_sub(step_value.saturating_mul(10))
+	);
+
+	// Test with Step::PctInc
+	let percent_inc = Perbill::from_percent(10);
+	let pct_inc_curve = SteppedCurve::new(
+		start,
+		end,
+		initial_value,
+		Step::PctInc(percent_inc),
+		period,
+	);
+	assert_eq!(pct_inc_curve.evaluate(point_before), initial_value);
+	assert_eq!(pct_inc_curve.evaluate(point_middle), 1610u128);
+	assert_eq!(pct_inc_curve.evaluate(point_after), 2593u128);
+
+	// Test with Step::PctDec
+	let percent_dec = Perbill::from_percent(10);
+	let pct_dec_curve = SteppedCurve::new(
+		start,
+		end,
+		initial_value,
+		Step::PctDec(percent_dec),
+		period,
+	);
+	assert_eq!(pct_dec_curve.evaluate(point_before), initial_value);
+	assert_eq!(pct_dec_curve.evaluate(point_middle), 590u128);
+	assert_eq!(pct_dec_curve.evaluate(point_after), 351u128);
+
+	// Test edge cases
+	let zero_period_curve = SteppedCurve::new(
+		start,
+		end,
+		initial_value,
+		Step::Add(step_value),
+		0u64,
+	);
+	assert_eq!(zero_period_curve.evaluate(point_middle), initial_value);
 }
 
 #[test]
