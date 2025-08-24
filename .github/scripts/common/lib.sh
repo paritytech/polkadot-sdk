@@ -254,7 +254,7 @@ fetch_rpm_package_from_s3() {
   echo "URL_BASE=$URL_BASE"
 
   # TODO: Check if the URL is still the same, source for this one was linked below in combination with changes on deb package:
-  https://github.com/paritytech/cleanroom/blob/6fdec6d0ce41121ad67152b7bb6f944bbdae9f03/ansible/roles/parity-repos/files/add-packages.sh#L69C33-L69C46
+  # https://github.com/paritytech/cleanroom/blob/6fdec6d0ce41121ad67152b7bb6f944bbdae9f03/ansible/roles/parity-repos/files/add-packages.sh#L69C33-L69C46
 
   # URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}_amd64.deb
   URL=$URL_BASE/$VERSION/x86_64-unknown-linux-gnu/${BINARY}_${NODE_VERSION}-1.x86_64.rpm
