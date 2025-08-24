@@ -39,6 +39,7 @@ use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
+	LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
@@ -72,21 +73,12 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// we have the in-memory database that contains all the values from the state of the parachain
 /// that we require to verify the block.
 ///
-/// 5. We are going to run `check_inherents`. This is important to check stuff like the timestamp
-/// matching the real world time.
-///
-/// 6. The last step is to execute the entire block in the machinery we just have setup. Executing
+/// 5. The last step is to execute the entire block in the machinery we just have setup. Executing
 /// the blocks include running all transactions in the block against our in-memory database and
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
-#[allow(deprecated)]
-pub fn validate_block<
-	B: BlockT,
-	E: ExecuteBlock<B>,
-	PSC: crate::Config,
-	CI: crate::CheckInherents<B>,
->(
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	MemoryOptimizedValidationParams {
 		block_data,
 		parent_head: parachain_head,
@@ -139,11 +131,11 @@ where
 			.replace_implementation(host_storage_proof_size),
 	);
 
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B>>(block_data)
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
-	sp_trie::add_extra_randomness(build_seed_from_head_data(
+	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(
 		&block_data,
 		relay_parent_storage_root,
 	));
@@ -215,34 +207,6 @@ where
 			relay_parent_number,
 			relay_parent_storage_root,
 			&parachain_head,
-		);
-
-		// We don't need the recorder or the overlay in here.
-		run_with_externalities_and_recorder::<B, _, _>(
-			&backend,
-			&mut Default::default(),
-			&mut Default::default(),
-			|| {
-				let relay_chain_proof = crate::RelayChainStateProof::new(
-					PSC::SelfParaId::get(),
-					inherent_data.validation_data.relay_parent_storage_root,
-					inherent_data.relay_chain_state.clone(),
-				)
-				.expect("Invalid relay chain state proof");
-
-				#[allow(deprecated)]
-				let res = CI::check_inherents(&block, &relay_chain_proof);
-
-				if !res.ok() {
-					if log::log_enabled!(log::Level::Error) {
-						res.into_errors().for_each(|e| {
-							log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-						});
-					}
-
-					panic!("Checking inherents failed");
-				}
-			},
 		);
 
 		run_with_externalities_and_recorder::<B, _, _>(
@@ -386,19 +350,18 @@ where
 }
 
 /// Extract the [`BasicParachainInherentData`].
-fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
+fn extract_parachain_inherent_data<B: LazyBlock, PSC: crate::Config>(
 	block: &B,
-) -> &BasicParachainInherentData
+) -> BasicParachainInherentData
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
 	block
 		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
+		.map(|e| e.expect("extract_parachain_inherent_data(): Could not decode extrinsic"))
 		.take_while(|e| e.is_bare())
-		.filter_map(|e| e.call().is_sub_type())
+		.filter_map(|e| e.into_call().try_into_sub_type())
 		.find_map(|c| match c {
 			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
 			_ => None,
@@ -430,7 +393,7 @@ fn validate_validation_data(
 /// in the block data, to make sure the seed changes every block and that
 /// the user cannot find about it ahead of time.
 fn build_seed_from_head_data<B: BlockT>(
-	block_data: &ParachainBlockData<B>,
+	block_data: &ParachainBlockData<B::LazyBlock>,
 	relay_parent_storage_root: crate::relay_chain::Hash,
 ) -> [u8; 16] {
 	let mut bytes_to_hash = Vec::with_capacity(
