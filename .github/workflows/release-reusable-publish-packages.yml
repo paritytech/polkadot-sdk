@@ -145,7 +145,6 @@ jobs:
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
           cat "$LOCAL_REPO_PATH/conf/distributions"
 
-      # Same as above
       - name: Sync local repo (download from S3)
         env:
           AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
@@ -162,7 +161,7 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           fi
-      # Same as above
+
       - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
@@ -202,7 +201,6 @@ jobs:
             createrepo --update "$LOCAL_REPO_PATH"
           fi
 
-      # Same as above
       - name: Upload updated repo to S3
         env:
           AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
