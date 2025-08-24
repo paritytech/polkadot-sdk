@@ -97,6 +97,7 @@ jobs:
       LOCAL_REPO_PATH: ${{ github.workspace }}/${{ inputs.package_type }}
       NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
 
+    # We are gonna use the same key both for rpm and deb packages - maybe logic of the key is not ready to be used for RPM at this moment
     steps:
       - name: Install pgpkms for artifact signing
         run: |
@@ -123,7 +124,9 @@ jobs:
           name: release-artifacts
           path: release-artifacts
 
+      # This is debian specific - we will need something simmilar for RPM, reprepro is for debian only
       - name: Setup local repo
+        if: ${{ inputs.package_type == 'deb' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y reprepro
@@ -137,6 +140,7 @@ jobs:
           cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
           cat "$LOCAL_REPO_PATH/conf/distributions"
 
+      # Same as above
       - name: Sync local repo (download from S3)
         env:
           AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
@@ -153,7 +157,7 @@ jobs:
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
             # TODO: maybe this if will not be needed at all because the step will look the same for both package types
           fi
-
+      # Same as above
       - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
@@ -175,6 +179,7 @@ jobs:
             # TODO: Implement RPM package addition - if there is a way to add both packages the same way, this if will not be needed
           fi
 
+      # Same as above
       - name: Upload updated repo to S3
         env:
           AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
