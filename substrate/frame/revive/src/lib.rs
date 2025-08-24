@@ -51,10 +51,10 @@ use crate::{
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
 	storage::{
-		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
+		meter::Meter as StorageMeter, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	vm::{CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -91,6 +91,8 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::*,
+	vm::CodeInfo,
+	storage::{AccountInfo, AccountType, ContractInfo}
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -494,13 +496,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
 
-	/// A mapping from a contract's code hash to its code info.
-	#[pallet::storage]
-	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
+/// A mapping from a contract's code hash to its code info.
+#[pallet::storage]
+pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
 
-	/// The data associated to a contract or externally owned account.
-	#[pallet::storage]
-	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
+/// The data associated to a contract or externally owned account.
+#[pallet::storage]
+pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
