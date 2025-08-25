@@ -17,7 +17,10 @@
 //!Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
-use crate::evm::{Block, HashesOrTransactionInfos, TransactionSigned};
+use crate::evm::{
+	Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
+};
+
 use alloc::vec::Vec;
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
@@ -43,8 +46,8 @@ pub struct EventLog {
 /// The transaction details needed to build the ethereum block hash.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 pub struct TransactionDetails {
-	/// The signed transaction.
-	pub signed_transaction: TransactionSigned,
+	/// The RLP encoding of the signed transaction.
+	pub transaction_encoded: Vec<u8>,
 	/// The logs emitted by the transaction.
 	pub logs: Vec<EventLog>,
 	/// Whether the transaction was successful.
@@ -150,10 +153,17 @@ impl Block {
 	///
 	/// Internally collects the total gas used.
 	fn process_transaction_details(&mut self, detail: TransactionDetails) -> TransactionProcessed {
-		let TransactionDetails { signed_transaction, logs, success, gas_used } = detail;
+		let TransactionDetails { transaction_encoded, logs, success, gas_used } = detail;
 
-		let encoded_tx = signed_transaction.signed_payload();
-		let tx_hash = H256(keccak_256(&encoded_tx));
+		let tx_hash = H256(keccak_256(&transaction_encoded));
+		let transaction_type = transaction_encoded
+			.first()
+			.cloned()
+			.map(|first| match first {
+				TYPE_EIP2930 | TYPE_EIP1559 | TYPE_EIP4844 | TYPE_EIP7702 => vec![first],
+				_ => vec![],
+			})
+			.unwrap_or_default();
 
 		let logs = logs
 			.into_iter()
@@ -177,7 +187,7 @@ impl Block {
 		let receipt_bloom = receipt.bloom_slow();
 
 		// Receipt encoding must be prefixed with the rlp(transaction type).
-		let mut encoded_receipt = signed_transaction.signed_type();
+		let mut encoded_receipt = transaction_type;
 		let encoded_len = encoded_receipt
 			.len()
 			.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
@@ -186,7 +196,7 @@ impl Block {
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
-			encoded_tx,
+			encoded_tx: transaction_encoded,
 			tx_hash,
 			gas_info: ReceiptGasInfo { gas_used: gas_used.ref_time().into() },
 			encoded_receipt,
