@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	client::{SubstrateBlock, SubstrateBlockNumber},
+	client::{storage_api::StorageApi, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::{
 		self,
 		revive::{calls::types::EthTransact, events::ContractEmitted},
@@ -25,21 +25,39 @@ use crate::{
 	},
 	ClientError, LOG_TARGET,
 };
+
 use futures::{stream, StreamExt};
 use pallet_revive::{
 	create1,
-	evm::{GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256, U256},
+	evm::{
+		block_hash::ReceiptGasInfo, GenericTransaction, Log, ReceiptInfo, TransactionSigned, H256,
+		U256,
+	},
 };
 use sp_core::keccak_256;
 use std::{future::Future, pin::Pin, sync::Arc};
-use subxt::OnlineClient;
+use subxt::{blocks::ExtrinsicDetails, OnlineClient};
 
 type FetchGasPriceFn = Arc<
 	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Result<U256, ClientError>> + Send>> + Send + Sync,
 >;
+
+type FetchReceiptDataFn = Arc<
+	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfo>>> + Send>> + Send + Sync,
+>;
+
+type FetchEthBlockHashFn =
+	Arc<dyn Fn(H256, u64) -> Pin<Box<dyn Future<Output = Option<H256>> + Send>> + Send + Sync>;
+
 /// Utility to extract receipts from extrinsics.
 #[derive(Clone)]
 pub struct ReceiptExtractor {
+	/// Fetch the receipt data info.
+	fetch_receipt_data: FetchReceiptDataFn,
+
+	/// Fetch ethereum block hash.
+	fetch_eth_block_hash: FetchEthBlockHashFn,
+
 	/// Fetch the gas price from the chain.
 	fetch_gas_price: FetchGasPriceFn,
 
@@ -69,43 +87,89 @@ impl ReceiptExtractor {
 	) -> Result<Self, ClientError> {
 		let native_to_eth_ratio = native_to_eth_ratio(&api).await?;
 
-		let fetch_gas_price = Arc::new(move |block_hash| {
-			let api_clone = api.clone();
+		let api_inner = api.clone();
+		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
+			let api_inner = api_inner.clone();
+
 			let fut = async move {
-				let runtime_api = api_clone.runtime_api().at(block_hash);
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
+				storage_api.get_ethereum_block_hash(block_number).await.ok()
+			};
+
+			Box::pin(fut) as Pin<Box<_>>
+		});
+
+		let api_inner = api.clone();
+		let fetch_gas_price = Arc::new(move |block_hash| {
+			let api_inner = api_inner.clone();
+
+			let fut = async move {
+				let runtime_api = api_inner.runtime_api().at(block_hash);
 				let payload = subxt_client::apis().revive_api().gas_price();
 				let base_gas_price = runtime_api.call(payload).await?;
 				Ok(*base_gas_price)
 			};
+
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		Ok(Self { native_to_eth_ratio, fetch_gas_price, earliest_receipt_block })
+		let api_inner = api.clone();
+		let fetch_receipt_data = Arc::new(move |block_hash| {
+			let api_inner = api_inner.clone();
+
+			let fut = async move {
+				let storage_api = StorageApi::new(api_inner.storage().at(block_hash));
+				storage_api.get_receipt_data().await.ok()
+			};
+
+			Box::pin(fut) as Pin<Box<_>>
+		});
+
+		Ok(Self {
+			fetch_receipt_data,
+			fetch_eth_block_hash,
+			fetch_gas_price,
+			native_to_eth_ratio,
+			earliest_receipt_block,
+		})
 	}
 
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
+		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
+		let fetch_eth_block_hash =
+			Arc::new(|_, _| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
-		Self { native_to_eth_ratio: 1_000_000, fetch_gas_price, earliest_receipt_block: None }
+		Self {
+			fetch_receipt_data,
+			fetch_eth_block_hash,
+			fetch_gas_price,
+			native_to_eth_ratio: 1_000_000,
+			earliest_receipt_block: None,
+		}
 	}
 
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
-		block: &SubstrateBlock,
+		block_number: U256,
+		block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
+		maybe_receipt: Option<ReceiptGasInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
-		let block_number = U256::from(block.number());
-		let block_hash = block.hash();
 		let events = ext.events().await?;
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
-		log::debug!(target: LOG_TARGET, "Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}")
-	})?;
+			log::debug!(
+				target: LOG_TARGET,
+				"Failed to lookup for ExtrinsicSuccess event in block {block_number}: {err:?}"
+			);
+		})?;
+
 		let tx_fees = events
 		.find_first::<TransactionFeePaid>()?
 		.ok_or(ClientError::TxFeeNotFound)
@@ -124,11 +188,19 @@ impl ReceiptExtractor {
 		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
-		let gas_price = tx_info.gas_price.unwrap_or_default();
-		let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
-			.saturating_mul(self.native_to_eth_ratio.into())
-			.checked_div(gas_price)
-			.unwrap_or_default();
+
+		let (gas_price, gas_used) = if let Some(receipt) = maybe_receipt {
+			// If we have a receipt, use it to accurately represent the gas.
+			(U256::from(receipt.effective_gas_price), U256::from(receipt.gas_used))
+		} else {
+			// Otherwise, calculate gas used from the transaction fees.
+			let gas_price = tx_info.gas_price.unwrap_or_default();
+			let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
+				.saturating_mul(self.native_to_eth_ratio.into())
+				.checked_div(gas_price)
+				.unwrap_or_default();
+			(gas_price, gas_used)
+		};
 
 		// get logs from ContractEmitted event
 		let logs = events
@@ -190,19 +262,28 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		// Filter extrinsics from pallet_revive
-		let extrinsics = block.extrinsics().await.inspect_err(|err| {
-			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
-		})?;
+		let ext_iter = self.get_block_extrinsics(block).await?;
 
-		let extrinsics = extrinsics.iter().flat_map(|ext| {
-			let call = ext.as_extrinsic::<EthTransact>().ok()??;
-			Some((ext, call))
-		});
+		let substrate_block_number = block.number() as u64;
+		let substrate_block_hash = block.hash();
+		let eth_block_hash =
+			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
+				.await
+				.unwrap_or(substrate_block_hash);
 
-		stream::iter(extrinsics)
-			.map(|(ext, call)| async move {
-				self.extract_from_extrinsic(block, ext, call).await.inspect_err(|err| {
+		// TODO: Order of receipt and transaction info is important while building
+		// the state tries. Are we sorting them afterwards?
+		stream::iter(ext_iter)
+			.map(|(ext, call, receipt)| async move {
+				self.extract_from_extrinsic(
+					substrate_block_number.into(),
+					eth_block_hash,
+					ext,
+					call,
+					receipt,
+				)
+				.await
+				.inspect_err(|err| {
 					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
 				})
 			})
@@ -213,21 +294,86 @@ impl ReceiptExtractor {
 			.collect::<Result<Vec<_>, _>>()
 	}
 
+	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info.
+	async fn get_block_extrinsics(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<
+		impl Iterator<
+			Item = (
+				ExtrinsicDetails<SrcChainConfig, OnlineClient<SrcChainConfig>>,
+				EthTransact,
+				Option<ReceiptGasInfo>,
+			),
+		>,
+		ClientError,
+	> {
+		// Filter extrinsics from pallet_revive
+		let extrinsics = block.extrinsics().await.inspect_err(|err| {
+			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
+		})?;
+
+		let mut maybe_data = (self.fetch_receipt_data)(block.hash()).await;
+		let extrinsics: Vec<_> = extrinsics
+			.iter()
+			.flat_map(|ext| {
+				let call = ext.as_extrinsic::<EthTransact>().ok()??;
+				Some((ext, call))
+			})
+			.collect();
+
+		// Sanity check we received enough data from the pallet revive.
+		if let Some(data) = &mut maybe_data {
+			if data.len() != extrinsics.len() {
+				log::warn!(
+					target: LOG_TARGET,
+					"Receipt data length ({}) does not match extrinsics length ({})",
+					data.len(),
+					extrinsics.len()
+				);
+				maybe_data = None;
+			}
+		}
+
+		Ok(extrinsics
+			.into_iter()
+			.zip(
+				maybe_data
+					.unwrap_or_default()
+					.into_iter()
+					.map(Some)
+					.chain(std::iter::repeat(None)),
+			)
+			.map(|((extr, call), rec)| (extr, call, rec)))
+	}
+
 	/// Extract receipt from transaction
 	pub async fn extract_from_transaction(
 		&self,
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let extrinsics = block.extrinsics().await?;
-		let ext = extrinsics
-			.iter()
-			.nth(transaction_index)
+		let ext_iter = self.get_block_extrinsics(block).await?;
+
+		let (ext, eth_call, maybe_receipt) = ext_iter
+			.into_iter()
+			.find(|(e, _, _)| e.index() as usize == transaction_index)
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let call = ext
-			.as_extrinsic::<EthTransact>()?
-			.ok_or_else(|| ClientError::EthExtrinsicNotFound)?;
-		self.extract_from_extrinsic(block, ext, call).await
+		let substrate_block_number = block.number() as u64;
+		let substrate_block_hash = block.hash();
+		let eth_block_hash =
+			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
+				.await
+				.unwrap_or(substrate_block_hash);
+
+		self.extract_from_extrinsic(
+			substrate_block_number.into(),
+			eth_block_hash,
+			ext,
+			eth_call,
+			maybe_receipt,
+		)
+		.await
 	}
 }

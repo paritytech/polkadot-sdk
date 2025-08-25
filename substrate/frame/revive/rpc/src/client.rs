@@ -18,7 +18,7 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 mod runtime_api;
-mod storage_api;
+pub(crate) mod storage_api;
 
 use runtime_api::RuntimeApi;
 use storage_api::StorageApi;
@@ -36,8 +36,8 @@ use jsonrpsee::{
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
-		Filter, GenericTransaction, Log, ReceiptInfo, SyncingProgress, SyncingStatus, Trace,
-		TransactionSigned, TransactionTrace, H256, U256,
+		Filter, GenericTransaction, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
+		SyncingStatus, Trace, TransactionSigned, TransactionTrace, H256, U256,
 	},
 	EthTransactError,
 };
@@ -124,6 +124,12 @@ pub enum ClientError {
 	/// Failed to filter logs.
 	#[error("Failed to filter logs")]
 	LogFilterFailed(#[from] anyhow::Error),
+	/// Receipt storage was not found.
+	#[error("Receipt storage not found")]
+	ReceiptDataNotFound,
+	/// Ethereum block was not found.
+	#[error("Ethereum block not found")]
+	EthereumBlockNotFound,
 }
 
 const REVERT_CODE: i32 = 3;
@@ -328,8 +334,14 @@ impl Client {
 			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
 				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-			let evm_block =
-				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
+			let evm_block = if let Some(block) =
+				self.storage_api(block.hash()).get_ethereum_block().await.ok()
+			{
+				block
+			} else {
+				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await
+			};
+
 			self.block_provider.update_latest(block, subscription_type).await;
 
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
@@ -346,6 +358,7 @@ impl Client {
 		let last = self.latest_block().await.number().saturating_sub(1);
 		let range = last.saturating_sub(index_last_n_blocks)..last;
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
+
 		self.subscribe_past_blocks(range, |block| async move {
 			self.receipt_provider.insert_block_receipts(&block).await?;
 			Ok(())
@@ -609,6 +622,36 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
+		let storage_api = self.storage_api(block.hash());
+		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
+			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
+		});
+
+		// This could potentially fail under two circumstances:
+		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
+		//    disabled)
+		if let Ok(mut eth_block) = ethereum_block {
+			// This means we can live with the hashes returned by the Revive pallet.
+			if !hydrated_transactions {
+				return eth_block;
+			}
+
+			// Hydrate the block.
+			let tx_infos = self
+				.receipt_provider
+				.receipts_from_block(&block)
+				.await
+				.unwrap_or_default()
+				.into_iter()
+				.map(|(signed_tx, receipt)| TransactionInfo::new(&receipt, signed_tx))
+				.collect::<Vec<_>>();
+
+			eth_block.transactions = HashesOrTransactionInfos::TransactionInfos(tx_infos);
+			return eth_block;
+		}
+
+		// We need to reconstruct the ETH block fully.
 		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
 			.receipt_provider
 			.receipts_from_block(&block)
@@ -629,7 +672,7 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
-		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
+		let runtime_api = self.runtime_api(block.hash());
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
 		let header = block.header();
