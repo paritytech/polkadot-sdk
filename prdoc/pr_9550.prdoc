@@ -1,0 +1,23 @@
+title: 'basic-authorship: end_reason improved'
+doc:
+- audience: Node Dev
+  description: |-
+    The `end_reason` reported in block authoring can be [misleading](https://github.com/paritytech/polkadot-sdk/issues/9188#issuecomment-3070697415) when resource limits are hit. The basic authorship module tries additional transactions after hitting limits, and if it runs out of transactions or time during this extended trial phase, it reports the inaccurate reason.
+
+    Misleading scenarios are:
+    - Scenario 1: Resource limit masked by `NoMoreTransactions`
+          1. Block hits weight/size limit -> should report `HitBlockWeightLimit`/`HitBlockSizeLimit`
+          2. Code tries up to `MAX_SKIPPED_TRANSACTIONS`,
+          3. If still before soft deadline, continues trying transactions,
+          4. Transaction pool runs out during this extended trial phase,
+          5. Reason reported is: `NoMoreTransactions`, while the reality is that block was _resource-constrained_, not _mp-transactions-constrained_.
+    - Scenario 2: Resource limit masked by `HitDeadline`
+          1. Block hits weight/size limit, (let's assume 100k fat transactions in the pool)
+          2. Code keeps trying transactions that can't fit due to weight constraints
+          3. Deadline is reached while trying pool transactions
+          4. Reason reported is: `HitDeadline`, while the reality is that block was _resource-constrained_, not _time-constrained_.
+
+    This PR proposes to change the actual `end_reason` to be more accurate.
+crates:
+- name: sc-basic-authorship
+  bump: minor
