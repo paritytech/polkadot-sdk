@@ -288,15 +288,13 @@ pub mod pallet {
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
 		type BlockNumberProvider: BlockNumberProvider;
+
+		#[pallet::constant]
+		type BlockNumberProviderName: Get<&'static str>;
 	}
 
 	#[pallet::extra_constants]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// The name of the block number provider configured for this pallet.
-		fn block_number_provider_name() -> &'static str {
-			T::BlockNumberProvider::get()
-		}
-
 		/// Gets this pallet's derived pot account.
 		fn pot_account() -> T::AccountId {
 			Self::account_id()
@@ -1083,12 +1081,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
-impl<T: Config<I>, I: 'static> Get<&'static str> for Pallet<T, I> {
-	fn get() -> &'static str {
-		"Treasury"
-	}
-}
-
 impl<T: Config<I>, I: 'static> OnUnbalanced<NegativeImbalanceOf<T, I>> for Pallet<T, I> {
 	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T, I>) {
 		let numeric_amount = amount.peek();
@@ -1111,3 +1103,11 @@ where
 		crate::Pallet::<R>::account_id()
 	}
 }
+
+pub struct BlockNumberProviderName<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
+impl<T: Config<I>, I: 'static> Get<&'static str> for BlockNumberProviderName<T, I> {
+	fn get() -> &'static str {
+		T::BlockNumberProvider::get()
+	}
+}
+
