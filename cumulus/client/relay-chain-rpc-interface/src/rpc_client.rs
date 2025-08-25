@@ -57,11 +57,7 @@ use sp_consensus_babe::Epoch;
 use sp_storage::StorageKey;
 use sp_version::RuntimeVersion;
 
-use crate::{
-	light_client_worker::{build_smoldot_client, LightClientRpcWorker},
-	metrics::RelaychainRpcMetrics,
-	reconnecting_ws_client::ReconnectingWebsocketWorker,
-};
+use crate::{metrics::RelaychainRpcMetrics, reconnecting_ws_client::ReconnectingWebsocketWorker};
 pub use url::Url;
 
 const LOG_TARGET: &str = "relay-chain-rpc-client";
@@ -104,26 +100,6 @@ pub async fn create_client_and_start_worker(
 		.spawn("relay-chain-rpc-worker", None, worker.run());
 
 	let client = RelayChainRpcClient::new(sender, prometheus_registry);
-
-	Ok(client)
-}
-
-/// Entry point to create [`RelayChainRpcClient`] and start a worker that communicates
-/// with an embedded smoldot instance.
-pub async fn create_client_and_start_light_client_worker(
-	chain_spec: String,
-	task_manager: &mut TaskManager,
-) -> RelayChainResult<RelayChainRpcClient> {
-	let (client, chain_id, json_rpc_responses) =
-		build_smoldot_client(task_manager.spawn_handle(), &chain_spec).await?;
-	let (worker, sender) = LightClientRpcWorker::new(client, json_rpc_responses, chain_id);
-
-	task_manager
-		.spawn_essential_handle()
-		.spawn("relay-light-client-worker", None, worker.run());
-
-	// We'll not setup prometheus exporter metrics for the light client worker.
-	let client = RelayChainRpcClient::new(sender, None);
 
 	Ok(client)
 }

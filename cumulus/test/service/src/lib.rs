@@ -61,9 +61,7 @@ use cumulus_client_service::{
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::{
-	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
-};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 
@@ -300,10 +298,6 @@ async fn build_relay_chain_interface(
 			)
 			.await
 			.map(|r| r.0),
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
-				.await
-				.map(|r| r.0),
 	};
 
 	task_manager.add_child(relay_chain_node.task_manager);

@@ -27,9 +27,7 @@ use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::{
-	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
-};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 use futures::{channel::mpsc, StreamExt};
 use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
@@ -416,8 +414,6 @@ pub async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await,
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
 	}
 }
 
