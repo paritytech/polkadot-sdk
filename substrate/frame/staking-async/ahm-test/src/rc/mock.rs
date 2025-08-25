@@ -254,6 +254,7 @@ impl pallet_root_offences::Config for Runtime {
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),
 	OffenceReport(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+	OffenceReportQueued(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 parameter_types! {
@@ -300,7 +301,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
+	) -> Result<(), ()> {
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((
 				System::block_number(),
@@ -319,9 +320,12 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.unwrap();
 			});
 		}
+		Ok(())
 	}
 
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+	fn relay_session_report(
+		session_report: rc_client::SessionReport<Self::AccountId>,
+	) -> Result<(), ()> {
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue
 				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
@@ -337,6 +341,25 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.unwrap();
 			});
 		}
+		Ok(())
+	}
+
+	fn relay_new_offence_queued(
+		offences: Vec<(SessionIndex, pallet_staking_async_rc_client::Offence<Self::AccountId>)>,
+	) -> Result<(), ()> {
+		if let Some(mut local_queue) = LocalQueue::get() {
+			local_queue
+				.push((System::block_number(), OutgoingMessages::OffenceReportQueued(offences)));
+			LocalQueue::set(Some(local_queue));
+		} else {
+			let origin = crate::ah::RuntimeOrigin::root();
+			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_queued(
+				origin,
+				offences.clone(),
+			)
+			.unwrap();
+		}
+		Ok(())
 	}
 }
 

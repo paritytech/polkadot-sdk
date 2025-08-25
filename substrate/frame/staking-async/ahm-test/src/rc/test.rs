@@ -486,6 +486,55 @@ fn on_offence_non_validator() {
 }
 
 #[test]
+fn offences_first_queued_and_then_sent() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// flush some relevant data
+		LocalQueue::flush();
+		let _ = session_events_since_last_call();
+
+		// submit an offence for a random account
+		assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
+			RuntimeOrigin::root(),
+			vec![(4, Perbill::from_percent(50)), (5, Perbill::from_percent(50))],
+			Some(vec![Default::default(), Default::default()]),
+			None
+		));
+
+		// Nothing is in our local (outgoing queue yet)
+		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
+
+		// roll one block forward
+		roll_next();
+
+		// now it is set.
+		assert_eq!(
+			LocalQueue::get_since_last_call(),
+			vec![(
+				2,
+				OutgoingMessages::OffenceReportQueued(vec![
+					(
+						0,
+						Offence {
+							offender: 4,
+							reporters: [],
+							slash_fraction: Perbill::from_percent(50)
+						}
+					),
+					(
+						0,
+						Offence {
+							offender: 5,
+							reporters: [],
+							slash_fraction: Perbill::from_percent(50)
+						}
+					)
+				])
+			)]
+		);
+	})
+}
+
+#[test]
 fn on_offence_non_validator_and_active() {
 	ExtBuilder::default()
 		.local_queue()

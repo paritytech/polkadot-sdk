@@ -154,6 +154,70 @@ pub trait SendToRelayChain {
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
 }
 
+#[cfg(feature = "std")]
+impl SendToRelayChain for () {
+	type AccountId = u64;
+	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) {
+		unimplemented!();
+	}
+}
+
+/// The interface to communicate to asset hub.
+///
+/// This trait should only encapsulate our outgoing communications. Any incoming message is handled
+/// with `Call`s.
+///
+/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
+/// In a test runtime, it can be wired to direct function call.
+pub trait SendToAssetHub {
+	/// The validator account ids.
+	type AccountId;
+
+	/// Report a session change to AssetHub.
+	///
+	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
+	fn relay_session_report(session_report: SessionReport<Self::AccountId>) -> Result<(), ()>;
+
+	/// Report new offences to AssetHub.
+	///
+	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
+	///
+	/// This should always be implemented by [`pallet_staking_async_rc_client::XCMSender`].
+	#[deprecated(note = "use `relay_new_offence_queued` instead")]
+	fn relay_new_offence(
+		session_index: SessionIndex,
+		offences: Vec<Offence<Self::AccountId>>,
+	) -> Result<(), ()>;
+
+	fn relay_new_offence_queued(
+		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
+	) -> Result<(), ()>;
+}
+
+/// A no-op implementation of [`SendToAssetHub`].
+#[cfg(feature = "std")]
+impl SendToAssetHub for () {
+	type AccountId = u64;
+
+	fn relay_session_report(_session_report: SessionReport<Self::AccountId>) -> Result<(), ()> {
+		unimplemented!();
+	}
+
+	#[allow(deprecated)]
+	fn relay_new_offence(
+		_session_index: SessionIndex,
+		_offences: Vec<Offence<Self::AccountId>>,
+	) -> Result<(), ()> {
+		unimplemented!();
+	}
+
+	fn relay_new_offence_queued(
+		_offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
+	) -> Result<(), ()> {
+		unimplemented!()
+	}
+}
+
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo)]
 /// A report about a new validator set. This is sent from AH -> RC.
 pub struct ValidatorSetReport<AccountId> {
@@ -377,35 +441,46 @@ where
 	Message: SplittableMessage + Display + Clone + Encode,
 	ToXcm: Convert<Message, Xcm<()>>,
 {
+	/// Send the message single-shot; no splitting.
+	pub fn send(message: Message) -> Result<(), ()> {
+		let xcm = ToXcm::convert(message);
+		let dest = Destination::get();
+		// send_xcm already calls validate internally
+		send_xcm::<Sender>(dest, xcm).map_err(|_| ()).map(|_| ())
+	}
+
 	/// Safe send method to send a `message`, while validating it and using [`SplittableMessage`] to
 	/// split it into smaller pieces if XCM validation fails with `ExceedsMaxMessageSize`. It will
 	/// fail on other errors.
 	///
-	/// It will only emit some logs, and has no return value. This is used in the runtime, so it
-	/// cannot deposit any events at this level.
-	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) {
+	/// Returns `Ok()` if the message was sent using `XCM`, potentially with splitting up to
+	/// `maybe_max_step` times, `Err(())` otherwise.
+	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) -> Result<(), ()> {
 		let message_type_name = core::any::type_name::<Message>();
 		let dest = Destination::get();
 		let xcms = match Self::prepare(message, maybe_max_steps) {
 			Ok(x) => x,
 			Err(e) => {
-				log::error!(target: "runtime::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
-				return;
+				log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+				return Err(());
 			},
 		};
 
 		for (idx, xcm) in xcms.into_iter().enumerate() {
-			log::debug!(target: "runtime::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
+			log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
 			let result = send_xcm::<Sender>(dest.clone(), xcm);
 			match result {
 				Ok(_) => {
-					log::debug!(target: "runtime::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx)
+					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx);
 				},
 				Err(e) => {
-					log::error!(target: "runtime::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e)
+					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e)
 				},
 			}
 		}
+
+		// TODO
+		Ok(())
 	}
 
 	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {
@@ -491,10 +566,7 @@ pub trait AHStakingInterface {
 	///
 	/// This will return the worst case estimate of the weight. The actual execution will return the
 	/// accurate amount.
-	fn weigh_on_new_offences(
-		slash_session: SessionIndex,
-		offences: &[Offence<Self::AccountId>],
-	) -> Weight;
+	fn weigh_on_new_offences(offence_count: u32) -> Weight;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -698,7 +770,7 @@ pub mod pallet {
 		#[pallet::weight(
 			// events are free
 			// origin check is negligible.
-			T::AHStakingInterface::weigh_on_new_offences(*slash_session, offences)
+			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
 		)]
 		pub fn relay_new_offence(
 			origin: OriginFor<T>,
@@ -714,6 +786,36 @@ pub mod pallet {
 			});
 
 			let weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
+			Ok(Some(weight).into())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(
+			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
+		)]
+		pub fn relay_new_offence_queued(
+			origin: OriginFor<T>,
+			offences: Vec<(SessionIndex, Offence<T::AccountId>)>,
+		) -> DispatchResultWithPostInfo {
+			log!(info, "Received new batch of {} offences", offences.len());
+			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			let mut offences_by_session =
+				alloc::collections::BTreeMap::<SessionIndex, Vec<Offence<T::AccountId>>>::new();
+			for (session_index, offence) in offences {
+				offences_by_session.entry(session_index).or_default().push(offence);
+			}
+
+			let mut weight: Weight = Default::default();
+			for (slash_session, offences) in offences_by_session {
+				Self::deposit_event(Event::OffenceReceived {
+					slash_session,
+					offences_count: offences.len() as u32,
+				});
+				let new_weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
+				weight.saturating_accrue(new_weight)
+			}
+
 			Ok(Some(weight).into())
 		}
 	}

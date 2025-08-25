@@ -350,7 +350,7 @@ mod tests {
 			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 
 			// Verify buffered offences are stored correctly
-			let buffered_offences = ah_client::BufferedOffences::<rc::Runtime>::get();
+			let buffered_offences = ah_client::MigrationBufferedOffences::<rc::Runtime>::get();
 			assert_eq!(
 				buffered_offences.len(),
 				3,
@@ -405,7 +405,7 @@ mod tests {
 		// SCENE (3): AHM migration ends.
 		shared::in_rc(|| {
 			// Before migration ends, verify we have 9 buffered offences across multiple sessions
-			let buffered_before = ah_client::BufferedOffences::<rc::Runtime>::get();
+			let buffered_before = ah_client::MigrationBufferedOffences::<rc::Runtime>::get();
 			let total_offences_before: usize =
 				buffered_before.values().map(|session_map| session_map.len()).sum();
 			assert_eq!(total_offences_before, 9);
@@ -439,7 +439,7 @@ mod tests {
 
 			// All buffered offences should be cleared now
 			assert!(
-				ah_client::BufferedOffences::<rc::Runtime>::get().is_empty(),
+				ah_client::MigrationBufferedOffences::<rc::Runtime>::get().is_empty(),
 				"All buffered offences should be processed"
 			);
 		});

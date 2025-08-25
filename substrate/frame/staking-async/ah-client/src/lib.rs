@@ -67,6 +67,7 @@ pub use weights::WeightInfo;
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
+pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
@@ -96,44 +97,6 @@ macro_rules! log {
 			concat!("[{:?}] ⬇️ ", $patter), <frame_system::Pallet<T>>::block_number() $(, $values)*
 		)
 	};
-}
-
-/// The interface to communicate to asset hub.
-///
-/// This trait should only encapsulate our outgoing communications. Any incoming message is handled
-/// with `Call`s.
-///
-/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
-/// In a test runtime, it can be wired to direct function call.
-pub trait SendToAssetHub {
-	/// The validator account ids.
-	type AccountId;
-
-	/// Report a session change to AssetHub.
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>);
-
-	/// Report new offences.
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	);
-}
-
-/// A no-op implementation of [`SendToAssetHub`].
-#[cfg(feature = "std")]
-impl SendToAssetHub for () {
-	type AccountId = u64;
-
-	fn relay_session_report(_session_report: rc_client::SessionReport<Self::AccountId>) {
-		panic!("relay_session_report not implemented");
-	}
-
-	fn relay_new_offence(
-		_session_index: SessionIndex,
-		_offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		panic!("relay_new_offence not implemented");
-	}
 }
 
 /// Interface to talk to the local session pallet.
@@ -402,7 +365,60 @@ pub mod pallet {
 	/// is only one. In this pallet, we assume this is the case and store only the first reporter.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type BufferedOffences<T: Config> = StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
+	pub type MigrationBufferedOffences<T: Config> =
+		StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
+
+	pub struct SendQueue<T: Config>(core::marker::PhantomData<T>);
+
+	impl<T: Config> SendQueue<T> {
+		pub fn append(o: QueuedOffenceOf<T>) {
+			let mut index = SendQueueCursor::<T>::get();
+			match SendQueueOffences::<T>::try_mutate(index, |b| b.try_push(o.clone())) {
+				Ok(_) => {
+					// `index` had empty slot -- all good.
+				},
+				Err(_) => {
+					index += 1;
+					SendQueueOffences::<T>::insert(
+						index,
+						BoundedVec::<_, _>::try_from(vec![o]).expect("1 is less than 16; qed"),
+					);
+					SendQueueCursor::<T>::mutate(|i| *i += 1);
+				},
+			}
+		}
+
+		pub fn get_and_maybe_delete(op: impl FnOnce(QueuedOffencePageOf<T>) -> Result<(), ()>) {
+			let index = SendQueueCursor::<T>::get();
+			let page = SendQueueOffences::<T>::get(index);
+			let res = op(page);
+			match res {
+				Ok(_) => {
+					SendQueueOffences::<T>::remove(index);
+					SendQueueCursor::<T>::mutate(|i| *i = i.saturating_sub(1))
+				},
+				Err(_) => {
+					// nada
+				},
+			}
+		}
+	}
+
+	pub(crate) type QueuedOffenceOf<T> =
+		(SessionIndex, rc_client::Offence<<T as frame_system::Config>::AccountId>);
+	pub(crate) type QueuedOffencePageOf<T> =
+		BoundedVec<QueuedOffenceOf<T>, <T as Config>::MaxOffenceBatchSize>;
+
+	// we have 3 options:
+	// for now, just doing a value.
+	// better would be a map, where we iterate n items every block and drain it
+	// ideal would be a paged-map as created by oliver.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type SendQueueOffences<T: Config> =
+		StorageMap<_, Twox64Concat, u32, QueuedOffencePageOf<T>, ValueQuery>;
+	#[pallet::storage]
+	pub(crate) type SendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -463,6 +479,16 @@ pub mod pallet {
 		///
 		/// Expected transitions are linear and forward-only: `Passive` → `Buffered` → `Active`.
 		UnexpectedModeTransition,
+
+		/// A session report failed to be sent.
+		///
+		/// This will be retried in the next session rotation. No era points will be lost.
+		SessionReportSendFailed,
+
+		/// An offence report failed to be sent.
+		///
+		/// It will be retried again in the next block
+		OffenceSendFailed,
 	}
 
 	#[pallet::call]
@@ -584,16 +610,25 @@ pub mod pallet {
 			}
 
 			// Check if we have any buffered offences to send
-			let buffered_offences = BufferedOffences::<T>::get();
+			let migration_buffered_offences = MigrationBufferedOffences::<T>::get();
 			weight = weight.saturating_add(T::DbWeight::get().reads(1));
-			if buffered_offences.is_empty() {
-				return weight;
+			if migration_buffered_offences.is_empty() {
+				// take a page from our send queue, and actually send it.
+				SendQueue::<T>::get_and_maybe_delete(|page| {
+					if page.is_empty() {
+						return Ok(())
+					}
+					let res = T::SendToAssetHub::relay_new_offence_queued(page.into_inner());
+					match res {
+						Ok(()) => Ok(()),
+						Err(()) => Err(()),
+					}
+				});
+				weight
+			} else {
+				let processing_weight = Self::process_buffered_offences();
+				weight.saturating_add(processing_weight)
 			}
-
-			let processing_weight = Self::process_buffered_offences();
-			weight = weight.saturating_add(processing_weight);
-
-			weight
 		}
 	}
 
@@ -817,7 +852,7 @@ pub mod pallet {
 			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
 
 			// Process and remove offences one session at a time
-			let offences_sent = BufferedOffences::<T>::mutate(|buffered| {
+			let offences_sent = MigrationBufferedOffences::<T>::mutate(|buffered| {
 				let first_session_key = buffered.keys().next().copied()?;
 
 				let session_map = buffered.get_mut(&first_session_key)?;
@@ -900,7 +935,7 @@ pub mod pallet {
 
 					// In `Buffered` mode, we buffer the offences for later processing.
 					// We only keep the highest slash fraction for each offender per session.
-					BufferedOffences::<T>::mutate(|buffered| {
+					MigrationBufferedOffences::<T>::mutate(|buffered| {
 						let session_offences = buffered.entry(slash_session).or_default();
 						let entry = session_offences.entry(offender);
 
@@ -934,35 +969,150 @@ pub mod pallet {
 		) -> Weight {
 			let ongoing_offence = Self::is_ongoing_offence(slash_session);
 
-			let offenders_and_slashes_message: Vec<_> = offenders
-				.iter()
-				.cloned()
-				.zip(slash_fraction)
-				.map(|(offence, fraction)| {
-					if ongoing_offence {
-						// report the offence to the session pallet.
-						T::SessionInterface::report_offence(
-							offence.offender.0.clone(),
-							OffenceSeverity(*fraction),
-						);
-					}
+			offenders.iter().cloned().zip(slash_fraction).for_each(|(offence, fraction)| {
+				if ongoing_offence {
+					// report the offence to the session pallet.
+					T::SessionInterface::report_offence(
+						offence.offender.0.clone(),
+						OffenceSeverity(*fraction),
+					);
+				}
 
-					let (offender, _full_identification) = offence.offender;
-					let reporters = offence.reporters;
+				let (offender, _full_identification) = offence.offender;
+				let reporters = offence.reporters;
 
-					// prepare an `Offence` instance for the XCM message. Note that we drop
-					// the identification.
-					rc_client::Offence { offender, reporters, slash_fraction: *fraction }
-				})
-				.collect();
+				// prepare an `Offence` instance for the XCM message. Note that we drop
+				// the identification.
+				let offence = rc_client::Offence { offender, reporters, slash_fraction: *fraction };
+				SendQueue::<T>::append((slash_session, offence))
+			});
 
-			// Send offence report to Asset Hub
-			if !offenders_and_slashes_message.is_empty() {
-				log!(warn, "sending offence report of {:?} to AH", offenders_and_slashes_message);
-				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes_message);
-			}
-
+			// TODO
 			Weight::zero()
 		}
+	}
+}
+
+#[cfg(test)]
+mod send_queue_tests {
+	use frame_support::hypothetically;
+	use sp_runtime::Perbill;
+
+	use super::*;
+	use crate::mock::*;
+
+	// (cursor, len_of_pages)
+	fn status() -> (u32, Vec<u32>) {
+		let mut sorted = SendQueueOffences::<Test>::iter().collect::<Vec<_>>();
+		sorted.sort_by(|x, y| x.0.cmp(&y.0));
+		(SendQueueCursor::<Test>::get(), sorted.into_iter().map(|(_, v)| v.len() as u32).collect())
+	}
+
+	#[test]
+	fn append_and_take() {
+		new_test_ext().execute_with(|| {
+			let o = (
+				42,
+				rc_client::Offence {
+					offender: 42,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(10),
+				},
+			);
+			let page_size = <Test as Config>::MaxOffenceBatchSize::get();
+			assert_eq!(page_size % 2, 0, "page size should be even");
+
+			assert_eq!(status(), (0, vec![]));
+
+			// --- when empty
+
+			// get and keep
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len(), 0);
+					Err(())
+				});
+				assert_eq!(status(), (0, vec![]));
+			});
+
+			// get and delete
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len(), 0);
+					Ok(())
+				});
+				assert_eq!(status(), (0, vec![]));
+			});
+
+			// -------- when 1 page half filled
+			for _ in 0..page_size / 2 {
+				SendQueue::<Test>::append(o.clone());
+			}
+			assert_eq!(status(), (0, vec![page_size / 2]));
+
+			// get and keep
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len() as u32, page_size / 2);
+					Err(())
+				});
+				assert_eq!(status(), (0, vec![page_size / 2]));
+			});
+
+			// get and delete
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len() as u32, page_size / 2);
+					Ok(())
+				});
+				assert_eq!(status(), (0, vec![]));
+			});
+
+			// -------- when 1 page full
+			for _ in 0..page_size / 2 {
+				SendQueue::<Test>::append(o.clone());
+			}
+			assert_eq!(status(), (0, vec![page_size]));
+
+			// get and keep
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len() as u32, page_size);
+					Err(())
+				});
+				assert_eq!(status(), (0, vec![page_size]));
+			});
+
+			// get and delete
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len() as u32, page_size);
+					Ok(())
+				});
+				assert_eq!(status(), (0, vec![]));
+			});
+
+			// -------- when more than 1 page full
+			SendQueue::<Test>::append(o.clone());
+			assert_eq!(status(), (1, vec![page_size, 1]));
+
+			// get and keep
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len(), 1);
+					Err(())
+				});
+				assert_eq!(status(), (1, vec![page_size, 1]));
+			});
+
+			// get and delete
+			hypothetically!({
+				SendQueue::<Test>::get_and_maybe_delete(|page| {
+					assert_eq!(page.len(), 1);
+					Ok(())
+				});
+				assert_eq!(status(), (0, vec![page_size]));
+			});
+		})
 	}
 }

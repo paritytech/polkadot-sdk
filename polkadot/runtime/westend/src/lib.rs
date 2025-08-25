@@ -848,19 +848,19 @@ pub struct StakingXcmToAssetHub;
 impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 	type AccountId = AccountId;
 
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
+	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			AssetHubLocation,
 			rc_client::SessionReport<AccountId>,
 			SessionReportToXcm,
-		>::split_then_send(session_report, Some(8));
+		>::split_then_send(session_report, Some(8))
 	}
 
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
+	) -> Result<(), ()> {
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
