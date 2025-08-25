@@ -32,7 +32,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     name: Extract runtimes from matrix
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: master
 
@@ -79,7 +79,7 @@ jobs:
     steps:
     
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ needs.runtime-matrix.outputs.branch }} # checkout always from the initially created branch to avoid conflicts
@@ -122,13 +122,13 @@ jobs:
     needs: [runtime-matrix, run-frame-omni-bencher]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ needs.runtime-matrix.outputs.branch }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: patches      
 
