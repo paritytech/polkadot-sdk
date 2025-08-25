@@ -82,10 +82,9 @@
 /// in practice at most once every few weeks.
 use polkadot_node_subsystem::messages::HypotheticalCandidate;
 use polkadot_primitives::{
-	async_backing::Constraints as OldPrimitiveConstraints,
-	vstaging::{async_backing::Constraints as PrimitiveConstraints, skip_ump_signals},
-	BlockNumber, CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId,
-	PersistedValidationData, UpgradeRestriction, ValidationCodeHash,
+	async_backing::Constraints as PrimitiveConstraints, skip_ump_signals, BlockNumber,
+	CandidateCommitments, CandidateHash, Hash, HeadData, Id as ParaId, PersistedValidationData,
+	UpgradeRestriction, ValidationCodeHash,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -150,43 +149,6 @@ impl From<PrimitiveConstraints> for Constraints {
 			max_pov_size: c.max_pov_size as _,
 			max_code_size: c.max_code_size as _,
 			max_head_data_size: c.max_head_data_size as _,
-			ump_remaining: c.ump_remaining as _,
-			ump_remaining_bytes: c.ump_remaining_bytes as _,
-			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
-			dmp_remaining_messages: c.dmp_remaining_messages,
-			hrmp_inbound: InboundHrmpLimitations {
-				valid_watermarks: c.hrmp_inbound.valid_watermarks,
-			},
-			hrmp_channels_out: c
-				.hrmp_channels_out
-				.into_iter()
-				.map(|(para_id, limits)| {
-					(
-						para_id,
-						OutboundHrmpChannelLimitations {
-							bytes_remaining: limits.bytes_remaining as _,
-							messages_remaining: limits.messages_remaining as _,
-						},
-					)
-				})
-				.collect(),
-			max_hrmp_num_per_candidate: c.max_hrmp_num_per_candidate as _,
-			required_parent: c.required_parent,
-			validation_code_hash: c.validation_code_hash,
-			upgrade_restriction: c.upgrade_restriction,
-			future_validation_code: c.future_validation_code,
-		}
-	}
-}
-
-impl From<OldPrimitiveConstraints> for Constraints {
-	fn from(c: OldPrimitiveConstraints) -> Self {
-		Constraints {
-			min_relay_parent_number: c.min_relay_parent_number,
-			max_pov_size: c.max_pov_size as _,
-			max_code_size: c.max_code_size as _,
-			// Equal to Polkadot/Kusama config.
-			max_head_data_size: 20480,
 			ump_remaining: c.ump_remaining as _,
 			ump_remaining_bytes: c.ump_remaining_bytes as _,
 			max_ump_num_per_candidate: c.max_ump_num_per_candidate as _,
@@ -885,8 +847,8 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use polkadot_primitives::{
-		vstaging::{ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR},
-		HorizontalMessages, OutboundHrmpMessage, ValidationCode,
+		ClaimQueueOffset, CoreSelector, HorizontalMessages, OutboundHrmpMessage, UMPSignal,
+		ValidationCode, UMP_SEPARATOR,
 	};
 
 	#[test]

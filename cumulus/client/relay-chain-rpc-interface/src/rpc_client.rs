@@ -33,18 +33,13 @@ use codec::{Decode, Encode};
 
 use cumulus_primitives_core::{
 	relay_chain::{
-		async_backing::AsyncBackingParams,
-		slashing,
-		vstaging::{
-			async_backing::{BackingState, Constraints},
-			CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-			ScrapedOnChainVotes,
-		},
-		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
-		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
-		InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PvfCheckStatement, SessionIndex,
-		SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-		ValidatorSignature,
+		async_backing::{AsyncBackingParams, BackingState, Constraints},
+		slashing, ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+		CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+		CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash,
+		Header as RelayHeader, InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption,
+		PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+		ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -453,7 +448,8 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_unapplied_slashes(
 		&self,
 		at: RelayHash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, RelayChainError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, RelayChainError>
+	{
 		self.call_remote_runtime_function("ParachainHost_unapplied_slashes", at, None::<()>)
 			.await
 	}
@@ -481,7 +477,7 @@ impl RelayChainRpcClient {
 	pub async fn parachain_host_submit_report_dispute_lost(
 		&self,
 		at: RelayHash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, RelayChainError> {
 		self.call_remote_runtime_function(

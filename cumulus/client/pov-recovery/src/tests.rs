@@ -19,7 +19,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	vstaging::CoreState, BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex,
+	BlockId, CandidateCommitments, CandidateDescriptor, CoreIndex, CoreState,
 };
 use cumulus_relay_chain_interface::{
 	InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -35,7 +35,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,

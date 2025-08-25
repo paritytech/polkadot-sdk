@@ -65,12 +65,11 @@ use alloc::{
 };
 use polkadot_primitives::{
 	slashing::{
-		DisputeProof as DisputeProofV1, DisputesTimeSlot, PendingSlashes as PendingSlashesV1,
+		DisputesTimeSlot, LegacyDisputeProof as DisputeProofV1,
+		LegacyPendingSlashes as PendingSlashesV1,
 	},
-	vstaging::{
-		DisputeOffenceKind, DisputeProof as DisputeProofV2, PendingSlashes as PendingSlashesV2,
-	},
-	CandidateHash, SessionIndex, ValidatorId, ValidatorIndex,
+	CandidateHash, DisputeOffenceKind, DisputeProof as DisputeProofV2,
+	PendingSlashes as PendingSlashesV2, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{

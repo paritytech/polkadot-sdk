@@ -52,9 +52,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	AuthorityDiscoveryId, BlockNumber, CandidateHash, CollatorPair, CoreIndex, GroupIndex, Hash,
-	HeadData, Id as ParaId, SessionIndex,
+	AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, GroupIndex, Hash, HeadData,
+	Id as ParaId, SessionIndex,
 };
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};

@@ -42,10 +42,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, MutateDescriptorV2},
-	ApprovalVote, CandidateCommitments, CoreIndex, DisputeStatement, GroupIndex, Header,
-	Id as ParaId, IndexedVec, NodeFeatures, ValidDisputeStatementKind, ValidationCode,
-	ValidatorSignature,
+	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
+	Header, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures, ValidDisputeStatementKind,
+	ValidationCode, ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 

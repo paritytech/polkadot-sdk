@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{vstaging::CoreState, BlockId, BlockNumber},
+	relay_chain::{BlockId, BlockNumber, CoreState},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage,
 };
 use cumulus_relay_chain_interface::{
@@ -35,7 +35,7 @@ use cumulus_test_client::{
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use futures::{channel::mpsc, executor::block_on, select, FutureExt, Stream, StreamExt};
 use futures_timer::Delay;
-use polkadot_primitives::{vstaging::CandidateEvent, HeadData};
+use polkadot_primitives::{CandidateEvent, HeadData};
 use sc_client_api::{Backend as _, UsageProvider};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_blockchain::Backend as BlockchainBackend;

@@ -16,18 +16,14 @@
 
 use async_trait::async_trait;
 use polkadot_primitives::{
-	async_backing,
+	async_backing::{self, Constraints},
 	runtime_api::ParachainHost,
-	slashing,
-	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex,
+	slashing, ApprovalVotingParams, Block, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Header, Id, InboundDownwardMessage,
 	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sc_client_api::{AuxStore, HeaderBackend};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -250,7 +246,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
 	async fn key_ownership_proof(
@@ -264,7 +260,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError>;
 
@@ -310,7 +306,7 @@ pub trait RuntimeApiSubsystemClient {
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError>;
+	) -> Result<Option<async_backing::BackingState>, ApiError>;
 
 	// === v8 ===
 
@@ -568,7 +564,7 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
 	}
 
@@ -583,7 +579,7 @@ where
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::DisputeProof,
+		dispute_proof: slashing::LegacyDisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		let mut runtime_api = self.client.runtime_api();
@@ -607,7 +603,7 @@ where
 		&self,
 		at: Hash,
 		para_id: Id,
-	) -> Result<Option<vstaging::async_backing::BackingState>, ApiError> {
+	) -> Result<Option<async_backing::BackingState>, ApiError> {
 		self.client.runtime_api().para_backing_state(at, para_id)
 	}
 

@@ -44,10 +44,9 @@ use polkadot_node_subsystem_util::{
 	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing,
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, ScrapedOnChainVotes},
-	BlockNumber, CandidateHash, CompactStatement, DisputeStatement, DisputeStatementSet, Hash,
-	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	slashing, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CompactStatement,
+	DisputeStatement, DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex,
+	ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
@@ -398,7 +397,7 @@ impl Initialized {
 		&mut self,
 		ctx: &mut Context,
 		relay_parent: Hash,
-		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
+		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
 			gum::info!(
@@ -437,7 +436,7 @@ impl Initialized {
 							key_ownership_proofs.push(key_ownership_proof);
 							let time_slot =
 								slashing::DisputesTimeSlot::new(session_index, candidate_hash);
-							let dispute_proof = slashing::DisputeProof {
+							let dispute_proof = slashing::LegacyDisputeProof {
 								time_slot,
 								kind: pending.kind,
 								validator_index: *validator_index,

@@ -23,6 +23,8 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
 use sp_core::RuntimeDebug;
 
+use crate::CandidateDescriptorV2;
+
 /// Candidate's acceptance limitations for asynchronous backing per relay parent.
 #[derive(
 	RuntimeDebug,
@@ -81,6 +83,8 @@ pub struct Constraints<N = BlockNumber> {
 	pub max_pov_size: u32,
 	/// The maximum new validation code size allowed, in bytes.
 	pub max_code_size: u32,
+	/// The maximum head-data size, in bytes.
+	pub max_head_data_size: u32,
 	/// The amount of UMP messages remaining.
 	pub ump_remaining: u32,
 	/// The amount of UMP bytes remaining.
@@ -106,13 +110,18 @@ pub struct Constraints<N = BlockNumber> {
 	pub future_validation_code: Option<(N, ValidationCodeHash)>,
 }
 
+impl<N> Constraints<N> {
+	/// Equal to Polkadot/Kusama config.
+	pub const DEFAULT_MAX_HEAD_DATA_SIZE: u32 = 20480;
+}
+
 /// A candidate pending availability.
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// The candidate's descriptor.
-	pub descriptor: CandidateDescriptor<H>,
+	pub descriptor: CandidateDescriptorV2<H>,
 	/// The commitments of the candidate.
 	pub commitments: CandidateCommitments,
 	/// The candidate's relay parent's number.
@@ -126,7 +135,7 @@ pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {
 #[derive(RuntimeDebug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct BackingState<H = Hash, N = BlockNumber> {
 	/// The state-machine constraints of the parachain.
-	pub constraints: Constraints<N>,
+	pub constraints: crate::async_backing::Constraints<N>,
 	/// The candidates pending availability. These should be ordered, i.e. they should form
 	/// a sub-chain, where the first candidate builds on top of the required parent of the
 	/// constraints and each subsequent builds on top of the previous head-data.

@@ -31,13 +31,11 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
-	node_features::FeatureIndex,
-	slashing,
-	vstaging::{CandidateEvent, CoreState, OccupiedCore, ScrapedOnChainVotes},
-	CandidateHash, CoreIndex, EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, IndexedVec, NodeFeatures, SessionIndex, SessionInfo, Signed, SigningContext,
-	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
+	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
+	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
+	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
+	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -429,7 +427,7 @@ where
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>
+) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -455,7 +453,7 @@ where
 pub async fn submit_report_dispute_lost<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-	dispute_proof: slashing::DisputeProof,
+	dispute_proof: slashing::LegacyDisputeProof,
 	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Result<Option<()>>
 where

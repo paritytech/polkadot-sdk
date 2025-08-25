@@ -114,15 +114,12 @@
 //! separated from the stable primitives.
 
 use crate::{
-	slashing,
-	vstaging::{
-		self, async_backing::Constraints, CandidateEvent,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateHash,
-	CoreIndex, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, SessionIndex, SessionInfo,
-	ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::{BackingState, Constraints},
+	slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments,
+	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{
@@ -236,7 +233,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
@@ -248,7 +245,7 @@ sp_api::decl_runtime_apis! {
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn submit_report_dispute_lost(
-			dispute_proof: slashing::DisputeProof,
+			dispute_proof: slashing::LegacyDisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 
@@ -264,7 +261,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the state of parachain backing for a given para.
 		#[api_version(7)]
-		fn para_backing_state(_: ppp::Id) -> Option<vstaging::async_backing::BackingState<Hash, BlockNumber>>;
+		fn para_backing_state(_: ppp::Id) -> Option<BackingState<Hash, BlockNumber>>;
 
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		#[api_version(7)]

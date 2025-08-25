@@ -45,9 +45,9 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{determine_new_blocks, runtime::RuntimeInfo};
 use polkadot_overseer::SubsystemSender;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	BlockNumber, CandidateHash, ConsensusLog, CoreIndex, GroupIndex, Hash, Header, SessionIndex,
+	node_features, BlockNumber, CandidateEvent, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, ConsensusLog, CoreIndex, GroupIndex, Hash, Header,
+	SessionIndex,
 };
 use sc_keystore::LocalKeystore;
 use sp_consensus_slots::Slot;
@@ -619,8 +619,8 @@ pub(crate) mod tests {
 	use polkadot_node_subsystem_test_helpers::make_subsystem_context;
 	use polkadot_node_subsystem_util::database::Database;
 	use polkadot_primitives::{
-		node_features::FeatureIndex, vstaging::MutateDescriptorV2, ExecutorParams, Id as ParaId,
-		IndexedVec, NodeFeatures, SessionInfo, ValidatorId, ValidatorIndex,
+		node_features::FeatureIndex, ExecutorParams, Id as ParaId, IndexedVec, MutateDescriptorV2,
+		NodeFeatures, SessionInfo, ValidatorId, ValidatorIndex,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 	use schnellru::{ByLength, LruMap};

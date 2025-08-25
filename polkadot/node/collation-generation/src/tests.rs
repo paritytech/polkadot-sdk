@@ -27,11 +27,8 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features,
-	vstaging::{
-		CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
-	},
-	CollatorPair, NodeFeatures, PersistedValidationData,
+	node_features, CandidateDescriptorVersion, ClaimQueueOffset, CollatorPair, CoreSelector,
+	NodeFeatures, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;

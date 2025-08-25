@@ -19,7 +19,7 @@ use futures::channel::oneshot;
 
 use polkadot_node_subsystem::RuntimeApiError;
 use polkadot_node_subsystem_util::backing_implicit_view;
-use polkadot_primitives::vstaging::CandidateDescriptorVersion;
+use polkadot_primitives::CandidateDescriptorVersion;
 
 /// General result.
 pub type Result<T> = std::result::Result<T, Error>;

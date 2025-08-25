@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use codec::{Compact, Decode};
 use cumulus_primitives_core::{relay_chain, rpsr_digest::RPSR_CONSENSUS_ID};
 use futures::stream::StreamExt;
-use polkadot_primitives::{vstaging::CandidateReceiptV2, Id as ParaId};
+use polkadot_primitives::{CandidateReceiptV2, Id as ParaId};
 use std::{cmp::max, collections::HashMap, ops::Range};
 use tokio::{
 	join,
