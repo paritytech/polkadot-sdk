@@ -47,8 +47,7 @@ impl PartialEq for TransactionDetails {
 #[test]
 fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let receipt_data =
-			vec![ReceiptGasInfo { effective_gas_price: 1.into(), gas_used: 1.into() }];
+		let receipt_data = vec![ReceiptGasInfo { gas_used: 1.into() }];
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 

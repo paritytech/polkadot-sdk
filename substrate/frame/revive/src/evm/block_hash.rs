@@ -57,15 +57,6 @@ pub struct TransactionDetails {
 /// layer without losing accuracy.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
-	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
-	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
-	/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
-	///
-	/// Note: Since there's a runtime API to extract the base gas fee (`fn gas_price()`)
-	/// and we have access to the `TransactionSigned` struct, we can compute the effective gas
-	/// price in the RPC layer.
-	pub effective_gas_price: U256,
-
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
 }
@@ -199,10 +190,7 @@ impl Block {
 		TransactionProcessed {
 			encoded_tx,
 			tx_hash,
-			gas_info: ReceiptGasInfo {
-				effective_gas_price: signed_transaction.effective_gas_price(base_gas_price),
-				gas_used: gas_used.ref_time().into(),
-			},
+			gas_info: ReceiptGasInfo { gas_used: gas_used.ref_time().into() },
 			encoded_receipt,
 			receipt_bloom,
 		}
