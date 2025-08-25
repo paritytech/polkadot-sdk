@@ -21,7 +21,7 @@ use frame_support::{
 		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
 		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::{FixedFee, Weight},
+	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;

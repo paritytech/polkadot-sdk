@@ -701,6 +701,7 @@ pub struct TransactionLegacyUnsigned {
 	Clone,
 	Serialize,
 	Deserialize,
+	Default,
 	From,
 	Eq,
 	PartialEq,
