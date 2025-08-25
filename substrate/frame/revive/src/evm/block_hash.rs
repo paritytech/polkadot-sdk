@@ -239,10 +239,10 @@ impl Block {
 			extra_data: self.extra_data.clone().0.into(),
 			mix_hash: self.mix_hash.0.into(),
 			nonce: self.nonce.0.into(),
-			base_fee_per_gas: self.base_fee_per_gas.map(|gas| gas.as_u64()),
-			withdrawals_root: self.withdrawals_root.map(|root| root.0.into()),
-			blob_gas_used: self.blob_gas_used.map(|gas| gas.as_u64()),
-			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
+			base_fee_per_gas: Some(self.base_fee_per_gas.as_u64()),
+			withdrawals_root: Some(self.withdrawals_root.0.into()),
+			blob_gas_used: Some(self.blob_gas_used.as_u64()),
+			excess_blob_gas: Some(self.excess_blob_gas.as_u64()),
 			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
 
 			..Default::default()

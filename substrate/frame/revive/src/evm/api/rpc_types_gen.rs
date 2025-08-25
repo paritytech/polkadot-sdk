@@ -702,7 +702,6 @@ pub struct TransactionLegacyUnsigned {
 	Serialize,
 	Deserialize,
 	From,
-	TryInto,
 	Eq,
 	PartialEq,
 	TypeInfo,
@@ -749,7 +748,17 @@ pub struct Transaction7702Unsigned {
 
 /// Authorization list entry for EIP-7702
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizationListEntry {
@@ -767,7 +776,20 @@ pub struct AuthorizationListEntry {
 	pub s: U256,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	From,
+	TryInto,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction7702Signed(Transaction7702Signed),
@@ -856,7 +878,16 @@ impl Default for FilterTopic {
 
 /// Signed 7702 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction7702Signed {

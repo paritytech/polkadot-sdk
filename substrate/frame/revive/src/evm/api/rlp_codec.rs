@@ -112,7 +112,7 @@ impl TransactionSigned {
 			TransactionSigned::Transaction2930Signed(tx) => {
 				s.append(&tx.transaction_2930_unsigned.r#type.value());
 			},
-			Transaction7702Signed(tx) => {
+			TransactionSigned::Transaction7702Signed(tx) => {
 				s.append(&tx.transaction_7702_unsigned.r#type.value());
 			},
 			TransactionSigned::TransactionLegacySigned(_) => {},
