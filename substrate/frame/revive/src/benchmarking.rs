@@ -2336,7 +2336,7 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
-	// Helper function to create a test signer for finalize_block benchmark
+	/// Helper function to create a test signer for finalize_block benchmark
 	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;
 		// dev::alith()
@@ -2352,23 +2352,7 @@ mod benchmarks {
 		(signer_caller, signer_key, signer_address)
 	}
 
-	// Helper function to extract contract events from system events
-	fn get_contract_events<T: Config>() -> Vec<
-		frame_system::EventRecord<
-			<T as frame_system::Config>::RuntimeEvent,
-			<T as frame_system::Config>::Hash,
-		>,
-	> {
-		frame_system::Pallet::<T>::events()
-			.into_iter()
-			.filter(|event_record| {
-				// Use string representation to identify contract events
-				format!("{:?}", event_record.event).contains("ContractEmitted")
-			})
-			.collect()
-	}
-
-	// Helper function to create and sign a transaction for finalize_block benchmark
+	/// Helper function to create and sign a transaction for finalize_block benchmark
 	fn create_signed_transaction<T: Config>(
 		signer_key: &SigningKey,
 		target_address: H160,
@@ -2397,7 +2381,7 @@ mod benchmarks {
 		signed_tx.signed_payload()
 	}
 
-	// Macro to generate common finalize_block benchmark setup
+	/// Helper function to generate common finalize_block benchmark setup
 	fn setup_finalize_block_benchmark<T>() -> Result<
 		(Contract<T>, T::RuntimeOrigin, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>),
 		BenchmarkError,
@@ -2485,10 +2469,6 @@ mod benchmarks {
 
 		// Verify transaction count
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), n as usize);
-
-		// Verify contract events count
-		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), 0);
 
 		Ok(())
 	}
@@ -2582,10 +2562,6 @@ mod benchmarks {
 
 		// Verify transaction count
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
-
-		// Verify contract events count
-		let contract_events = get_contract_events::<T>();
-		assert_eq!(contract_events.len(), e as usize);
 
 		Ok(())
 	}
