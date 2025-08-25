@@ -157,6 +157,7 @@ impl RestoreStrategy for NoParams {
 /// identify a certain byte data.
 /// For instance, there can be several named byte attributes. In that case, the `Request` might
 /// be something like `Attribute(/* name: */ String)`.
+#[derive(RuntimeDebug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct Bytes<Request = ()>(pub Request);
 impl Default for Bytes<()> {
 	fn default() -> Self {
@@ -359,13 +360,13 @@ pub struct DeriveAndReportId<Params, ReportedId> {
 	pub params: Params,
 	_phantom: PhantomData<ReportedId>,
 }
-impl<ReportedId> DeriveAndReportId<(), ReportedId> {
-	pub fn auto() -> AutoId<ReportedId> {
-		Self { params: (), _phantom: PhantomData }
+impl<Params: Default, ReportedId> Default for DeriveAndReportId<Params, ReportedId> {
+	fn default() -> Self {
+		Self { params: Default::default(), _phantom: PhantomData }
 	}
 }
-impl<Params, ReportedId> DeriveAndReportId<Params, ReportedId> {
-	pub fn from(params: Params) -> Self {
+impl<Params, ReportedId> From<Params> for DeriveAndReportId<Params, ReportedId> {
+	fn from(params: Params) -> Self {
 		Self { params, _phantom: PhantomData }
 	}
 }
@@ -380,6 +381,16 @@ impl<Params, ReportedId> CreateStrategy for DeriveAndReportId<Params, ReportedId
 /// [WithConfig] strategy.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct ConfigValue<Inspect: InspectStrategy>(pub Inspect::Value);
+
+impl<Inspect> Default for ConfigValue<Inspect>
+where
+	Inspect: InspectStrategy,
+	Inspect::Value: Default,
+{
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
 
 /// This trait marks a config value to be used in the [WithConfig] strategy.
 /// It is used to make compiler error messages clearer if invalid type is supplied into the
@@ -443,9 +454,9 @@ pub struct WithConfig<ConfigValue: ConfigValueMarker, Extra = ()> {
 	pub extra: Extra,
 }
 
-impl<ConfigValue: ConfigValueMarker> WithConfig<ConfigValue> {
+impl<ConfigValue: ConfigValueMarker, Extra: Default> WithConfig<ConfigValue, Extra> {
 	pub fn from(config: ConfigValue) -> Self {
-		Self { config, extra: () }
+		Self { config, extra: Default::default() }
 	}
 }
 impl<ConfigValue: ConfigValueMarker, Extra> WithConfig<ConfigValue, Extra> {

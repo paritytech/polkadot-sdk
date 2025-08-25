@@ -396,7 +396,7 @@ pub type CreateDerivativeNft = CreateUsingXcmNft<CreateUsingXcmAssetId<DeriveNft
 pub type DerivativeNftsRegistrar = UniqueInstancesDepositAdapter<
 	AccountId,
 	LocationToAccountId,
-	NftFullId,
+	DeriveAndReportId<NonFungibleAsset, NftFullId>,
 	// Creates a new NFT using the `CreateDerivativeNft`,
 	// and stores the mapping between the XCM NFT ID and the derivative ID in the `DerivativeNfts`
 	// registry.
