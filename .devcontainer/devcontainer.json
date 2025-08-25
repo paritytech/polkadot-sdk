@@ -1,0 +1,32 @@
+{
+  "name": "Polkadot SDK Dev Container",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/workspaces/polkadot-sdk",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers-community/features/deno:1": {},
+    "ghcr.io/devcontainers-extra/features/dprint-asdf:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
+  "remoteEnv": {
+    "PW_TEST_CONNECT_WS_ENDPOINT": "ws://playwright:3000",
+    "DOPPLER_TOKEN": "${localEnv:DOPPLER_TOKEN}"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "astro-build.astro-vscode",
+        "dbaeumer.vscode-eslint",
+        "qwtel.sqlite-viewer",
+        "dbaeumer.vscode-eslint",
+        "rust-lang.rust-analyzer",
+        "eamodio.gitlens",
+        "dprint.dprint",
+        "tauri-apps.tauri-vscode",
+        "swiftlang.swift-vscode"
+      ]
+    }
+  }
+}
