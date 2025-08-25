@@ -1,0 +1,16 @@
+title: Fixed penpal XCM configuration
+doc:
+- audience: Runtime Dev
+  description: |-
+    To map the native token to Balances module instead of the Relay token.
+crates:
+- name: penpal-runtime
+  bump: minor
+- name: penpal-emulated-chain
+  bump: patch
+- name: asset-hub-rococo-integration-tests
+  bump: patch
+- name: asset-hub-westend-integration-tests
+  bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: patch
