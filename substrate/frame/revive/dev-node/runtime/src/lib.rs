@@ -78,6 +78,22 @@ pub mod genesis_config_presets {
 				array_bytes::hex_n_into_unchecked(
 					"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
 				),
+				// subxt_signer::eth::dev::charleth()
+				array_bytes::hex_n_into_unchecked(
+					"798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFceeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::dorothy()
+				array_bytes::hex_n_into_unchecked(
+					"773539d4Ac0e786233D90A233654ccEE26a613D9eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::ethan()
+				array_bytes::hex_n_into_unchecked(
+					"Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDBeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::faith()
+				array_bytes::hex_n_into_unchecked(
+					"C0F0f4ab324C46e55D02D0033343B4Be8A55532deeeeeeeeeeeeeeeeeeeeeeee",
+				),
 			])
 			.collect::<Vec<_>>()
 	}
