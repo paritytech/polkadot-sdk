@@ -88,6 +88,18 @@ pub enum Error {
 
 	#[error("Erasure coding error: {0}")]
 	ErasureCoding(#[from] polkadot_erasure_coding::Error),
+
+	#[error("Subsystem util error: {0}")]
+	SubsystemUtil(#[from] polkadot_node_subsystem_util::Error),
+
+	#[error("response channel to get backable candidates failed")]
+	GetBackableCandidates(#[source] oneshot::Canceled),
+
+	#[error("response channel to get validator groups failed")]
+	CanceledValidatorGroups(#[source] oneshot::Canceled),
+
+	#[error("failed to get validator groups: {0}")]
+	FailedValidatorGroups(#[source] RuntimeApiError),
 }
 
 /// General result abbreviation type alias.
@@ -116,8 +128,13 @@ pub fn log_error(
 				JfyiError::FetchPoV(_) |
 				JfyiError::SendResponse |
 				JfyiError::NoSuchPoV |
-				JfyiError::Runtime(_) =>
-					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = ?jfyi, ctx),
+				JfyiError::SubsystemUtil(_) |
+				JfyiError::GetBackableCandidates(_) |
+				JfyiError::CanceledValidatorGroups(_) |
+				JfyiError::FailedValidatorGroups(_) |
+				JfyiError::Runtime(_) => {
+					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = ?jfyi, ctx)
+				},
 			}
 			Ok(())
 		},
