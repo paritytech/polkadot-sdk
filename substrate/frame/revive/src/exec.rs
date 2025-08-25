@@ -1216,7 +1216,7 @@ where
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let output = match executable {
+			let mut output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1251,8 +1251,15 @@ where
 						return Err(Error::<T>::BlobTooLarge.into());
 					}
 
+					// Only keep return data for tracing
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+						core::mem::replace(&mut output.data, Default::default())
+					} else {
+						s
+					};
+
 					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
-						output.data.clone(),
+						data,
 						caller.account_id()?.clone(),
 					)?;
 					code_deposit = module.store_code(skip_transfer)?;
