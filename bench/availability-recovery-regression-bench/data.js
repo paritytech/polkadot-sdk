@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756113464379,
+  "lastUpdate": 1756124761769,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
@@ -67971,6 +67971,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1982387105666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ismailov.m.h@gmail.com",
+            "name": "muharem",
+            "username": "muharem"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1a512570552119a49a8ecb2abfb7021954c4422d",
+          "message": "Society pallet supports non-consecutive block provider (#9497)\n\nSociety pallet supports non-consecutive block provider\n\nSociety pallet correctly handles situations where `on_initialize` is\ninvoked with block numbers that:\n- increase but are not strictly consecutive (e.g., jump from 5 → 10), or\n- are repeated (e.g., multiple blocks are built at the same Relay Chain\nparent block, all reporting the same BlockNumberProvider value).\n\nThis situation may occur when the BlockNumberProvider is not local - for\nexample, on a parachain using the Relay Chain block number provider.\n\n---------\n\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
+          "timestamp": "2025-08-25T11:04:31Z",
+          "tree_id": "2d5738b63692aa5d082a7286608ad0a8ba3f9bdc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a512570552119a49a8ecb2abfb7021954c4422d"
+        },
+        "date": 1756124743401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.36753117893333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19648988336666667,
             "unit": "seconds"
           }
         ]
