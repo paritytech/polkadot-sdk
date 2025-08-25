@@ -20,6 +20,7 @@ use super::{
 	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, StakingAdmin,
 	ToRococoXcmRouter, TransactionByteFee, Treasurer, Uniques, WeightToFee, XcmpQueue,
 };
+use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
 	TrustBackedAssetsAsLocation,
@@ -538,7 +539,7 @@ pub type XcmRouter = WithUniqueTopic<(
 				UniversalLocation,
 			>,
 			UnpaidRemoteExporter<
-				bridging::to_ethereum::EthereumNetworkExportTable,
+				bridging::to_ethereum::EthereumNetworkExportTableV1,
 				XcmpQueue,
 				UniversalLocation,
 			>,
@@ -605,7 +606,6 @@ impl pallet_assets::BenchmarkHelper<xcm::v5::Location> for XcmBenchmarkHelper {
 /// All configuration related to bridging
 pub mod bridging {
 	use super::*;
-	use alloc::collections::btree_set::BTreeSet;
 	use assets_common::matching;
 
 	parameter_types! {
@@ -634,8 +634,8 @@ pub mod bridging {
 		/// (`AssetId` has to be aligned with `BridgeTable`)
 		pub XcmBridgeHubRouterFeeAssetId: AssetId = WestendLocation::get().into();
 
-		pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> =
-			alloc::vec::Vec::new().into_iter()
+		pub BridgeTable: Vec<NetworkExportTableItem> =
+			Vec::new().into_iter()
 			.chain(to_rococo::BridgeTable::get())
 			.collect();
 	}
@@ -664,10 +664,10 @@ pub mod bridging {
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub BridgeTable: alloc::vec::Vec<NetworkExportTableItem> = alloc::vec![
+			pub BridgeTable: Vec<NetworkExportTableItem> = vec![
 				NetworkExportTableItem::new(
 					RococoNetwork::get(),
-					Some(alloc::vec![
+					Some(vec![
 						AssetHubRococo::get().interior.split_global().expect("invalid configuration for AssetHubRococo").1,
 					]),
 					SiblingBridgeHub::get(),
@@ -681,7 +681,7 @@ pub mod bridging {
 
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
-				alloc::vec![
+				vec![
 					(SiblingBridgeHubWithBridgeHubRococoInstance::get(), GlobalConsensus(RococoNetwork::get()))
 				]
 			);
@@ -701,7 +701,6 @@ pub mod bridging {
 	pub mod to_ethereum {
 		use super::*;
 		use assets_common::matching::FromNetwork;
-		use sp_std::collections::btree_set::BTreeSet;
 		use testnet_parachains_constants::westend::snowbridge::{
 			EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX_V1, INBOUND_QUEUE_PALLET_INDEX_V2,
 		};
@@ -732,10 +731,10 @@ pub mod bridging {
 
 			/// Set up exporters configuration.
 			/// `Option<Asset>` represents static "base fee" which is used for total delivery fee calculation.
-			pub EthereumBridgeTable: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub EthereumBridgeTableV1: vec::Vec<NetworkExportTableItem> = vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![Junctions::Here]),
+					Some(vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
@@ -744,10 +743,10 @@ pub mod bridging {
 				),
 			];
 
-			pub EthereumBridgeTableV2: sp_std::vec::Vec<NetworkExportTableItem> = sp_std::vec![
+			pub EthereumBridgeTableV2: vec::Vec<NetworkExportTableItem> = vec![
 				NetworkExportTableItem::new(
 					EthereumNetwork::get(),
-					Some(sp_std::vec![Junctions::Here]),
+					Some(vec![Junctions::Here]),
 					SiblingBridgeHub::get(),
 					Some((
 						XcmBridgeHubRouterFeeAssetId::get(),
@@ -758,7 +757,7 @@ pub mod bridging {
 
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
-				sp_std::vec![
+				vec![
 					(SiblingBridgeHubWithEthereumInboundQueueV1Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 					(SiblingBridgeHubWithEthereumInboundQueueV2Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
@@ -771,7 +770,8 @@ pub mod bridging {
 				snowbridge_outbound_queue_primitives::v2::XcmForSnowbridgeV2,
 			>;
 
-		pub type EthereumNetworkExportTable = xcm_builder::NetworkExportTable<EthereumBridgeTable>;
+		pub type EthereumNetworkExportTableV1 =
+			xcm_builder::NetworkExportTable<EthereumBridgeTableV1>;
 
 		pub type EthereumAssetFromEthereum =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
