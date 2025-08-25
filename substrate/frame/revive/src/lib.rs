@@ -660,7 +660,6 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
 			let transactions = InflightEthTransactions::<T>::take();
@@ -672,7 +671,6 @@ pub mod pallet {
 				T::Time::now().into(),
 				block_author,
 				gas_limit,
-				base_gas_price,
 			);
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);

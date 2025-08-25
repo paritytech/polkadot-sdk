@@ -94,7 +94,6 @@ impl Block {
 		timestamp: U256,
 		block_author: H160,
 		gas_limit: U256,
-		base_gas_price: U256,
 	) -> (H256, Block, Vec<ReceiptGasInfo>) {
 		let mut block = Self {
 			number: block_number,
@@ -120,7 +119,7 @@ impl Block {
 		let mut logs_bloom = Bloom::default();
 
 		for detail in transaction_details {
-			let processed = block.process_transaction_details(detail, base_gas_price);
+			let processed = block.process_transaction_details(detail);
 
 			signed_tx.push(processed.encoded_tx);
 			tx_hashes.push(processed.tx_hash);
@@ -150,11 +149,7 @@ impl Block {
 	/// Returns a tuple of the RLP encoded transaction and receipt.
 	///
 	/// Internally collects the total gas used.
-	fn process_transaction_details(
-		&mut self,
-		detail: TransactionDetails,
-		base_gas_price: U256,
-	) -> TransactionProcessed {
+	fn process_transaction_details(&mut self, detail: TransactionDetails) -> TransactionProcessed {
 		let TransactionDetails { signed_transaction, logs, success, gas_used } = detail;
 
 		let encoded_tx = signed_transaction.signed_payload();
@@ -171,7 +166,7 @@ impl Block {
 			})
 			.collect();
 
-		self.gas_used += gas_used.ref_time().into();
+		self.gas_used.saturating_add(gas_used.ref_time().into());
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
