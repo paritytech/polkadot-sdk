@@ -44,14 +44,11 @@
 //!
 //! ## Future Plans:
 //!
-//! **Lazy deletion**:
-//! Overall, this pallet can avoid the need to delete any storage item, by:
-//! 1. outsource the storage of solution data to some other pallet.
-//! 2. keep it here, but make everything be also a map of the round number, so that we can keep old
-//!    storage, and it is ONLY EVER removed, when after that round number is over. This can happen
-//!    for more or less free by the submitter itself, and by anyone else as well, in which case they
-//!    get a share of the the sum deposit. The share increases as times goes on.
+//! **Lazy Deletion In Eject**: While most deletion ops of the signed phase are now lazy, if someone
+//! is ejected from the list, we still remove their data in sync.
+//!
 //! **Metadata update**: imagine you mis-computed your score.
+//!
 //! **Permissionless `clear_old_round_data`**: Anyone can clean anyone else's data, and get a part
 //! of their deposit.
 
@@ -127,7 +124,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 			.defensive()
 			.and_then(|(who, _score)| {
 				sublog!(
-					info,
+					debug,
 					"signed",
 					"returning page {} of {:?}'s submission as leader.",
 					page,
@@ -455,13 +452,13 @@ pub mod pallet {
 		) -> Result<bool, DispatchError> {
 			let mut sorted_scores = SortedScores::<T>::get(round);
 
-			let discarded = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
+			let did_eject = if let Some(_) = sorted_scores.iter().position(|(x, _)| x == who) {
 				return Err(Error::<T>::Duplicate.into());
 			} else {
 				// must be new.
 				debug_assert!(!SubmissionMetadataStorage::<T>::contains_key(round, who));
 
-				let pos = match sorted_scores
+				let insert_idx = match sorted_scores
 					.binary_search_by_key(&metadata.claimed_score, |(_, y)| *y)
 				{
 					// an equal score exists, unlikely, but could very well happen. We just put them
@@ -471,10 +468,23 @@ pub mod pallet {
 					Err(pos) => pos,
 				};
 
-				let record = (who.clone(), metadata.claimed_score);
-				match sorted_scores.force_insert_keep_right(pos, record) {
-					Ok(None) => false,
-					Ok(Some((discarded, _score))) => {
+				let mut record = (who.clone(), metadata.claimed_score);
+				if sorted_scores.is_full() {
+					let remove_idx = sorted_scores
+						.iter()
+						.position(|(x, _)| !Pallet::<T>::is_invulnerable(x))
+						.ok_or(Error::<T>::QueueFull)?;
+					if insert_idx > remove_idx {
+						// we have a better solution
+						sp_std::mem::swap(&mut sorted_scores[remove_idx], &mut record);
+						// slicing safety note:
+						// - `insert_idx` is at most `sorted_scores.len()`, obtained from
+						//   `binary_search_by_key`, valid for the upper bound of slicing.
+						// - `remove_idx` is a valid index, less then `insert_idx`, obtained from
+						//   `.iter().position()`
+						sorted_scores[remove_idx..insert_idx].rotate_left(1);
+
+						let discarded = record.0;
 						let maybe_metadata =
 							SubmissionMetadataStorage::<T>::take(round, &discarded).defensive();
 						// Note: safe to remove unbounded, as at most `Pages` pages are stored.
@@ -489,24 +499,27 @@ pub mod pallet {
 							Pallet::<T>::settle_deposit(
 								&discarded,
 								metadata.deposit,
-								if Pallet::<T>::is_invulnerable(&discarded) {
-									One::one()
-								} else {
-									T::EjectGraceRatio::get()
-								},
+								T::EjectGraceRatio::get(),
 							);
 						}
 
 						Pallet::<T>::deposit_event(Event::<T>::Ejected(round, discarded));
 						true
-					},
-					Err(_) => return Err(Error::<T>::QueueFull.into()),
+					} else {
+						// we don't have a better solution
+						return Err(Error::<T>::QueueFull.into())
+					}
+				} else {
+					sorted_scores
+						.try_insert(insert_idx, record)
+						.expect("length checked above; qed");
+					false
 				}
 			};
 
 			SortedScores::<T>::insert(round, sorted_scores);
 			SubmissionMetadataStorage::<T>::insert(round, who, metadata);
-			Ok(discarded)
+			Ok(did_eject)
 		}
 
 		/// Submit a page of `solution` to the `page` index of `who`'s submission.
@@ -843,7 +856,7 @@ pub mod pallet {
 
 		/// Retract a submission.
 		///
-		/// A portion of the deposit may be returned, based on the [`Config::BailoutGraceRatio`].
+		/// A portion of the deposit may be returned, based on the [`Config::EjectGraceRatio`].
 		///
 		/// This will fully remove the solution from storage.
 		#[pallet::weight(SignedWeightsOf::<T>::bail())]
@@ -1023,6 +1036,7 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert_eq!(_res, Ok(slash));
 			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+			Invulnerables::<T>::mutate(|x| x.retain(|y| y != &loser));
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =

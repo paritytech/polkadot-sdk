@@ -16,7 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	subxt_client::{self, runtime_types::pallet_revive::storage::{ContractInfo, AccountType}, SrcChainConfig},
+	subxt_client::{
+		self,
+		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+		SrcChainConfig,
+	},
 	ClientError, H160,
 };
 use subxt::{storage::Storage, OnlineClient};
@@ -44,11 +48,11 @@ impl StorageApi {
 			return Err(ClientError::ContractNotFound);
 		};
 
-		if let AccountType::Contract(contract_info) = info.account_type {
-			return Ok(contract_info);
-		} else {
-			return Err(ClientError::ContractNotFound)
-		}
+		let AccountType::Contract(contract_info) = info.account_type else {
+			return Err(ClientError::ContractNotFound);
+		};
+
+		Ok(contract_info)
 	}
 
 	/// Get the contract trie id for the given contract address.

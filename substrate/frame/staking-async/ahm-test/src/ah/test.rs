@@ -674,9 +674,15 @@ fn on_offence_previous_era() {
 		// flush the events.
 		let _ = staking_events_since_last_call();
 
-		// report an offence for the session belonging to the previous era
+		// GIVEN slash defer duration of 2 eras, active era = 3.
+		assert_eq!(SlashDeferredDuration::get(), 2);
 		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
+		// 1 era is reserved for the application of slashes.
+		let oldest_reportable_era =
+			Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
+		assert_eq!(oldest_reportable_era, 2);
 
+		// WHEN we report an offence older than Era 2 (oldest reportable era).
 		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
 			RuntimeOrigin::root(),
 			// offence is in era 1
@@ -684,33 +690,67 @@ fn on_offence_previous_era() {
 			vec![rc_client::Offence {
 				offender: 3,
 				reporters: vec![],
+				slash_fraction: Perbill::from_percent(30),
+			}]
+		));
+
+		// THEN offence is ignored.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![staking_async::Event::OffenceTooOld {
+				offence_era: 1,
+				validator: 3,
+				fraction: Perbill::from_percent(30)
+			}]
+		);
+
+		// WHEN: report an offence for the session belonging to the previous era
+		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(10));
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			RuntimeOrigin::root(),
+			// offence is in era 2
+			10,
+			vec![rc_client::Offence {
+				offender: 3,
+				reporters: vec![],
 				slash_fraction: Perbill::from_percent(50),
 			}]
 		));
 
-		// reported
+		// THEN: offence is reported.
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![staking_async::Event::OffenceReported {
-				offence_era: 1,
+				offence_era: 2,
 				validator: 3,
 				fraction: Perbill::from_percent(50)
 			}]
 		);
 
-		// computed, and instantly applied, as we are already on era 3 (slash era = 1, defer = 2)
+		// computed in the next block (will be applied in era 4)
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![
-				staking_async::Event::SlashComputed {
-					offence_era: 1,
-					slash_era: 3,
-					offender: 3,
-					page: 0
-				},
-				staking_async::Event::Slashed { staker: 3, amount: 50 }
-			]
+			vec![staking_async::Event::SlashComputed {
+				offence_era: 2,
+				slash_era: 4,
+				offender: 3,
+				page: 0
+			},]
+		);
+
+		// roll to the next era.
+		roll_until_next_active(15);
+		// ensure we are in era 4.
+		assert_eq!(Rotator::<Runtime>::active_era(), 4);
+		// clear staking events.
+		let _ = staking_events_since_last_call();
+
+		// the next block applies the slashes.
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![staking_async::Event::Slashed { staker: 3, amount: 50 }]
 		);
 
 		// nothing left

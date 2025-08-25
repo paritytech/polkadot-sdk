@@ -32,16 +32,21 @@ pub struct DiskChainSpecLoader;
 
 impl LoadSpec for DiskChainSpecLoader {
 	fn load_spec(&self, path: &str) -> Result<Box<dyn ChainSpec>, String> {
-		Ok(Box::new(DeprecatedGenericChainSpec::from_json_file(path.into())?))
+		Ok(Box::new(GenericChainSpec::from_json_file(path.into())?))
 	}
 }
 
-/// Generic extensions for Parachain ChainSpecs.
+/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
 pub struct Extensions {
-	/// The relay chain of the Parachain.
+	/// The relay chain of the Parachain. It is kept here only for compatibility reasons until
+	/// people migrate to using the new `Extensions` struct and associated logic in the node
+	/// corresponding to pulling the parachain id from the runtime.
 	#[serde(alias = "relayChain", alias = "RelayChain")]
-	pub relay_chain: String,
+	relay_chain: String,
+	/// The id of the Parachain.
+	#[serde(alias = "paraId", alias = "ParaId")]
+	para_id: Option<u32>,
 }
 
 impl Extensions {
@@ -49,42 +54,30 @@ impl Extensions {
 	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
 		sc_chain_spec::get_extension(chain_spec.extensions())
 	}
-}
 
-/// Generic extensions for Parachain ChainSpecs used for extracting the extensions from chain specs.
-/// This is also used only while `para_id` is around the corner.
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension)]
-pub struct DeprecatedExtensions {
-	/// The relay chain of the Parachain. It is kept here only for compatibility reasons until
-	/// people migrate to using the new `Extensions` struct and associated logic in the node
-	/// corresponding to pulling the parachain id from the runtime.
-	#[serde(alias = "relayChain", alias = "RelayChain")]
-	pub relay_chain: String,
-	/// The id of the Parachain.
-	#[serde(alias = "paraId", alias = "ParaId")]
-	#[deprecated(
-		note = "The para_id information is not required anymore and will be removed starting with `stable2512`. Runtimes must implement a new API called `cumulus_primitives_core::GetParachainInfo` to still be compatible with node versions starting with `stable2512`."
-	)]
-	pub para_id: Option<u32>,
-}
+	/// Create the extensions only with the relay_chain.
+	pub fn new_with_relay_chain(relay_chain: String) -> Self {
+		Extensions { relay_chain, para_id: None }
+	}
 
-impl DeprecatedExtensions {
-	/// Try to get the extension from the given `ChainSpec`.
-	pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
-		sc_chain_spec::get_extension(chain_spec.extensions())
+	/// Initialize extensions based on given parameters.
+	pub fn new(relay_chain: String, para_id: u32) -> Self {
+		Extensions { relay_chain, para_id: Some(para_id) }
+	}
+
+	/// Para id field getter
+	pub fn para_id(&self) -> Option<u32> {
+		self.para_id
+	}
+
+	/// Relay chain field getter
+	pub fn relay_chain(&self) -> String {
+		self.relay_chain.clone()
 	}
 }
 
 /// Generic chain spec for all polkadot-parachain runtimes
 pub type GenericChainSpec = sc_service::GenericChainSpec<Extensions>;
-/// Generic chain spec which keeps chain spec loading compatible for those who provide
-/// `para_id` extension instead of implementing the runtime API
-/// `cumulus_primitives_core::GetParachainInfo`.
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/8747
-// TODO: https://github.com/paritytech/polkadot-sdk/issues/8740
-pub type DeprecatedGenericChainSpec = sc_service::GenericChainSpec<DeprecatedExtensions>;
 
 #[cfg(test)]
 mod tests {
@@ -97,21 +90,13 @@ mod tests {
 		let pascal_case = r#"{"RelayChain":"relay","ParaId":1}"#;
 		let para_id_missing = r#"{"RelayChain":"westend"}"#;
 
-		let camel_case_extension: DeprecatedExtensions = serde_json::from_str(camel_case).unwrap();
-		let snake_case_extension: DeprecatedExtensions = serde_json::from_str(snake_case).unwrap();
-		let pascal_case_extension: DeprecatedExtensions =
-			serde_json::from_str(pascal_case).unwrap();
+		let camel_case_extension: Extensions = serde_json::from_str(camel_case).unwrap();
+		let snake_case_extension: Extensions = serde_json::from_str(snake_case).unwrap();
+		let pascal_case_extension: Extensions = serde_json::from_str(pascal_case).unwrap();
 		let missing_paraid_extension: Extensions = serde_json::from_str(para_id_missing).unwrap();
-		let missing_paraid_deprecated: DeprecatedExtensions =
-			serde_json::from_str(para_id_missing).unwrap();
 		assert_eq!(camel_case_extension, snake_case_extension);
 		assert_eq!(snake_case_extension, pascal_case_extension);
 		assert_eq!(missing_paraid_extension.relay_chain, "westend".to_string());
-
-		// TODO: remove it once `para_id` is removed: https://github.com/paritytech/polkadot-sdk/issues/8740
-		assert_eq!(missing_paraid_deprecated.relay_chain, "westend".to_string());
-		#[allow(deprecated)]
-		let test = missing_paraid_deprecated.para_id.is_none();
-		assert!(test);
+		assert!(missing_paraid_extension.para_id.is_none());
 	}
 }

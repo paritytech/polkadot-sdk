@@ -323,6 +323,15 @@ fn era_cleanup_history_depth_works() {
 		assert_ok!(Eras::<T>::era_present(2));
 		// ..
 		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 1));
+		assert!(matches!(
+			&staking_events_since_last_call()[..],
+			&[
+				..,
+				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 7500 },
+				Event::EraPruned { index: 0 },
+				Event::SessionRotated { starting_session: 243, active_era: 81, planned_era: 81 }
+			]
+		));
 
 		Session::roll_until_active_era(HistoryDepth::get() + 2);
 		assert_ok!(Eras::<T>::era_absent(1));
@@ -330,6 +339,15 @@ fn era_cleanup_history_depth_works() {
 		assert_ok!(Eras::<T>::era_present(3));
 		// ..
 		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 2));
+		assert!(matches!(
+			&staking_events_since_last_call()[..],
+			&[
+				..,
+				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 7500 },
+				Event::EraPruned { index: 1 },
+				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
+			]
+		));
 	});
 }
 
