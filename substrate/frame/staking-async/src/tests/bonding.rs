@@ -18,6 +18,7 @@
 //! Tests concerning bond, bond_extra, unbond, rebond, withdraw and chill for stakers.
 
 use super::*;
+use crate::testing_utils;
 use frame_support::{hypothetically_ok, traits::Currency};
 
 #[test]

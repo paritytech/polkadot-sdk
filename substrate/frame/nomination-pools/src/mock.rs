@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![cfg(any(feature = "runtime-benchmarks", feature = "fuzzing", test))]
+
 use super::*;
 use crate::{self as pools};
 use frame_support::{
@@ -24,6 +26,8 @@ use frame_support::{
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
 use sp_runtime::{BuildStorage, DispatchResult, FixedU128};
+#[cfg(feature = "runtime-benchmarks")]
+use sp_staking::Page;
 use sp_staking::{
 	Agent, DelegationInterface, DelegationMigrator, Delegator, OnStakingUpdate, Stake,
 };
@@ -185,7 +189,6 @@ impl sp_staking::StakingInterface for StakingMock {
 		Ok(())
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
 	fn nominations(_: &Self::AccountId) -> Option<Vec<Self::AccountId>> {
 		Nominations::get()
 	}
@@ -221,6 +224,15 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
+	fn slash_reward_fraction() -> Perbill {
+		unimplemented!("method currently not used in testing")
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn max_exposure_page_size() -> Page {
+		unimplemented!("method currently not used in testing")
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_era_stakers(
 		_current_era: &EraIndex,
@@ -232,15 +244,6 @@ impl sp_staking::StakingInterface for StakingMock {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_current_era(_era: EraIndex) {
-		unimplemented!("method currently not used in testing")
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn max_exposure_page_size() -> sp_staking::Page {
-		unimplemented!("method currently not used in testing")
-	}
-
-	fn slash_reward_fraction() -> Perbill {
 		unimplemented!("method currently not used in testing")
 	}
 }
