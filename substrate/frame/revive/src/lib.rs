@@ -68,7 +68,7 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	traits::{
 		fungible::{Inspect, Mutate, MutateHold},
-		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
+		ConstU32, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
 	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
@@ -129,7 +129,10 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::FindAuthor};
+	use frame_support::{
+		pallet_prelude::{ValueQuery, *},
+		traits::FindAuthor,
+	};
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
@@ -265,8 +268,7 @@ pub mod pallet {
 		///
 		/// This is a unique identifier assigned to each blockchain network,
 		/// preventing replay attacks.
-		#[pallet::constant]
-		type ChainId: Get<u64>;
+		type DefaultChainId: Get<u64>;
 
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
@@ -286,7 +288,7 @@ pub mod pallet {
 			traits::{ConstBool, ConstU32},
 		};
 		use frame_system::EnsureSigned;
-		use sp_core::parameter_types;
+		use sp_core::{parameter_types, ConstU64};
 
 		type Balance = u64;
 		const UNITS: Balance = 10_000_000_000;
@@ -343,7 +345,7 @@ pub mod pallet {
 			type WeightPrice = Self;
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
-			type ChainId = ConstU64<42>;
+			type DefaultChainId = ConstU64<42>;
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
@@ -528,11 +530,20 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	/// The [EIP-155](https://eips.ethereum.org/EIPS/eip-155) chain ID.
+	///
+	/// This is a unique identifier assigned to each blockchain network,
+	/// preventing replay attacks.
+	#[pallet::storage]
+	pub(crate) type ChainId<T: Config> = StorageValue<_, u64, OptionQuery>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// Genesis mapped accounts
 		pub mapped_accounts: Vec<T::AccountId>,
+		/// Chain id
+		pub chain_id: Option<u64>,
 	}
 
 	#[pallet::genesis_build]
@@ -542,6 +553,10 @@ pub mod pallet {
 				if let Err(err) = T::AddressMapper::map(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
+			}
+
+			if let Some(chain_id) = &self.chain_id {
+				ChainId::<T>::put(chain_id);
 			}
 		}
 	}
@@ -555,7 +570,7 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			assert!(T::ChainId::get() > 0, "ChainId must be greater than 0");
+			assert!(Self::chain_id() > 0, "ChainId must be greater than 0");
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u32 = T::RuntimeMemory::get();
@@ -1217,7 +1232,7 @@ where
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
 		}
 		if tx.chain_id.is_none() {
-			tx.chain_id = Some(T::ChainId::get().into());
+			tx.chain_id = Some(Self::chain_id().into());
 		}
 		if tx.gas_price.is_none() {
 			tx.gas_price = Some(GAS_PRICE.into());
@@ -1613,6 +1628,11 @@ impl<T: Config> Pallet<T> {
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
+	}
+
+	/// Retrieve chain id set through genesis config, pallet config or during runtime.
+	pub fn chain_id() -> u64 {
+		ChainId::<T>::get().unwrap_or_else(|| T::DefaultChainId::get())
 	}
 }
 

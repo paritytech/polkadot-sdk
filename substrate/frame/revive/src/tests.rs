@@ -305,7 +305,7 @@ parameter_types! {
 	pub static DepositPerByte: BalanceOf<Test> = 1;
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub static ChainId: u64 = 448;
+	pub static DefaultChainId: u64 = 448;
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -366,7 +366,7 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type ChainId = ChainId;
+	type DefaultChainId = DefaultChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 }
