@@ -178,8 +178,11 @@ impl Block {
 
 		// Receipt encoding must be prefixed with the rlp(transaction type).
 		let mut encoded_receipt = signed_transaction.signed_type();
-		encoded_receipt
-			.reserve(encoded_receipt.len() + receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		let encoded_len = encoded_receipt
+			.len()
+			.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+
+		encoded_receipt.reserve(encoded_len);
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
