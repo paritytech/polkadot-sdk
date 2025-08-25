@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["Admin","Id","MinBalance"]};

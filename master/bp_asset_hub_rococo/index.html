@@ -1,0 +1,166 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Module with configuration which reflects AssetHubRococo runtime setup."><title>bp_asset_hub_rococo - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_asset_hub_rococo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_asset_hub_rococo/index.html">bp_<wbr>asset_<wbr>hub_<wbr>rococo</a><span class="version">0.4.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>bp_asset_hub_rococo</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/bp_asset_hub_rococo/lib.rs.html#16-151">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Module with configuration which reflects AssetHubRococo runtime setup.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountInfoStorageMapKeyProvider.html" title="struct bp_asset_hub_rococo::AccountInfoStorageMapKeyProvider">Account<wbr>Info<wbr>Storage<wbr>MapKey<wbr>Provider</a></dt><dd>Provides a storage key for account data.</dd><dt><a class="struct" href="struct.AssetHubRococo.html" title="struct bp_asset_hub_rococo::AssetHubRococo">Asset<wbr>HubRococo</a></dt><dd>AssetHubRococo parachain.</dd><dt><a class="struct" href="struct.BlockExecutionWeight.html" title="struct bp_asset_hub_rococo::BlockExecutionWeight">Block<wbr>Execution<wbr>Weight</a></dt><dd>Importing a block with 0 Extrinsics.</dd><dt><a class="struct" href="struct.BlockLength.html" title="struct bp_asset_hub_rococo::BlockLength">Block<wbr>Length</a></dt><dd>Size limit of the Cumulus-based bridge hub blocks.</dd><dt><a class="struct" href="struct.BlockWeights.html" title="struct bp_asset_hub_rococo::BlockWeights">Block<wbr>Weights</a></dt><dd>Weight limit of the Cumulus-based bridge hub blocks.</dd><dt><a class="struct" href="struct.BlockWeightsForAsyncBacking.html" title="struct bp_asset_hub_rococo::BlockWeightsForAsyncBacking">Block<wbr>Weights<wbr>ForAsync<wbr>Backing</a></dt><dd>Weight limit of the Cumulus-based bridge hub blocks when async backing is enabled.</dd><dt><a class="struct" href="struct.CreateForeignAssetDeposit.html" title="struct bp_asset_hub_rococo::CreateForeignAssetDeposit">Create<wbr>Foreign<wbr>Asset<wbr>Deposit</a></dt><dd>Should match the <code>AssetDeposit</code> of the <code>ForeignAssets</code> pallet on Asset Hub.</dd><dt><a class="struct" href="struct.ExtrinsicBaseWeight.html" title="struct bp_asset_hub_rococo::ExtrinsicBaseWeight">Extrinsic<wbr>Base<wbr>Weight</a></dt><dd>Executing a NO-OP <code>System::remarks</code> Extrinsic.</dd><dt><a class="struct" href="struct.Perbill.html" title="struct bp_asset_hub_rococo::Perbill">Perbill</a></dt><dd>A fixed point representation of a number in the range [0, 1].</dd><dt><a class="struct" href="struct.XcmBridgeHubRouterTransactCallMaxWeight.html" title="struct bp_asset_hub_rococo::XcmBridgeHubRouterTransactCallMaxWeight">XcmBridge<wbr>HubRouter<wbr>Transact<wbr>Call<wbr>MaxWeight</a></dt><dd>Some sane weight to execute <code>xcm::Transact(pallet-xcm-bridge-hub-router::Call::report_bridge_status)</code>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum bp_asset_hub_rococo::Call">Call</a></dt><dd><code>AssetHubRococo</code> Runtime <code>Call</code> enum.</dd><dt><a class="enum" href="enum.XcmBridgeHubRouterCall.html" title="enum bp_asset_hub_rococo::XcmBridgeHubRouterCall">XcmBridge<wbr>HubRouter<wbr>Call</a></dt><dd>A minimized version of <code>pallet-xcm-bridge-hub-router::Call</code> that can be used without a runtime.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.ASSET_HUB_ROCOCO_PARACHAIN_ID.html" title="constant bp_asset_hub_rococo::ASSET_HUB_ROCOCO_PARACHAIN_ID">ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>PARACHAIN_<wbr>ID</a></dt><dd>Identifier of AssetHubRococo in the Rococo relay chain.</dd><dt><a class="constant" href="constant.AVERAGE_BLOCK_INTERVAL.html" title="constant bp_asset_hub_rococo::AVERAGE_BLOCK_INTERVAL">AVERAGE_<wbr>BLOCK_<wbr>INTERVAL</a></dt><dd>Average block time for Cumulus-based parachains</dd><dt><a class="constant" href="constant.AVERAGE_ON_INITIALIZE_RATIO.html" title="constant bp_asset_hub_rococo::AVERAGE_ON_INITIALIZE_RATIO">AVERAGE_<wbr>ON_<wbr>INITIALIZE_<wbr>RATIO</a></dt><dd>We assume that ~5% of the block weight is consumed by <code>on_initialize</code> handlers. This is
+used to limit the maximal weight of a single extrinsic.</dd><dt><a class="constant" href="constant.BEST_FINALIZED_ASSET_HUB_ROCOCO_HEADER_METHOD.html" title="constant bp_asset_hub_rococo::BEST_FINALIZED_ASSET_HUB_ROCOCO_HEADER_METHOD">BEST_<wbr>FINALIZED_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>HEADER_<wbr>METHOD</a></dt><dd>Name of the <code>&lt;ThisChain&gt;FinalityApi::best_finalized</code> runtime method.</dd><dt><a class="constant" href="constant.EXTRA_STORAGE_PROOF_SIZE.html" title="constant bp_asset_hub_rococo::EXTRA_STORAGE_PROOF_SIZE">EXTRA_<wbr>STORAGE_<wbr>PROOF_<wbr>SIZE</a></dt><dd>Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+Polkadot-like chain. This mostly depends on number of entries in the storage trie.
+Some reserve is reserved to account future chain growth.</dd><dt><a class="constant" href="constant.FREE_HEADERS_INTERVAL_FOR_ASSET_HUB_ROCOCO_METHOD.html" title="constant bp_asset_hub_rococo::FREE_HEADERS_INTERVAL_FOR_ASSET_HUB_ROCOCO_METHOD">FREE_<wbr>HEADERS_<wbr>INTERVAL_<wbr>FOR_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>METHOD</a></dt><dd>Name of the <code>&lt;ThisChain&gt;FinalityApi::free_headers_interval</code> runtime method.</dd><dt><a class="constant" href="constant.FROM_ASSET_HUB_ROCOCO_MESSAGE_DETAILS_METHOD.html" title="constant bp_asset_hub_rococo::FROM_ASSET_HUB_ROCOCO_MESSAGE_DETAILS_METHOD">FROM_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>MESSAGE_<wbr>DETAILS_<wbr>METHOD</a></dt><dd>Name of the <code>From&lt;ThisChain&gt;InboundLaneApi::message_details</code> runtime method.</dd><dt><a class="constant" href="constant.MAXIMUM_BLOCK_WEIGHT.html" title="constant bp_asset_hub_rococo::MAXIMUM_BLOCK_WEIGHT">MAXIMUM_<wbr>BLOCK_<wbr>WEIGHT</a></dt><dd>We allow for 0.5 seconds of compute with a 6 second average block time.</dd><dt><a class="constant" href="constant.MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING.html" title="constant bp_asset_hub_rococo::MAXIMUM_BLOCK_WEIGHT_FOR_ASYNC_BACKING">MAXIMUM_<wbr>BLOCK_<wbr>WEIGHT_<wbr>FOR_<wbr>ASYNC_<wbr>BACKING</a></dt><dd>We allow for 2 seconds of compute with a 6 second average block.</dd><dt><a class="constant" href="constant.MAX_ASSET_HUB_HEADER_SIZE.html" title="constant bp_asset_hub_rococo::MAX_ASSET_HUB_HEADER_SIZE">MAX_<wbr>ASSET_<wbr>HUB_<wbr>HEADER_<wbr>SIZE</a></dt><dd>Maximal asset hub header size.</dd><dt><a class="constant" href="constant.MAX_BRIDGE_HUB_HEADER_SIZE.html" title="constant bp_asset_hub_rococo::MAX_BRIDGE_HUB_HEADER_SIZE">MAX_<wbr>BRIDGE_<wbr>HUB_<wbr>HEADER_<wbr>SIZE</a></dt><dd>Maximal bridge hub header size.</dd><dt><a class="constant" href="constant.MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX.html" title="constant bp_asset_hub_rococo::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX">MAX_<wbr>UNCONFIRMED_<wbr>MESSAGES_<wbr>IN_<wbr>CONFIRMATION_<wbr>TX</a></dt><dd>Maximal number of unconfirmed messages at inbound lane for Cumulus-based parachains.
+Note: this value is security-relevant, decreasing it should not be done without careful
+analysis (like the one above).</dd><dt><a class="constant" href="constant.MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX.html" title="constant bp_asset_hub_rococo::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX">MAX_<wbr>UNREWARDED_<wbr>RELAYERS_<wbr>IN_<wbr>CONFIRMATION_<wbr>TX</a></dt><dd>Maximal number of unrewarded relayer entries at inbound lane for Cumulus-based parachains.
+Note: this value is security-relevant, decreasing it should not be done without careful
+analysis (like the one above).</dd><dt><a class="constant" href="constant.NORMAL_DISPATCH_RATIO.html" title="constant bp_asset_hub_rococo::NORMAL_DISPATCH_RATIO">NORMAL_<wbr>DISPATCH_<wbr>RATIO</a></dt><dd>We allow <code>Normal</code> extrinsics to fill up the block up to 75%, the rest can be used by
+Operational  extrinsics.</dd><dt><a class="constant" href="constant.SLOT_DURATION.html" title="constant bp_asset_hub_rococo::SLOT_DURATION">SLOT_<wbr>DURATION</a></dt><dt><a class="constant" href="constant.TO_ASSET_HUB_ROCOCO_MESSAGE_DETAILS_METHOD.html" title="constant bp_asset_hub_rococo::TO_ASSET_HUB_ROCOCO_MESSAGE_DETAILS_METHOD">TO_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>MESSAGE_<wbr>DETAILS_<wbr>METHOD</a></dt><dd>Name of the <code>To&lt;ThisChain&gt;OutboundLaneApi::message_details</code> runtime method.</dd><dt><a class="constant" href="constant.TX_EXTRA_BYTES.html" title="constant bp_asset_hub_rococo::TX_EXTRA_BYTES">TX_<wbr>EXTRA_<wbr>BYTES</a></dt><dd>Maximal number of bytes, included in the signed Polkadot-like transaction apart from the encoded
+call itself.</dd><dt><a class="constant" href="constant.WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME.html" title="constant bp_asset_hub_rococo::WITH_ASSET_HUB_ROCOCO_MESSAGES_PALLET_NAME">WITH_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>MESSAGES_<wbr>PALLET_<wbr>NAME</a></dt><dd>Name of the With-AssetHubRococo messages pallet instance that is deployed at bridged chains.</dd><dt><a class="constant" href="constant.WITH_ASSET_HUB_ROCOCO_RELAYERS_PALLET_NAME.html" title="constant bp_asset_hub_rococo::WITH_ASSET_HUB_ROCOCO_RELAYERS_PALLET_NAME">WITH_<wbr>ASSET_<wbr>HUB_<wbr>ROCOCO_<wbr>RELAYERS_<wbr>PALLET_<wbr>NAME</a></dt><dd>Name of the With-AssetHubRococo bridge-relayers pallet instance that is deployed at bridged
+chains.</dd><dt><a class="constant" href="constant.WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX.html" title="constant bp_asset_hub_rococo::WITH_BRIDGE_ROCOCO_TO_WESTEND_MESSAGES_PALLET_INDEX">WITH_<wbr>BRIDGE_<wbr>ROCOCO_<wbr>TO_<wbr>WESTEND_<wbr>MESSAGES_<wbr>PALLET_<wbr>INDEX</a></dt><dd>Pallet index of <code>BridgeWestendMessages: pallet_bridge_messages::&lt;Instance1&gt;</code>.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AssetHubRococoFinalityApi.html" title="trait bp_asset_hub_rococo::AssetHubRococoFinalityApi">Asset<wbr>HubRococo<wbr>Finality<wbr>Api</a></dt><dd>API for querying information about the finalized chain headers.</dd><dt><a class="trait" href="trait.FromAssetHubRococoInboundLaneApi.html" title="trait bp_asset_hub_rococo::FromAssetHubRococoInboundLaneApi">From<wbr>Asset<wbr>HubRococo<wbr>Inbound<wbr>Lane<wbr>Api</a></dt><dd>Inbound message lane API for messages sent by this chain.</dd><dt><a class="trait" href="trait.ToAssetHubRococoOutboundLaneApi.html" title="trait bp_asset_hub_rococo::ToAssetHubRococoOutboundLaneApi">ToAsset<wbr>HubRococo<wbr>Outbound<wbr>Lane<wbr>Api</a></dt><dd>Outbound message lane API for messages that are sent to this chain.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.build_congestion_message.html" title="fn bp_asset_hub_rococo::build_congestion_message">build_<wbr>congestion_<wbr>message</a></dt><dd>Builds an (un)congestion XCM program with the <code>report_bridge_status</code> call for
+<code>ToWestendXcmRouter</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountId.html" title="type bp_asset_hub_rococo::AccountId">Account<wbr>Id</a></dt><dd>Id of account on Polkadot-like chains.</dd><dt><a class="type" href="type.AccountPublic.html" title="type bp_asset_hub_rococo::AccountPublic">Account<wbr>Public</a></dt><dd>Public key of account on Polkadot-like chains.</dd><dt><a class="type" href="type.AccountSigner.html" title="type bp_asset_hub_rococo::AccountSigner">Account<wbr>Signer</a></dt><dd>Public key of the chain account that may be used to verify signatures.</dd><dt><a class="type" href="type.Address.html" title="type bp_asset_hub_rococo::Address">Address</a></dt><dd>The address format for describing accounts.</dd><dt><a class="type" href="type.Balance.html" title="type bp_asset_hub_rococo::Balance">Balance</a></dt><dd>The balance of an account on Polkadot-like chain.</dd><dt><a class="type" href="type.BlockNumber.html" title="type bp_asset_hub_rococo::BlockNumber">Block<wbr>Number</a></dt><dd>Block number type used in Polkadot-like chains.</dd><dt><a class="type" href="type.Hash.html" title="type bp_asset_hub_rococo::Hash">Hash</a></dt><dd>Hash type used in Polkadot-like chains.</dd><dt><a class="type" href="type.Hasher.html" title="type bp_asset_hub_rococo::Hasher">Hasher</a></dt><dd>The type of object that can produce hashes on Polkadot-like chains.</dd><dt><a class="type" href="type.Hashing.html" title="type bp_asset_hub_rococo::Hashing">Hashing</a></dt><dd>Hashing type.</dd><dt><a class="type" href="type.Header.html" title="type bp_asset_hub_rococo::Header">Header</a></dt><dd>The header type used by Polkadot-like chains.</dd><dt><a class="type" href="type.Nonce.html" title="type bp_asset_hub_rococo::Nonce">Nonce</a></dt><dd>Nonce of a transaction on the Polkadot-like chains.</dd><dt><a class="type" href="type.Signature.html" title="type bp_asset_hub_rococo::Signature">Signature</a></dt><dd>Signature type used by Polkadot-like chains.</dd><dt><a class="type" href="type.SignedBlock.html" title="type bp_asset_hub_rococo::SignedBlock">Signed<wbr>Block</a></dt><dd>Polkadot-like block signed with a Justification.</dd><dt><a class="type" href="type.TransactionExtension.html" title="type bp_asset_hub_rococo::TransactionExtension">Transaction<wbr>Extension</a></dt><dd>Signed extension that is used by all bridge hubs.</dd><dt><a class="type" href="type.UncheckedExtrinsic.html" title="type bp_asset_hub_rococo::UncheckedExtrinsic">Unchecked<wbr>Extrinsic</a></dt><dd>Unchecked Extrinsic type.</dd></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Data` type in crate `pallet_revive_eth_rpc`."><title>Data in pallet_revive_eth_rpc::subxt_client::src_chain::identity::calls::types::add_sub - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../../../../" data-static-root-path="../../../../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Data</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.BlakeTwo256" title="BlakeTwo256">BlakeTwo256</a></li><li><a href="#variant.Keccak256" title="Keccak256">Keccak256</a></li><li><a href="#variant.None" title="None">None</a></li><li><a href="#variant.Raw0" title="Raw0">Raw0</a></li><li><a href="#variant.Raw1" title="Raw1">Raw1</a></li><li><a href="#variant.Raw2" title="Raw2">Raw2</a></li><li><a href="#variant.Raw3" title="Raw3">Raw3</a></li><li><a href="#variant.Raw4" title="Raw4">Raw4</a></li><li><a href="#variant.Raw5" title="Raw5">Raw5</a></li><li><a href="#variant.Raw6" title="Raw6">Raw6</a></li><li><a href="#variant.Raw7" title="Raw7">Raw7</a></li><li><a href="#variant.Raw8" title="Raw8">Raw8</a></li><li><a href="#variant.Raw9" title="Raw9">Raw9</a></li><li><a href="#variant.Raw10" title="Raw10">Raw10</a></li><li><a href="#variant.Raw11" title="Raw11">Raw11</a></li><li><a href="#variant.Raw12" title="Raw12">Raw12</a></li><li><a href="#variant.Raw13" title="Raw13">Raw13</a></li><li><a href="#variant.Raw14" title="Raw14">Raw14</a></li><li><a href="#variant.Raw15" title="Raw15">Raw15</a></li><li><a href="#variant.Raw16" title="Raw16">Raw16</a></li><li><a href="#variant.Raw17" title="Raw17">Raw17</a></li><li><a href="#variant.Raw18" title="Raw18">Raw18</a></li><li><a href="#variant.Raw19" title="Raw19">Raw19</a></li><li><a href="#variant.Raw20" title="Raw20">Raw20</a></li><li><a href="#variant.Raw21" title="Raw21">Raw21</a></li><li><a href="#variant.Raw22" title="Raw22">Raw22</a></li><li><a href="#variant.Raw23" title="Raw23">Raw23</a></li><li><a href="#variant.Raw24" title="Raw24">Raw24</a></li><li><a href="#variant.Raw25" title="Raw25">Raw25</a></li><li><a href="#variant.Raw26" title="Raw26">Raw26</a></li><li><a href="#variant.Raw27" title="Raw27">Raw27</a></li><li><a href="#variant.Raw28" title="Raw28">Raw28</a></li><li><a href="#variant.Raw29" title="Raw29">Raw29</a></li><li><a href="#variant.Raw30" title="Raw30">Raw30</a></li><li><a href="#variant.Raw31" title="Raw31">Raw31</a></li><li><a href="#variant.Raw32" title="Raw32">Raw32</a></li><li><a href="#variant.Sha256" title="Sha256">Sha256</a></li><li><a href="#variant.ShaThree256" title="ShaThree256">ShaThree256</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>identity::<wbr>calls::<wbr>types::<wbr>add_<wbr>sub</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../../../../index.html">subxt_client</a>::<wbr><a href="../../../../index.html">src_chain</a>::<wbr><a href="../../../index.html">identity</a>::<wbr><a href="../../index.html">calls</a>::<wbr><a href="../index.html">types</a>::<wbr><a href="index.html">add_sub</a></div><h1>Type Alias <span class="type">Data</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Data = <a class="enum" href="../../../../runtime_types/pallet_identity/types/enum.Data.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_identity::types::Data">Data</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Data {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 38 variants</span></summary>    None,
+    Raw0([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">0</a>]),
+    Raw1([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">1</a>]),
+    Raw2([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">2</a>]),
+    Raw3([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">3</a>]),
+    Raw4([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">4</a>]),
+    Raw5([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">5</a>]),
+    Raw6([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">6</a>]),
+    Raw7([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">7</a>]),
+    Raw8([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">8</a>]),
+    Raw9([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">9</a>]),
+    Raw10([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">10</a>]),
+    Raw11([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">11</a>]),
+    Raw12([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">12</a>]),
+    Raw13([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">13</a>]),
+    Raw14([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">14</a>]),
+    Raw15([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">15</a>]),
+    Raw16([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>]),
+    Raw17([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">17</a>]),
+    Raw18([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">18</a>]),
+    Raw19([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">19</a>]),
+    Raw20([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>]),
+    Raw21([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">21</a>]),
+    Raw22([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">22</a>]),
+    Raw23([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">23</a>]),
+    Raw24([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">24</a>]),
+    Raw25([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">25</a>]),
+    Raw26([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">26</a>]),
+    Raw27([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">27</a>]),
+    Raw28([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">28</a>]),
+    Raw29([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">29</a>]),
+    Raw30([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">30</a>]),
+    Raw31([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">31</a>]),
+    Raw32([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]),
+    BlakeTwo256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]),
+    Sha256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]),
+    Keccak256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]),
+    ShaThree256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]),
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.None" class="variant"><a href="#variant.None" class="anchor">§</a><h3 class="code-header">None</h3></section><section id="variant.Raw0" class="variant"><a href="#variant.Raw0" class="anchor">§</a><h3 class="code-header">Raw0([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">0</a>])</h3></section><section id="variant.Raw1" class="variant"><a href="#variant.Raw1" class="anchor">§</a><h3 class="code-header">Raw1([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">1</a>])</h3></section><section id="variant.Raw2" class="variant"><a href="#variant.Raw2" class="anchor">§</a><h3 class="code-header">Raw2([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">2</a>])</h3></section><section id="variant.Raw3" class="variant"><a href="#variant.Raw3" class="anchor">§</a><h3 class="code-header">Raw3([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">3</a>])</h3></section><section id="variant.Raw4" class="variant"><a href="#variant.Raw4" class="anchor">§</a><h3 class="code-header">Raw4([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">4</a>])</h3></section><section id="variant.Raw5" class="variant"><a href="#variant.Raw5" class="anchor">§</a><h3 class="code-header">Raw5([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">5</a>])</h3></section><section id="variant.Raw6" class="variant"><a href="#variant.Raw6" class="anchor">§</a><h3 class="code-header">Raw6([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">6</a>])</h3></section><section id="variant.Raw7" class="variant"><a href="#variant.Raw7" class="anchor">§</a><h3 class="code-header">Raw7([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">7</a>])</h3></section><section id="variant.Raw8" class="variant"><a href="#variant.Raw8" class="anchor">§</a><h3 class="code-header">Raw8([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">8</a>])</h3></section><section id="variant.Raw9" class="variant"><a href="#variant.Raw9" class="anchor">§</a><h3 class="code-header">Raw9([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">9</a>])</h3></section><section id="variant.Raw10" class="variant"><a href="#variant.Raw10" class="anchor">§</a><h3 class="code-header">Raw10([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">10</a>])</h3></section><section id="variant.Raw11" class="variant"><a href="#variant.Raw11" class="anchor">§</a><h3 class="code-header">Raw11([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">11</a>])</h3></section><section id="variant.Raw12" class="variant"><a href="#variant.Raw12" class="anchor">§</a><h3 class="code-header">Raw12([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">12</a>])</h3></section><section id="variant.Raw13" class="variant"><a href="#variant.Raw13" class="anchor">§</a><h3 class="code-header">Raw13([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">13</a>])</h3></section><section id="variant.Raw14" class="variant"><a href="#variant.Raw14" class="anchor">§</a><h3 class="code-header">Raw14([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">14</a>])</h3></section><section id="variant.Raw15" class="variant"><a href="#variant.Raw15" class="anchor">§</a><h3 class="code-header">Raw15([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">15</a>])</h3></section><section id="variant.Raw16" class="variant"><a href="#variant.Raw16" class="anchor">§</a><h3 class="code-header">Raw16([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">16</a>])</h3></section><section id="variant.Raw17" class="variant"><a href="#variant.Raw17" class="anchor">§</a><h3 class="code-header">Raw17([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">17</a>])</h3></section><section id="variant.Raw18" class="variant"><a href="#variant.Raw18" class="anchor">§</a><h3 class="code-header">Raw18([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">18</a>])</h3></section><section id="variant.Raw19" class="variant"><a href="#variant.Raw19" class="anchor">§</a><h3 class="code-header">Raw19([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">19</a>])</h3></section><section id="variant.Raw20" class="variant"><a href="#variant.Raw20" class="anchor">§</a><h3 class="code-header">Raw20([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">20</a>])</h3></section><section id="variant.Raw21" class="variant"><a href="#variant.Raw21" class="anchor">§</a><h3 class="code-header">Raw21([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">21</a>])</h3></section><section id="variant.Raw22" class="variant"><a href="#variant.Raw22" class="anchor">§</a><h3 class="code-header">Raw22([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">22</a>])</h3></section><section id="variant.Raw23" class="variant"><a href="#variant.Raw23" class="anchor">§</a><h3 class="code-header">Raw23([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">23</a>])</h3></section><section id="variant.Raw24" class="variant"><a href="#variant.Raw24" class="anchor">§</a><h3 class="code-header">Raw24([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">24</a>])</h3></section><section id="variant.Raw25" class="variant"><a href="#variant.Raw25" class="anchor">§</a><h3 class="code-header">Raw25([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">25</a>])</h3></section><section id="variant.Raw26" class="variant"><a href="#variant.Raw26" class="anchor">§</a><h3 class="code-header">Raw26([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">26</a>])</h3></section><section id="variant.Raw27" class="variant"><a href="#variant.Raw27" class="anchor">§</a><h3 class="code-header">Raw27([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">27</a>])</h3></section><section id="variant.Raw28" class="variant"><a href="#variant.Raw28" class="anchor">§</a><h3 class="code-header">Raw28([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">28</a>])</h3></section><section id="variant.Raw29" class="variant"><a href="#variant.Raw29" class="anchor">§</a><h3 class="code-header">Raw29([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">29</a>])</h3></section><section id="variant.Raw30" class="variant"><a href="#variant.Raw30" class="anchor">§</a><h3 class="code-header">Raw30([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">30</a>])</h3></section><section id="variant.Raw31" class="variant"><a href="#variant.Raw31" class="anchor">§</a><h3 class="code-header">Raw31([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">31</a>])</h3></section><section id="variant.Raw32" class="variant"><a href="#variant.Raw32" class="anchor">§</a><h3 class="code-header">Raw32([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>])</h3></section><section id="variant.BlakeTwo256" class="variant"><a href="#variant.BlakeTwo256" class="anchor">§</a><h3 class="code-header">BlakeTwo256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>])</h3></section><section id="variant.Sha256" class="variant"><a href="#variant.Sha256" class="anchor">§</a><h3 class="code-header">Sha256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>])</h3></section><section id="variant.Keccak256" class="variant"><a href="#variant.Keccak256" class="anchor">§</a><h3 class="code-header">Keccak256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>])</h3></section><section id="variant.ShaThree256" class="variant"><a href="#variant.ShaThree256" class="anchor">§</a><h3 class="code-header">ShaThree256([<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>])</h3></section></div><script src="../../../../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_identity/types/enum.Data.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::identity::calls::types::add_sub::Data" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate tracing primitives and macros."><title>sp_tracing - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_tracing/index.html">sp_<wbr>tracing</a><span class="version">16.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#statics" title="Statics">Statics</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sp_tracing</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sp_tracing/lib.rs.html#18-508">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Substrate tracing primitives and macros.</p>
+<p>To trace functions or individual code in Substrate, this crate provides <a href="macro.within_span.html" title="macro sp_tracing::within_span"><code>within_span</code></a>
+and <a href="macro.enter_span.html" title="macro sp_tracing::enter_span"><code>enter_span</code></a>. See the individual docs for how to use these macros.</p>
+<p>Note that to allow traces from wasm execution environment there are
+2 reserved identifiers for tracing <code>Field</code> recording, stored in the consts:
+<code>WASM_TARGET_KEY</code> and <code>WASM_NAME_KEY</code> - if you choose to record fields, you
+must ensure that your identifiers do not clash with either of these.</p>
+<p>Additionally, we have a const: <code>WASM_TRACE_IDENTIFIER</code>, which holds a span name used
+to signal that the ‘actual’ span name and target should be retrieved instead from
+the associated Fields mentioned above.</p>
+<p>Note: The <code>tracing</code> crate requires trace metadata to be static. This does not work
+for wasm code in substrate, as it is regularly updated with new code from on-chain
+events. The workaround for this is for the wasm tracing wrappers to put the
+<code>name</code> and <code>target</code> data in the <code>values</code> map (normally they would be in the static
+metadata assembled at compile time).</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.tracing"><code>pub use tracing;</code></dt><dt id="reexport.tracing_subscriber"><code>pub use tracing_subscriber;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="event/index.html" title="mod sp_tracing::event">event</a></dt><dd>Events represent single points in time during the execution of a program.</dd><dt><a class="mod" href="span/index.html" title="mod sp_tracing::span">span</a></dt><dd>Spans represent periods of time in which a program was executing in a
+particular context.</dd><dt><a class="mod" href="test_log_capture/index.html" title="mod sp_tracing::test_log_capture">test_<wbr>log_<wbr>capture</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.capture_test_logs.html" title="macro sp_tracing::capture_test_logs">capture_<wbr>test_<wbr>logs</a></dt><dd>Macro for capturing logs during test execution.</dd><dt><a class="macro" href="macro.debug.html" title="macro sp_tracing::debug">debug</a></dt><dd>Constructs an event at the debug level.</dd><dt><a class="macro" href="macro.debug_span.html" title="macro sp_tracing::debug_span">debug_<wbr>span</a></dt><dd>Constructs a span at the debug level.</dd><dt><a class="macro" href="macro.enter_span.html" title="macro sp_tracing::enter_span">enter_<wbr>span</a></dt><dd>Enter a span.</dd><dt><a class="macro" href="macro.error.html" title="macro sp_tracing::error">error</a></dt><dd>Constructs an event at the error level.</dd><dt><a class="macro" href="macro.error_span.html" title="macro sp_tracing::error_span">error_<wbr>span</a></dt><dd>Constructs a span at the error level.</dd><dt><a class="macro" href="macro.event.html" title="macro sp_tracing::event">event</a></dt><dd>Constructs a new <code>Event</code>.</dd><dt><a class="macro" href="macro.info.html" title="macro sp_tracing::info">info</a></dt><dd>Constructs an event at the info level.</dd><dt><a class="macro" href="macro.info_span.html" title="macro sp_tracing::info_span">info_<wbr>span</a></dt><dd>Constructs a span at the info level.</dd><dt><a class="macro" href="macro.span.html" title="macro sp_tracing::span">span</a></dt><dd>Constructs a new span.</dd><dt><a class="macro" href="macro.trace.html" title="macro sp_tracing::trace">trace</a></dt><dd>Constructs an event at the trace level.</dd><dt><a class="macro" href="macro.trace_span.html" title="macro sp_tracing::trace_span">trace_<wbr>span</a></dt><dd>Constructs a span at the trace level.</dd><dt><a class="macro" href="macro.warn.html" title="macro sp_tracing::warn">warn</a></dt><dd>Constructs an event at the warn level.</dd><dt><a class="macro" href="macro.warn_span.html" title="macro sp_tracing::warn_span">warn_<wbr>span</a></dt><dd>Constructs a span at the warn level.</dd><dt><a class="macro" href="macro.within_span.html" title="macro sp_tracing::within_span">within_<wbr>span</a></dt><dd>Runs given code within a tracing span, measuring it’s execution time.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Level.html" title="struct sp_tracing::Level">Level</a></dt><dd>Describes the level of verbosity of a span or event.</dd><dt><a class="struct" href="struct.Span.html" title="struct sp_tracing::Span">Span</a></dt><dd>A handle representing a span, with the capability to enter the span if it
+exists.</dd><dt><a class="struct" href="struct.WasmEntryAttributes.html" title="struct sp_tracing::WasmEntryAttributes">Wasm<wbr>Entry<wbr>Attributes</a></dt><dd>Span or Event Attributes</dd><dt><a class="struct" href="struct.WasmFieldName.html" title="struct sp_tracing::WasmFieldName">Wasm<wbr>Field<wbr>Name</a></dt><dd>The name of a field provided as the argument name when constructing an
+<code>event!</code> or <code>span!</code>.
+Generally generated automatically via <code>stringify</code> from an <code>'static &amp;str</code>.
+Likely print-able.</dd><dt><a class="struct" href="struct.WasmFields.html" title="struct sp_tracing::WasmFields">Wasm<wbr>Fields</a></dt><dd>A list of <code>WasmFieldName</code>s in the order provided</dd><dt><a class="struct" href="struct.WasmMetadata.html" title="struct sp_tracing::WasmMetadata">Wasm<wbr>Metadata</a></dt><dd>Metadata provides generic information about the specific location of the
+<code>span!</code> or <code>event!</code> call on the wasm-side.</dd><dt><a class="struct" href="struct.WasmValuesSet.html" title="struct sp_tracing::WasmValuesSet">Wasm<wbr>Values<wbr>Set</a></dt><dd>A list of <code>WasmFieldName</code>s with the given <code>WasmValue</code> (if provided)
+in the order specified.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.WasmLevel.html" title="enum sp_tracing::WasmLevel">Wasm<wbr>Level</a></dt><dd>The Tracing Level – the user can filter by this</dd><dt><a class="enum" href="enum.WasmValue.html" title="enum sp_tracing::WasmValue">Wasm<wbr>Value</a></dt><dd>A parameter value provided to the span/event</dd></dl><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><dl class="item-table"><dt><a class="static" href="static.WASM_NAME_KEY.html" title="static sp_tracing::WASM_NAME_KEY">WASM_<wbr>NAME_<wbr>KEY</a></dt><dd>The fieldname for the wasm-originated name</dd><dt><a class="static" href="static.WASM_TARGET_KEY.html" title="static sp_tracing::WASM_TARGET_KEY">WASM_<wbr>TARGET_<wbr>KEY</a></dt><dd>The fieldname for the wasm-originated target</dd><dt><a class="static" href="static.WASM_TRACE_IDENTIFIER.html" title="static sp_tracing::WASM_TRACE_IDENTIFIER">WASM_<wbr>TRACE_<wbr>IDENTIFIER</a></dt><dd>The identifier we are using to inject the wasm events in the generic <code>tracing</code> system</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.init_for_tests.html" title="fn sp_tracing::init_for_tests">init_<wbr>for_<wbr>tests</a></dt><dd>Init a tracing subscriber for logging in tests.</dd><dt><a class="fn" href="fn.try_init_simple.html" title="fn sp_tracing::try_init_simple">try_<wbr>init_<wbr>simple</a></dt><dd>Try to init a simple tracing subscriber with log compatibility layer.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

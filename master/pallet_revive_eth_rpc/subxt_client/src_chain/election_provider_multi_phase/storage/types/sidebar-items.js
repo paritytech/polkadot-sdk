@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["current_phase","desired_targets","minimum_untrusted_score","queued_solution","round","signed_submission_indices","signed_submission_next_index","signed_submissions_map","snapshot","snapshot_metadata"]};

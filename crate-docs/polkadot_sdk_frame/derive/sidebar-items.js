@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"derive":["CloneNoBound","Debug","DebugNoBound","Decode","DefaultNoBound","Encode","EqNoBound","OrdNoBound","PartialEqNoBound","PartialOrdNoBound","RuntimeDebug","RuntimeDebugNoBound","TypeInfo"],"trait":["Debug","Decode","Encode","TypeInfo"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ParseError","Protocol"],"macro":["multiaddr"],"struct":["Iter","Multiaddr"]};

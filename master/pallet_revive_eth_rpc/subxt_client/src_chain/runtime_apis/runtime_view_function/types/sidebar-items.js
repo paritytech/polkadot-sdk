@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["execute_view_function"],"struct":["ExecuteViewFunction"]};

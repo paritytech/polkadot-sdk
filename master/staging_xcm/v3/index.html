@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Version 3 of the Cross-Consensus Message format data structures."><title>staging_xcm::v3 - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../staging_xcm/index.html">staging_<wbr>xcm</a><span class="version">7.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module v3</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate staging_<wbr>xcm</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">staging_xcm</a></div><h1>Module <span>v3</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/staging_xcm/v3/mod.rs.html#17-1474">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Version 3 of the Cross-Consensus Message format data structures.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="opaque/index.html" title="mod staging_xcm::v3::opaque">opaque</a></dt><dt><a class="mod" href="prelude/index.html" title="mod staging_xcm::v3::prelude">prelude</a></dt><dd>A prelude for importing all types typically used when interacting with XCM messages.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Ancestor.html" title="struct staging_xcm::v3::Ancestor">Ancestor</a></dt><dd>A unit struct which can be converted into a <code>MultiLocation</code> of the inner <code>parents</code> value.</dd><dt><a class="struct" href="struct.AncestorThen.html" title="struct staging_xcm::v3::AncestorThen">Ancestor<wbr>Then</a></dt><dd>A unit struct which can be converted into a <code>MultiLocation</code> of the inner <code>parents</code> value and the
+inner interior.</dd><dt><a class="struct" href="struct.MaxDispatchErrorLen.html" title="struct staging_xcm::v3::MaxDispatchErrorLen">MaxDispatch<wbr>Error<wbr>Len</a></dt><dd>Maximum size of the encoded error code coming from a <code>Dispatch</code> result, used for
+<code>MaybeErrorCode</code>. This is not (yet) enforced, so it’s just an indication of expectation.</dd><dt><a class="struct" href="struct.MaxPalletNameLen.html" title="struct staging_xcm::v3::MaxPalletNameLen">MaxPallet<wbr>Name<wbr>Len</a></dt><dt><a class="struct" href="struct.MaxPalletsInfo.html" title="struct staging_xcm::v3::MaxPalletsInfo">MaxPallets<wbr>Info</a></dt><dt><a class="struct" href="struct.MultiAsset.html" title="struct staging_xcm::v3::MultiAsset">Multi<wbr>Asset</a></dt><dd>Either an amount of a single fungible asset, or a single well-identified non-fungible asset.</dd><dt><a class="struct" href="struct.MultiAssets.html" title="struct staging_xcm::v3::MultiAssets">Multi<wbr>Assets</a></dt><dd>A <code>Vec</code> of <code>MultiAsset</code>s.</dd><dt><a class="struct" href="struct.MultiLocation.html" title="struct staging_xcm::v3::MultiLocation">Multi<wbr>Location</a></dt><dd>A relative path between state-bearing consensus systems.</dd><dt><a class="struct" href="struct.PalletInfo.html" title="struct staging_xcm::v3::PalletInfo">Pallet<wbr>Info</a></dt><dt><a class="struct" href="struct.Parent.html" title="struct staging_xcm::v3::Parent">Parent</a></dt><dd>A unit struct which can be converted into a <code>MultiLocation</code> of <code>parents</code> value 1.</dd><dt><a class="struct" href="struct.ParentThen.html" title="struct staging_xcm::v3::ParentThen">Parent<wbr>Then</a></dt><dd>A tuple struct which can be converted into a <code>MultiLocation</code> of <code>parents</code> value 1 with the inner
+interior.</dd><dt><a class="struct" href="struct.QueryResponseInfo.html" title="struct staging_xcm::v3::QueryResponseInfo">Query<wbr>Response<wbr>Info</a></dt><dd>Information regarding the composition of a query response.</dd><dt><a class="struct" href="struct.Weight.html" title="struct staging_xcm::v3::Weight">Weight</a></dt><dt><a class="struct" href="struct.Xcm.html" title="struct staging_xcm::v3::Xcm">Xcm</a></dt><dt><a class="struct" href="struct.XcmBuilder.html" title="struct staging_xcm::v3::XcmBuilder">XcmBuilder</a></dt><dd>Type used to build XCM programs</dd><dt><a class="struct" href="struct.XcmContext.html" title="struct staging_xcm::v3::XcmContext">XcmContext</a></dt><dd>Contextual data pertaining to a specific list of XCM instructions.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.AnythingGoes.html" title="enum staging_xcm::v3::AnythingGoes">Anything<wbr>Goes</a></dt><dd>Access to all the instructions</dd><dt><a class="enum" href="enum.AssetId.html" title="enum staging_xcm::v3::AssetId">AssetId</a></dt><dd>Classification of an asset being concrete or abstract.</dd><dt><a class="enum" href="enum.AssetInstance.html" title="enum staging_xcm::v3::AssetInstance">Asset<wbr>Instance</a></dt><dd>A general identifier for an instance of a non-fungible asset class.</dd><dt><a class="enum" href="enum.BodyId.html" title="enum staging_xcm::v3::BodyId">BodyId</a></dt><dd>An identifier of a pluralistic body.</dd><dt><a class="enum" href="enum.BodyPart.html" title="enum staging_xcm::v3::BodyPart">Body<wbr>Part</a></dt><dd>A part of a pluralistic body.</dd><dt><a class="enum" href="enum.Error.html" title="enum staging_xcm::v3::Error">Error</a></dt><dd>Error codes used in XCM. The first errors codes have explicit indices and are part of the XCM
+format. Those trailing are merely part of the XCM implementation; there is no expectation that
+they will retain the same index over time.</dd><dt><a class="enum" href="enum.ExplicitUnpaidRequired.html" title="enum staging_xcm::v3::ExplicitUnpaidRequired">Explicit<wbr>Unpaid<wbr>Required</a></dt><dd>Need to explicitly state it won’t pay for fees</dd><dt><a class="enum" href="enum.Fungibility.html" title="enum staging_xcm::v3::Fungibility">Fungibility</a></dt><dd>Classification of whether an asset is fungible or not, along with a mandatory amount or
+instance.</dd><dt><a class="enum" href="enum.Instruction.html" title="enum staging_xcm::v3::Instruction">Instruction</a></dt><dd>Cross-Consensus Message: A message from one consensus system to another.</dd><dt><a class="enum" href="enum.Junction.html" title="enum staging_xcm::v3::Junction">Junction</a></dt><dd>A single item in a path to describe the relative location of a consensus system.</dd><dt><a class="enum" href="enum.Junctions.html" title="enum staging_xcm::v3::Junctions">Junctions</a></dt><dd>Non-parent junctions that can be constructed, up to the length of 8. This specific <code>Junctions</code>
+implementation uses a Rust <code>enum</code> in order to make pattern matching easier.</dd><dt><a class="enum" href="enum.LoadedHolding.html" title="enum staging_xcm::v3::LoadedHolding">Loaded<wbr>Holding</a></dt><dd>The holding register was loaded, now to buy execution</dd><dt><a class="enum" href="enum.MaybeErrorCode.html" title="enum staging_xcm::v3::MaybeErrorCode">Maybe<wbr>Error<wbr>Code</a></dt><dt><a class="enum" href="enum.MultiAssetFilter.html" title="enum staging_xcm::v3::MultiAssetFilter">Multi<wbr>Asset<wbr>Filter</a></dt><dd><code>MultiAsset</code> collection, defined either by a number of <code>MultiAssets</code> or a single wildcard.</dd><dt><a class="enum" href="enum.NetworkId.html" title="enum staging_xcm::v3::NetworkId">Network<wbr>Id</a></dt><dd>A global identifier of a data structure existing within consensus.</dd><dt><a class="enum" href="enum.OriginKind.html" title="enum staging_xcm::v3::OriginKind">Origin<wbr>Kind</a></dt><dd>Basically just the XCM (more general) version of <code>ParachainDispatchOrigin</code>.</dd><dt><a class="enum" href="enum.Outcome.html" title="enum staging_xcm::v3::Outcome">Outcome</a></dt><dd>Outcome of an XCM execution.</dd><dt><a class="enum" href="enum.PaymentRequired.html" title="enum staging_xcm::v3::PaymentRequired">Payment<wbr>Required</a></dt><dd>You need to pay for execution</dd><dt><a class="enum" href="enum.Response.html" title="enum staging_xcm::v3::Response">Response</a></dt><dd>Response data to a query.</dd><dt><a class="enum" href="enum.SendError.html" title="enum staging_xcm::v3::SendError">Send<wbr>Error</a></dt><dd>Error result value when attempting to send an XCM message.</dd><dt><a class="enum" href="enum.WeightLimit.html" title="enum staging_xcm::v3::WeightLimit">Weight<wbr>Limit</a></dt><dd>An optional weight limit.</dd><dt><a class="enum" href="enum.WildFungibility.html" title="enum staging_xcm::v3::WildFungibility">Wild<wbr>Fungibility</a></dt><dd>Classification of whether an asset is fungible or not.</dd><dt><a class="enum" href="enum.WildMultiAsset.html" title="enum staging_xcm::v3::WildMultiAsset">Wild<wbr>Multi<wbr>Asset</a></dt><dd>A wildcard representing a set of assets.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.MAX_ITEMS_IN_MULTIASSETS.html" title="constant staging_xcm::v3::MAX_ITEMS_IN_MULTIASSETS">MAX_<wbr>ITEMS_<wbr>IN_<wbr>MULTIASSETS</a></dt><dd>Maximum number of items in a single <code>MultiAssets</code> value that can be decoded.</dd><dt><a class="constant" href="constant.VERSION.html" title="constant staging_xcm::v3::VERSION">VERSION</a></dt><dd>This module’s XCM version.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.ExecuteXcm.html" title="trait staging_xcm::v3::ExecuteXcm">Execute<wbr>Xcm</a></dt><dd>Type of XCM message executor.</dd><dt><a class="trait" href="trait.GetWeight.html" title="trait staging_xcm::v3::GetWeight">GetWeight</a></dt><dt><a class="trait" href="trait.PreparedMessage.html" title="trait staging_xcm::v3::PreparedMessage">Prepared<wbr>Message</a></dt><dt><a class="trait" href="trait.SendXcm.html" title="trait staging_xcm::v3::SendXcm">SendXcm</a></dt><dd>Utility for sending an XCM message to a given location.</dd><dt><a class="trait" href="trait.XcmBuilderState.html" title="trait staging_xcm::v3::XcmBuilderState">XcmBuilder<wbr>State</a></dt><dd>A trait for types that track state inside the XcmBuilder</dd><dt><a class="trait" href="trait.XcmWeightInfo.html" title="trait staging_xcm::v3::XcmWeightInfo">XcmWeight<wbr>Info</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.send_xcm.html" title="fn staging_xcm::v3::send_xcm">send_<wbr>xcm</a></dt><dd>Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as mutable references into <code>T::send_xcm</code>.</dd><dt><a class="fn" href="fn.validate_send.html" title="fn staging_xcm::v3::validate_send">validate_<wbr>send</a></dt><dd>Convenience function for using a <code>SendXcm</code> implementation. Just interprets the <code>dest</code> and wraps
+both in <code>Some</code> before passing them as mutable references into <code>T::send_xcm</code>.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.InteriorMultiLocation.html" title="type staging_xcm::v3::InteriorMultiLocation">Interior<wbr>Multi<wbr>Location</a></dt><dd>A relative location which is constrained to be an interior location of the context.</dd><dt><a class="type" href="type.Location.html" title="type staging_xcm::v3::Location">Location</a></dt><dd>Type alias for a better transition to V4.</dd><dt><a class="type" href="type.QueryId.html" title="type staging_xcm::v3::QueryId">QueryId</a></dt><dd>An identifier for a query.</dd><dt><a class="type" href="type.Result.html" title="type staging_xcm::v3::Result">Result</a></dt><dt><a class="type" href="type.SendResult.html" title="type staging_xcm::v3::SendResult">Send<wbr>Result</a></dt><dd>Result value when attempting to send an XCM message.</dd><dt><a class="type" href="type.XcmHash.html" title="type staging_xcm::v3::XcmHash">XcmHash</a></dt><dd>A hash type for identifying messages.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

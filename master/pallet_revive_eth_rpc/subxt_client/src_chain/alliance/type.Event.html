@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Event` type in crate `pallet_revive_eth_rpc`."><title>Event in pallet_revive_eth_rpc::subxt_client::src_chain::alliance - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Event</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AllianceDisbanded" title="AllianceDisbanded">AllianceDisbanded</a></li><li><a href="#variant.AllyElevated" title="AllyElevated">AllyElevated</a></li><li><a href="#variant.Announced" title="Announced">Announced</a></li><li><a href="#variant.AnnouncementRemoved" title="AnnouncementRemoved">AnnouncementRemoved</a></li><li><a href="#variant.FellowAbdicated" title="FellowAbdicated">FellowAbdicated</a></li><li><a href="#variant.MemberKicked" title="MemberKicked">MemberKicked</a></li><li><a href="#variant.MemberRetired" title="MemberRetired">MemberRetired</a></li><li><a href="#variant.MemberRetirementPeriodStarted" title="MemberRetirementPeriodStarted">MemberRetirementPeriodStarted</a></li><li><a href="#variant.MembersInitialized" title="MembersInitialized">MembersInitialized</a></li><li><a href="#variant.NewAllyJoined" title="NewAllyJoined">NewAllyJoined</a></li><li><a href="#variant.NewRuleSet" title="NewRuleSet">NewRuleSet</a></li><li><a href="#variant.UnscrupulousItemAdded" title="UnscrupulousItemAdded">UnscrupulousItemAdded</a></li><li><a href="#variant.UnscrupulousItemRemoved" title="UnscrupulousItemRemoved">UnscrupulousItemRemoved</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>alliance</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">alliance</a></div><h1>Type Alias <span class="type">Event</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Event = <a class="enum" href="../runtime_types/pallet_alliance/pallet/enum.Event.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::pallet::Event">Event</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Event {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 13 variants</span></summary>    NewRuleSet {
+        rule: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a>,
+    },
+    Announced {
+        announcement: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a>,
+    },
+    AnnouncementRemoved {
+        announcement: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a>,
+    },
+    MembersInitialized {
+        fellows: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;,
+        allies: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;,
+    },
+    NewAllyJoined {
+        ally: AccountId32,
+        nominator: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccountId32&gt;,
+        reserved: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    AllyElevated {
+        ally: AccountId32,
+    },
+    MemberRetirementPeriodStarted {
+        member: AccountId32,
+    },
+    MemberRetired {
+        member: AccountId32,
+        unreserved: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    MemberKicked {
+        member: AccountId32,
+        slashed: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    UnscrupulousItemAdded {
+        items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../runtime_types/pallet_alliance/enum.UnscrupulousItem.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::UnscrupulousItem">UnscrupulousItem</a>&lt;AccountId32, <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;,
+    },
+    UnscrupulousItemRemoved {
+        items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../runtime_types/pallet_alliance/enum.UnscrupulousItem.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::UnscrupulousItem">UnscrupulousItem</a>&lt;AccountId32, <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;,
+    },
+    AllianceDisbanded {
+        fellow_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        ally_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        unreserved: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    FellowAbdicated {
+        fellow: AccountId32,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.NewRuleSet" class="variant"><a href="#variant.NewRuleSet" class="anchor">§</a><h3 class="code-header">NewRuleSet</h3></section><div class="sub-variant" id="variant.NewRuleSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.NewRuleSet.field.rule" class="section-header"><a href="#variant.NewRuleSet.field.rule" class="anchor field">§</a><code>rule: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a></code></span></div></div><section id="variant.Announced" class="variant"><a href="#variant.Announced" class="anchor">§</a><h3 class="code-header">Announced</h3></section><div class="sub-variant" id="variant.Announced.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Announced.field.announcement" class="section-header"><a href="#variant.Announced.field.announcement" class="anchor field">§</a><code>announcement: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a></code></span></div></div><section id="variant.AnnouncementRemoved" class="variant"><a href="#variant.AnnouncementRemoved" class="anchor">§</a><h3 class="code-header">AnnouncementRemoved</h3></section><div class="sub-variant" id="variant.AnnouncementRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AnnouncementRemoved.field.announcement" class="section-header"><a href="#variant.AnnouncementRemoved.field.announcement" class="anchor field">§</a><code>announcement: <a class="struct" href="../runtime_types/pallet_alliance/types/struct.Cid.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::types::Cid">Cid</a></code></span></div></div><section id="variant.MembersInitialized" class="variant"><a href="#variant.MembersInitialized" class="anchor">§</a><h3 class="code-header">MembersInitialized</h3></section><div class="sub-variant" id="variant.MembersInitialized.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MembersInitialized.field.fellows" class="section-header"><a href="#variant.MembersInitialized.field.fellows" class="anchor field">§</a><code>fellows: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;</code></span></div><div class="sub-variant-field"><span id="variant.MembersInitialized.field.allies" class="section-header"><a href="#variant.MembersInitialized.field.allies" class="anchor field">§</a><code>allies: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;</code></span></div></div><section id="variant.NewAllyJoined" class="variant"><a href="#variant.NewAllyJoined" class="anchor">§</a><h3 class="code-header">NewAllyJoined</h3></section><div class="sub-variant" id="variant.NewAllyJoined.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.NewAllyJoined.field.ally" class="section-header"><a href="#variant.NewAllyJoined.field.ally" class="anchor field">§</a><code>ally: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.NewAllyJoined.field.nominator" class="section-header"><a href="#variant.NewAllyJoined.field.nominator" class="anchor field">§</a><code>nominator: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccountId32&gt;</code></span></div><div class="sub-variant-field"><span id="variant.NewAllyJoined.field.reserved" class="section-header"><a href="#variant.NewAllyJoined.field.reserved" class="anchor field">§</a><code>reserved: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.AllyElevated" class="variant"><a href="#variant.AllyElevated" class="anchor">§</a><h3 class="code-header">AllyElevated</h3></section><div class="sub-variant" id="variant.AllyElevated.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AllyElevated.field.ally" class="section-header"><a href="#variant.AllyElevated.field.ally" class="anchor field">§</a><code>ally: AccountId32</code></span></div></div><section id="variant.MemberRetirementPeriodStarted" class="variant"><a href="#variant.MemberRetirementPeriodStarted" class="anchor">§</a><h3 class="code-header">MemberRetirementPeriodStarted</h3></section><div class="sub-variant" id="variant.MemberRetirementPeriodStarted.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MemberRetirementPeriodStarted.field.member" class="section-header"><a href="#variant.MemberRetirementPeriodStarted.field.member" class="anchor field">§</a><code>member: AccountId32</code></span></div></div><section id="variant.MemberRetired" class="variant"><a href="#variant.MemberRetired" class="anchor">§</a><h3 class="code-header">MemberRetired</h3></section><div class="sub-variant" id="variant.MemberRetired.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MemberRetired.field.member" class="section-header"><a href="#variant.MemberRetired.field.member" class="anchor field">§</a><code>member: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.MemberRetired.field.unreserved" class="section-header"><a href="#variant.MemberRetired.field.unreserved" class="anchor field">§</a><code>unreserved: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.MemberKicked" class="variant"><a href="#variant.MemberKicked" class="anchor">§</a><h3 class="code-header">MemberKicked</h3></section><div class="sub-variant" id="variant.MemberKicked.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MemberKicked.field.member" class="section-header"><a href="#variant.MemberKicked.field.member" class="anchor field">§</a><code>member: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.MemberKicked.field.slashed" class="section-header"><a href="#variant.MemberKicked.field.slashed" class="anchor field">§</a><code>slashed: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.UnscrupulousItemAdded" class="variant"><a href="#variant.UnscrupulousItemAdded" class="anchor">§</a><h3 class="code-header">UnscrupulousItemAdded</h3></section><div class="sub-variant" id="variant.UnscrupulousItemAdded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UnscrupulousItemAdded.field.items" class="section-header"><a href="#variant.UnscrupulousItemAdded.field.items" class="anchor field">§</a><code>items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../runtime_types/pallet_alliance/enum.UnscrupulousItem.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::UnscrupulousItem">UnscrupulousItem</a>&lt;AccountId32, <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;</code></span></div></div><section id="variant.UnscrupulousItemRemoved" class="variant"><a href="#variant.UnscrupulousItemRemoved" class="anchor">§</a><h3 class="code-header">UnscrupulousItemRemoved</h3></section><div class="sub-variant" id="variant.UnscrupulousItemRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UnscrupulousItemRemoved.field.items" class="section-header"><a href="#variant.UnscrupulousItemRemoved.field.items" class="anchor field">§</a><code>items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../runtime_types/pallet_alliance/enum.UnscrupulousItem.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_alliance::UnscrupulousItem">UnscrupulousItem</a>&lt;AccountId32, <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;&gt;&gt;</code></span></div></div><section id="variant.AllianceDisbanded" class="variant"><a href="#variant.AllianceDisbanded" class="anchor">§</a><h3 class="code-header">AllianceDisbanded</h3></section><div class="sub-variant" id="variant.AllianceDisbanded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AllianceDisbanded.field.fellow_members" class="section-header"><a href="#variant.AllianceDisbanded.field.fellow_members" class="anchor field">§</a><code>fellow_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.AllianceDisbanded.field.ally_members" class="section-header"><a href="#variant.AllianceDisbanded.field.ally_members" class="anchor field">§</a><code>ally_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.AllianceDisbanded.field.unreserved" class="section-header"><a href="#variant.AllianceDisbanded.field.unreserved" class="anchor field">§</a><code>unreserved: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.FellowAbdicated" class="variant"><a href="#variant.FellowAbdicated" class="anchor">§</a><h3 class="code-header">FellowAbdicated</h3></section><div class="sub-variant" id="variant.FellowAbdicated.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.FellowAbdicated.field.fellow" class="section-header"><a href="#variant.FellowAbdicated.field.fellow" class="anchor field">§</a><code>fellow: AccountId32</code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_alliance/pallet/enum.Event.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::alliance::Event" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

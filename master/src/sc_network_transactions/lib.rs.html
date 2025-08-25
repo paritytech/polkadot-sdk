@@ -1,0 +1,691 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/transactions/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_transactions" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_network_transactions/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// This program is free software: you can redistribute it and/or modify
+<a href=#7 id=7 data-nosnippet>7</a>// it under the terms of the GNU General Public License as published by
+<a href=#8 id=8 data-nosnippet>8</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#9 id=9 data-nosnippet>9</a>// (at your option) any later version.
+<a href=#10 id=10 data-nosnippet>10</a>
+<a href=#11 id=11 data-nosnippet>11</a>// This program is distributed in the hope that it will be useful,
+<a href=#12 id=12 data-nosnippet>12</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#13 id=13 data-nosnippet>13</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href=#14 id=14 data-nosnippet>14</a>// GNU General Public License for more details.
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a>// You should have received a copy of the GNU General Public License
+<a href=#17 id=17 data-nosnippet>17</a>// along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="doccomment">//! Transactions handling to plug on top of the network service.
+<a href=#20 id=20 data-nosnippet>20</a>//!
+<a href=#21 id=21 data-nosnippet>21</a>//! Usage:
+<a href=#22 id=22 data-nosnippet>22</a>//!
+<a href=#23 id=23 data-nosnippet>23</a>//! - Use [`TransactionsHandlerPrototype::new`] to create a prototype.
+<a href=#24 id=24 data-nosnippet>24</a>//! - Pass the `NonDefaultSetConfig` returned from [`TransactionsHandlerPrototype::new`] to the
+<a href=#25 id=25 data-nosnippet>25</a>//!   network configuration as an extra peers set.
+<a href=#26 id=26 data-nosnippet>26</a>//! - Use [`TransactionsHandlerPrototype::build`] then [`TransactionsHandler::run`] to obtain a
+<a href=#27 id=27 data-nosnippet>27</a>//! `Future` that processes transactions.
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">use </span><span class="kw">crate</span>::config::<span class="kw-2">*</span>;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>futures::{prelude::<span class="kw-2">*</span>, stream::FuturesUnordered};
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>log::{debug, trace, warn};
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>sc_network::{
+<a href=#37 id=37 data-nosnippet>37</a>	config::{NonReservedPeerMode, ProtocolId, SetConfig},
+<a href=#38 id=38 data-nosnippet>38</a>	error, multiaddr,
+<a href=#39 id=39 data-nosnippet>39</a>	peer_store::PeerStoreProvider,
+<a href=#40 id=40 data-nosnippet>40</a>	service::{
+<a href=#41 id=41 data-nosnippet>41</a>		traits::{NotificationEvent, NotificationService, ValidationResult},
+<a href=#42 id=42 data-nosnippet>42</a>		NotificationMetrics,
+<a href=#43 id=43 data-nosnippet>43</a>	},
+<a href=#44 id=44 data-nosnippet>44</a>	types::ProtocolName,
+<a href=#45 id=45 data-nosnippet>45</a>	utils::{interval, LruHashSet},
+<a href=#46 id=46 data-nosnippet>46</a>	NetworkBackend, NetworkEventStream, NetworkPeers,
+<a href=#47 id=47 data-nosnippet>47</a>};
+<a href=#48 id=48 data-nosnippet>48</a><span class="kw">use </span>sc_network_common::{role::ObservedRole, ExHashT};
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">use </span>sc_network_sync::{SyncEvent, SyncEventStream};
+<a href=#50 id=50 data-nosnippet>50</a><span class="kw">use </span>sc_network_types::PeerId;
+<a href=#51 id=51 data-nosnippet>51</a><span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+<a href=#52 id=52 data-nosnippet>52</a><span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
+<a href=#53 id=53 data-nosnippet>53</a>
+<a href=#54 id=54 data-nosnippet>54</a><span class="kw">use </span>std::{
+<a href=#55 id=55 data-nosnippet>55</a>	collections::{hash_map::Entry, HashMap},
+<a href=#56 id=56 data-nosnippet>56</a>	iter,
+<a href=#57 id=57 data-nosnippet>57</a>	num::NonZeroUsize,
+<a href=#58 id=58 data-nosnippet>58</a>	pin::Pin,
+<a href=#59 id=59 data-nosnippet>59</a>	sync::Arc,
+<a href=#60 id=60 data-nosnippet>60</a>	task::Poll,
+<a href=#61 id=61 data-nosnippet>61</a>};
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">pub mod </span>config;
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a><span class="doccomment">/// A set of transactions.
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">pub type </span>Transactions&lt;E&gt; = Vec&lt;E&gt;;
+<a href=#67 id=67 data-nosnippet>67</a>
+<a href=#68 id=68 data-nosnippet>68</a><span class="doccomment">/// Logging target for the file.
+<a href=#69 id=69 data-nosnippet>69</a></span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sync"</span>;
+<a href=#70 id=70 data-nosnippet>70</a>
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">mod </span>rep {
+<a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
+<a href=#73 id=73 data-nosnippet>73</a>	<span class="doccomment">/// Reputation change when a peer sends us any transaction.
+<a href=#74 id=74 data-nosnippet>74</a>	///
+<a href=#75 id=75 data-nosnippet>75</a>	/// This forces node to verify it, thus the negative value here. Once transaction is verified,
+<a href=#76 id=76 data-nosnippet>76</a>	/// reputation change should be refunded with `ANY_TRANSACTION_REFUND`
+<a href=#77 id=77 data-nosnippet>77</a>	</span><span class="kw">pub const </span>ANY_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>), <span class="string">"Any transaction"</span>);
+<a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// Reputation change when a peer sends us any transaction that is not invalid.
+<a href=#79 id=79 data-nosnippet>79</a>	</span><span class="kw">pub const </span>ANY_TRANSACTION_REFUND: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>, <span class="string">"Any transaction (refund)"</span>);
+<a href=#80 id=80 data-nosnippet>80</a>	<span class="doccomment">/// Reputation change when a peer sends us an transaction that we didn't know about.
+<a href=#81 id=81 data-nosnippet>81</a>	</span><span class="kw">pub const </span>GOOD_TRANSACTION: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">7</span>, <span class="string">"Good transaction"</span>);
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="doccomment">/// Reputation change when a peer sends us a bad transaction.
+<a href=#83 id=83 data-nosnippet>83</a>	</span><span class="kw">pub const </span>BAD_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">"Bad transaction"</span>);
+<a href=#84 id=84 data-nosnippet>84</a>}
+<a href=#85 id=85 data-nosnippet>85</a>
+<a href=#86 id=86 data-nosnippet>86</a><span class="kw">struct </span>Metrics {
+<a href=#87 id=87 data-nosnippet>87</a>	propagated_transactions: Counter&lt;U64&gt;,
+<a href=#88 id=88 data-nosnippet>88</a>}
+<a href=#89 id=89 data-nosnippet>89</a>
+<a href=#90 id=90 data-nosnippet>90</a><span class="kw">impl </span>Metrics {
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="kw">fn </span>register(r: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
+<a href=#92 id=92 data-nosnippet>92</a>		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+<a href=#93 id=93 data-nosnippet>93</a>			propagated_transactions: register(
+<a href=#94 id=94 data-nosnippet>94</a>				Counter::new(
+<a href=#95 id=95 data-nosnippet>95</a>					<span class="string">"substrate_sync_propagated_transactions"</span>,
+<a href=#96 id=96 data-nosnippet>96</a>					<span class="string">"Number of transactions propagated to at least one peer"</span>,
+<a href=#97 id=97 data-nosnippet>97</a>				)<span class="question-mark">?</span>,
+<a href=#98 id=98 data-nosnippet>98</a>				r,
+<a href=#99 id=99 data-nosnippet>99</a>			)<span class="question-mark">?</span>,
+<a href=#100 id=100 data-nosnippet>100</a>		})
+<a href=#101 id=101 data-nosnippet>101</a>	}
+<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a><span class="kw">struct </span>PendingTransaction&lt;H&gt; {
+<a href=#105 id=105 data-nosnippet>105</a>	validation: TransactionImportFuture,
+<a href=#106 id=106 data-nosnippet>106</a>	tx_hash: H,
+<a href=#107 id=107 data-nosnippet>107</a>}
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a><span class="kw">impl</span>&lt;H&gt; Unpin <span class="kw">for </span>PendingTransaction&lt;H&gt; {}
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a><span class="kw">impl</span>&lt;H: ExHashT&gt; Future <span class="kw">for </span>PendingTransaction&lt;H&gt; {
+<a href=#112 id=112 data-nosnippet>112</a>	<span class="kw">type </span>Output = (H, TransactionImport);
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a>	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+<a href=#115 id=115 data-nosnippet>115</a>		<span class="kw">if let </span>Poll::Ready(import_result) = <span class="self">self</span>.validation.poll_unpin(cx) {
+<a href=#116 id=116 data-nosnippet>116</a>			<span class="kw">return </span>Poll::Ready((<span class="self">self</span>.tx_hash.clone(), import_result))
+<a href=#117 id=117 data-nosnippet>117</a>		}
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a>		Poll::Pending
+<a href=#120 id=120 data-nosnippet>120</a>	}
+<a href=#121 id=121 data-nosnippet>121</a>}
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a><span class="doccomment">/// Prototype for a [`TransactionsHandler`].
+<a href=#124 id=124 data-nosnippet>124</a></span><span class="kw">pub struct </span>TransactionsHandlerPrototype {
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Name of the transaction protocol.
+<a href=#126 id=126 data-nosnippet>126</a>	</span>protocol_name: ProtocolName,
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="doccomment">/// Handle that is used to communicate with `sc_network::Notifications`.
+<a href=#129 id=129 data-nosnippet>129</a>	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+<a href=#130 id=130 data-nosnippet>130</a>}
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a><span class="kw">impl </span>TransactionsHandlerPrototype {
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="doccomment">/// Create a new instance.
+<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub fn </span>new&lt;
+<a href=#135 id=135 data-nosnippet>135</a>		Hash: AsRef&lt;[u8]&gt;,
+<a href=#136 id=136 data-nosnippet>136</a>		Block: BlockT,
+<a href=#137 id=137 data-nosnippet>137</a>		Net: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
+<a href=#138 id=138 data-nosnippet>138</a>	&gt;(
+<a href=#139 id=139 data-nosnippet>139</a>		protocol_id: ProtocolId,
+<a href=#140 id=140 data-nosnippet>140</a>		genesis_hash: Hash,
+<a href=#141 id=141 data-nosnippet>141</a>		fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>		metrics: NotificationMetrics,
+<a href=#143 id=143 data-nosnippet>143</a>		peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
+<a href=#144 id=144 data-nosnippet>144</a>	) -&gt; (<span class="self">Self</span>, Net::NotificationProtocolConfig) {
+<a href=#145 id=145 data-nosnippet>145</a>		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
+<a href=#146 id=146 data-nosnippet>146</a>		<span class="kw">let </span>protocol_name: ProtocolName = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
+<a href=#147 id=147 data-nosnippet>147</a>			<span class="macro">format!</span>(<span class="string">"/{}/{}/transactions/1"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash), fork_id)
+<a href=#148 id=148 data-nosnippet>148</a>		} <span class="kw">else </span>{
+<a href=#149 id=149 data-nosnippet>149</a>			<span class="macro">format!</span>(<span class="string">"/{}/transactions/1"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash))
+<a href=#150 id=150 data-nosnippet>150</a>		}
+<a href=#151 id=151 data-nosnippet>151</a>		.into();
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">let </span>(config, notification_service) = Net::notification_config(
+<a href=#153 id=153 data-nosnippet>153</a>			protocol_name.clone(),
+<a href=#154 id=154 data-nosnippet>154</a>			<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"/{}/transactions/1"</span>, protocol_id.as_ref()).into()],
+<a href=#155 id=155 data-nosnippet>155</a>			MAX_TRANSACTIONS_SIZE,
+<a href=#156 id=156 data-nosnippet>156</a>			<span class="prelude-val">None</span>,
+<a href=#157 id=157 data-nosnippet>157</a>			SetConfig {
+<a href=#158 id=158 data-nosnippet>158</a>				in_peers: <span class="number">0</span>,
+<a href=#159 id=159 data-nosnippet>159</a>				out_peers: <span class="number">0</span>,
+<a href=#160 id=160 data-nosnippet>160</a>				reserved_nodes: Vec::new(),
+<a href=#161 id=161 data-nosnippet>161</a>				non_reserved_mode: NonReservedPeerMode::Deny,
+<a href=#162 id=162 data-nosnippet>162</a>			},
+<a href=#163 id=163 data-nosnippet>163</a>			metrics,
+<a href=#164 id=164 data-nosnippet>164</a>			peer_store_handle,
+<a href=#165 id=165 data-nosnippet>165</a>		);
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>		(<span class="self">Self </span>{ protocol_name, notification_service }, config)
+<a href=#168 id=168 data-nosnippet>168</a>	}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="doccomment">/// Turns the prototype into the actual handler. Returns a controller that allows controlling
+<a href=#171 id=171 data-nosnippet>171</a>	/// the behaviour of the handler while it's running.
+<a href=#172 id=172 data-nosnippet>172</a>	///
+<a href=#173 id=173 data-nosnippet>173</a>	/// Important: the transactions handler is initially disabled and doesn't gossip transactions.
+<a href=#174 id=174 data-nosnippet>174</a>	/// Gossiping is enabled when major syncing is done.
+<a href=#175 id=175 data-nosnippet>175</a>	</span><span class="kw">pub fn </span>build&lt;
+<a href=#176 id=176 data-nosnippet>176</a>		B: BlockT + <span class="lifetime">'static</span>,
+<a href=#177 id=177 data-nosnippet>177</a>		H: ExHashT,
+<a href=#178 id=178 data-nosnippet>178</a>		N: NetworkPeers + NetworkEventStream,
+<a href=#179 id=179 data-nosnippet>179</a>		S: SyncEventStream + sp_consensus::SyncOracle,
+<a href=#180 id=180 data-nosnippet>180</a>	&gt;(
+<a href=#181 id=181 data-nosnippet>181</a>		<span class="self">self</span>,
+<a href=#182 id=182 data-nosnippet>182</a>		network: N,
+<a href=#183 id=183 data-nosnippet>183</a>		sync: S,
+<a href=#184 id=184 data-nosnippet>184</a>		transaction_pool: Arc&lt;<span class="kw">dyn </span>TransactionPool&lt;H, B&gt;&gt;,
+<a href=#185 id=185 data-nosnippet>185</a>		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
+<a href=#186 id=186 data-nosnippet>186</a>	) -&gt; error::Result&lt;(TransactionsHandler&lt;B, H, N, S&gt;, TransactionsHandlerController&lt;H&gt;)&gt; {
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">"transactions-handler-sync"</span>);
+<a href=#188 id=188 data-nosnippet>188</a>		<span class="kw">let </span>(to_handler, from_controller) = tracing_unbounded(<span class="string">"mpsc_transactions_handler"</span>, <span class="number">100_000</span>);
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>		<span class="kw">let </span>handler = TransactionsHandler {
+<a href=#191 id=191 data-nosnippet>191</a>			protocol_name: <span class="self">self</span>.protocol_name,
+<a href=#192 id=192 data-nosnippet>192</a>			notification_service: <span class="self">self</span>.notification_service,
+<a href=#193 id=193 data-nosnippet>193</a>			propagate_timeout: (Box::pin(interval(PROPAGATE_TIMEOUT))
+<a href=#194 id=194 data-nosnippet>194</a>				<span class="kw">as </span>Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;)
+<a href=#195 id=195 data-nosnippet>195</a>				.fuse(),
+<a href=#196 id=196 data-nosnippet>196</a>			pending_transactions: FuturesUnordered::new(),
+<a href=#197 id=197 data-nosnippet>197</a>			pending_transactions_peers: HashMap::new(),
+<a href=#198 id=198 data-nosnippet>198</a>			network,
+<a href=#199 id=199 data-nosnippet>199</a>			sync,
+<a href=#200 id=200 data-nosnippet>200</a>			sync_event_stream: sync_event_stream.fuse(),
+<a href=#201 id=201 data-nosnippet>201</a>			peers: HashMap::new(),
+<a href=#202 id=202 data-nosnippet>202</a>			transaction_pool,
+<a href=#203 id=203 data-nosnippet>203</a>			from_controller,
+<a href=#204 id=204 data-nosnippet>204</a>			metrics: <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = metrics_registry {
+<a href=#205 id=205 data-nosnippet>205</a>				<span class="prelude-val">Some</span>(Metrics::register(r)<span class="question-mark">?</span>)
+<a href=#206 id=206 data-nosnippet>206</a>			} <span class="kw">else </span>{
+<a href=#207 id=207 data-nosnippet>207</a>				<span class="prelude-val">None
+<a href=#208 id=208 data-nosnippet>208</a>			</span>},
+<a href=#209 id=209 data-nosnippet>209</a>		};
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a>		<span class="kw">let </span>controller = TransactionsHandlerController { to_handler };
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>		<span class="prelude-val">Ok</span>((handler, controller))
+<a href=#214 id=214 data-nosnippet>214</a>	}
+<a href=#215 id=215 data-nosnippet>215</a>}
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a><span class="doccomment">/// Controls the behaviour of a [`TransactionsHandler`] it is connected to.
+<a href=#218 id=218 data-nosnippet>218</a></span><span class="kw">pub struct </span>TransactionsHandlerController&lt;H: ExHashT&gt; {
+<a href=#219 id=219 data-nosnippet>219</a>	to_handler: TracingUnboundedSender&lt;ToHandler&lt;H&gt;&gt;,
+<a href=#220 id=220 data-nosnippet>220</a>}
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a><span class="kw">impl</span>&lt;H: ExHashT&gt; TransactionsHandlerController&lt;H&gt; {
+<a href=#223 id=223 data-nosnippet>223</a>	<span class="doccomment">/// You may call this when new transactions are imported by the transaction pool.
+<a href=#224 id=224 data-nosnippet>224</a>	///
+<a href=#225 id=225 data-nosnippet>225</a>	/// All transactions will be fetched from the `TransactionPool` that was passed at
+<a href=#226 id=226 data-nosnippet>226</a>	/// initialization as part of the configuration and propagated to peers.
+<a href=#227 id=227 data-nosnippet>227</a>	</span><span class="kw">pub fn </span>propagate_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#228 id=228 data-nosnippet>228</a>		<span class="kw">let _ </span>= <span class="self">self</span>.to_handler.unbounded_send(ToHandler::PropagateTransactions);
+<a href=#229 id=229 data-nosnippet>229</a>	}
+<a href=#230 id=230 data-nosnippet>230</a>
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="doccomment">/// You must call when new a transaction is imported by the transaction pool.
+<a href=#232 id=232 data-nosnippet>232</a>	///
+<a href=#233 id=233 data-nosnippet>233</a>	/// This transaction will be fetched from the `TransactionPool` that was passed at
+<a href=#234 id=234 data-nosnippet>234</a>	/// initialization as part of the configuration and propagated to peers.
+<a href=#235 id=235 data-nosnippet>235</a>	</span><span class="kw">pub fn </span>propagate_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: H) {
+<a href=#236 id=236 data-nosnippet>236</a>		<span class="kw">let _ </span>= <span class="self">self</span>.to_handler.unbounded_send(ToHandler::PropagateTransaction(hash));
+<a href=#237 id=237 data-nosnippet>237</a>	}
+<a href=#238 id=238 data-nosnippet>238</a>}
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a><span class="kw">enum </span>ToHandler&lt;H: ExHashT&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>	PropagateTransactions,
+<a href=#242 id=242 data-nosnippet>242</a>	PropagateTransaction(H),
+<a href=#243 id=243 data-nosnippet>243</a>}
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a><span class="doccomment">/// Handler for transactions. Call [`TransactionsHandler::run`] to start the processing.
+<a href=#246 id=246 data-nosnippet>246</a></span><span class="kw">pub struct </span>TransactionsHandler&lt;
+<a href=#247 id=247 data-nosnippet>247</a>	B: BlockT + <span class="lifetime">'static</span>,
+<a href=#248 id=248 data-nosnippet>248</a>	H: ExHashT,
+<a href=#249 id=249 data-nosnippet>249</a>	N: NetworkPeers + NetworkEventStream,
+<a href=#250 id=250 data-nosnippet>250</a>	S: SyncEventStream + sp_consensus::SyncOracle,
+<a href=#251 id=251 data-nosnippet>251</a>&gt; {
+<a href=#252 id=252 data-nosnippet>252</a>	protocol_name: ProtocolName,
+<a href=#253 id=253 data-nosnippet>253</a>	<span class="doccomment">/// Interval at which we call `propagate_transactions`.
+<a href=#254 id=254 data-nosnippet>254</a>	</span>propagate_timeout: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = ()&gt; + Send&gt;&gt;&gt;,
+<a href=#255 id=255 data-nosnippet>255</a>	<span class="doccomment">/// Pending transactions verification tasks.
+<a href=#256 id=256 data-nosnippet>256</a>	</span>pending_transactions: FuturesUnordered&lt;PendingTransaction&lt;H&gt;&gt;,
+<a href=#257 id=257 data-nosnippet>257</a>	<span class="doccomment">/// As multiple peers can send us the same transaction, we group
+<a href=#258 id=258 data-nosnippet>258</a>	/// these peers using the transaction hash while the transaction is
+<a href=#259 id=259 data-nosnippet>259</a>	/// imported. This prevents that we import the same transaction
+<a href=#260 id=260 data-nosnippet>260</a>	/// multiple times concurrently.
+<a href=#261 id=261 data-nosnippet>261</a>	</span>pending_transactions_peers: HashMap&lt;H, Vec&lt;PeerId&gt;&gt;,
+<a href=#262 id=262 data-nosnippet>262</a>	<span class="doccomment">/// Network service to use to send messages and manage peers.
+<a href=#263 id=263 data-nosnippet>263</a>	</span>network: N,
+<a href=#264 id=264 data-nosnippet>264</a>	<span class="doccomment">/// Syncing service.
+<a href=#265 id=265 data-nosnippet>265</a>	</span>sync: S,
+<a href=#266 id=266 data-nosnippet>266</a>	<span class="doccomment">/// Receiver for syncing-related events.
+<a href=#267 id=267 data-nosnippet>267</a>	</span>sync_event_stream: stream::Fuse&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt;&gt;,
+<a href=#268 id=268 data-nosnippet>268</a>	<span class="comment">// All connected peers
+<a href=#269 id=269 data-nosnippet>269</a>	</span>peers: HashMap&lt;PeerId, Peer&lt;H&gt;&gt;,
+<a href=#270 id=270 data-nosnippet>270</a>	transaction_pool: Arc&lt;<span class="kw">dyn </span>TransactionPool&lt;H, B&gt;&gt;,
+<a href=#271 id=271 data-nosnippet>271</a>	from_controller: TracingUnboundedReceiver&lt;ToHandler&lt;H&gt;&gt;,
+<a href=#272 id=272 data-nosnippet>272</a>	<span class="doccomment">/// Prometheus metrics.
+<a href=#273 id=273 data-nosnippet>273</a>	</span>metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
+<a href=#274 id=274 data-nosnippet>274</a>	<span class="doccomment">/// Handle that is used to communicate with `sc_network::Notifications`.
+<a href=#275 id=275 data-nosnippet>275</a>	</span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+<a href=#276 id=276 data-nosnippet>276</a>}
+<a href=#277 id=277 data-nosnippet>277</a>
+<a href=#278 id=278 data-nosnippet>278</a><span class="doccomment">/// Peer information
+<a href=#279 id=279 data-nosnippet>279</a></span><span class="attr">#[derive(Debug)]
+<a href=#280 id=280 data-nosnippet>280</a></span><span class="kw">struct </span>Peer&lt;H: ExHashT&gt; {
+<a href=#281 id=281 data-nosnippet>281</a>	<span class="doccomment">/// Holds a set of transactions known to this peer.
+<a href=#282 id=282 data-nosnippet>282</a>	</span>known_transactions: LruHashSet&lt;H&gt;,
+<a href=#283 id=283 data-nosnippet>283</a>	role: ObservedRole,
+<a href=#284 id=284 data-nosnippet>284</a>}
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a><span class="kw">impl</span>&lt;B, H, N, S&gt; TransactionsHandler&lt;B, H, N, S&gt;
+<a href=#287 id=287 data-nosnippet>287</a><span class="kw">where
+<a href=#288 id=288 data-nosnippet>288</a>	</span>B: BlockT + <span class="lifetime">'static</span>,
+<a href=#289 id=289 data-nosnippet>289</a>	H: ExHashT,
+<a href=#290 id=290 data-nosnippet>290</a>	N: NetworkPeers + NetworkEventStream,
+<a href=#291 id=291 data-nosnippet>291</a>	S: SyncEventStream + sp_consensus::SyncOracle,
+<a href=#292 id=292 data-nosnippet>292</a>{
+<a href=#293 id=293 data-nosnippet>293</a>	<span class="doccomment">/// Turns the [`TransactionsHandler`] into a future that should run forever and not be
+<a href=#294 id=294 data-nosnippet>294</a>	/// interrupted.
+<a href=#295 id=295 data-nosnippet>295</a>	</span><span class="kw">pub async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
+<a href=#296 id=296 data-nosnippet>296</a>		<span class="kw">loop </span>{
+<a href=#297 id=297 data-nosnippet>297</a>			<span class="macro">futures::select!</span> {
+<a href=#298 id=298 data-nosnippet>298</a>				<span class="kw">_ </span>= <span class="self">self</span>.propagate_timeout.next() =&gt; {
+<a href=#299 id=299 data-nosnippet>299</a>					<span class="self">self</span>.propagate_transactions();
+<a href=#300 id=300 data-nosnippet>300</a>				},
+<a href=#301 id=301 data-nosnippet>301</a>				(tx_hash, result) = <span class="self">self</span>.pending_transactions.select_next_some() =&gt; {
+<a href=#302 id=302 data-nosnippet>302</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_transactions_peers.remove(<span class="kw-2">&amp;</span>tx_hash) {
+<a href=#303 id=303 data-nosnippet>303</a>						peers.into_iter().for_each(|p| <span class="self">self</span>.on_handle_transaction_import(p, result));
+<a href=#304 id=304 data-nosnippet>304</a>					} <span class="kw">else </span>{
+<a href=#305 id=305 data-nosnippet>305</a>						<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Inconsistent state, no peers for pending transaction!"</span>);
+<a href=#306 id=306 data-nosnippet>306</a>					}
+<a href=#307 id=307 data-nosnippet>307</a>				},
+<a href=#308 id=308 data-nosnippet>308</a>				sync_event = <span class="self">self</span>.sync_event_stream.next() =&gt; {
+<a href=#309 id=309 data-nosnippet>309</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(sync_event) = sync_event {
+<a href=#310 id=310 data-nosnippet>310</a>						<span class="self">self</span>.handle_sync_event(sync_event);
+<a href=#311 id=311 data-nosnippet>311</a>					} <span class="kw">else </span>{
+<a href=#312 id=312 data-nosnippet>312</a>						<span class="comment">// Syncing has seemingly closed. Closing as well.
+<a href=#313 id=313 data-nosnippet>313</a>						</span><span class="kw">return</span>;
+<a href=#314 id=314 data-nosnippet>314</a>					}
+<a href=#315 id=315 data-nosnippet>315</a>				}
+<a href=#316 id=316 data-nosnippet>316</a>				message = <span class="self">self</span>.from_controller.select_next_some() =&gt; {
+<a href=#317 id=317 data-nosnippet>317</a>					<span class="kw">match </span>message {
+<a href=#318 id=318 data-nosnippet>318</a>						ToHandler::PropagateTransaction(hash) =&gt; <span class="self">self</span>.propagate_transaction(<span class="kw-2">&amp;</span>hash),
+<a href=#319 id=319 data-nosnippet>319</a>						ToHandler::PropagateTransactions =&gt; <span class="self">self</span>.propagate_transactions(),
+<a href=#320 id=320 data-nosnippet>320</a>					}
+<a href=#321 id=321 data-nosnippet>321</a>				},
+<a href=#322 id=322 data-nosnippet>322</a>				event = <span class="self">self</span>.notification_service.next_event().fuse() =&gt; {
+<a href=#323 id=323 data-nosnippet>323</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
+<a href=#324 id=324 data-nosnippet>324</a>						<span class="self">self</span>.handle_notification_event(event)
+<a href=#325 id=325 data-nosnippet>325</a>					} <span class="kw">else </span>{
+<a href=#326 id=326 data-nosnippet>326</a>						<span class="comment">// `Notifications` has seemingly closed. Closing as well.
+<a href=#327 id=327 data-nosnippet>327</a>						</span><span class="kw">return
+<a href=#328 id=328 data-nosnippet>328</a>					</span>}
+<a href=#329 id=329 data-nosnippet>329</a>				}
+<a href=#330 id=330 data-nosnippet>330</a>			}
+<a href=#331 id=331 data-nosnippet>331</a>		}
+<a href=#332 id=332 data-nosnippet>332</a>	}
+<a href=#333 id=333 data-nosnippet>333</a>
+<a href=#334 id=334 data-nosnippet>334</a>	<span class="kw">fn </span>handle_notification_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: NotificationEvent) {
+<a href=#335 id=335 data-nosnippet>335</a>		<span class="kw">match </span>event {
+<a href=#336 id=336 data-nosnippet>336</a>			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } =&gt; {
+<a href=#337 id=337 data-nosnippet>337</a>				<span class="comment">// only accept peers whose role can be determined
+<a href=#338 id=338 data-nosnippet>338</a>				</span><span class="kw">let </span>result = <span class="self">self
+<a href=#339 id=339 data-nosnippet>339</a>					</span>.network
+<a href=#340 id=340 data-nosnippet>340</a>					.peer_role(peer, handshake)
+<a href=#341 id=341 data-nosnippet>341</a>					.map_or(ValidationResult::Reject, |<span class="kw">_</span>| ValidationResult::Accept);
+<a href=#342 id=342 data-nosnippet>342</a>				<span class="kw">let _ </span>= result_tx.send(result);
+<a href=#343 id=343 data-nosnippet>343</a>			},
+<a href=#344 id=344 data-nosnippet>344</a>			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } =&gt; {
+<a href=#345 id=345 data-nosnippet>345</a>				<span class="kw">let </span><span class="prelude-val">Some</span>(role) = <span class="self">self</span>.network.peer_role(peer, handshake) <span class="kw">else </span>{
+<a href=#346 id=346 data-nosnippet>346</a>					<span class="macro">log::debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"role for {peer} couldn't be determined"</span>);
+<a href=#347 id=347 data-nosnippet>347</a>					<span class="kw">return
+<a href=#348 id=348 data-nosnippet>348</a>				</span>};
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>				<span class="kw">let </span>_was_in = <span class="self">self</span>.peers.insert(
+<a href=#351 id=351 data-nosnippet>351</a>					peer,
+<a href=#352 id=352 data-nosnippet>352</a>					Peer {
+<a href=#353 id=353 data-nosnippet>353</a>						known_transactions: LruHashSet::new(
+<a href=#354 id=354 data-nosnippet>354</a>							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect(<span class="string">"Constant is nonzero"</span>),
+<a href=#355 id=355 data-nosnippet>355</a>						),
+<a href=#356 id=356 data-nosnippet>356</a>						role,
+<a href=#357 id=357 data-nosnippet>357</a>					},
+<a href=#358 id=358 data-nosnippet>358</a>				);
+<a href=#359 id=359 data-nosnippet>359</a>				<span class="macro">debug_assert!</span>(_was_in.is_none());
+<a href=#360 id=360 data-nosnippet>360</a>			},
+<a href=#361 id=361 data-nosnippet>361</a>			NotificationEvent::NotificationStreamClosed { peer } =&gt; {
+<a href=#362 id=362 data-nosnippet>362</a>				<span class="kw">let </span>_peer = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#363 id=363 data-nosnippet>363</a>				<span class="macro">debug_assert!</span>(_peer.is_some());
+<a href=#364 id=364 data-nosnippet>364</a>			},
+<a href=#365 id=365 data-nosnippet>365</a>			NotificationEvent::NotificationReceived { peer, notification } =&gt; {
+<a href=#366 id=366 data-nosnippet>366</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(m) =
+<a href=#367 id=367 data-nosnippet>367</a>					&lt;Transactions&lt;B::Extrinsic&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut </span>notification.as_ref())
+<a href=#368 id=368 data-nosnippet>368</a>				{
+<a href=#369 id=369 data-nosnippet>369</a>					<span class="self">self</span>.on_transactions(peer, m);
+<a href=#370 id=370 data-nosnippet>370</a>				} <span class="kw">else </span>{
+<a href=#371 id=371 data-nosnippet>371</a>					<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Failed to decode transactions list from peer {peer}"</span>);
+<a href=#372 id=372 data-nosnippet>372</a>					<span class="self">self</span>.network.report_peer(peer, rep::BAD_TRANSACTION);
+<a href=#373 id=373 data-nosnippet>373</a>				}
+<a href=#374 id=374 data-nosnippet>374</a>			},
+<a href=#375 id=375 data-nosnippet>375</a>		}
+<a href=#376 id=376 data-nosnippet>376</a>	}
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>	<span class="kw">fn </span>handle_sync_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: SyncEvent) {
+<a href=#379 id=379 data-nosnippet>379</a>		<span class="kw">match </span>event {
+<a href=#380 id=380 data-nosnippet>380</a>			SyncEvent::PeerConnected(remote) =&gt; {
+<a href=#381 id=381 data-nosnippet>381</a>				<span class="kw">let </span>addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
+<a href=#382 id=382 data-nosnippet>382</a>					.collect::&lt;multiaddr::Multiaddr&gt;();
+<a href=#383 id=383 data-nosnippet>383</a>				<span class="kw">let </span>result = <span class="self">self</span>.network.add_peers_to_reserved_set(
+<a href=#384 id=384 data-nosnippet>384</a>					<span class="self">self</span>.protocol_name.clone(),
+<a href=#385 id=385 data-nosnippet>385</a>					iter::once(addr).collect(),
+<a href=#386 id=386 data-nosnippet>386</a>				);
+<a href=#387 id=387 data-nosnippet>387</a>				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
+<a href=#388 id=388 data-nosnippet>388</a>					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Add reserved peer failed: {}"</span>, err);
+<a href=#389 id=389 data-nosnippet>389</a>				}
+<a href=#390 id=390 data-nosnippet>390</a>			},
+<a href=#391 id=391 data-nosnippet>391</a>			SyncEvent::PeerDisconnected(remote) =&gt; {
+<a href=#392 id=392 data-nosnippet>392</a>				<span class="kw">let </span>result = <span class="self">self</span>.network.remove_peers_from_reserved_set(
+<a href=#393 id=393 data-nosnippet>393</a>					<span class="self">self</span>.protocol_name.clone(),
+<a href=#394 id=394 data-nosnippet>394</a>					iter::once(remote).collect(),
+<a href=#395 id=395 data-nosnippet>395</a>				);
+<a href=#396 id=396 data-nosnippet>396</a>				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
+<a href=#397 id=397 data-nosnippet>397</a>					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Remove reserved peer failed: {}"</span>, err);
+<a href=#398 id=398 data-nosnippet>398</a>				}
+<a href=#399 id=399 data-nosnippet>399</a>			},
+<a href=#400 id=400 data-nosnippet>400</a>		}
+<a href=#401 id=401 data-nosnippet>401</a>	}
+<a href=#402 id=402 data-nosnippet>402</a>
+<a href=#403 id=403 data-nosnippet>403</a>	<span class="doccomment">/// Called when peer sends us new transactions
+<a href=#404 id=404 data-nosnippet>404</a>	</span><span class="kw">fn </span>on_transactions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, transactions: Transactions&lt;B::Extrinsic&gt;) {
+<a href=#405 id=405 data-nosnippet>405</a>		<span class="comment">// Accept transactions only when node is not major syncing
+<a href=#406 id=406 data-nosnippet>406</a>		</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
+<a href=#407 id=407 data-nosnippet>407</a>			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"{} Ignoring transactions while major syncing"</span>, who);
+<a href=#408 id=408 data-nosnippet>408</a>			<span class="kw">return
+<a href=#409 id=409 data-nosnippet>409</a>		</span>}
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Received {} transactions from {}"</span>, transactions.len(), who);
+<a href=#412 id=412 data-nosnippet>412</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
+<a href=#413 id=413 data-nosnippet>413</a>			<span class="kw">for </span>t <span class="kw">in </span>transactions {
+<a href=#414 id=414 data-nosnippet>414</a>				<span class="kw">if </span><span class="self">self</span>.pending_transactions.len() &gt; MAX_PENDING_TRANSACTIONS {
+<a href=#415 id=415 data-nosnippet>415</a>					<span class="macro">debug!</span>(
+<a href=#416 id=416 data-nosnippet>416</a>						target: LOG_TARGET,
+<a href=#417 id=417 data-nosnippet>417</a>						<span class="string">"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit"</span>,
+<a href=#418 id=418 data-nosnippet>418</a>						MAX_PENDING_TRANSACTIONS,
+<a href=#419 id=419 data-nosnippet>419</a>					);
+<a href=#420 id=420 data-nosnippet>420</a>					<span class="kw">break
+<a href=#421 id=421 data-nosnippet>421</a>				</span>}
+<a href=#422 id=422 data-nosnippet>422</a>
+<a href=#423 id=423 data-nosnippet>423</a>				<span class="kw">let </span>hash = <span class="self">self</span>.transaction_pool.hash_of(<span class="kw-2">&amp;</span>t);
+<a href=#424 id=424 data-nosnippet>424</a>				peer.known_transactions.insert(hash.clone());
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>				<span class="self">self</span>.network.report_peer(who, rep::ANY_TRANSACTION);
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a>				<span class="kw">match </span><span class="self">self</span>.pending_transactions_peers.entry(hash.clone()) {
+<a href=#429 id=429 data-nosnippet>429</a>					Entry::Vacant(entry) =&gt; {
+<a href=#430 id=430 data-nosnippet>430</a>						<span class="self">self</span>.pending_transactions.push(PendingTransaction {
+<a href=#431 id=431 data-nosnippet>431</a>							validation: <span class="self">self</span>.transaction_pool.import(t),
+<a href=#432 id=432 data-nosnippet>432</a>							tx_hash: hash,
+<a href=#433 id=433 data-nosnippet>433</a>						});
+<a href=#434 id=434 data-nosnippet>434</a>						entry.insert(<span class="macro">vec!</span>[who]);
+<a href=#435 id=435 data-nosnippet>435</a>					},
+<a href=#436 id=436 data-nosnippet>436</a>					Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
+<a href=#437 id=437 data-nosnippet>437</a>						entry.get_mut().push(who);
+<a href=#438 id=438 data-nosnippet>438</a>					},
+<a href=#439 id=439 data-nosnippet>439</a>				}
+<a href=#440 id=440 data-nosnippet>440</a>			}
+<a href=#441 id=441 data-nosnippet>441</a>		}
+<a href=#442 id=442 data-nosnippet>442</a>	}
+<a href=#443 id=443 data-nosnippet>443</a>
+<a href=#444 id=444 data-nosnippet>444</a>	<span class="kw">fn </span>on_handle_transaction_import(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, import: TransactionImport) {
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="kw">match </span>import {
+<a href=#446 id=446 data-nosnippet>446</a>			TransactionImport::KnownGood =&gt;
+<a href=#447 id=447 data-nosnippet>447</a>				<span class="self">self</span>.network.report_peer(who, rep::ANY_TRANSACTION_REFUND),
+<a href=#448 id=448 data-nosnippet>448</a>			TransactionImport::NewGood =&gt; <span class="self">self</span>.network.report_peer(who, rep::GOOD_TRANSACTION),
+<a href=#449 id=449 data-nosnippet>449</a>			TransactionImport::Bad =&gt; <span class="self">self</span>.network.report_peer(who, rep::BAD_TRANSACTION),
+<a href=#450 id=450 data-nosnippet>450</a>			TransactionImport::None =&gt; {},
+<a href=#451 id=451 data-nosnippet>451</a>		}
+<a href=#452 id=452 data-nosnippet>452</a>	}
+<a href=#453 id=453 data-nosnippet>453</a>
+<a href=#454 id=454 data-nosnippet>454</a>	<span class="doccomment">/// Propagate one transaction.
+<a href=#455 id=455 data-nosnippet>455</a>	</span><span class="kw">pub fn </span>propagate_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>H) {
+<a href=#456 id=456 data-nosnippet>456</a>		<span class="comment">// Accept transactions only when node is not major syncing
+<a href=#457 id=457 data-nosnippet>457</a>		</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
+<a href=#458 id=458 data-nosnippet>458</a>			<span class="kw">return
+<a href=#459 id=459 data-nosnippet>459</a>		</span>}
+<a href=#460 id=460 data-nosnippet>460</a>
+<a href=#461 id=461 data-nosnippet>461</a>		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transaction [{:?}]"</span>, hash);
+<a href=#462 id=462 data-nosnippet>462</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(transaction) = <span class="self">self</span>.transaction_pool.transaction(hash) {
+<a href=#463 id=463 data-nosnippet>463</a>			<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>[(hash.clone(), transaction)]);
+<a href=#464 id=464 data-nosnippet>464</a>			<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);
+<a href=#465 id=465 data-nosnippet>465</a>		} <span class="kw">else </span>{
+<a href=#466 id=466 data-nosnippet>466</a>			<span class="macro">debug!</span>(target: <span class="string">"sync"</span>, <span class="string">"Propagating transaction failure [{:?}]"</span>, hash);
+<a href=#467 id=467 data-nosnippet>467</a>		}
+<a href=#468 id=468 data-nosnippet>468</a>	}
+<a href=#469 id=469 data-nosnippet>469</a>
+<a href=#470 id=470 data-nosnippet>470</a>	<span class="kw">fn </span>do_propagate_transactions(
+<a href=#471 id=471 data-nosnippet>471</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#472 id=472 data-nosnippet>472</a>		transactions: <span class="kw-2">&amp;</span>[(H, Arc&lt;B::Extrinsic&gt;)],
+<a href=#473 id=473 data-nosnippet>473</a>	) -&gt; HashMap&lt;H, Vec&lt;String&gt;&gt; {
+<a href=#474 id=474 data-nosnippet>474</a>		<span class="kw">let </span><span class="kw-2">mut </span>propagated_to = HashMap::&lt;<span class="kw">_</span>, Vec&lt;<span class="kw">_</span>&gt;&gt;::new();
+<a href=#475 id=475 data-nosnippet>475</a>		<span class="kw">let </span><span class="kw-2">mut </span>propagated_transactions = <span class="number">0</span>;
+<a href=#476 id=476 data-nosnippet>476</a>
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">for </span>(who, peer) <span class="kw">in </span><span class="self">self</span>.peers.iter_mut() {
+<a href=#478 id=478 data-nosnippet>478</a>			<span class="comment">// never send transactions to the light node
+<a href=#479 id=479 data-nosnippet>479</a>			</span><span class="kw">if </span><span class="macro">matches!</span>(peer.role, ObservedRole::Light) {
+<a href=#480 id=480 data-nosnippet>480</a>				<span class="kw">continue
+<a href=#481 id=481 data-nosnippet>481</a>			</span>}
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a>			<span class="kw">let </span>(hashes, to_send): (Vec&lt;<span class="kw">_</span>&gt;, Transactions&lt;<span class="kw">_</span>&gt;) = transactions
+<a href=#484 id=484 data-nosnippet>484</a>				.iter()
+<a href=#485 id=485 data-nosnippet>485</a>				.filter(|(hash, <span class="kw">_</span>)| peer.known_transactions.insert(hash.clone()))
+<a href=#486 id=486 data-nosnippet>486</a>				.cloned()
+<a href=#487 id=487 data-nosnippet>487</a>				.unzip();
+<a href=#488 id=488 data-nosnippet>488</a>
+<a href=#489 id=489 data-nosnippet>489</a>			propagated_transactions += hashes.len();
+<a href=#490 id=490 data-nosnippet>490</a>
+<a href=#491 id=491 data-nosnippet>491</a>			<span class="kw">if </span>!to_send.is_empty() {
+<a href=#492 id=492 data-nosnippet>492</a>				<span class="kw">for </span>hash <span class="kw">in </span>hashes {
+<a href=#493 id=493 data-nosnippet>493</a>					propagated_to.entry(hash).or_default().push(who.to_base58());
+<a href=#494 id=494 data-nosnippet>494</a>				}
+<a href=#495 id=495 data-nosnippet>495</a>				<span class="macro">trace!</span>(target: <span class="string">"sync"</span>, <span class="string">"Sending {} transactions to {}"</span>, to_send.len(), who);
+<a href=#496 id=496 data-nosnippet>496</a>				<span class="comment">// Historically, the format of a notification of the transactions protocol
+<a href=#497 id=497 data-nosnippet>497</a>				// consisted in a (SCALE-encoded) `Vec&lt;Transaction&gt;`.
+<a href=#498 id=498 data-nosnippet>498</a>				// After RFC 56, the format was modified in a backwards-compatible way to be
+<a href=#499 id=499 data-nosnippet>499</a>				// a (SCALE-encoded) tuple `(Compact(1), Transaction)`, which is the same encoding
+<a href=#500 id=500 data-nosnippet>500</a>				// as a `Vec` of length one. This is no coincidence, as the change was
+<a href=#501 id=501 data-nosnippet>501</a>				// intentionally done in a backwards-compatible way.
+<a href=#502 id=502 data-nosnippet>502</a>				// In other words, the `Vec` that is sent below **must** always have only a single
+<a href=#503 id=503 data-nosnippet>503</a>				// element in it.
+<a href=#504 id=504 data-nosnippet>504</a>				// See &lt;https://github.com/polkadot-fellows/RFCs/blob/main/text/0056-one-transaction-per-notification.md&gt;
+<a href=#505 id=505 data-nosnippet>505</a>				</span><span class="kw">for </span>to_send <span class="kw">in </span>to_send {
+<a href=#506 id=506 data-nosnippet>506</a>					<span class="kw">let _ </span>= <span class="self">self
+<a href=#507 id=507 data-nosnippet>507</a>						</span>.notification_service
+<a href=#508 id=508 data-nosnippet>508</a>						.send_sync_notification(who, <span class="macro">vec!</span>[to_send].encode());
+<a href=#509 id=509 data-nosnippet>509</a>				}
+<a href=#510 id=510 data-nosnippet>510</a>			}
+<a href=#511 id=511 data-nosnippet>511</a>		}
+<a href=#512 id=512 data-nosnippet>512</a>
+<a href=#513 id=513 data-nosnippet>513</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#514 id=514 data-nosnippet>514</a>			metrics.propagated_transactions.inc_by(propagated_transactions <span class="kw">as _</span>)
+<a href=#515 id=515 data-nosnippet>515</a>		}
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a>		propagated_to
+<a href=#518 id=518 data-nosnippet>518</a>	}
+<a href=#519 id=519 data-nosnippet>519</a>
+<a href=#520 id=520 data-nosnippet>520</a>	<span class="doccomment">/// Call when we must propagate ready transactions to peers.
+<a href=#521 id=521 data-nosnippet>521</a>	</span><span class="kw">fn </span>propagate_transactions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#522 id=522 data-nosnippet>522</a>		<span class="comment">// Accept transactions only when node is not major syncing
+<a href=#523 id=523 data-nosnippet>523</a>		</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
+<a href=#524 id=524 data-nosnippet>524</a>			<span class="kw">return
+<a href=#525 id=525 data-nosnippet>525</a>		</span>}
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a>		<span class="kw">let </span>transactions = <span class="self">self</span>.transaction_pool.transactions();
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>		<span class="kw">if </span>transactions.is_empty() {
+<a href=#530 id=530 data-nosnippet>530</a>			<span class="kw">return
+<a href=#531 id=531 data-nosnippet>531</a>		</span>}
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transactions"</span>);
+<a href=#534 id=534 data-nosnippet>534</a>
+<a href=#535 id=535 data-nosnippet>535</a>		<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>transactions);
+<a href=#536 id=536 data-nosnippet>536</a>		<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);
+<a href=#537 id=537 data-nosnippet>537</a>	}
+<a href=#538 id=538 data-nosnippet>538</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

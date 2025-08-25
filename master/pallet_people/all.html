@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_people" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_people/index.html">pallet_<wbr>people</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="extension/struct.AsPerson.html">extension::AsPerson</a></li><li><a href="pallet/struct.EnsurePersonalAlias.html">pallet::EnsurePersonalAlias</a></li><li><a href="pallet/struct.EnsurePersonalAliasInContext.html">pallet::EnsurePersonalAliasInContext</a></li><li><a href="pallet/struct.EnsurePersonalIdentity.html">pallet::EnsurePersonalIdentity</a></li><li><a href="pallet/struct.EnsureRevisedPersonalAlias.html">pallet::EnsureRevisedPersonalAlias</a></li><li><a href="pallet/struct.EnsureRevisedPersonalAliasInContext.html">pallet::EnsureRevisedPersonalAliasInContext</a></li><li><a href="pallet/struct.GenesisConfig.html">pallet::GenesisConfig</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/storage_types/struct.AccountToAlias.html">pallet::storage_types::AccountToAlias</a></li><li><a href="pallet/storage_types/struct.AccountToPersonalId.html">pallet::storage_types::AccountToPersonalId</a></li><li><a href="pallet/storage_types/struct.ActiveMembers.html">pallet::storage_types::ActiveMembers</a></li><li><a href="pallet/storage_types/struct.AliasToAccount.html">pallet::storage_types::AliasToAccount</a></li><li><a href="pallet/storage_types/struct.Chunks.html">pallet::storage_types::Chunks</a></li><li><a href="pallet/storage_types/struct.CurrentRingIndex.html">pallet::storage_types::CurrentRingIndex</a></li><li><a href="pallet/storage_types/struct.KeyMigrationQueue.html">pallet::storage_types::KeyMigrationQueue</a></li><li><a href="pallet/storage_types/struct.Keys.html">pallet::storage_types::Keys</a></li><li><a href="pallet/storage_types/struct.NextPersonalId.html">pallet::storage_types::NextPersonalId</a></li><li><a href="pallet/storage_types/struct.OnboardingQueue.html">pallet::storage_types::OnboardingQueue</a></li><li><a href="pallet/storage_types/struct.OnboardingSize.html">pallet::storage_types::OnboardingSize</a></li><li><a href="pallet/storage_types/struct.PendingSuspensions.html">pallet::storage_types::PendingSuspensions</a></li><li><a href="pallet/storage_types/struct.People.html">pallet::storage_types::People</a></li><li><a href="pallet/storage_types/struct.QueuePageIndices.html">pallet::storage_types::QueuePageIndices</a></li><li><a href="pallet/storage_types/struct.ReservedPersonalId.html">pallet::storage_types::ReservedPersonalId</a></li><li><a href="pallet/storage_types/struct.RingBuildingPeopleLimit.html">pallet::storage_types::RingBuildingPeopleLimit</a></li><li><a href="pallet/storage_types/struct.RingKeys.html">pallet::storage_types::RingKeys</a></li><li><a href="pallet/storage_types/struct.RingKeysStatus.html">pallet::storage_types::RingKeysStatus</a></li><li><a href="pallet/storage_types/struct.RingsState.html">pallet::storage_types::RingsState</a></li><li><a href="pallet/storage_types/struct.Root.html">pallet::storage_types::Root</a></li><li><a href="types/struct.PersonRecord.html">types::PersonRecord</a></li><li><a href="types/struct.RevisedAlias.html">types::RevisedAlias</a></li><li><a href="types/struct.RevisedContextualAlias.html">types::RevisedContextualAlias</a></li><li><a href="types/struct.RingRoot.html">types::RingRoot</a></li><li><a href="types/struct.RingStatus.html">types::RingStatus</a></li><li><a href="weights/struct.SubstrateWeight.html">weights::SubstrateWeight</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="extension/enum.AsPersonInfo.html">extension::AsPersonInfo</a></li><li><a href="extension/enum.Val.html">extension::Val</a></li><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li><li><a href="pallet/enum.Origin.html">pallet::Origin</a></li><li><a href="types/enum.RingMembersState.html">types::RingMembersState</a></li><li><a href="types/enum.RingPosition.html">types::RingPosition</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="benchmarking/trait.BenchmarkHelper.html">benchmarking::BenchmarkHelper</a></li><li><a href="pallet/trait.Config.html">pallet::Config</a></li><li><a href="weights/trait.WeightInfo.html">weights::WeightInfo</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="benchmarking/fn.recognize_people.html">benchmarking::recognize_people</a></li><li><a href="pallet/dispatchables/fn.build_ring_manual.html">pallet::dispatchables::build_ring_manual</a></li><li><a href="pallet/dispatchables/fn.force_recognize_personhood.html">pallet::dispatchables::force_recognize_personhood</a></li><li><a href="pallet/dispatchables/fn.merge_rings.html">pallet::dispatchables::merge_rings</a></li><li><a href="pallet/dispatchables/fn.migrate_included_key.html">pallet::dispatchables::migrate_included_key</a></li><li><a href="pallet/dispatchables/fn.migrate_onboarding_key.html">pallet::dispatchables::migrate_onboarding_key</a></li><li><a href="pallet/dispatchables/fn.onboard_people_manual.html">pallet::dispatchables::onboard_people_manual</a></li><li><a href="pallet/dispatchables/fn.set_alias_account.html">pallet::dispatchables::set_alias_account</a></li><li><a href="pallet/dispatchables/fn.set_onboarding_size.html">pallet::dispatchables::set_onboarding_size</a></li><li><a href="pallet/dispatchables/fn.set_personal_id_account.html">pallet::dispatchables::set_personal_id_account</a></li><li><a href="pallet/dispatchables/fn.under_alias.html">pallet::dispatchables::under_alias</a></li><li><a href="pallet/dispatchables/fn.unset_alias_account.html">pallet::dispatchables::unset_alias_account</a></li><li><a href="pallet/dispatchables/fn.unset_personal_id_account.html">pallet::dispatchables::unset_personal_id_account</a></li><li><a href="pallet/fn.ensure_personal_alias.html">pallet::ensure_personal_alias</a></li><li><a href="pallet/fn.ensure_personal_identity.html">pallet::ensure_personal_identity</a></li><li><a href="pallet/fn.ensure_revised_personal_alias.html">pallet::ensure_revised_personal_alias</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="pallet/type.AccountToAlias.html">pallet::AccountToAlias</a></li><li><a href="pallet/type.AccountToPersonalId.html">pallet::AccountToPersonalId</a></li><li><a href="pallet/type.ActiveMembers.html">pallet::ActiveMembers</a></li><li><a href="pallet/type.AliasToAccount.html">pallet::AliasToAccount</a></li><li><a href="pallet/type.Chunks.html">pallet::Chunks</a></li><li><a href="pallet/type.CurrentRingIndex.html">pallet::CurrentRingIndex</a></li><li><a href="pallet/type.KeyMigrationQueue.html">pallet::KeyMigrationQueue</a></li><li><a href="pallet/type.Keys.html">pallet::Keys</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li><li><a href="pallet/type.NextPersonalId.html">pallet::NextPersonalId</a></li><li><a href="pallet/type.OnboardingQueue.html">pallet::OnboardingQueue</a></li><li><a href="pallet/type.OnboardingSize.html">pallet::OnboardingSize</a></li><li><a href="pallet/type.PendingSuspensions.html">pallet::PendingSuspensions</a></li><li><a href="pallet/type.People.html">pallet::People</a></li><li><a href="pallet/type.QueuePageIndices.html">pallet::QueuePageIndices</a></li><li><a href="pallet/type.ReservedPersonalId.html">pallet::ReservedPersonalId</a></li><li><a href="pallet/type.RingBuildingPeopleLimit.html">pallet::RingBuildingPeopleLimit</a></li><li><a href="pallet/type.RingKeys.html">pallet::RingKeys</a></li><li><a href="pallet/type.RingKeysStatus.html">pallet::RingKeysStatus</a></li><li><a href="pallet/type.RingsState.html">pallet::RingsState</a></li><li><a href="pallet/type.Root.html">pallet::Root</a></li><li><a href="types/type.ChunksOf.html">types::ChunksOf</a></li><li><a href="types/type.IntermediateOf.html">types::IntermediateOf</a></li><li><a href="types/type.KeyCount.html">types::KeyCount</a></li><li><a href="types/type.MemberOf.html">types::MemberOf</a></li><li><a href="types/type.MembersOf.html">types::MembersOf</a></li><li><a href="types/type.PageIndex.html">types::PageIndex</a></li><li><a href="types/type.RevisionIndex.html">types::RevisionIndex</a></li><li><a href="types/type.SecretOf.html">types::SecretOf</a></li><li><a href="types/type.SignatureOf.html">types::SignatureOf</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

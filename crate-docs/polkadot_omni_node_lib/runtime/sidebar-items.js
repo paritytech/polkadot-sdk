@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AuraConsensusId","BlockNumber","Consensus","Runtime"],"struct":["DefaultRuntimeResolver"],"trait":["RuntimeResolver"]};

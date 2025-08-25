@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bits","bls","config","merkle_proof","receipt","ssz","types","updates"],"struct":["AggregatePublicKey","AggregateSignature","PublicKeyPrepared","SignaturePrepared"]};

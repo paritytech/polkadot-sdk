@@ -1,0 +1,160 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utilities used by different relays."><title>relay_utils - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="relay_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../relay_utils/index.html">relay_<wbr>utils</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>relay_utils</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/relay_utils/lib.rs.html#17-318">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utilities used by different relays.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.Error"><code>pub use error::<a class="enum" href="error/enum.Error.html" title="enum relay_utils::error::Error">Error</a>;</code></dt><dt id="reexport.relay_loop"><code>pub use relay_loop::<a class="fn" href="relay_loop/fn.relay_loop.html" title="fn relay_utils::relay_loop::relay_loop">relay_loop</a>;</code></dt><dt id="reexport.relay_metrics"><code>pub use relay_loop::<a class="fn" href="relay_loop/fn.relay_metrics.html" title="fn relay_utils::relay_loop::relay_metrics">relay_metrics</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="error/index.html" title="mod relay_utils::error">error</a></dt><dt><a class="mod" href="initialize/index.html" title="mod relay_utils::initialize">initialize</a></dt><dd>Relayer initialization functions.</dd><dt><a class="mod" href="metrics/index.html" title="mod relay_utils::metrics">metrics</a></dt><dt><a class="mod" href="relay_loop/index.html" title="mod relay_utils::relay_loop">relay_<wbr>loop</a></dt></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.bail_on_arg_error.html" title="macro relay_utils::bail_on_arg_error">bail_<wbr>on_<wbr>arg_<wbr>error</a></dt><dd>Macro that returns (client, Err(error)) tuple from function if result is Err(error).</dd><dt><a class="macro" href="macro.bail_on_error.html" title="macro relay_utils::bail_on_error">bail_<wbr>on_<wbr>error</a></dt><dd>Macro that returns (client, Err(error)) tuple from function if result is Err(error).</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.HeaderId.html" title="struct relay_utils::HeaderId">Header<wbr>Id</a></dt><dd>Generic header Id.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.FailedClient.html" title="enum relay_utils::FailedClient">Failed<wbr>Client</a></dt><dd>Which client has caused error.</dd><dt><a class="enum" href="enum.ProcessFutureResult.html" title="enum relay_utils::ProcessFutureResult">Process<wbr>Future<wbr>Result</a></dt><dd>Future process result.</dd><dt><a class="enum" href="enum.StringifiedMaybeConnectionError.html" title="enum relay_utils::StringifiedMaybeConnectionError">Stringified<wbr>Maybe<wbr>Connection<wbr>Error</a></dt><dd>Stringified error that may be either connection-related or not.</dd><dt><a class="enum" href="enum.TrackedTransactionStatus.html" title="enum relay_utils::TrackedTransactionStatus">Tracked<wbr>Transaction<wbr>Status</a></dt><dd>Final status of the tracked transaction.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.CONNECTION_ERROR_DELAY.html" title="constant relay_utils::CONNECTION_ERROR_DELAY">CONNECTION_<wbr>ERROR_<wbr>DELAY</a></dt><dd>Delay after connection-related error happened before we’ll try
+reconnection again.</dd><dt><a class="constant" href="constant.MAX_BACKOFF_INTERVAL.html" title="constant relay_utils::MAX_BACKOFF_INTERVAL">MAX_<wbr>BACKOFF_<wbr>INTERVAL</a></dt><dd>Max delay after connection-unrelated error happened before we’ll try the
+same request again.</dd><dt><a class="constant" href="constant.STALL_TIMEOUT.html" title="constant relay_utils::STALL_TIMEOUT">STALL_<wbr>TIMEOUT</a></dt><dd>Default relay loop stall timeout. If transactions generated by relay are immortal, then
+this timeout is used.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BlockNumberBase.html" title="trait relay_utils::BlockNumberBase">Block<wbr>Number<wbr>Base</a></dt><dd>Block number traits shared by all chains that relay is able to serve.</dd><dt><a class="trait" href="trait.MaybeConnectionError.html" title="trait relay_utils::MaybeConnectionError">Maybe<wbr>Connection<wbr>Error</a></dt><dd>Error type that can signal connection errors.</dd><dt><a class="trait" href="trait.TransactionTracker.html" title="trait relay_utils::TransactionTracker">Transaction<wbr>Tracker</a></dt><dd>Transaction tracker.</dd><dt><a class="trait" href="trait.UniqueSaturatedFrom.html" title="trait relay_utils::UniqueSaturatedFrom">Unique<wbr>Saturated<wbr>From</a></dt><dd>Just like <code>From</code> except that if the source value is too big to fit into the destination type
+then it’ll saturate the destination.</dd><dt><a class="trait" href="trait.UniqueSaturatedInto.html" title="trait relay_utils::UniqueSaturatedInto">Unique<wbr>Saturated<wbr>Into</a></dt><dd>Just like <code>Into</code> except that if the source value is too big to fit into the destination type
+then it’ll saturate the destination.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.format_ids.html" title="fn relay_utils::format_ids">format_<wbr>ids</a></dt><dd>Compact format of IDs vector.</dd><dt><a class="fn" href="fn.interval.html" title="fn relay_utils::interval">interval</a></dt><dd>Stream that emits item every <code>timeout_ms</code> milliseconds.</dd><dt><a class="fn" href="fn.process_future_result.html" title="fn relay_utils::process_future_result">process_<wbr>future_<wbr>result</a></dt><dd>Process result of the future from a client.</dd><dt><a class="fn" href="fn.retry_backoff.html" title="fn relay_utils::retry_backoff">retry_<wbr>backoff</a></dt><dd>Exponential backoff for connection-unrelated errors retries.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.TrackedTransactionFuture.html" title="type relay_utils::TrackedTransactionFuture">Tracked<wbr>Transaction<wbr>Future</a></dt><dd>Future associated with <code>TransactionTracker</code>, monitoring the transaction status.</dd></dl><script type="text/json" id="notable-traits-data">{"<Arc<S> as Service<Request>>::Future":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","<Arc<W> as MakeWriter<'a>>::Writer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/sync/struct.Arc.html\" title=\"struct alloc::sync::Arc\">Arc</a>&lt;<a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/std/fs/struct.File.html\" title=\"struct std::fs::File\">File</a>&gt;</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

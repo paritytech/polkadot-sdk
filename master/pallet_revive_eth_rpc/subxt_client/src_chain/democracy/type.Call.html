@@ -1,0 +1,217 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::democracy - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.blacklist" title="blacklist">blacklist</a></li><li><a href="#variant.cancel_proposal" title="cancel_proposal">cancel_proposal</a></li><li><a href="#variant.cancel_referendum" title="cancel_referendum">cancel_referendum</a></li><li><a href="#variant.clear_public_proposals" title="clear_public_proposals">clear_public_proposals</a></li><li><a href="#variant.delegate" title="delegate">delegate</a></li><li><a href="#variant.emergency_cancel" title="emergency_cancel">emergency_cancel</a></li><li><a href="#variant.external_propose" title="external_propose">external_propose</a></li><li><a href="#variant.external_propose_default" title="external_propose_default">external_propose_default</a></li><li><a href="#variant.external_propose_majority" title="external_propose_majority">external_propose_majority</a></li><li><a href="#variant.fast_track" title="fast_track">fast_track</a></li><li><a href="#variant.propose" title="propose">propose</a></li><li><a href="#variant.remove_other_vote" title="remove_other_vote">remove_other_vote</a></li><li><a href="#variant.remove_vote" title="remove_vote">remove_vote</a></li><li><a href="#variant.second" title="second">second</a></li><li><a href="#variant.set_metadata" title="set_metadata">set_metadata</a></li><li><a href="#variant.undelegate" title="undelegate">undelegate</a></li><li><a href="#variant.unlock" title="unlock">unlock</a></li><li><a href="#variant.veto_external" title="veto_external">veto_external</a></li><li><a href="#variant.vote" title="vote">vote</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>democracy</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">democracy</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/pallet_democracy/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 19 variants</span></summary>    propose {
+        proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;,
+        value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    second {
+        proposal: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    vote {
+        ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        vote: <a class="enum" href="../runtime_types/pallet_democracy/vote/enum.AccountVote.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::vote::AccountVote">AccountVote</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    emergency_cancel {
+        ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    external_propose {
+        proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;,
+    },
+    external_propose_majority {
+        proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;,
+    },
+    external_propose_default {
+        proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;,
+    },
+    fast_track {
+        proposal_hash: H256,
+        voting_period: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        delay: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    veto_external {
+        proposal_hash: H256,
+    },
+    cancel_referendum {
+        ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    delegate {
+        to: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        conviction: <a class="enum" href="../runtime_types/pallet_democracy/conviction/enum.Conviction.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::conviction::Conviction">Conviction</a>,
+        balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    undelegate,
+    clear_public_proposals,
+    unlock {
+        target: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    remove_vote {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    remove_other_vote {
+        target: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    blacklist {
+        proposal_hash: H256,
+        maybe_ref_index: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    cancel_proposal {
+        prop_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_metadata {
+        owner: <a class="enum" href="../runtime_types/pallet_democracy/types/enum.MetadataOwner.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::types::MetadataOwner">MetadataOwner</a>,
+        maybe_hash: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;H256&gt;,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.propose" class="variant"><a href="#variant.propose" class="anchor">§</a><h3 class="code-header">propose</h3></section><div class="sub-variant" id="variant.propose.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.propose.field.proposal" class="section-header"><a href="#variant.propose.field.proposal" class="anchor field">§</a><code>proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.propose.field.value" class="section-header"><a href="#variant.propose.field.value" class="anchor field">§</a><code>value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.second" class="variant"><a href="#variant.second" class="anchor">§</a><h3 class="code-header">second</h3></section><div class="sub-variant" id="variant.second.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.second.field.proposal" class="section-header"><a href="#variant.second.field.proposal" class="anchor field">§</a><code>proposal: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.vote" class="variant"><a href="#variant.vote" class="anchor">§</a><h3 class="code-header">vote</h3></section><div class="sub-variant" id="variant.vote.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.vote.field.ref_index" class="section-header"><a href="#variant.vote.field.ref_index" class="anchor field">§</a><code>ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.vote.field.vote" class="section-header"><a href="#variant.vote.field.vote" class="anchor field">§</a><code>vote: <a class="enum" href="../runtime_types/pallet_democracy/vote/enum.AccountVote.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::vote::AccountVote">AccountVote</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.emergency_cancel" class="variant"><a href="#variant.emergency_cancel" class="anchor">§</a><h3 class="code-header">emergency_cancel</h3></section><div class="sub-variant" id="variant.emergency_cancel.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.emergency_cancel.field.ref_index" class="section-header"><a href="#variant.emergency_cancel.field.ref_index" class="anchor field">§</a><code>ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.external_propose" class="variant"><a href="#variant.external_propose" class="anchor">§</a><h3 class="code-header">external_propose</h3></section><div class="sub-variant" id="variant.external_propose.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.external_propose.field.proposal" class="section-header"><a href="#variant.external_propose.field.proposal" class="anchor field">§</a><code>proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;</code></span></div></div><section id="variant.external_propose_majority" class="variant"><a href="#variant.external_propose_majority" class="anchor">§</a><h3 class="code-header">external_propose_majority</h3></section><div class="sub-variant" id="variant.external_propose_majority.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.external_propose_majority.field.proposal" class="section-header"><a href="#variant.external_propose_majority.field.proposal" class="anchor field">§</a><code>proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;</code></span></div></div><section id="variant.external_propose_default" class="variant"><a href="#variant.external_propose_default" class="anchor">§</a><h3 class="code-header">external_propose_default</h3></section><div class="sub-variant" id="variant.external_propose_default.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.external_propose_default.field.proposal" class="section-header"><a href="#variant.external_propose_default.field.proposal" class="anchor field">§</a><code>proposal: <a class="enum" href="../runtime_types/frame_support/traits/preimages/enum.Bounded.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::frame_support::traits::preimages::Bounded">Bounded</a>&lt;<a class="enum" href="../runtime_types/kitchensink_runtime/enum.RuntimeCall.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::kitchensink_runtime::RuntimeCall">RuntimeCall</a>, <a class="struct" href="../runtime_types/sp_runtime/traits/struct.BlakeTwo256.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_runtime::traits::BlakeTwo256">BlakeTwo256</a>&gt;</code></span></div></div><section id="variant.fast_track" class="variant"><a href="#variant.fast_track" class="anchor">§</a><h3 class="code-header">fast_track</h3></section><div class="sub-variant" id="variant.fast_track.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.fast_track.field.proposal_hash" class="section-header"><a href="#variant.fast_track.field.proposal_hash" class="anchor field">§</a><code>proposal_hash: H256</code></span></div><div class="sub-variant-field"><span id="variant.fast_track.field.voting_period" class="section-header"><a href="#variant.fast_track.field.voting_period" class="anchor field">§</a><code>voting_period: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.fast_track.field.delay" class="section-header"><a href="#variant.fast_track.field.delay" class="anchor field">§</a><code>delay: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.veto_external" class="variant"><a href="#variant.veto_external" class="anchor">§</a><h3 class="code-header">veto_external</h3></section><div class="sub-variant" id="variant.veto_external.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.veto_external.field.proposal_hash" class="section-header"><a href="#variant.veto_external.field.proposal_hash" class="anchor field">§</a><code>proposal_hash: H256</code></span></div></div><section id="variant.cancel_referendum" class="variant"><a href="#variant.cancel_referendum" class="anchor">§</a><h3 class="code-header">cancel_referendum</h3></section><div class="sub-variant" id="variant.cancel_referendum.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cancel_referendum.field.ref_index" class="section-header"><a href="#variant.cancel_referendum.field.ref_index" class="anchor field">§</a><code>ref_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.delegate" class="variant"><a href="#variant.delegate" class="anchor">§</a><h3 class="code-header">delegate</h3></section><div class="sub-variant" id="variant.delegate.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.delegate.field.to" class="section-header"><a href="#variant.delegate.field.to" class="anchor field">§</a><code>to: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.delegate.field.conviction" class="section-header"><a href="#variant.delegate.field.conviction" class="anchor field">§</a><code>conviction: <a class="enum" href="../runtime_types/pallet_democracy/conviction/enum.Conviction.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::conviction::Conviction">Conviction</a></code></span></div><div class="sub-variant-field"><span id="variant.delegate.field.balance" class="section-header"><a href="#variant.delegate.field.balance" class="anchor field">§</a><code>balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.undelegate" class="variant"><a href="#variant.undelegate" class="anchor">§</a><h3 class="code-header">undelegate</h3></section><section id="variant.clear_public_proposals" class="variant"><a href="#variant.clear_public_proposals" class="anchor">§</a><h3 class="code-header">clear_public_proposals</h3></section><section id="variant.unlock" class="variant"><a href="#variant.unlock" class="anchor">§</a><h3 class="code-header">unlock</h3></section><div class="sub-variant" id="variant.unlock.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.unlock.field.target" class="section-header"><a href="#variant.unlock.field.target" class="anchor field">§</a><code>target: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.remove_vote" class="variant"><a href="#variant.remove_vote" class="anchor">§</a><h3 class="code-header">remove_vote</h3></section><div class="sub-variant" id="variant.remove_vote.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remove_vote.field.index" class="section-header"><a href="#variant.remove_vote.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.remove_other_vote" class="variant"><a href="#variant.remove_other_vote" class="anchor">§</a><h3 class="code-header">remove_other_vote</h3></section><div class="sub-variant" id="variant.remove_other_vote.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remove_other_vote.field.target" class="section-header"><a href="#variant.remove_other_vote.field.target" class="anchor field">§</a><code>target: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.remove_other_vote.field.index" class="section-header"><a href="#variant.remove_other_vote.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.blacklist" class="variant"><a href="#variant.blacklist" class="anchor">§</a><h3 class="code-header">blacklist</h3></section><div class="sub-variant" id="variant.blacklist.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.blacklist.field.proposal_hash" class="section-header"><a href="#variant.blacklist.field.proposal_hash" class="anchor field">§</a><code>proposal_hash: H256</code></span></div><div class="sub-variant-field"><span id="variant.blacklist.field.maybe_ref_index" class="section-header"><a href="#variant.blacklist.field.maybe_ref_index" class="anchor field">§</a><code>maybe_ref_index: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.cancel_proposal" class="variant"><a href="#variant.cancel_proposal" class="anchor">§</a><h3 class="code-header">cancel_proposal</h3></section><div class="sub-variant" id="variant.cancel_proposal.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cancel_proposal.field.prop_index" class="section-header"><a href="#variant.cancel_proposal.field.prop_index" class="anchor field">§</a><code>prop_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_metadata" class="variant"><a href="#variant.set_metadata" class="anchor">§</a><h3 class="code-header">set_metadata</h3></section><div class="sub-variant" id="variant.set_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_metadata.field.owner" class="section-header"><a href="#variant.set_metadata.field.owner" class="anchor field">§</a><code>owner: <a class="enum" href="../runtime_types/pallet_democracy/types/enum.MetadataOwner.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_democracy::types::MetadataOwner">MetadataOwner</a></code></span></div><div class="sub-variant-field"><span id="variant.set_metadata.field.maybe_hash" class="section-header"><a href="#variant.set_metadata.field.maybe_hash" class="anchor field">§</a><code>maybe_hash: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;H256&gt;</code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_democracy/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::democracy::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

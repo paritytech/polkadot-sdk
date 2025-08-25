@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FixtureType"],"fn":["compile_module","compile_module_with_type"],"macro":["fixture","fixture_resolc"],"mod":["bench"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ListError"],"fn":["notional_bag_for"],"struct":["Bag","List","Node"]};

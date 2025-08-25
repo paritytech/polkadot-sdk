@@ -1,0 +1,580 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/westend/src/genesis_config_presets.rs`."><title>genesis_config_presets.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="westend_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">westend_runtime/</div>genesis_config_presets.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Polkadot.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Polkadot is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Polkadot is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="doccomment">//! Genesis configs presets for the Westend runtime
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">use crate</span>::{
+<a href=#20 id=20 data-nosnippet>20</a>	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
+<a href=#21 id=21 data-nosnippet>21</a>	SessionConfig, SessionKeys, StakingConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+<a href=#22 id=22 data-nosnippet>22</a>};
+<a href=#23 id=23 data-nosnippet>23</a><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">use </span>alloc::format;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>alloc::{vec, vec::Vec};
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>frame_support::build_struct_json_patch;
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>pallet_staking::{Forcing, StakerStatus};
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>sp_consensus_beefy::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>sp_consensus_grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>sp_core::{crypto::get_public_from_string_or_panic, sr25519};
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>sp_genesis_builder::PresetId;
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>sp_keyring::Sr25519Keyring;
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>sp_runtime::Perbill;
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>westend_runtime_constants::currency::UNITS <span class="kw">as </span>WND;
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a><span class="doccomment">/// Helper function to generate stash, controller and session key from seed
+<a href=#40 id=40 data-nosnippet>40</a></span><span class="kw">fn </span>get_authority_keys_from_seed(
+<a href=#41 id=41 data-nosnippet>41</a>	seed: <span class="kw-2">&amp;</span>str,
+<a href=#42 id=42 data-nosnippet>42</a>) -&gt; (
+<a href=#43 id=43 data-nosnippet>43</a>	AccountId,
+<a href=#44 id=44 data-nosnippet>44</a>	AccountId,
+<a href=#45 id=45 data-nosnippet>45</a>	BabeId,
+<a href=#46 id=46 data-nosnippet>46</a>	GrandpaId,
+<a href=#47 id=47 data-nosnippet>47</a>	ValidatorId,
+<a href=#48 id=48 data-nosnippet>48</a>	AssignmentId,
+<a href=#49 id=49 data-nosnippet>49</a>	AuthorityDiscoveryId,
+<a href=#50 id=50 data-nosnippet>50</a>	BeefyId,
+<a href=#51 id=51 data-nosnippet>51</a>) {
+<a href=#52 id=52 data-nosnippet>52</a>	<span class="kw">let </span>keys = get_authority_keys_from_seed_no_beefy(seed);
+<a href=#53 id=53 data-nosnippet>53</a>	(
+<a href=#54 id=54 data-nosnippet>54</a>		keys.<span class="number">0</span>,
+<a href=#55 id=55 data-nosnippet>55</a>		keys.<span class="number">1</span>,
+<a href=#56 id=56 data-nosnippet>56</a>		keys.<span class="number">2</span>,
+<a href=#57 id=57 data-nosnippet>57</a>		keys.<span class="number">3</span>,
+<a href=#58 id=58 data-nosnippet>58</a>		keys.<span class="number">4</span>,
+<a href=#59 id=59 data-nosnippet>59</a>		keys.<span class="number">5</span>,
+<a href=#60 id=60 data-nosnippet>60</a>		keys.<span class="number">6</span>,
+<a href=#61 id=61 data-nosnippet>61</a>		get_public_from_string_or_panic::&lt;BeefyId&gt;(seed),
+<a href=#62 id=62 data-nosnippet>62</a>	)
+<a href=#63 id=63 data-nosnippet>63</a>}
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a><span class="doccomment">/// Helper function to generate stash, controller and session key from seed
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">fn </span>get_authority_keys_from_seed_no_beefy(
+<a href=#67 id=67 data-nosnippet>67</a>	seed: <span class="kw-2">&amp;</span>str,
+<a href=#68 id=68 data-nosnippet>68</a>) -&gt; (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
+<a href=#69 id=69 data-nosnippet>69</a>	(
+<a href=#70 id=70 data-nosnippet>70</a>		get_public_from_string_or_panic::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//stash"</span>, seed)).into(),
+<a href=#71 id=71 data-nosnippet>71</a>		get_public_from_string_or_panic::&lt;sr25519::Public&gt;(seed).into(),
+<a href=#72 id=72 data-nosnippet>72</a>		get_public_from_string_or_panic::&lt;BabeId&gt;(seed),
+<a href=#73 id=73 data-nosnippet>73</a>		get_public_from_string_or_panic::&lt;GrandpaId&gt;(seed),
+<a href=#74 id=74 data-nosnippet>74</a>		get_public_from_string_or_panic::&lt;ValidatorId&gt;(seed),
+<a href=#75 id=75 data-nosnippet>75</a>		get_public_from_string_or_panic::&lt;AssignmentId&gt;(seed),
+<a href=#76 id=76 data-nosnippet>76</a>		get_public_from_string_or_panic::&lt;AuthorityDiscoveryId&gt;(seed),
+<a href=#77 id=77 data-nosnippet>77</a>	)
+<a href=#78 id=78 data-nosnippet>78</a>}
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">fn </span>testnet_accounts() -&gt; Vec&lt;AccountId&gt; {
+<a href=#81 id=81 data-nosnippet>81</a>	Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect()
+<a href=#82 id=82 data-nosnippet>82</a>}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">fn </span>westend_session_keys(
+<a href=#85 id=85 data-nosnippet>85</a>	babe: BabeId,
+<a href=#86 id=86 data-nosnippet>86</a>	grandpa: GrandpaId,
+<a href=#87 id=87 data-nosnippet>87</a>	para_validator: ValidatorId,
+<a href=#88 id=88 data-nosnippet>88</a>	para_assignment: AssignmentId,
+<a href=#89 id=89 data-nosnippet>89</a>	authority_discovery: AuthorityDiscoveryId,
+<a href=#90 id=90 data-nosnippet>90</a>	beefy: BeefyId,
+<a href=#91 id=91 data-nosnippet>91</a>) -&gt; SessionKeys {
+<a href=#92 id=92 data-nosnippet>92</a>	SessionKeys { babe, grandpa, para_validator, para_assignment, authority_discovery, beefy }
+<a href=#93 id=93 data-nosnippet>93</a>}
+<a href=#94 id=94 data-nosnippet>94</a>
+<a href=#95 id=95 data-nosnippet>95</a><span class="kw">fn </span>default_parachains_host_configuration(
+<a href=#96 id=96 data-nosnippet>96</a>) -&gt; polkadot_runtime_parachains::configuration::HostConfiguration&lt;polkadot_primitives::BlockNumber&gt;
+<a href=#97 id=97 data-nosnippet>97</a>{
+<a href=#98 id=98 data-nosnippet>98</a>	<span class="kw">use </span>polkadot_primitives::{
+<a href=#99 id=99 data-nosnippet>99</a>		node_features::FeatureIndex, ApprovalVotingParams, AsyncBackingParams, MAX_CODE_SIZE,
+<a href=#100 id=100 data-nosnippet>100</a>		MAX_POV_SIZE,
+<a href=#101 id=101 data-nosnippet>101</a>	};
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a>	polkadot_runtime_parachains::configuration::HostConfiguration {
+<a href=#104 id=104 data-nosnippet>104</a>		validation_upgrade_cooldown: <span class="number">2u32</span>,
+<a href=#105 id=105 data-nosnippet>105</a>		validation_upgrade_delay: <span class="number">2</span>,
+<a href=#106 id=106 data-nosnippet>106</a>		code_retention_period: <span class="number">1200</span>,
+<a href=#107 id=107 data-nosnippet>107</a>		max_code_size: MAX_CODE_SIZE,
+<a href=#108 id=108 data-nosnippet>108</a>		max_pov_size: MAX_POV_SIZE,
+<a href=#109 id=109 data-nosnippet>109</a>		max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
+<a href=#110 id=110 data-nosnippet>110</a>		max_upward_queue_count: <span class="number">8</span>,
+<a href=#111 id=111 data-nosnippet>111</a>		max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#112 id=112 data-nosnippet>112</a>		max_downward_message_size: <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#113 id=113 data-nosnippet>113</a>		max_upward_message_size: <span class="number">50 </span>* <span class="number">1024</span>,
+<a href=#114 id=114 data-nosnippet>114</a>		max_upward_message_num_per_candidate: <span class="number">5</span>,
+<a href=#115 id=115 data-nosnippet>115</a>		hrmp_sender_deposit: <span class="number">0</span>,
+<a href=#116 id=116 data-nosnippet>116</a>		hrmp_recipient_deposit: <span class="number">0</span>,
+<a href=#117 id=117 data-nosnippet>117</a>		hrmp_channel_max_capacity: <span class="number">8</span>,
+<a href=#118 id=118 data-nosnippet>118</a>		hrmp_channel_max_total_size: <span class="number">8 </span>* <span class="number">1024</span>,
+<a href=#119 id=119 data-nosnippet>119</a>		hrmp_max_parachain_inbound_channels: <span class="number">4</span>,
+<a href=#120 id=120 data-nosnippet>120</a>		hrmp_channel_max_message_size: <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#121 id=121 data-nosnippet>121</a>		hrmp_max_parachain_outbound_channels: <span class="number">4</span>,
+<a href=#122 id=122 data-nosnippet>122</a>		hrmp_max_message_num_per_candidate: <span class="number">5</span>,
+<a href=#123 id=123 data-nosnippet>123</a>		dispute_period: <span class="number">6</span>,
+<a href=#124 id=124 data-nosnippet>124</a>		no_show_slots: <span class="number">2</span>,
+<a href=#125 id=125 data-nosnippet>125</a>		n_delay_tranches: <span class="number">25</span>,
+<a href=#126 id=126 data-nosnippet>126</a>		needed_approvals: <span class="number">2</span>,
+<a href=#127 id=127 data-nosnippet>127</a>		relay_vrf_modulo_samples: <span class="number">2</span>,
+<a href=#128 id=128 data-nosnippet>128</a>		zeroth_delay_tranche_width: <span class="number">0</span>,
+<a href=#129 id=129 data-nosnippet>129</a>		minimum_validation_upgrade_delay: <span class="number">5</span>,
+<a href=#130 id=130 data-nosnippet>130</a>		async_backing_params: AsyncBackingParams {
+<a href=#131 id=131 data-nosnippet>131</a>			max_candidate_depth: <span class="number">0</span>,
+<a href=#132 id=132 data-nosnippet>132</a>			allowed_ancestry_len: <span class="number">0</span>,
+<a href=#133 id=133 data-nosnippet>133</a>		},
+<a href=#134 id=134 data-nosnippet>134</a>		node_features: bitvec::vec::BitVec::from_element(
+<a href=#135 id=135 data-nosnippet>135</a>			(<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::ElasticScalingMVP <span class="kw">as </span>usize)) |
+<a href=#136 id=136 data-nosnippet>136</a>				(<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::EnableAssignmentsV2 <span class="kw">as </span>usize)) |
+<a href=#137 id=137 data-nosnippet>137</a>				(<span class="number">1u8 </span>&lt;&lt; (FeatureIndex::CandidateReceiptV2 <span class="kw">as </span>usize)),
+<a href=#138 id=138 data-nosnippet>138</a>		),
+<a href=#139 id=139 data-nosnippet>139</a>		scheduler_params: SchedulerParams {
+<a href=#140 id=140 data-nosnippet>140</a>			lookahead: <span class="number">3</span>,
+<a href=#141 id=141 data-nosnippet>141</a>			group_rotation_frequency: <span class="number">20</span>,
+<a href=#142 id=142 data-nosnippet>142</a>			paras_availability_period: <span class="number">4</span>,
+<a href=#143 id=143 data-nosnippet>143</a>			..Default::default()
+<a href=#144 id=144 data-nosnippet>144</a>		},
+<a href=#145 id=145 data-nosnippet>145</a>		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: <span class="number">5 </span>},
+<a href=#146 id=146 data-nosnippet>146</a>		..Default::default()
+<a href=#147 id=147 data-nosnippet>147</a>	}
+<a href=#148 id=148 data-nosnippet>148</a>}
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a><span class="attr">#[test]
+<a href=#151 id=151 data-nosnippet>151</a></span><span class="kw">fn </span>default_parachains_host_configuration_is_consistent() {
+<a href=#152 id=152 data-nosnippet>152</a>	default_parachains_host_configuration().panic_if_not_consistent();
+<a href=#153 id=153 data-nosnippet>153</a>}
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a><span class="doccomment">/// Helper function to create westend runtime `GenesisConfig` patch for testing
+<a href=#156 id=156 data-nosnippet>156</a></span><span class="kw">fn </span>westend_testnet_genesis(
+<a href=#157 id=157 data-nosnippet>157</a>	initial_authorities: Vec&lt;(
+<a href=#158 id=158 data-nosnippet>158</a>		AccountId,
+<a href=#159 id=159 data-nosnippet>159</a>		AccountId,
+<a href=#160 id=160 data-nosnippet>160</a>		BabeId,
+<a href=#161 id=161 data-nosnippet>161</a>		GrandpaId,
+<a href=#162 id=162 data-nosnippet>162</a>		ValidatorId,
+<a href=#163 id=163 data-nosnippet>163</a>		AssignmentId,
+<a href=#164 id=164 data-nosnippet>164</a>		AuthorityDiscoveryId,
+<a href=#165 id=165 data-nosnippet>165</a>		BeefyId,
+<a href=#166 id=166 data-nosnippet>166</a>	)&gt;,
+<a href=#167 id=167 data-nosnippet>167</a>	root_key: AccountId,
+<a href=#168 id=168 data-nosnippet>168</a>	endowed_accounts: <span class="prelude-ty">Option</span>&lt;Vec&lt;AccountId&gt;&gt;,
+<a href=#169 id=169 data-nosnippet>169</a>) -&gt; serde_json::Value {
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = endowed_accounts.unwrap_or_else(testnet_accounts);
+<a href=#171 id=171 data-nosnippet>171</a>
+<a href=#172 id=172 data-nosnippet>172</a>	<span class="kw">const </span>ENDOWMENT: u128 = <span class="number">1_000_000 </span>* WND;
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* WND;
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>	<span class="macro">build_struct_json_patch!</span>(RuntimeGenesisConfig {
+<a href=#176 id=176 data-nosnippet>176</a>		balances: BalancesConfig {
+<a href=#177 id=177 data-nosnippet>177</a>			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#178 id=178 data-nosnippet>178</a>		},
+<a href=#179 id=179 data-nosnippet>179</a>		session: SessionConfig {
+<a href=#180 id=180 data-nosnippet>180</a>			keys: initial_authorities
+<a href=#181 id=181 data-nosnippet>181</a>				.iter()
+<a href=#182 id=182 data-nosnippet>182</a>				.map(|x| {
+<a href=#183 id=183 data-nosnippet>183</a>					(
+<a href=#184 id=184 data-nosnippet>184</a>						x.<span class="number">0</span>.clone(),
+<a href=#185 id=185 data-nosnippet>185</a>						x.<span class="number">0</span>.clone(),
+<a href=#186 id=186 data-nosnippet>186</a>						westend_session_keys(
+<a href=#187 id=187 data-nosnippet>187</a>							x.<span class="number">2</span>.clone(),
+<a href=#188 id=188 data-nosnippet>188</a>							x.<span class="number">3</span>.clone(),
+<a href=#189 id=189 data-nosnippet>189</a>							x.<span class="number">4</span>.clone(),
+<a href=#190 id=190 data-nosnippet>190</a>							x.<span class="number">5</span>.clone(),
+<a href=#191 id=191 data-nosnippet>191</a>							x.<span class="number">6</span>.clone(),
+<a href=#192 id=192 data-nosnippet>192</a>							x.<span class="number">7</span>.clone(),
+<a href=#193 id=193 data-nosnippet>193</a>						),
+<a href=#194 id=194 data-nosnippet>194</a>					)
+<a href=#195 id=195 data-nosnippet>195</a>				})
+<a href=#196 id=196 data-nosnippet>196</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#197 id=197 data-nosnippet>197</a>		},
+<a href=#198 id=198 data-nosnippet>198</a>		staking: StakingConfig {
+<a href=#199 id=199 data-nosnippet>199</a>			minimum_validator_count: <span class="number">1</span>,
+<a href=#200 id=200 data-nosnippet>200</a>			validator_count: initial_authorities.len() <span class="kw">as </span>u32,
+<a href=#201 id=201 data-nosnippet>201</a>			stakers: initial_authorities
+<a href=#202 id=202 data-nosnippet>202</a>				.iter()
+<a href=#203 id=203 data-nosnippet>203</a>				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, StakerStatus::&lt;AccountId&gt;::Validator))
+<a href=#204 id=204 data-nosnippet>204</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#205 id=205 data-nosnippet>205</a>			invulnerables: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#206 id=206 data-nosnippet>206</a>			force_era: Forcing::NotForcing,
+<a href=#207 id=207 data-nosnippet>207</a>			slash_reward_fraction: Perbill::from_percent(<span class="number">10</span>),
+<a href=#208 id=208 data-nosnippet>208</a>		},
+<a href=#209 id=209 data-nosnippet>209</a>		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
+<a href=#210 id=210 data-nosnippet>210</a>		sudo: SudoConfig { key: <span class="prelude-val">Some</span>(root_key) },
+<a href=#211 id=211 data-nosnippet>211</a>		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+<a href=#212 id=212 data-nosnippet>212</a>		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+<a href=#213 id=213 data-nosnippet>213</a>	})
+<a href=#214 id=214 data-nosnippet>214</a>}
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a><span class="comment">// staging_testnet
+<a href=#217 id=217 data-nosnippet>217</a></span><span class="kw">fn </span>westend_staging_testnet_config_genesis() -&gt; serde_json::Value {
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="kw">use </span>hex_literal::hex;
+<a href=#219 id=219 data-nosnippet>219</a>	<span class="kw">use </span>sp_core::crypto::UncheckedInto;
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>	<span class="comment">// Following keys are used in genesis config for development chains.
+<a href=#222 id=222 data-nosnippet>222</a>	// DO NOT use them in production chains as the secret seed is public.
+<a href=#223 id=223 data-nosnippet>223</a>	//
+<a href=#224 id=224 data-nosnippet>224</a>	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
+<a href=#225 id=225 data-nosnippet>225</a>	// subkey inspect -n polkadot "$SECRET_SEED"
+<a href=#226 id=226 data-nosnippet>226</a>	</span><span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = <span class="macro">vec!</span>[
+<a href=#227 id=227 data-nosnippet>227</a>		<span class="comment">// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
+<a href=#228 id=228 data-nosnippet>228</a>		</span><span class="macro">hex!</span>[<span class="string">"c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"</span>].into(),
+<a href=#229 id=229 data-nosnippet>229</a>	];
+<a href=#230 id=230 data-nosnippet>230</a>	<span class="comment">// SECRET=$SECRET_SEED ./scripts/prepare-test-net.sh 4
+<a href=#231 id=231 data-nosnippet>231</a>	</span><span class="kw">let </span>initial_authorities: Vec&lt;(
+<a href=#232 id=232 data-nosnippet>232</a>		AccountId,
+<a href=#233 id=233 data-nosnippet>233</a>		AccountId,
+<a href=#234 id=234 data-nosnippet>234</a>		BabeId,
+<a href=#235 id=235 data-nosnippet>235</a>		GrandpaId,
+<a href=#236 id=236 data-nosnippet>236</a>		ValidatorId,
+<a href=#237 id=237 data-nosnippet>237</a>		AssignmentId,
+<a href=#238 id=238 data-nosnippet>238</a>		AuthorityDiscoveryId,
+<a href=#239 id=239 data-nosnippet>239</a>		BeefyId,
+<a href=#240 id=240 data-nosnippet>240</a>	)&gt; = Vec::from([
+<a href=#241 id=241 data-nosnippet>241</a>		(
+<a href=#242 id=242 data-nosnippet>242</a>			<span class="comment">//5EvydUTtHvt39Khac3mMxNPgzcfu49uPDzUs3TL7KEzyrwbw
+<a href=#243 id=243 data-nosnippet>243</a>			</span><span class="macro">hex!</span>[<span class="string">"7ecfd50629cdd246649959d88d490b31508db511487e111a52a392e6e458f518"</span>].into(),
+<a href=#244 id=244 data-nosnippet>244</a>			<span class="comment">//5HQyX5gyy77m9QLXguAhiwjTArHYjYspeY98dYDu1JDetfZg
+<a href=#245 id=245 data-nosnippet>245</a>			</span><span class="macro">hex!</span>[<span class="string">"eca2cca09bdc66a7e6d8c3d9499a0be2ad4690061be8a9834972e17d13d2fe7e"</span>].into(),
+<a href=#246 id=246 data-nosnippet>246</a>			<span class="comment">//5G13qYRudTyttwTJvHvnwp8StFtcfigyPnwfD4v7LNopsnX4
+<a href=#247 id=247 data-nosnippet>247</a>			</span><span class="macro">hex!</span>[<span class="string">"ae27367cb77850fb195fe1f9c60b73210409e68c5ad953088070f7d8513d464c"</span>]
+<a href=#248 id=248 data-nosnippet>248</a>				.unchecked_into(),
+<a href=#249 id=249 data-nosnippet>249</a>			<span class="comment">//5Eb7wM65PNgtY6e33FEAzYtU5cRTXt6WQvZTnzaKQwkVcABk
+<a href=#250 id=250 data-nosnippet>250</a>			</span><span class="macro">hex!</span>[<span class="string">"6faae44b21c6f2681a7f60df708e9f79d340f7d441d28bd987fab8d05c6487e8"</span>]
+<a href=#251 id=251 data-nosnippet>251</a>				.unchecked_into(),
+<a href=#252 id=252 data-nosnippet>252</a>			<span class="comment">//5FqMLAgygdX9UqzukDp15Uid9PAKdFAR621U7xtp5ut2NfrW
+<a href=#253 id=253 data-nosnippet>253</a>			</span><span class="macro">hex!</span>[<span class="string">"a6c1a5b501985a83cb1c37630c5b41e6b0a15b3675b2fd94694758e6cfa6794d"</span>]
+<a href=#254 id=254 data-nosnippet>254</a>				.unchecked_into(),
+<a href=#255 id=255 data-nosnippet>255</a>			<span class="comment">//5DhXAV75BKvF9o447ikWqLttyL2wHtLMFSX7GrsKF9Ny61Ta
+<a href=#256 id=256 data-nosnippet>256</a>			</span><span class="macro">hex!</span>[<span class="string">"485051748ab9c15732f19f3fbcf1fd00a6d9709635f084505107fbb059c33d2f"</span>]
+<a href=#257 id=257 data-nosnippet>257</a>				.unchecked_into(),
+<a href=#258 id=258 data-nosnippet>258</a>			<span class="comment">//5GNHfmrtWLTawnGCmc39rjAEiW97vKvE7DGePYe4am5JtE4i
+<a href=#259 id=259 data-nosnippet>259</a>			</span><span class="macro">hex!</span>[<span class="string">"be59ed75a72f7b47221ce081ba4262cf2e1ea7867e30e0b3781822f942b97677"</span>]
+<a href=#260 id=260 data-nosnippet>260</a>				.unchecked_into(),
+<a href=#261 id=261 data-nosnippet>261</a>			<span class="comment">//5DA6Z8RUF626stn94aTRBCeobDCYcFbU7Pdk4Tz1R9vA8B8F
+<a href=#262 id=262 data-nosnippet>262</a>			</span><span class="macro">hex!</span>[<span class="string">"0207e43990799e1d02b0507451e342a1240ff836ea769c57297589a5fd072ad8f4"</span>]
+<a href=#263 id=263 data-nosnippet>263</a>				.unchecked_into(),
+<a href=#264 id=264 data-nosnippet>264</a>		),
+<a href=#265 id=265 data-nosnippet>265</a>		(
+<a href=#266 id=266 data-nosnippet>266</a>			<span class="comment">//5DFpvDUdCgw54E3E357GR1PyJe3Ft9s7Qyp7wbELAoJH9RQa
+<a href=#267 id=267 data-nosnippet>267</a>			</span><span class="macro">hex!</span>[<span class="string">"34b7b3efd35fcc3c1926ca065381682b1af29b57dabbcd091042c6de1d541b7d"</span>].into(),
+<a href=#268 id=268 data-nosnippet>268</a>			<span class="comment">//5DZSSsND5wCjngvyXv27qvF3yPzt3MCU8rWnqNy4imqZmjT8
+<a href=#269 id=269 data-nosnippet>269</a>			</span><span class="macro">hex!</span>[<span class="string">"4226796fa792ac78875e023ff2e30e3c2cf79f0b7b3431254cd0f14a3007bc0e"</span>].into(),
+<a href=#270 id=270 data-nosnippet>270</a>			<span class="comment">//5CPrgfRNDQvQSnLRdeCphP3ibj5PJW9ESbqj2fw29vBMNQNn
+<a href=#271 id=271 data-nosnippet>271</a>			</span><span class="macro">hex!</span>[<span class="string">"0e9b60f04be3bffe362eb2212ea99d2b909b052f4bff7c714e13c2416a797f5d"</span>]
+<a href=#272 id=272 data-nosnippet>272</a>				.unchecked_into(),
+<a href=#273 id=273 data-nosnippet>273</a>			<span class="comment">//5FXFsPReTUEYPRNKhbTdUathcWBsxTNsLbk2mTpYdKCJewjA
+<a href=#274 id=274 data-nosnippet>274</a>			</span><span class="macro">hex!</span>[<span class="string">"98f4d81cb383898c2c3d54dab28698c0f717c81b509cb32dc6905af3cc697b18"</span>]
+<a href=#275 id=275 data-nosnippet>275</a>				.unchecked_into(),
+<a href=#276 id=276 data-nosnippet>276</a>			<span class="comment">//5CZjurB78XbSHf6SLkLhCdkqw52Zm7aBYUDdfkLqEDWJ9Zhj
+<a href=#277 id=277 data-nosnippet>277</a>			</span><span class="macro">hex!</span>[<span class="string">"162508accd470e379b04cb0c7c60b35a7d5357e84407a89ed2dd48db4b726960"</span>]
+<a href=#278 id=278 data-nosnippet>278</a>				.unchecked_into(),
+<a href=#279 id=279 data-nosnippet>279</a>			<span class="comment">//5DkAqCtSjUMVoJFauuGoAbSEgn2aFCRGziKJiLGpPwYgE1pS
+<a href=#280 id=280 data-nosnippet>280</a>			</span><span class="macro">hex!</span>[<span class="string">"4a559c028b69a7f784ce553393e547bec0aa530352157603396d515f9c83463b"</span>]
+<a href=#281 id=281 data-nosnippet>281</a>				.unchecked_into(),
+<a href=#282 id=282 data-nosnippet>282</a>			<span class="comment">//5GsBt9MhGwkg8Jfb1F9LAy2kcr88WNyNy4L5ezwbCr8NWKQU
+<a href=#283 id=283 data-nosnippet>283</a>			</span><span class="macro">hex!</span>[<span class="string">"d464908266c878acbf181bf8fda398b3aa3fd2d05508013e414aaece4cf0d702"</span>]
+<a href=#284 id=284 data-nosnippet>284</a>				.unchecked_into(),
+<a href=#285 id=285 data-nosnippet>285</a>			<span class="comment">//5DtJVkz8AHevEnpszy3X4dUcPvACW6x1qBMQZtFxjexLr5bq
+<a href=#286 id=286 data-nosnippet>286</a>			</span><span class="macro">hex!</span>[<span class="string">"02fdf30222d2cb88f2376d558d3de9cb83f9fde3aa4b2dd40c93e3104e3488bcd2"</span>]
+<a href=#287 id=287 data-nosnippet>287</a>				.unchecked_into(),
+<a href=#288 id=288 data-nosnippet>288</a>		),
+<a href=#289 id=289 data-nosnippet>289</a>		(
+<a href=#290 id=290 data-nosnippet>290</a>			<span class="comment">//5E2cob2jrXsBkTih56pizwSqENjE4siaVdXhaD6akLdDyVq7
+<a href=#291 id=291 data-nosnippet>291</a>			</span><span class="macro">hex!</span>[<span class="string">"56e0f73c563d49ee4a3971c393e17c44eaa313dabad7fcf297dc3271d803f303"</span>].into(),
+<a href=#292 id=292 data-nosnippet>292</a>			<span class="comment">//5D4rNYgP9uFNi5GMyDEXTfiaFLjXyDEEX2VvuqBVi3f1qgCh
+<a href=#293 id=293 data-nosnippet>293</a>			</span><span class="macro">hex!</span>[<span class="string">"2c58e5e1d5aef77774480cead4f6876b1a1a6261170166995184d7f86140572b"</span>].into(),
+<a href=#294 id=294 data-nosnippet>294</a>			<span class="comment">//5Ea2D65KXqe625sz4uV1jjhSfuigVnkezC8VgEj9LXN7ERAk
+<a href=#295 id=295 data-nosnippet>295</a>			</span><span class="macro">hex!</span>[<span class="string">"6ed45cb7af613be5d88a2622921e18d147225165f24538af03b93f2a03ce6e13"</span>]
+<a href=#296 id=296 data-nosnippet>296</a>				.unchecked_into(),
+<a href=#297 id=297 data-nosnippet>297</a>			<span class="comment">//5G4kCbgqUhEyrRHCyFwFEkgBZXoYA8sbgsRxT9rY8Tp5Jj5F
+<a href=#298 id=298 data-nosnippet>298</a>			</span><span class="macro">hex!</span>[<span class="string">"b0f8d2b9e4e1eafd4dab6358e0b9d5380d78af27c094e69ae9d6d30ca300fd86"</span>]
+<a href=#299 id=299 data-nosnippet>299</a>				.unchecked_into(),
+<a href=#300 id=300 data-nosnippet>300</a>			<span class="comment">//5CS7thd2n54WfqeKU3cjvZzK4z5p7zku1Zw97mSzXgPioAAs
+<a href=#301 id=301 data-nosnippet>301</a>			</span><span class="macro">hex!</span>[<span class="string">"1055100a283968271a0781450b389b9093231be809be1e48a305ebad2a90497e"</span>]
+<a href=#302 id=302 data-nosnippet>302</a>				.unchecked_into(),
+<a href=#303 id=303 data-nosnippet>303</a>			<span class="comment">//5DSaL4ZmSYarZSazhL5NQh7LT6pWhNRDcefk2QS9RxEXfsJe
+<a href=#304 id=304 data-nosnippet>304</a>			</span><span class="macro">hex!</span>[<span class="string">"3cea4ab74bab4adf176cf05a6e18c1599a7bc217d4c6c217275bfbe3b037a527"</span>]
+<a href=#305 id=305 data-nosnippet>305</a>				.unchecked_into(),
+<a href=#306 id=306 data-nosnippet>306</a>			<span class="comment">//5CaNLkYEbFYXZodXhd3UjV6RNLjFGNLiYafc8X5NooMkZiAq
+<a href=#307 id=307 data-nosnippet>307</a>			</span><span class="macro">hex!</span>[<span class="string">"169faa81aebfe74533518bda28567f2e2664014c8905aa07ea003336afda5a58"</span>]
+<a href=#308 id=308 data-nosnippet>308</a>				.unchecked_into(),
+<a href=#309 id=309 data-nosnippet>309</a>			<span class="comment">//5ERwhKiePayukzZStMuzGzRJGxGRFpwxYUXVarQpMSMrXzDS
+<a href=#310 id=310 data-nosnippet>310</a>			</span><span class="macro">hex!</span>[<span class="string">"03429d0d20f6ac5ca8b349f04d014f7b5b864acf382a744104d5d9a51108156c0f"</span>]
+<a href=#311 id=311 data-nosnippet>311</a>				.unchecked_into(),
+<a href=#312 id=312 data-nosnippet>312</a>		),
+<a href=#313 id=313 data-nosnippet>313</a>		(
+<a href=#314 id=314 data-nosnippet>314</a>			<span class="comment">//5H6j9ovzYk9opckVjvM9SvVfaK37ASTtPTzWeRfqk1tgLJUN
+<a href=#315 id=315 data-nosnippet>315</a>			</span><span class="macro">hex!</span>[<span class="string">"deb804ed2ed2bb696a3dd4ed7de4cd5c496528a2b204051c6ace385bacd66a3a"</span>].into(),
+<a href=#316 id=316 data-nosnippet>316</a>			<span class="comment">//5DJ51tMW916mGwjMpfS1o9skcNt6Sb28YnZQXaKVg4h89agE
+<a href=#317 id=317 data-nosnippet>317</a>			</span><span class="macro">hex!</span>[<span class="string">"366da6a748afedb31f07902f2de36ab265beccee37762d3ae1f237de234d9c36"</span>].into(),
+<a href=#318 id=318 data-nosnippet>318</a>			<span class="comment">//5CSPYDYoCDGSoSLgSp4EHkJ52YasZLHG2woqhPZkdbtNQpke
+<a href=#319 id=319 data-nosnippet>319</a>			</span><span class="macro">hex!</span>[<span class="string">"1089bc0cd60237d061872925e81d36c9d9205d250d5d8b542c8e08a8ecf1b911"</span>]
+<a href=#320 id=320 data-nosnippet>320</a>				.unchecked_into(),
+<a href=#321 id=321 data-nosnippet>321</a>			<span class="comment">//5ChfdrAqmLjCeDJvynbMjcxYLHYzPe8UWXd3HnX9JDThUMbn
+<a href=#322 id=322 data-nosnippet>322</a>			</span><span class="macro">hex!</span>[<span class="string">"1c309a70b4e274314b84c9a0a1f973c9c4fc084df5479ef686c54b1ae4950424"</span>]
+<a href=#323 id=323 data-nosnippet>323</a>				.unchecked_into(),
+<a href=#324 id=324 data-nosnippet>324</a>			<span class="comment">//5D8C3HHEp5E8fJsXRD56494F413CdRSR9QKGXe7v5ZEfymdj
+<a href=#325 id=325 data-nosnippet>325</a>			</span><span class="macro">hex!</span>[<span class="string">"2ee4d78f328db178c54f205ac809da12e291a33bcbd4f29f081ce7e74bdc5044"</span>]
+<a href=#326 id=326 data-nosnippet>326</a>				.unchecked_into(),
+<a href=#327 id=327 data-nosnippet>327</a>			<span class="comment">//5GxeTYCGmp1C3ZRLDkRWqJc6gB2GYmuqnygweuH3vsivMQq6
+<a href=#328 id=328 data-nosnippet>328</a>			</span><span class="macro">hex!</span>[<span class="string">"d88e40e3c2c7a7c5abf96ffdd8f7b7bec8798cc277bc97e255881871ab73b529"</span>]
+<a href=#329 id=329 data-nosnippet>329</a>				.unchecked_into(),
+<a href=#330 id=330 data-nosnippet>330</a>			<span class="comment">//5DoGpsgSLcJsHa9B8V4PKjxegWAqDZttWfxicAd68prUX654
+<a href=#331 id=331 data-nosnippet>331</a>			</span><span class="macro">hex!</span>[<span class="string">"4cb3863271b70daa38612acd5dae4f5afcb7c165fa277629e5150d2214df322a"</span>]
+<a href=#332 id=332 data-nosnippet>332</a>				.unchecked_into(),
+<a href=#333 id=333 data-nosnippet>333</a>			<span class="comment">//5G1KLjqFyMsPAodnjSRkwRFJztTTEzmZWxow2Q3ZSRCPdthM
+<a href=#334 id=334 data-nosnippet>334</a>			</span><span class="macro">hex!</span>[<span class="string">"03be5ec86d10a94db89c9b7a396d3c7742e3bec5f85159d4cf308cef505966ddf5"</span>]
+<a href=#335 id=335 data-nosnippet>335</a>				.unchecked_into(),
+<a href=#336 id=336 data-nosnippet>336</a>		),
+<a href=#337 id=337 data-nosnippet>337</a>	]);
+<a href=#338 id=338 data-nosnippet>338</a>
+<a href=#339 id=339 data-nosnippet>339</a>	<span class="kw">const </span>ENDOWMENT: u128 = <span class="number">1_000_000 </span>* WND;
+<a href=#340 id=340 data-nosnippet>340</a>	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* WND;
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="macro">build_struct_json_patch!</span>(RuntimeGenesisConfig {
+<a href=#343 id=343 data-nosnippet>343</a>		balances: BalancesConfig {
+<a href=#344 id=344 data-nosnippet>344</a>			balances: endowed_accounts
+<a href=#345 id=345 data-nosnippet>345</a>				.iter()
+<a href=#346 id=346 data-nosnippet>346</a>				.map(|k: <span class="kw-2">&amp;</span>AccountId| (k.clone(), ENDOWMENT))
+<a href=#347 id=347 data-nosnippet>347</a>				.chain(initial_authorities.iter().map(|x| (x.<span class="number">0</span>.clone(), STASH)))
+<a href=#348 id=348 data-nosnippet>348</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#349 id=349 data-nosnippet>349</a>		},
+<a href=#350 id=350 data-nosnippet>350</a>		session: SessionConfig {
+<a href=#351 id=351 data-nosnippet>351</a>			keys: initial_authorities
+<a href=#352 id=352 data-nosnippet>352</a>				.iter()
+<a href=#353 id=353 data-nosnippet>353</a>				.map(|x| {
+<a href=#354 id=354 data-nosnippet>354</a>					(
+<a href=#355 id=355 data-nosnippet>355</a>						x.<span class="number">0</span>.clone(),
+<a href=#356 id=356 data-nosnippet>356</a>						x.<span class="number">0</span>.clone(),
+<a href=#357 id=357 data-nosnippet>357</a>						westend_session_keys(
+<a href=#358 id=358 data-nosnippet>358</a>							x.<span class="number">2</span>.clone(),
+<a href=#359 id=359 data-nosnippet>359</a>							x.<span class="number">3</span>.clone(),
+<a href=#360 id=360 data-nosnippet>360</a>							x.<span class="number">4</span>.clone(),
+<a href=#361 id=361 data-nosnippet>361</a>							x.<span class="number">5</span>.clone(),
+<a href=#362 id=362 data-nosnippet>362</a>							x.<span class="number">6</span>.clone(),
+<a href=#363 id=363 data-nosnippet>363</a>							x.<span class="number">7</span>.clone(),
+<a href=#364 id=364 data-nosnippet>364</a>						),
+<a href=#365 id=365 data-nosnippet>365</a>					)
+<a href=#366 id=366 data-nosnippet>366</a>				})
+<a href=#367 id=367 data-nosnippet>367</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#368 id=368 data-nosnippet>368</a>		},
+<a href=#369 id=369 data-nosnippet>369</a>		staking: StakingConfig {
+<a href=#370 id=370 data-nosnippet>370</a>			validator_count: <span class="number">50</span>,
+<a href=#371 id=371 data-nosnippet>371</a>			minimum_validator_count: <span class="number">4</span>,
+<a href=#372 id=372 data-nosnippet>372</a>			stakers: initial_authorities
+<a href=#373 id=373 data-nosnippet>373</a>				.iter()
+<a href=#374 id=374 data-nosnippet>374</a>				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, StakerStatus::&lt;AccountId&gt;::Validator))
+<a href=#375 id=375 data-nosnippet>375</a>				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#376 id=376 data-nosnippet>376</a>			invulnerables: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#377 id=377 data-nosnippet>377</a>			force_era: Forcing::ForceNone,
+<a href=#378 id=378 data-nosnippet>378</a>			slash_reward_fraction: Perbill::from_percent(<span class="number">10</span>),
+<a href=#379 id=379 data-nosnippet>379</a>		},
+<a href=#380 id=380 data-nosnippet>380</a>		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
+<a href=#381 id=381 data-nosnippet>381</a>		sudo: SudoConfig { key: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
+<a href=#382 id=382 data-nosnippet>382</a>		configuration: ConfigurationConfig { config: default_parachains_host_configuration() },
+<a href=#383 id=383 data-nosnippet>383</a>		registrar: RegistrarConfig { next_free_para_id: polkadot_primitives::LOWEST_PUBLIC_ID },
+<a href=#384 id=384 data-nosnippet>384</a>	})
+<a href=#385 id=385 data-nosnippet>385</a>}
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a><span class="comment">//development
+<a href=#388 id=388 data-nosnippet>388</a></span><span class="kw">fn </span>westend_development_config_genesis() -&gt; serde_json::Value {
+<a href=#389 id=389 data-nosnippet>389</a>	westend_testnet_genesis(
+<a href=#390 id=390 data-nosnippet>390</a>		Vec::from([get_authority_keys_from_seed(<span class="string">"Alice"</span>)]),
+<a href=#391 id=391 data-nosnippet>391</a>		Sr25519Keyring::Alice.to_account_id(),
+<a href=#392 id=392 data-nosnippet>392</a>		<span class="prelude-val">None</span>,
+<a href=#393 id=393 data-nosnippet>393</a>	)
+<a href=#394 id=394 data-nosnippet>394</a>}
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a><span class="comment">//local_testnet
+<a href=#397 id=397 data-nosnippet>397</a></span><span class="kw">fn </span>westend_local_testnet_genesis() -&gt; serde_json::Value {
+<a href=#398 id=398 data-nosnippet>398</a>	westend_testnet_genesis(
+<a href=#399 id=399 data-nosnippet>399</a>		Vec::from([get_authority_keys_from_seed(<span class="string">"Alice"</span>), get_authority_keys_from_seed(<span class="string">"Bob"</span>)]),
+<a href=#400 id=400 data-nosnippet>400</a>		Sr25519Keyring::Alice.to_account_id(),
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="prelude-val">None</span>,
+<a href=#402 id=402 data-nosnippet>402</a>	)
+<a href=#403 id=403 data-nosnippet>403</a>}
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a><span class="doccomment">/// Provides the JSON representation of predefined genesis config for given `id`.
+<a href=#406 id=406 data-nosnippet>406</a></span><span class="kw">pub fn </span>get_preset(id: <span class="kw-2">&amp;</span>PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#407 id=407 data-nosnippet>407</a>	<span class="kw">let </span>patch = <span class="kw">match </span>id.as_ref() {
+<a href=#408 id=408 data-nosnippet>408</a>		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =&gt; westend_local_testnet_genesis(),
+<a href=#409 id=409 data-nosnippet>409</a>		sp_genesis_builder::DEV_RUNTIME_PRESET =&gt; westend_development_config_genesis(),
+<a href=#410 id=410 data-nosnippet>410</a>		<span class="string">"staging_testnet" </span>=&gt; westend_staging_testnet_config_genesis(),
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href=#412 id=412 data-nosnippet>412</a>	};
+<a href=#413 id=413 data-nosnippet>413</a>	<span class="prelude-val">Some</span>(
+<a href=#414 id=414 data-nosnippet>414</a>		serde_json::to_string(<span class="kw-2">&amp;</span>patch)
+<a href=#415 id=415 data-nosnippet>415</a>			.expect(<span class="string">"serialization to json is expected to work. qed."</span>)
+<a href=#416 id=416 data-nosnippet>416</a>			.into_bytes(),
+<a href=#417 id=417 data-nosnippet>417</a>	)
+<a href=#418 id=418 data-nosnippet>418</a>}
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a><span class="doccomment">/// List of supported presets.
+<a href=#421 id=421 data-nosnippet>421</a></span><span class="kw">pub fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
+<a href=#422 id=422 data-nosnippet>422</a>	<span class="macro">vec!</span>[
+<a href=#423 id=423 data-nosnippet>423</a>		PresetId::from(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET),
+<a href=#424 id=424 data-nosnippet>424</a>		PresetId::from(sp_genesis_builder::DEV_RUNTIME_PRESET),
+<a href=#425 id=425 data-nosnippet>425</a>		PresetId::from(<span class="string">"staging_testnet"</span>),
+<a href=#426 id=426 data-nosnippet>426</a>	]
+<a href=#427 id=427 data-nosnippet>427</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

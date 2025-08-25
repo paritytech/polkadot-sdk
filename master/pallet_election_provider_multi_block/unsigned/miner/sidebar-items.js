@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MinerError","OffchainMinerError","SnapshotType"],"struct":["BaseMiner","MaxWinnersFinal","MineInput","OffchainWorkerMiner"],"trait":["MinerConfig"],"type":["FullSupportsOfMiner","PageSupportsOfMiner"]};

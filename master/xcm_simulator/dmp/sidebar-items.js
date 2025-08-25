@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","QueueDownwardMessageError"],"mod":["pallet"],"struct":["Pallet"],"trait":["Config"],"type":["DownwardMessageQueues","Module"]};

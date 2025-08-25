@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOG_TARGET"],"fn":["map_lock_reason"],"mod":["benchmarking","pallet","weights"],"type":["BalanceOf","DerivationIndex","ParaId"]};

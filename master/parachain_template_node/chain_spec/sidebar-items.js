@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["RELAY_CHAIN"],"fn":["development_chain_spec","local_chain_spec"],"struct":["Extensions","ExtensionsFork"],"type":["ChainSpec"]};

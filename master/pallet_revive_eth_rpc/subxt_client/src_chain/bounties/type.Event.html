@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Event` type in crate `pallet_revive_eth_rpc`."><title>Event in pallet_revive_eth_rpc::subxt_client::src_chain::bounties - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Event</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.BountyApproved" title="BountyApproved">BountyApproved</a></li><li><a href="#variant.BountyAwarded" title="BountyAwarded">BountyAwarded</a></li><li><a href="#variant.BountyBecameActive" title="BountyBecameActive">BountyBecameActive</a></li><li><a href="#variant.BountyCanceled" title="BountyCanceled">BountyCanceled</a></li><li><a href="#variant.BountyClaimed" title="BountyClaimed">BountyClaimed</a></li><li><a href="#variant.BountyExtended" title="BountyExtended">BountyExtended</a></li><li><a href="#variant.BountyProposed" title="BountyProposed">BountyProposed</a></li><li><a href="#variant.BountyRejected" title="BountyRejected">BountyRejected</a></li><li><a href="#variant.CuratorAccepted" title="CuratorAccepted">CuratorAccepted</a></li><li><a href="#variant.CuratorProposed" title="CuratorProposed">CuratorProposed</a></li><li><a href="#variant.CuratorUnassigned" title="CuratorUnassigned">CuratorUnassigned</a></li><li><a href="#variant.DepositPoked" title="DepositPoked">DepositPoked</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>bounties</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">bounties</a></div><h1>Type Alias <span class="type">Event</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Event = <a class="enum" href="../runtime_types/pallet_bounties/pallet/enum.Event.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_bounties::pallet::Event">Event</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Event {
+    BountyProposed {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    BountyRejected {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        bond: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    BountyBecameActive {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    BountyAwarded {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        beneficiary: AccountId32,
+    },
+    BountyClaimed {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        payout: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        beneficiary: AccountId32,
+    },
+    BountyCanceled {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    BountyExtended {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    BountyApproved {
+        index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    CuratorProposed {
+        bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        curator: AccountId32,
+    },
+    CuratorUnassigned {
+        bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    CuratorAccepted {
+        bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        curator: AccountId32,
+    },
+    DepositPoked {
+        bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        proposer: AccountId32,
+        old_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        new_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.BountyProposed" class="variant"><a href="#variant.BountyProposed" class="anchor">§</a><h3 class="code-header">BountyProposed</h3></section><div class="sub-variant" id="variant.BountyProposed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyProposed.field.index" class="section-header"><a href="#variant.BountyProposed.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.BountyRejected" class="variant"><a href="#variant.BountyRejected" class="anchor">§</a><h3 class="code-header">BountyRejected</h3></section><div class="sub-variant" id="variant.BountyRejected.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyRejected.field.index" class="section-header"><a href="#variant.BountyRejected.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.BountyRejected.field.bond" class="section-header"><a href="#variant.BountyRejected.field.bond" class="anchor field">§</a><code>bond: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.BountyBecameActive" class="variant"><a href="#variant.BountyBecameActive" class="anchor">§</a><h3 class="code-header">BountyBecameActive</h3></section><div class="sub-variant" id="variant.BountyBecameActive.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyBecameActive.field.index" class="section-header"><a href="#variant.BountyBecameActive.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.BountyAwarded" class="variant"><a href="#variant.BountyAwarded" class="anchor">§</a><h3 class="code-header">BountyAwarded</h3></section><div class="sub-variant" id="variant.BountyAwarded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyAwarded.field.index" class="section-header"><a href="#variant.BountyAwarded.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.BountyAwarded.field.beneficiary" class="section-header"><a href="#variant.BountyAwarded.field.beneficiary" class="anchor field">§</a><code>beneficiary: AccountId32</code></span></div></div><section id="variant.BountyClaimed" class="variant"><a href="#variant.BountyClaimed" class="anchor">§</a><h3 class="code-header">BountyClaimed</h3></section><div class="sub-variant" id="variant.BountyClaimed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyClaimed.field.index" class="section-header"><a href="#variant.BountyClaimed.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.BountyClaimed.field.payout" class="section-header"><a href="#variant.BountyClaimed.field.payout" class="anchor field">§</a><code>payout: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.BountyClaimed.field.beneficiary" class="section-header"><a href="#variant.BountyClaimed.field.beneficiary" class="anchor field">§</a><code>beneficiary: AccountId32</code></span></div></div><section id="variant.BountyCanceled" class="variant"><a href="#variant.BountyCanceled" class="anchor">§</a><h3 class="code-header">BountyCanceled</h3></section><div class="sub-variant" id="variant.BountyCanceled.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyCanceled.field.index" class="section-header"><a href="#variant.BountyCanceled.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.BountyExtended" class="variant"><a href="#variant.BountyExtended" class="anchor">§</a><h3 class="code-header">BountyExtended</h3></section><div class="sub-variant" id="variant.BountyExtended.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyExtended.field.index" class="section-header"><a href="#variant.BountyExtended.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.BountyApproved" class="variant"><a href="#variant.BountyApproved" class="anchor">§</a><h3 class="code-header">BountyApproved</h3></section><div class="sub-variant" id="variant.BountyApproved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.BountyApproved.field.index" class="section-header"><a href="#variant.BountyApproved.field.index" class="anchor field">§</a><code>index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.CuratorProposed" class="variant"><a href="#variant.CuratorProposed" class="anchor">§</a><h3 class="code-header">CuratorProposed</h3></section><div class="sub-variant" id="variant.CuratorProposed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CuratorProposed.field.bounty_id" class="section-header"><a href="#variant.CuratorProposed.field.bounty_id" class="anchor field">§</a><code>bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.CuratorProposed.field.curator" class="section-header"><a href="#variant.CuratorProposed.field.curator" class="anchor field">§</a><code>curator: AccountId32</code></span></div></div><section id="variant.CuratorUnassigned" class="variant"><a href="#variant.CuratorUnassigned" class="anchor">§</a><h3 class="code-header">CuratorUnassigned</h3></section><div class="sub-variant" id="variant.CuratorUnassigned.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CuratorUnassigned.field.bounty_id" class="section-header"><a href="#variant.CuratorUnassigned.field.bounty_id" class="anchor field">§</a><code>bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.CuratorAccepted" class="variant"><a href="#variant.CuratorAccepted" class="anchor">§</a><h3 class="code-header">CuratorAccepted</h3></section><div class="sub-variant" id="variant.CuratorAccepted.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CuratorAccepted.field.bounty_id" class="section-header"><a href="#variant.CuratorAccepted.field.bounty_id" class="anchor field">§</a><code>bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.CuratorAccepted.field.curator" class="section-header"><a href="#variant.CuratorAccepted.field.curator" class="anchor field">§</a><code>curator: AccountId32</code></span></div></div><section id="variant.DepositPoked" class="variant"><a href="#variant.DepositPoked" class="anchor">§</a><h3 class="code-header">DepositPoked</h3></section><div class="sub-variant" id="variant.DepositPoked.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.DepositPoked.field.bounty_id" class="section-header"><a href="#variant.DepositPoked.field.bounty_id" class="anchor field">§</a><code>bounty_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.DepositPoked.field.proposer" class="section-header"><a href="#variant.DepositPoked.field.proposer" class="anchor field">§</a><code>proposer: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.DepositPoked.field.old_deposit" class="section-header"><a href="#variant.DepositPoked.field.old_deposit" class="anchor field">§</a><code>old_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.DepositPoked.field.new_deposit" class="section-header"><a href="#variant.DepositPoked.field.new_deposit" class="anchor field">§</a><code>new_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_bounties/pallet/enum.Event.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::bounties::Event" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

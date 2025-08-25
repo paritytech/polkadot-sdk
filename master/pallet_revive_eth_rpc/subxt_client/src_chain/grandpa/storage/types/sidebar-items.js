@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authorities","current_set_id","next_forced","pending_change","set_id_session","stalled","state"]};

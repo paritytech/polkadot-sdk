@@ -1,0 +1,274 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Event` type in crate `pallet_revive_eth_rpc`."><title>Event in pallet_revive_eth_rpc::subxt_client::src_chain::pool_assets - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Event</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AccountsDestroyed" title="AccountsDestroyed">AccountsDestroyed</a></li><li><a href="#variant.ApprovalCancelled" title="ApprovalCancelled">ApprovalCancelled</a></li><li><a href="#variant.ApprovalsDestroyed" title="ApprovalsDestroyed">ApprovalsDestroyed</a></li><li><a href="#variant.ApprovedTransfer" title="ApprovedTransfer">ApprovedTransfer</a></li><li><a href="#variant.AssetFrozen" title="AssetFrozen">AssetFrozen</a></li><li><a href="#variant.AssetMinBalanceChanged" title="AssetMinBalanceChanged">AssetMinBalanceChanged</a></li><li><a href="#variant.AssetStatusChanged" title="AssetStatusChanged">AssetStatusChanged</a></li><li><a href="#variant.AssetThawed" title="AssetThawed">AssetThawed</a></li><li><a href="#variant.Blocked" title="Blocked">Blocked</a></li><li><a href="#variant.Burned" title="Burned">Burned</a></li><li><a href="#variant.Created" title="Created">Created</a></li><li><a href="#variant.Deposited" title="Deposited">Deposited</a></li><li><a href="#variant.Destroyed" title="Destroyed">Destroyed</a></li><li><a href="#variant.DestructionStarted" title="DestructionStarted">DestructionStarted</a></li><li><a href="#variant.ForceCreated" title="ForceCreated">ForceCreated</a></li><li><a href="#variant.Frozen" title="Frozen">Frozen</a></li><li><a href="#variant.Issued" title="Issued">Issued</a></li><li><a href="#variant.MetadataCleared" title="MetadataCleared">MetadataCleared</a></li><li><a href="#variant.MetadataSet" title="MetadataSet">MetadataSet</a></li><li><a href="#variant.OwnerChanged" title="OwnerChanged">OwnerChanged</a></li><li><a href="#variant.TeamChanged" title="TeamChanged">TeamChanged</a></li><li><a href="#variant.Thawed" title="Thawed">Thawed</a></li><li><a href="#variant.Touched" title="Touched">Touched</a></li><li><a href="#variant.Transferred" title="Transferred">Transferred</a></li><li><a href="#variant.TransferredApproved" title="TransferredApproved">TransferredApproved</a></li><li><a href="#variant.Withdrawn" title="Withdrawn">Withdrawn</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>pool_<wbr>assets</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">pool_assets</a></div><h1>Type Alias <span class="type">Event</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Event = <a class="enum" href="../runtime_types/pallet_assets/pallet/enum.Event.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_assets::pallet::Event">Event</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Event {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 variants</span></summary>    Created {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        creator: AccountId32,
+        owner: AccountId32,
+    },
+    Issued {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Transferred {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        from: AccountId32,
+        to: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Burned {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+        balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    TeamChanged {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        issuer: AccountId32,
+        admin: AccountId32,
+        freezer: AccountId32,
+    },
+    OwnerChanged {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+    },
+    Frozen {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+    },
+    Thawed {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+    },
+    AssetFrozen {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    AssetThawed {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    AccountsDestroyed {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        accounts_destroyed: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        accounts_remaining: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    ApprovalsDestroyed {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        approvals_destroyed: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        approvals_remaining: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    DestructionStarted {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    Destroyed {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    ForceCreated {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+    },
+    MetadataSet {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        name: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        symbol: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        decimals: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>,
+        is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    MetadataCleared {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    ApprovedTransfer {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        source: AccountId32,
+        delegate: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    ApprovalCancelled {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+        delegate: AccountId32,
+    },
+    TransferredApproved {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: AccountId32,
+        delegate: AccountId32,
+        destination: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    AssetStatusChanged {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    AssetMinBalanceChanged {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        new_min_balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Touched {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+        depositor: AccountId32,
+    },
+    Blocked {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+    },
+    Deposited {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Withdrawn {
+        asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        who: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.Created" class="variant"><a href="#variant.Created" class="anchor">§</a><h3 class="code-header">Created</h3></section><div class="sub-variant" id="variant.Created.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Created.field.asset_id" class="section-header"><a href="#variant.Created.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Created.field.creator" class="section-header"><a href="#variant.Created.field.creator" class="anchor field">§</a><code>creator: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Created.field.owner" class="section-header"><a href="#variant.Created.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div></div><section id="variant.Issued" class="variant"><a href="#variant.Issued" class="anchor">§</a><h3 class="code-header">Issued</h3></section><div class="sub-variant" id="variant.Issued.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Issued.field.asset_id" class="section-header"><a href="#variant.Issued.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Issued.field.owner" class="section-header"><a href="#variant.Issued.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Issued.field.amount" class="section-header"><a href="#variant.Issued.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Transferred" class="variant"><a href="#variant.Transferred" class="anchor">§</a><h3 class="code-header">Transferred</h3></section><div class="sub-variant" id="variant.Transferred.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Transferred.field.asset_id" class="section-header"><a href="#variant.Transferred.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Transferred.field.from" class="section-header"><a href="#variant.Transferred.field.from" class="anchor field">§</a><code>from: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Transferred.field.to" class="section-header"><a href="#variant.Transferred.field.to" class="anchor field">§</a><code>to: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Transferred.field.amount" class="section-header"><a href="#variant.Transferred.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Burned" class="variant"><a href="#variant.Burned" class="anchor">§</a><h3 class="code-header">Burned</h3></section><div class="sub-variant" id="variant.Burned.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Burned.field.asset_id" class="section-header"><a href="#variant.Burned.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Burned.field.owner" class="section-header"><a href="#variant.Burned.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Burned.field.balance" class="section-header"><a href="#variant.Burned.field.balance" class="anchor field">§</a><code>balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.TeamChanged" class="variant"><a href="#variant.TeamChanged" class="anchor">§</a><h3 class="code-header">TeamChanged</h3></section><div class="sub-variant" id="variant.TeamChanged.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TeamChanged.field.asset_id" class="section-header"><a href="#variant.TeamChanged.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.TeamChanged.field.issuer" class="section-header"><a href="#variant.TeamChanged.field.issuer" class="anchor field">§</a><code>issuer: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.TeamChanged.field.admin" class="section-header"><a href="#variant.TeamChanged.field.admin" class="anchor field">§</a><code>admin: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.TeamChanged.field.freezer" class="section-header"><a href="#variant.TeamChanged.field.freezer" class="anchor field">§</a><code>freezer: AccountId32</code></span></div></div><section id="variant.OwnerChanged" class="variant"><a href="#variant.OwnerChanged" class="anchor">§</a><h3 class="code-header">OwnerChanged</h3></section><div class="sub-variant" id="variant.OwnerChanged.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.OwnerChanged.field.asset_id" class="section-header"><a href="#variant.OwnerChanged.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.OwnerChanged.field.owner" class="section-header"><a href="#variant.OwnerChanged.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div></div><section id="variant.Frozen" class="variant"><a href="#variant.Frozen" class="anchor">§</a><h3 class="code-header">Frozen</h3></section><div class="sub-variant" id="variant.Frozen.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Frozen.field.asset_id" class="section-header"><a href="#variant.Frozen.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Frozen.field.who" class="section-header"><a href="#variant.Frozen.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div></div><section id="variant.Thawed" class="variant"><a href="#variant.Thawed" class="anchor">§</a><h3 class="code-header">Thawed</h3></section><div class="sub-variant" id="variant.Thawed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Thawed.field.asset_id" class="section-header"><a href="#variant.Thawed.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Thawed.field.who" class="section-header"><a href="#variant.Thawed.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div></div><section id="variant.AssetFrozen" class="variant"><a href="#variant.AssetFrozen" class="anchor">§</a><h3 class="code-header">AssetFrozen</h3></section><div class="sub-variant" id="variant.AssetFrozen.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AssetFrozen.field.asset_id" class="section-header"><a href="#variant.AssetFrozen.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.AssetThawed" class="variant"><a href="#variant.AssetThawed" class="anchor">§</a><h3 class="code-header">AssetThawed</h3></section><div class="sub-variant" id="variant.AssetThawed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AssetThawed.field.asset_id" class="section-header"><a href="#variant.AssetThawed.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.AccountsDestroyed" class="variant"><a href="#variant.AccountsDestroyed" class="anchor">§</a><h3 class="code-header">AccountsDestroyed</h3></section><div class="sub-variant" id="variant.AccountsDestroyed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AccountsDestroyed.field.asset_id" class="section-header"><a href="#variant.AccountsDestroyed.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.AccountsDestroyed.field.accounts_destroyed" class="section-header"><a href="#variant.AccountsDestroyed.field.accounts_destroyed" class="anchor field">§</a><code>accounts_destroyed: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.AccountsDestroyed.field.accounts_remaining" class="section-header"><a href="#variant.AccountsDestroyed.field.accounts_remaining" class="anchor field">§</a><code>accounts_remaining: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ApprovalsDestroyed" class="variant"><a href="#variant.ApprovalsDestroyed" class="anchor">§</a><h3 class="code-header">ApprovalsDestroyed</h3></section><div class="sub-variant" id="variant.ApprovalsDestroyed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ApprovalsDestroyed.field.asset_id" class="section-header"><a href="#variant.ApprovalsDestroyed.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ApprovalsDestroyed.field.approvals_destroyed" class="section-header"><a href="#variant.ApprovalsDestroyed.field.approvals_destroyed" class="anchor field">§</a><code>approvals_destroyed: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ApprovalsDestroyed.field.approvals_remaining" class="section-header"><a href="#variant.ApprovalsDestroyed.field.approvals_remaining" class="anchor field">§</a><code>approvals_remaining: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.DestructionStarted" class="variant"><a href="#variant.DestructionStarted" class="anchor">§</a><h3 class="code-header">DestructionStarted</h3></section><div class="sub-variant" id="variant.DestructionStarted.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.DestructionStarted.field.asset_id" class="section-header"><a href="#variant.DestructionStarted.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.Destroyed" class="variant"><a href="#variant.Destroyed" class="anchor">§</a><h3 class="code-header">Destroyed</h3></section><div class="sub-variant" id="variant.Destroyed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Destroyed.field.asset_id" class="section-header"><a href="#variant.Destroyed.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ForceCreated" class="variant"><a href="#variant.ForceCreated" class="anchor">§</a><h3 class="code-header">ForceCreated</h3></section><div class="sub-variant" id="variant.ForceCreated.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ForceCreated.field.asset_id" class="section-header"><a href="#variant.ForceCreated.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ForceCreated.field.owner" class="section-header"><a href="#variant.ForceCreated.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div></div><section id="variant.MetadataSet" class="variant"><a href="#variant.MetadataSet" class="anchor">§</a><h3 class="code-header">MetadataSet</h3></section><div class="sub-variant" id="variant.MetadataSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MetadataSet.field.asset_id" class="section-header"><a href="#variant.MetadataSet.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.MetadataSet.field.name" class="section-header"><a href="#variant.MetadataSet.field.name" class="anchor field">§</a><code>name: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.MetadataSet.field.symbol" class="section-header"><a href="#variant.MetadataSet.field.symbol" class="anchor field">§</a><code>symbol: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.MetadataSet.field.decimals" class="section-header"><a href="#variant.MetadataSet.field.decimals" class="anchor field">§</a><code>decimals: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a></code></span></div><div class="sub-variant-field"><span id="variant.MetadataSet.field.is_frozen" class="section-header"><a href="#variant.MetadataSet.field.is_frozen" class="anchor field">§</a><code>is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.MetadataCleared" class="variant"><a href="#variant.MetadataCleared" class="anchor">§</a><h3 class="code-header">MetadataCleared</h3></section><div class="sub-variant" id="variant.MetadataCleared.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.MetadataCleared.field.asset_id" class="section-header"><a href="#variant.MetadataCleared.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ApprovedTransfer" class="variant"><a href="#variant.ApprovedTransfer" class="anchor">§</a><h3 class="code-header">ApprovedTransfer</h3></section><div class="sub-variant" id="variant.ApprovedTransfer.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ApprovedTransfer.field.asset_id" class="section-header"><a href="#variant.ApprovedTransfer.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ApprovedTransfer.field.source" class="section-header"><a href="#variant.ApprovedTransfer.field.source" class="anchor field">§</a><code>source: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.ApprovedTransfer.field.delegate" class="section-header"><a href="#variant.ApprovedTransfer.field.delegate" class="anchor field">§</a><code>delegate: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.ApprovedTransfer.field.amount" class="section-header"><a href="#variant.ApprovedTransfer.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.ApprovalCancelled" class="variant"><a href="#variant.ApprovalCancelled" class="anchor">§</a><h3 class="code-header">ApprovalCancelled</h3></section><div class="sub-variant" id="variant.ApprovalCancelled.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ApprovalCancelled.field.asset_id" class="section-header"><a href="#variant.ApprovalCancelled.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.ApprovalCancelled.field.owner" class="section-header"><a href="#variant.ApprovalCancelled.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.ApprovalCancelled.field.delegate" class="section-header"><a href="#variant.ApprovalCancelled.field.delegate" class="anchor field">§</a><code>delegate: AccountId32</code></span></div></div><section id="variant.TransferredApproved" class="variant"><a href="#variant.TransferredApproved" class="anchor">§</a><h3 class="code-header">TransferredApproved</h3></section><div class="sub-variant" id="variant.TransferredApproved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.TransferredApproved.field.asset_id" class="section-header"><a href="#variant.TransferredApproved.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.TransferredApproved.field.owner" class="section-header"><a href="#variant.TransferredApproved.field.owner" class="anchor field">§</a><code>owner: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.TransferredApproved.field.delegate" class="section-header"><a href="#variant.TransferredApproved.field.delegate" class="anchor field">§</a><code>delegate: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.TransferredApproved.field.destination" class="section-header"><a href="#variant.TransferredApproved.field.destination" class="anchor field">§</a><code>destination: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.TransferredApproved.field.amount" class="section-header"><a href="#variant.TransferredApproved.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.AssetStatusChanged" class="variant"><a href="#variant.AssetStatusChanged" class="anchor">§</a><h3 class="code-header">AssetStatusChanged</h3></section><div class="sub-variant" id="variant.AssetStatusChanged.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AssetStatusChanged.field.asset_id" class="section-header"><a href="#variant.AssetStatusChanged.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.AssetMinBalanceChanged" class="variant"><a href="#variant.AssetMinBalanceChanged" class="anchor">§</a><h3 class="code-header">AssetMinBalanceChanged</h3></section><div class="sub-variant" id="variant.AssetMinBalanceChanged.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AssetMinBalanceChanged.field.asset_id" class="section-header"><a href="#variant.AssetMinBalanceChanged.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.AssetMinBalanceChanged.field.new_min_balance" class="section-header"><a href="#variant.AssetMinBalanceChanged.field.new_min_balance" class="anchor field">§</a><code>new_min_balance: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Touched" class="variant"><a href="#variant.Touched" class="anchor">§</a><h3 class="code-header">Touched</h3></section><div class="sub-variant" id="variant.Touched.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Touched.field.asset_id" class="section-header"><a href="#variant.Touched.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Touched.field.who" class="section-header"><a href="#variant.Touched.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Touched.field.depositor" class="section-header"><a href="#variant.Touched.field.depositor" class="anchor field">§</a><code>depositor: AccountId32</code></span></div></div><section id="variant.Blocked" class="variant"><a href="#variant.Blocked" class="anchor">§</a><h3 class="code-header">Blocked</h3></section><div class="sub-variant" id="variant.Blocked.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Blocked.field.asset_id" class="section-header"><a href="#variant.Blocked.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Blocked.field.who" class="section-header"><a href="#variant.Blocked.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div></div><section id="variant.Deposited" class="variant"><a href="#variant.Deposited" class="anchor">§</a><h3 class="code-header">Deposited</h3></section><div class="sub-variant" id="variant.Deposited.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Deposited.field.asset_id" class="section-header"><a href="#variant.Deposited.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Deposited.field.who" class="section-header"><a href="#variant.Deposited.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Deposited.field.amount" class="section-header"><a href="#variant.Deposited.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Withdrawn" class="variant"><a href="#variant.Withdrawn" class="anchor">§</a><h3 class="code-header">Withdrawn</h3></section><div class="sub-variant" id="variant.Withdrawn.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Withdrawn.field.asset_id" class="section-header"><a href="#variant.Withdrawn.field.asset_id" class="anchor field">§</a><code>asset_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.Withdrawn.field.who" class="section-header"><a href="#variant.Withdrawn.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Withdrawn.field.amount" class="section-header"><a href="#variant.Withdrawn.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_assets/pallet/enum.Event.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::pool_assets::Event" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

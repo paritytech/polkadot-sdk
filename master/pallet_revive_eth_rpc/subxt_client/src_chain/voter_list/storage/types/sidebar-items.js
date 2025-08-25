@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["counter_for_list_nodes","list_bags","list_nodes","lock","next_node_auto_rebagged"]};

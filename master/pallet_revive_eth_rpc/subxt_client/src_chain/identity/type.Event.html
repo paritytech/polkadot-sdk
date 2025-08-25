@@ -1,0 +1,240 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Event` type in crate `pallet_revive_eth_rpc`."><title>Event in pallet_revive_eth_rpc::subxt_client::src_chain::identity - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Event</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AuthorityAdded" title="AuthorityAdded">AuthorityAdded</a></li><li><a href="#variant.AuthorityRemoved" title="AuthorityRemoved">AuthorityRemoved</a></li><li><a href="#variant.DanglingUsernameRemoved" title="DanglingUsernameRemoved">DanglingUsernameRemoved</a></li><li><a href="#variant.IdentityCleared" title="IdentityCleared">IdentityCleared</a></li><li><a href="#variant.IdentityKilled" title="IdentityKilled">IdentityKilled</a></li><li><a href="#variant.IdentitySet" title="IdentitySet">IdentitySet</a></li><li><a href="#variant.JudgementGiven" title="JudgementGiven">JudgementGiven</a></li><li><a href="#variant.JudgementRequested" title="JudgementRequested">JudgementRequested</a></li><li><a href="#variant.JudgementUnrequested" title="JudgementUnrequested">JudgementUnrequested</a></li><li><a href="#variant.PreapprovalExpired" title="PreapprovalExpired">PreapprovalExpired</a></li><li><a href="#variant.PrimaryUsernameSet" title="PrimaryUsernameSet">PrimaryUsernameSet</a></li><li><a href="#variant.RegistrarAdded" title="RegistrarAdded">RegistrarAdded</a></li><li><a href="#variant.SubIdentitiesSet" title="SubIdentitiesSet">SubIdentitiesSet</a></li><li><a href="#variant.SubIdentityAdded" title="SubIdentityAdded">SubIdentityAdded</a></li><li><a href="#variant.SubIdentityRemoved" title="SubIdentityRemoved">SubIdentityRemoved</a></li><li><a href="#variant.SubIdentityRenamed" title="SubIdentityRenamed">SubIdentityRenamed</a></li><li><a href="#variant.SubIdentityRevoked" title="SubIdentityRevoked">SubIdentityRevoked</a></li><li><a href="#variant.UsernameKilled" title="UsernameKilled">UsernameKilled</a></li><li><a href="#variant.UsernameQueued" title="UsernameQueued">UsernameQueued</a></li><li><a href="#variant.UsernameRemoved" title="UsernameRemoved">UsernameRemoved</a></li><li><a href="#variant.UsernameSet" title="UsernameSet">UsernameSet</a></li><li><a href="#variant.UsernameUnbound" title="UsernameUnbound">UsernameUnbound</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>identity</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">identity</a></div><h1>Type Alias <span class="type">Event</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Event = <a class="enum" href="../runtime_types/pallet_identity/pallet/enum.Event.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_identity::pallet::Event">Event</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Event {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 22 variants</span></summary>    IdentitySet {
+        who: AccountId32,
+    },
+    IdentityCleared {
+        who: AccountId32,
+        deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    IdentityKilled {
+        who: AccountId32,
+        deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    JudgementRequested {
+        who: AccountId32,
+        registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    JudgementUnrequested {
+        who: AccountId32,
+        registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    JudgementGiven {
+        target: AccountId32,
+        registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    RegistrarAdded {
+        registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    SubIdentityAdded {
+        sub: AccountId32,
+        main: AccountId32,
+        deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    SubIdentitiesSet {
+        main: AccountId32,
+        number_of_subs: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        new_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    SubIdentityRenamed {
+        sub: AccountId32,
+        main: AccountId32,
+    },
+    SubIdentityRemoved {
+        sub: AccountId32,
+        main: AccountId32,
+        deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    SubIdentityRevoked {
+        sub: AccountId32,
+        main: AccountId32,
+        deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    AuthorityAdded {
+        authority: AccountId32,
+    },
+    AuthorityRemoved {
+        authority: AccountId32,
+    },
+    UsernameSet {
+        who: AccountId32,
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    UsernameQueued {
+        who: AccountId32,
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        expiration: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    PreapprovalExpired {
+        whose: AccountId32,
+    },
+    PrimaryUsernameSet {
+        who: AccountId32,
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    DanglingUsernameRemoved {
+        who: AccountId32,
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    UsernameUnbound {
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    UsernameRemoved {
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    UsernameKilled {
+        username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.IdentitySet" class="variant"><a href="#variant.IdentitySet" class="anchor">§</a><h3 class="code-header">IdentitySet</h3></section><div class="sub-variant" id="variant.IdentitySet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.IdentitySet.field.who" class="section-header"><a href="#variant.IdentitySet.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div></div><section id="variant.IdentityCleared" class="variant"><a href="#variant.IdentityCleared" class="anchor">§</a><h3 class="code-header">IdentityCleared</h3></section><div class="sub-variant" id="variant.IdentityCleared.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.IdentityCleared.field.who" class="section-header"><a href="#variant.IdentityCleared.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.IdentityCleared.field.deposit" class="section-header"><a href="#variant.IdentityCleared.field.deposit" class="anchor field">§</a><code>deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.IdentityKilled" class="variant"><a href="#variant.IdentityKilled" class="anchor">§</a><h3 class="code-header">IdentityKilled</h3></section><div class="sub-variant" id="variant.IdentityKilled.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.IdentityKilled.field.who" class="section-header"><a href="#variant.IdentityKilled.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.IdentityKilled.field.deposit" class="section-header"><a href="#variant.IdentityKilled.field.deposit" class="anchor field">§</a><code>deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.JudgementRequested" class="variant"><a href="#variant.JudgementRequested" class="anchor">§</a><h3 class="code-header">JudgementRequested</h3></section><div class="sub-variant" id="variant.JudgementRequested.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.JudgementRequested.field.who" class="section-header"><a href="#variant.JudgementRequested.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.JudgementRequested.field.registrar_index" class="section-header"><a href="#variant.JudgementRequested.field.registrar_index" class="anchor field">§</a><code>registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.JudgementUnrequested" class="variant"><a href="#variant.JudgementUnrequested" class="anchor">§</a><h3 class="code-header">JudgementUnrequested</h3></section><div class="sub-variant" id="variant.JudgementUnrequested.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.JudgementUnrequested.field.who" class="section-header"><a href="#variant.JudgementUnrequested.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.JudgementUnrequested.field.registrar_index" class="section-header"><a href="#variant.JudgementUnrequested.field.registrar_index" class="anchor field">§</a><code>registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.JudgementGiven" class="variant"><a href="#variant.JudgementGiven" class="anchor">§</a><h3 class="code-header">JudgementGiven</h3></section><div class="sub-variant" id="variant.JudgementGiven.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.JudgementGiven.field.target" class="section-header"><a href="#variant.JudgementGiven.field.target" class="anchor field">§</a><code>target: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.JudgementGiven.field.registrar_index" class="section-header"><a href="#variant.JudgementGiven.field.registrar_index" class="anchor field">§</a><code>registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.RegistrarAdded" class="variant"><a href="#variant.RegistrarAdded" class="anchor">§</a><h3 class="code-header">RegistrarAdded</h3></section><div class="sub-variant" id="variant.RegistrarAdded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.RegistrarAdded.field.registrar_index" class="section-header"><a href="#variant.RegistrarAdded.field.registrar_index" class="anchor field">§</a><code>registrar_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.SubIdentityAdded" class="variant"><a href="#variant.SubIdentityAdded" class="anchor">§</a><h3 class="code-header">SubIdentityAdded</h3></section><div class="sub-variant" id="variant.SubIdentityAdded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubIdentityAdded.field.sub" class="section-header"><a href="#variant.SubIdentityAdded.field.sub" class="anchor field">§</a><code>sub: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityAdded.field.main" class="section-header"><a href="#variant.SubIdentityAdded.field.main" class="anchor field">§</a><code>main: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityAdded.field.deposit" class="section-header"><a href="#variant.SubIdentityAdded.field.deposit" class="anchor field">§</a><code>deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.SubIdentitiesSet" class="variant"><a href="#variant.SubIdentitiesSet" class="anchor">§</a><h3 class="code-header">SubIdentitiesSet</h3></section><div class="sub-variant" id="variant.SubIdentitiesSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubIdentitiesSet.field.main" class="section-header"><a href="#variant.SubIdentitiesSet.field.main" class="anchor field">§</a><code>main: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentitiesSet.field.number_of_subs" class="section-header"><a href="#variant.SubIdentitiesSet.field.number_of_subs" class="anchor field">§</a><code>number_of_subs: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.SubIdentitiesSet.field.new_deposit" class="section-header"><a href="#variant.SubIdentitiesSet.field.new_deposit" class="anchor field">§</a><code>new_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.SubIdentityRenamed" class="variant"><a href="#variant.SubIdentityRenamed" class="anchor">§</a><h3 class="code-header">SubIdentityRenamed</h3></section><div class="sub-variant" id="variant.SubIdentityRenamed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubIdentityRenamed.field.sub" class="section-header"><a href="#variant.SubIdentityRenamed.field.sub" class="anchor field">§</a><code>sub: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityRenamed.field.main" class="section-header"><a href="#variant.SubIdentityRenamed.field.main" class="anchor field">§</a><code>main: AccountId32</code></span></div></div><section id="variant.SubIdentityRemoved" class="variant"><a href="#variant.SubIdentityRemoved" class="anchor">§</a><h3 class="code-header">SubIdentityRemoved</h3></section><div class="sub-variant" id="variant.SubIdentityRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubIdentityRemoved.field.sub" class="section-header"><a href="#variant.SubIdentityRemoved.field.sub" class="anchor field">§</a><code>sub: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityRemoved.field.main" class="section-header"><a href="#variant.SubIdentityRemoved.field.main" class="anchor field">§</a><code>main: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityRemoved.field.deposit" class="section-header"><a href="#variant.SubIdentityRemoved.field.deposit" class="anchor field">§</a><code>deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.SubIdentityRevoked" class="variant"><a href="#variant.SubIdentityRevoked" class="anchor">§</a><h3 class="code-header">SubIdentityRevoked</h3></section><div class="sub-variant" id="variant.SubIdentityRevoked.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SubIdentityRevoked.field.sub" class="section-header"><a href="#variant.SubIdentityRevoked.field.sub" class="anchor field">§</a><code>sub: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityRevoked.field.main" class="section-header"><a href="#variant.SubIdentityRevoked.field.main" class="anchor field">§</a><code>main: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SubIdentityRevoked.field.deposit" class="section-header"><a href="#variant.SubIdentityRevoked.field.deposit" class="anchor field">§</a><code>deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.AuthorityAdded" class="variant"><a href="#variant.AuthorityAdded" class="anchor">§</a><h3 class="code-header">AuthorityAdded</h3></section><div class="sub-variant" id="variant.AuthorityAdded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AuthorityAdded.field.authority" class="section-header"><a href="#variant.AuthorityAdded.field.authority" class="anchor field">§</a><code>authority: AccountId32</code></span></div></div><section id="variant.AuthorityRemoved" class="variant"><a href="#variant.AuthorityRemoved" class="anchor">§</a><h3 class="code-header">AuthorityRemoved</h3></section><div class="sub-variant" id="variant.AuthorityRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.AuthorityRemoved.field.authority" class="section-header"><a href="#variant.AuthorityRemoved.field.authority" class="anchor field">§</a><code>authority: AccountId32</code></span></div></div><section id="variant.UsernameSet" class="variant"><a href="#variant.UsernameSet" class="anchor">§</a><h3 class="code-header">UsernameSet</h3></section><div class="sub-variant" id="variant.UsernameSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UsernameSet.field.who" class="section-header"><a href="#variant.UsernameSet.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.UsernameSet.field.username" class="section-header"><a href="#variant.UsernameSet.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.UsernameQueued" class="variant"><a href="#variant.UsernameQueued" class="anchor">§</a><h3 class="code-header">UsernameQueued</h3></section><div class="sub-variant" id="variant.UsernameQueued.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UsernameQueued.field.who" class="section-header"><a href="#variant.UsernameQueued.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.UsernameQueued.field.username" class="section-header"><a href="#variant.UsernameQueued.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.UsernameQueued.field.expiration" class="section-header"><a href="#variant.UsernameQueued.field.expiration" class="anchor field">§</a><code>expiration: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.PreapprovalExpired" class="variant"><a href="#variant.PreapprovalExpired" class="anchor">§</a><h3 class="code-header">PreapprovalExpired</h3></section><div class="sub-variant" id="variant.PreapprovalExpired.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.PreapprovalExpired.field.whose" class="section-header"><a href="#variant.PreapprovalExpired.field.whose" class="anchor field">§</a><code>whose: AccountId32</code></span></div></div><section id="variant.PrimaryUsernameSet" class="variant"><a href="#variant.PrimaryUsernameSet" class="anchor">§</a><h3 class="code-header">PrimaryUsernameSet</h3></section><div class="sub-variant" id="variant.PrimaryUsernameSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.PrimaryUsernameSet.field.who" class="section-header"><a href="#variant.PrimaryUsernameSet.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.PrimaryUsernameSet.field.username" class="section-header"><a href="#variant.PrimaryUsernameSet.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.DanglingUsernameRemoved" class="variant"><a href="#variant.DanglingUsernameRemoved" class="anchor">§</a><h3 class="code-header">DanglingUsernameRemoved</h3></section><div class="sub-variant" id="variant.DanglingUsernameRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.DanglingUsernameRemoved.field.who" class="section-header"><a href="#variant.DanglingUsernameRemoved.field.who" class="anchor field">§</a><code>who: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.DanglingUsernameRemoved.field.username" class="section-header"><a href="#variant.DanglingUsernameRemoved.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.UsernameUnbound" class="variant"><a href="#variant.UsernameUnbound" class="anchor">§</a><h3 class="code-header">UsernameUnbound</h3></section><div class="sub-variant" id="variant.UsernameUnbound.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UsernameUnbound.field.username" class="section-header"><a href="#variant.UsernameUnbound.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.UsernameRemoved" class="variant"><a href="#variant.UsernameRemoved" class="anchor">§</a><h3 class="code-header">UsernameRemoved</h3></section><div class="sub-variant" id="variant.UsernameRemoved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UsernameRemoved.field.username" class="section-header"><a href="#variant.UsernameRemoved.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.UsernameKilled" class="variant"><a href="#variant.UsernameKilled" class="anchor">§</a><h3 class="code-header">UsernameKilled</h3></section><div class="sub-variant" id="variant.UsernameKilled.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.UsernameKilled.field.username" class="section-header"><a href="#variant.UsernameKilled.field.username" class="anchor field">§</a><code>username: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_identity/pallet/enum.Event.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::identity::Event" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

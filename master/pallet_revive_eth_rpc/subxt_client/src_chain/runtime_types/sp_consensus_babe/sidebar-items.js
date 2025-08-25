@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AllowedSlots"],"mod":["app","digests"],"struct":["BabeConfiguration","BabeEpochConfiguration","Epoch","OpaqueKeyOwnershipProof"]};

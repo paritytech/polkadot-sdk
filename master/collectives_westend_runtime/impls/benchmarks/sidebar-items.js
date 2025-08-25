@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["OpenHrmpChannel","PayWithEnsure","RankToSalary"],"trait":["EnsureSuccessful"]};

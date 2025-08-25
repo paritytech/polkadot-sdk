@@ -1,0 +1,156 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `migrations` mod in crate `frame_support`."><title>frame_support::migrations - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module migrations</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">frame_support</a></div><h1>Module <span>migrations</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/frame_support/migrations.rs.html#18-1207">Source</a> </span></div><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.EnterSafeModeOnFailedMigration.html" title="struct frame_support::migrations::EnterSafeModeOnFailedMigration">Enter<wbr>Safe<wbr>Mode<wbr>OnFailed<wbr>Migration</a></dt><dd>Enter safe mode on a failed runtime upgrade.</dd><dt><a class="struct" href="struct.FreezeChainOnFailedMigration.html" title="struct frame_support::migrations::FreezeChainOnFailedMigration">Freeze<wbr>Chain<wbr>OnFailed<wbr>Migration</a></dt><dd>Do now allow any transactions to be processed after a runtime upgrade failed.</dd><dt><a class="struct" href="struct.MigrationId.html" title="struct frame_support::migrations::MigrationId">Migration<wbr>Id</a></dt><dd>A generic migration identifier that can be used by MBMs.</dd><dt><a class="struct" href="struct.RemovePallet.html" title="struct frame_support::migrations::RemovePallet">Remove<wbr>Pallet</a></dt><dd><code>RemovePallet</code> is a utility struct used to remove all storage items associated with a specific
+pallet.</dd><dt><a class="struct" href="struct.RemoveStorage.html" title="struct frame_support::migrations::RemoveStorage">Remove<wbr>Storage</a></dt><dd><code>RemoveStorage</code> is a utility struct used to remove a storage item from a specific pallet.</dd><dt><a class="struct" href="struct.VersionedMigration.html" title="struct frame_support::migrations::VersionedMigration">Versioned<wbr>Migration</a></dt><dd>Handles storage migration pallet versioning.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.FailedMigrationHandling.html" title="enum frame_support::migrations::FailedMigrationHandling">Failed<wbr>Migration<wbr>Handling</a></dt><dd>How to proceed after a runtime upgrade failed.</dd><dt><a class="enum" href="enum.SteppedMigrationError.html" title="enum frame_support::migrations::SteppedMigrationError">Stepped<wbr>Migration<wbr>Error</a></dt><dd>Error that can occur during a <a href="trait.SteppedMigration.html" title="trait frame_support::migrations::SteppedMigration"><code>SteppedMigration</code></a>.</dd><dt><a class="enum" href="enum.VersionedPostUpgradeData.html" title="enum frame_support::migrations::VersionedPostUpgradeData">Versioned<wbr>Post<wbr>Upgrade<wbr>Data</a></dt><dd>A helper enum to wrap the pre_upgrade bytes like an Option before passing them to post_upgrade.
+This enum is used rather than an Option to make the API clearer to the developer.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.FailedMigrationHandler.html" title="trait frame_support::migrations::FailedMigrationHandler">Failed<wbr>Migration<wbr>Handler</a></dt><dd>Handles a failed runtime migration.</dd><dt><a class="trait" href="trait.MigrationStatusHandler.html" title="trait frame_support::migrations::MigrationStatusHandler">Migration<wbr>Status<wbr>Handler</a></dt><dd>Notification handler for status updates regarding Multi-Block-Migrations.</dd><dt><a class="trait" href="trait.MultiStepMigrator.html" title="trait frame_support::migrations::MultiStepMigrator">Multi<wbr>Step<wbr>Migrator</a></dt><dd>Something that can do multi step migrations.</dd><dt><a class="trait" href="trait.PalletVersionToStorageVersionHelper.html" title="trait frame_support::migrations::PalletVersionToStorageVersionHelper">Pallet<wbr>Version<wbr>ToStorage<wbr>Version<wbr>Helper</a></dt><dd>Trait used by <a href="fn.migrate_from_pallet_version_to_storage_version.html" title="fn frame_support::migrations::migrate_from_pallet_version_to_storage_version"><code>migrate_from_pallet_version_to_storage_version</code></a> to do the actual migration.</dd><dt><a class="trait" href="trait.SteppedMigration.html" title="trait frame_support::migrations::SteppedMigration">Stepped<wbr>Migration</a></dt><dd>A migration that can proceed in multiple steps.</dd><dt><a class="trait" href="trait.SteppedMigrations.html" title="trait frame_support::migrations::SteppedMigrations">Stepped<wbr>Migrations</a></dt><dd>Multiple <a href="trait.SteppedMigration.html" title="trait frame_support::migrations::SteppedMigration"><code>SteppedMigration</code></a>.</dd><dt><a class="trait" href="trait.StoreInCodeStorageVersion.html" title="trait frame_support::migrations::StoreInCodeStorageVersion">Store<wbr>InCode<wbr>Storage<wbr>Version</a></dt><dd>Can store the in-code pallet version on-chain.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.migrate_from_pallet_version_to_storage_version.html" title="fn frame_support::migrations::migrate_from_pallet_version_to_storage_version">migrate_<wbr>from_<wbr>pallet_<wbr>version_<wbr>to_<wbr>storage_<wbr>version</a></dt><dd>Migrate from the <code>PalletVersion</code> struct to the new <a href="../traits/struct.StorageVersion.html" title="struct frame_support::traits::StorageVersion"><code>StorageVersion</code></a> struct.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

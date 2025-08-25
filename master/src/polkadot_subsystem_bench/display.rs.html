@@ -1,0 +1,372 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/display.rs`."><title>display.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_subsystem_bench/</div>display.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Polkadot.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Polkadot is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Polkadot is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="doccomment">//! Display implementations and helper methods for parsing prometheus metrics
+<a href=#18 id=18 data-nosnippet>18</a>//! to a format that can be displayed in the CLI.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! Currently histogram buckets are skipped.
+<a href=#21 id=21 data-nosnippet>21</a>
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">use </span><span class="kw">crate</span>::configuration::TestConfiguration;
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>colored::Colorize;
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>prometheus::{
+<a href=#25 id=25 data-nosnippet>25</a>	proto::{MetricFamily, MetricType},
+<a href=#26 id=26 data-nosnippet>26</a>	Registry,
+<a href=#27 id=27 data-nosnippet>27</a>};
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>std::fmt::Display;
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"subsystem-bench::display"</span>;
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="attr">#[derive(Default, Debug)]
+<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">pub struct </span>MetricCollection(Vec&lt;TestMetric&gt;);
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">impl </span>From&lt;Vec&lt;TestMetric&gt;&gt; <span class="kw">for </span>MetricCollection {
+<a href=#36 id=36 data-nosnippet>36</a>	<span class="kw">fn </span>from(metrics: Vec&lt;TestMetric&gt;) -&gt; <span class="self">Self </span>{
+<a href=#37 id=37 data-nosnippet>37</a>		MetricCollection(metrics)
+<a href=#38 id=38 data-nosnippet>38</a>	}
+<a href=#39 id=39 data-nosnippet>39</a>}
+<a href=#40 id=40 data-nosnippet>40</a>
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">impl </span>MetricCollection {
+<a href=#42 id=42 data-nosnippet>42</a>	<span class="kw">pub fn </span>all(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;TestMetric&gt; {
+<a href=#43 id=43 data-nosnippet>43</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+<a href=#44 id=44 data-nosnippet>44</a>	</span>}
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a>	<span class="doccomment">/// Sums up all metrics with the given name in the collection
+<a href=#47 id=47 data-nosnippet>47</a>	</span><span class="kw">pub fn </span>sum_by(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; f64 {
+<a href=#48 id=48 data-nosnippet>48</a>		<span class="self">self</span>.all()
+<a href=#49 id=49 data-nosnippet>49</a>			.iter()
+<a href=#50 id=50 data-nosnippet>50</a>			.filter(|metric| metric.name == name)
+<a href=#51 id=51 data-nosnippet>51</a>			.map(|metric| metric.value)
+<a href=#52 id=52 data-nosnippet>52</a>			.sum()
+<a href=#53 id=53 data-nosnippet>53</a>	}
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>	<span class="doccomment">/// Tells if entries in bucket metric is lower than `value`
+<a href=#56 id=56 data-nosnippet>56</a>	</span><span class="kw">pub fn </span>metric_lower_than(<span class="kw-2">&amp;</span><span class="self">self</span>, metric_name: <span class="kw-2">&amp;</span>str, value: f64) -&gt; bool {
+<a href=#57 id=57 data-nosnippet>57</a>		<span class="self">self</span>.sum_by(metric_name) &lt; value
+<a href=#58 id=58 data-nosnippet>58</a>	}
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a>	<span class="kw">pub fn </span>subset_with_label_value(<span class="kw-2">&amp;</span><span class="self">self</span>, label_name: <span class="kw-2">&amp;</span>str, label_value: <span class="kw-2">&amp;</span>str) -&gt; MetricCollection {
+<a href=#61 id=61 data-nosnippet>61</a>		<span class="self">self</span>.<span class="number">0
+<a href=#62 id=62 data-nosnippet>62</a>			</span>.iter()
+<a href=#63 id=63 data-nosnippet>63</a>			.filter_map(|metric| {
+<a href=#64 id=64 data-nosnippet>64</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(index) = metric.label_names.iter().position(|label| label == label_name)
+<a href=#65 id=65 data-nosnippet>65</a>				{
+<a href=#66 id=66 data-nosnippet>66</a>					<span class="kw">if </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>String::from(label_value)) == metric.label_values.get(index) {
+<a href=#67 id=67 data-nosnippet>67</a>						<span class="prelude-val">Some</span>(metric.clone())
+<a href=#68 id=68 data-nosnippet>68</a>					} <span class="kw">else </span>{
+<a href=#69 id=69 data-nosnippet>69</a>						<span class="prelude-val">None
+<a href=#70 id=70 data-nosnippet>70</a>					</span>}
+<a href=#71 id=71 data-nosnippet>71</a>				} <span class="kw">else </span>{
+<a href=#72 id=72 data-nosnippet>72</a>					<span class="prelude-val">None
+<a href=#73 id=73 data-nosnippet>73</a>				</span>}
+<a href=#74 id=74 data-nosnippet>74</a>			})
+<a href=#75 id=75 data-nosnippet>75</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#76 id=76 data-nosnippet>76</a>			.into()
+<a href=#77 id=77 data-nosnippet>77</a>	}
+<a href=#78 id=78 data-nosnippet>78</a>}
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">impl </span>Display <span class="kw">for </span>MetricCollection {
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#82 id=82 data-nosnippet>82</a>		<span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
+<a href=#83 id=83 data-nosnippet>83</a>		<span class="kw">let </span>metrics = <span class="self">self</span>.all();
+<a href=#84 id=84 data-nosnippet>84</a>		<span class="kw">for </span>metric <span class="kw">in </span>metrics {
+<a href=#85 id=85 data-nosnippet>85</a>			<span class="macro">writeln!</span>(f, <span class="string">"{metric}"</span>)<span class="question-mark">?</span>;
+<a href=#86 id=86 data-nosnippet>86</a>		}
+<a href=#87 id=87 data-nosnippet>87</a>		<span class="prelude-val">Ok</span>(())
+<a href=#88 id=88 data-nosnippet>88</a>	}
+<a href=#89 id=89 data-nosnippet>89</a>}
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a><span class="attr">#[derive(Debug, Clone)]
+<a href=#92 id=92 data-nosnippet>92</a></span><span class="kw">pub struct </span>TestMetric {
+<a href=#93 id=93 data-nosnippet>93</a>	name: String,
+<a href=#94 id=94 data-nosnippet>94</a>	label_names: Vec&lt;String&gt;,
+<a href=#95 id=95 data-nosnippet>95</a>	label_values: Vec&lt;String&gt;,
+<a href=#96 id=96 data-nosnippet>96</a>	value: f64,
+<a href=#97 id=97 data-nosnippet>97</a>}
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a><span class="kw">impl </span>TestMetric {
+<a href=#100 id=100 data-nosnippet>100</a>	<span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#101 id=101 data-nosnippet>101</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.name
+<a href=#102 id=102 data-nosnippet>102</a>	}
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>	<span class="kw">pub fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; f64 {
+<a href=#105 id=105 data-nosnippet>105</a>		<span class="self">self</span>.value
+<a href=#106 id=106 data-nosnippet>106</a>	}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="kw">pub fn </span>label_value(<span class="kw-2">&amp;</span><span class="self">self</span>, label_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+<a href=#109 id=109 data-nosnippet>109</a>		<span class="self">self</span>.label_names
+<a href=#110 id=110 data-nosnippet>110</a>			.iter()
+<a href=#111 id=111 data-nosnippet>111</a>			.position(|name| name == label_name)
+<a href=#112 id=112 data-nosnippet>112</a>			.and_then(|index| <span class="self">self</span>.label_values.get(index).map(|s| s.as_str()))
+<a href=#113 id=113 data-nosnippet>113</a>	}
+<a href=#114 id=114 data-nosnippet>114</a>}
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a><span class="kw">impl </span>Display <span class="kw">for </span>TestMetric {
+<a href=#117 id=117 data-nosnippet>117</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#118 id=118 data-nosnippet>118</a>		<span class="macro">write!</span>(
+<a href=#119 id=119 data-nosnippet>119</a>			f,
+<a href=#120 id=120 data-nosnippet>120</a>			<span class="string">"({} = {}) [{:?}, {:?}]"</span>,
+<a href=#121 id=121 data-nosnippet>121</a>			<span class="self">self</span>.name.cyan(),
+<a href=#122 id=122 data-nosnippet>122</a>			<span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.value).white(),
+<a href=#123 id=123 data-nosnippet>123</a>			<span class="self">self</span>.label_names,
+<a href=#124 id=124 data-nosnippet>124</a>			<span class="self">self</span>.label_values
+<a href=#125 id=125 data-nosnippet>125</a>		)
+<a href=#126 id=126 data-nosnippet>126</a>	}
+<a href=#127 id=127 data-nosnippet>127</a>}
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a><span class="comment">// Returns `false` if metric should be skipped.
+<a href=#130 id=130 data-nosnippet>130</a></span><span class="kw">fn </span>check_metric_family(mf: <span class="kw-2">&amp;</span>MetricFamily) -&gt; bool {
+<a href=#131 id=131 data-nosnippet>131</a>	<span class="kw">if </span>mf.get_metric().is_empty() {
+<a href=#132 id=132 data-nosnippet>132</a>		<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">"MetricFamily has no metrics: {:?}"</span>, mf);
+<a href=#133 id=133 data-nosnippet>133</a>		<span class="kw">return </span><span class="bool-val">false
+<a href=#134 id=134 data-nosnippet>134</a>	</span>}
+<a href=#135 id=135 data-nosnippet>135</a>	<span class="kw">if </span>mf.get_name().is_empty() {
+<a href=#136 id=136 data-nosnippet>136</a>		<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">"MetricFamily has no name: {:?}"</span>, mf);
+<a href=#137 id=137 data-nosnippet>137</a>		<span class="kw">return </span><span class="bool-val">false
+<a href=#138 id=138 data-nosnippet>138</a>	</span>}
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="bool-val">true
+<a href=#141 id=141 data-nosnippet>141</a></span>}
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a><span class="kw">pub fn </span>parse_metrics(registry: <span class="kw-2">&amp;</span>Registry) -&gt; MetricCollection {
+<a href=#144 id=144 data-nosnippet>144</a>	<span class="kw">let </span>metric_families = registry.gather();
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="kw">let </span><span class="kw-2">mut </span>test_metrics = Vec::new();
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="kw">for </span>mf <span class="kw">in </span>metric_families {
+<a href=#147 id=147 data-nosnippet>147</a>		<span class="kw">if </span>!check_metric_family(<span class="kw-2">&amp;</span>mf) {
+<a href=#148 id=148 data-nosnippet>148</a>			<span class="kw">continue
+<a href=#149 id=149 data-nosnippet>149</a>		</span>}
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>		<span class="kw">let </span>name: String = mf.get_name().into();
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">let </span>metric_type = mf.get_field_type();
+<a href=#153 id=153 data-nosnippet>153</a>		<span class="kw">for </span>m <span class="kw">in </span>mf.get_metric() {
+<a href=#154 id=154 data-nosnippet>154</a>			<span class="kw">let </span>(label_names, label_values): (Vec&lt;String&gt;, Vec&lt;String&gt;) = m
+<a href=#155 id=155 data-nosnippet>155</a>				.get_label()
+<a href=#156 id=156 data-nosnippet>156</a>				.iter()
+<a href=#157 id=157 data-nosnippet>157</a>				.map(|pair| (String::from(pair.get_name()), String::from(pair.get_value())))
+<a href=#158 id=158 data-nosnippet>158</a>				.unzip();
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>			<span class="kw">match </span>metric_type {
+<a href=#161 id=161 data-nosnippet>161</a>				MetricType::COUNTER =&gt; {
+<a href=#162 id=162 data-nosnippet>162</a>					test_metrics.push(TestMetric {
+<a href=#163 id=163 data-nosnippet>163</a>						name: name.clone(),
+<a href=#164 id=164 data-nosnippet>164</a>						label_names,
+<a href=#165 id=165 data-nosnippet>165</a>						label_values,
+<a href=#166 id=166 data-nosnippet>166</a>						value: m.get_counter().get_value(),
+<a href=#167 id=167 data-nosnippet>167</a>					});
+<a href=#168 id=168 data-nosnippet>168</a>				},
+<a href=#169 id=169 data-nosnippet>169</a>				MetricType::GAUGE =&gt; {
+<a href=#170 id=170 data-nosnippet>170</a>					test_metrics.push(TestMetric {
+<a href=#171 id=171 data-nosnippet>171</a>						name: name.clone(),
+<a href=#172 id=172 data-nosnippet>172</a>						label_names,
+<a href=#173 id=173 data-nosnippet>173</a>						label_values,
+<a href=#174 id=174 data-nosnippet>174</a>						value: m.get_gauge().get_value(),
+<a href=#175 id=175 data-nosnippet>175</a>					});
+<a href=#176 id=176 data-nosnippet>176</a>				},
+<a href=#177 id=177 data-nosnippet>177</a>				MetricType::HISTOGRAM =&gt; {
+<a href=#178 id=178 data-nosnippet>178</a>					<span class="kw">let </span>h = m.get_histogram();
+<a href=#179 id=179 data-nosnippet>179</a>					<span class="kw">let </span>h_name = name.clone() + <span class="string">"_sum"</span>;
+<a href=#180 id=180 data-nosnippet>180</a>					test_metrics.push(TestMetric {
+<a href=#181 id=181 data-nosnippet>181</a>						name: h_name,
+<a href=#182 id=182 data-nosnippet>182</a>						label_names: label_names.clone(),
+<a href=#183 id=183 data-nosnippet>183</a>						label_values: label_values.clone(),
+<a href=#184 id=184 data-nosnippet>184</a>						value: h.get_sample_sum(),
+<a href=#185 id=185 data-nosnippet>185</a>					});
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a>					<span class="kw">let </span>h_name = name.clone() + <span class="string">"_count"</span>;
+<a href=#188 id=188 data-nosnippet>188</a>					test_metrics.push(TestMetric {
+<a href=#189 id=189 data-nosnippet>189</a>						name: h_name,
+<a href=#190 id=190 data-nosnippet>190</a>						label_names,
+<a href=#191 id=191 data-nosnippet>191</a>						label_values,
+<a href=#192 id=192 data-nosnippet>192</a>						value: h.get_sample_count() <span class="kw">as </span>f64,
+<a href=#193 id=193 data-nosnippet>193</a>					});
+<a href=#194 id=194 data-nosnippet>194</a>				},
+<a href=#195 id=195 data-nosnippet>195</a>				MetricType::SUMMARY =&gt; {
+<a href=#196 id=196 data-nosnippet>196</a>					<span class="macro">unimplemented!</span>();
+<a href=#197 id=197 data-nosnippet>197</a>				},
+<a href=#198 id=198 data-nosnippet>198</a>				MetricType::UNTYPED =&gt; {
+<a href=#199 id=199 data-nosnippet>199</a>					<span class="macro">unimplemented!</span>();
+<a href=#200 id=200 data-nosnippet>200</a>				},
+<a href=#201 id=201 data-nosnippet>201</a>			}
+<a href=#202 id=202 data-nosnippet>202</a>		}
+<a href=#203 id=203 data-nosnippet>203</a>	}
+<a href=#204 id=204 data-nosnippet>204</a>	test_metrics.into()
+<a href=#205 id=205 data-nosnippet>205</a>}
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a><span class="kw">impl </span>Display <span class="kw">for </span>TestConfiguration {
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#209 id=209 data-nosnippet>209</a>		<span class="macro">write!</span>(
+<a href=#210 id=210 data-nosnippet>210</a>			f,
+<a href=#211 id=211 data-nosnippet>211</a>			<span class="string">"{}, {}, {}, {}, {}"</span>,
+<a href=#212 id=212 data-nosnippet>212</a>			<span class="macro">format!</span>(<span class="string">"n_validators = {}"</span>, <span class="self">self</span>.n_validators).blue(),
+<a href=#213 id=213 data-nosnippet>213</a>			<span class="macro">format!</span>(<span class="string">"n_cores = {}"</span>, <span class="self">self</span>.n_cores).blue(),
+<a href=#214 id=214 data-nosnippet>214</a>			<span class="macro">format!</span>(<span class="string">"pov_size = {} - {}"</span>, <span class="self">self</span>.min_pov_size, <span class="self">self</span>.max_pov_size).bright_black(),
+<a href=#215 id=215 data-nosnippet>215</a>			<span class="macro">format!</span>(<span class="string">"connectivity = {}"</span>, <span class="self">self</span>.connectivity).bright_black(),
+<a href=#216 id=216 data-nosnippet>216</a>			<span class="macro">format!</span>(<span class="string">"latency = {:?}"</span>, <span class="self">self</span>.latency).bright_black(),
+<a href=#217 id=217 data-nosnippet>217</a>		)
+<a href=#218 id=218 data-nosnippet>218</a>	}
+<a href=#219 id=219 data-nosnippet>219</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

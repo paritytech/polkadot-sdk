@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["sc_rpc",[["impl&lt;Block, Client&gt; <a class=\"trait\" href=\"sc_rpc/chain/trait.ChainApiServer.html\" title=\"trait sc_rpc::chain::ChainApiServer\">ChainApiServer</a>&lt;&lt;&lt;Block as Block&gt;::Header as Header&gt;::Number, &lt;Block as Block&gt;::Hash, &lt;Block as Block&gt;::Header, SignedBlock&lt;Block&gt;&gt; for <a class=\"struct\" href=\"sc_rpc/chain/struct.Chain.html\" title=\"struct sc_rpc::chain::Chain\">Chain</a>&lt;Block, Client&gt;<div class=\"where\">where\n    Block: BlockT + 'static,\n    Block::Header: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/marker/trait.Unpin.html\" title=\"trait core::marker::Unpin\">Unpin</a>,\n    Client: HeaderBackend&lt;Block&gt; + BlockchainEvents&lt;Block&gt; + 'static,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[761]}

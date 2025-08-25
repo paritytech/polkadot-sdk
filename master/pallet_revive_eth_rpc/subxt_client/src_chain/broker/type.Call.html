@@ -1,0 +1,253 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.assign" title="assign">assign</a></li><li><a href="#variant.claim_revenue" title="claim_revenue">claim_revenue</a></li><li><a href="#variant.configure" title="configure">configure</a></li><li><a href="#variant.disable_auto_renew" title="disable_auto_renew">disable_auto_renew</a></li><li><a href="#variant.drop_contribution" title="drop_contribution">drop_contribution</a></li><li><a href="#variant.drop_history" title="drop_history">drop_history</a></li><li><a href="#variant.drop_region" title="drop_region">drop_region</a></li><li><a href="#variant.drop_renewal" title="drop_renewal">drop_renewal</a></li><li><a href="#variant.enable_auto_renew" title="enable_auto_renew">enable_auto_renew</a></li><li><a href="#variant.force_reserve" title="force_reserve">force_reserve</a></li><li><a href="#variant.interlace" title="interlace">interlace</a></li><li><a href="#variant.notify_core_count" title="notify_core_count">notify_core_count</a></li><li><a href="#variant.notify_revenue" title="notify_revenue">notify_revenue</a></li><li><a href="#variant.partition" title="partition">partition</a></li><li><a href="#variant.pool" title="pool">pool</a></li><li><a href="#variant.purchase" title="purchase">purchase</a></li><li><a href="#variant.purchase_credit" title="purchase_credit">purchase_credit</a></li><li><a href="#variant.remove_assignment" title="remove_assignment">remove_assignment</a></li><li><a href="#variant.remove_lease" title="remove_lease">remove_lease</a></li><li><a href="#variant.renew" title="renew">renew</a></li><li><a href="#variant.request_core_count" title="request_core_count">request_core_count</a></li><li><a href="#variant.reserve" title="reserve">reserve</a></li><li><a href="#variant.set_lease" title="set_lease">set_lease</a></li><li><a href="#variant.start_sales" title="start_sales">start_sales</a></li><li><a href="#variant.swap_leases" title="swap_leases">swap_leases</a></li><li><a href="#variant.transfer" title="transfer">transfer</a></li><li><a href="#variant.unreserve" title="unreserve">unreserve</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>broker</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">broker</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/pallet_broker/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 27 variants</span></summary>    configure {
+        config: <a class="struct" href="../runtime_types/pallet_broker/types/struct.ConfigRecord.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ConfigRecord">ConfigRecord</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    reserve {
+        workload: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="struct" href="../runtime_types/pallet_broker/types/struct.ScheduleItem.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ScheduleItem">ScheduleItem</a>&gt;,
+    },
+    unreserve {
+        item_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_lease {
+        task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        until: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    start_sales {
+        end_price: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        extra_cores: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    },
+    purchase {
+        price_limit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    renew {
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    },
+    transfer {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        new_owner: AccountId32,
+    },
+    partition {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        pivot: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    interlace {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        pivot: <a class="struct" href="../runtime_types/pallet_broker/core_mask/struct.CoreMask.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::core_mask::CoreMask">CoreMask</a>,
+    },
+    assign {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        finality: <a class="enum" href="../runtime_types/pallet_broker/types/enum.Finality.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::Finality">Finality</a>,
+    },
+    pool {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        payee: AccountId32,
+        finality: <a class="enum" href="../runtime_types/pallet_broker/types/enum.Finality.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::Finality">Finality</a>,
+    },
+    claim_revenue {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+        max_timeslices: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    purchase_credit {
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        beneficiary: AccountId32,
+    },
+    drop_region {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+    },
+    drop_contribution {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+    },
+    drop_history {
+        when: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    drop_renewal {
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+        when: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    request_core_count {
+        core_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    },
+    notify_core_count {
+        core_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    },
+    notify_revenue {
+        revenue: <a class="struct" href="../runtime_types/pallet_broker/types/struct.OnDemandRevenueRecord.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::OnDemandRevenueRecord">OnDemandRevenueRecord</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    enable_auto_renew {
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+        task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        workload_end_hint: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    disable_auto_renew {
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+        task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    force_reserve {
+        workload: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="struct" href="../runtime_types/pallet_broker/types/struct.ScheduleItem.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ScheduleItem">ScheduleItem</a>&gt;,
+        core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a>,
+    },
+    remove_lease {
+        task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    remove_assignment {
+        region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a>,
+    },
+    swap_leases {
+        id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        other: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.configure" class="variant"><a href="#variant.configure" class="anchor">§</a><h3 class="code-header">configure</h3></section><div class="sub-variant" id="variant.configure.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.configure.field.config" class="section-header"><a href="#variant.configure.field.config" class="anchor field">§</a><code>config: <a class="struct" href="../runtime_types/pallet_broker/types/struct.ConfigRecord.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ConfigRecord">ConfigRecord</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.reserve" class="variant"><a href="#variant.reserve" class="anchor">§</a><h3 class="code-header">reserve</h3></section><div class="sub-variant" id="variant.reserve.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.reserve.field.workload" class="section-header"><a href="#variant.reserve.field.workload" class="anchor field">§</a><code>workload: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="struct" href="../runtime_types/pallet_broker/types/struct.ScheduleItem.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ScheduleItem">ScheduleItem</a>&gt;</code></span></div></div><section id="variant.unreserve" class="variant"><a href="#variant.unreserve" class="anchor">§</a><h3 class="code-header">unreserve</h3></section><div class="sub-variant" id="variant.unreserve.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.unreserve.field.item_index" class="section-header"><a href="#variant.unreserve.field.item_index" class="anchor field">§</a><code>item_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_lease" class="variant"><a href="#variant.set_lease" class="anchor">§</a><h3 class="code-header">set_lease</h3></section><div class="sub-variant" id="variant.set_lease.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_lease.field.task" class="section-header"><a href="#variant.set_lease.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_lease.field.until" class="section-header"><a href="#variant.set_lease.field.until" class="anchor field">§</a><code>until: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.start_sales" class="variant"><a href="#variant.start_sales" class="anchor">§</a><h3 class="code-header">start_sales</h3></section><div class="sub-variant" id="variant.start_sales.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.start_sales.field.end_price" class="section-header"><a href="#variant.start_sales.field.end_price" class="anchor field">§</a><code>end_price: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.start_sales.field.extra_cores" class="section-header"><a href="#variant.start_sales.field.extra_cores" class="anchor field">§</a><code>extra_cores: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div></div><section id="variant.purchase" class="variant"><a href="#variant.purchase" class="anchor">§</a><h3 class="code-header">purchase</h3></section><div class="sub-variant" id="variant.purchase.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.purchase.field.price_limit" class="section-header"><a href="#variant.purchase.field.price_limit" class="anchor field">§</a><code>price_limit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.renew" class="variant"><a href="#variant.renew" class="anchor">§</a><h3 class="code-header">renew</h3></section><div class="sub-variant" id="variant.renew.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.renew.field.core" class="section-header"><a href="#variant.renew.field.core" class="anchor field">§</a><code>core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div></div><section id="variant.transfer" class="variant"><a href="#variant.transfer" class="anchor">§</a><h3 class="code-header">transfer</h3></section><div class="sub-variant" id="variant.transfer.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.transfer.field.region_id" class="section-header"><a href="#variant.transfer.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.transfer.field.new_owner" class="section-header"><a href="#variant.transfer.field.new_owner" class="anchor field">§</a><code>new_owner: AccountId32</code></span></div></div><section id="variant.partition" class="variant"><a href="#variant.partition" class="anchor">§</a><h3 class="code-header">partition</h3></section><div class="sub-variant" id="variant.partition.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.partition.field.region_id" class="section-header"><a href="#variant.partition.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.partition.field.pivot" class="section-header"><a href="#variant.partition.field.pivot" class="anchor field">§</a><code>pivot: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.interlace" class="variant"><a href="#variant.interlace" class="anchor">§</a><h3 class="code-header">interlace</h3></section><div class="sub-variant" id="variant.interlace.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.interlace.field.region_id" class="section-header"><a href="#variant.interlace.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.interlace.field.pivot" class="section-header"><a href="#variant.interlace.field.pivot" class="anchor field">§</a><code>pivot: <a class="struct" href="../runtime_types/pallet_broker/core_mask/struct.CoreMask.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::core_mask::CoreMask">CoreMask</a></code></span></div></div><section id="variant.assign" class="variant"><a href="#variant.assign" class="anchor">§</a><h3 class="code-header">assign</h3></section><div class="sub-variant" id="variant.assign.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.assign.field.region_id" class="section-header"><a href="#variant.assign.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.assign.field.task" class="section-header"><a href="#variant.assign.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.assign.field.finality" class="section-header"><a href="#variant.assign.field.finality" class="anchor field">§</a><code>finality: <a class="enum" href="../runtime_types/pallet_broker/types/enum.Finality.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::Finality">Finality</a></code></span></div></div><section id="variant.pool" class="variant"><a href="#variant.pool" class="anchor">§</a><h3 class="code-header">pool</h3></section><div class="sub-variant" id="variant.pool.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.pool.field.region_id" class="section-header"><a href="#variant.pool.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.pool.field.payee" class="section-header"><a href="#variant.pool.field.payee" class="anchor field">§</a><code>payee: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.pool.field.finality" class="section-header"><a href="#variant.pool.field.finality" class="anchor field">§</a><code>finality: <a class="enum" href="../runtime_types/pallet_broker/types/enum.Finality.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::Finality">Finality</a></code></span></div></div><section id="variant.claim_revenue" class="variant"><a href="#variant.claim_revenue" class="anchor">§</a><h3 class="code-header">claim_revenue</h3></section><div class="sub-variant" id="variant.claim_revenue.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.claim_revenue.field.region_id" class="section-header"><a href="#variant.claim_revenue.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.claim_revenue.field.max_timeslices" class="section-header"><a href="#variant.claim_revenue.field.max_timeslices" class="anchor field">§</a><code>max_timeslices: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.purchase_credit" class="variant"><a href="#variant.purchase_credit" class="anchor">§</a><h3 class="code-header">purchase_credit</h3></section><div class="sub-variant" id="variant.purchase_credit.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.purchase_credit.field.amount" class="section-header"><a href="#variant.purchase_credit.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.purchase_credit.field.beneficiary" class="section-header"><a href="#variant.purchase_credit.field.beneficiary" class="anchor field">§</a><code>beneficiary: AccountId32</code></span></div></div><section id="variant.drop_region" class="variant"><a href="#variant.drop_region" class="anchor">§</a><h3 class="code-header">drop_region</h3></section><div class="sub-variant" id="variant.drop_region.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.drop_region.field.region_id" class="section-header"><a href="#variant.drop_region.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div></div><section id="variant.drop_contribution" class="variant"><a href="#variant.drop_contribution" class="anchor">§</a><h3 class="code-header">drop_contribution</h3></section><div class="sub-variant" id="variant.drop_contribution.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.drop_contribution.field.region_id" class="section-header"><a href="#variant.drop_contribution.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div></div><section id="variant.drop_history" class="variant"><a href="#variant.drop_history" class="anchor">§</a><h3 class="code-header">drop_history</h3></section><div class="sub-variant" id="variant.drop_history.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.drop_history.field.when" class="section-header"><a href="#variant.drop_history.field.when" class="anchor field">§</a><code>when: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.drop_renewal" class="variant"><a href="#variant.drop_renewal" class="anchor">§</a><h3 class="code-header">drop_renewal</h3></section><div class="sub-variant" id="variant.drop_renewal.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.drop_renewal.field.core" class="section-header"><a href="#variant.drop_renewal.field.core" class="anchor field">§</a><code>core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div><div class="sub-variant-field"><span id="variant.drop_renewal.field.when" class="section-header"><a href="#variant.drop_renewal.field.when" class="anchor field">§</a><code>when: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.request_core_count" class="variant"><a href="#variant.request_core_count" class="anchor">§</a><h3 class="code-header">request_core_count</h3></section><div class="sub-variant" id="variant.request_core_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.request_core_count.field.core_count" class="section-header"><a href="#variant.request_core_count.field.core_count" class="anchor field">§</a><code>core_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div></div><section id="variant.notify_core_count" class="variant"><a href="#variant.notify_core_count" class="anchor">§</a><h3 class="code-header">notify_core_count</h3></section><div class="sub-variant" id="variant.notify_core_count.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.notify_core_count.field.core_count" class="section-header"><a href="#variant.notify_core_count.field.core_count" class="anchor field">§</a><code>core_count: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div></div><section id="variant.notify_revenue" class="variant"><a href="#variant.notify_revenue" class="anchor">§</a><h3 class="code-header">notify_revenue</h3></section><div class="sub-variant" id="variant.notify_revenue.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.notify_revenue.field.revenue" class="section-header"><a href="#variant.notify_revenue.field.revenue" class="anchor field">§</a><code>revenue: <a class="struct" href="../runtime_types/pallet_broker/types/struct.OnDemandRevenueRecord.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::OnDemandRevenueRecord">OnDemandRevenueRecord</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.enable_auto_renew" class="variant"><a href="#variant.enable_auto_renew" class="anchor">§</a><h3 class="code-header">enable_auto_renew</h3></section><div class="sub-variant" id="variant.enable_auto_renew.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.enable_auto_renew.field.core" class="section-header"><a href="#variant.enable_auto_renew.field.core" class="anchor field">§</a><code>core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div><div class="sub-variant-field"><span id="variant.enable_auto_renew.field.task" class="section-header"><a href="#variant.enable_auto_renew.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.enable_auto_renew.field.workload_end_hint" class="section-header"><a href="#variant.enable_auto_renew.field.workload_end_hint" class="anchor field">§</a><code>workload_end_hint: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.disable_auto_renew" class="variant"><a href="#variant.disable_auto_renew" class="anchor">§</a><h3 class="code-header">disable_auto_renew</h3></section><div class="sub-variant" id="variant.disable_auto_renew.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.disable_auto_renew.field.core" class="section-header"><a href="#variant.disable_auto_renew.field.core" class="anchor field">§</a><code>core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div><div class="sub-variant-field"><span id="variant.disable_auto_renew.field.task" class="section-header"><a href="#variant.disable_auto_renew.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.force_reserve" class="variant"><a href="#variant.force_reserve" class="anchor">§</a><h3 class="code-header">force_reserve</h3></section><div class="sub-variant" id="variant.force_reserve.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.force_reserve.field.workload" class="section-header"><a href="#variant.force_reserve.field.workload" class="anchor field">§</a><code>workload: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="struct" href="../runtime_types/pallet_broker/types/struct.ScheduleItem.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::ScheduleItem">ScheduleItem</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_reserve.field.core" class="section-header"><a href="#variant.force_reserve.field.core" class="anchor field">§</a><code>core: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u16.html">u16</a></code></span></div></div><section id="variant.remove_lease" class="variant"><a href="#variant.remove_lease" class="anchor">§</a><h3 class="code-header">remove_lease</h3></section><div class="sub-variant" id="variant.remove_lease.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remove_lease.field.task" class="section-header"><a href="#variant.remove_lease.field.task" class="anchor field">§</a><code>task: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.remove_assignment" class="variant"><a href="#variant.remove_assignment" class="anchor">§</a><h3 class="code-header">remove_assignment</h3></section><div class="sub-variant" id="variant.remove_assignment.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.remove_assignment.field.region_id" class="section-header"><a href="#variant.remove_assignment.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../runtime_types/pallet_broker/types/struct.RegionId.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::types::RegionId">RegionId</a></code></span></div></div><section id="variant.swap_leases" class="variant"><a href="#variant.swap_leases" class="anchor">§</a><h3 class="code-header">swap_leases</h3></section><div class="sub-variant" id="variant.swap_leases.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.swap_leases.field.id" class="section-header"><a href="#variant.swap_leases.field.id" class="anchor field">§</a><code>id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.swap_leases.field.other" class="section-header"><a href="#variant.swap_leases.field.other" class="anchor field">§</a><code>other: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_broker/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::broker::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

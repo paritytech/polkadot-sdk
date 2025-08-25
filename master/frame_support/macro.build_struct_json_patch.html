@@ -1,0 +1,248 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Creates a JSON patch for given `struct_type`, supporting recursive field initialization."><title>build_struct_json_patch in frame_support - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_<wbr>support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">build_<wbr>struct_<wbr>json_<wbr>patch</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#example" title="Example">Example</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate frame_<wbr>support</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">frame_support</a></div><h1>Macro <span class="macro">build_struct_json_patch</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/frame_support/generate_genesis_config.rs.html#218-369">Source</a> </span></div><pre class="rust item-decl"><code>macro_rules! build_struct_json_patch {
+    (
+		$($struct_type:ident)::+ { $($body:tt)* }
+	) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ { $($body:tt)* }) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* } ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident:  $($type:ident)::+ { $($body:tt)* },  $($tail:tt)*) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr, $($tail:tt)* ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident: $value:expr ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident, $($tail:tt)* ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ $key:ident ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident @ ..$update:expr ) =&gt; { ... };
+    ($($struct_type:ident)::+, $all_keys:ident  @ $(,)?) =&gt; { ... };
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a JSON patch for given <code>struct_type</code>, supporting recursive field initialization.</p>
+<p>This macro creates a default <code>struct_type</code>, initializing specified fields (which can be nested)
+with the provided values. Any fields not explicitly given are initialized with their default
+values. The macro then serializes the fully initialized structure into a JSON blob, retaining
+only the fields that were explicitly provided, either partially or fully initialized.</p>
+<p>Using this macro prevents errors from manually creating JSON objects, such as typos or
+inconsistencies with the <code>struct_type</code> structure, by relying on the actual
+struct definition. This ensures the generated JSON is valid and reflects any future changes
+to the structure.</p>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>frame_support::build_struct_json_patch;
+<span class="attr">#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+</span><span class="kw">struct </span>RuntimeGenesisConfig {
+    a_field: u32,
+    b_field: B,
+    c_field: u32,
+}
+
+<span class="attr">#[derive(Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+</span><span class="kw">struct </span>B {
+	i_field: u32,
+	j_field: u32,
+}
+<span class="kw">impl </span>B {
+	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+		<span class="self">Self </span>{ i_field: <span class="number">0</span>, j_field: <span class="number">2 </span>}
+	}
+}
+
+<span class="macro">assert_eq!</span>(
+	<span class="macro">build_struct_json_patch!</span> ( RuntimeGenesisConfig {
+		a_field: <span class="number">66</span>,
+	}),
+	<span class="macro">serde_json::json!</span>({
+			<span class="string">"aField"</span>: <span class="number">66</span>,
+	})
+);
+
+<span class="macro">assert_eq!</span>(
+	<span class="macro">build_struct_json_patch!</span> ( RuntimeGenesisConfig {
+		<span class="comment">//"partial" initialization of `b_field`
+		</span>b_field: B {
+			i_field: <span class="number">2</span>,
+		}
+	}),
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">"bField"</span>: {<span class="string">"iField"</span>: <span class="number">2</span>}
+	})
+);
+
+<span class="macro">assert_eq!</span>(
+	<span class="macro">build_struct_json_patch!</span> ( RuntimeGenesisConfig {
+		a_field: <span class="number">66</span>,
+		<span class="comment">//"full" initialization of `b_field`
+		</span>b_field: B::new()
+	}),
+	<span class="macro">serde_json::json!</span>({
+		<span class="string">"aField"</span>: <span class="number">66</span>,
+		<span class="string">"bField"</span>: {<span class="string">"iField"</span>: <span class="number">0</span>, <span class="string">"jField"</span>: <span class="number">2</span>}
+	})
+);</code></pre></div>
+<p>In this example:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>	<span class="macro">build_struct_json_patch!</span> ( RuntimeGenesisConfig {
+		b_field: B {
+			i_field: <span class="number">2</span>,
+		}
+	}),</code></pre></div>
+<p><code>b_field</code> is partially initialized, it will be expanded to:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>RuntimeGenesisConfig {
+		b_field {
+			i_field: <span class="number">2</span>,
+			..Default::default()
+		},
+		..Default::default()
+}</code></pre></div>
+<p>While all other fields are initialized with default values. The macro serializes this, retaining
+only the provided fields.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

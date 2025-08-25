@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["SubmissionMetadata"],"trait":["CalculateBaseDeposit","CalculatePageDeposit"]};

@@ -1,0 +1,169 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The main prelude of FRAME."><title>polkadot_sdk_frame::prelude - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../polkadot_sdk_frame/index.html">polkadot_<wbr>sdk_<wbr>frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module prelude</a></h2><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate polkadot_<wbr>sdk_<wbr>frame</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">polkadot_sdk_frame</a></div><h1>Module <span>prelude</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/polkadot_sdk_frame/lib.rs.html#173">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The main prelude of FRAME.</p>
+<p>This prelude should almost always be the first line of code in any pallet or runtime.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>polkadot_sdk_frame::prelude::<span class="kw-2">*</span>;
+
+<span class="comment">// rest of your pallet..
+</span><span class="kw">mod </span>pallet {}</code></pre></div>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.GetDispatchInfo"><code>pub use frame_support::dispatch::GetDispatchInfo;</code></dt><dt id="reexport.PostDispatchInfo"><code>pub use frame_support::dispatch::PostDispatchInfo;</code></dt><dt id="reexport.AccountIdConversion"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.AccountIdConversion.html" title="trait polkadot_sdk_frame::traits::AccountIdConversion">AccountIdConversion</a>;</code></dt><dt id="reexport.BlockNumberProvider"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.BlockNumberProvider.html" title="trait polkadot_sdk_frame::traits::BlockNumberProvider">BlockNumberProvider</a>;</code></dt><dt id="reexport.Bounded"><code>pub use sp_runtime::traits::<a class="trait" href="../arithmetic/trait.Bounded.html" title="trait polkadot_sdk_frame::arithmetic::Bounded">Bounded</a>;</code></dt><dt id="reexport.Convert"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.Convert.html" title="trait polkadot_sdk_frame::traits::Convert">Convert</a>;</code></dt><dt id="reexport.ConvertBack"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.ConvertBack.html" title="trait polkadot_sdk_frame::traits::ConvertBack">ConvertBack</a>;</code></dt><dt id="reexport.DispatchInfoOf"><code>pub use sp_runtime::traits::<a class="type" href="../traits/type.DispatchInfoOf.html" title="type polkadot_sdk_frame::traits::DispatchInfoOf">DispatchInfoOf</a>;</code></dt><dt id="reexport.Dispatchable"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.Dispatchable.html" title="trait polkadot_sdk_frame::traits::Dispatchable">Dispatchable</a>;</code></dt><dt id="reexport.ReduceBy"><code>pub use sp_runtime::traits::<a class="struct" href="../traits/struct.ReduceBy.html" title="struct polkadot_sdk_frame::traits::ReduceBy">ReduceBy</a>;</code></dt><dt id="reexport.ReplaceWithDefault"><code>pub use sp_runtime::traits::<a class="struct" href="../traits/struct.ReplaceWithDefault.html" title="struct polkadot_sdk_frame::traits::ReplaceWithDefault">ReplaceWithDefault</a>;</code></dt><dt id="reexport.SaturatedConversion"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.SaturatedConversion.html" title="trait polkadot_sdk_frame::traits::SaturatedConversion">SaturatedConversion</a>;</code></dt><dt id="reexport.Saturating"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.Saturating.html" title="trait polkadot_sdk_frame::traits::Saturating">Saturating</a>;</code></dt><dt id="reexport.StaticLookup"><code>pub use sp_runtime::traits::<a class="trait" href="../traits/trait.StaticLookup.html" title="trait polkadot_sdk_frame::traits::StaticLookup">StaticLookup</a>;</code></dt><dt id="reexport.TrailingZeroInput"><code>pub use sp_runtime::traits::<a class="struct" href="../traits/struct.TrailingZeroInput.html" title="struct polkadot_sdk_frame::traits::TrailingZeroInput">TrailingZeroInput</a>;</code></dt><dt id="reexport.BoundToRuntimeAppPublic"><code>pub use sp_runtime::BoundToRuntimeAppPublic;</code></dt><dt id="reexport.DispatchErrorWithPostInfo"><code>pub use sp_runtime::DispatchErrorWithPostInfo;</code></dt><dt id="reexport.DispatchResultWithInfo"><code>pub use sp_runtime::DispatchResultWithInfo;</code></dt><dt id="reexport.TokenError"><code>pub use sp_runtime::TokenError;</code></dt><dt><code>pub use frame_support::pallet_prelude::*;</code></dt><dt><code>pub use frame_system::<a class="mod" href="frame_system/pallet_prelude/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::pallet_prelude">pallet_prelude</a>::*;</code></dt><dt><code>pub use frame_system::<a class="mod" href="frame_system/offchain/index.html" title="mod polkadot_sdk_frame::prelude::frame_system::offchain">offchain</a>::*;</code></dt><dt><code>pub use super::<a class="mod" href="../derive/index.html" title="mod polkadot_sdk_frame::derive">derive</a>::*;</code></dt><dt><code>pub use super::<a class="mod" href="../hashing/index.html" title="mod polkadot_sdk_frame::hashing">hashing</a>::*;</code></dt><dt><code>pub use crate::<a class="mod" href="../transaction/index.html" title="mod polkadot_sdk_frame::transaction">transaction</a>::*;</code></dt><dt><code>pub use super::<a class="mod" href="../account/index.html" title="mod polkadot_sdk_frame::account">account</a>::*;</code></dt><dt><code>pub use super::<a class="mod" href="../arithmetic/index.html" title="mod polkadot_sdk_frame::arithmetic">arithmetic</a>::*;</code></dt><dt><code>pub use super::<a class="mod" href="../token/index.html" title="mod polkadot_sdk_frame::token">token</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="frame_system/index.html" title="mod polkadot_sdk_frame::prelude::frame_system">frame_<wbr>system</a></dt><dd><code>frame_system</code>’s parent crate, which is mandatory in all pallets build with this crate.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.defensive.html" title="macro polkadot_sdk_frame::prelude::defensive">defensive</a></dt><dd>Generic function to mark an execution path as ONLY defensive.</dd><dt><a class="macro" href="macro.defensive_assert.html" title="macro polkadot_sdk_frame::prelude::defensive_assert">defensive_<wbr>assert</a></dt><dd>Trigger a defensive failure if a condition is not met.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BoundedSlice.html" title="struct polkadot_sdk_frame::prelude::BoundedSlice">Bounded<wbr>Slice</a></dt><dd>Bounded storage related types.
+A bounded slice.</dd><dt><a class="struct" href="struct.BoundedVec.html" title="struct polkadot_sdk_frame::prelude::BoundedVec">Bounded<wbr>Vec</a></dt><dd>Bounded storage related types.
+A bounded vector.</dd><dt><a class="struct" href="struct.EitherOf.html" title="struct polkadot_sdk_frame::prelude::EitherOf">Either<wbr>Of</a></dt><dd>“OR gate” implementation of <code>EnsureOrigin</code>, <code>Success</code> type for both <code>L</code> and <code>R</code> must
+be equal.</dd><dt><a class="struct" href="struct.InsideBoth.html" title="struct polkadot_sdk_frame::prelude::InsideBoth">Inside<wbr>Both</a></dt><dd>A <a href="trait.Contains.html" title="trait polkadot_sdk_frame::prelude::Contains"><code>Contains</code></a> implementation which contains all members of <code>These</code> which are also members of
+<code>Those</code>.</dd><dt><a class="struct" href="struct.MapSuccess.html" title="struct polkadot_sdk_frame::prelude::MapSuccess">MapSuccess</a></dt><dd>A derivative <code>EnsureOrigin</code> implementation. It mutates the <code>Success</code> result of an <code>Original</code>
+implementation with a given <code>Mutator</code>.</dd><dt><a class="struct" href="struct.NoOpPoll.html" title="struct polkadot_sdk_frame::prelude::NoOpPoll">NoOp<wbr>Poll</a></dt><dd>NoOp polling is required if pallet-referenda functionality not needed.</dd><dt><a class="struct" href="struct.PalletId.html" title="struct polkadot_sdk_frame::prelude::PalletId">Pallet<wbr>Id</a></dt><dd>A pallet identifier. These are per pallet and should be stored in a registry somewhere.</dd><dt><a class="struct" href="struct.VariantCountOf.html" title="struct polkadot_sdk_frame::prelude::VariantCountOf">Variant<wbr>Count<wbr>Of</a></dt><dd>Adapter for <code>Get&lt;u32&gt;</code> to access <code>VARIANT_COUNT</code> from <code>trait pub trait VariantCount {</code>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Everything.html" title="enum polkadot_sdk_frame::prelude::Everything">Everything</a></dt><dd>A <a href="trait.Contains.html" title="trait polkadot_sdk_frame::prelude::Contains"><code>Contains</code></a> implementation that contains every value.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Contains.html" title="trait polkadot_sdk_frame::prelude::Contains">Contains</a></dt><dd>A trait for querying whether a type can be said to “contain” a value.</dd><dt><a class="trait" href="trait.Defensive.html" title="trait polkadot_sdk_frame::prelude::Defensive">Defensive</a></dt><dd>A trait to handle errors and options when you are really sure that a condition must hold, but
+not brave enough to <code>expect</code> on it, or a default fallback value makes more sense.</dd><dt><a class="trait" href="trait.DefensiveSaturating.html" title="trait polkadot_sdk_frame::prelude::DefensiveSaturating">Defensive<wbr>Saturating</a></dt><dd>A variant of <a href="trait.Defensive.html" title="trait polkadot_sdk_frame::prelude::Defensive"><code>Defensive</code></a> with the same rationale, for the arithmetic operations where in
+case an infallible operation fails, it saturates.</dd><dt><a class="trait" href="trait.EstimateNextSessionRotation.html" title="trait polkadot_sdk_frame::prelude::EstimateNextSessionRotation">Estimate<wbr>Next<wbr>Session<wbr>Rotation</a></dt><dd>Something that can estimate at which block the next session rotation will happen (i.e. a new
+session starts).</dd><dt><a class="trait" href="trait.InstanceFilter.html" title="trait polkadot_sdk_frame::prelude::InstanceFilter">Instance<wbr>Filter</a></dt><dd>Simple trait for providing a filter over a reference to some type, given an instance of itself.</dd><dt><a class="trait" href="trait.IsSubType.html" title="trait polkadot_sdk_frame::prelude::IsSubType">IsSub<wbr>Type</a></dt><dd>Something that can be checked to be a of sub type <code>T</code>.</dd><dt><a class="trait" href="trait.OnRuntimeUpgrade.html" title="trait polkadot_sdk_frame::prelude::OnRuntimeUpgrade">OnRuntime<wbr>Upgrade</a></dt><dd>See <a href="../traits/trait.Hooks.html#method.on_runtime_upgrade" title="associated function polkadot_sdk_frame::traits::Hooks::on_runtime_upgrade"><code>Hooks::on_runtime_upgrade</code></a>.</dd><dt><a class="trait" href="trait.OneSessionHandler.html" title="trait polkadot_sdk_frame::prelude::OneSessionHandler">OneSession<wbr>Handler</a></dt><dd>A session handler for specific key type.</dd><dt><a class="trait" href="trait.PalletInfoAccess.html" title="trait polkadot_sdk_frame::prelude::PalletInfoAccess">Pallet<wbr>Info<wbr>Access</a></dt><dd>Provides information about the pallet itself and its setup in the runtime.</dd><dt><a class="trait" href="trait.RankedMembers.html" title="trait polkadot_sdk_frame::prelude::RankedMembers">Ranked<wbr>Members</a></dt><dd>Ranked membership data structure.</dd><dt><a class="trait" href="trait.RankedMembersSwapHandler.html" title="trait polkadot_sdk_frame::prelude::RankedMembersSwapHandler">Ranked<wbr>Members<wbr>Swap<wbr>Handler</a></dt><dd>Handler that can deal with the swap of two members.</dd><dt><a class="trait" href="trait.VariantCount.html" title="trait polkadot_sdk_frame::prelude::VariantCount">Variant<wbr>Count</a></dt><dd>Trait to get the number of variants in any enum.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

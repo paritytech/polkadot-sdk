@@ -1,0 +1,593 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/finality_base/engine.rs`."><title>engine.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">substrate_relay_helper/finality_base/</div>engine.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright 2019-2021 Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Parity Bridges Common.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Parity Bridges Common is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Parity Bridges Common is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Parity Bridges Common.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="doccomment">//! Support of different finality engines, available in Substrate.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">use </span><span class="kw">crate</span>::error::Error;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>async_trait::async_trait;
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>bp_header_chain::{
+<a href=#22 id=22 data-nosnippet>22</a>	justification::{
+<a href=#23 id=23 data-nosnippet>23</a>		verify_and_optimize_justification, GrandpaEquivocationsFinder, GrandpaJustification,
+<a href=#24 id=24 data-nosnippet>24</a>		JustificationVerificationContext,
+<a href=#25 id=25 data-nosnippet>25</a>	},
+<a href=#26 id=26 data-nosnippet>26</a>	AuthoritySet, ConsensusLogReader, FinalityProof, FindEquivocations, GrandpaConsensusLogReader,
+<a href=#27 id=27 data-nosnippet>27</a>	HeaderFinalityInfo, HeaderGrandpaInfo, StoredHeaderGrandpaInfo, SubmitFinalityProofCallExtras,
+<a href=#28 id=28 data-nosnippet>28</a>};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>bp_runtime::{BasicOperatingMode, HeaderIdProvider, OperatingMode};
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>futures::stream::StreamExt;
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>num_traits::{One, Zero};
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>relay_substrate_client::{
+<a href=#34 id=34 data-nosnippet>34</a>	BlockNumberOf, Chain, ChainWithGrandpa, Client, Error <span class="kw">as </span>SubstrateError, HashOf, HeaderOf,
+<a href=#35 id=35 data-nosnippet>35</a>	Subscription,
+<a href=#36 id=36 data-nosnippet>36</a>};
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>sp_consensus_grandpa::{AuthorityList <span class="kw">as </span>GrandpaAuthoritiesSet, GRANDPA_ENGINE_ID};
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sp_core::{storage::StorageKey, Bytes};
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>sp_runtime::{scale_info::TypeInfo, traits::Header, ConsensusEngineId};
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>std::{fmt::Debug, marker::PhantomData};
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="doccomment">/// Finality engine, used by the Substrate chain.
+<a href=#43 id=43 data-nosnippet>43</a></span><span class="attr">#[async_trait]
+<a href=#44 id=44 data-nosnippet>44</a></span><span class="kw">pub trait </span>Engine&lt;C: Chain&gt;: Send {
+<a href=#45 id=45 data-nosnippet>45</a>	<span class="doccomment">/// Unique consensus engine identifier.
+<a href=#46 id=46 data-nosnippet>46</a>	</span><span class="kw">const </span>ID: ConsensusEngineId;
+<a href=#47 id=47 data-nosnippet>47</a>	<span class="doccomment">/// A reader that can extract the consensus log from the header digest and interpret it.
+<a href=#48 id=48 data-nosnippet>48</a>	</span><span class="kw">type </span>ConsensusLogReader: ConsensusLogReader;
+<a href=#49 id=49 data-nosnippet>49</a>	<span class="doccomment">/// Type of finality proofs, used by consensus engine.
+<a href=#50 id=50 data-nosnippet>50</a>	</span><span class="kw">type </span>FinalityProof: FinalityProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt; + Decode + Encode;
+<a href=#51 id=51 data-nosnippet>51</a>	<span class="doccomment">/// The context needed for verifying finality proofs.
+<a href=#52 id=52 data-nosnippet>52</a>	</span><span class="kw">type </span>FinalityVerificationContext: Debug + Send;
+<a href=#53 id=53 data-nosnippet>53</a>	<span class="doccomment">/// The type of the equivocation proof used by the consensus engine.
+<a href=#54 id=54 data-nosnippet>54</a>	</span><span class="kw">type </span>EquivocationProof: Clone + Debug + Send + Sync;
+<a href=#55 id=55 data-nosnippet>55</a>	<span class="doccomment">/// The equivocations finder.
+<a href=#56 id=56 data-nosnippet>56</a>	</span><span class="kw">type </span>EquivocationsFinder: FindEquivocations&lt;
+<a href=#57 id=57 data-nosnippet>57</a>		<span class="self">Self</span>::FinalityProof,
+<a href=#58 id=58 data-nosnippet>58</a>		<span class="self">Self</span>::FinalityVerificationContext,
+<a href=#59 id=59 data-nosnippet>59</a>		<span class="self">Self</span>::EquivocationProof,
+<a href=#60 id=60 data-nosnippet>60</a>	&gt;;
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// The type of the key owner proof used by the consensus engine.
+<a href=#62 id=62 data-nosnippet>62</a>	</span><span class="kw">type </span>KeyOwnerProof: Send;
+<a href=#63 id=63 data-nosnippet>63</a>	<span class="doccomment">/// Type of bridge pallet initialization data.
+<a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">type </span>InitializationData: Debug + Send + Sync + <span class="lifetime">'static</span>;
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="doccomment">/// Type of bridge pallet operating mode.
+<a href=#66 id=66 data-nosnippet>66</a>	</span><span class="kw">type </span>OperatingMode: OperatingMode + <span class="lifetime">'static</span>;
+<a href=#67 id=67 data-nosnippet>67</a>
+<a href=#68 id=68 data-nosnippet>68</a>	<span class="doccomment">/// Returns storage at the bridged (target) chain that corresponds to some value that is
+<a href=#69 id=69 data-nosnippet>69</a>	/// missing from the storage until bridge pallet is initialized.
+<a href=#70 id=70 data-nosnippet>70</a>	///
+<a href=#71 id=71 data-nosnippet>71</a>	/// Note that we don't care about type of the value - just if it present or not.
+<a href=#72 id=72 data-nosnippet>72</a>	</span><span class="kw">fn </span>is_initialized_key() -&gt; StorageKey;
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a>	<span class="doccomment">/// Returns `Ok(true)` if finality pallet at the bridged chain has already been initialized.
+<a href=#75 id=75 data-nosnippet>75</a>	</span><span class="kw">async fn </span>is_initialized&lt;TargetChain: Chain&gt;(
+<a href=#76 id=76 data-nosnippet>76</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#77 id=77 data-nosnippet>77</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, SubstrateError&gt; {
+<a href=#78 id=78 data-nosnippet>78</a>		<span class="prelude-val">Ok</span>(target_client
+<a href=#79 id=79 data-nosnippet>79</a>			.raw_storage_value(target_client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>, <span class="self">Self</span>::is_initialized_key())
+<a href=#80 id=80 data-nosnippet>80</a>			.<span class="kw">await</span><span class="question-mark">?
+<a href=#81 id=81 data-nosnippet>81</a>			</span>.is_some())
+<a href=#82 id=82 data-nosnippet>82</a>	}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a>	<span class="doccomment">/// Returns storage key at the bridged (target) chain that corresponds to the variable
+<a href=#85 id=85 data-nosnippet>85</a>	/// that holds the operating mode of the pallet.
+<a href=#86 id=86 data-nosnippet>86</a>	</span><span class="kw">fn </span>pallet_operating_mode_key() -&gt; StorageKey;
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="doccomment">/// Returns `Ok(true)` if finality pallet at the bridged chain is halted.
+<a href=#89 id=89 data-nosnippet>89</a>	</span><span class="kw">async fn </span>is_halted&lt;TargetChain: Chain&gt;(
+<a href=#90 id=90 data-nosnippet>90</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#91 id=91 data-nosnippet>91</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, SubstrateError&gt; {
+<a href=#92 id=92 data-nosnippet>92</a>		<span class="prelude-val">Ok</span>(target_client
+<a href=#93 id=93 data-nosnippet>93</a>			.storage_value::&lt;<span class="self">Self</span>::OperatingMode&gt;(
+<a href=#94 id=94 data-nosnippet>94</a>				target_client.best_header_hash().<span class="kw">await</span><span class="question-mark">?</span>,
+<a href=#95 id=95 data-nosnippet>95</a>				<span class="self">Self</span>::pallet_operating_mode_key(),
+<a href=#96 id=96 data-nosnippet>96</a>			)
+<a href=#97 id=97 data-nosnippet>97</a>			.<span class="kw">await</span><span class="question-mark">?
+<a href=#98 id=98 data-nosnippet>98</a>			</span>.map(|operating_mode| operating_mode.is_halted())
+<a href=#99 id=99 data-nosnippet>99</a>			.unwrap_or(<span class="bool-val">false</span>))
+<a href=#100 id=100 data-nosnippet>100</a>	}
+<a href=#101 id=101 data-nosnippet>101</a>
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="doccomment">/// A method to subscribe to encoded finality proofs, given source client.
+<a href=#103 id=103 data-nosnippet>103</a>	</span><span class="kw">async fn </span>source_finality_proofs(
+<a href=#104 id=104 data-nosnippet>104</a>		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#105 id=105 data-nosnippet>105</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, SubstrateError&gt;;
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="doccomment">/// Verify and optimize finality proof before sending it to the target node.
+<a href=#108 id=108 data-nosnippet>108</a>	///
+<a href=#109 id=109 data-nosnippet>109</a>	/// Apart from optimization, we expect this method to perform all required checks
+<a href=#110 id=110 data-nosnippet>110</a>	/// that the `header` and `proof` are valid at the current state of the target chain.
+<a href=#111 id=111 data-nosnippet>111</a>	</span><span class="kw">async fn </span>verify_and_optimize_proof&lt;TargetChain: Chain&gt;(
+<a href=#112 id=112 data-nosnippet>112</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#113 id=113 data-nosnippet>113</a>		header: <span class="kw-2">&amp;</span>C::Header,
+<a href=#114 id=114 data-nosnippet>114</a>		proof: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::FinalityProof,
+<a href=#115 id=115 data-nosnippet>115</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt;;
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>	<span class="doccomment">/// Checks whether the given `header` and its finality `proof` fit the maximal expected
+<a href=#118 id=118 data-nosnippet>118</a>	/// call limits (size and weight).
+<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">fn </span>check_max_expected_call_limits(
+<a href=#120 id=120 data-nosnippet>120</a>		header: <span class="kw-2">&amp;</span>C::Header,
+<a href=#121 id=121 data-nosnippet>121</a>		proof: <span class="kw-2">&amp;</span><span class="self">Self</span>::FinalityProof,
+<a href=#122 id=122 data-nosnippet>122</a>	) -&gt; SubmitFinalityProofCallExtras;
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// Prepare initialization data for the finality bridge pallet.
+<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="kw">async fn </span>prepare_initialization_data(
+<a href=#126 id=126 data-nosnippet>126</a>		client: <span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#127 id=127 data-nosnippet>127</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::InitializationData, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt;;
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>	<span class="doccomment">/// Get the context needed for validating a finality proof.
+<a href=#130 id=130 data-nosnippet>130</a>	</span><span class="kw">async fn </span>finality_verification_context&lt;TargetChain: Chain&gt;(
+<a href=#131 id=131 data-nosnippet>131</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#132 id=132 data-nosnippet>132</a>		at: HashOf&lt;TargetChain&gt;,
+<a href=#133 id=133 data-nosnippet>133</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt;;
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>	<span class="doccomment">/// Returns the finality info associated to the source headers synced with the target
+<a href=#136 id=136 data-nosnippet>136</a>	/// at the provided block.
+<a href=#137 id=137 data-nosnippet>137</a>	</span><span class="kw">async fn </span>synced_headers_finality_info&lt;TargetChain: Chain&gt;(
+<a href=#138 id=138 data-nosnippet>138</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#139 id=139 data-nosnippet>139</a>		at: TargetChain::Hash,
+<a href=#140 id=140 data-nosnippet>140</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#141 id=141 data-nosnippet>141</a>		Vec&lt;HeaderFinalityInfo&lt;<span class="self">Self</span>::FinalityProof, <span class="self">Self</span>::FinalityVerificationContext&gt;&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>		SubstrateError,
+<a href=#143 id=143 data-nosnippet>143</a>	&gt;;
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="doccomment">/// Generate key ownership proof for the provided equivocation.
+<a href=#146 id=146 data-nosnippet>146</a>	</span><span class="kw">async fn </span>generate_source_key_ownership_proof(
+<a href=#147 id=147 data-nosnippet>147</a>		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#148 id=148 data-nosnippet>148</a>		at: C::Hash,
+<a href=#149 id=149 data-nosnippet>149</a>		equivocation: <span class="kw-2">&amp;</span><span class="self">Self</span>::EquivocationProof,
+<a href=#150 id=150 data-nosnippet>150</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::KeyOwnerProof, SubstrateError&gt;;
+<a href=#151 id=151 data-nosnippet>151</a>}
+<a href=#152 id=152 data-nosnippet>152</a>
+<a href=#153 id=153 data-nosnippet>153</a><span class="doccomment">/// GRANDPA finality engine.
+<a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">pub struct </span>Grandpa&lt;C&gt;(PhantomData&lt;C&gt;);
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a><span class="kw">impl</span>&lt;C: ChainWithGrandpa&gt; Grandpa&lt;C&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="doccomment">/// Read header by hash from the source client.
+<a href=#158 id=158 data-nosnippet>158</a>	</span><span class="kw">async fn </span>source_header(
+<a href=#159 id=159 data-nosnippet>159</a>		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#160 id=160 data-nosnippet>160</a>		header_hash: C::Hash,
+<a href=#161 id=161 data-nosnippet>161</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;C::Header, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
+<a href=#162 id=162 data-nosnippet>162</a>		source_client
+<a href=#163 id=163 data-nosnippet>163</a>			.header_by_hash(header_hash)
+<a href=#164 id=164 data-nosnippet>164</a>			.<span class="kw">await
+<a href=#165 id=165 data-nosnippet>165</a>			</span>.map_err(|err| Error::RetrieveHeader(C::NAME, header_hash, err))
+<a href=#166 id=166 data-nosnippet>166</a>	}
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="doccomment">/// Read GRANDPA authorities set at given header.
+<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="kw">async fn </span>source_authorities_set(
+<a href=#170 id=170 data-nosnippet>170</a>		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#171 id=171 data-nosnippet>171</a>		header_hash: C::Hash,
+<a href=#172 id=172 data-nosnippet>172</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;GrandpaAuthoritiesSet, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
+<a href=#173 id=173 data-nosnippet>173</a>		<span class="kw">const </span>SUB_API_GRANDPA_AUTHORITIES: <span class="kw-2">&amp;</span>str = <span class="string">"GrandpaApi_grandpa_authorities"</span>;
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>		source_client
+<a href=#176 id=176 data-nosnippet>176</a>			.state_call(header_hash, SUB_API_GRANDPA_AUTHORITIES.to_string(), ())
+<a href=#177 id=177 data-nosnippet>177</a>			.<span class="kw">await
+<a href=#178 id=178 data-nosnippet>178</a>			</span>.map_err(|err| Error::RetrieveAuthorities(C::NAME, header_hash, err))
+<a href=#179 id=179 data-nosnippet>179</a>	}
+<a href=#180 id=180 data-nosnippet>180</a>}
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a><span class="attr">#[async_trait]
+<a href=#183 id=183 data-nosnippet>183</a></span><span class="kw">impl</span>&lt;C: ChainWithGrandpa&gt; Engine&lt;C&gt; <span class="kw">for </span>Grandpa&lt;C&gt; {
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="kw">const </span>ID: ConsensusEngineId = GRANDPA_ENGINE_ID;
+<a href=#185 id=185 data-nosnippet>185</a>	<span class="kw">type </span>ConsensusLogReader = GrandpaConsensusLogReader&lt;&lt;C::Header <span class="kw">as </span>Header&gt;::Number&gt;;
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">type </span>FinalityProof = GrandpaJustification&lt;HeaderOf&lt;C&gt;&gt;;
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">type </span>FinalityVerificationContext = JustificationVerificationContext;
+<a href=#188 id=188 data-nosnippet>188</a>	<span class="kw">type </span>EquivocationProof = sp_consensus_grandpa::EquivocationProof&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;;
+<a href=#189 id=189 data-nosnippet>189</a>	<span class="kw">type </span>EquivocationsFinder = GrandpaEquivocationsFinder&lt;C&gt;;
+<a href=#190 id=190 data-nosnippet>190</a>	<span class="kw">type </span>KeyOwnerProof = C::KeyOwnerProof;
+<a href=#191 id=191 data-nosnippet>191</a>	<span class="kw">type </span>InitializationData = bp_header_chain::InitializationData&lt;C::Header&gt;;
+<a href=#192 id=192 data-nosnippet>192</a>	<span class="kw">type </span>OperatingMode = BasicOperatingMode;
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a>	<span class="kw">fn </span>is_initialized_key() -&gt; StorageKey {
+<a href=#195 id=195 data-nosnippet>195</a>		bp_header_chain::storage_keys::best_finalized_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
+<a href=#196 id=196 data-nosnippet>196</a>	}
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>	<span class="kw">fn </span>pallet_operating_mode_key() -&gt; StorageKey {
+<a href=#199 id=199 data-nosnippet>199</a>		bp_header_chain::storage_keys::pallet_operating_mode_key(C::WITH_CHAIN_GRANDPA_PALLET_NAME)
+<a href=#200 id=200 data-nosnippet>200</a>	}
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">async fn </span>source_finality_proofs(
+<a href=#203 id=203 data-nosnippet>203</a>		client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#204 id=204 data-nosnippet>204</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Subscription&lt;Bytes&gt;, SubstrateError&gt; {
+<a href=#205 id=205 data-nosnippet>205</a>		client.subscribe_grandpa_finality_justifications().<span class="kw">await
+<a href=#206 id=206 data-nosnippet>206</a>	</span>}
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="kw">async fn </span>verify_and_optimize_proof&lt;TargetChain: Chain&gt;(
+<a href=#209 id=209 data-nosnippet>209</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#210 id=210 data-nosnippet>210</a>		header: <span class="kw-2">&amp;</span>C::Header,
+<a href=#211 id=211 data-nosnippet>211</a>		proof: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::FinalityProof,
+<a href=#212 id=212 data-nosnippet>212</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt; {
+<a href=#213 id=213 data-nosnippet>213</a>		<span class="kw">let </span>verification_context = Grandpa::&lt;C&gt;::finality_verification_context(
+<a href=#214 id=214 data-nosnippet>214</a>			target_client,
+<a href=#215 id=215 data-nosnippet>215</a>			target_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash(),
+<a href=#216 id=216 data-nosnippet>216</a>		)
+<a href=#217 id=217 data-nosnippet>217</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#218 id=218 data-nosnippet>218</a>		<span class="comment">// we're risking with race here - we have decided to submit justification some time ago and
+<a href=#219 id=219 data-nosnippet>219</a>		// actual authorities set (which we have read now) may have changed, so this
+<a href=#220 id=220 data-nosnippet>220</a>		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
+<a href=#221 id=221 data-nosnippet>221</a>		// anyway, after we submit transaction and failing earlier is better. So - it is fine
+<a href=#222 id=222 data-nosnippet>222</a>		</span>verify_and_optimize_justification(
+<a href=#223 id=223 data-nosnippet>223</a>			(header.hash(), <span class="kw-2">*</span>header.number()),
+<a href=#224 id=224 data-nosnippet>224</a>			<span class="kw-2">&amp;</span>verification_context,
+<a href=#225 id=225 data-nosnippet>225</a>			proof,
+<a href=#226 id=226 data-nosnippet>226</a>		)
+<a href=#227 id=227 data-nosnippet>227</a>		.map(|<span class="kw">_</span>| verification_context)
+<a href=#228 id=228 data-nosnippet>228</a>		.map_err(|e| {
+<a href=#229 id=229 data-nosnippet>229</a>			SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#230 id=230 data-nosnippet>230</a>				<span class="string">"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}"</span>,
+<a href=#231 id=231 data-nosnippet>231</a>				C::NAME,
+<a href=#232 id=232 data-nosnippet>232</a>				header.id(),
+<a href=#233 id=233 data-nosnippet>233</a>				e,
+<a href=#234 id=234 data-nosnippet>234</a>			))
+<a href=#235 id=235 data-nosnippet>235</a>		})
+<a href=#236 id=236 data-nosnippet>236</a>	}
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a>	<span class="kw">fn </span>check_max_expected_call_limits(
+<a href=#239 id=239 data-nosnippet>239</a>		header: <span class="kw-2">&amp;</span>C::Header,
+<a href=#240 id=240 data-nosnippet>240</a>		proof: <span class="kw-2">&amp;</span><span class="self">Self</span>::FinalityProof,
+<a href=#241 id=241 data-nosnippet>241</a>	) -&gt; SubmitFinalityProofCallExtras {
+<a href=#242 id=242 data-nosnippet>242</a>		bp_header_chain::submit_finality_proof_limits_extras::&lt;C&gt;(header, proof)
+<a href=#243 id=243 data-nosnippet>243</a>	}
+<a href=#244 id=244 data-nosnippet>244</a>
+<a href=#245 id=245 data-nosnippet>245</a>	<span class="doccomment">/// Prepare initialization data for the GRANDPA verifier pallet.
+<a href=#246 id=246 data-nosnippet>246</a>	</span><span class="kw">async fn </span>prepare_initialization_data(
+<a href=#247 id=247 data-nosnippet>247</a>		source_client: <span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#248 id=248 data-nosnippet>248</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::InitializationData, Error&lt;HashOf&lt;C&gt;, BlockNumberOf&lt;C&gt;&gt;&gt; {
+<a href=#249 id=249 data-nosnippet>249</a>		<span class="comment">// In ideal world we just need to get best finalized header and then to read GRANDPA
+<a href=#250 id=250 data-nosnippet>250</a>		// authorities set (`pallet_grandpa::CurrentSetId` + `GrandpaApi::grandpa_authorities()`) at
+<a href=#251 id=251 data-nosnippet>251</a>		// this header.
+<a href=#252 id=252 data-nosnippet>252</a>		//
+<a href=#253 id=253 data-nosnippet>253</a>		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
+<a href=#254 id=254 data-nosnippet>254</a>		// So here we're waiting for the next justification, read the authorities set and then try
+<a href=#255 id=255 data-nosnippet>255</a>		// to figure out the set id with bruteforce.
+<a href=#256 id=256 data-nosnippet>256</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>justifications = <span class="self">Self</span>::source_finality_proofs(<span class="kw-2">&amp;</span>source_client)
+<a href=#257 id=257 data-nosnippet>257</a>			.<span class="kw">await
+<a href=#258 id=258 data-nosnippet>258</a>			</span>.map_err(|err| Error::Subscribe(C::NAME, err))<span class="question-mark">?</span>;
+<a href=#259 id=259 data-nosnippet>259</a>		<span class="comment">// Read next justification - the header that it finalizes will be used as initial header.
+<a href=#260 id=260 data-nosnippet>260</a>		</span><span class="kw">let </span>justification = justifications
+<a href=#261 id=261 data-nosnippet>261</a>			.next()
+<a href=#262 id=262 data-nosnippet>262</a>			.<span class="kw">await
+<a href=#263 id=263 data-nosnippet>263</a>			</span>.ok_or(Error::ReadJustificationStreamEnded(C::NAME))<span class="question-mark">?</span>;
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a>		<span class="comment">// Read initial header.
+<a href=#266 id=266 data-nosnippet>266</a>		</span><span class="kw">let </span>justification: GrandpaJustification&lt;C::Header&gt; =
+<a href=#267 id=267 data-nosnippet>267</a>			Decode::decode(<span class="kw-2">&amp;mut &amp;</span>justification.<span class="number">0</span>[..])
+<a href=#268 id=268 data-nosnippet>268</a>				.map_err(|err| Error::DecodeJustification(C::NAME, err))<span class="question-mark">?</span>;
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>		<span class="kw">let </span>(initial_header_hash, initial_header_number) =
+<a href=#271 id=271 data-nosnippet>271</a>			(justification.commit.target_hash, justification.commit.target_number);
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>		<span class="kw">let </span>initial_header = <span class="self">Self</span>::source_header(<span class="kw-2">&amp;</span>source_client, initial_header_hash).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#274 id=274 data-nosnippet>274</a>		<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Selected {} initial header: {}/{}"</span>,
+<a href=#275 id=275 data-nosnippet>275</a>			C::NAME,
+<a href=#276 id=276 data-nosnippet>276</a>			initial_header_number,
+<a href=#277 id=277 data-nosnippet>277</a>			initial_header_hash,
+<a href=#278 id=278 data-nosnippet>278</a>		);
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>		<span class="comment">// Read GRANDPA authorities set at initial header.
+<a href=#281 id=281 data-nosnippet>281</a>		</span><span class="kw">let </span>initial_authorities_set =
+<a href=#282 id=282 data-nosnippet>282</a>			<span class="self">Self</span>::source_authorities_set(<span class="kw-2">&amp;</span>source_client, initial_header_hash).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#283 id=283 data-nosnippet>283</a>		<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Selected {} initial authorities set: {:?}"</span>,
+<a href=#284 id=284 data-nosnippet>284</a>			C::NAME,
+<a href=#285 id=285 data-nosnippet>285</a>			initial_authorities_set,
+<a href=#286 id=286 data-nosnippet>286</a>		);
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>		<span class="comment">// If initial header changes the GRANDPA authorities set, then we need previous authorities
+<a href=#289 id=289 data-nosnippet>289</a>		// to verify justification.
+<a href=#290 id=290 data-nosnippet>290</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>authorities_for_verification = initial_authorities_set.clone();
+<a href=#291 id=291 data-nosnippet>291</a>		<span class="kw">let </span>scheduled_change = GrandpaConsensusLogReader::&lt;BlockNumberOf&lt;C&gt;&gt;::find_scheduled_change(
+<a href=#292 id=292 data-nosnippet>292</a>			initial_header.digest(),
+<a href=#293 id=293 data-nosnippet>293</a>		);
+<a href=#294 id=294 data-nosnippet>294</a>		<span class="macro">assert!</span>(
+<a href=#295 id=295 data-nosnippet>295</a>			scheduled_change.as_ref().map(|c| c.delay.is_zero()).unwrap_or(<span class="bool-val">true</span>),
+<a href=#296 id=296 data-nosnippet>296</a>			<span class="string">"GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect\
+<a href=#297 id=297 data-nosnippet>297</a>			regular change to have zero delay"</span>,
+<a href=#298 id=298 data-nosnippet>298</a>			initial_header_hash,
+<a href=#299 id=299 data-nosnippet>299</a>			scheduled_change.as_ref().map(|c| c.delay),
+<a href=#300 id=300 data-nosnippet>300</a>		);
+<a href=#301 id=301 data-nosnippet>301</a>		<span class="kw">let </span>schedules_change = scheduled_change.is_some();
+<a href=#302 id=302 data-nosnippet>302</a>		<span class="kw">if </span>schedules_change {
+<a href=#303 id=303 data-nosnippet>303</a>			authorities_for_verification =
+<a href=#304 id=304 data-nosnippet>304</a>				<span class="self">Self</span>::source_authorities_set(<span class="kw-2">&amp;</span>source_client, <span class="kw-2">*</span>initial_header.parent_hash()).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>			<span class="macro">log::trace!</span>(
+<a href=#306 id=306 data-nosnippet>306</a>				target: <span class="string">"bridge"</span>,
+<a href=#307 id=307 data-nosnippet>307</a>				<span class="string">"Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}"</span>,
+<a href=#308 id=308 data-nosnippet>308</a>				C::NAME,
+<a href=#309 id=309 data-nosnippet>309</a>				authorities_for_verification,
+<a href=#310 id=310 data-nosnippet>310</a>			);
+<a href=#311 id=311 data-nosnippet>311</a>		}
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>		<span class="comment">// Now let's try to guess authorities set id by verifying justification.
+<a href=#314 id=314 data-nosnippet>314</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>initial_authorities_set_id = <span class="number">0</span>;
+<a href=#315 id=315 data-nosnippet>315</a>		<span class="kw">let </span><span class="kw-2">mut </span>min_possible_block_number = C::BlockNumber::zero();
+<a href=#316 id=316 data-nosnippet>316</a>		<span class="kw">loop </span>{
+<a href=#317 id=317 data-nosnippet>317</a>			<span class="macro">log::trace!</span>(
+<a href=#318 id=318 data-nosnippet>318</a>				target: <span class="string">"bridge"</span>, <span class="string">"Trying {} GRANDPA authorities set id: {}"</span>,
+<a href=#319 id=319 data-nosnippet>319</a>				C::NAME,
+<a href=#320 id=320 data-nosnippet>320</a>				initial_authorities_set_id,
+<a href=#321 id=321 data-nosnippet>321</a>			);
+<a href=#322 id=322 data-nosnippet>322</a>
+<a href=#323 id=323 data-nosnippet>323</a>			<span class="kw">let </span>is_valid_set_id = verify_and_optimize_justification(
+<a href=#324 id=324 data-nosnippet>324</a>				(initial_header_hash, initial_header_number),
+<a href=#325 id=325 data-nosnippet>325</a>				<span class="kw-2">&amp;</span>AuthoritySet {
+<a href=#326 id=326 data-nosnippet>326</a>					authorities: authorities_for_verification.clone(),
+<a href=#327 id=327 data-nosnippet>327</a>					set_id: initial_authorities_set_id,
+<a href=#328 id=328 data-nosnippet>328</a>				}
+<a href=#329 id=329 data-nosnippet>329</a>				.try_into()
+<a href=#330 id=330 data-nosnippet>330</a>				.map_err(|<span class="kw">_</span>| {
+<a href=#331 id=331 data-nosnippet>331</a>					Error::ReadInvalidAuthorities(C::NAME, authorities_for_verification.clone())
+<a href=#332 id=332 data-nosnippet>332</a>				})<span class="question-mark">?</span>,
+<a href=#333 id=333 data-nosnippet>333</a>				<span class="kw-2">&amp;mut </span>justification.clone(),
+<a href=#334 id=334 data-nosnippet>334</a>			)
+<a href=#335 id=335 data-nosnippet>335</a>			.is_ok();
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>			<span class="kw">if </span>is_valid_set_id {
+<a href=#338 id=338 data-nosnippet>338</a>				<span class="kw">break
+<a href=#339 id=339 data-nosnippet>339</a>			</span>}
+<a href=#340 id=340 data-nosnippet>340</a>
+<a href=#341 id=341 data-nosnippet>341</a>			initial_authorities_set_id += <span class="number">1</span>;
+<a href=#342 id=342 data-nosnippet>342</a>			min_possible_block_number += One::one();
+<a href=#343 id=343 data-nosnippet>343</a>			<span class="kw">if </span>min_possible_block_number &gt; initial_header_number {
+<a href=#344 id=344 data-nosnippet>344</a>				<span class="comment">// there can't be more authorities set changes than headers =&gt; if we have reached
+<a href=#345 id=345 data-nosnippet>345</a>				// `initial_block_number` and still have not found correct value of
+<a href=#346 id=346 data-nosnippet>346</a>				// `initial_authorities_set_id`, then something else is broken =&gt; fail
+<a href=#347 id=347 data-nosnippet>347</a>				</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::GuessInitialAuthorities(C::NAME, initial_header_number))
+<a href=#348 id=348 data-nosnippet>348</a>			}
+<a href=#349 id=349 data-nosnippet>349</a>		}
+<a href=#350 id=350 data-nosnippet>350</a>
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="prelude-val">Ok</span>(bp_header_chain::InitializationData {
+<a href=#352 id=352 data-nosnippet>352</a>			header: Box::new(initial_header),
+<a href=#353 id=353 data-nosnippet>353</a>			authority_list: initial_authorities_set,
+<a href=#354 id=354 data-nosnippet>354</a>			set_id: <span class="kw">if </span>schedules_change {
+<a href=#355 id=355 data-nosnippet>355</a>				initial_authorities_set_id + <span class="number">1
+<a href=#356 id=356 data-nosnippet>356</a>			</span>} <span class="kw">else </span>{
+<a href=#357 id=357 data-nosnippet>357</a>				initial_authorities_set_id
+<a href=#358 id=358 data-nosnippet>358</a>			},
+<a href=#359 id=359 data-nosnippet>359</a>			operating_mode: BasicOperatingMode::Normal,
+<a href=#360 id=360 data-nosnippet>360</a>		})
+<a href=#361 id=361 data-nosnippet>361</a>	}
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>	<span class="kw">async fn </span>finality_verification_context&lt;TargetChain: Chain&gt;(
+<a href=#364 id=364 data-nosnippet>364</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#365 id=365 data-nosnippet>365</a>		at: HashOf&lt;TargetChain&gt;,
+<a href=#366 id=366 data-nosnippet>366</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::FinalityVerificationContext, SubstrateError&gt; {
+<a href=#367 id=367 data-nosnippet>367</a>		<span class="kw">let </span>current_authority_set_key = bp_header_chain::storage_keys::current_authority_set_key(
+<a href=#368 id=368 data-nosnippet>368</a>			C::WITH_CHAIN_GRANDPA_PALLET_NAME,
+<a href=#369 id=369 data-nosnippet>369</a>		);
+<a href=#370 id=370 data-nosnippet>370</a>		<span class="kw">let </span>authority_set: AuthoritySet = target_client
+<a href=#371 id=371 data-nosnippet>371</a>			.storage_value(at, current_authority_set_key)
+<a href=#372 id=372 data-nosnippet>372</a>			.<span class="kw">await</span><span class="question-mark">?
+<a href=#373 id=373 data-nosnippet>373</a>			</span>.map(<span class="prelude-val">Ok</span>)
+<a href=#374 id=374 data-nosnippet>374</a>			.unwrap_or(<span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#375 id=375 data-nosnippet>375</a>				<span class="string">"{} `CurrentAuthoritySet` is missing from the {} storage"</span>,
+<a href=#376 id=376 data-nosnippet>376</a>				C::NAME,
+<a href=#377 id=377 data-nosnippet>377</a>				TargetChain::NAME,
+<a href=#378 id=378 data-nosnippet>378</a>			))))<span class="question-mark">?</span>;
+<a href=#379 id=379 data-nosnippet>379</a>
+<a href=#380 id=380 data-nosnippet>380</a>		authority_set.try_into().map_err(|e| {
+<a href=#381 id=381 data-nosnippet>381</a>			SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#382 id=382 data-nosnippet>382</a>				<span class="string">"{} `CurrentAuthoritySet` from the {} storage is invalid: {e:?}"</span>,
+<a href=#383 id=383 data-nosnippet>383</a>				C::NAME,
+<a href=#384 id=384 data-nosnippet>384</a>				TargetChain::NAME,
+<a href=#385 id=385 data-nosnippet>385</a>			))
+<a href=#386 id=386 data-nosnippet>386</a>		})
+<a href=#387 id=387 data-nosnippet>387</a>	}
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a>	<span class="kw">async fn </span>synced_headers_finality_info&lt;TargetChain: Chain&gt;(
+<a href=#390 id=390 data-nosnippet>390</a>		target_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;TargetChain&gt;,
+<a href=#391 id=391 data-nosnippet>391</a>		at: TargetChain::Hash,
+<a href=#392 id=392 data-nosnippet>392</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;HeaderGrandpaInfo&lt;HeaderOf&lt;C&gt;&gt;&gt;, SubstrateError&gt; {
+<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">let </span>stored_headers_grandpa_info: Vec&lt;StoredHeaderGrandpaInfo&lt;HeaderOf&lt;C&gt;&gt;&gt; = target_client
+<a href=#394 id=394 data-nosnippet>394</a>			.state_call(at, C::SYNCED_HEADERS_GRANDPA_INFO_METHOD.to_string(), ())
+<a href=#395 id=395 data-nosnippet>395</a>			.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw">let </span><span class="kw-2">mut </span>headers_grandpa_info = <span class="macro">vec!</span>[];
+<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">for </span>stored_header_grandpa_info <span class="kw">in </span>stored_headers_grandpa_info {
+<a href=#399 id=399 data-nosnippet>399</a>			headers_grandpa_info.push(stored_header_grandpa_info.try_into().map_err(|e| {
+<a href=#400 id=400 data-nosnippet>400</a>				SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#401 id=401 data-nosnippet>401</a>					<span class="string">"{} `AuthoritySet` synced to {} is invalid: {e:?} "</span>,
+<a href=#402 id=402 data-nosnippet>402</a>					C::NAME,
+<a href=#403 id=403 data-nosnippet>403</a>					TargetChain::NAME,
+<a href=#404 id=404 data-nosnippet>404</a>				))
+<a href=#405 id=405 data-nosnippet>405</a>			})<span class="question-mark">?</span>);
+<a href=#406 id=406 data-nosnippet>406</a>		}
+<a href=#407 id=407 data-nosnippet>407</a>
+<a href=#408 id=408 data-nosnippet>408</a>		<span class="prelude-val">Ok</span>(headers_grandpa_info)
+<a href=#409 id=409 data-nosnippet>409</a>	}
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>	<span class="kw">async fn </span>generate_source_key_ownership_proof(
+<a href=#412 id=412 data-nosnippet>412</a>		source_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>Client&lt;C&gt;,
+<a href=#413 id=413 data-nosnippet>413</a>		at: C::Hash,
+<a href=#414 id=414 data-nosnippet>414</a>		equivocation: <span class="kw-2">&amp;</span><span class="self">Self</span>::EquivocationProof,
+<a href=#415 id=415 data-nosnippet>415</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::KeyOwnerProof, SubstrateError&gt; {
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span>set_id = equivocation.set_id();
+<a href=#417 id=417 data-nosnippet>417</a>		<span class="kw">let </span>offender = equivocation.offender();
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a>		<span class="kw">let </span>opaque_key_owner_proof = source_client
+<a href=#420 id=420 data-nosnippet>420</a>			.generate_grandpa_key_ownership_proof(at, set_id, offender.clone())
+<a href=#421 id=421 data-nosnippet>421</a>			.<span class="kw">await</span><span class="question-mark">?
+<a href=#422 id=422 data-nosnippet>422</a>			</span>.ok_or(SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#423 id=423 data-nosnippet>423</a>				<span class="string">"Couldn't get GRANDPA key ownership proof from {} at block: {at} \
+<a href=#424 id=424 data-nosnippet>424</a>				for offender: {:?}, set_id: {set_id} "</span>,
+<a href=#425 id=425 data-nosnippet>425</a>				C::NAME,
+<a href=#426 id=426 data-nosnippet>426</a>				offender.clone(),
+<a href=#427 id=427 data-nosnippet>427</a>			)))<span class="question-mark">?</span>;
+<a href=#428 id=428 data-nosnippet>428</a>
+<a href=#429 id=429 data-nosnippet>429</a>		<span class="kw">let </span>key_owner_proof =
+<a href=#430 id=430 data-nosnippet>430</a>			opaque_key_owner_proof.decode().ok_or(SubstrateError::Custom(<span class="macro">format!</span>(
+<a href=#431 id=431 data-nosnippet>431</a>				<span class="string">"Couldn't decode GRANDPA `OpaqueKeyOwnnershipProof` from {} at block: {at} 
+<a href=#432 id=432 data-nosnippet>432</a>				to `{:?}` for offender: {:?}, set_id: {set_id}, at block: {at}"</span>,
+<a href=#433 id=433 data-nosnippet>433</a>				C::NAME,
+<a href=#434 id=434 data-nosnippet>434</a>				&lt;C::KeyOwnerProof <span class="kw">as </span>TypeInfo&gt;::type_info().path,
+<a href=#435 id=435 data-nosnippet>435</a>				offender.clone(),
+<a href=#436 id=436 data-nosnippet>436</a>			)))<span class="question-mark">?</span>;
+<a href=#437 id=437 data-nosnippet>437</a>
+<a href=#438 id=438 data-nosnippet>438</a>		<span class="prelude-val">Ok</span>(key_owner_proof)
+<a href=#439 id=439 data-nosnippet>439</a>	}
+<a href=#440 id=440 data-nosnippet>440</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-executor/src/traits/on_response.rs`."><title>on_response.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">staging_xcm_executor/traits/</div>on_response.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Polkadot.
+<a href=#3 id=3 data-nosnippet>3</a>
+<a href=#4 id=4 data-nosnippet>4</a>// Polkadot is free software: you can redistribute it and/or modify
+<a href=#5 id=5 data-nosnippet>5</a>// it under the terms of the GNU General Public License as published by
+<a href=#6 id=6 data-nosnippet>6</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#7 id=7 data-nosnippet>7</a>// (at your option) any later version.
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a>// Polkadot is distributed in the hope that it will be useful,
+<a href=#10 id=10 data-nosnippet>10</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#11 id=11 data-nosnippet>11</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+<a href=#12 id=12 data-nosnippet>12</a>// GNU General Public License for more details.
+<a href=#13 id=13 data-nosnippet>13</a>
+<a href=#14 id=14 data-nosnippet>14</a>// You should have received a copy of the GNU General Public License
+<a href=#15 id=15 data-nosnippet>15</a>// along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use crate</span>::{Junctions::Here, Xcm};
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>codec::{Decode, Encode};
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>core::{fmt::Debug, result};
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>frame_support::{pallet_prelude::Get, parameter_types};
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>sp_arithmetic::traits::Zero;
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>xcm::latest::{
+<a href=#23 id=23 data-nosnippet>23</a>	Error <span class="kw">as </span>XcmError, InteriorLocation, Location, QueryId, Response, <span class="prelude-ty">Result</span> <span class="kw">as </span>XcmResult, Weight,
+<a href=#24 id=24 data-nosnippet>24</a>	XcmContext,
+<a href=#25 id=25 data-nosnippet>25</a>};
+<a href=#26 id=26 data-nosnippet>26</a>
+<a href=#27 id=27 data-nosnippet>27</a><span class="doccomment">/// Define what needs to be done upon receiving a query response.
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">pub trait </span>OnResponse {
+<a href=#29 id=29 data-nosnippet>29</a>	<span class="doccomment">/// Returns `true` if we are expecting a response from `origin` for query `query_id` that was
+<a href=#30 id=30 data-nosnippet>30</a>	/// queried by `querier`.
+<a href=#31 id=31 data-nosnippet>31</a>	</span><span class="kw">fn </span>expecting_response(origin: <span class="kw-2">&amp;</span>Location, query_id: u64, querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;) -&gt; bool;
+<a href=#32 id=32 data-nosnippet>32</a>	<span class="doccomment">/// Handler for receiving a `response` from `origin` relating to `query_id` initiated by
+<a href=#33 id=33 data-nosnippet>33</a>	/// `querier`.
+<a href=#34 id=34 data-nosnippet>34</a>	</span><span class="kw">fn </span>on_response(
+<a href=#35 id=35 data-nosnippet>35</a>		origin: <span class="kw-2">&amp;</span>Location,
+<a href=#36 id=36 data-nosnippet>36</a>		query_id: u64,
+<a href=#37 id=37 data-nosnippet>37</a>		querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
+<a href=#38 id=38 data-nosnippet>38</a>		response: Response,
+<a href=#39 id=39 data-nosnippet>39</a>		max_weight: Weight,
+<a href=#40 id=40 data-nosnippet>40</a>		context: <span class="kw-2">&amp;</span>XcmContext,
+<a href=#41 id=41 data-nosnippet>41</a>	) -&gt; Weight;
+<a href=#42 id=42 data-nosnippet>42</a>}
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">impl </span>OnResponse <span class="kw">for </span>() {
+<a href=#44 id=44 data-nosnippet>44</a>	<span class="kw">fn </span>expecting_response(_origin: <span class="kw-2">&amp;</span>Location, _query_id: u64, _querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;) -&gt; bool {
+<a href=#45 id=45 data-nosnippet>45</a>		<span class="bool-val">false
+<a href=#46 id=46 data-nosnippet>46</a>	</span>}
+<a href=#47 id=47 data-nosnippet>47</a>	<span class="kw">fn </span>on_response(
+<a href=#48 id=48 data-nosnippet>48</a>		_origin: <span class="kw-2">&amp;</span>Location,
+<a href=#49 id=49 data-nosnippet>49</a>		_query_id: u64,
+<a href=#50 id=50 data-nosnippet>50</a>		_querier: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Location&gt;,
+<a href=#51 id=51 data-nosnippet>51</a>		_response: Response,
+<a href=#52 id=52 data-nosnippet>52</a>		_max_weight: Weight,
+<a href=#53 id=53 data-nosnippet>53</a>		_context: <span class="kw-2">&amp;</span>XcmContext,
+<a href=#54 id=54 data-nosnippet>54</a>	) -&gt; Weight {
+<a href=#55 id=55 data-nosnippet>55</a>		Weight::zero()
+<a href=#56 id=56 data-nosnippet>56</a>	}
+<a href=#57 id=57 data-nosnippet>57</a>}
+<a href=#58 id=58 data-nosnippet>58</a>
+<a href=#59 id=59 data-nosnippet>59</a><span class="doccomment">/// Trait for a type which handles notifying a destination of XCM version changes.
+<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub trait </span>VersionChangeNotifier {
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// Start notifying `location` should the XCM version of this chain change.
+<a href=#62 id=62 data-nosnippet>62</a>	///
+<a href=#63 id=63 data-nosnippet>63</a>	/// When it does, this type should ensure a `QueryResponse` message is sent with the given
+<a href=#64 id=64 data-nosnippet>64</a>	/// `query_id` &amp; `max_weight` and with a `response` of `Response::Version`. This should happen
+<a href=#65 id=65 data-nosnippet>65</a>	/// until/unless `stop` is called with the correct `query_id`.
+<a href=#66 id=66 data-nosnippet>66</a>	///
+<a href=#67 id=67 data-nosnippet>67</a>	/// If the `location` has an ongoing notification and when this function is called, then an
+<a href=#68 id=68 data-nosnippet>68</a>	/// error should be returned.
+<a href=#69 id=69 data-nosnippet>69</a>	</span><span class="kw">fn </span>start(
+<a href=#70 id=70 data-nosnippet>70</a>		location: <span class="kw-2">&amp;</span>Location,
+<a href=#71 id=71 data-nosnippet>71</a>		query_id: QueryId,
+<a href=#72 id=72 data-nosnippet>72</a>		max_weight: Weight,
+<a href=#73 id=73 data-nosnippet>73</a>		context: <span class="kw-2">&amp;</span>XcmContext,
+<a href=#74 id=74 data-nosnippet>74</a>	) -&gt; XcmResult;
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>	<span class="doccomment">/// Stop notifying `location` should the XCM change. Returns an error if there is no existing
+<a href=#77 id=77 data-nosnippet>77</a>	/// notification set up.
+<a href=#78 id=78 data-nosnippet>78</a>	</span><span class="kw">fn </span>stop(location: <span class="kw-2">&amp;</span>Location, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult;
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>	<span class="doccomment">/// Return true if a location is subscribed to XCM version changes.
+<a href=#81 id=81 data-nosnippet>81</a>	</span><span class="kw">fn </span>is_subscribed(location: <span class="kw-2">&amp;</span>Location) -&gt; bool;
+<a href=#82 id=82 data-nosnippet>82</a>}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">impl </span>VersionChangeNotifier <span class="kw">for </span>() {
+<a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">fn </span>start(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location, <span class="kw">_</span>: QueryId, <span class="kw">_</span>: Weight, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+<a href=#86 id=86 data-nosnippet>86</a>		<span class="prelude-val">Err</span>(XcmError::Unimplemented)
+<a href=#87 id=87 data-nosnippet>87</a>	}
+<a href=#88 id=88 data-nosnippet>88</a>	<span class="kw">fn </span>stop(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location, <span class="kw">_</span>: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
+<a href=#89 id=89 data-nosnippet>89</a>		<span class="prelude-val">Err</span>(XcmError::Unimplemented)
+<a href=#90 id=90 data-nosnippet>90</a>	}
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="kw">fn </span>is_subscribed(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Location) -&gt; bool {
+<a href=#92 id=92 data-nosnippet>92</a>		<span class="bool-val">false
+<a href=#93 id=93 data-nosnippet>93</a>	</span>}
+<a href=#94 id=94 data-nosnippet>94</a>}
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a><span class="doccomment">/// The possible state of an XCM query response.
+<a href=#97 id=97 data-nosnippet>97</a></span><span class="attr">#[derive(Debug, PartialEq, Eq, Encode, Decode)]
+<a href=#98 id=98 data-nosnippet>98</a></span><span class="kw">pub enum </span>QueryResponseStatus&lt;BlockNumber&gt; {
+<a href=#99 id=99 data-nosnippet>99</a>	<span class="doccomment">/// The response has arrived, and includes the inner Response and the block number it arrived
+<a href=#100 id=100 data-nosnippet>100</a>	/// at.
+<a href=#101 id=101 data-nosnippet>101</a>	</span>Ready { response: Response, at: BlockNumber },
+<a href=#102 id=102 data-nosnippet>102</a>	<span class="doccomment">/// The response has not yet arrived, the XCM might still be executing or the response might be
+<a href=#103 id=103 data-nosnippet>103</a>	/// in transit.
+<a href=#104 id=104 data-nosnippet>104</a>	</span>Pending { timeout: BlockNumber },
+<a href=#105 id=105 data-nosnippet>105</a>	<span class="doccomment">/// No response with the given `QueryId` was found, or the response was already queried and
+<a href=#106 id=106 data-nosnippet>106</a>	/// removed from local storage.
+<a href=#107 id=107 data-nosnippet>107</a>	</span>NotFound,
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="doccomment">/// Got an unexpected XCM version.
+<a href=#109 id=109 data-nosnippet>109</a>	</span>UnexpectedVersion,
+<a href=#110 id=110 data-nosnippet>110</a>}
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a><span class="doccomment">/// Provides methods to expect responses from XCMs and query their status.
+<a href=#113 id=113 data-nosnippet>113</a></span><span class="kw">pub trait </span>QueryHandler {
+<a href=#114 id=114 data-nosnippet>114</a>	<span class="kw">type </span>BlockNumber: Zero + Encode;
+<a href=#115 id=115 data-nosnippet>115</a>	<span class="kw">type </span>Error;
+<a href=#116 id=116 data-nosnippet>116</a>	<span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="doccomment">/// Attempt to create a new query ID and register it as a query that is yet to respond.
+<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">fn </span>new_query(
+<a href=#120 id=120 data-nosnippet>120</a>		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#121 id=121 data-nosnippet>121</a>		timeout: <span class="self">Self</span>::BlockNumber,
+<a href=#122 id=122 data-nosnippet>122</a>		match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#123 id=123 data-nosnippet>123</a>	) -&gt; QueryId;
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Consume `message` and return another which is equivalent to it except that it reports
+<a href=#126 id=126 data-nosnippet>126</a>	/// back the outcome.
+<a href=#127 id=127 data-nosnippet>127</a>	///
+<a href=#128 id=128 data-nosnippet>128</a>	/// - `message`: The message whose outcome should be reported.
+<a href=#129 id=129 data-nosnippet>129</a>	/// - `responder`: The origin from which a response should be expected.
+<a href=#130 id=130 data-nosnippet>130</a>	/// - `timeout`: The block number after which it is permissible to return `NotFound` from
+<a href=#131 id=131 data-nosnippet>131</a>	///   `take_response`.
+<a href=#132 id=132 data-nosnippet>132</a>	///
+<a href=#133 id=133 data-nosnippet>133</a>	/// `report_outcome` may return an error if the `responder` is not invertible.
+<a href=#134 id=134 data-nosnippet>134</a>	///
+<a href=#135 id=135 data-nosnippet>135</a>	/// It is assumed that the querier of the response will be `Here`.
+<a href=#136 id=136 data-nosnippet>136</a>	/// The response can be queried with `take_response`.
+<a href=#137 id=137 data-nosnippet>137</a>	</span><span class="kw">fn </span>report_outcome(
+<a href=#138 id=138 data-nosnippet>138</a>		message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
+<a href=#139 id=139 data-nosnippet>139</a>		responder: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#140 id=140 data-nosnippet>140</a>		timeout: <span class="self">Self</span>::BlockNumber,
+<a href=#141 id=141 data-nosnippet>141</a>	) -&gt; result::Result&lt;QueryId, <span class="self">Self</span>::Error&gt;;
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a>	<span class="doccomment">/// Attempt to remove and return the response of query with ID `query_id`.
+<a href=#144 id=144 data-nosnippet>144</a>	</span><span class="kw">fn </span>take_response(id: QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt;;
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Makes sure to expect a response with the given id.
+<a href=#147 id=147 data-nosnippet>147</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">fn </span>expect_response(id: QueryId, response: Response);
+<a href=#149 id=149 data-nosnippet>149</a>}
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a><span class="macro">parameter_types!</span> {
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="kw">pub </span>UniversalLocation: InteriorLocation = Here;
+<a href=#153 id=153 data-nosnippet>153</a>}
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a><span class="kw">impl </span>QueryHandler <span class="kw">for </span>() {
+<a href=#156 id=156 data-nosnippet>156</a>	<span class="kw">type </span>BlockNumber = u64;
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="kw">type </span>Error = ();
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="kw">type </span>UniversalLocation = UniversalLocation;
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>	<span class="kw">fn </span>take_response(_query_id: QueryId) -&gt; QueryResponseStatus&lt;<span class="self">Self</span>::BlockNumber&gt; {
+<a href=#161 id=161 data-nosnippet>161</a>		QueryResponseStatus::NotFound
+<a href=#162 id=162 data-nosnippet>162</a>	}
+<a href=#163 id=163 data-nosnippet>163</a>	<span class="kw">fn </span>new_query(
+<a href=#164 id=164 data-nosnippet>164</a>		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#165 id=165 data-nosnippet>165</a>		_timeout: <span class="self">Self</span>::BlockNumber,
+<a href=#166 id=166 data-nosnippet>166</a>		_match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#167 id=167 data-nosnippet>167</a>	) -&gt; QueryId {
+<a href=#168 id=168 data-nosnippet>168</a>		<span class="number">0u64
+<a href=#169 id=169 data-nosnippet>169</a>	</span>}
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a>	<span class="kw">fn </span>report_outcome(
+<a href=#172 id=172 data-nosnippet>172</a>		_message: <span class="kw-2">&amp;mut </span>Xcm&lt;()&gt;,
+<a href=#173 id=173 data-nosnippet>173</a>		_responder: <span class="kw">impl </span>Into&lt;Location&gt;,
+<a href=#174 id=174 data-nosnippet>174</a>		_timeout: <span class="self">Self</span>::BlockNumber,
+<a href=#175 id=175 data-nosnippet>175</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;QueryId, <span class="self">Self</span>::Error&gt; {
+<a href=#176 id=176 data-nosnippet>176</a>		<span class="prelude-val">Err</span>(())
+<a href=#177 id=177 data-nosnippet>177</a>	}
+<a href=#178 id=178 data-nosnippet>178</a>
+<a href=#179 id=179 data-nosnippet>179</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#180 id=180 data-nosnippet>180</a>	</span><span class="kw">fn </span>expect_response(_id: QueryId, _response: <span class="kw">crate</span>::Response) {}
+<a href=#181 id=181 data-nosnippet>181</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

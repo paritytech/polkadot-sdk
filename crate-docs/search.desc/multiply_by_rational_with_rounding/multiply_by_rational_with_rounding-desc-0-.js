@@ -1,0 +1,1 @@
+searchState.loadedDescShard("multiply_by_rational_with_rounding", 0, "Running\nAn <code>arbitrary::Arbitrary</code> <code>Rounding</code> mode.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nTries to demonstrate that …\nRound a <code>Fraction</code> according to the given mode.")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["delegated","migrated_delegation","released","slashed"],"struct":["Delegated","MigratedDelegation","Released","Slashed"]};

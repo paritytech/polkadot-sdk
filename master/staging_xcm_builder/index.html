@@ -1,0 +1,260 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="XCM-Builder"><title>staging_xcm_builder - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../staging_xcm_builder/index.html">staging_<wbr>xcm_<wbr>builder</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#xcm-builder" title="XCM-Builder">XCM-Builder</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>staging_xcm_builder</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/staging_xcm_builder/lib.rs.html#17-152">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="xcm-builder"><a class="doc-anchor" href="#xcm-builder">§</a>XCM-Builder</h2>
+<p>Types and helpers for <em>building</em> XCM configuration.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="test_utils/index.html" title="mod staging_xcm_builder::test_utils">test_<wbr>utils</a></dt><dt><a class="mod" href="unique_instances/index.html" title="mod staging_xcm_builder::unique_instances">unique_<wbr>instances</a></dt><dd>XCM utilities to work with NFT-like entities (unique instances).
+The adapters and other utility types use the
+<a href="frame_support::traits::tokens::asset_ops"><code>asset_ops</code></a> traits.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Account32Hash.html" title="struct staging_xcm_builder::Account32Hash">Account32<wbr>Hash</a></dt><dt><a class="struct" href="struct.AccountId32Aliases.html" title="struct staging_xcm_builder::AccountId32Aliases">Account<wbr>Id32<wbr>Aliases</a></dt><dd>Extracts the <code>AccountId32</code> from the passed <code>location</code> if the network matches.</dd><dt><a class="struct" href="struct.AccountKey20Aliases.html" title="struct staging_xcm_builder::AccountKey20Aliases">Account<wbr>Key20<wbr>Aliases</a></dt><dt><a class="struct" href="struct.AliasChildLocation.html" title="struct staging_xcm_builder::AliasChildLocation">Alias<wbr>Child<wbr>Location</a></dt><dd>Alias a descendant location of the original origin.</dd><dt><a class="struct" href="struct.AliasForeignAccountId32.html" title="struct staging_xcm_builder::AliasForeignAccountId32">Alias<wbr>Foreign<wbr>Account<wbr>Id32</a></dt><dd>Alias a Foreign <code>AccountId32</code> with a local <code>AccountId32</code> if the foreign <code>AccountId32</code> matches
+the <code>Prefix</code> pattern.</dd><dt><a class="struct" href="struct.AliasOriginRootUsingFilter.html" title="struct staging_xcm_builder::AliasOriginRootUsingFilter">Alias<wbr>Origin<wbr>Root<wbr>Using<wbr>Filter</a></dt><dd>Alias a location if it passes <code>Filter</code> and the original origin is root of <code>Origin</code>.</dd><dt><a class="struct" href="struct.AliasesIntoAccountId32.html" title="struct staging_xcm_builder::AliasesIntoAccountId32">Aliases<wbr>Into<wbr>Account<wbr>Id32</a></dt><dd>Conversion implementation which converts from a <code>[u8; 32]</code>-based <code>AccountId</code> into a
+<code>Location</code> consisting solely of a <code>AccountId32</code> junction with a fixed value for its
+network (provided by <code>Network</code>) and the <code>AccountId</code>’s <code>[u8; 32]</code> datum for the <code>id</code>.</dd><dt><a class="struct" href="struct.AllAssets.html" title="struct staging_xcm_builder::AllAssets">AllAssets</a></dt><dd>Implementation of <code>Get&lt;Vec&lt;AssetFilter&gt;&gt;</code> which accepts every asset.
+(For example, it can be used with <code>LocationWithAssetFilters</code>).</dd><dt><a class="struct" href="struct.AllowExplicitUnpaidExecutionFrom.html" title="struct staging_xcm_builder::AllowExplicitUnpaidExecutionFrom">Allow<wbr>Explicit<wbr>Unpaid<wbr>Execution<wbr>From</a></dt><dd>Allows execution from any origin that is contained in <code>T</code> (i.e. <code>T::Contains(origin)</code>) if the
+message explicitly includes the <code>UnpaidExecution</code> instruction.</dd><dt><a class="struct" href="struct.AllowHrmpNotificationsFromRelayChain.html" title="struct staging_xcm_builder::AllowHrmpNotificationsFromRelayChain">Allow<wbr>Hrmp<wbr>Notifications<wbr>From<wbr>Relay<wbr>Chain</a></dt><dd>Allows execution for the Relay Chain origin (represented as <code>Location::parent()</code>) if it is just
+a straight <code>HrmpNewChannelOpenRequest</code>, <code>HrmpChannelAccepted</code>, or <code>HrmpChannelClosing</code>
+instruction.</dd><dt><a class="struct" href="struct.AllowKnownQueryResponses.html" title="struct staging_xcm_builder::AllowKnownQueryResponses">Allow<wbr>Known<wbr>Query<wbr>Responses</a></dt><dd>Allows only messages if the generic <code>ResponseHandler</code> expects them via <code>expecting_response</code>.</dd><dt><a class="struct" href="struct.AllowSubscriptionsFrom.html" title="struct staging_xcm_builder::AllowSubscriptionsFrom">Allow<wbr>Subscriptions<wbr>From</a></dt><dd>Allows execution from <code>origin</code> if it is just a straight <code>SubscribeVersion</code> or
+<code>UnsubscribeVersion</code> instruction.</dd><dt><a class="struct" href="struct.AllowTopLevelPaidExecutionFrom.html" title="struct staging_xcm_builder::AllowTopLevelPaidExecutionFrom">Allow<wbr>TopLevel<wbr>Paid<wbr>Execution<wbr>From</a></dt><dd>Allows execution from <code>origin</code> if it is contained in <code>T</code> (i.e. <code>T::Contains(origin)</code>) taking
+payments into account.</dd><dt><a class="struct" href="struct.AllowUnpaidExecutionFrom.html" title="struct staging_xcm_builder::AllowUnpaidExecutionFrom">Allow<wbr>Unpaid<wbr>Execution<wbr>From</a></dt><dd>Allows execution from any origin that is contained in <code>T</code> (i.e. <code>T::Contains(origin)</code>).</dd><dt><a class="struct" href="struct.AsPrefixedGeneralIndex.html" title="struct staging_xcm_builder::AsPrefixedGeneralIndex">AsPrefixed<wbr>General<wbr>Index</a></dt><dd>Converter struct implementing <code>AssetIdConversion</code> converting a numeric asset ID (must be
+<code>TryFrom/TryInto&lt;u128&gt;</code>) into a <code>GeneralIndex</code> junction, prefixed by some <code>Location</code> value.
+The <code>Location</code> value will typically be a <code>PalletInstance</code> junction.</dd><dt><a class="struct" href="struct.BackingToPlurality.html" title="struct staging_xcm_builder::BackingToPlurality">Backing<wbr>ToPlurality</a></dt><dd><code>Convert</code> implementation to convert from some an origin which implements <code>Backing</code> into a
+corresponding <code>Plurality</code> <code>Location</code>.</dd><dt><a class="struct" href="struct.BridgeBlobDispatcher.html" title="struct staging_xcm_builder::BridgeBlobDispatcher">Bridge<wbr>Blob<wbr>Dispatcher</a></dt><dt><a class="struct" href="struct.BridgeMessage.html" title="struct staging_xcm_builder::BridgeMessage">Bridge<wbr>Message</a></dt><dt><a class="struct" href="struct.Case.html" title="struct staging_xcm_builder::Case">Case</a></dt><dd>Accepts an asset if it is contained in the given <code>T</code>’s <code>Get</code> implementation.</dd><dt><a class="struct" href="struct.ChildParachainAsNative.html" title="struct staging_xcm_builder::ChildParachainAsNative">Child<wbr>Parachain<wbr>AsNative</a></dt><dt><a class="struct" href="struct.ChildParachainConvertsVia.html" title="struct staging_xcm_builder::ChildParachainConvertsVia">Child<wbr>Parachain<wbr>Converts<wbr>Via</a></dt><dt><a class="struct" href="struct.ChildSystemParachainAsSuperuser.html" title="struct staging_xcm_builder::ChildSystemParachainAsSuperuser">Child<wbr>System<wbr>Parachain<wbr>AsSuperuser</a></dt><dt><a class="struct" href="struct.ConvertedConcreteId.html" title="struct staging_xcm_builder::ConvertedConcreteId">Converted<wbr>Concrete<wbr>Id</a></dt><dt><a class="struct" href="struct.CurrencyAdapter.html" title="struct staging_xcm_builder::CurrencyAdapter">Currency<wbr>Adapter</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Simple adapter to use a currency as asset transactor. This type can be used as <code>type AssetTransactor</code> in <code>xcm::Config</code>.</dd><dt><a class="struct" href="struct.DenyRecursively.html" title="struct staging_xcm_builder::DenyRecursively">Deny<wbr>Recursively</a></dt><dd>Denies execution if the XCM contains instructions not meant to run on this chain,
+first checking at the top-level and then <strong>recursively</strong>.</dd><dt><a class="struct" href="struct.DenyReserveTransferToRelayChain.html" title="struct staging_xcm_builder::DenyReserveTransferToRelayChain">Deny<wbr>Reserve<wbr>Transfer<wbr>ToRelay<wbr>Chain</a></dt><dt><a class="struct" href="struct.DenyThenTry.html" title="struct staging_xcm_builder::DenyThenTry">Deny<wbr>Then<wbr>Try</a></dt><dd>Deny executing the XCM if it matches any of the Deny filter regardless of anything else.
+If it passes the Deny, and matches one of the Allow cases then it is let through.</dd><dt><a class="struct" href="struct.DescribeAccountId32Terminal.html" title="struct staging_xcm_builder::DescribeAccountId32Terminal">Describe<wbr>Account<wbr>Id32<wbr>Terminal</a></dt><dt><a class="struct" href="struct.DescribeAccountKey20Terminal.html" title="struct staging_xcm_builder::DescribeAccountKey20Terminal">Describe<wbr>Account<wbr>Key20<wbr>Terminal</a></dt><dt><a class="struct" href="struct.DescribeBodyTerminal.html" title="struct staging_xcm_builder::DescribeBodyTerminal">Describe<wbr>Body<wbr>Terminal</a></dt><dt><a class="struct" href="struct.DescribeFamily.html" title="struct staging_xcm_builder::DescribeFamily">Describe<wbr>Family</a></dt><dt><a class="struct" href="struct.DescribePalletTerminal.html" title="struct staging_xcm_builder::DescribePalletTerminal">Describe<wbr>Pallet<wbr>Terminal</a></dt><dt><a class="struct" href="struct.DescribeTerminus.html" title="struct staging_xcm_builder::DescribeTerminus">Describe<wbr>Terminus</a></dt><dt><a class="struct" href="struct.DescribeTreasuryVoiceTerminal.html" title="struct staging_xcm_builder::DescribeTreasuryVoiceTerminal">Describe<wbr>Treasury<wbr>Voice<wbr>Terminal</a></dt><dd>Create a description of the remote treasury <code>location</code> if possible. No two locations should have
+the same descriptor.</dd><dt><a class="struct" href="struct.DualMint.html" title="struct staging_xcm_builder::DualMint">Dual<wbr>Mint</a></dt><dd>Implementation of <code>AssetChecking</code> which subjects a given set of assets <code>L</code> to having their
+teleportations recorded with a <code>MintLocation::Local</code> and a second set of assets <code>R</code> to having
+their teleportations recorded with a <code>MintLocation::NonLocal</code>.</dd><dt><a class="struct" href="struct.EnsureDecodableXcm.html" title="struct staging_xcm_builder::EnsureDecodableXcm">Ensure<wbr>Decodable<wbr>Xcm</a></dt><dd>A wrapper router that attempts to <em>encode</em> and <em>decode</em> passed XCM <code>message</code> to ensure that the
+receiving side will be able to decode, at least with the same XCM version.</dd><dt><a class="struct" href="struct.EnsureXcmOrigin.html" title="struct staging_xcm_builder::EnsureXcmOrigin">Ensure<wbr>XcmOrigin</a></dt><dd><code>EnsureOrigin</code> barrier to convert from dispatch origin to XCM origin, if one exists.</dd><dt><a class="struct" href="struct.ExternalConsensusLocationsConverterFor.html" title="struct staging_xcm_builder::ExternalConsensusLocationsConverterFor">External<wbr>Consensus<wbr>Locations<wbr>Converter<wbr>For</a></dt><dd>Converts locations from external global consensus systems (e.g., Ethereum, other parachains)
+into <code>AccountId</code>.</dd><dt><a class="struct" href="struct.FixedLocation.html" title="struct staging_xcm_builder::FixedLocation">Fixed<wbr>Location</a></dt><dd>Adapter <code>struct</code> which implements a conversion from any <code>AssetKind</code> into a <a href="struct.LocatableAssetId.html" title="struct staging_xcm_builder::LocatableAssetId"><code>LocatableAssetId</code></a>
+value using a fixed <code>Location</code> for the <code>location</code> field.</dd><dt><a class="struct" href="struct.FixedRateOfFungible.html" title="struct staging_xcm_builder::FixedRateOfFungible">Fixed<wbr>Rate<wbr>OfFungible</a></dt><dd>Simple fee calculator that requires payment in a single fungible at a fixed rate.</dd><dt><a class="struct" href="struct.FixedWeightBounds.html" title="struct staging_xcm_builder::FixedWeightBounds">Fixed<wbr>Weight<wbr>Bounds</a></dt><dt><a class="struct" href="struct.FrameTransactionalProcessor.html" title="struct staging_xcm_builder::FrameTransactionalProcessor">Frame<wbr>Transactional<wbr>Processor</a></dt><dd>Transactional processor implementation using frame transactional layers.</dd><dt><a class="struct" href="struct.FungibleAdapter.html" title="struct staging_xcm_builder::FungibleAdapter">Fungible<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>fungible</code>] implementation for
+handling an asset in the XCM executor.
+Works for everything, transfers and teleport bookkeeping.</dd><dt><a class="struct" href="struct.FungibleMutateAdapter.html" title="struct staging_xcm_builder::FungibleMutateAdapter">Fungible<wbr>Mutate<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>fungible</code>] implementation for
+handling an asset in the XCM executor.
+Works for everything but transfers.</dd><dt><a class="struct" href="struct.FungibleTransferAdapter.html" title="struct staging_xcm_builder::FungibleTransferAdapter">Fungible<wbr>Transfer<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>fungible</code>] implementation for
+handling an asset in the XCM executor.
+Only works for transfers.</dd><dt><a class="struct" href="struct.FungiblesAdapter.html" title="struct staging_xcm_builder::FungiblesAdapter">Fungibles<wbr>Adapter</a></dt><dt><a class="struct" href="struct.FungiblesMutateAdapter.html" title="struct staging_xcm_builder::FungiblesMutateAdapter">Fungibles<wbr>Mutate<wbr>Adapter</a></dt><dt><a class="struct" href="struct.FungiblesTransferAdapter.html" title="struct staging_xcm_builder::FungiblesTransferAdapter">Fungibles<wbr>Transfer<wbr>Adapter</a></dt><dd><code>TransactAsset</code> implementation to convert a <code>fungibles</code> implementation to become usable in XCM.</dd><dt><a class="struct" href="struct.GlobalConsensusConvertsFor.html" title="struct staging_xcm_builder::GlobalConsensusConvertsFor">Global<wbr>Consensus<wbr>Converts<wbr>For</a></dt><dd>Converts a location which is a top-level relay chain (which provides its own consensus) into a
+32-byte <code>AccountId</code>.</dd><dt><a class="struct" href="struct.GlobalConsensusParachainConvertsFor.html" title="struct staging_xcm_builder::GlobalConsensusParachainConvertsFor">Global<wbr>Consensus<wbr>Parachain<wbr>Converts<wbr>For</a></dt><dd>Converts a location which is a top-level parachain (i.e. a parachain held on a
+Relay-chain which provides its own consensus) into a 32-byte <code>AccountId</code>.</dd><dt><a class="struct" href="struct.HashedDescription.html" title="struct staging_xcm_builder::HashedDescription">Hashed<wbr>Description</a></dt><dt><a class="struct" href="struct.HaulBlobExporter.html" title="struct staging_xcm_builder::HaulBlobExporter">Haul<wbr>Blob<wbr>Exporter</a></dt><dt><a class="struct" href="struct.IsChildSystemParachain.html" title="struct staging_xcm_builder::IsChildSystemParachain">IsChild<wbr>System<wbr>Parachain</a></dt><dd>Allows a message only if it is from a system-level child parachain.</dd><dt><a class="struct" href="struct.IsConcrete.html" title="struct staging_xcm_builder::IsConcrete">IsConcrete</a></dt><dd>Converts a <code>Asset</code> into balance <code>B</code> if its id is equal to that
+given by <code>T</code>’s <code>Get</code>.</dd><dt><a class="struct" href="struct.IsParentsOnly.html" title="struct staging_xcm_builder::IsParentsOnly">IsParents<wbr>Only</a></dt><dd>Matches if the given location contains only the specified amount of parents and no interior
+junctions.</dd><dt><a class="struct" href="struct.IsSiblingSystemParachain.html" title="struct staging_xcm_builder::IsSiblingSystemParachain">IsSibling<wbr>System<wbr>Parachain</a></dt><dd>Matches if the given location is a system-level sibling parachain.</dd><dt><a class="struct" href="struct.LocalExporter.html" title="struct staging_xcm_builder::LocalExporter">Local<wbr>Exporter</a></dt><dd>Implementation of <code>SendXcm</code> which uses the given <code>ExportXcm</code> implementation in order to forward
+the message over a bridge.</dd><dt><a class="struct" href="struct.LocalMint.html" title="struct staging_xcm_builder::LocalMint">Local<wbr>Mint</a></dt><dd>Implementation of <code>AssetChecking</code> which subjects a given set of assets <code>T</code> to having their
+teleportations recorded with a <code>MintLocation::Local</code>.</dd><dt><a class="struct" href="struct.LocalTreasuryVoiceConvertsVia.html" title="struct staging_xcm_builder::LocalTreasuryVoiceConvertsVia">Local<wbr>Treasury<wbr>Voice<wbr>Converts<wbr>Via</a></dt><dd>Returns specified <code>TreasuryAccount</code> as <code>AccountId32</code> if passed <code>location</code> matches Treasury
+plurality.</dd><dt><a class="struct" href="struct.LocatableAssetId.html" title="struct staging_xcm_builder::LocatableAssetId">Locatable<wbr>Asset<wbr>Id</a></dt><dd>Simple struct which contains both an XCM <code>location</code> and <code>asset_id</code> to identify an asset which
+exists on some chain.</dd><dt><a class="struct" href="struct.LocationAsSuperuser.html" title="struct staging_xcm_builder::LocationAsSuperuser">Location<wbr>AsSuperuser</a></dt><dd>Converter that allows specific <code>Location</code>s to act as a superuser (<code>RuntimeOrigin::root()</code>)
+if it matches the predefined <code>WhitelistedSuperuserLocations</code> filter and <code>OriginKind::Superuser</code>.</dd><dt><a class="struct" href="struct.LocationWithAssetFilters.html" title="struct staging_xcm_builder::LocationWithAssetFilters">Location<wbr>With<wbr>Asset<wbr>Filters</a></dt><dd>Accepts a tuple <code>(location, assets)</code> if the <code>location</code> is contained in the <code>Contains</code>
+implementation of the given <code>Location</code> and if every asset from <code>assets</code> matches at least one of
+the <code>AssetFilter</code> instances provided by the <code>Get</code> implementation of <code>AssetFilters</code>.</dd><dt><a class="struct" href="struct.MatchClasslessInstances.html" title="struct staging_xcm_builder::MatchClasslessInstances">Match<wbr>Classless<wbr>Instances</a></dt><dd>An adapter that implements the unified unique instances matcher [<code>MatchesInstance</code>] trait
+for the [<code>MatchesNonFungible</code>].
+The resulting matcher expects the instances to be fully individual, not belonging to any group
+(such as an NFT collection).</dd><dt><a class="struct" href="struct.MatchInClassInstances.html" title="struct staging_xcm_builder::MatchInClassInstances">Match<wbr>InClass<wbr>Instances</a></dt><dd>An adapter that implements the unified unique instances matcher [<code>MatchesInstance</code>] trait
+for the [<code>MatchesNonFungibles</code>].
+The resulting matcher expects the instances to be part of some class (i.e., instance group,
+such as an NFT collection).</dd><dt><a class="struct" href="struct.MatchedConvertedConcreteId.html" title="struct staging_xcm_builder::MatchedConvertedConcreteId">Matched<wbr>Converted<wbr>Concrete<wbr>Id</a></dt><dt><a class="struct" href="struct.Matcher.html" title="struct staging_xcm_builder::Matcher">Matcher</a></dt><dd>Struct created from calling <code>fn matcher()</code> on a mutable slice of <code>Instruction</code>s.</dd><dt><a class="struct" href="struct.NativeAsset.html" title="struct staging_xcm_builder::NativeAsset">Native<wbr>Asset</a></dt><dd>Accepts an asset iff it is a native asset.</dd><dt><a class="struct" href="struct.NetworkExportTable.html" title="struct staging_xcm_builder::NetworkExportTable">Network<wbr>Export<wbr>Table</a></dt><dd>An adapter for the implementation of <code>ExporterFor</code>, which attempts to find the
+<code>(bridge_location, payment)</code> for the requested <code>network</code> and <code>remote_location</code> in the provided
+<code>T</code> table containing various exporters.</dd><dt><a class="struct" href="struct.NetworkExportTableItem.html" title="struct staging_xcm_builder::NetworkExportTableItem">Network<wbr>Export<wbr>Table<wbr>Item</a></dt><dd>Configuration item representing a single exporter in the <code>NetworkExportTable</code>.</dd><dt><a class="struct" href="struct.NoChecking.html" title="struct staging_xcm_builder::NoChecking">NoChecking</a></dt><dd>Implementation of <code>AssetChecking</code> which subjects no assets to having their teleportations
+recorded.</dd><dt><a class="struct" href="struct.NonFungibleAdapter.html" title="struct staging_xcm_builder::NonFungibleAdapter">NonFungible<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungible</code>] implementation for
+handling an asset in the XCM executor.
+Works for everything.</dd><dt><a class="struct" href="struct.NonFungibleMutateAdapter.html" title="struct staging_xcm_builder::NonFungibleMutateAdapter">NonFungible<wbr>Mutate<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungible</code>] implementation for
+handling an asset in the XCM executor.
+Works for teleport bookkeeping.</dd><dt><a class="struct" href="struct.NonFungibleTransferAdapter.html" title="struct staging_xcm_builder::NonFungibleTransferAdapter">NonFungible<wbr>Transfer<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungible</code>] implementation for
+handling an asset in the XCM executor.
+Only works for transfers.</dd><dt><a class="struct" href="struct.NonFungiblesAdapter.html" title="struct staging_xcm_builder::NonFungiblesAdapter">NonFungibles<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungibles</code>] implementation for
+handling an asset in the XCM executor.
+Works for everything.</dd><dt><a class="struct" href="struct.NonFungiblesMutateAdapter.html" title="struct staging_xcm_builder::NonFungiblesMutateAdapter">NonFungibles<wbr>Mutate<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungibles</code>] implementation for
+handling an asset in the XCM executor.
+Only works for teleport bookkeeping.</dd><dt><a class="struct" href="struct.NonFungiblesTransferAdapter.html" title="struct staging_xcm_builder::NonFungiblesTransferAdapter">NonFungibles<wbr>Transfer<wbr>Adapter</a></dt><dd><a href="test_utils/trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset"><code>TransactAsset</code></a> implementation that allows the use of a [<code>nonfungibles</code>] implementation for
+handling an asset in the XCM executor.
+Only works for transfers.</dd><dt><a class="struct" href="struct.NonLocalMint.html" title="struct staging_xcm_builder::NonLocalMint">NonLocal<wbr>Mint</a></dt><dd>Implementation of <code>AssetChecking</code> which subjects a given set of assets <code>T</code> to having their
+teleportations recorded with a <code>MintLocation::NonLocal</code>.</dd><dt><a class="struct" href="struct.OriginToPluralityVoice.html" title="struct staging_xcm_builder::OriginToPluralityVoice">Origin<wbr>ToPlurality<wbr>Voice</a></dt><dd><code>Convert</code> implementation to convert from an origin which passes the check of an <code>EnsureOrigin</code>
+into a voice of a given pluralistic <code>Body</code>.</dd><dt><a class="struct" href="struct.ParentAsSuperuser.html" title="struct staging_xcm_builder::ParentAsSuperuser">Parent<wbr>AsSuperuser</a></dt><dt><a class="struct" href="struct.ParentIsPreset.html" title="struct staging_xcm_builder::ParentIsPreset">Parent<wbr>IsPreset</a></dt><dd>A <a href="test_utils/struct.Location.html" title="struct staging_xcm_builder::test_utils::Location"><code>Location</code></a> consisting of a single <code>Parent</code> <a href="test_utils/enum.Junction.html" title="enum staging_xcm_builder::test_utils::Junction"><code>Junction</code></a> will be converted to the
+parent <code>AccountId</code>.</dd><dt><a class="struct" href="struct.PayOverXcm.html" title="struct staging_xcm_builder::PayOverXcm">PayOver<wbr>Xcm</a></dt><dd>Implementation of the <code>frame_support::traits::tokens::Pay</code> trait, to allow
+for XCM-based payments of a given <code>Balance</code> of some asset ID existing on some chain under
+ownership of some <code>Interior</code> location of the local chain to a particular <code>Beneficiary</code>. The
+<code>AssetKind</code> value is not itself bounded (to avoid the issue of needing to wrap some preexisting
+datatype), however a converter type <code>AssetKindToLocatableAsset</code> must be provided in order to
+translate it into a <code>LocatableAsset</code>, which comprises both an XCM <code>Location</code> describing
+the XCM endpoint on which the asset to be paid resides and an XCM <code>AssetId</code> to identify the
+specific asset at that endpoint.</dd><dt><a class="struct" href="struct.ProcessXcmMessage.html" title="struct staging_xcm_builder::ProcessXcmMessage">Process<wbr>XcmMessage</a></dt><dd>A message processor that delegates execution to an <code>XcmExecutor</code>.</dd><dt><a class="struct" href="struct.RelayChainAsNative.html" title="struct staging_xcm_builder::RelayChainAsNative">Relay<wbr>Chain<wbr>AsNative</a></dt><dt><a class="struct" href="struct.RespectSuspension.html" title="struct staging_xcm_builder::RespectSuspension">Respect<wbr>Suspension</a></dt><dd>Barrier condition that allows for a <code>SuspensionChecker</code> that controls whether or not the XCM
+executor will be suspended from executing the given XCM.</dd><dt><a class="struct" href="struct.SendXcmFeeToAccount.html" title="struct staging_xcm_builder::SendXcmFeeToAccount">Send<wbr>XcmFee<wbr>ToAccount</a></dt><dd>A <code>HandleFee</code> implementation that simply deposits the fees into a specific on-chain
+<code>ReceiverAccount</code>.</dd><dt><a class="struct" href="struct.SiblingParachainAsNative.html" title="struct staging_xcm_builder::SiblingParachainAsNative">Sibling<wbr>Parachain<wbr>AsNative</a></dt><dt><a class="struct" href="struct.SiblingParachainConvertsVia.html" title="struct staging_xcm_builder::SiblingParachainConvertsVia">Sibling<wbr>Parachain<wbr>Converts<wbr>Via</a></dt><dt><a class="struct" href="struct.SiblingSystemParachainAsSuperuser.html" title="struct staging_xcm_builder::SiblingSystemParachainAsSuperuser">Sibling<wbr>System<wbr>Parachain<wbr>AsSuperuser</a></dt><dt><a class="struct" href="struct.SignedAccountId32AsNative.html" title="struct staging_xcm_builder::SignedAccountId32AsNative">Signed<wbr>Account<wbr>Id32<wbr>AsNative</a></dt><dt><a class="struct" href="struct.SignedAccountKey20AsNative.html" title="struct staging_xcm_builder::SignedAccountKey20AsNative">Signed<wbr>Account<wbr>Key20<wbr>AsNative</a></dt><dt><a class="struct" href="struct.SignedToAccountId32.html" title="struct staging_xcm_builder::SignedToAccountId32">Signed<wbr>ToAccount<wbr>Id32</a></dt><dd><code>Convert</code> implementation to convert from some a <code>Signed</code> (system) <code>Origin</code> into an
+<code>AccountId32</code>.</dd><dt><a class="struct" href="struct.SingleAssetExchangeAdapter.html" title="struct staging_xcm_builder::SingleAssetExchangeAdapter">Single<wbr>Asset<wbr>Exchange<wbr>Adapter</a></dt><dd>An adapter from [<code>pallet_asset_conversion::SwapCredit</code>] and
+[<code>pallet_asset_conversion::QuotePrice</code>] to <a href="test_utils/trait.AssetExchange.html" title="trait staging_xcm_builder::test_utils::AssetExchange"><code>xcm_executor::traits::AssetExchange</code></a>.</dd><dt><a class="struct" href="struct.SovereignPaidRemoteExporter.html" title="struct staging_xcm_builder::SovereignPaidRemoteExporter">Sovereign<wbr>Paid<wbr>Remote<wbr>Exporter</a></dt><dd>Implementation of <code>SendXcm</code> which wraps the message inside an <code>ExportMessage</code> instruction
+and sends it to a destination known to be able to handle it.</dd><dt><a class="struct" href="struct.SovereignSignedViaLocation.html" title="struct staging_xcm_builder::SovereignSignedViaLocation">Sovereign<wbr>Signed<wbr>ViaLocation</a></dt><dd>Sovereign accounts use the system’s <code>Signed</code> origin with an account ID derived from the
+<code>LocationConverter</code>.</dd><dt><a class="struct" href="struct.StartsWith.html" title="struct staging_xcm_builder::StartsWith">Starts<wbr>With</a></dt><dd>An implementation of <code>Contains</code> that checks for <code>Location</code> or
+<code>InteriorLocation</code> if starts with the provided type <code>T</code>.</dd><dt><a class="struct" href="struct.StartsWithExplicitGlobalConsensus.html" title="struct staging_xcm_builder::StartsWithExplicitGlobalConsensus">Starts<wbr>With<wbr>Explicit<wbr>Global<wbr>Consensus</a></dt><dd>An implementation of <code>Contains</code> that checks for <code>Location</code> or
+<code>InteriorLocation</code> if starts with expected <code>GlobalConsensus(NetworkId)</code> provided as type
+<code>T</code>.</dd><dt><a class="struct" href="struct.TakeWeightCredit.html" title="struct staging_xcm_builder::TakeWeightCredit">Take<wbr>Weight<wbr>Credit</a></dt><dd>Execution barrier that just takes <code>max_weight</code> from <code>properties.weight_credit</code>.</dd><dt><a class="struct" href="struct.TrailingSetTopicAsId.html" title="struct staging_xcm_builder::TrailingSetTopicAsId">Trailing<wbr>SetTopic<wbr>AsId</a></dt><dd>Sets the message ID to <code>t</code> using a <code>SetTopic(t)</code> in the last position if present.</dd><dt><a class="struct" href="struct.UnpaidLocalExporter.html" title="struct staging_xcm_builder::UnpaidLocalExporter">Unpaid<wbr>Local<wbr>Exporter</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Implementation of <code>SendXcm</code> which uses the given <code>ExportXcm</code> implementation in order to forward
+the message over a bridge.</dd><dt><a class="struct" href="struct.UnpaidRemoteExporter.html" title="struct staging_xcm_builder::UnpaidRemoteExporter">Unpaid<wbr>Remote<wbr>Exporter</a></dt><dd>Implementation of <code>SendXcm</code> which wraps the message inside an <code>ExportMessage</code> instruction
+and sends it to a destination known to be able to handle it.</dd><dt><a class="struct" href="struct.UsingComponents.html" title="struct staging_xcm_builder::UsingComponents">Using<wbr>Components</a></dt><dd>Weight trader which uses the configured <code>WeightToFee</code> to set the right price for weight and then
+places any weight bought into the right account.</dd><dt><a class="struct" href="struct.WeightInfoBounds.html" title="struct staging_xcm_builder::WeightInfoBounds">Weight<wbr>Info<wbr>Bounds</a></dt><dt><a class="struct" href="struct.WithComputedOrigin.html" title="struct staging_xcm_builder::WithComputedOrigin">With<wbr>Computed<wbr>Origin</a></dt><dd>A derivative barrier, which scans the first <code>MaxPrefixes</code> instructions for origin-alterers and
+then evaluates <code>should_execute</code> of the <code>InnerBarrier</code> based on the remaining instructions and
+the newly computed origin.</dd><dt><a class="struct" href="struct.WithLatestLocationConverter.html" title="struct staging_xcm_builder::WithLatestLocationConverter">With<wbr>Latest<wbr>Location<wbr>Converter</a></dt><dd>An adapter implementation of <code>MaybeEquivalence</code> which can convert between the latest <code>Location</code>
+and other versions that implement <code>TryInto&lt;Location&gt;</code> and <code>TryFrom&lt;Location&gt;</code>.</dd><dt><a class="struct" href="struct.WithTopicSource.html" title="struct staging_xcm_builder::WithTopicSource">With<wbr>Topic<wbr>Source</a></dt><dd>Wrapper router which, if the message does not already end with a <code>SetTopic</code> instruction,
+prepends one to the message filled with an ID from <code>TopicSource</code>. This ID is returned from a
+successful <code>deliver</code>.</dd><dt><a class="struct" href="struct.WithUniqueTopic.html" title="struct staging_xcm_builder::WithUniqueTopic">With<wbr>Unique<wbr>Topic</a></dt><dd>Wrapper router which, if the message does not already end with a <code>SetTopic</code> instruction,
+appends one to the message filled with a universally unique ID. This ID is returned from a
+successful <code>deliver</code>.</dd><dt><a class="struct" href="struct.XcmFeeManagerFromComponents.html" title="struct staging_xcm_builder::XcmFeeManagerFromComponents">XcmFee<wbr>Manager<wbr>From<wbr>Components</a></dt><dd>A <code>FeeManager</code> implementation that permits the specified <code>WaivedLocations</code> to not pay for fees
+and that uses the provided <code>HandleFee</code> implementation otherwise.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.DispatchBlobError.html" title="enum staging_xcm_builder::DispatchBlobError">Dispatch<wbr>Blob<wbr>Error</a></dt><dt><a class="enum" href="enum.HaulBlobError.html" title="enum staging_xcm_builder::HaulBlobError">Haul<wbr>Blob<wbr>Error</a></dt><dt><a class="enum" href="enum.MintLocation.html" title="enum staging_xcm_builder::MintLocation">Mint<wbr>Location</a></dt><dd>The location which is allowed to mint a particular asset.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AssetChecking.html" title="trait staging_xcm_builder::AssetChecking">Asset<wbr>Checking</a></dt><dd>Simple trait to indicate whether an asset is subject to having its teleportation into and out of
+this chain recorded and if so in what <code>MintLocation</code>.</dd><dt><a class="trait" href="trait.Controller.html" title="trait staging_xcm_builder::Controller">Controller</a></dt><dd>Umbrella trait for all Controller traits.</dd><dt><a class="trait" href="trait.CreateMatcher.html" title="trait staging_xcm_builder::CreateMatcher">Create<wbr>Matcher</a></dt><dd>Creates an instruction matcher from an XCM. Since XCM versions differ, we need to make a trait
+here to unify the interfaces among them.</dd><dt><a class="trait" href="trait.DescribeLocation.html" title="trait staging_xcm_builder::DescribeLocation">Describe<wbr>Location</a></dt><dd>Means of converting a location into a stable and unique descriptive identifier.</dd><dt><a class="trait" href="trait.DispatchBlob.html" title="trait staging_xcm_builder::DispatchBlob">Dispatch<wbr>Blob</a></dt><dt><a class="trait" href="trait.EnsureDelivery.html" title="trait staging_xcm_builder::EnsureDelivery">Ensure<wbr>Delivery</a></dt><dd>Trait for a type which ensures all requirements for successful delivery with XCM transport
+layers.</dd><dt><a class="trait" href="trait.ExecuteController.html" title="trait staging_xcm_builder::ExecuteController">Execute<wbr>Controller</a></dt><dd>Execute an XCM locally, for a given origin.</dd><dt><a class="trait" href="trait.ExecuteControllerWeightInfo.html" title="trait staging_xcm_builder::ExecuteControllerWeightInfo">Execute<wbr>Controller<wbr>Weight<wbr>Info</a></dt><dd>Weight functions needed for <a href="trait.ExecuteController.html" title="trait staging_xcm_builder::ExecuteController"><code>ExecuteController</code></a>.</dd><dt><a class="trait" href="trait.ExporterFor.html" title="trait staging_xcm_builder::ExporterFor">Exporter<wbr>For</a></dt><dt><a class="trait" href="trait.HandleFee.html" title="trait staging_xcm_builder::HandleFee">Handle<wbr>Fee</a></dt><dd>Handles the fees that are taken by certain XCM instructions.</dd><dt><a class="trait" href="trait.HaulBlob.html" title="trait staging_xcm_builder::HaulBlob">Haul<wbr>Blob</a></dt><dt><a class="trait" href="trait.InspectMessageQueues.html" title="trait staging_xcm_builder::InspectMessageQueues">Inspect<wbr>Message<wbr>Queues</a></dt><dd>Inspects messages in queues.
+Meant to be used in runtime APIs, not in runtimes.</dd><dt><a class="trait" href="trait.MatchXcm.html" title="trait staging_xcm_builder::MatchXcm">Match<wbr>Xcm</a></dt><dd>API that allows to pattern-match against anything that is contained within an XCM.</dd><dt><a class="trait" href="trait.QueryController.html" title="trait staging_xcm_builder::QueryController">Query<wbr>Controller</a></dt><dd>Query a remote location, from a given origin.</dd><dt><a class="trait" href="trait.QueryControllerWeightInfo.html" title="trait staging_xcm_builder::QueryControllerWeightInfo">Query<wbr>Controller<wbr>Weight<wbr>Info</a></dt><dd>Weight functions needed for <a href="trait.QueryController.html" title="trait staging_xcm_builder::QueryController"><code>QueryController</code></a>.</dd><dt><a class="trait" href="trait.QueryHandler.html" title="trait staging_xcm_builder::QueryHandler">Query<wbr>Handler</a></dt><dd>Provides methods to expect responses from XCMs and query their status.</dd><dt><a class="trait" href="trait.SendController.html" title="trait staging_xcm_builder::SendController">Send<wbr>Controller</a></dt><dd>Send an XCM from a given origin.</dd><dt><a class="trait" href="trait.SendControllerWeightInfo.html" title="trait staging_xcm_builder::SendControllerWeightInfo">Send<wbr>Controller<wbr>Weight<wbr>Info</a></dt><dd>Weight functions needed for <a href="trait.SendController.html" title="trait staging_xcm_builder::SendController"><code>SendController</code></a>.</dd><dt><a class="trait" href="trait.TakeRevenue.html" title="trait staging_xcm_builder::TakeRevenue">Take<wbr>Revenue</a></dt><dd>Function trait for handling some revenue. Similar to a negative imbalance (credit) handler, but
+for a <code>Asset</code>. Sensible implementations will deposit the asset in some known treasury or
+block-author account.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.deposit_or_burn_fee.html" title="fn staging_xcm_builder::deposit_or_burn_fee">deposit_<wbr>or_<wbr>burn_<wbr>fee</a></dt><dd>Try to deposit the given fee in the specified account.
+Burns the fee in case of a failure.</dd><dt><a class="fn" href="fn.ensure_is_remote.html" title="fn staging_xcm_builder::ensure_is_remote">ensure_<wbr>is_<wbr>remote</a></dt><dd>Returns the network ID and consensus location within that network of the remote
+location <code>dest</code> which is itself specified as a location relative to the local
+chain, itself situated at <code>universal_local</code> within the consensus universe. If
+<code>dest</code> is not a location in remote consensus, then an error is returned.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ConvertedConcreteAssetId.html" title="type staging_xcm_builder::ConvertedConcreteAssetId">Converted<wbr>Concrete<wbr>Asset<wbr>Id</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dt><a class="type" href="type.DescribeAccountIdTerminal.html" title="type staging_xcm_builder::DescribeAccountIdTerminal">Describe<wbr>Account<wbr>IdTerminal</a></dt><dt><a class="type" href="type.DescribeAllTerminal.html" title="type staging_xcm_builder::DescribeAllTerminal">Describe<wbr>AllTerminal</a></dt><dt><a class="type" href="type.ForeignChainAliasAccount.html" title="type staging_xcm_builder::ForeignChainAliasAccount">Foreign<wbr>Chain<wbr>Alias<wbr>Account</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>This is deprecated in favor of the more modular <code>HashedDescription</code> converter. If
+your chain has previously used this, then you can retain backwards compatibility using
+<code>HashedDescription</code> and a tuple with <code>LegacyDescribeForeignChainAccount</code> as the first
+element. For example:</dd><dt><a class="type" href="type.PayAccountId32OnChainOverXcm.html" title="type staging_xcm_builder::PayAccountId32OnChainOverXcm">PayAccount<wbr>Id32<wbr>OnChain<wbr>Over<wbr>Xcm</a></dt><dd>Specialization of the <a href="struct.PayOverXcm.html" title="struct staging_xcm_builder::PayOverXcm"><code>PayOverXcm</code></a> trait to allow <code>[u8; 32]</code>-based <code>AccountId</code> values to be
+paid on a remote chain.</dd></dl><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

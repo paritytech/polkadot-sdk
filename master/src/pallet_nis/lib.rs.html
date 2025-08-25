@@ -1,0 +1,1297 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nis/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nis" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pallet_nis/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#7 id=7 data-nosnippet>7</a>// you may not use this file except in compliance with the License.
+<a href=#8 id=8 data-nosnippet>8</a>// You may obtain a copy of the License at
+<a href=#9 id=9 data-nosnippet>9</a>//
+<a href=#10 id=10 data-nosnippet>10</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#11 id=11 data-nosnippet>11</a>//
+<a href=#12 id=12 data-nosnippet>12</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#13 id=13 data-nosnippet>13</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#14 id=14 data-nosnippet>14</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#15 id=15 data-nosnippet>15</a>// See the License for the specific language governing permissions and
+<a href=#16 id=16 data-nosnippet>16</a>// limitations under the License.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="doccomment">//! # Non-Interactive Staking (NIS) Pallet
+<a href=#19 id=19 data-nosnippet>19</a>//! A pallet allowing accounts to auction for being frozen and receive open-ended
+<a href=#20 id=20 data-nosnippet>20</a>//! inflation-protection in return.
+<a href=#21 id=21 data-nosnippet>21</a>//!
+<a href=#22 id=22 data-nosnippet>22</a>//! ## Overview
+<a href=#23 id=23 data-nosnippet>23</a>//!
+<a href=#24 id=24 data-nosnippet>24</a>//! Lock up tokens, for at least as long as you offer, and be free from both inflation and
+<a href=#25 id=25 data-nosnippet>25</a>//! intermediate reward or exchange until the tokens become unlocked.
+<a href=#26 id=26 data-nosnippet>26</a>//!
+<a href=#27 id=27 data-nosnippet>27</a>//! ## Design
+<a href=#28 id=28 data-nosnippet>28</a>//!
+<a href=#29 id=29 data-nosnippet>29</a>//! Queues for each of `1..QueueCount` periods, given in blocks (`Period`). Queues are limited in
+<a href=#30 id=30 data-nosnippet>30</a>//! size to something sensible, `MaxQueueLen`. A secondary storage item with `QueueCount` x `u32`
+<a href=#31 id=31 data-nosnippet>31</a>//! elements with the number of items in each queue.
+<a href=#32 id=32 data-nosnippet>32</a>//!
+<a href=#33 id=33 data-nosnippet>33</a>//! Queues are split into two parts. The first part is a priority queue based on bid size. The
+<a href=#34 id=34 data-nosnippet>34</a>//! second part is just a FIFO (the size of the second part is set with `FifoQueueLen`). Items are
+<a href=#35 id=35 data-nosnippet>35</a>//! always prepended so that removal is always O(1) since removal often happens many times under a
+<a href=#36 id=36 data-nosnippet>36</a>//! single weighed function (`on_initialize`) yet placing bids only ever happens once per weighed
+<a href=#37 id=37 data-nosnippet>37</a>//! function (`place_bid`). If the queue has a priority portion, then it remains sorted in order of
+<a href=#38 id=38 data-nosnippet>38</a>//! bid size so that smaller bids fall off as it gets too large.
+<a href=#39 id=39 data-nosnippet>39</a>//!
+<a href=#40 id=40 data-nosnippet>40</a>//! Account may enqueue a balance with some number of `Period`s lock up, up to a maximum of
+<a href=#41 id=41 data-nosnippet>41</a>//! `QueueCount`. The balance gets reserved. There's a minimum of `MinBid` to avoid dust.
+<a href=#42 id=42 data-nosnippet>42</a>//!
+<a href=#43 id=43 data-nosnippet>43</a>//! Until your bid is consolidated and you receive a receipt, you can retract it instantly and the
+<a href=#44 id=44 data-nosnippet>44</a>//! funds are unreserved.
+<a href=#45 id=45 data-nosnippet>45</a>//!
+<a href=#46 id=46 data-nosnippet>46</a>//! There's a target proportion of effective total issuance (i.e. accounting for existing receipts)
+<a href=#47 id=47 data-nosnippet>47</a>//! which the pallet attempts to have frozen at any one time. It will likely be gradually increased
+<a href=#48 id=48 data-nosnippet>48</a>//! over time by governance.
+<a href=#49 id=49 data-nosnippet>49</a>//!
+<a href=#50 id=50 data-nosnippet>50</a>//! As the proportion of effective total issuance represented by outstanding receipts drops below
+<a href=#51 id=51 data-nosnippet>51</a>//! `FrozenFraction`, then bids are taken from queues and consolidated into receipts, with the queue
+<a href=#52 id=52 data-nosnippet>52</a>//! of the greatest period taking priority. If the item in the queue's locked amount is greater than
+<a href=#53 id=53 data-nosnippet>53</a>//! the amount remaining to achieve `FrozenFraction`, then it is split up into multiple bids and
+<a href=#54 id=54 data-nosnippet>54</a>//! becomes partially consolidated.
+<a href=#55 id=55 data-nosnippet>55</a>//!
+<a href=#56 id=56 data-nosnippet>56</a>//! With the consolidation of a bid, the bid amount is taken from the owner and a receipt is issued.
+<a href=#57 id=57 data-nosnippet>57</a>//! The receipt records the proportion of the bid compared to effective total issuance at the time
+<a href=#58 id=58 data-nosnippet>58</a>//! of consolidation. The receipt has two independent elements: a "main" non-fungible receipt and
+<a href=#59 id=59 data-nosnippet>59</a>//! a second set of fungible "counterpart" tokens. The accounting functionality of the latter must
+<a href=#60 id=60 data-nosnippet>60</a>//! be provided through the `Counterpart` trait item. The main non-fungible receipt may have its
+<a href=#61 id=61 data-nosnippet>61</a>//! owner transferred through the pallet's implementation of `nonfungible::Transfer`.
+<a href=#62 id=62 data-nosnippet>62</a>//!
+<a href=#63 id=63 data-nosnippet>63</a>//! A later `thaw` function may be called in order to reduce the recorded proportion or entirely
+<a href=#64 id=64 data-nosnippet>64</a>//! remove the receipt in return for the appropriate proportion of the effective total issuance.
+<a href=#65 id=65 data-nosnippet>65</a>//! This may happen no earlier than queue's period after the point at which the receipt was issued.
+<a href=#66 id=66 data-nosnippet>66</a>//! The call must be made by the owner of both the "main" non-fungible receipt and the appropriate
+<a href=#67 id=67 data-nosnippet>67</a>//! amount of counterpart tokens.
+<a href=#68 id=68 data-nosnippet>68</a>//!
+<a href=#69 id=69 data-nosnippet>69</a>//! `NoCounterpart` may be provided as an implementation for the counterpart token system in which
+<a href=#70 id=70 data-nosnippet>70</a>//! case they are completely disregarded from the thawing logic.
+<a href=#71 id=71 data-nosnippet>71</a>//!
+<a href=#72 id=72 data-nosnippet>72</a>//! ## Terms
+<a href=#73 id=73 data-nosnippet>73</a>//!
+<a href=#74 id=74 data-nosnippet>74</a>//! - *Effective total issuance*: The total issuance of balances in the system, equal to the active
+<a href=#75 id=75 data-nosnippet>75</a>//!   issuance plus the value of all outstanding receipts, less `IgnoredIssuance`.
+<a href=#76 id=76 data-nosnippet>76</a>
+<a href=#77 id=77 data-nosnippet>77</a></span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a></span><span class="kw">extern crate </span>alloc;
+<a href=#80 id=80 data-nosnippet>80</a>
+<a href=#81 id=81 data-nosnippet>81</a><span class="kw">pub mod </span>weights;
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">mod </span>benchmarking;
+<a href=#84 id=84 data-nosnippet>84</a><span class="attr">#[cfg(test)]
+<a href=#85 id=85 data-nosnippet>85</a></span><span class="kw">mod </span>mock;
+<a href=#86 id=86 data-nosnippet>86</a><span class="attr">#[cfg(test)]
+<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">mod </span>tests;
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
+<a href=#90 id=90 data-nosnippet>90</a><span class="kw">pub use </span>weights::WeightInfo;
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="kw">use </span>alloc::{vec, vec::Vec};
+<a href=#93 id=93 data-nosnippet>93</a><span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+<a href=#94 id=94 data-nosnippet>94</a><span class="kw">use </span>fungible::{
+<a href=#95 id=95 data-nosnippet>95</a>	Balanced <span class="kw">as </span>FunBalanced, Inspect <span class="kw">as </span>FunInspect, Mutate <span class="kw">as </span>FunMutate,
+<a href=#96 id=96 data-nosnippet>96</a>	MutateHold <span class="kw">as </span>FunMutateHold,
+<a href=#97 id=97 data-nosnippet>97</a>};
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">use </span>nonfungible::{Inspect <span class="kw">as </span>NftInspect, Transfer <span class="kw">as </span>NftTransfer};
+<a href=#99 id=99 data-nosnippet>99</a><span class="kw">use </span>tokens::{Balance, Restriction::<span class="kw-2">*</span>};
+<a href=#100 id=100 data-nosnippet>100</a><span class="kw">use </span>Fortitude::<span class="kw-2">*</span>;
+<a href=#101 id=101 data-nosnippet>101</a><span class="kw">use </span>Precision::<span class="kw-2">*</span>;
+<a href=#102 id=102 data-nosnippet>102</a><span class="kw">use </span>Preservation::<span class="kw-2">*</span>;
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a><span class="kw">pub struct </span>WithMaximumOf&lt;A: TypedGet&gt;(core::marker::PhantomData&lt;A&gt;);
+<a href=#105 id=105 data-nosnippet>105</a><span class="kw">impl</span>&lt;A: TypedGet&gt; Convert&lt;Perquintill, A::Type&gt; <span class="kw">for </span>WithMaximumOf&lt;A&gt;
+<a href=#106 id=106 data-nosnippet>106</a><span class="kw">where
+<a href=#107 id=107 data-nosnippet>107</a>	</span>A::Type: Clone + Unsigned + From&lt;u64&gt;,
+<a href=#108 id=108 data-nosnippet>108</a>	u64: TryFrom&lt;A::Type&gt;,
+<a href=#109 id=109 data-nosnippet>109</a>{
+<a href=#110 id=110 data-nosnippet>110</a>	<span class="kw">fn </span>convert(a: Perquintill) -&gt; A::Type {
+<a href=#111 id=111 data-nosnippet>111</a>		a * A::get()
+<a href=#112 id=112 data-nosnippet>112</a>	}
+<a href=#113 id=113 data-nosnippet>113</a>}
+<a href=#114 id=114 data-nosnippet>114</a><span class="kw">impl</span>&lt;A: TypedGet&gt; ConvertBack&lt;Perquintill, A::Type&gt; <span class="kw">for </span>WithMaximumOf&lt;A&gt;
+<a href=#115 id=115 data-nosnippet>115</a><span class="kw">where
+<a href=#116 id=116 data-nosnippet>116</a>	</span>A::Type: RationalArg + From&lt;u64&gt;,
+<a href=#117 id=117 data-nosnippet>117</a>	u64: TryFrom&lt;A::Type&gt;,
+<a href=#118 id=118 data-nosnippet>118</a>	u128: TryFrom&lt;A::Type&gt;,
+<a href=#119 id=119 data-nosnippet>119</a>{
+<a href=#120 id=120 data-nosnippet>120</a>	<span class="kw">fn </span>convert_back(a: A::Type) -&gt; Perquintill {
+<a href=#121 id=121 data-nosnippet>121</a>		Perquintill::from_rational(a, A::get())
+<a href=#122 id=122 data-nosnippet>122</a>	}
+<a href=#123 id=123 data-nosnippet>123</a>}
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a><span class="kw">pub struct </span>NoCounterpart&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#126 id=126 data-nosnippet>126</a><span class="kw">impl</span>&lt;T&gt; FunInspect&lt;T&gt; <span class="kw">for </span>NoCounterpart&lt;T&gt; {
+<a href=#127 id=127 data-nosnippet>127</a>	<span class="kw">type </span>Balance = u32;
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="kw">fn </span>total_issuance() -&gt; u32 {
+<a href=#129 id=129 data-nosnippet>129</a>		<span class="number">0
+<a href=#130 id=130 data-nosnippet>130</a>	</span>}
+<a href=#131 id=131 data-nosnippet>131</a>	<span class="kw">fn </span>minimum_balance() -&gt; u32 {
+<a href=#132 id=132 data-nosnippet>132</a>		<span class="number">0
+<a href=#133 id=133 data-nosnippet>133</a>	</span>}
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="kw">fn </span>balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T) -&gt; u32 {
+<a href=#135 id=135 data-nosnippet>135</a>		<span class="number">0
+<a href=#136 id=136 data-nosnippet>136</a>	</span>}
+<a href=#137 id=137 data-nosnippet>137</a>	<span class="kw">fn </span>total_balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T) -&gt; u32 {
+<a href=#138 id=138 data-nosnippet>138</a>		<span class="number">0
+<a href=#139 id=139 data-nosnippet>139</a>	</span>}
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="kw">fn </span>reducible_balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T, <span class="kw">_</span>: Preservation, <span class="kw">_</span>: Fortitude) -&gt; u32 {
+<a href=#141 id=141 data-nosnippet>141</a>		<span class="number">0
+<a href=#142 id=142 data-nosnippet>142</a>	</span>}
+<a href=#143 id=143 data-nosnippet>143</a>	<span class="kw">fn </span>can_deposit(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T, <span class="kw">_</span>: u32, <span class="kw">_</span>: Provenance) -&gt; DepositConsequence {
+<a href=#144 id=144 data-nosnippet>144</a>		DepositConsequence::Success
+<a href=#145 id=145 data-nosnippet>145</a>	}
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="kw">fn </span>can_withdraw(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T, <span class="kw">_</span>: u32) -&gt; WithdrawConsequence&lt;u32&gt; {
+<a href=#147 id=147 data-nosnippet>147</a>		WithdrawConsequence::Success
+<a href=#148 id=148 data-nosnippet>148</a>	}
+<a href=#149 id=149 data-nosnippet>149</a>}
+<a href=#150 id=150 data-nosnippet>150</a><span class="kw">impl</span>&lt;T&gt; fungible::Unbalanced&lt;T&gt; <span class="kw">for </span>NoCounterpart&lt;T&gt; {
+<a href=#151 id=151 data-nosnippet>151</a>	<span class="kw">fn </span>handle_dust(<span class="kw">_</span>: fungible::Dust&lt;T, <span class="self">Self</span>&gt;) {}
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="kw">fn </span>write_balance(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T, <span class="kw">_</span>: <span class="self">Self</span>::Balance) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Balance&gt;, DispatchError&gt; {
+<a href=#153 id=153 data-nosnippet>153</a>		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#154 id=154 data-nosnippet>154</a>	}
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="kw">fn </span>set_total_issuance(<span class="kw">_</span>: <span class="self">Self</span>::Balance) {}
+<a href=#156 id=156 data-nosnippet>156</a>}
+<a href=#157 id=157 data-nosnippet>157</a><span class="kw">impl</span>&lt;T: Eq&gt; FunMutate&lt;T&gt; <span class="kw">for </span>NoCounterpart&lt;T&gt; {}
+<a href=#158 id=158 data-nosnippet>158</a><span class="kw">impl</span>&lt;T&gt; Convert&lt;Perquintill, u32&gt; <span class="kw">for </span>NoCounterpart&lt;T&gt; {
+<a href=#159 id=159 data-nosnippet>159</a>	<span class="kw">fn </span>convert(<span class="kw">_</span>: Perquintill) -&gt; u32 {
+<a href=#160 id=160 data-nosnippet>160</a>		<span class="number">0
+<a href=#161 id=161 data-nosnippet>161</a>	</span>}
+<a href=#162 id=162 data-nosnippet>162</a>}
+<a href=#163 id=163 data-nosnippet>163</a>
+<a href=#164 id=164 data-nosnippet>164</a><span class="doccomment">/// Setup the empty genesis state for benchmarking.
+<a href=#165 id=165 data-nosnippet>165</a></span><span class="kw">pub trait </span>BenchmarkSetup {
+<a href=#166 id=166 data-nosnippet>166</a>	<span class="doccomment">/// Create the counterpart asset. Should panic on error.
+<a href=#167 id=167 data-nosnippet>167</a>	///
+<a href=#168 id=168 data-nosnippet>168</a>	/// This is called prior to assuming that a counterpart balance exists.
+<a href=#169 id=169 data-nosnippet>169</a>	</span><span class="kw">fn </span>create_counterpart_asset();
+<a href=#170 id=170 data-nosnippet>170</a>}
+<a href=#171 id=171 data-nosnippet>171</a>
+<a href=#172 id=172 data-nosnippet>172</a><span class="kw">impl </span>BenchmarkSetup <span class="kw">for </span>() {
+<a href=#173 id=173 data-nosnippet>173</a>	<span class="kw">fn </span>create_counterpart_asset() {}
+<a href=#174 id=174 data-nosnippet>174</a>}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a><span class="attr">#[frame::pallet]
+<a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub mod </span>pallet {
+<a href=#178 id=178 data-nosnippet>178</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#179 id=179 data-nosnippet>179</a>
+<a href=#180 id=180 data-nosnippet>180</a>	<span class="kw">type </span>BalanceOf&lt;T&gt; =
+<a href=#181 id=181 data-nosnippet>181</a>		&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>FunInspect&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
+<a href=#182 id=182 data-nosnippet>182</a>	<span class="kw">type </span>DebtOf&lt;T&gt; =
+<a href=#183 id=183 data-nosnippet>183</a>		fungible::Debt&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, &lt;T <span class="kw">as </span>Config&gt;::Currency&gt;;
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="kw">type </span>ReceiptRecordOf&lt;T&gt; =
+<a href=#185 id=185 data-nosnippet>185</a>		ReceiptRecord&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BlockNumberFor&lt;T&gt;, BalanceOf&lt;T&gt;&gt;;
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">type </span>IssuanceInfoOf&lt;T&gt; = IssuanceInfo&lt;BalanceOf&lt;T&gt;&gt;;
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">type </span>SummaryRecordOf&lt;T&gt; = SummaryRecord&lt;BlockNumberFor&lt;T&gt;, BalanceOf&lt;T&gt;&gt;;
+<a href=#188 id=188 data-nosnippet>188</a>	<span class="kw">type </span>BidOf&lt;T&gt; = Bid&lt;BalanceOf&lt;T&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;;
+<a href=#189 id=189 data-nosnippet>189</a>	<span class="kw">type </span>QueueTotalsTypeOf&lt;T&gt; = BoundedVec&lt;(u32, BalanceOf&lt;T&gt;), &lt;T <span class="kw">as </span>Config&gt;::QueueCount&gt;;
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a>	<span class="attr">#[pallet::config]
+<a href=#192 id=192 data-nosnippet>192</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+<a href=#193 id=193 data-nosnippet>193</a>		<span class="doccomment">/// Information on runtime weights.
+<a href=#194 id=194 data-nosnippet>194</a>		</span><span class="kw">type </span>WeightInfo: WeightInfo;
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>		<span class="doccomment">/// Overarching event type.
+<a href=#197 id=197 data-nosnippet>197</a>		</span><span class="attr">#[allow(deprecated)]
+<a href=#198 id=198 data-nosnippet>198</a>		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a>		<span class="doccomment">/// The treasury's pallet id, used for deriving its sovereign account ID.
+<a href=#201 id=201 data-nosnippet>201</a>		</span><span class="attr">#[pallet::constant]
+<a href=#202 id=202 data-nosnippet>202</a>		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>		<span class="doccomment">/// Currency type that this works on.
+<a href=#205 id=205 data-nosnippet>205</a>		</span><span class="kw">type </span>Currency: FunInspect&lt;<span class="self">Self</span>::AccountId, Balance = <span class="self">Self</span>::CurrencyBalance&gt;
+<a href=#206 id=206 data-nosnippet>206</a>			+ FunMutate&lt;<span class="self">Self</span>::AccountId&gt;
+<a href=#207 id=207 data-nosnippet>207</a>			+ FunBalanced&lt;<span class="self">Self</span>::AccountId&gt;
+<a href=#208 id=208 data-nosnippet>208</a>			+ FunMutateHold&lt;<span class="self">Self</span>::AccountId, Reason = <span class="self">Self</span>::RuntimeHoldReason&gt;;
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a>		<span class="doccomment">/// Overarching hold reason.
+<a href=#211 id=211 data-nosnippet>211</a>		</span><span class="kw">type </span>RuntimeHoldReason: From&lt;HoldReason&gt;;
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>		<span class="doccomment">/// Just the [`Balance`] type; we have this item to allow us to constrain it to
+<a href=#214 id=214 data-nosnippet>214</a>		/// [`From&lt;u64&gt;`].
+<a href=#215 id=215 data-nosnippet>215</a>		</span><span class="kw">type </span>CurrencyBalance: Balance + From&lt;u64&gt;;
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a>		<span class="doccomment">/// Origin required for auto-funding the deficit.
+<a href=#218 id=218 data-nosnippet>218</a>		</span><span class="kw">type </span>FundOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
+<a href=#219 id=219 data-nosnippet>219</a>
+<a href=#220 id=220 data-nosnippet>220</a>		<span class="doccomment">/// The issuance to ignore. This is subtracted from the `Currency`'s `total_issuance` to get
+<a href=#221 id=221 data-nosnippet>221</a>		/// the issuance with which we determine the thawed value of a given proportion.
+<a href=#222 id=222 data-nosnippet>222</a>		</span><span class="kw">type </span>IgnoredIssuance: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>		<span class="doccomment">/// The accounting system for the fungible counterpart tokens.
+<a href=#225 id=225 data-nosnippet>225</a>		</span><span class="kw">type </span>Counterpart: FunMutate&lt;<span class="self">Self</span>::AccountId&gt;;
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>		<span class="doccomment">/// The system to convert an overall proportion of issuance into a number of fungible
+<a href=#228 id=228 data-nosnippet>228</a>		/// counterpart tokens.
+<a href=#229 id=229 data-nosnippet>229</a>		///
+<a href=#230 id=230 data-nosnippet>230</a>		/// In general it's best to use `WithMaximumOf`.
+<a href=#231 id=231 data-nosnippet>231</a>		</span><span class="kw">type </span>CounterpartAmount: ConvertBack&lt;
+<a href=#232 id=232 data-nosnippet>232</a>			Perquintill,
+<a href=#233 id=233 data-nosnippet>233</a>			&lt;<span class="self">Self</span>::Counterpart <span class="kw">as </span>FunInspect&lt;<span class="self">Self</span>::AccountId&gt;&gt;::Balance,
+<a href=#234 id=234 data-nosnippet>234</a>		&gt;;
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>		<span class="doccomment">/// Unbalanced handler to account for funds created (in case of a higher total issuance over
+<a href=#237 id=237 data-nosnippet>237</a>		/// freezing period).
+<a href=#238 id=238 data-nosnippet>238</a>		</span><span class="kw">type </span>Deficit: OnUnbalanced&lt;DebtOf&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a>		<span class="doccomment">/// The target sum of all receipts' proportions.
+<a href=#241 id=241 data-nosnippet>241</a>		</span><span class="kw">type </span>Target: Get&lt;Perquintill&gt;;
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>		<span class="doccomment">/// Number of duration queues in total. This sets the maximum duration supported, which is
+<a href=#244 id=244 data-nosnippet>244</a>		/// this value multiplied by `Period`.
+<a href=#245 id=245 data-nosnippet>245</a>		</span><span class="attr">#[pallet::constant]
+<a href=#246 id=246 data-nosnippet>246</a>		</span><span class="kw">type </span>QueueCount: Get&lt;u32&gt;;
+<a href=#247 id=247 data-nosnippet>247</a>
+<a href=#248 id=248 data-nosnippet>248</a>		<span class="doccomment">/// Maximum number of items that may be in each duration queue.
+<a href=#249 id=249 data-nosnippet>249</a>		///
+<a href=#250 id=250 data-nosnippet>250</a>		/// Must be larger than zero.
+<a href=#251 id=251 data-nosnippet>251</a>		</span><span class="attr">#[pallet::constant]
+<a href=#252 id=252 data-nosnippet>252</a>		</span><span class="kw">type </span>MaxQueueLen: Get&lt;u32&gt;;
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a>		<span class="doccomment">/// Portion of the queue which is free from ordering and just a FIFO.
+<a href=#255 id=255 data-nosnippet>255</a>		///
+<a href=#256 id=256 data-nosnippet>256</a>		/// Must be no greater than `MaxQueueLen`.
+<a href=#257 id=257 data-nosnippet>257</a>		</span><span class="attr">#[pallet::constant]
+<a href=#258 id=258 data-nosnippet>258</a>		</span><span class="kw">type </span>FifoQueueLen: Get&lt;u32&gt;;
+<a href=#259 id=259 data-nosnippet>259</a>
+<a href=#260 id=260 data-nosnippet>260</a>		<span class="doccomment">/// The base period for the duration queues. This is the common multiple across all
+<a href=#261 id=261 data-nosnippet>261</a>		/// supported freezing durations that can be bid upon.
+<a href=#262 id=262 data-nosnippet>262</a>		</span><span class="attr">#[pallet::constant]
+<a href=#263 id=263 data-nosnippet>263</a>		</span><span class="kw">type </span>BasePeriod: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#264 id=264 data-nosnippet>264</a>
+<a href=#265 id=265 data-nosnippet>265</a>		<span class="doccomment">/// The minimum amount of funds that may be placed in a bid. Note that this
+<a href=#266 id=266 data-nosnippet>266</a>		/// does not actually limit the amount which may be represented in a receipt since bids may
+<a href=#267 id=267 data-nosnippet>267</a>		/// be split up by the system.
+<a href=#268 id=268 data-nosnippet>268</a>		///
+<a href=#269 id=269 data-nosnippet>269</a>		/// It should be at least big enough to ensure that there is no possible storage spam attack
+<a href=#270 id=270 data-nosnippet>270</a>		/// or queue-filling attack.
+<a href=#271 id=271 data-nosnippet>271</a>		</span><span class="attr">#[pallet::constant]
+<a href=#272 id=272 data-nosnippet>272</a>		</span><span class="kw">type </span>MinBid: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#273 id=273 data-nosnippet>273</a>
+<a href=#274 id=274 data-nosnippet>274</a>		<span class="doccomment">/// The minimum amount of funds which may intentionally be left remaining under a single
+<a href=#275 id=275 data-nosnippet>275</a>		/// receipt.
+<a href=#276 id=276 data-nosnippet>276</a>		</span><span class="attr">#[pallet::constant]
+<a href=#277 id=277 data-nosnippet>277</a>		</span><span class="kw">type </span>MinReceipt: Get&lt;Perquintill&gt;;
+<a href=#278 id=278 data-nosnippet>278</a>
+<a href=#279 id=279 data-nosnippet>279</a>		<span class="doccomment">/// The number of blocks between consecutive attempts to dequeue bids and create receipts.
+<a href=#280 id=280 data-nosnippet>280</a>		///
+<a href=#281 id=281 data-nosnippet>281</a>		/// A larger value results in fewer storage hits each block, but a slower period to get to
+<a href=#282 id=282 data-nosnippet>282</a>		/// the target.
+<a href=#283 id=283 data-nosnippet>283</a>		</span><span class="attr">#[pallet::constant]
+<a href=#284 id=284 data-nosnippet>284</a>		</span><span class="kw">type </span>IntakePeriod: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>		<span class="doccomment">/// The maximum amount of bids that can consolidated into receipts in a single intake. A
+<a href=#287 id=287 data-nosnippet>287</a>		/// larger value here means less of the block available for transactions should there be a
+<a href=#288 id=288 data-nosnippet>288</a>		/// glut of bids.
+<a href=#289 id=289 data-nosnippet>289</a>		</span><span class="attr">#[pallet::constant]
+<a href=#290 id=290 data-nosnippet>290</a>		</span><span class="kw">type </span>MaxIntakeWeight: Get&lt;Weight&gt;;
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a>		<span class="doccomment">/// The maximum proportion which may be thawed and the period over which it is reset.
+<a href=#293 id=293 data-nosnippet>293</a>		</span><span class="attr">#[pallet::constant]
+<a href=#294 id=294 data-nosnippet>294</a>		</span><span class="kw">type </span>ThawThrottle: Get&lt;(Perquintill, BlockNumberFor&lt;<span class="self">Self</span>&gt;)&gt;;
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>		<span class="doccomment">/// Setup the state for benchmarking.
+<a href=#297 id=297 data-nosnippet>297</a>		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#298 id=298 data-nosnippet>298</a>		</span><span class="kw">type </span>BenchmarkSetup: <span class="kw">crate</span>::BenchmarkSetup;
+<a href=#299 id=299 data-nosnippet>299</a>	}
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a>	<span class="attr">#[pallet::pallet]
+<a href=#302 id=302 data-nosnippet>302</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a>	<span class="doccomment">/// A single bid, an item of a *queue* in `Queues`.
+<a href=#305 id=305 data-nosnippet>305</a>	</span><span class="attr">#[derive(
+<a href=#306 id=306 data-nosnippet>306</a>		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+<a href=#307 id=307 data-nosnippet>307</a>	)]
+<a href=#308 id=308 data-nosnippet>308</a>	</span><span class="kw">pub struct </span>Bid&lt;Balance, AccountId&gt; {
+<a href=#309 id=309 data-nosnippet>309</a>		<span class="doccomment">/// The amount bid.
+<a href=#310 id=310 data-nosnippet>310</a>		</span><span class="kw">pub </span>amount: Balance,
+<a href=#311 id=311 data-nosnippet>311</a>		<span class="doccomment">/// The owner of the bid.
+<a href=#312 id=312 data-nosnippet>312</a>		</span><span class="kw">pub </span>who: AccountId,
+<a href=#313 id=313 data-nosnippet>313</a>	}
+<a href=#314 id=314 data-nosnippet>314</a>
+<a href=#315 id=315 data-nosnippet>315</a>	<span class="doccomment">/// Information representing a receipt.
+<a href=#316 id=316 data-nosnippet>316</a>	</span><span class="attr">#[derive(
+<a href=#317 id=317 data-nosnippet>317</a>		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+<a href=#318 id=318 data-nosnippet>318</a>	)]
+<a href=#319 id=319 data-nosnippet>319</a>	</span><span class="kw">pub struct </span>ReceiptRecord&lt;AccountId, BlockNumber, Balance&gt; {
+<a href=#320 id=320 data-nosnippet>320</a>		<span class="doccomment">/// The proportion of the effective total issuance.
+<a href=#321 id=321 data-nosnippet>321</a>		</span><span class="kw">pub </span>proportion: Perquintill,
+<a href=#322 id=322 data-nosnippet>322</a>		<span class="doccomment">/// The account to whom this receipt belongs and the amount of funds on hold in their
+<a href=#323 id=323 data-nosnippet>323</a>		/// account for servicing this receipt. If `None`, then it is a communal receipt and
+<a href=#324 id=324 data-nosnippet>324</a>		/// fungible counterparts have been issued.
+<a href=#325 id=325 data-nosnippet>325</a>		</span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;(AccountId, Balance)&gt;,
+<a href=#326 id=326 data-nosnippet>326</a>		<span class="doccomment">/// The time after which this receipt can be thawed.
+<a href=#327 id=327 data-nosnippet>327</a>		</span><span class="kw">pub </span>expiry: BlockNumber,
+<a href=#328 id=328 data-nosnippet>328</a>	}
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>	<span class="doccomment">/// An index for a receipt.
+<a href=#331 id=331 data-nosnippet>331</a>	</span><span class="kw">pub type </span>ReceiptIndex = u32;
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>	<span class="doccomment">/// Overall information package on the outstanding receipts.
+<a href=#334 id=334 data-nosnippet>334</a>	///
+<a href=#335 id=335 data-nosnippet>335</a>	/// The way of determining the net issuance (i.e. after factoring in all maturing frozen funds)
+<a href=#336 id=336 data-nosnippet>336</a>	/// is:
+<a href=#337 id=337 data-nosnippet>337</a>	///
+<a href=#338 id=338 data-nosnippet>338</a>	/// `issuance - frozen + proportion * issuance`
+<a href=#339 id=339 data-nosnippet>339</a>	///
+<a href=#340 id=340 data-nosnippet>340</a>	/// where `issuance = active_issuance - IgnoredIssuance`
+<a href=#341 id=341 data-nosnippet>341</a>	</span><span class="attr">#[derive(
+<a href=#342 id=342 data-nosnippet>342</a>		Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+<a href=#343 id=343 data-nosnippet>343</a>	)]
+<a href=#344 id=344 data-nosnippet>344</a>	</span><span class="kw">pub struct </span>SummaryRecord&lt;BlockNumber, Balance&gt; {
+<a href=#345 id=345 data-nosnippet>345</a>		<span class="doccomment">/// The total proportion over all outstanding receipts.
+<a href=#346 id=346 data-nosnippet>346</a>		</span><span class="kw">pub </span>proportion_owed: Perquintill,
+<a href=#347 id=347 data-nosnippet>347</a>		<span class="doccomment">/// The total number of receipts created so far.
+<a href=#348 id=348 data-nosnippet>348</a>		</span><span class="kw">pub </span>index: ReceiptIndex,
+<a href=#349 id=349 data-nosnippet>349</a>		<span class="doccomment">/// The amount (as a proportion of ETI) which has been thawed in this period so far.
+<a href=#350 id=350 data-nosnippet>350</a>		</span><span class="kw">pub </span>thawed: Perquintill,
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="doccomment">/// The current thaw period's beginning.
+<a href=#352 id=352 data-nosnippet>352</a>		</span><span class="kw">pub </span>last_period: BlockNumber,
+<a href=#353 id=353 data-nosnippet>353</a>		<span class="doccomment">/// The total amount of funds on hold for receipts. This doesn't include the pot or funds
+<a href=#354 id=354 data-nosnippet>354</a>		/// on hold for bids.
+<a href=#355 id=355 data-nosnippet>355</a>		</span><span class="kw">pub </span>receipts_on_hold: Balance,
+<a href=#356 id=356 data-nosnippet>356</a>	}
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a>	<span class="kw">pub struct </span>OnEmptyQueueTotals&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#359 id=359 data-nosnippet>359</a>	<span class="kw">impl</span>&lt;T: Config&gt; Get&lt;QueueTotalsTypeOf&lt;T&gt;&gt; <span class="kw">for </span>OnEmptyQueueTotals&lt;T&gt; {
+<a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">fn </span>get() -&gt; QueueTotalsTypeOf&lt;T&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>			BoundedVec::truncate_from(<span class="macro">vec!</span>[
+<a href=#362 id=362 data-nosnippet>362</a>				(<span class="number">0</span>, Zero::zero());
+<a href=#363 id=363 data-nosnippet>363</a>				&lt;T <span class="kw">as </span>Config&gt;::QueueCount::get() <span class="kw">as </span>usize
+<a href=#364 id=364 data-nosnippet>364</a>			])
+<a href=#365 id=365 data-nosnippet>365</a>		}
+<a href=#366 id=366 data-nosnippet>366</a>	}
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>	<span class="doccomment">/// The totals of items and balances within each queue. Saves a lot of storage reads in the
+<a href=#369 id=369 data-nosnippet>369</a>	/// case of sparsely packed queues.
+<a href=#370 id=370 data-nosnippet>370</a>	///
+<a href=#371 id=371 data-nosnippet>371</a>	/// The vector is indexed by duration in `Period`s, offset by one, so information on the queue
+<a href=#372 id=372 data-nosnippet>372</a>	/// whose duration is one `Period` would be storage `0`.
+<a href=#373 id=373 data-nosnippet>373</a>	</span><span class="attr">#[pallet::storage]
+<a href=#374 id=374 data-nosnippet>374</a>	</span><span class="kw">pub type </span>QueueTotals&lt;T: Config&gt; =
+<a href=#375 id=375 data-nosnippet>375</a>		StorageValue&lt;<span class="kw">_</span>, QueueTotalsTypeOf&lt;T&gt;, ValueQuery, OnEmptyQueueTotals&lt;T&gt;&gt;;
+<a href=#376 id=376 data-nosnippet>376</a>
+<a href=#377 id=377 data-nosnippet>377</a>	<span class="doccomment">/// The queues of bids. Indexed by duration (in `Period`s).
+<a href=#378 id=378 data-nosnippet>378</a>	</span><span class="attr">#[pallet::storage]
+<a href=#379 id=379 data-nosnippet>379</a>	</span><span class="kw">pub type </span>Queues&lt;T: Config&gt; =
+<a href=#380 id=380 data-nosnippet>380</a>		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, u32, BoundedVec&lt;BidOf&lt;T&gt;, T::MaxQueueLen&gt;, ValueQuery&gt;;
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="doccomment">/// Summary information over the general state.
+<a href=#383 id=383 data-nosnippet>383</a>	</span><span class="attr">#[pallet::storage]
+<a href=#384 id=384 data-nosnippet>384</a>	</span><span class="kw">pub type </span>Summary&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, SummaryRecordOf&lt;T&gt;, ValueQuery&gt;;
+<a href=#385 id=385 data-nosnippet>385</a>
+<a href=#386 id=386 data-nosnippet>386</a>	<span class="doccomment">/// The currently outstanding receipts, indexed according to the order of creation.
+<a href=#387 id=387 data-nosnippet>387</a>	</span><span class="attr">#[pallet::storage]
+<a href=#388 id=388 data-nosnippet>388</a>	</span><span class="kw">pub type </span>Receipts&lt;T&gt; =
+<a href=#389 id=389 data-nosnippet>389</a>		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ReceiptIndex, ReceiptRecordOf&lt;T&gt;, OptionQuery&gt;;
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a>	<span class="attr">#[pallet::event]
+<a href=#392 id=392 data-nosnippet>392</a>	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
+<a href=#393 id=393 data-nosnippet>393</a>	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
+<a href=#394 id=394 data-nosnippet>394</a>		<span class="doccomment">/// A bid was successfully placed.
+<a href=#395 id=395 data-nosnippet>395</a>		</span>BidPlaced { who: T::AccountId, amount: BalanceOf&lt;T&gt;, duration: u32 },
+<a href=#396 id=396 data-nosnippet>396</a>		<span class="doccomment">/// A bid was successfully removed (before being accepted).
+<a href=#397 id=397 data-nosnippet>397</a>		</span>BidRetracted { who: T::AccountId, amount: BalanceOf&lt;T&gt;, duration: u32 },
+<a href=#398 id=398 data-nosnippet>398</a>		<span class="doccomment">/// A bid was dropped from a queue because of another, more substantial, bid was present.
+<a href=#399 id=399 data-nosnippet>399</a>		</span>BidDropped { who: T::AccountId, amount: BalanceOf&lt;T&gt;, duration: u32 },
+<a href=#400 id=400 data-nosnippet>400</a>		<span class="doccomment">/// A bid was accepted. The balance may not be released until expiry.
+<a href=#401 id=401 data-nosnippet>401</a>		</span>Issued {
+<a href=#402 id=402 data-nosnippet>402</a>			<span class="doccomment">/// The identity of the receipt.
+<a href=#403 id=403 data-nosnippet>403</a>			</span>index: ReceiptIndex,
+<a href=#404 id=404 data-nosnippet>404</a>			<span class="doccomment">/// The block number at which the receipt may be thawed.
+<a href=#405 id=405 data-nosnippet>405</a>			</span>expiry: BlockNumberFor&lt;T&gt;,
+<a href=#406 id=406 data-nosnippet>406</a>			<span class="doccomment">/// The owner of the receipt.
+<a href=#407 id=407 data-nosnippet>407</a>			</span>who: T::AccountId,
+<a href=#408 id=408 data-nosnippet>408</a>			<span class="doccomment">/// The proportion of the effective total issuance which the receipt represents.
+<a href=#409 id=409 data-nosnippet>409</a>			</span>proportion: Perquintill,
+<a href=#410 id=410 data-nosnippet>410</a>			<span class="doccomment">/// The amount of funds which were debited from the owner.
+<a href=#411 id=411 data-nosnippet>411</a>			</span>amount: BalanceOf&lt;T&gt;,
+<a href=#412 id=412 data-nosnippet>412</a>		},
+<a href=#413 id=413 data-nosnippet>413</a>		<span class="doccomment">/// An receipt has been (at least partially) thawed.
+<a href=#414 id=414 data-nosnippet>414</a>		</span>Thawed {
+<a href=#415 id=415 data-nosnippet>415</a>			<span class="doccomment">/// The identity of the receipt.
+<a href=#416 id=416 data-nosnippet>416</a>			</span>index: ReceiptIndex,
+<a href=#417 id=417 data-nosnippet>417</a>			<span class="doccomment">/// The owner.
+<a href=#418 id=418 data-nosnippet>418</a>			</span>who: T::AccountId,
+<a href=#419 id=419 data-nosnippet>419</a>			<span class="doccomment">/// The proportion of the effective total issuance by which the owner was debited.
+<a href=#420 id=420 data-nosnippet>420</a>			</span>proportion: Perquintill,
+<a href=#421 id=421 data-nosnippet>421</a>			<span class="doccomment">/// The amount by which the owner was credited.
+<a href=#422 id=422 data-nosnippet>422</a>			</span>amount: BalanceOf&lt;T&gt;,
+<a href=#423 id=423 data-nosnippet>423</a>			<span class="doccomment">/// If `true` then the receipt is done.
+<a href=#424 id=424 data-nosnippet>424</a>			</span>dropped: bool,
+<a href=#425 id=425 data-nosnippet>425</a>		},
+<a href=#426 id=426 data-nosnippet>426</a>		<span class="doccomment">/// An automatic funding of the deficit was made.
+<a href=#427 id=427 data-nosnippet>427</a>		</span>Funded { deficit: BalanceOf&lt;T&gt; },
+<a href=#428 id=428 data-nosnippet>428</a>		<span class="doccomment">/// A receipt was transferred.
+<a href=#429 id=429 data-nosnippet>429</a>		</span>Transferred { from: T::AccountId, to: T::AccountId, index: ReceiptIndex },
+<a href=#430 id=430 data-nosnippet>430</a>	}
+<a href=#431 id=431 data-nosnippet>431</a>
+<a href=#432 id=432 data-nosnippet>432</a>	<span class="attr">#[pallet::error]
+<a href=#433 id=433 data-nosnippet>433</a>	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
+<a href=#434 id=434 data-nosnippet>434</a>		<span class="doccomment">/// The duration of the bid is less than one.
+<a href=#435 id=435 data-nosnippet>435</a>		</span>DurationTooSmall,
+<a href=#436 id=436 data-nosnippet>436</a>		<span class="doccomment">/// The duration is the bid is greater than the number of queues.
+<a href=#437 id=437 data-nosnippet>437</a>		</span>DurationTooBig,
+<a href=#438 id=438 data-nosnippet>438</a>		<span class="doccomment">/// The amount of the bid is less than the minimum allowed.
+<a href=#439 id=439 data-nosnippet>439</a>		</span>AmountTooSmall,
+<a href=#440 id=440 data-nosnippet>440</a>		<span class="doccomment">/// The queue for the bid's duration is full and the amount bid is too low to get in
+<a href=#441 id=441 data-nosnippet>441</a>		/// through replacing an existing bid.
+<a href=#442 id=442 data-nosnippet>442</a>		</span>BidTooLow,
+<a href=#443 id=443 data-nosnippet>443</a>		<span class="doccomment">/// Receipt index is unknown.
+<a href=#444 id=444 data-nosnippet>444</a>		</span>UnknownReceipt,
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="doccomment">/// Not the owner of the receipt.
+<a href=#446 id=446 data-nosnippet>446</a>		</span>NotOwner,
+<a href=#447 id=447 data-nosnippet>447</a>		<span class="doccomment">/// Bond not yet at expiry date.
+<a href=#448 id=448 data-nosnippet>448</a>		</span>NotExpired,
+<a href=#449 id=449 data-nosnippet>449</a>		<span class="doccomment">/// The given bid for retraction is not found.
+<a href=#450 id=450 data-nosnippet>450</a>		</span>UnknownBid,
+<a href=#451 id=451 data-nosnippet>451</a>		<span class="doccomment">/// The portion supplied is beyond the value of the receipt.
+<a href=#452 id=452 data-nosnippet>452</a>		</span>PortionTooBig,
+<a href=#453 id=453 data-nosnippet>453</a>		<span class="doccomment">/// Not enough funds are held to pay out.
+<a href=#454 id=454 data-nosnippet>454</a>		</span>Unfunded,
+<a href=#455 id=455 data-nosnippet>455</a>		<span class="doccomment">/// There are enough funds for what is required.
+<a href=#456 id=456 data-nosnippet>456</a>		</span>AlreadyFunded,
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="doccomment">/// The thaw throttle has been reached for this period.
+<a href=#458 id=458 data-nosnippet>458</a>		</span>Throttled,
+<a href=#459 id=459 data-nosnippet>459</a>		<span class="doccomment">/// The operation would result in a receipt worth an insignificant value.
+<a href=#460 id=460 data-nosnippet>460</a>		</span>MakesDust,
+<a href=#461 id=461 data-nosnippet>461</a>		<span class="doccomment">/// The receipt is already communal.
+<a href=#462 id=462 data-nosnippet>462</a>		</span>AlreadyCommunal,
+<a href=#463 id=463 data-nosnippet>463</a>		<span class="doccomment">/// The receipt is already private.
+<a href=#464 id=464 data-nosnippet>464</a>		</span>AlreadyPrivate,
+<a href=#465 id=465 data-nosnippet>465</a>	}
+<a href=#466 id=466 data-nosnippet>466</a>
+<a href=#467 id=467 data-nosnippet>467</a>	<span class="doccomment">/// A reason for the NIS pallet placing a hold on funds.
+<a href=#468 id=468 data-nosnippet>468</a>	</span><span class="attr">#[pallet::composite_enum]
+<a href=#469 id=469 data-nosnippet>469</a>	</span><span class="kw">pub enum </span>HoldReason {
+<a href=#470 id=470 data-nosnippet>470</a>		<span class="doccomment">/// The NIS Pallet has reserved it for a non-fungible receipt.
+<a href=#471 id=471 data-nosnippet>471</a>		</span><span class="attr">#[codec(index = <span class="number">0</span>)]
+<a href=#472 id=472 data-nosnippet>472</a>		</span>NftReceipt,
+<a href=#473 id=473 data-nosnippet>473</a>	}
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WeightCounter {
+<a href=#476 id=476 data-nosnippet>476</a>		<span class="kw">pub</span>(<span class="kw">crate</span>) used: Weight,
+<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">pub</span>(<span class="kw">crate</span>) limit: Weight,
+<a href=#478 id=478 data-nosnippet>478</a>	}
+<a href=#479 id=479 data-nosnippet>479</a>	<span class="kw">impl </span>WeightCounter {
+<a href=#480 id=480 data-nosnippet>480</a>		<span class="attr">#[allow(dead_code)]
+<a href=#481 id=481 data-nosnippet>481</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>unlimited() -&gt; <span class="self">Self </span>{
+<a href=#482 id=482 data-nosnippet>482</a>			WeightCounter { used: Weight::zero(), limit: Weight::max_value() }
+<a href=#483 id=483 data-nosnippet>483</a>		}
+<a href=#484 id=484 data-nosnippet>484</a>		<span class="kw">fn </span>check_accrue(<span class="kw-2">&amp;mut </span><span class="self">self</span>, w: Weight) -&gt; bool {
+<a href=#485 id=485 data-nosnippet>485</a>			<span class="kw">let </span>test = <span class="self">self</span>.used.saturating_add(w);
+<a href=#486 id=486 data-nosnippet>486</a>			<span class="kw">if </span>test.any_gt(<span class="self">self</span>.limit) {
+<a href=#487 id=487 data-nosnippet>487</a>				<span class="bool-val">false
+<a href=#488 id=488 data-nosnippet>488</a>			</span>} <span class="kw">else </span>{
+<a href=#489 id=489 data-nosnippet>489</a>				<span class="self">self</span>.used = test;
+<a href=#490 id=490 data-nosnippet>490</a>				<span class="bool-val">true
+<a href=#491 id=491 data-nosnippet>491</a>			</span>}
+<a href=#492 id=492 data-nosnippet>492</a>		}
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">fn </span>can_accrue(<span class="kw-2">&amp;mut </span><span class="self">self</span>, w: Weight) -&gt; bool {
+<a href=#494 id=494 data-nosnippet>494</a>			<span class="self">self</span>.used.saturating_add(w).all_lte(<span class="self">self</span>.limit)
+<a href=#495 id=495 data-nosnippet>495</a>		}
+<a href=#496 id=496 data-nosnippet>496</a>	}
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a>	<span class="attr">#[pallet::hooks]
+<a href=#499 id=499 data-nosnippet>499</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#500 id=500 data-nosnippet>500</a>		<span class="kw">fn </span>on_initialize(n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
+<a href=#501 id=501 data-nosnippet>501</a>			<span class="kw">let </span><span class="kw-2">mut </span>weight_counter =
+<a href=#502 id=502 data-nosnippet>502</a>				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
+<a href=#503 id=503 data-nosnippet>503</a>			<span class="kw">if </span>T::IntakePeriod::get().is_zero() || (n % T::IntakePeriod::get()).is_zero() {
+<a href=#504 id=504 data-nosnippet>504</a>				<span class="kw">if </span>weight_counter.check_accrue(T::WeightInfo::process_queues()) {
+<a href=#505 id=505 data-nosnippet>505</a>					<span class="self">Self</span>::process_queues(
+<a href=#506 id=506 data-nosnippet>506</a>						T::Target::get(),
+<a href=#507 id=507 data-nosnippet>507</a>						T::QueueCount::get(),
+<a href=#508 id=508 data-nosnippet>508</a>						u32::max_value(),
+<a href=#509 id=509 data-nosnippet>509</a>						<span class="kw-2">&amp;mut </span>weight_counter,
+<a href=#510 id=510 data-nosnippet>510</a>					)
+<a href=#511 id=511 data-nosnippet>511</a>				}
+<a href=#512 id=512 data-nosnippet>512</a>			}
+<a href=#513 id=513 data-nosnippet>513</a>			weight_counter.used
+<a href=#514 id=514 data-nosnippet>514</a>		}
+<a href=#515 id=515 data-nosnippet>515</a>
+<a href=#516 id=516 data-nosnippet>516</a>		<span class="kw">fn </span>integrity_test() {
+<a href=#517 id=517 data-nosnippet>517</a>			<span class="macro">assert!</span>(!T::IntakePeriod::get().is_zero());
+<a href=#518 id=518 data-nosnippet>518</a>			<span class="macro">assert!</span>(!T::MaxQueueLen::get().is_zero());
+<a href=#519 id=519 data-nosnippet>519</a>		}
+<a href=#520 id=520 data-nosnippet>520</a>	}
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>	<span class="attr">#[pallet::call]
+<a href=#523 id=523 data-nosnippet>523</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#524 id=524 data-nosnippet>524</a>		<span class="doccomment">/// Place a bid.
+<a href=#525 id=525 data-nosnippet>525</a>		///
+<a href=#526 id=526 data-nosnippet>526</a>		/// Origin must be Signed, and account must have at least `amount` in free balance.
+<a href=#527 id=527 data-nosnippet>527</a>		///
+<a href=#528 id=528 data-nosnippet>528</a>		/// - `amount`: The amount of the bid; these funds will be reserved, and if/when
+<a href=#529 id=529 data-nosnippet>529</a>		///   consolidated, removed. Must be at least `MinBid`.
+<a href=#530 id=530 data-nosnippet>530</a>		/// - `duration`: The number of periods before which the newly consolidated bid may be
+<a href=#531 id=531 data-nosnippet>531</a>		///   thawed. Must be greater than 1 and no more than `QueueCount`.
+<a href=#532 id=532 data-nosnippet>532</a>		///
+<a href=#533 id=533 data-nosnippet>533</a>		/// Complexities:
+<a href=#534 id=534 data-nosnippet>534</a>		/// - `Queues[duration].len()` (just take max).
+<a href=#535 id=535 data-nosnippet>535</a>		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
+<a href=#536 id=536 data-nosnippet>536</a>		#[pallet::weight(T::WeightInfo::place_bid_max())]
+<a href=#537 id=537 data-nosnippet>537</a>		</span><span class="kw">pub fn </span>place_bid(
+<a href=#538 id=538 data-nosnippet>538</a>			origin: OriginFor&lt;T&gt;,
+<a href=#539 id=539 data-nosnippet>539</a>			<span class="attr">#[pallet::compact] </span>amount: BalanceOf&lt;T&gt;,
+<a href=#540 id=540 data-nosnippet>540</a>			duration: u32,
+<a href=#541 id=541 data-nosnippet>541</a>		) -&gt; DispatchResult {
+<a href=#542 id=542 data-nosnippet>542</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#543 id=543 data-nosnippet>543</a>
+<a href=#544 id=544 data-nosnippet>544</a>			<span class="macro">ensure!</span>(amount &gt;= T::MinBid::get(), Error::&lt;T&gt;::AmountTooSmall);
+<a href=#545 id=545 data-nosnippet>545</a>			<span class="kw">let </span>queue_count = T::QueueCount::get() <span class="kw">as </span>usize;
+<a href=#546 id=546 data-nosnippet>546</a>			<span class="kw">let </span>queue_index = duration.checked_sub(<span class="number">1</span>).ok_or(Error::&lt;T&gt;::DurationTooSmall)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href=#547 id=547 data-nosnippet>547</a>			<span class="macro">ensure!</span>(queue_index &lt; queue_count, Error::&lt;T&gt;::DurationTooBig);
+<a href=#548 id=548 data-nosnippet>548</a>
+<a href=#549 id=549 data-nosnippet>549</a>			<span class="kw">let </span>net = Queues::&lt;T&gt;::try_mutate(
+<a href=#550 id=550 data-nosnippet>550</a>				duration,
+<a href=#551 id=551 data-nosnippet>551</a>				|q| -&gt; <span class="prelude-ty">Result</span>&lt;(u32, BalanceOf&lt;T&gt;), DispatchError&gt; {
+<a href=#552 id=552 data-nosnippet>552</a>					<span class="kw">let </span>queue_full = q.len() == T::MaxQueueLen::get() <span class="kw">as </span>usize;
+<a href=#553 id=553 data-nosnippet>553</a>					<span class="macro">ensure!</span>(!queue_full || q[<span class="number">0</span>].amount &lt; amount, Error::&lt;T&gt;::BidTooLow);
+<a href=#554 id=554 data-nosnippet>554</a>					T::Currency::hold(<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(), <span class="kw-2">&amp;</span>who, amount)<span class="question-mark">?</span>;
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>					<span class="comment">// queue is &lt;Ordered: Lowest ... Highest&gt;&lt;Fifo: Last ... First&gt;
+<a href=#557 id=557 data-nosnippet>557</a>					</span><span class="kw">let </span><span class="kw-2">mut </span>bid = Bid { amount, who: who.clone() };
+<a href=#558 id=558 data-nosnippet>558</a>					<span class="kw">let </span>net = <span class="kw">if </span>queue_full {
+<a href=#559 id=559 data-nosnippet>559</a>						core::mem::swap(<span class="kw-2">&amp;mut </span>q[<span class="number">0</span>], <span class="kw-2">&amp;mut </span>bid);
+<a href=#560 id=560 data-nosnippet>560</a>						<span class="kw">let _ </span>= T::Currency::release(
+<a href=#561 id=561 data-nosnippet>561</a>							<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(),
+<a href=#562 id=562 data-nosnippet>562</a>							<span class="kw-2">&amp;</span>bid.who,
+<a href=#563 id=563 data-nosnippet>563</a>							bid.amount,
+<a href=#564 id=564 data-nosnippet>564</a>							BestEffort,
+<a href=#565 id=565 data-nosnippet>565</a>						);
+<a href=#566 id=566 data-nosnippet>566</a>						<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::BidDropped {
+<a href=#567 id=567 data-nosnippet>567</a>							who: bid.who,
+<a href=#568 id=568 data-nosnippet>568</a>							amount: bid.amount,
+<a href=#569 id=569 data-nosnippet>569</a>							duration,
+<a href=#570 id=570 data-nosnippet>570</a>						});
+<a href=#571 id=571 data-nosnippet>571</a>						(<span class="number">0</span>, amount - bid.amount)
+<a href=#572 id=572 data-nosnippet>572</a>					} <span class="kw">else </span>{
+<a href=#573 id=573 data-nosnippet>573</a>						q.try_insert(<span class="number">0</span>, bid).expect(<span class="string">"verified queue was not full above. qed."</span>);
+<a href=#574 id=574 data-nosnippet>574</a>						(<span class="number">1</span>, amount)
+<a href=#575 id=575 data-nosnippet>575</a>					};
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>					<span class="kw">let </span>sorted_item_count = q.len().saturating_sub(T::FifoQueueLen::get() <span class="kw">as </span>usize);
+<a href=#578 id=578 data-nosnippet>578</a>					<span class="kw">if </span>sorted_item_count &gt; <span class="number">1 </span>{
+<a href=#579 id=579 data-nosnippet>579</a>						q[<span class="number">0</span>..sorted_item_count].sort_by_key(|x| x.amount);
+<a href=#580 id=580 data-nosnippet>580</a>					}
+<a href=#581 id=581 data-nosnippet>581</a>
+<a href=#582 id=582 data-nosnippet>582</a>					<span class="prelude-val">Ok</span>(net)
+<a href=#583 id=583 data-nosnippet>583</a>				},
+<a href=#584 id=584 data-nosnippet>584</a>			)<span class="question-mark">?</span>;
+<a href=#585 id=585 data-nosnippet>585</a>			QueueTotals::&lt;T&gt;::mutate(|qs| {
+<a href=#586 id=586 data-nosnippet>586</a>				qs.bounded_resize(queue_count, (<span class="number">0</span>, Zero::zero()));
+<a href=#587 id=587 data-nosnippet>587</a>				qs[queue_index].<span class="number">0 </span>+= net.<span class="number">0</span>;
+<a href=#588 id=588 data-nosnippet>588</a>				qs[queue_index].<span class="number">1</span>.saturating_accrue(net.<span class="number">1</span>);
+<a href=#589 id=589 data-nosnippet>589</a>			});
+<a href=#590 id=590 data-nosnippet>590</a>			<span class="self">Self</span>::deposit_event(Event::BidPlaced { who, amount, duration });
+<a href=#591 id=591 data-nosnippet>591</a>
+<a href=#592 id=592 data-nosnippet>592</a>			<span class="prelude-val">Ok</span>(())
+<a href=#593 id=593 data-nosnippet>593</a>		}
+<a href=#594 id=594 data-nosnippet>594</a>
+<a href=#595 id=595 data-nosnippet>595</a>		<span class="doccomment">/// Retract a previously placed bid.
+<a href=#596 id=596 data-nosnippet>596</a>		///
+<a href=#597 id=597 data-nosnippet>597</a>		/// Origin must be Signed, and the account should have previously issued a still-active bid
+<a href=#598 id=598 data-nosnippet>598</a>		/// of `amount` for `duration`.
+<a href=#599 id=599 data-nosnippet>599</a>		///
+<a href=#600 id=600 data-nosnippet>600</a>		/// - `amount`: The amount of the previous bid.
+<a href=#601 id=601 data-nosnippet>601</a>		/// - `duration`: The duration of the previous bid.
+<a href=#602 id=602 data-nosnippet>602</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
+<a href=#603 id=603 data-nosnippet>603</a>		#[pallet::weight(T::WeightInfo::retract_bid(T::MaxQueueLen::get()))]
+<a href=#604 id=604 data-nosnippet>604</a>		</span><span class="kw">pub fn </span>retract_bid(
+<a href=#605 id=605 data-nosnippet>605</a>			origin: OriginFor&lt;T&gt;,
+<a href=#606 id=606 data-nosnippet>606</a>			<span class="attr">#[pallet::compact] </span>amount: BalanceOf&lt;T&gt;,
+<a href=#607 id=607 data-nosnippet>607</a>			duration: u32,
+<a href=#608 id=608 data-nosnippet>608</a>		) -&gt; DispatchResult {
+<a href=#609 id=609 data-nosnippet>609</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>			<span class="kw">let </span>queue_count = T::QueueCount::get() <span class="kw">as </span>usize;
+<a href=#612 id=612 data-nosnippet>612</a>			<span class="kw">let </span>queue_index = duration.checked_sub(<span class="number">1</span>).ok_or(Error::&lt;T&gt;::DurationTooSmall)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href=#613 id=613 data-nosnippet>613</a>			<span class="macro">ensure!</span>(queue_index &lt; queue_count, Error::&lt;T&gt;::DurationTooBig);
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a>			<span class="kw">let </span>bid = Bid { amount, who };
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>			<span class="kw">let </span><span class="kw-2">mut </span>queue = Queues::&lt;T&gt;::get(duration);
+<a href=#618 id=618 data-nosnippet>618</a>			<span class="kw">let </span>pos = queue.iter().position(|i| i == <span class="kw-2">&amp;</span>bid).ok_or(Error::&lt;T&gt;::UnknownBid)<span class="question-mark">?</span>;
+<a href=#619 id=619 data-nosnippet>619</a>			queue.remove(pos);
+<a href=#620 id=620 data-nosnippet>620</a>			<span class="kw">let </span>new_len = queue.len() <span class="kw">as </span>u32;
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>			T::Currency::release(<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(), <span class="kw-2">&amp;</span>bid.who, bid.amount, BestEffort)<span class="question-mark">?</span>;
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>			Queues::&lt;T&gt;::insert(duration, queue);
+<a href=#625 id=625 data-nosnippet>625</a>			QueueTotals::&lt;T&gt;::mutate(|qs| {
+<a href=#626 id=626 data-nosnippet>626</a>				qs.bounded_resize(queue_count, (<span class="number">0</span>, Zero::zero()));
+<a href=#627 id=627 data-nosnippet>627</a>				qs[queue_index].<span class="number">0 </span>= new_len;
+<a href=#628 id=628 data-nosnippet>628</a>				qs[queue_index].<span class="number">1</span>.saturating_reduce(bid.amount);
+<a href=#629 id=629 data-nosnippet>629</a>			});
+<a href=#630 id=630 data-nosnippet>630</a>
+<a href=#631 id=631 data-nosnippet>631</a>			<span class="self">Self</span>::deposit_event(Event::BidRetracted { who: bid.who, amount: bid.amount, duration });
+<a href=#632 id=632 data-nosnippet>632</a>
+<a href=#633 id=633 data-nosnippet>633</a>			<span class="prelude-val">Ok</span>(())
+<a href=#634 id=634 data-nosnippet>634</a>		}
+<a href=#635 id=635 data-nosnippet>635</a>
+<a href=#636 id=636 data-nosnippet>636</a>		<span class="doccomment">/// Ensure we have sufficient funding for all potential payouts.
+<a href=#637 id=637 data-nosnippet>637</a>		///
+<a href=#638 id=638 data-nosnippet>638</a>		/// - `origin`: Must be accepted by `FundOrigin`.
+<a href=#639 id=639 data-nosnippet>639</a>		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
+<a href=#640 id=640 data-nosnippet>640</a>		#[pallet::weight(T::WeightInfo::fund_deficit())]
+<a href=#641 id=641 data-nosnippet>641</a>		</span><span class="kw">pub fn </span>fund_deficit(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
+<a href=#642 id=642 data-nosnippet>642</a>			T::FundOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
+<a href=#643 id=643 data-nosnippet>643</a>			<span class="kw">let </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#644 id=644 data-nosnippet>644</a>			<span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
+<a href=#645 id=645 data-nosnippet>645</a>			<span class="kw">let </span>issuance = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary);
+<a href=#646 id=646 data-nosnippet>646</a>			<span class="kw">let </span>deficit = issuance.required.saturating_sub(issuance.holdings);
+<a href=#647 id=647 data-nosnippet>647</a>			<span class="macro">ensure!</span>(!deficit.is_zero(), Error::&lt;T&gt;::AlreadyFunded);
+<a href=#648 id=648 data-nosnippet>648</a>			T::Deficit::on_unbalanced(T::Currency::deposit(<span class="kw-2">&amp;</span>our_account, deficit, Exact)<span class="question-mark">?</span>);
+<a href=#649 id=649 data-nosnippet>649</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Funded { deficit });
+<a href=#650 id=650 data-nosnippet>650</a>			<span class="prelude-val">Ok</span>(())
+<a href=#651 id=651 data-nosnippet>651</a>		}
+<a href=#652 id=652 data-nosnippet>652</a>
+<a href=#653 id=653 data-nosnippet>653</a>		<span class="doccomment">/// Reduce or remove an outstanding receipt, placing the according proportion of funds into
+<a href=#654 id=654 data-nosnippet>654</a>		/// the account of the owner.
+<a href=#655 id=655 data-nosnippet>655</a>		///
+<a href=#656 id=656 data-nosnippet>656</a>		/// - `origin`: Must be Signed and the account must be the owner of the receipt `index` as
+<a href=#657 id=657 data-nosnippet>657</a>		///   well as any fungible counterpart.
+<a href=#658 id=658 data-nosnippet>658</a>		/// - `index`: The index of the receipt.
+<a href=#659 id=659 data-nosnippet>659</a>		/// - `portion`: If `Some`, then only the given portion of the receipt should be thawed. If
+<a href=#660 id=660 data-nosnippet>660</a>		///   `None`, then all of it should be.
+<a href=#661 id=661 data-nosnippet>661</a>		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
+<a href=#662 id=662 data-nosnippet>662</a>		#[pallet::weight(T::WeightInfo::thaw_private())]
+<a href=#663 id=663 data-nosnippet>663</a>		</span><span class="kw">pub fn </span>thaw_private(
+<a href=#664 id=664 data-nosnippet>664</a>			origin: OriginFor&lt;T&gt;,
+<a href=#665 id=665 data-nosnippet>665</a>			<span class="attr">#[pallet::compact] </span>index: ReceiptIndex,
+<a href=#666 id=666 data-nosnippet>666</a>			maybe_proportion: <span class="prelude-ty">Option</span>&lt;Perquintill&gt;,
+<a href=#667 id=667 data-nosnippet>667</a>		) -&gt; DispatchResult {
+<a href=#668 id=668 data-nosnippet>668</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#669 id=669 data-nosnippet>669</a>
+<a href=#670 id=670 data-nosnippet>670</a>			<span class="comment">// Look for `index`
+<a href=#671 id=671 data-nosnippet>671</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>receipt: ReceiptRecordOf&lt;T&gt; =
+<a href=#672 id=672 data-nosnippet>672</a>				Receipts::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::UnknownReceipt)<span class="question-mark">?</span>;
+<a href=#673 id=673 data-nosnippet>673</a>			<span class="comment">// If found, check the owner is `who`.
+<a href=#674 id=674 data-nosnippet>674</a>			</span><span class="kw">let </span>(owner, <span class="kw-2">mut </span>on_hold) = receipt.owner.ok_or(Error::&lt;T&gt;::AlreadyCommunal)<span class="question-mark">?</span>;
+<a href=#675 id=675 data-nosnippet>675</a>			<span class="macro">ensure!</span>(owner == who, Error::&lt;T&gt;::NotOwner);
+<a href=#676 id=676 data-nosnippet>676</a>
+<a href=#677 id=677 data-nosnippet>677</a>			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#678 id=678 data-nosnippet>678</a>			<span class="macro">ensure!</span>(now &gt;= receipt.expiry, Error::&lt;T&gt;::NotExpired);
+<a href=#679 id=679 data-nosnippet>679</a>
+<a href=#680 id=680 data-nosnippet>680</a>			<span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a>			<span class="kw">let </span>proportion = <span class="kw">if let </span><span class="prelude-val">Some</span>(proportion) = maybe_proportion {
+<a href=#683 id=683 data-nosnippet>683</a>				<span class="macro">ensure!</span>(proportion &lt;= receipt.proportion, Error::&lt;T&gt;::PortionTooBig);
+<a href=#684 id=684 data-nosnippet>684</a>				<span class="kw">let </span>remaining = receipt.proportion.saturating_sub(proportion);
+<a href=#685 id=685 data-nosnippet>685</a>				<span class="macro">ensure!</span>(
+<a href=#686 id=686 data-nosnippet>686</a>					remaining.is_zero() || remaining &gt;= T::MinReceipt::get(),
+<a href=#687 id=687 data-nosnippet>687</a>					Error::&lt;T&gt;::MakesDust
+<a href=#688 id=688 data-nosnippet>688</a>				);
+<a href=#689 id=689 data-nosnippet>689</a>				proportion
+<a href=#690 id=690 data-nosnippet>690</a>			} <span class="kw">else </span>{
+<a href=#691 id=691 data-nosnippet>691</a>				receipt.proportion
+<a href=#692 id=692 data-nosnippet>692</a>			};
+<a href=#693 id=693 data-nosnippet>693</a>
+<a href=#694 id=694 data-nosnippet>694</a>			<span class="kw">let </span>(throttle, throttle_period) = T::ThawThrottle::get();
+<a href=#695 id=695 data-nosnippet>695</a>			<span class="kw">if </span>now.saturating_sub(summary.last_period) &gt;= throttle_period {
+<a href=#696 id=696 data-nosnippet>696</a>				summary.thawed = Zero::zero();
+<a href=#697 id=697 data-nosnippet>697</a>				summary.last_period = now;
+<a href=#698 id=698 data-nosnippet>698</a>			}
+<a href=#699 id=699 data-nosnippet>699</a>			summary.thawed.saturating_accrue(proportion);
+<a href=#700 id=700 data-nosnippet>700</a>			<span class="macro">ensure!</span>(summary.thawed &lt;= throttle, Error::&lt;T&gt;::Throttled);
+<a href=#701 id=701 data-nosnippet>701</a>
+<a href=#702 id=702 data-nosnippet>702</a>			<span class="comment">// Multiply the proportion it is by the total issued.
+<a href=#703 id=703 data-nosnippet>703</a>			</span><span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
+<a href=#704 id=704 data-nosnippet>704</a>			<span class="kw">let </span>effective_issuance = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary).effective;
+<a href=#705 id=705 data-nosnippet>705</a>			<span class="comment">//			let amount = proportion.mul_ceil(effective_issuance);
+<a href=#706 id=706 data-nosnippet>706</a>			</span><span class="kw">let </span>amount = proportion * effective_issuance;
+<a href=#707 id=707 data-nosnippet>707</a>
+<a href=#708 id=708 data-nosnippet>708</a>			receipt.proportion.saturating_reduce(proportion);
+<a href=#709 id=709 data-nosnippet>709</a>			summary.proportion_owed.saturating_reduce(proportion);
+<a href=#710 id=710 data-nosnippet>710</a>
+<a href=#711 id=711 data-nosnippet>711</a>			<span class="kw">let </span>dropped = receipt.proportion.is_zero();
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a>			<span class="kw">if </span>amount &gt; on_hold {
+<a href=#714 id=714 data-nosnippet>714</a>				T::Currency::release(<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(), <span class="kw-2">&amp;</span>who, on_hold, Exact)<span class="question-mark">?</span>;
+<a href=#715 id=715 data-nosnippet>715</a>				<span class="kw">let </span>deficit = amount - on_hold;
+<a href=#716 id=716 data-nosnippet>716</a>				<span class="comment">// Try to transfer deficit from pot to receipt owner.
+<a href=#717 id=717 data-nosnippet>717</a>				</span>summary.receipts_on_hold.saturating_reduce(on_hold);
+<a href=#718 id=718 data-nosnippet>718</a>				on_hold = Zero::zero();
+<a href=#719 id=719 data-nosnippet>719</a>				T::Currency::transfer(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>who, deficit, Expendable)
+<a href=#720 id=720 data-nosnippet>720</a>					.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Unfunded)<span class="question-mark">?</span>;
+<a href=#721 id=721 data-nosnippet>721</a>			} <span class="kw">else </span>{
+<a href=#722 id=722 data-nosnippet>722</a>				on_hold.saturating_reduce(amount);
+<a href=#723 id=723 data-nosnippet>723</a>				summary.receipts_on_hold.saturating_reduce(amount);
+<a href=#724 id=724 data-nosnippet>724</a>				<span class="kw">if </span>dropped &amp;&amp; !on_hold.is_zero() {
+<a href=#725 id=725 data-nosnippet>725</a>					<span class="comment">// Reclaim any remainder:
+<a href=#726 id=726 data-nosnippet>726</a>					// Transfer excess of `on_hold` to the pot if we have now fully compensated for
+<a href=#727 id=727 data-nosnippet>727</a>					// the receipt.
+<a href=#728 id=728 data-nosnippet>728</a>					</span>T::Currency::transfer_on_hold(
+<a href=#729 id=729 data-nosnippet>729</a>						<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(),
+<a href=#730 id=730 data-nosnippet>730</a>						<span class="kw-2">&amp;</span>who,
+<a href=#731 id=731 data-nosnippet>731</a>						<span class="kw-2">&amp;</span>our_account,
+<a href=#732 id=732 data-nosnippet>732</a>						on_hold,
+<a href=#733 id=733 data-nosnippet>733</a>						Exact,
+<a href=#734 id=734 data-nosnippet>734</a>						Free,
+<a href=#735 id=735 data-nosnippet>735</a>						Polite,
+<a href=#736 id=736 data-nosnippet>736</a>					)
+<a href=#737 id=737 data-nosnippet>737</a>					.map(|<span class="kw">_</span>| ())
+<a href=#738 id=738 data-nosnippet>738</a>					<span class="comment">// We ignore this error as it just means the amount we're trying to deposit is
+<a href=#739 id=739 data-nosnippet>739</a>					// dust and the beneficiary account doesn't exist.
+<a href=#740 id=740 data-nosnippet>740</a>					</span>.or_else(|e| {
+<a href=#741 id=741 data-nosnippet>741</a>						<span class="kw">if </span>e == TokenError::CannotCreate.into() {
+<a href=#742 id=742 data-nosnippet>742</a>							<span class="prelude-val">Ok</span>(())
+<a href=#743 id=743 data-nosnippet>743</a>						} <span class="kw">else </span>{
+<a href=#744 id=744 data-nosnippet>744</a>							<span class="prelude-val">Err</span>(e)
+<a href=#745 id=745 data-nosnippet>745</a>						}
+<a href=#746 id=746 data-nosnippet>746</a>					})<span class="question-mark">?</span>;
+<a href=#747 id=747 data-nosnippet>747</a>					summary.receipts_on_hold.saturating_reduce(on_hold);
+<a href=#748 id=748 data-nosnippet>748</a>				}
+<a href=#749 id=749 data-nosnippet>749</a>				T::Currency::release(<span class="kw-2">&amp;</span>HoldReason::NftReceipt.into(), <span class="kw-2">&amp;</span>who, amount, Exact)<span class="question-mark">?</span>;
+<a href=#750 id=750 data-nosnippet>750</a>			}
+<a href=#751 id=751 data-nosnippet>751</a>
+<a href=#752 id=752 data-nosnippet>752</a>			<span class="kw">if </span>dropped {
+<a href=#753 id=753 data-nosnippet>753</a>				Receipts::&lt;T&gt;::remove(index);
+<a href=#754 id=754 data-nosnippet>754</a>			} <span class="kw">else </span>{
+<a href=#755 id=755 data-nosnippet>755</a>				receipt.owner = <span class="prelude-val">Some</span>((owner, on_hold));
+<a href=#756 id=756 data-nosnippet>756</a>				Receipts::&lt;T&gt;::insert(index, <span class="kw-2">&amp;</span>receipt);
+<a href=#757 id=757 data-nosnippet>757</a>			}
+<a href=#758 id=758 data-nosnippet>758</a>			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
+<a href=#759 id=759 data-nosnippet>759</a>
+<a href=#760 id=760 data-nosnippet>760</a>			<span class="self">Self</span>::deposit_event(Event::Thawed { index, who, amount, proportion, dropped });
+<a href=#761 id=761 data-nosnippet>761</a>
+<a href=#762 id=762 data-nosnippet>762</a>			<span class="prelude-val">Ok</span>(())
+<a href=#763 id=763 data-nosnippet>763</a>		}
+<a href=#764 id=764 data-nosnippet>764</a>
+<a href=#765 id=765 data-nosnippet>765</a>		<span class="doccomment">/// Reduce or remove an outstanding receipt, placing the according proportion of funds into
+<a href=#766 id=766 data-nosnippet>766</a>		/// the account of the owner.
+<a href=#767 id=767 data-nosnippet>767</a>		///
+<a href=#768 id=768 data-nosnippet>768</a>		/// - `origin`: Must be Signed and the account must be the owner of the fungible counterpart
+<a href=#769 id=769 data-nosnippet>769</a>		///   for receipt `index`.
+<a href=#770 id=770 data-nosnippet>770</a>		/// - `index`: The index of the receipt.
+<a href=#771 id=771 data-nosnippet>771</a>		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
+<a href=#772 id=772 data-nosnippet>772</a>		#[pallet::weight(T::WeightInfo::thaw_communal())]
+<a href=#773 id=773 data-nosnippet>773</a>		</span><span class="kw">pub fn </span>thaw_communal(
+<a href=#774 id=774 data-nosnippet>774</a>			origin: OriginFor&lt;T&gt;,
+<a href=#775 id=775 data-nosnippet>775</a>			<span class="attr">#[pallet::compact] </span>index: ReceiptIndex,
+<a href=#776 id=776 data-nosnippet>776</a>		) -&gt; DispatchResult {
+<a href=#777 id=777 data-nosnippet>777</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#778 id=778 data-nosnippet>778</a>
+<a href=#779 id=779 data-nosnippet>779</a>			<span class="comment">// Look for `index`
+<a href=#780 id=780 data-nosnippet>780</a>			</span><span class="kw">let </span>receipt: ReceiptRecordOf&lt;T&gt; =
+<a href=#781 id=781 data-nosnippet>781</a>				Receipts::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::UnknownReceipt)<span class="question-mark">?</span>;
+<a href=#782 id=782 data-nosnippet>782</a>			<span class="comment">// If found, check it is actually communal.
+<a href=#783 id=783 data-nosnippet>783</a>			</span><span class="macro">ensure!</span>(receipt.owner.is_none(), Error::&lt;T&gt;::NotOwner);
+<a href=#784 id=784 data-nosnippet>784</a>			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#785 id=785 data-nosnippet>785</a>			<span class="macro">ensure!</span>(now &gt;= receipt.expiry, Error::&lt;T&gt;::NotExpired);
+<a href=#786 id=786 data-nosnippet>786</a>
+<a href=#787 id=787 data-nosnippet>787</a>			<span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#788 id=788 data-nosnippet>788</a>
+<a href=#789 id=789 data-nosnippet>789</a>			<span class="kw">let </span>(throttle, throttle_period) = T::ThawThrottle::get();
+<a href=#790 id=790 data-nosnippet>790</a>			<span class="kw">if </span>now.saturating_sub(summary.last_period) &gt;= throttle_period {
+<a href=#791 id=791 data-nosnippet>791</a>				summary.thawed = Zero::zero();
+<a href=#792 id=792 data-nosnippet>792</a>				summary.last_period = now;
+<a href=#793 id=793 data-nosnippet>793</a>			}
+<a href=#794 id=794 data-nosnippet>794</a>			summary.thawed.saturating_accrue(receipt.proportion);
+<a href=#795 id=795 data-nosnippet>795</a>			<span class="macro">ensure!</span>(summary.thawed &lt;= throttle, Error::&lt;T&gt;::Throttled);
+<a href=#796 id=796 data-nosnippet>796</a>
+<a href=#797 id=797 data-nosnippet>797</a>			<span class="kw">let </span>cp_amount = T::CounterpartAmount::convert(receipt.proportion);
+<a href=#798 id=798 data-nosnippet>798</a>			T::Counterpart::burn_from(<span class="kw-2">&amp;</span>who, cp_amount, Expendable, Exact, Polite)<span class="question-mark">?</span>;
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>			<span class="comment">// Multiply the proportion it is by the total issued.
+<a href=#801 id=801 data-nosnippet>801</a>			</span><span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
+<a href=#802 id=802 data-nosnippet>802</a>			<span class="kw">let </span>effective_issuance = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary).effective;
+<a href=#803 id=803 data-nosnippet>803</a>			<span class="kw">let </span>amount = receipt.proportion * effective_issuance;
+<a href=#804 id=804 data-nosnippet>804</a>
+<a href=#805 id=805 data-nosnippet>805</a>			summary.proportion_owed.saturating_reduce(receipt.proportion);
+<a href=#806 id=806 data-nosnippet>806</a>
+<a href=#807 id=807 data-nosnippet>807</a>			<span class="comment">// Try to transfer amount owed from pot to receipt owner.
+<a href=#808 id=808 data-nosnippet>808</a>			</span>T::Currency::transfer(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>who, amount, Expendable)
+<a href=#809 id=809 data-nosnippet>809</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Unfunded)<span class="question-mark">?</span>;
+<a href=#810 id=810 data-nosnippet>810</a>
+<a href=#811 id=811 data-nosnippet>811</a>			Receipts::&lt;T&gt;::remove(index);
+<a href=#812 id=812 data-nosnippet>812</a>			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
+<a href=#813 id=813 data-nosnippet>813</a>
+<a href=#814 id=814 data-nosnippet>814</a>			<span class="kw">let </span>e =
+<a href=#815 id=815 data-nosnippet>815</a>				Event::Thawed { index, who, amount, proportion: receipt.proportion, dropped: <span class="bool-val">true </span>};
+<a href=#816 id=816 data-nosnippet>816</a>			<span class="self">Self</span>::deposit_event(e);
+<a href=#817 id=817 data-nosnippet>817</a>
+<a href=#818 id=818 data-nosnippet>818</a>			<span class="prelude-val">Ok</span>(())
+<a href=#819 id=819 data-nosnippet>819</a>		}
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a>		<span class="doccomment">/// Make a private receipt communal and create fungible counterparts for its owner.
+<a href=#822 id=822 data-nosnippet>822</a>		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
+<a href=#823 id=823 data-nosnippet>823</a>		#[pallet::weight(T::WeightInfo::communify())]
+<a href=#824 id=824 data-nosnippet>824</a>		</span><span class="kw">pub fn </span>communify(
+<a href=#825 id=825 data-nosnippet>825</a>			origin: OriginFor&lt;T&gt;,
+<a href=#826 id=826 data-nosnippet>826</a>			<span class="attr">#[pallet::compact] </span>index: ReceiptIndex,
+<a href=#827 id=827 data-nosnippet>827</a>		) -&gt; DispatchResult {
+<a href=#828 id=828 data-nosnippet>828</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#829 id=829 data-nosnippet>829</a>
+<a href=#830 id=830 data-nosnippet>830</a>			<span class="comment">// Look for `index`
+<a href=#831 id=831 data-nosnippet>831</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>receipt: ReceiptRecordOf&lt;T&gt; =
+<a href=#832 id=832 data-nosnippet>832</a>				Receipts::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::UnknownReceipt)<span class="question-mark">?</span>;
+<a href=#833 id=833 data-nosnippet>833</a>
+<a href=#834 id=834 data-nosnippet>834</a>			<span class="comment">// Check it's not already communal and make it so.
+<a href=#835 id=835 data-nosnippet>835</a>			</span><span class="kw">let </span>(owner, on_hold) = receipt.owner.take().ok_or(Error::&lt;T&gt;::AlreadyCommunal)<span class="question-mark">?</span>;
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>			<span class="comment">// If found, check the owner is `who`.
+<a href=#838 id=838 data-nosnippet>838</a>			</span><span class="macro">ensure!</span>(owner == who, Error::&lt;T&gt;::NotOwner);
+<a href=#839 id=839 data-nosnippet>839</a>
+<a href=#840 id=840 data-nosnippet>840</a>			<span class="comment">// Unreserve and transfer the funds to the pot.
+<a href=#841 id=841 data-nosnippet>841</a>			</span><span class="kw">let </span>reason = HoldReason::NftReceipt.into();
+<a href=#842 id=842 data-nosnippet>842</a>			<span class="kw">let </span>us = <span class="self">Self</span>::account_id();
+<a href=#843 id=843 data-nosnippet>843</a>			T::Currency::transfer_on_hold(<span class="kw-2">&amp;</span>reason, <span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>us, on_hold, Exact, Free, Polite)
+<a href=#844 id=844 data-nosnippet>844</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Unfunded)<span class="question-mark">?</span>;
+<a href=#845 id=845 data-nosnippet>845</a>
+<a href=#846 id=846 data-nosnippet>846</a>			<span class="comment">// Record that we've moved the amount reserved.
+<a href=#847 id=847 data-nosnippet>847</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#848 id=848 data-nosnippet>848</a>			summary.receipts_on_hold.saturating_reduce(on_hold);
+<a href=#849 id=849 data-nosnippet>849</a>			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
+<a href=#850 id=850 data-nosnippet>850</a>			Receipts::&lt;T&gt;::insert(index, <span class="kw-2">&amp;</span>receipt);
+<a href=#851 id=851 data-nosnippet>851</a>
+<a href=#852 id=852 data-nosnippet>852</a>			<span class="comment">// Mint fungibles.
+<a href=#853 id=853 data-nosnippet>853</a>			</span><span class="kw">let </span>fung_eq = T::CounterpartAmount::convert(receipt.proportion);
+<a href=#854 id=854 data-nosnippet>854</a>			<span class="kw">let _ </span>= T::Counterpart::mint_into(<span class="kw-2">&amp;</span>who, fung_eq).defensive();
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>			<span class="prelude-val">Ok</span>(())
+<a href=#857 id=857 data-nosnippet>857</a>		}
+<a href=#858 id=858 data-nosnippet>858</a>
+<a href=#859 id=859 data-nosnippet>859</a>		<span class="doccomment">/// Make a communal receipt private and burn fungible counterparts from its owner.
+<a href=#860 id=860 data-nosnippet>860</a>		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
+<a href=#861 id=861 data-nosnippet>861</a>		#[pallet::weight(T::WeightInfo::privatize())]
+<a href=#862 id=862 data-nosnippet>862</a>		</span><span class="kw">pub fn </span>privatize(
+<a href=#863 id=863 data-nosnippet>863</a>			origin: OriginFor&lt;T&gt;,
+<a href=#864 id=864 data-nosnippet>864</a>			<span class="attr">#[pallet::compact] </span>index: ReceiptIndex,
+<a href=#865 id=865 data-nosnippet>865</a>		) -&gt; DispatchResult {
+<a href=#866 id=866 data-nosnippet>866</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#867 id=867 data-nosnippet>867</a>
+<a href=#868 id=868 data-nosnippet>868</a>			<span class="comment">// Look for `index`
+<a href=#869 id=869 data-nosnippet>869</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>receipt: ReceiptRecordOf&lt;T&gt; =
+<a href=#870 id=870 data-nosnippet>870</a>				Receipts::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::UnknownReceipt)<span class="question-mark">?</span>;
+<a href=#871 id=871 data-nosnippet>871</a>
+<a href=#872 id=872 data-nosnippet>872</a>			<span class="comment">// If found, check there is no owner.
+<a href=#873 id=873 data-nosnippet>873</a>			</span><span class="macro">ensure!</span>(receipt.owner.is_none(), Error::&lt;T&gt;::AlreadyPrivate);
+<a href=#874 id=874 data-nosnippet>874</a>
+<a href=#875 id=875 data-nosnippet>875</a>			<span class="comment">// Multiply the proportion it is by the total issued.
+<a href=#876 id=876 data-nosnippet>876</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#877 id=877 data-nosnippet>877</a>			<span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
+<a href=#878 id=878 data-nosnippet>878</a>			<span class="kw">let </span>effective_issuance = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary).effective;
+<a href=#879 id=879 data-nosnippet>879</a>			<span class="kw">let </span>max_amount = receipt.proportion * effective_issuance;
+<a href=#880 id=880 data-nosnippet>880</a>			<span class="comment">// Avoid trying to place more in the account's reserve than we have available in the pot
+<a href=#881 id=881 data-nosnippet>881</a>			</span><span class="kw">let </span>amount = max_amount.min(T::Currency::balance(<span class="kw-2">&amp;</span>our_account));
+<a href=#882 id=882 data-nosnippet>882</a>
+<a href=#883 id=883 data-nosnippet>883</a>			<span class="comment">// Burn fungible counterparts.
+<a href=#884 id=884 data-nosnippet>884</a>			</span>T::Counterpart::burn_from(
+<a href=#885 id=885 data-nosnippet>885</a>				<span class="kw-2">&amp;</span>who,
+<a href=#886 id=886 data-nosnippet>886</a>				T::CounterpartAmount::convert(receipt.proportion),
+<a href=#887 id=887 data-nosnippet>887</a>				Expendable,
+<a href=#888 id=888 data-nosnippet>888</a>				Exact,
+<a href=#889 id=889 data-nosnippet>889</a>				Polite,
+<a href=#890 id=890 data-nosnippet>890</a>			)<span class="question-mark">?</span>;
+<a href=#891 id=891 data-nosnippet>891</a>
+<a href=#892 id=892 data-nosnippet>892</a>			<span class="comment">// Transfer the funds from the pot to the owner and reserve
+<a href=#893 id=893 data-nosnippet>893</a>			</span><span class="kw">let </span>reason = HoldReason::NftReceipt.into();
+<a href=#894 id=894 data-nosnippet>894</a>			<span class="kw">let </span>us = <span class="self">Self</span>::account_id();
+<a href=#895 id=895 data-nosnippet>895</a>			T::Currency::transfer_and_hold(<span class="kw-2">&amp;</span>reason, <span class="kw-2">&amp;</span>us, <span class="kw-2">&amp;</span>who, amount, Exact, Expendable, Polite)<span class="question-mark">?</span>;
+<a href=#896 id=896 data-nosnippet>896</a>
+<a href=#897 id=897 data-nosnippet>897</a>			<span class="comment">// Record that we've moved the amount reserved.
+<a href=#898 id=898 data-nosnippet>898</a>			</span>summary.receipts_on_hold.saturating_accrue(amount);
+<a href=#899 id=899 data-nosnippet>899</a>
+<a href=#900 id=900 data-nosnippet>900</a>			receipt.owner = <span class="prelude-val">Some</span>((who, amount));
+<a href=#901 id=901 data-nosnippet>901</a>
+<a href=#902 id=902 data-nosnippet>902</a>			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
+<a href=#903 id=903 data-nosnippet>903</a>			Receipts::&lt;T&gt;::insert(index, <span class="kw-2">&amp;</span>receipt);
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>			<span class="prelude-val">Ok</span>(())
+<a href=#906 id=906 data-nosnippet>906</a>		}
+<a href=#907 id=907 data-nosnippet>907</a>	}
+<a href=#908 id=908 data-nosnippet>908</a>
+<a href=#909 id=909 data-nosnippet>909</a>	<span class="doccomment">/// Issuance information returned by `issuance()`.
+<a href=#910 id=910 data-nosnippet>910</a>	</span><span class="attr">#[derive(Debug)]
+<a href=#911 id=911 data-nosnippet>911</a>	</span><span class="kw">pub struct </span>IssuanceInfo&lt;Balance&gt; {
+<a href=#912 id=912 data-nosnippet>912</a>		<span class="doccomment">/// The balance held by this pallet instance together with the balances on hold across
+<a href=#913 id=913 data-nosnippet>913</a>		/// all receipt-owning accounts.
+<a href=#914 id=914 data-nosnippet>914</a>		</span><span class="kw">pub </span>holdings: Balance,
+<a href=#915 id=915 data-nosnippet>915</a>		<span class="doccomment">/// The (non-ignored) issuance in the system, not including this pallet's account.
+<a href=#916 id=916 data-nosnippet>916</a>		</span><span class="kw">pub </span>other: Balance,
+<a href=#917 id=917 data-nosnippet>917</a>		<span class="doccomment">/// The effective total issuance, hypothetically if all outstanding receipts were thawed at
+<a href=#918 id=918 data-nosnippet>918</a>		/// present.
+<a href=#919 id=919 data-nosnippet>919</a>		</span><span class="kw">pub </span>effective: Balance,
+<a href=#920 id=920 data-nosnippet>920</a>		<span class="doccomment">/// The amount needed to be accessible to this pallet in case all outstanding receipts were
+<a href=#921 id=921 data-nosnippet>921</a>		/// thawed at present. If it is more than `holdings`, then the pallet will need funding.
+<a href=#922 id=922 data-nosnippet>922</a>		</span><span class="kw">pub </span>required: Balance,
+<a href=#923 id=923 data-nosnippet>923</a>	}
+<a href=#924 id=924 data-nosnippet>924</a>
+<a href=#925 id=925 data-nosnippet>925</a>	<span class="kw">impl</span>&lt;T: Config&gt; NftInspect&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#926 id=926 data-nosnippet>926</a>		<span class="kw">type </span>ItemId = ReceiptIndex;
+<a href=#927 id=927 data-nosnippet>927</a>
+<a href=#928 id=928 data-nosnippet>928</a>		<span class="kw">fn </span>owner(item: <span class="kw-2">&amp;</span>ReceiptIndex) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
+<a href=#929 id=929 data-nosnippet>929</a>			Receipts::&lt;T&gt;::get(item).and_then(|r| r.owner).map(|(who, <span class="kw">_</span>)| who)
+<a href=#930 id=930 data-nosnippet>930</a>		}
+<a href=#931 id=931 data-nosnippet>931</a>
+<a href=#932 id=932 data-nosnippet>932</a>		<span class="kw">fn </span>attribute(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href=#933 id=933 data-nosnippet>933</a>			<span class="kw">let </span>item = Receipts::&lt;T&gt;::get(item)<span class="question-mark">?</span>;
+<a href=#934 id=934 data-nosnippet>934</a>			<span class="kw">match </span>key {
+<a href=#935 id=935 data-nosnippet>935</a>				<span class="string">b"proportion" </span>=&gt; <span class="prelude-val">Some</span>(item.proportion.encode()),
+<a href=#936 id=936 data-nosnippet>936</a>				<span class="string">b"expiry" </span>=&gt; <span class="prelude-val">Some</span>(item.expiry.encode()),
+<a href=#937 id=937 data-nosnippet>937</a>				<span class="string">b"owner" </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">0</span>.encode()),
+<a href=#938 id=938 data-nosnippet>938</a>				<span class="string">b"on_hold" </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">1</span>.encode()),
+<a href=#939 id=939 data-nosnippet>939</a>				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#940 id=940 data-nosnippet>940</a>			}
+<a href=#941 id=941 data-nosnippet>941</a>		}
+<a href=#942 id=942 data-nosnippet>942</a>	}
+<a href=#943 id=943 data-nosnippet>943</a>
+<a href=#944 id=944 data-nosnippet>944</a>	<span class="kw">impl</span>&lt;T: Config&gt; NftTransfer&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#945 id=945 data-nosnippet>945</a>		<span class="kw">fn </span>transfer(index: <span class="kw-2">&amp;</span>ReceiptIndex, dest: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+<a href=#946 id=946 data-nosnippet>946</a>			<span class="kw">let </span><span class="kw-2">mut </span>item = Receipts::&lt;T&gt;::get(index).ok_or(TokenError::UnknownAsset)<span class="question-mark">?</span>;
+<a href=#947 id=947 data-nosnippet>947</a>			<span class="kw">let </span>(owner, on_hold) = item.owner.take().ok_or(Error::&lt;T&gt;::AlreadyCommunal)<span class="question-mark">?</span>;
+<a href=#948 id=948 data-nosnippet>948</a>
+<a href=#949 id=949 data-nosnippet>949</a>			<span class="kw">let </span>reason = HoldReason::NftReceipt.into();
+<a href=#950 id=950 data-nosnippet>950</a>			T::Currency::transfer_on_hold(<span class="kw-2">&amp;</span>reason, <span class="kw-2">&amp;</span>owner, dest, on_hold, Exact, OnHold, Polite)<span class="question-mark">?</span>;
+<a href=#951 id=951 data-nosnippet>951</a>
+<a href=#952 id=952 data-nosnippet>952</a>			item.owner = <span class="prelude-val">Some</span>((dest.clone(), on_hold));
+<a href=#953 id=953 data-nosnippet>953</a>			Receipts::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>index, <span class="kw-2">&amp;</span>item);
+<a href=#954 id=954 data-nosnippet>954</a>			Pallet::&lt;T&gt;::deposit_event(Event::&lt;T&gt;::Transferred {
+<a href=#955 id=955 data-nosnippet>955</a>				from: owner,
+<a href=#956 id=956 data-nosnippet>956</a>				to: dest.clone(),
+<a href=#957 id=957 data-nosnippet>957</a>				index: <span class="kw-2">*</span>index,
+<a href=#958 id=958 data-nosnippet>958</a>			});
+<a href=#959 id=959 data-nosnippet>959</a>			<span class="prelude-val">Ok</span>(())
+<a href=#960 id=960 data-nosnippet>960</a>		}
+<a href=#961 id=961 data-nosnippet>961</a>	}
+<a href=#962 id=962 data-nosnippet>962</a>
+<a href=#963 id=963 data-nosnippet>963</a>	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#964 id=964 data-nosnippet>964</a>		<span class="doccomment">/// The account ID of the reserves.
+<a href=#965 id=965 data-nosnippet>965</a>		///
+<a href=#966 id=966 data-nosnippet>966</a>		/// This actually does computation. If you need to keep using it, then make sure you cache
+<a href=#967 id=967 data-nosnippet>967</a>		/// the value and only call this once.
+<a href=#968 id=968 data-nosnippet>968</a>		</span><span class="kw">pub fn </span>account_id() -&gt; T::AccountId {
+<a href=#969 id=969 data-nosnippet>969</a>			T::PalletId::get().into_account_truncating()
+<a href=#970 id=970 data-nosnippet>970</a>		}
+<a href=#971 id=971 data-nosnippet>971</a>
+<a href=#972 id=972 data-nosnippet>972</a>		<span class="doccomment">/// Returns information on the issuance within the system.
+<a href=#973 id=973 data-nosnippet>973</a>		</span><span class="kw">pub fn </span>issuance() -&gt; IssuanceInfo&lt;BalanceOf&lt;T&gt;&gt; {
+<a href=#974 id=974 data-nosnippet>974</a>			<span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span><span class="self">Self</span>::account_id(), <span class="kw-2">&amp;</span>Summary::&lt;T&gt;::get())
+<a href=#975 id=975 data-nosnippet>975</a>		}
+<a href=#976 id=976 data-nosnippet>976</a>
+<a href=#977 id=977 data-nosnippet>977</a>		<span class="doccomment">/// Returns information on the issuance within the system
+<a href=#978 id=978 data-nosnippet>978</a>		///
+<a href=#979 id=979 data-nosnippet>979</a>		/// This function is equivalent to `issuance`, except that it accepts arguments rather than
+<a href=#980 id=980 data-nosnippet>980</a>		/// queries state. If the arguments are already known, then this may be slightly more
+<a href=#981 id=981 data-nosnippet>981</a>		/// performant.
+<a href=#982 id=982 data-nosnippet>982</a>		///
+<a href=#983 id=983 data-nosnippet>983</a>		/// - `our_account`: The value returned by `Self::account_id()`.
+<a href=#984 id=984 data-nosnippet>984</a>		/// - `summary`: The value returned by `Summary::&lt;T&gt;::get()`.
+<a href=#985 id=985 data-nosnippet>985</a>		</span><span class="kw">pub fn </span>issuance_with(
+<a href=#986 id=986 data-nosnippet>986</a>			our_account: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#987 id=987 data-nosnippet>987</a>			summary: <span class="kw-2">&amp;</span>SummaryRecordOf&lt;T&gt;,
+<a href=#988 id=988 data-nosnippet>988</a>		) -&gt; IssuanceInfo&lt;BalanceOf&lt;T&gt;&gt; {
+<a href=#989 id=989 data-nosnippet>989</a>			<span class="kw">let </span>total_issuance =
+<a href=#990 id=990 data-nosnippet>990</a>				T::Currency::active_issuance().saturating_sub(T::IgnoredIssuance::get());
+<a href=#991 id=991 data-nosnippet>991</a>			<span class="kw">let </span>holdings =
+<a href=#992 id=992 data-nosnippet>992</a>				T::Currency::balance(our_account).saturating_add(summary.receipts_on_hold);
+<a href=#993 id=993 data-nosnippet>993</a>			<span class="kw">let </span>other = total_issuance.saturating_sub(holdings);
+<a href=#994 id=994 data-nosnippet>994</a>			<span class="kw">let </span>effective =
+<a href=#995 id=995 data-nosnippet>995</a>				summary.proportion_owed.left_from_one().saturating_reciprocal_mul(other);
+<a href=#996 id=996 data-nosnippet>996</a>			<span class="kw">let </span>required = summary.proportion_owed * effective;
+<a href=#997 id=997 data-nosnippet>997</a>			IssuanceInfo { holdings, other, effective, required }
+<a href=#998 id=998 data-nosnippet>998</a>		}
+<a href=#999 id=999 data-nosnippet>999</a>
+<a href=#1000 id=1000 data-nosnippet>1000</a>		<span class="doccomment">/// Process some bids into receipts up to a `target` total of all receipts.
+<a href=#1001 id=1001 data-nosnippet>1001</a>		///
+<a href=#1002 id=1002 data-nosnippet>1002</a>		/// Touch at most `max_queues`.
+<a href=#1003 id=1003 data-nosnippet>1003</a>		///
+<a href=#1004 id=1004 data-nosnippet>1004</a>		/// Return the weight used.
+<a href=#1005 id=1005 data-nosnippet>1005</a>		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_queues(
+<a href=#1006 id=1006 data-nosnippet>1006</a>			target: Perquintill,
+<a href=#1007 id=1007 data-nosnippet>1007</a>			max_queues: u32,
+<a href=#1008 id=1008 data-nosnippet>1008</a>			max_bids: u32,
+<a href=#1009 id=1009 data-nosnippet>1009</a>			weight: <span class="kw-2">&amp;mut </span>WeightCounter,
+<a href=#1010 id=1010 data-nosnippet>1010</a>		) {
+<a href=#1011 id=1011 data-nosnippet>1011</a>			<span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
+<a href=#1012 id=1012 data-nosnippet>1012</a>			<span class="kw">if </span>summary.proportion_owed &gt;= target {
+<a href=#1013 id=1013 data-nosnippet>1013</a>				<span class="kw">return
+<a href=#1014 id=1014 data-nosnippet>1014</a>			</span>}
+<a href=#1015 id=1015 data-nosnippet>1015</a>
+<a href=#1016 id=1016 data-nosnippet>1016</a>			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#1017 id=1017 data-nosnippet>1017</a>			<span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
+<a href=#1018 id=1018 data-nosnippet>1018</a>			<span class="kw">let </span>issuance: IssuanceInfoOf&lt;T&gt; = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary);
+<a href=#1019 id=1019 data-nosnippet>1019</a>			<span class="kw">let </span><span class="kw-2">mut </span>remaining = target.saturating_sub(summary.proportion_owed) * issuance.effective;
+<a href=#1020 id=1020 data-nosnippet>1020</a>
+<a href=#1021 id=1021 data-nosnippet>1021</a>			<span class="kw">let </span><span class="kw-2">mut </span>queues_hit = <span class="number">0</span>;
+<a href=#1022 id=1022 data-nosnippet>1022</a>			<span class="kw">let </span><span class="kw-2">mut </span>bids_hit = <span class="number">0</span>;
+<a href=#1023 id=1023 data-nosnippet>1023</a>			<span class="kw">let </span><span class="kw-2">mut </span>totals = QueueTotals::&lt;T&gt;::get();
+<a href=#1024 id=1024 data-nosnippet>1024</a>			<span class="kw">let </span>queue_count = T::QueueCount::get();
+<a href=#1025 id=1025 data-nosnippet>1025</a>			totals.bounded_resize(queue_count <span class="kw">as </span>usize, (<span class="number">0</span>, Zero::zero()));
+<a href=#1026 id=1026 data-nosnippet>1026</a>			<span class="kw">for </span>duration <span class="kw">in </span>(<span class="number">1</span>..=queue_count).rev() {
+<a href=#1027 id=1027 data-nosnippet>1027</a>				<span class="kw">if </span>totals[duration <span class="kw">as </span>usize - <span class="number">1</span>].<span class="number">0</span>.is_zero() {
+<a href=#1028 id=1028 data-nosnippet>1028</a>					<span class="kw">continue
+<a href=#1029 id=1029 data-nosnippet>1029</a>				</span>}
+<a href=#1030 id=1030 data-nosnippet>1030</a>				<span class="kw">if </span>remaining.is_zero() || queues_hit &gt;= max_queues
+<a href=#1031 id=1031 data-nosnippet>1031</a>					|| !weight.check_accrue(T::WeightInfo::process_queue())
+<a href=#1032 id=1032 data-nosnippet>1032</a>					<span class="comment">// No point trying to process a queue if we can't process a single bid.
+<a href=#1033 id=1033 data-nosnippet>1033</a>					</span>|| !weight.can_accrue(T::WeightInfo::process_bid())
+<a href=#1034 id=1034 data-nosnippet>1034</a>				{
+<a href=#1035 id=1035 data-nosnippet>1035</a>					<span class="kw">break
+<a href=#1036 id=1036 data-nosnippet>1036</a>				</span>}
+<a href=#1037 id=1037 data-nosnippet>1037</a>
+<a href=#1038 id=1038 data-nosnippet>1038</a>				<span class="kw">let </span>b = <span class="self">Self</span>::process_queue(
+<a href=#1039 id=1039 data-nosnippet>1039</a>					duration,
+<a href=#1040 id=1040 data-nosnippet>1040</a>					now,
+<a href=#1041 id=1041 data-nosnippet>1041</a>					<span class="kw-2">&amp;</span>our_account,
+<a href=#1042 id=1042 data-nosnippet>1042</a>					<span class="kw-2">&amp;</span>issuance,
+<a href=#1043 id=1043 data-nosnippet>1043</a>					max_bids.saturating_sub(bids_hit),
+<a href=#1044 id=1044 data-nosnippet>1044</a>					<span class="kw-2">&amp;mut </span>remaining,
+<a href=#1045 id=1045 data-nosnippet>1045</a>					<span class="kw-2">&amp;mut </span>totals[duration <span class="kw">as </span>usize - <span class="number">1</span>],
+<a href=#1046 id=1046 data-nosnippet>1046</a>					<span class="kw-2">&amp;mut </span>summary,
+<a href=#1047 id=1047 data-nosnippet>1047</a>					weight,
+<a href=#1048 id=1048 data-nosnippet>1048</a>				);
+<a href=#1049 id=1049 data-nosnippet>1049</a>
+<a href=#1050 id=1050 data-nosnippet>1050</a>				bids_hit.saturating_accrue(b);
+<a href=#1051 id=1051 data-nosnippet>1051</a>				queues_hit.saturating_inc();
+<a href=#1052 id=1052 data-nosnippet>1052</a>			}
+<a href=#1053 id=1053 data-nosnippet>1053</a>			QueueTotals::&lt;T&gt;::put(<span class="kw-2">&amp;</span>totals);
+<a href=#1054 id=1054 data-nosnippet>1054</a>			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
+<a href=#1055 id=1055 data-nosnippet>1055</a>		}
+<a href=#1056 id=1056 data-nosnippet>1056</a>
+<a href=#1057 id=1057 data-nosnippet>1057</a>		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_queue(
+<a href=#1058 id=1058 data-nosnippet>1058</a>			duration: u32,
+<a href=#1059 id=1059 data-nosnippet>1059</a>			now: BlockNumberFor&lt;T&gt;,
+<a href=#1060 id=1060 data-nosnippet>1060</a>			our_account: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#1061 id=1061 data-nosnippet>1061</a>			issuance: <span class="kw-2">&amp;</span>IssuanceInfo&lt;BalanceOf&lt;T&gt;&gt;,
+<a href=#1062 id=1062 data-nosnippet>1062</a>			max_bids: u32,
+<a href=#1063 id=1063 data-nosnippet>1063</a>			remaining: <span class="kw-2">&amp;mut </span>BalanceOf&lt;T&gt;,
+<a href=#1064 id=1064 data-nosnippet>1064</a>			queue_total: <span class="kw-2">&amp;mut </span>(u32, BalanceOf&lt;T&gt;),
+<a href=#1065 id=1065 data-nosnippet>1065</a>			summary: <span class="kw-2">&amp;mut </span>SummaryRecordOf&lt;T&gt;,
+<a href=#1066 id=1066 data-nosnippet>1066</a>			weight: <span class="kw-2">&amp;mut </span>WeightCounter,
+<a href=#1067 id=1067 data-nosnippet>1067</a>		) -&gt; u32 {
+<a href=#1068 id=1068 data-nosnippet>1068</a>			<span class="kw">let </span><span class="kw-2">mut </span>queue: BoundedVec&lt;BidOf&lt;T&gt;, <span class="kw">_</span>&gt; = Queues::&lt;T&gt;::get(<span class="kw-2">&amp;</span>duration);
+<a href=#1069 id=1069 data-nosnippet>1069</a>			<span class="kw">let </span>expiry = now.saturating_add(T::BasePeriod::get().saturating_mul(duration.into()));
+<a href=#1070 id=1070 data-nosnippet>1070</a>			<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+<a href=#1071 id=1071 data-nosnippet>1071</a>
+<a href=#1072 id=1072 data-nosnippet>1072</a>			<span class="kw">while </span>count &lt; max_bids &amp;&amp;
+<a href=#1073 id=1073 data-nosnippet>1073</a>				!queue.is_empty() &amp;&amp;
+<a href=#1074 id=1074 data-nosnippet>1074</a>				!remaining.is_zero() &amp;&amp;
+<a href=#1075 id=1075 data-nosnippet>1075</a>				weight.check_accrue(T::WeightInfo::process_bid())
+<a href=#1076 id=1076 data-nosnippet>1076</a>			{
+<a href=#1077 id=1077 data-nosnippet>1077</a>				<span class="kw">let </span>bid = <span class="kw">match </span>queue.pop() {
+<a href=#1078 id=1078 data-nosnippet>1078</a>					<span class="prelude-val">Some</span>(b) =&gt; b,
+<a href=#1079 id=1079 data-nosnippet>1079</a>					<span class="prelude-val">None </span>=&gt; <span class="kw">break</span>,
+<a href=#1080 id=1080 data-nosnippet>1080</a>				};
+<a href=#1081 id=1081 data-nosnippet>1081</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(bid) = <span class="self">Self</span>::process_bid(
+<a href=#1082 id=1082 data-nosnippet>1082</a>					bid,
+<a href=#1083 id=1083 data-nosnippet>1083</a>					expiry,
+<a href=#1084 id=1084 data-nosnippet>1084</a>					our_account,
+<a href=#1085 id=1085 data-nosnippet>1085</a>					issuance,
+<a href=#1086 id=1086 data-nosnippet>1086</a>					remaining,
+<a href=#1087 id=1087 data-nosnippet>1087</a>					<span class="kw-2">&amp;mut </span>queue_total.<span class="number">1</span>,
+<a href=#1088 id=1088 data-nosnippet>1088</a>					summary,
+<a href=#1089 id=1089 data-nosnippet>1089</a>				) {
+<a href=#1090 id=1090 data-nosnippet>1090</a>					queue.try_push(bid).expect(<span class="string">"just popped, so there must be space. qed"</span>);
+<a href=#1091 id=1091 data-nosnippet>1091</a>					<span class="comment">// This should exit at the next iteration (though nothing will break if it
+<a href=#1092 id=1092 data-nosnippet>1092</a>					// doesn't).
+<a href=#1093 id=1093 data-nosnippet>1093</a>				</span>}
+<a href=#1094 id=1094 data-nosnippet>1094</a>				count.saturating_inc();
+<a href=#1095 id=1095 data-nosnippet>1095</a>			}
+<a href=#1096 id=1096 data-nosnippet>1096</a>			queue_total.<span class="number">0 </span>= queue.len() <span class="kw">as </span>u32;
+<a href=#1097 id=1097 data-nosnippet>1097</a>			Queues::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>duration, <span class="kw-2">&amp;</span>queue);
+<a href=#1098 id=1098 data-nosnippet>1098</a>			count
+<a href=#1099 id=1099 data-nosnippet>1099</a>		}
+<a href=#1100 id=1100 data-nosnippet>1100</a>
+<a href=#1101 id=1101 data-nosnippet>1101</a>		<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>process_bid(
+<a href=#1102 id=1102 data-nosnippet>1102</a>			<span class="kw-2">mut </span>bid: BidOf&lt;T&gt;,
+<a href=#1103 id=1103 data-nosnippet>1103</a>			expiry: BlockNumberFor&lt;T&gt;,
+<a href=#1104 id=1104 data-nosnippet>1104</a>			_our_account: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#1105 id=1105 data-nosnippet>1105</a>			issuance: <span class="kw-2">&amp;</span>IssuanceInfo&lt;BalanceOf&lt;T&gt;&gt;,
+<a href=#1106 id=1106 data-nosnippet>1106</a>			remaining: <span class="kw-2">&amp;mut </span>BalanceOf&lt;T&gt;,
+<a href=#1107 id=1107 data-nosnippet>1107</a>			queue_amount: <span class="kw-2">&amp;mut </span>BalanceOf&lt;T&gt;,
+<a href=#1108 id=1108 data-nosnippet>1108</a>			summary: <span class="kw-2">&amp;mut </span>SummaryRecordOf&lt;T&gt;,
+<a href=#1109 id=1109 data-nosnippet>1109</a>		) -&gt; <span class="prelude-ty">Option</span>&lt;BidOf&lt;T&gt;&gt; {
+<a href=#1110 id=1110 data-nosnippet>1110</a>			<span class="kw">let </span>result = <span class="kw">if </span><span class="kw-2">*</span>remaining &lt; bid.amount {
+<a href=#1111 id=1111 data-nosnippet>1111</a>				<span class="kw">let </span>overflow = bid.amount - <span class="kw-2">*</span>remaining;
+<a href=#1112 id=1112 data-nosnippet>1112</a>				bid.amount = <span class="kw-2">*</span>remaining;
+<a href=#1113 id=1113 data-nosnippet>1113</a>				<span class="prelude-val">Some</span>(Bid { amount: overflow, who: bid.who.clone() })
+<a href=#1114 id=1114 data-nosnippet>1114</a>			} <span class="kw">else </span>{
+<a href=#1115 id=1115 data-nosnippet>1115</a>				<span class="prelude-val">None
+<a href=#1116 id=1116 data-nosnippet>1116</a>			</span>};
+<a href=#1117 id=1117 data-nosnippet>1117</a>			<span class="kw">let </span>amount = bid.amount;
+<a href=#1118 id=1118 data-nosnippet>1118</a>			summary.receipts_on_hold.saturating_accrue(amount);
+<a href=#1119 id=1119 data-nosnippet>1119</a>
+<a href=#1120 id=1120 data-nosnippet>1120</a>			<span class="comment">// Can never overflow due to block above.
+<a href=#1121 id=1121 data-nosnippet>1121</a>			</span>remaining.saturating_reduce(amount);
+<a href=#1122 id=1122 data-nosnippet>1122</a>			<span class="comment">// Should never underflow since it should track the total of the
+<a href=#1123 id=1123 data-nosnippet>1123</a>			// bids exactly, but we'll be defensive.
+<a href=#1124 id=1124 data-nosnippet>1124</a>			</span>queue_amount.defensive_saturating_reduce(amount);
+<a href=#1125 id=1125 data-nosnippet>1125</a>
+<a href=#1126 id=1126 data-nosnippet>1126</a>			<span class="comment">// Now to activate the bid...
+<a href=#1127 id=1127 data-nosnippet>1127</a>			</span><span class="kw">let </span>n = amount;
+<a href=#1128 id=1128 data-nosnippet>1128</a>			<span class="kw">let </span>d = issuance.effective;
+<a href=#1129 id=1129 data-nosnippet>1129</a>			<span class="kw">let </span>proportion = Perquintill::from_rational_with_rounding(n, d, Rounding::Down)
+<a href=#1130 id=1130 data-nosnippet>1130</a>				.defensive_unwrap_or_default();
+<a href=#1131 id=1131 data-nosnippet>1131</a>			<span class="kw">let </span>who = bid.who;
+<a href=#1132 id=1132 data-nosnippet>1132</a>			<span class="kw">let </span>index = summary.index;
+<a href=#1133 id=1133 data-nosnippet>1133</a>			summary.proportion_owed.defensive_saturating_accrue(proportion);
+<a href=#1134 id=1134 data-nosnippet>1134</a>			summary.index += <span class="number">1</span>;
+<a href=#1135 id=1135 data-nosnippet>1135</a>
+<a href=#1136 id=1136 data-nosnippet>1136</a>			<span class="kw">let </span>e = Event::Issued { index, expiry, who: who.clone(), amount, proportion };
+<a href=#1137 id=1137 data-nosnippet>1137</a>			<span class="self">Self</span>::deposit_event(e);
+<a href=#1138 id=1138 data-nosnippet>1138</a>			<span class="kw">let </span>receipt = ReceiptRecord { proportion, owner: <span class="prelude-val">Some</span>((who, amount)), expiry };
+<a href=#1139 id=1139 data-nosnippet>1139</a>			Receipts::&lt;T&gt;::insert(index, receipt);
+<a href=#1140 id=1140 data-nosnippet>1140</a>
+<a href=#1141 id=1141 data-nosnippet>1141</a>			result
+<a href=#1142 id=1142 data-nosnippet>1142</a>		}
+<a href=#1143 id=1143 data-nosnippet>1143</a>	}
+<a href=#1144 id=1144 data-nosnippet>1144</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>
