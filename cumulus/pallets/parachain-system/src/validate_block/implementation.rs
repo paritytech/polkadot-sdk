@@ -17,7 +17,7 @@
 //! The actual implementation of the validate block functionality.
 
 use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
-use crate::{parachain_inherent::BasicParachainInherentData, ClaimQueueOffset, CoreSelector};
+use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -25,7 +25,7 @@ use cumulus_primitives_core::{
 		vstaging::{UMPSignal, UMP_SEPARATOR},
 		Hash as RHash,
 	},
-	ParachainBlockData, PersistedValidationData,
+	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},

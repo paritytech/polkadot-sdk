@@ -15,6 +15,7 @@ workspace = true
 # note: special care is taken to avoid inclusion of `sp-io` externals when compiling
 # this crate for WASM. This is critical to avoid forcing all parachain WASM into implementing
 # various unnecessary Substrate-specific endpoints.
+array-bytes = { workspace = true }
 bounded-collections = { features = ["serde"], workspace = true }
 codec = { features = ["derive"], workspace = true }
 derive_more = { workspace = true, default-features = true }

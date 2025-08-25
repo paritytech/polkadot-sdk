@@ -63,11 +63,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let endowed_accounts = vec![AccountId::from(Alice.public())];
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
-	*genesis_init = cumulus_test_client::GenesisParameters {
-		endowed_accounts,
-		wasm: None,
-		blocks_per_pov: None,
-	};
+	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts, wasm: None };
 
 	let client = test_client_builder.build_with_native_executor(None).0;
 

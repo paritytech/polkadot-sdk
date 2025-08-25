@@ -21,7 +21,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
 use sp_runtime::RuntimeDebug;
@@ -214,6 +214,28 @@ pub enum ServiceQuality {
 /// A consensus engine ID indicating that this is a Cumulus Parachain.
 pub const CUMULUS_CONSENSUS_ID: ConsensusEngineId = *b"CMLS";
 
+/// Information about the core on the relay chain this block will be validated on.
+#[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
+pub struct CoreInfo {
+	/// The selector that determines the actual core at `claim_queue_offset`.
+	pub selector: CoreSelector,
+	/// The claim queue offset that determines how far "into the future" the core is selected.
+	pub claim_queue_offset: ClaimQueueOffset,
+	/// The number of cores assigned to the parachain at `claim_queue_offset`.
+	pub number_of_cores: Compact<u16>,
+}
+
+/// Return value of [`CumulusDigestItem::core_info_exists_at_max_once`]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CoreInfoExistsAtMaxOnce {
+	/// Exists exactly once.
+	Once(CoreInfo),
+	/// Not found.
+	NotFound,
+	/// Found more than once.
+	MoreThanOnce,
+}
+
 /// Identifier for a relay chain block used by [`CumulusDigestItem`].
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum RelayBlockIdentifier {
@@ -224,44 +246,70 @@ pub enum RelayBlockIdentifier {
 }
 
 /// Consensus header digests for Cumulus parachains.
-#[derive(Clone, RuntimeDebug, Decode, Encode, PartialEq)]
+#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 pub enum CumulusDigestItem {
 	/// A digest item indicating the relay-parent a parachain block was built against.
 	#[codec(index = 0)]
 	RelayParent(relay_chain::Hash),
-	/// A digest item indicating which core to select on the relay chain for this block.
+	/// A digest item providing information about the core selected on the relay chain for this
+	/// block.
 	#[codec(index = 1)]
-	SelectCore {
-		/// The selector that determines the actual core.
-		selector: CoreSelector,
-		/// The claim queue offset that determines how far "into the future" the core is selected.
-		claim_queue_offset: ClaimQueueOffset,
-	},
+	CoreInfo(CoreInfo),
 }
 
 impl CumulusDigestItem {
 	/// Encode this as a Substrate [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
-		DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode())
+		match self {
+			Self::RelayParent(_) => DigestItem::Consensus(CUMULUS_CONSENSUS_ID, self.encode()),
+			Self::CoreInfo(_) => DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, self.encode()),
+		}
 	}
 
-	/// Find [`CumulusDigestItem::SelectCore`] in the given `digest`.
+	/// Find [`CumulusDigestItem::CoreInfo`] in the given `digest`.
 	///
-	/// If there are multiple valid digests, this returns the value of the first one, although
-	/// well-behaving runtimes should not produce headers with more than one.
-	pub fn find_select_core(digest: &Digest) -> Option<(CoreSelector, ClaimQueueOffset)> {
+	/// If there are multiple valid digests, this returns the value of the first one.
+	pub fn find_core_info(digest: &Digest) -> Option<CoreInfo> {
 		digest.convert_first(|d| match d {
-			DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
-				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::CoreInfo(core_info)) =
 					CumulusDigestItem::decode_all(&mut &val[..])
 				else {
 					return None
 				};
 
-				Some((selector, claim_queue_offset))
+				Some(core_info)
 			},
 			_ => None,
 		})
+	}
+
+	/// Returns the found [`CoreInfo`] and  iff [`Self::CoreInfo`] exists at max once in the given
+	/// `digest`.
+	pub fn core_info_exists_at_max_once(digest: &Digest) -> CoreInfoExistsAtMaxOnce {
+		let mut core_info = None;
+		if digest
+			.logs()
+			.iter()
+			.filter(|l| match l {
+				DigestItem::PreRuntime(CUMULUS_CONSENSUS_ID, d) => {
+					if let Ok(Self::CoreInfo(ci)) = Self::decode_all(&mut &d[..]) {
+						core_info = Some(ci);
+						true
+					} else {
+						false
+					}
+				},
+				_ => false,
+			})
+			.count() <= 1
+		{
+			core_info
+				.map(CoreInfoExistsAtMaxOnce::Once)
+				.unwrap_or(CoreInfoExistsAtMaxOnce::NotFound)
+		} else {
+			CoreInfoExistsAtMaxOnce::MoreThanOnce
+		}
 	}
 
 	/// Returns the [`RelayBlockIdentifier`] from the given `digest`.
@@ -429,12 +477,6 @@ sp_api::decl_runtime_apis! {
 		/// The given `header` is the header of the built block for that
 		/// we are collecting the collation info for.
 		fn collect_collation_info(header: &Block::Header) -> CollationInfo;
-	}
-
-	/// Runtime api used to select the core for which the next block will be built.
-	pub trait GetCoreSelectorApi {
-		/// Retrieve core selector and claim queue offset for the next block.
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset);
 	}
 
 	/// Runtime api used to access general info about a parachain runtime.
