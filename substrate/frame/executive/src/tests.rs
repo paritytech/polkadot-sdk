@@ -42,6 +42,7 @@ use sp_runtime::{
 };
 
 const TEST_KEY: &[u8] = b":test:key:";
+const TEST_KEY_2: &[u8] = b":test:key_2:";
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
@@ -354,6 +355,7 @@ impl frame_system::Config for Runtime {
 	type PostTransactions = MockedSystemCallbacks;
 	type MultiBlockMigrator = MockedModeGetter;
 	type ExtensionsWeightInfo = MockExtensionsWeights;
+	type SingleBlockMigrations = CustomOnRuntimeUpgrade;
 }
 
 #[derive(
@@ -479,16 +481,23 @@ type TestBlock = Block<UncheckedXt>;
 // Will contain `true` when the custom runtime logic was called.
 const CUSTOM_ON_RUNTIME_KEY: &[u8] = b":custom:on_runtime";
 
-struct CustomOnRuntimeUpgrade;
+pub struct CustomOnRuntimeUpgrade;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> Weight {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
+		sp_io::storage::set(TEST_KEY_2, "try_runtime_upgrade_works".as_bytes());
 		sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
 		System::deposit_event(frame_system::Event::CodeUpdated);
 
 		assert_eq!(0, System::last_runtime_upgrade_spec_version());
 
 		Weight::from_parts(100, 0)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
+		Ok(())
 	}
 }
 
@@ -1074,9 +1083,7 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+		let runtime_upgrade_weight = Executive::execute_on_runtime_upgrade();
 		let on_initialize_weight =
 			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
@@ -1084,10 +1091,7 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			runtime_upgrade_weight + on_initialize_weight + base_block_weight,
 		);
 	});
 }
@@ -1291,6 +1295,35 @@ fn try_execute_block_works() {
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
+	});
+}
+
+#[test]
+#[cfg(feature = "try-runtime")]
+fn try_runtime_upgrade_works() {
+	use frame_support::traits::OnGenesis;
+
+	sp_tracing::init_for_tests();
+
+	type ExecutiveWithoutMigrations = super::Executive<
+		Runtime,
+		Block<UncheckedXt>,
+		ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	new_test_ext(1).execute_with(|| {
+		// Call `on_genesis` to reset the storage version of all pallets.
+		AllPalletsWithSystem::on_genesis();
+
+		// Make sure the test storages are un-set
+		assert!(&sp_io::storage::get(TEST_KEY_2).is_none());
+
+		ExecutiveWithoutMigrations::try_runtime_upgrade(UpgradeCheckSelect::All).unwrap();
+
+		// Make sure the test storages were set
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
 	});
 }
 
