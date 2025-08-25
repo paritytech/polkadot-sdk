@@ -118,6 +118,7 @@ transaction_type!(TypeLegacy, 0);
 transaction_type!(TypeEip2930, 1);
 transaction_type!(TypeEip1559, 2);
 transaction_type!(TypeEip4844, 3);
+transaction_type!(TypeEip7702, 4);
 
 #[test]
 fn transaction_type() {
