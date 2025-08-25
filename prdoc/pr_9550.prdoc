@@ -2,7 +2,7 @@ title: 'basic-authorship: end_reason improved'
 doc:
 - audience: Node Dev
   description: |-
-    The `end_reason` reported in block authoring can be [misleading](https://github.com/paritytech/polkadot-sdk/issues/9188#issuecomment-3070697415) when resource limits are hit. The basic authorship module tries additional transactions after hitting limits, and if it runs out of transactions or time during this extended trial phase, it reports the inaccurate reason.
+    The `end_reason` reported in block authoring can be misleading when resource limits are hit. The basic authorship module tries additional transactions after hitting limits, and if it runs out of transactions or time during this extended trial phase, it reports the inaccurate reason.
 
     This PR proposes to change the actual `end_reason` to be more accurate.
 crates:
