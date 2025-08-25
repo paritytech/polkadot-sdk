@@ -105,6 +105,12 @@ jemalloc-allocator = [
 	"polkadot-node-core-pvf/jemalloc-allocator",
 	"polkadot-overseer/jemalloc-allocator",
 ]
+no-jemalloc = [
+    "polkadot-node-core-pvf-prepare-worker/no-jemalloc",
+    "polkadot-node-core-pvf/no-jemalloc",
+    "polkadot-overseer/no-jemalloc",
+
+]
 
 # Generate the metadata hash needed for CheckMetadataHash
 # in the builtin test runtimes (westend and rococo).
