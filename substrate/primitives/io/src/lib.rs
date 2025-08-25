@@ -698,17 +698,18 @@ pub trait Storage {
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
 	/// previous call result's `maybe_cursor` field.
 	///
-	/// Stores [`MultiRemovalResults`](sp_io::MultiRemovalResults) in the provided output buffer
-	/// to inform about the result. Once the resultant `maybe_cursor` field is `None`, then no
-	/// further items remain to be deleted.
+	/// Stores the output cursor and three counters (backend deletions, unique key deletions, number of iterations performed)
+	/// into the provided output buffers. See [`MultiRemovalResults`](sp_io::MultiRemovalResults) for more details.
+	/// 
+	/// Returns the number of bytes in the output cursor. If the output buffer is not large enough,
+	/// the cursor will be truncated to the length of the buffer, but the full length of the cursor
+	/// is still returned.
 	///
-	/// NOTE: After the initial call for any given prefix, it is important that no keys further
+	/// NOTE: After the initial call for any given prefix, it is important that no further
 	/// keys under the same prefix are inserted. If so, then they may or may not be deleted by
 	/// subsequent calls.
 	///
-	/// # Note
-	///
-	/// Please note that keys which are residing in the overlay for that prefix when
+	/// NOTE: Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
 	#[version(3)]
 	#[wrapped]
@@ -840,7 +841,6 @@ pub trait Storage {
 		self.next_storage_key(key)
 	}
 
-	// TODO: Interface changed, reflect in RFC
 	/// Get the next key in storage after the given one in lexicographic order.
 	#[wrapped]
 	#[version(2)]
@@ -1063,7 +1063,7 @@ pub trait DefaultChildStorage {
 
 	/// Clear a child storage key.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
+	/// See `Storage` module `clear_prefix` documentation.
 	#[version(4)]
 	#[wrapped]
 	fn storage_kill(
@@ -1158,7 +1158,7 @@ pub trait DefaultChildStorage {
 
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
-	/// See `Storage` module `clear_prefix` documentation for `limit` usage.
+	/// See `Storage` module `clear_prefix` documentation.
 	#[version(3)]
 	fn clear_prefix(
 		&mut self,

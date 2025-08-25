@@ -50,7 +50,11 @@ impl EntryPoint {
 						instance.store().data().host_state.as_ref().expect(
 							"host state cannot be empty while a function is being called; qed",
 						);
-					let data_len = host_state.input_data.len() as u32;
+					let data_len = host_state
+						.input_data
+						.as_ref()
+						.expect("input data cannot be empty while a function is being called; qed")
+						.len() as u32;
 					func.call(instance.store_mut(), (data_len,))
 				},
 			};
@@ -223,14 +227,15 @@ impl InstanceWrapper {
 
 		let result = {
 			let mut ctx = store.as_context_mut();
-			let host_data = ctx.data();
+			let host_data = ctx.data_mut();
 			let memory = host_data.memory();
 			let data = host_data
 				.host_state
-				.as_ref()
+				.as_mut()
 				.expect("host state cannot be empty while a function is being called; qed")
 				.input_data
-				.clone(); // FIXME
+				.take()
+				.expect("input data cannot be empty while a function is being called; qed");
 
 			let data_len = data.len() as WordSize;
 			match allocator.allocate(&mut MemoryWrapper(&memory, &mut ctx), data_len) {
