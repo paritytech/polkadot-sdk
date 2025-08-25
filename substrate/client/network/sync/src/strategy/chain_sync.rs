@@ -337,6 +337,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Is block pruning enabled? This indicates that the user is not
+	/// interested in historical blocks, so gap sync will be skipped.
+	block_pruning_enabled: bool,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -889,7 +892,7 @@ where
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			trace!(
 				target: LOG_TARGET,
-				"Created `StrategyRequest` to {peer_id}.",
+				"Created `StateRequest` to {peer_id}.",
 			);
 
 			let (tx, rx) = oneshot::channel();
@@ -944,6 +947,7 @@ where
 		block_downloader: Arc<dyn BlockDownloader<B>>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
+		block_pruning_enabled: bool,
 	) -> Result<Self, ClientError> {
 		let mut sync = Self {
 			client,
@@ -965,6 +969,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			block_pruning_enabled,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1197,8 +1202,20 @@ where
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
-										body: block_data.block.body,
-										indexed_body: block_data.block.indexed_body,
+										// If block pruning is enabled, the user does not care about
+										// historical data. Don't store block bodies, only store
+										// headers since they're necessary for correct node
+										// operation.
+										body: if self.block_pruning_enabled {
+											None
+										} else {
+											block_data.block.body
+										},
+										indexed_body: if self.block_pruning_enabled {
+											None
+										} else {
+											block_data.block.indexed_body
+										},
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,

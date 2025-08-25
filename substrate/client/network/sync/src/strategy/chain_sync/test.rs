@@ -95,6 +95,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -160,6 +161,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -366,6 +368,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -524,6 +527,7 @@ fn can_sync_huge_fork() {
 		proxy_block_downloader.clone(),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -672,6 +676,7 @@ fn syncs_fork_without_duplicate_requests() {
 		proxy_block_downloader.clone(),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -820,6 +825,7 @@ fn removes_target_fork_on_disconnect() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -855,6 +861,7 @@ fn can_import_response_with_missing_blocks() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -896,6 +903,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -1048,6 +1056,7 @@ fn request_across_forks() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -1156,6 +1165,7 @@ fn sync_verification_failed_with_gap_filled() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
@@ -1293,6 +1303,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		Arc::new(MockBlockDownloader::new()),
 		None,
 		std::iter::empty(),
+		false,
 	)
 	.unwrap();
 
