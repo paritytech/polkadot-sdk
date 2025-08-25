@@ -1677,11 +1677,6 @@ where
 		GAS_PRICE.into()
 	}
 
-	/// Get the base gas price.
-	pub fn evm_base_gas_price() -> U256 {
-		GAS_PRICE.into()
-	}
-
 	/// Build an EVM tracer from the given tracer type.
 	pub fn evm_tracer(tracer_type: TracerType) -> Tracer<T>
 	where
