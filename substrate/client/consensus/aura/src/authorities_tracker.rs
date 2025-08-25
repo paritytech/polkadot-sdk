@@ -97,7 +97,7 @@ where
 				// them.
 				log::debug!(
 					target: LOG_TARGET,
-					"Authorities for block {:?} at number {} not found in cache, fetching from runtime.",
+					"Authorities for block {:?} at number {} not found in cache, fetching from runtime",
 					hash,
 					number
 				);
