@@ -43,6 +43,7 @@ mod attributes {
 pub struct RuntimeInterfaceFunction {
 	item: TraitItemFn,
 	should_trap_on_return: bool,
+	is_wrapped: bool,
 }
 
 impl std::ops::Deref for RuntimeInterfaceFunction {
@@ -56,9 +57,14 @@ impl RuntimeInterfaceFunction {
 	fn new(item: &TraitItemFn) -> Result<Self> {
 		let mut item = item.clone();
 		let mut should_trap_on_return = false;
+		let mut is_wrapped = false;
+
 		item.attrs.retain(|attr| {
 			if attr.path().is_ident("trap_on_return") {
 				should_trap_on_return = true;
+				false
+			} else if attr.path().is_ident("wrapped") {
+				is_wrapped = true;
 				false
 			} else {
 				true
@@ -72,11 +78,15 @@ impl RuntimeInterfaceFunction {
 			))
 		}
 
-		Ok(Self { item, should_trap_on_return })
+		Ok(Self { item, should_trap_on_return, is_wrapped })
 	}
 
 	pub fn should_trap_on_return(&self) -> bool {
 		self.should_trap_on_return
+	}
+
+	pub fn is_wrapped(&self) -> bool {
+		self.is_wrapped
 	}
 }
 
@@ -141,6 +151,7 @@ impl RuntimeInterfaceFunctionSet {
 /// All functions of a runtime interface grouped by the function names.
 pub struct RuntimeInterface {
 	items: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet>,
+	wrappers: BTreeMap<syn::Ident, TraitItemFn>,
 }
 
 impl RuntimeInterface {
@@ -157,6 +168,10 @@ impl RuntimeInterface {
 			.iter()
 			.flat_map(|(_, item)| item.versions.iter())
 			.map(|(v, i)| (*v, i))
+	}
+
+	pub fn wrappers(&self) -> impl Iterator<Item = (&syn::Ident, &TraitItemFn)> {
+		self.wrappers.iter()
 	}
 }
 
@@ -307,9 +322,16 @@ fn get_item_version(item: &TraitItemFn) -> Result<Option<VersionAttribute>> {
 /// Returns all runtime interface members, with versions.
 pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> {
 	let mut functions: BTreeMap<syn::Ident, RuntimeInterfaceFunctionSet> = BTreeMap::new();
+	let mut wrappers: BTreeMap<syn::Ident, TraitItemFn> = BTreeMap::new();
 
 	for item in get_trait_methods(trait_def) {
 		let name = item.sig.ident.clone();
+		let is_wrapper = item.attrs.iter().any(|attr| attr.path().is_ident("wrapper"));
+		if is_wrapper {
+			wrappers.insert(name.clone(), item.clone());
+			continue;
+		}
+
 		let version = get_item_version(item)?.unwrap_or_default();
 
 		if version.version < 1 {
@@ -342,7 +364,7 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 		}
 	}
 
-	Ok(RuntimeInterface { items: functions })
+	Ok(RuntimeInterface { items: functions, wrappers })
 }
 
 pub fn host_inner_arg_ty(ty: &syn::Type) -> syn::Type {

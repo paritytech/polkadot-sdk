@@ -751,13 +751,9 @@ macro_rules! assert_noop {
 		$x:expr,
 		$y:expr $(,)?
 	) => {
-		let h = $crate::__private::storage_root($crate::__private::StateVersion::V1);
+		let h = $crate::__private::storage_root();
 		$crate::assert_err!($x, $y);
-		assert_eq!(
-			h,
-			$crate::__private::storage_root($crate::__private::StateVersion::V1),
-			"storage has been mutated"
-		);
+		assert_eq!(h, $crate::__private::storage_root(), "storage has been mutated");
 	};
 }
 
@@ -770,9 +766,9 @@ macro_rules! assert_storage_noop {
 	(
 		$x:expr
 	) => {
-		let h = $crate::__private::storage_root($crate::__private::StateVersion::V1);
+		let h = $crate::__private::storage_root();
 		$x;
-		assert_eq!(h, $crate::__private::storage_root($crate::__private::StateVersion::V1));
+		assert_eq!(h, $crate::__private::storage_root());
 	};
 }
 
