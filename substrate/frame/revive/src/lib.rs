@@ -707,7 +707,10 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
+			storage_deposit_payer: Option<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
+			let payer_origin = storage_deposit_payer
+				.map(|p| frame_system::RawOrigin::Signed(p).into());
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -715,6 +718,7 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
+				payer_origin,
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -891,7 +895,10 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
+			storage_deposit_payer: Option<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
+			let payer_origin = storage_deposit_payer
+				.map(|p| frame_system::RawOrigin::Signed(p).into());
 			let mut output = Self::bare_call(
 				origin,
 				dest,
@@ -899,6 +906,7 @@ pub mod pallet {
 				gas_limit,
 				DepositLimit::Balance(storage_deposit_limit),
 				data,
+				payer_origin,
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -1068,12 +1076,19 @@ where
 		gas_limit: Weight,
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
+		storage_deposit_payer: Option<OriginFor<T>>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
+			let payer_origin = if let Some(payer) = storage_deposit_payer {
+				Origin::from_runtime_origin(payer)?
+			} else {
+				origin.clone()
+			};
+
 			let mut storage_meter = StorageMeter::new(storage_deposit_limit.limit());
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
@@ -1085,7 +1100,7 @@ where
 				storage_deposit_limit.is_unchecked(),
 			)?;
 			storage_deposit = storage_meter
-				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
+				.try_into_deposit(&payer_origin, storage_deposit_limit.is_unchecked())
 				.inspect_err(|err| {
 					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
@@ -1292,6 +1307,7 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						input.clone(),
+						None
 					);
 
 					let data = match result.result {
@@ -1324,6 +1340,7 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						data: input.clone(),
+						storage_deposit_payer: None
 					}
 					.into();
 					(result, dispatch_call)
@@ -1838,6 +1855,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					gas_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
 					input_data: Vec<u8>,
+					storage_deposit_payer: Option<AccountId>,
 				) -> $crate::ContractResult<$crate::ExecReturnValue, Balance> {
 					use $crate::frame_support::traits::Get;
 					let blockweights: $crate::BlockWeights =
@@ -1851,6 +1869,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 						gas_limit.unwrap_or(blockweights.max_block),
 						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
 						input_data,
+						storage_deposit_payer.map(|p| <Self as $crate::frame_system::Config>::RuntimeOrigin::signed(p)),
 					)
 				}
 
