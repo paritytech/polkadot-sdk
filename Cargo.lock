@@ -19753,6 +19753,7 @@ name = "sc-consensus-aura"
 version = "0.34.0"
 dependencies = [
  "async-trait",
+ "fork-tree",
  "futures",
  "log",
  "parity-scale-codec",
