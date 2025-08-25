@@ -608,20 +608,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_own_code_hash() {
-		let len = <sp_core::H256 as MaxEncodedLen>::max_encoded_len() as u32;
-		build_runtime!(runtime, contract, memory: [vec![0u8; len as _], ]);
+	fn own_code_hash() {
+		let input_bytes =
+			ISystem::ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}).abi_encode();
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
 		let result;
 		#[block]
 		{
-			result = runtime.bench_own_code_hash(memory.as_mut_slice(), 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-
-		assert_ok!(result);
-		assert_eq!(
-			<sp_core::H256 as Decode>::decode(&mut &memory[..]).unwrap(),
-			contract.info().unwrap().code_hash
-		);
+		assert!(result.is_ok());
+		let pre_compile_code_hash = VmBinaryModule::dummy().hash;
+		assert_eq!(pre_compile_code_hash.0.to_vec(), result.unwrap().data);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -639,30 +643,44 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_origin() {
-		build_runtime!(runtime, memory: []);
+	fn caller_is_origin() {
+		let input_bytes =
+			ISystem::ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}).abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller_is_origin(memory.as_mut_slice());
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(result.unwrap(), 1u32);
+		assert_eq!(result.unwrap().data, vec![1u8]);
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_caller_is_root() {
+	fn caller_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}).abi_encode();
+
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::Root);
 		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::new(&mut ext, vec![]);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_caller_is_root([0u8; 0].as_mut_slice());
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(result.unwrap(), 1u32);
+		assert_eq!(result.unwrap().data, vec![1u8]);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -680,22 +698,30 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_left() {
-		// use correct max_encoded_len when new version of parity-scale-codec is released
-		let len = 18u32;
-		assert!(<Weight as MaxEncodedLen>::max_encoded_len() as u32 != len);
-		build_runtime!(runtime, memory: [32u32.to_le_bytes(), vec![0u8; len as _], ]);
+	fn weight_left() {
+		let input_bytes =
+			ISystem::ISystemCalls::weightLeft(ISystem::weightLeftCall {}).abi_encode();
 
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
+		let weight_left_before = ext.gas_meter().gas_left();
 		let result;
 		#[block]
 		{
-			result = runtime.bench_weight_left(memory.as_mut_slice(), 4, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_ok!(result);
-		assert_eq!(
-			<Weight as Decode>::decode(&mut &memory[4..]).unwrap(),
-			runtime.ext().gas_meter().gas_left()
-		);
+		let weight_left_after = ext.gas_meter().gas_left();
+		assert_ne!(weight_left_after.ref_time(), 0);
+		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
+
+		let data = result.unwrap().data;
+		let ret: Weight = Decode::decode(&mut &data[..]).unwrap();
+		assert_eq!(weight_left_after.ref_time(), ret.ref_time());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -819,15 +845,24 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_minimum_balance() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
+	fn minimum_balance() {
+		let input_bytes =
+			ISystem::ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}).abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
+
 		let result;
 		#[block]
 		{
-			result = runtime.bench_minimum_balance(memory.as_mut_slice(), 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().minimum_balance());
+		let min = T::Currency::minimum_balance();
+		assert_eq!(result.unwrap().data, min.encode());
 	}
 
 	#[benchmark(pov_mode = Measured)]
