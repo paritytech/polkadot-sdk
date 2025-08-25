@@ -212,6 +212,24 @@ pub mod pallet {
 		#[pallet::constant]
 		type SlashDeferDuration: Get<EraIndex>;
 
+		/// The time window (in eras) within which an offence can be reported.
+		///
+		/// Offences reported after this window from when they occurred will be ignored
+		/// with an `OffenceTooOld` event.
+		///
+		/// This value must be less than `SlashDeferDuration` to ensure sufficient time
+		/// for governance intervention. For example, if `SlashDeferDuration` is 27 and
+		/// `OffenceReportableWindow` is 20, then the last 7 eras are reserved exclusively
+		/// for governance to review and potentially cancel slashes.
+		///
+		/// This prevents late offence reports from being processed too close to when
+		/// slashes would be applied, ensuring governance has adequate time to respond.
+		///
+		/// When set to `0`, this acts as a no-op, meaning that any offence can be reported
+		/// until the end of the `SlashDeferDuration` window.
+		#[pallet::constant]
+		type OffenceReportableWindow: Get<EraIndex>;
+
 		/// The origin which can manage less critical staking parameters that does not require root.
 		///
 		/// Supported actions: (1) cancel deferred slash, (2) set minimum commission.
@@ -374,6 +392,7 @@ pub mod pallet {
 			type BondingDuration = BondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
+			type OffenceReportableWindow = ();
 			type MaxExposurePageSize = ConstU32<64>;
 			type MaxUnlockingChunks = ConstU32<32>;
 			type MaxValidatorSet = ConstU32<100>;
@@ -1355,6 +1374,13 @@ pub mod pallet {
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
 				T::BondingDuration::get(),
+			);
+
+			assert!(
+				T::OffenceReportableWindow::get() < T::SlashDeferDuration::get() || T::SlashDeferDuration::get() == 0,
+				"Offence reportable window ({}) must be less than slash defer duration ({}) to ensure governance has time to intervene.",
+				T::OffenceReportableWindow::get(),
+				T::SlashDeferDuration::get(),
 			);
 		}
 

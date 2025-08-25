@@ -677,9 +677,9 @@ fn on_offence_previous_era() {
 		// GIVEN slash defer duration of 2 eras, active era = 3.
 		assert_eq!(SlashDeferredDuration::get(), 2);
 		assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
-		// 1 era is reserved for the application of slashes.
+		// With OffenceReportableWindow, we limit how far back offences can be reported.
 		let oldest_reportable_era =
-			Rotator::<Runtime>::active_era() - (SlashDeferredDuration::get() - 1);
+			Rotator::<Runtime>::active_era() - OffenceReportableWindow::get();
 		assert_eq!(oldest_reportable_era, 2);
 
 		// WHEN we report an offence older than Era 2 (oldest reportable era).

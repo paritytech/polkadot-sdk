@@ -1,0 +1,22 @@
+title: '[Staking] Configurable window for offence reporting'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## What
+    Introduces a new configuration parameter `OffenceReportableWindow`:
+    - When set to a value between 1 and `SlashDeferDuration`: offences can only be reported until `offence_era` + `OffenceReportableWindow`.
+    - When set to 0: it is disabled, and offences can be reported until `offence_era` + `SlashDeferDuration`.
+    - It can never be greater than `SlashDeferDuration` (enforced by integrity check)
+
+
+    ## Why
+    The difference between `SlashDeferDuration` and `OffenceReportableWindow` acts as a buffer period during which no new offences can be reported.
+
+    This buffer serves two purposes:
+    - Governance review: reserved eras in which governance can cancel a slash (e.g., if caused by a bug).
+    - Operational resilience: in case of offence spam, provides time to catch up with offence processing.
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
