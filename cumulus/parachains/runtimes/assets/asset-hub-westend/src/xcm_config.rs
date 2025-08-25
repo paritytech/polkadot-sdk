@@ -531,18 +531,14 @@ pub type XcmRouter = WithUniqueTopic<(
 	// GlobalConsensus with a pausable flag, if the flag is set true then the Router is paused
 	PausableExporter<
 		crate::SnowbridgeSystemFrontend,
-		(
-			UnpaidRemoteExporter<
+		UnpaidRemoteExporter<
+			(
 				bridging::to_ethereum::EthereumNetworkExportTableV2,
-				XcmpQueue,
-				UniversalLocation,
-			>,
-			UnpaidRemoteExporter<
 				bridging::to_ethereum::EthereumNetworkExportTable,
-				XcmpQueue,
-				UniversalLocation,
-			>,
-		),
+			),
+			XcmpQueue,
+			UniversalLocation,
+		>,
 	>,
 )>;
 
