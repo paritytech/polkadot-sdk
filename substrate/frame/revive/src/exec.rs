@@ -1255,7 +1255,7 @@ where
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
 						core::mem::replace(&mut output.data, Default::default())
 					} else {
-						s
+						output.data.clone()
 					};
 
 					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
