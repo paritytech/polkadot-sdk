@@ -30,7 +30,7 @@ use frame_support::weights::{
 	Weight,
 };
 use frame_system::limits::BlockWeights;
-use pallet_revive::{evm::runtime::EthExtra, AccountId32Mapper};
+use pallet_revive::{evm::runtime::EthExtra, is_eth_derived, AccountId32Mapper};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -57,7 +57,7 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
 		RuntimeGenesisConfig, SudoConfig,
 	};
 
@@ -90,6 +90,14 @@ pub mod genesis_config_presets {
 					.into_iter()
 					.map(|id| (id, ENDOWMENT))
 					.collect::<Vec<_>>(),
+			},
+			revive: ReviveConfig {
+				mapped_accounts: well_known_accounts()
+					.iter()
+					.filter(|x| !is_eth_derived(x))
+					.cloned()
+					.collect(),
+					gas_price: 1_000u64,
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})

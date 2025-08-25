@@ -56,7 +56,7 @@ pub trait AuthorApi<Hash, BlockHash> {
 	fn has_key(&self, public_key: Bytes, key_type: String) -> Result<bool, Error>;
 
 	/// Returns all pending extrinsics, potentially grouped by sender.
-	#[method(name = "author_pendingExtrinsics")]
+	#[method(name = "author_pendingExtrinsics", aliases = ["eth_pendingTransactions"])]
 	fn pending_extrinsics(&self) -> Result<Vec<Bytes>, Error>;
 
 	/// Remove given extrinsic from the pool and temporarily ban it to prevent reimporting.
