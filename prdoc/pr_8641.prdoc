@@ -2,9 +2,7 @@ title: RFC-145 (former RFC-4) host functions implementation
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR implements the host functions introduced by the proposed [RFC-145](https://github.com/s0me0ne-unkn0wn/RFCs/blob/rfc4/text/0145-remove-unnecessary-allocator-usage.md).
-
-    The allocator and the new versions of the host functions introduced by this PR are not activated; they are just added to the host, so by the time we start using them (#8866), the supermajority of nodes already had the functions ready to use.
+    This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
 crates:
 - name: sp-io
   bump: major
