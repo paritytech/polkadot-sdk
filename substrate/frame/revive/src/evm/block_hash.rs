@@ -66,7 +66,7 @@ pub struct ReceiptGasInfo {
 
 /// A processed transaction by `Block::process_transaction_details`.
 struct TransactionProcessed {
-	encoded_tx: Vec<u8>,
+	transaction_encoded: Vec<u8>,
 	tx_hash: H256,
 	gas_info: ReceiptGasInfo,
 	encoded_receipt: Vec<u8>,
@@ -124,7 +124,7 @@ impl Block {
 		for detail in transaction_details {
 			let processed = block.process_transaction_details(detail);
 
-			signed_tx.push(processed.encoded_tx);
+			signed_tx.push(processed.transaction_encoded);
 			tx_hashes.push(processed.tx_hash);
 			gas_infos.push(processed.gas_info);
 			receipts.push(processed.encoded_receipt);
@@ -200,7 +200,7 @@ impl Block {
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
-			encoded_tx: transaction_encoded,
+			transaction_encoded,
 			tx_hash,
 			gas_info: ReceiptGasInfo { gas_used: gas_used.ref_time().into() },
 			encoded_receipt,
