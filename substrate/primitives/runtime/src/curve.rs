@@ -98,7 +98,7 @@ where
 			Step::PctInc(percent) => {
 				// initial_value * (1 + percent) ^ num_periods
 				let mut current_value = self.initial_value.clone();
-				for _ in 0..num_periods_u32 {
+				for _ in 0..num_periods_u32 { //<-- need to fix this
 					let increase = percent * current_value.clone();
 					current_value = current_value.saturating_add(increase);
 				}
@@ -204,6 +204,7 @@ where
 
 #[test]
 fn stepped_curve_works() {
+	// Curve with defined end.
 	let curve_with_end = SteppedCurve::new(
 		10u32,
 		Some(20u32),
@@ -211,10 +212,23 @@ fn stepped_curve_works() {
 		Step::Add(100u32),
 		2u32,
 	);
-	assert_eq!(curve_with_end.evaluate_at(20u32), 600u32);
-	assert_eq!(curve_with_end.evaluate_at(30u32), 600u32);
+	assert_eq!(curve_with_end.evaluate(20u32), 600u32);
+	assert_eq!(curve_with_end.evaluate(30u32), 600u32);
 
-	// Test with Step::Add.
+	// Zero period curve.
+	let zero_period_curve = SteppedCurve::new(
+		10u32,
+		None,
+		100u32,
+		Step::Add(100u32),
+		0u32,
+	);
+	assert_eq!(zero_period_curve.evaluate(5u32), 100u32);
+	assert_eq!(zero_period_curve.evaluate(11u32), 100u32);
+	assert_eq!(zero_period_curve.evaluate(12u32), 100u32);
+	assert_eq!(zero_period_curve.evaluate(20u32), 100u32);
+
+	// Step::Add.
 	let add_curve = SteppedCurve::new(
 		10u32,
 		None,
@@ -228,7 +242,7 @@ fn stepped_curve_works() {
 	assert_eq!(add_curve.evaluate(20u32), 600u32);
 	assert_eq!(add_curve.evaluate(u32::MAX), u32::MAX);
 
-	// Test with Step::Subtract.
+	// Step::Subtract.
 	let subtract_curve = SteppedCurve::new(
 		10u32,
 		None,
@@ -242,41 +256,33 @@ fn stepped_curve_works() {
 	assert_eq!(subtract_curve.evaluate(20u32), 500u32);
 	assert_eq!(subtract_curve.evaluate(u32::MAX), u32::MIN);
 
-	// Test with Step::PctInc.
+	// Step::PctInc.
 	let pct_inc_curve = SteppedCurve::new(
 		10u32,
 		None,
-		100u32,
+		1000u32,
 		Step::PctInc(Perbill::from_percent(10)),
 		2u32,
 	);
-	assert_eq!(pct_inc_curve.evaluate(5u32), 100u32);
+	assert_eq!(pct_inc_curve.evaluate(5u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(12u32), 1100u32);
 	assert_eq!(pct_inc_curve.evaluate(20u32), 1611u32);
+	// assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
 
-	// // Test with Step::PctDec
-	// let percent_dec = Perbill::from_percent(10);
-	// let pct_dec_curve = SteppedCurve::new(
-	// 	start,
-	// 	end,
-	// 	initial_value,
-	// 	Step::PctDec(percent_dec),
-	// 	period,
-	// );
-	// assert_eq!(pct_dec_curve.evaluate(point_before), initial_value);
-	// assert_eq!(pct_dec_curve.evaluate(point_middle), 590u128);
-	// assert_eq!(pct_dec_curve.evaluate(point_after), 351u128);
-
-	// // Test edge cases
-	// let zero_period_curve = SteppedCurve::new(
-	// 	start,
-	// 	end,
-	// 	initial_value,
-	// 	Step::Add(step_value),
-	// 	0u64,
-	// );
-	// assert_eq!(zero_period_curve.evaluate(point_middle), initial_value);
+	// Step::PctDec.
+	let pct_dec_curve = SteppedCurve::new(
+		10u32,
+		None,
+		1000u32,
+		Step::PctDec(Perbill::from_percent(10)),
+		2u32,
+	);
+	assert_eq!(pct_dec_curve.evaluate(5u32), 1000u32);
+	assert_eq!(pct_dec_curve.evaluate(11u32), 1000u32);
+	assert_eq!(pct_dec_curve.evaluate(12u32), 900u32);
+	assert_eq!(pct_dec_curve.evaluate(20u32), 590u32);
+	// assert_eq!(pct_dec_curve.evaluate(u32::MAX), u32::MIN);
 }
 
 #[test]
