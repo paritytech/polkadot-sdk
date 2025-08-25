@@ -96,6 +96,31 @@ impl TransactionSigned {
 		s.out().to_vec()
 	}
 
+	/// Encode the Ethereum transaction type into bytes.
+	///
+	/// This is needed to encode the receipts.
+	pub fn signed_type(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new();
+
+		match &self {
+			TransactionSigned::Transaction4844Signed(tx) => {
+				s.append(&tx.transaction_4844_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction1559Signed(tx) => {
+				s.append(&tx.transaction_1559_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction2930Signed(tx) => {
+				s.append(&tx.transaction_2930_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction7702Signed(tx) => {
+				s.append(&tx.transaction_7702_unsigned.r#type.value());
+			},
+			TransactionSigned::TransactionLegacySigned(_) => {},
+		};
+
+		s.out().to_vec()
+	}
+
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
 		if data.len() < 1 {
@@ -105,6 +130,7 @@ impl TransactionSigned {
 			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
 			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
 			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+			// TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
 			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
 		}
 	}

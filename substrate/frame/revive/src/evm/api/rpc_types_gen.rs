@@ -19,7 +19,7 @@
 
 use super::{byte::*, TypeEip1559, TypeEip2930, TypeEip4844, TypeEip7702, TypeLegacy};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
 use scale_info::TypeInfo;
@@ -74,7 +74,9 @@ fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrDat
 }
 
 /// Block object
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
 	/// Base fee per gas
@@ -384,7 +386,9 @@ impl Default for SyncingStatus {
 }
 
 /// Transaction information
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionInfo {
 	/// block hash
@@ -461,7 +465,9 @@ pub enum BlockTag {
 /// Filter Topics
 pub type FilterTopics = Vec<FilterTopic>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(untagged)]
 pub enum HashesOrTransactionInfos {
 	/// Transaction hashes
@@ -474,7 +480,6 @@ impl Default for HashesOrTransactionInfos {
 		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
-
 /// log
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -518,7 +523,19 @@ pub struct SyncingProgress {
 }
 
 /// EIP-1559 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction1559Unsigned {
 	/// accessList
@@ -554,7 +571,19 @@ pub struct Transaction1559Unsigned {
 }
 
 /// EIP-2930 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction2930Unsigned {
 	/// accessList
@@ -581,7 +610,19 @@ pub struct Transaction2930Unsigned {
 }
 
 /// EIP-4844 transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction4844Unsigned {
 	/// accessList
@@ -618,7 +659,19 @@ pub struct Transaction4844Unsigned {
 }
 
 /// Legacy transaction.
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionLegacyUnsigned {
 	/// chainId
@@ -644,7 +697,18 @@ pub struct TransactionLegacyUnsigned {
 
 /// EIP-7702 transaction.
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	Default,
+	From,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction7702Unsigned {
@@ -685,7 +749,17 @@ pub struct Transaction7702Unsigned {
 
 /// Authorization list entry for EIP-7702
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorizationListEntry {
@@ -703,7 +777,20 @@ pub struct AuthorizationListEntry {
 	pub s: U256,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, From, TryInto, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	From,
+	TryInto,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(untagged)]
 pub enum TransactionSigned {
 	Transaction7702Signed(Transaction7702Signed),
@@ -712,6 +799,7 @@ pub enum TransactionSigned {
 	Transaction2930Signed(Transaction2930Signed),
 	TransactionLegacySigned(TransactionLegacySigned),
 }
+
 impl Default for TransactionSigned {
 	fn default() -> Self {
 		TransactionSigned::TransactionLegacySigned(Default::default())
@@ -739,7 +827,9 @@ impl TransactionSigned {
 }
 
 /// Validator withdrawal
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Withdrawal {
 	/// recipient address for withdrawal value
@@ -754,7 +844,17 @@ pub struct Withdrawal {
 
 /// Access list entry
 #[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
+	Debug,
+	Default,
+	Clone,
+	Encode,
+	Decode,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AccessListEntry {
@@ -779,7 +879,16 @@ impl Default for FilterTopic {
 
 /// Signed 7702 Transaction
 #[derive(
-	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	Debug,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction7702Signed {
@@ -800,7 +909,19 @@ pub struct Transaction7702Signed {
 }
 
 /// Signed 1559 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction1559Signed {
 	#[serde(flatten)]
@@ -820,7 +941,19 @@ pub struct Transaction1559Signed {
 }
 
 /// Signed 2930 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction2930Signed {
 	#[serde(flatten)]
@@ -840,7 +973,19 @@ pub struct Transaction2930Signed {
 }
 
 /// Signed 4844 Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction4844Signed {
 	#[serde(flatten)]
@@ -855,7 +1000,19 @@ pub struct Transaction4844Signed {
 }
 
 /// Signed Legacy Transaction
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	Serialize,
+	Deserialize,
+	Eq,
+	PartialEq,
+	TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+)]
 pub struct TransactionLegacySigned {
 	#[serde(flatten)]
 	pub transaction_legacy_unsigned: TransactionLegacyUnsigned,
