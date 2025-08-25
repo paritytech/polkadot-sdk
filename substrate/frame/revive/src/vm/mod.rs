@@ -18,23 +18,16 @@
 //! This module provides a means for executing contracts
 //! represented in vm bytecode.
 
-mod runtime;
+pub mod pvm;
+mod runtime_costs;
 
-#[cfg(doc)]
-pub use crate::vm::runtime::SyscallDoc;
-
-#[cfg(feature = "runtime-benchmarks")]
-pub use crate::vm::runtime::{ReturnData, TrapReason};
-
-pub use crate::vm::runtime::{Runtime, RuntimeCosts};
+pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
-	limits,
-	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, ExecError, HoldReason,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, HoldReason,
 	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
@@ -44,7 +37,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
@@ -132,29 +125,6 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	/// We only check for size and nothing else when the code is uploaded.
-	pub fn from_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		// We do validation only when new code is deployed. This allows us to increase
-		// the limits later without affecting already deployed code.
-		let available_syscalls = runtime::list_syscalls(T::UnsafeUnstableInterface::get());
-		let code = limits::code::enforce::<T>(code, available_syscalls)?;
-
-		let code_len = code.len() as u32;
-		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
-			.update_contract::<T>(None)
-			.charge_or_zero();
-		let code_info = CodeInfo {
-			owner,
-			deposit,
-			refcount: 0,
-			code_len,
-			behaviour_version: Default::default(),
-		};
-		let code_hash = H256(sp_io::hashing::keccak_256(&code));
-		Ok(ContractBlob { code, code_info, code_hash })
-	}
-
 	/// Remove the code from storage and refund the deposit to its owner.
 	///
 	/// Applies all necessary checks before removing the code.
@@ -284,119 +254,6 @@ impl<T: Config> CodeInfo<T> {
 	}
 }
 
-pub struct PreparedCall<'a, E: Ext> {
-	module: polkavm::Module,
-	instance: polkavm::RawInstance,
-	runtime: Runtime<'a, E, polkavm::RawInstance>,
-}
-
-impl<'a, E: Ext> PreparedCall<'a, E>
-where
-	BalanceOf<E::T>: Into<U256>,
-	BalanceOf<E::T>: TryFrom<U256>,
-{
-	pub fn call(mut self) -> ExecResult {
-		let exec_result = loop {
-			let interrupt = self.instance.run();
-			if let Some(exec_result) =
-				self.runtime.handle_interrupt(interrupt, &self.module, &mut self.instance)
-			{
-				break exec_result
-			}
-		};
-		let _ = self.runtime.ext().gas_meter_mut().sync_from_executor(self.instance.gas())?;
-		exec_result
-	}
-
-	/// The guest memory address at which the aux data is located.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
-	}
-
-	/// Copies `data` to the aux data at address `offset`.
-	///
-	/// It sets `a0` to the beginning of data inside the aux data.
-	/// It sets `a1` to the value passed.
-	///
-	/// Only used in benchmarking so far.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn setup_aux_data(&mut self, data: &[u8], offset: u32, a1: u64) -> DispatchResult {
-		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
-			Error::<E::T>::CodeRejected
-		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
-		Ok(())
-	}
-}
-
-impl<T: Config> ContractBlob<T> {
-	/// Compile and instantiate contract.
-	///
-	/// `aux_data_size` is only used for runtime benchmarks. Real contracts
-	/// don't make use of this buffer. Hence this should not be set to anything
-	/// other than `0` when not used for benchmarking.
-	pub fn prepare_call<E: Ext<T = T>>(
-		self,
-		mut runtime: Runtime<E, polkavm::RawInstance>,
-		entry_point: ExportedFunction,
-		aux_data_size: u32,
-	) -> Result<PreparedCall<E>, ExecError> {
-		let mut config = polkavm::Config::default();
-		config.set_backend(Some(polkavm::BackendKind::Interpreter));
-		config.set_cache_enabled(false);
-		#[cfg(feature = "std")]
-		if std::env::var_os("REVIVE_USE_COMPILER").is_some() {
-			log::warn!(target: LOG_TARGET, "Using PolkaVM compiler backend because env var REVIVE_USE_COMPILER is set");
-			config.set_backend(Some(polkavm::BackendKind::Compiler));
-		}
-		let engine = polkavm::Engine::new(&config).expect(
-			"on-chain (no_std) use of interpreter is hard coded.
-				interpreter is available on all platforms; qed",
-		);
-
-		let mut module_config = polkavm::ModuleConfig::new();
-		module_config.set_page_size(limits::PAGE_SIZE);
-		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
-		module_config.set_allow_sbrk(false);
-		module_config.set_aux_data_size(aux_data_size);
-		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
-			.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
-
-		let entry_program_counter = module
-			.exports()
-			.find(|export| export.symbol().as_bytes() == entry_point.identifier().as_bytes())
-			.ok_or_else(|| <Error<T>>::CodeRejected)?
-			.program_counter();
-
-		let gas_limit_polkavm: polkavm::Gas = runtime.ext().gas_meter_mut().engine_fuel_left()?;
-
-		let mut instance = module.instantiate().map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to instantiate polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
-
-		instance.set_gas(gas_limit_polkavm);
-		instance
-			.set_interpreter_cache_size_limit(Some(polkavm::SetCacheSizeLimitArgs {
-				max_block_size: limits::code::BASIC_BLOCK_SIZE,
-				max_cache_size_bytes: limits::code::INTERPRETER_CACHE_BYTES
-					.try_into()
-					.map_err(|_| Error::<T>::CodeRejected)?,
-			}))
-			.map_err(|_| Error::<T>::CodeRejected)?;
-		instance.prepare_call_untyped(entry_program_counter, &[]);
-
-		Ok(PreparedCall { module, instance, runtime })
-	}
-}
-
 impl<T: Config> Executable<T> for ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -414,8 +271,13 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		let prepared_call = self.prepare_call(Runtime::new(ext, input_data), function, 0)?;
-		prepared_call.call()
+		if self.is_pvm() {
+			let prepared_call =
+				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			prepared_call.call()
+		} else {
+			Err(Error::<T>::CodeRejected.into())
+		}
 	}
 
 	fn code(&self) -> &[u8] {

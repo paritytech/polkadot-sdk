@@ -61,6 +61,9 @@ use sp_runtime::{
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub mod mock_ext;
+
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type MomentOf<T> = <<T as Config>::Time as Time>::Moment;
 pub type ExecResult = Result<ExecReturnValue, ExecError>;
@@ -139,7 +142,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 	}
 }
 
-/// The type of origins supported by the contracts pallet.
+/// The type of origins supported by the revive pallet.
 #[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
@@ -324,9 +327,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Return the origin of the whole call stack.
 	fn origin(&self) -> &Origin<Self::T>;
 
-	/// Returns the account id for the given `address`.
-	fn to_account_id(&self, address: &H160) -> AccountIdOf<Self::T>;
-
 	/// Returns the code hash of the contract for the given `address`.
 	/// If not a contract but account exists then `keccak_256([])` is returned, otherwise `zero`.
 	fn code_hash(&self, address: &H160) -> H256;
@@ -477,6 +477,11 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
+
+	/// Returns true if the executable is a PVM blob.
+	fn is_pvm(&self) -> bool {
+		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
+	}
 }
 
 /// The complete call stack of a contract execution.
@@ -567,6 +572,13 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 			Some(executable)
 		} else {
 			None
+		}
+	}
+
+	fn is_pvm(&self) -> bool {
+		match self {
+			Self::Executable(e) => e.is_pvm(),
+			_ => false,
 		}
 	}
 
@@ -1090,6 +1102,7 @@ where
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
+		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
 			tracer.enter_child_span(
@@ -1160,12 +1173,14 @@ where
 					<System<T>>::inc_account_nonce(caller.account_id()?);
 				}
 				// The incremented refcount should be visible to the constructor.
-				<CodeInfo<T>>::increment_refcount(
-					*executable
-						.as_executable()
-						.expect("Precompiles cannot be instantiated; qed")
-						.code_hash(),
-				)?;
+				if is_pvm {
+					<CodeInfo<T>>::increment_refcount(
+						*executable
+							.as_executable()
+							.expect("Precompiles cannot be instantiated; qed")
+							.code_hash(),
+					)?;
+				}
 			}
 
 			// Every non delegate call or instantiate also optionally transfers the balance.
@@ -1232,7 +1247,8 @@ where
 			// The deposit we charge for a contract depends on the size of the immutable data.
 			// Hence we need to delay charging the base deposit after execution.
 			if entry_point == ExportedFunction::Constructor {
-				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				let contract_info = frame.contract_info();
+				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage
 					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
@@ -1939,10 +1955,6 @@ where
 		&self.origin
 	}
 
-	fn to_account_id(&self, address: &H160) -> T::AccountId {
-		T::AddressMapper::to_account_id(address)
-	}
-
 	fn code_hash(&self, address: &H160) -> H256 {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
 			return sp_io::hashing::keccak_256(code).into()
@@ -2082,6 +2094,8 @@ mod sealing {
 	use super::*;
 
 	pub trait Sealed {}
-
 	impl<'a, T: Config, E> Sealed for Stack<'a, T, E> {}
+
+	#[cfg(test)]
+	impl<T: Config> sealing::Sealed for mock_ext::MockExt<T> {}
 }
