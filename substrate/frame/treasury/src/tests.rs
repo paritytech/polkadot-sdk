@@ -196,6 +196,7 @@ impl Config for Test {
 	type BalanceConverter = MulBy<ConstU64<2>>;
 	type PayoutPeriod = SpendPayoutPeriod;
 	type BlockNumberProvider = System;
+	type BlockNumberProviderName = BlockNumberProviderName<Self>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
