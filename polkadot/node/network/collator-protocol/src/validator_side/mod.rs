@@ -15,13 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{
-	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
+	channel::{mpsc, oneshot},
+	future::BoxFuture,
+	select,
+	stream::FuturesUnordered,
+	FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
-	time::{Duration, Instant},
+	time::{Duration, Instant, SystemTime},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -29,7 +33,7 @@ use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
 	self as net_protocol,
-	peer_set::{CollationVersion, PeerSet},
+	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
 	request_response::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
@@ -44,7 +48,7 @@ use polkadot_node_subsystem::{
 		NetworkBridgeEvent, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 		ProspectiveValidationDataRequest,
 	},
-	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal,
+	overseer, CollatorProtocolSenderTrait, FromOrchestra, OverseerSignal, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView,
@@ -72,6 +76,8 @@ use collation::{
 	PendingCollationFetch, ProspectiveCandidate,
 };
 use error::{Error, FetchError, Result, SecondingError};
+
+const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1300); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
 
 #[cfg(test)]
 mod tests;
@@ -115,6 +121,22 @@ const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(100);
 
 #[cfg(test)]
 const ACTIVITY_POLL: Duration = Duration::from_millis(10);
+
+// How long to hold off AssetHub advertisements from permissionless collators.
+#[cfg(not(test))]
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
+#[cfg(test)]
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(100);
+
+// A default set of invulnerable asset hub collators
+const ASSET_HUB_INVULNERABLES: [&str; 6] = [
+	"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
+	"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
+	"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
+	"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
+	"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
+	"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
+];
 
 #[derive(Debug)]
 struct CollatingPeerState {
@@ -405,6 +427,13 @@ struct State {
 
 	/// Aggregated reputation change
 	reputation: ReputationAggregator,
+
+	/// List of invulnerable AssetHub collators. They are handled with a priority.
+	ah_invulnerables: HashSet<PeerId>,
+
+	// AssetHub advertisements which were held off because they are not from invulnerable
+	// collators.
+	ah_held_off_collations: VecDeque<(SystemTime, Hash, PeerId, Option<(CandidateHash, Hash)>)>,
 }
 
 impl State {
@@ -455,6 +484,13 @@ impl State {
 		);
 
 		seconded + pending_fetch + waiting_for_validation + blocked_from_seconding
+	}
+
+	/// Returns the number of collations pending to be fetched for a `ParaId`
+	fn in_waiting_queue_for_para(&self, relay_parent: &Hash, para_id: &ParaId) -> usize {
+		self.per_relay_parent
+			.get(relay_parent)
+			.map_or(0, |rp_state| rp_state.collations.queued_for_para(para_id))
 	}
 }
 
@@ -866,7 +902,11 @@ async fn process_incoming_peer_message<Context>(
 				disconnect_peer(ctx.sender(), origin).await;
 			}
 		},
-		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) =>
+		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
+			if hold_off_asset_hub_collation_if_needed(state, origin, relay_parent, None) {
+				return
+			}
+
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -881,12 +921,22 @@ async fn process_incoming_peer_message<Context>(
 				if let Some(rep) = err.reputation_changes() {
 					modify_reputation(&mut state.reputation, ctx.sender(), origin, rep).await;
 				}
-			},
+			}
+		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			relay_parent,
 			candidate_hash,
 			parent_head_data_hash,
 		}) => {
+			if hold_off_asset_hub_collation_if_needed(
+				state,
+				origin,
+				relay_parent,
+				Some((candidate_hash, parent_head_data_hash)),
+			) {
+				return
+			}
+
 			if let Err(err) = handle_advertisement(
 				ctx.sender(),
 				state,
@@ -922,6 +972,37 @@ async fn process_incoming_peer_message<Context>(
 				.await;
 		},
 	}
+}
+
+// Holds off an AssetHub collation, if it's not from an invulnerable AssetHub collator. Returns
+// `true` if the collation was held off and `false` otherwise.
+fn hold_off_asset_hub_collation_if_needed(
+	state: &mut State,
+	origin: PeerId,
+	relay_parent: Hash,
+	prospective_candidate: Option<(CandidateHash, Hash)>,
+) -> bool {
+	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
+	// copy-pasted logic we'll just return `false` and let the caller handle it.
+	let maybe_para_id = state.peer_data.get(&origin).and_then(|pd| pd.collating_para());
+	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&origin) {
+		state.ah_held_off_collations.push_back((
+			SystemTime::now(),
+			relay_parent,
+			origin,
+			prospective_candidate,
+		));
+		gum::debug!(
+			target: LOG_TARGET,
+			peer_id = ?origin,
+			?relay_parent,
+			?prospective_candidate,
+			"AssetHub collation held off, not from invulnerable collator",
+		);
+		return true
+	}
+
+	return false
 }
 
 #[derive(Debug)]
@@ -1063,7 +1144,8 @@ fn ensure_seconding_limit_is_respected(
 	for path in paths {
 		let mut cq_state = ClaimQueueState::new();
 		for ancestor in &path {
-			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
+			let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id) +
+				state.in_waiting_queue_for_para(relay_parent, &para_id);
 			cq_state.add_leaf(
 				&ancestor,
 				&state
@@ -1079,13 +1161,6 @@ fn ensure_seconding_limit_is_respected(
 		}
 
 		if cq_state.can_claim_at(relay_parent, &para_id) {
-			gum::trace!(
-				target: LOG_TARGET,
-				?relay_parent,
-				?para_id,
-				?path,
-				"Seconding limit respected at path",
-			);
 			has_claim_at_some_path = true;
 			break
 		}
@@ -1094,8 +1169,20 @@ fn ensure_seconding_limit_is_respected(
 	// If there is a place in the claim queue for the candidate at at least one path we will accept
 	// it.
 	if has_claim_at_some_path {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			"Seconding limit respected",
+		);
 		Ok(())
 	} else {
+		gum::trace!(
+			target: LOG_TARGET,
+			?relay_parent,
+			?para_id,
+			"Seconding limit not respected",
+		);
 		Err(AdvertisementError::SecondedLimitReached)
 	}
 }
@@ -1421,6 +1508,31 @@ async fn handle_network_msg<Context>(
 					return Ok(())
 				},
 			};
+
+			// Since the AssetHub system parachain is very important for the operation of the
+			// relay chain we need to ensure that we always accept connections from the invulnerable
+			// AssetHub collators.
+			// However there is a connection limit in `polkadot-node-network-protocol` of the number
+			// of peers which can connect to an authority node. Once this limit is reached all new
+			// connections are dropped.
+			// This means we need to be extra careful when accepting connections from new collators.
+			// If we are at the point where there are not enough slots for
+			// invulnerable AssetHub collators we need to drop new connections.
+			if !can_accept_new_collator_connection(
+				&peer_id,
+				&state.peer_data,
+				&state.ah_invulnerables,
+			) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?peer_id,
+					?observed_role,
+					"Peer connection refused, no slots for invulnerable AssetHub collators",
+				);
+				disconnect_peer(ctx.sender(), peer_id).await;
+				return Ok(())
+			}
+
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
 				state: PeerState::Connected(Instant::now()),
@@ -1600,7 +1712,29 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
-) -> std::result::Result<(), std::convert::Infallible> {
+	ah_invulnerables: Option<HashSet<PeerId>>,
+	hold_off_duration: Option<Duration>,
+) -> std::result::Result<(), SubsystemError> {
+	// Ideally we should do this conversion earlier and fail. In practice however this parsing
+	// should always succeed and it's cleaner to keep collator related information in the collator
+	// protocol implementation instead of the command line parsing module.
+	let ah_invulnerables = ah_invulnerables.unwrap_or_else(|| {
+		ASSET_HUB_INVULNERABLES
+			.iter()
+			.filter_map(|invuln_str| {
+				invuln_str
+					.parse::<PeerId>()
+					.map_err(|e| {
+						gum::error!(
+						target: LOG_TARGET,
+						error = ?e,
+						"Failed to parse AssetHub invulnerable peer from the default list. This should never happen.")
+					})
+					.ok()
+			})
+			.collect()
+	});
+
 	run_inner(
 		ctx,
 		keystore,
@@ -1608,6 +1742,8 @@ pub(crate) async fn run<Context>(
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
+		ah_invulnerables,
+		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
 	)
 	.await
 }
@@ -1620,17 +1756,51 @@ async fn run_inner<Context>(
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
-) -> std::result::Result<(), std::convert::Infallible> {
+	ah_invulnerables: HashSet<PeerId>,
+	hold_off_duration: Duration,
+) -> std::result::Result<(), SubsystemError> {
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State { metrics, reputation, ..Default::default() };
+	// A ticker which checks if any of the held off AssetHub advertisements should be processed.
+	let (mut ah_held_off_ticker_tx, mut ah_held_off_ticker_rx) = mpsc::channel::<()>(1);
+	let (ah_held_off_ticker_shutdown_tx, mut ah_held_off_ticker_shutdown_rx) = oneshot::channel();
+	ctx.spawn(
+		"ah-held-off-ticker",
+		Box::pin(async move {
+			loop {
+				select! {
+					_ = ah_held_off_ticker_shutdown_rx => {
+						gum::trace!(target: LOG_TARGET, "AssetHub held off ticker shutdown");
+						return;
+					},
+					_ = futures_timer::Delay::new(hold_off_duration / 3).fuse() => {
+						if let Err(err) = ah_held_off_ticker_tx.try_send(()) {
+							gum::warn!(
+								target: LOG_TARGET,
+								?err,
+								"Failed to send a tick for held off AssetHub advertisements",
+							);
+						}
+					}
+				}
+			}
+		}),
+	)?;
+
+	let mut state = State { metrics, reputation, ah_invulnerables, ..Default::default() };
 
 	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);
 
 	let mut network_error_freq = gum::Freq::new();
 	let mut canceled_freq = gum::Freq::new();
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?eviction_policy,
+		"starting up"
+	);
 
 	loop {
 		select! {
@@ -1649,12 +1819,20 @@ async fn run_inner<Context>(
 							&mut state,
 						).await;
 					}
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
+						let _ = ah_held_off_ticker_shutdown_tx.send(());
+						break
+					},
 					Ok(FromOrchestra::Signal(_)) => continue,
 				}
 			},
 			_ = next_inactivity_stream.next() => {
-				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
+				disconnect_inactive_peers(
+					ctx.sender(),
+					&eviction_policy,
+					&state.peer_data,
+					&HashSet::from_iter(state.ah_held_off_collations .iter().cloned().map(|(_, _, peer_id, _)| peer_id))
+				).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.relay_parent;
@@ -1739,7 +1917,58 @@ async fn run_inner<Context>(
 					(collator_id, maybe_candidate_hash),
 				)
 				.await;
-			}
+			},
+			_ = ah_held_off_ticker_rx.select_next_some() => {
+				let now = SystemTime::now();
+
+				loop {
+					let should_process = state.ah_held_off_collations.get(0).map(|head| {
+						let was_held_off_for =  now.duration_since(head.0).unwrap_or_else(|_| {
+							gum::warn!(
+								target: LOG_TARGET,
+								"SystemTime went backwards, this should not happen, but we will continue processing",
+							);
+							// In case of an error better make sure the request is processed.
+							hold_off_duration * 2
+						});
+
+						was_held_off_for > hold_off_duration
+					}).unwrap_or(false);
+
+					if !should_process {
+						break;
+					}
+
+					let (_, relay_parent, peer_id, prospective_candidate) = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
+					gum::debug!(
+						target: LOG_TARGET,
+						?relay_parent,
+						?peer_id,
+						?prospective_candidate,
+						"Processing held off advertisement for AssetHub",
+					);
+					if let Err(err) = handle_advertisement(
+						ctx.sender(),
+						&mut state,
+						relay_parent,
+						peer_id,
+						prospective_candidate,
+					).await {
+						gum::debug!(
+								target: LOG_TARGET,
+								?err,
+								?relay_parent,
+								?peer_id,
+								?prospective_candidate,
+								"Failed to handle held off advertisement",
+							);
+						if let Some(rep) = err.reputation_changes() {
+							modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+						}
+					}
+				}
+
+			},
 		}
 	}
 
@@ -1964,9 +2193,11 @@ async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
+	peers_with_held_off_collations: &HashSet<PeerId>,
 ) {
 	for (peer, peer_data) in peers {
-		if peer_data.is_inactive(&eviction_policy) {
+		if peer_data.is_inactive(&eviction_policy) && !peers_with_held_off_collations.contains(peer)
+		{
 			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}
@@ -2255,4 +2486,41 @@ fn descriptor_version_sanity_check(
 		},
 		descriptor_version => Err(SecondingError::InvalidReceiptVersion(descriptor_version)),
 	}
+}
+
+// Checks that there are enough free connection slots for AssetHub invulnerable collators.
+fn can_accept_new_collator_connection(
+	new_peer_id: &PeerId,
+	currently_connected: &HashMap<PeerId, PeerData>,
+	ah_invulnerables: &HashSet<PeerId>,
+) -> bool {
+	if ah_invulnerables.contains(new_peer_id) {
+		// If the new peer is AH invulnerable, we always accept it.
+		return true;
+	}
+
+	// We want to keep some space for new connections. If we use the whole limit we could end up in
+	// the case when a collator keeps on making a connection requests and with some luck (or
+	// something else I don't anticipate right now) it keeps on connecting before the other peers
+	// and thus blocking AssetHub invulnerables from connecting.
+	let max_accepted_connections = MAX_AUTHORITY_INCOMING_STREAMS as usize - 10;
+	let ah_invulnerables_connected = currently_connected
+		.keys()
+		.filter(|peer_id| ah_invulnerables.contains(peer_id))
+		.count();
+
+	// Reserve space for any unconnected AH invulnerable which might want to connect to us.
+	let connection_limit =
+		max_accepted_connections - ah_invulnerables.len() + ah_invulnerables_connected;
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?new_peer_id,
+		?ah_invulnerables,
+		currently_connected=currently_connected.len(),
+		?connection_limit,
+		"Checking if we can accept a new collator connection",
+	);
+
+	currently_connected.len() < connection_limit
 }

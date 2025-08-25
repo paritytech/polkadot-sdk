@@ -28,12 +28,14 @@ use polkadot_service::{
 #[cfg(feature = "pyroscope")]
 use pyroscope_pprofrs::{pprof_backend, PprofConfig};
 use sc_cli::SubstrateCli;
+use sc_network_types::PeerId;
 use sp_core::crypto::Ss58AddressFormatRegistry;
 use sp_keyring::Sr25519Keyring;
 
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
 use std::net::ToSocketAddrs;
+use std::{collections::HashSet, path::PathBuf, time::Duration};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -157,6 +159,50 @@ fn set_default_ss58_version(spec: &Box<dyn polkadot_service::ChainSpec>) {
 	sp_core::crypto::set_default_ss58_version(ss58_version);
 }
 
+/// Parse invulnerable AH collators from a file path. The file should contain `PeerId`s separated by
+/// spaces and/or newlines.
+pub fn parse_invulnerable_ah_collators(
+	maybe_path: &Option<PathBuf>,
+) -> Result<Option<HashSet<PeerId>>> {
+	let Some(path) = maybe_path else {
+		// param is not provided
+		return Ok(None);
+	};
+
+	// Validate that the path exists and is a file
+	if !path.exists() {
+		return Err(format!("Invulnerable AH collators file does not exist: {:?}", path).into());
+	}
+
+	if !path.is_file() {
+		return Err(format!("Invulnerable AH collators path is not a file: {:?}", path).into());
+	}
+
+	// Read the file content
+	let content = std::fs::read_to_string(&path)
+		.map_err(|e| format!("Failed to read invulnerable AH collators file {:?}: {}", path, e))?;
+
+	// Parse PeerIds from the content (separated by whitespace)
+	let mut peer_ids = HashSet::new();
+	for (line_number, line) in content.lines().enumerate() {
+		for peer_id_str in line.split_whitespace() {
+			if !peer_id_str.trim().is_empty() {
+				let peer_id = peer_id_str.parse::<PeerId>().map_err(|e| {
+					format!(
+						"Invalid PeerId '{}' on line {} in file {:?}: {}",
+						peer_id_str,
+						line_number + 1,
+						path,
+						e
+					)
+				})?;
+				peer_ids.insert(peer_id);
+			}
+		}
+	}
+	Ok(Some(peer_ids))
+}
+
 /// Launch a node, accepting arguments just like a regular node,
 /// accepts an alternative overseer generator, to adjust behavior
 /// for integration tests as needed.
@@ -203,6 +249,15 @@ where
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
+	// Parse invulnerable AH collators from file, if provided
+	let invulnerable_ah_collators = parse_invulnerable_ah_collators(
+		&cli.run.invulnerable_ah_collators_list.clone(),
+	)
+	.map_err(|e| Error::Other(format!("Failed to parse invulnerable AH collators: {}", e)))?;
+
+	// Parse collator protocol hold off value
+	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
+
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)
 			.then(|| {
@@ -235,6 +290,8 @@ where
 				prepare_workers_hard_max_num: cli.run.prepare_workers_hard_max_num,
 				prepare_workers_soft_max_num: cli.run.prepare_workers_soft_max_num,
 				keep_finalized_for: cli.run.keep_finalized_for,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
 			},
 		)
 		.map(|full| full.task_manager)?;
