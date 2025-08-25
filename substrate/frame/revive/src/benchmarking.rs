@@ -122,7 +122,7 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
@@ -131,9 +131,35 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[extrinsic_call]
+		call(
+			RawOrigin::Signed(instance.caller.clone()),
+			instance.address,
+			value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+		);
+
+		Ok(())
+	}
+
+	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
+	// the execution engine.
+	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_sized(c - 1),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -159,7 +185,7 @@ mod benchmarks {
 	// we will always charge one max sized block per contract call.
 	//
 	// We ignore the proof size component when using this benchmark as this is already accounted
-	// for in `call_with_code_per_byte`.
+	// for in `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
@@ -328,7 +354,7 @@ mod benchmarks {
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
 	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
 	// part of this benchmark because we cannot know the size of the contract when issuing a call
-	// transaction. See `call_with_code_per_byte` for this.
+	// transaction. See `call_with_pvm_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
 		let data = vec![42u8; 1024];
@@ -2225,6 +2251,29 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark the cost of executing `r` noop (JUMPDEST - 1 EVM GAS) instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+		use crate::vm::evm;
+		use revm::bytecode::Bytecode;
+
+		let module = VmBinaryModule::evm_noop(r);
+		let inputs = evm::EVMInputs::new(vec![]);
+
+		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
+		let mut setup = CallSetup::<T>::new(module);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert!(result.is_ok());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
@@ -2328,6 +2377,31 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v2_migration_step() {
+		use crate::migrations::v2;
+		let code_hash = H256::from([0; 32]);
+		let old_code_info = v2::Migration::<T>::create_old_code_info(
+			whitelisted_caller(),
+			1000u32.into(),
+			1,
+			100,
+			0,
+		);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info.clone());
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v2::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		v2::Migration::<T>::assert_migrated_code_info_matches(code_hash, &old_code_info);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(

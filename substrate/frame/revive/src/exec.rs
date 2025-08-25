@@ -477,11 +477,6 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
-
-	/// Returns true if the executable is a PVM blob.
-	fn is_pvm(&self) -> bool {
-		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
-	}
 }
 
 /// The complete call stack of a contract execution.
@@ -577,7 +572,7 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 
 	fn is_pvm(&self) -> bool {
 		match self {
-			Self::Executable(e) => e.is_pvm(),
+			Self::Executable(e) => e.code_info().is_pvm(),
 			_ => false,
 		}
 	}
@@ -1132,6 +1127,7 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
+			let skip_transfer = self.skip_transfer;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1215,12 +1211,12 @@ where
 				}
 			}
 
-			let code_deposit = executable
+			let mut code_deposit = executable
 				.as_executable()
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let output = match executable {
+			let mut output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1248,6 +1244,28 @@ where
 			// Hence we need to delay charging the base deposit after execution.
 			if entry_point == ExportedFunction::Constructor {
 				let contract_info = frame.contract_info();
+				// if we are dealing with EVM bytecode
+				// We upload the new runtime code, and update the code
+				if !is_pvm {
+					if output.data.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+						return Err(Error::<T>::BlobTooLarge.into());
+					}
+
+					// Only keep return data for tracing
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+						core::mem::replace(&mut output.data, Default::default())
+					} else {
+						output.data.clone()
+					};
+
+					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
+						data,
+						caller.account_id()?.clone(),
+					)?;
+					code_deposit = module.store_code(skip_transfer)?;
+					contract_info.code_hash = *module.code_hash();
+				}
+
 				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage

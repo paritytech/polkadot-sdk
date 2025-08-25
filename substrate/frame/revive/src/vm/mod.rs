@@ -18,6 +18,7 @@
 //! This module provides a means for executing contracts
 //! represented in vm bytecode.
 
+pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
@@ -37,7 +38,7 @@ use frame_support::{
 	ensure,
 	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
 };
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
 /// Validated Vm module ready for execution.
@@ -53,6 +54,16 @@ pub struct ContractBlob<T: Config> {
 	// This is for not calculating the hash every time we need it.
 	#[codec(skip)]
 	code_hash: H256,
+}
+
+#[derive(
+	PartialEq, Eq, Debug, Copy, Clone, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo,
+)]
+pub enum BytecodeType {
+	/// The code is a PVM bytecode.
+	Pvm,
+	/// The code is an EVM bytecode.
+	Evm,
 }
 
 /// Contract code related data, such as:
@@ -76,6 +87,8 @@ pub struct CodeInfo<T: Config> {
 	refcount: u64,
 	/// Length of the code in bytes.
 	code_len: u32,
+	/// Bytecode type
+	code_type: BytecodeType,
 	/// The behaviour version that this contract operates under.
 	///
 	/// Whenever any observeable change (with the exception of weights) are made we need
@@ -99,26 +112,39 @@ impl ExportedFunction {
 /// Cost of code loading from storage.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
-struct CodeLoadToken(u32);
+struct CodeLoadToken {
+	code_len: u32,
+	code_type: BytecodeType,
+}
+
+impl CodeLoadToken {
+	fn from_code_info<T: Config>(code_info: &CodeInfo<T>) -> Self {
+		Self { code_len: code_info.code_len, code_type: code_info.code_type }
+	}
+}
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// the proof size impact is accounted for in the `call_with_code_per_byte`
-		// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
-		// instructions here. Let's consider this as a safety margin.
-		T::WeightInfo::call_with_code_per_byte(self.0)
-			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
-			.saturating_add(
-				T::WeightInfo::basic_block_compilation(1)
-					.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-					.set_proof_size(0),
-			)
+		match self.code_type {
+			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
+			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
+			// instructions here. Let's consider this as a safety margin.
+			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
+				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
+				.saturating_add(
+					T::WeightInfo::basic_block_compilation(1)
+						.saturating_sub(T::WeightInfo::basic_block_compilation(0))
+						.set_proof_size(0),
+				),
+			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
+				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
+		}
 	}
 }
 
 #[cfg(test)]
 pub fn code_load_weight(code_len: u32) -> Weight {
-	Token::<crate::tests::Test>::weight(&CodeLoadToken(code_len))
+	Token::<crate::tests::Test>::weight(&CodeLoadToken { code_len, code_type: BytecodeType::Pvm })
 }
 
 impl<T: Config> ContractBlob<T>
@@ -192,6 +218,7 @@ impl<T: Config> CodeInfo<T> {
 			deposit: Default::default(),
 			refcount: 0,
 			code_len: 0,
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		}
 	}
@@ -210,6 +237,11 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the code length.
 	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
+	}
+
+	/// Returns true if the executable is a PVM blob.
+	pub fn is_pvm(&self) -> bool {
+		matches!(self.code_type, BytecodeType::Pvm)
 	}
 
 	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
@@ -260,7 +292,7 @@ where
 {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		gas_meter.charge(CodeLoadToken(code_info.code_len))?;
+		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
 	}
@@ -271,10 +303,16 @@ where
 		function: ExportedFunction,
 		input_data: Vec<u8>,
 	) -> ExecResult {
-		if self.is_pvm() {
+		if self.code_info().is_pvm() {
 			let prepared_call =
 				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
+		} else if T::AllowEVMBytecode::get() {
+			use crate::vm::evm::EVMInputs;
+			use revm::bytecode::Bytecode;
+			let inputs = EVMInputs::new(input_data);
+			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
+			evm::call(bytecode, ext, inputs)
 		} else {
 			Err(Error::<T>::CodeRejected.into())
 		}

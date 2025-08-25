@@ -463,7 +463,7 @@ fn generate_fixture_location(temp_dir: &Path, out_dir: &Path, entries: &[Entry])
 	// Generate sol! macros for Solidity contracts
 	for entry in entries.iter().filter(|e| matches!(e.contract_type, ContractType::Solidity)) {
 		let relative_path = format!("contracts/{}", entry.path().split('/').last().unwrap());
-		writeln!(file, r#"alloy_core::sol!("{}");"#, relative_path)
+		writeln!(file, r#"#[cfg(feature = "std")] alloy_core::sol!("{}");"#, relative_path)
 			.context("Failed to write sol! macro to fixture_location.rs")?;
 	}
 

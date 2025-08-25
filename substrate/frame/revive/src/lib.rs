@@ -54,7 +54,7 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	vm::{CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -226,6 +226,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsafeUnstableInterface: Get<bool>;
 
+		/// Allow EVM bytecode to be uploaded and instantiated.
+		#[pallet::constant]
+		type AllowEVMBytecode: Get<bool>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -337,6 +341,7 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
+			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
@@ -1146,7 +1151,14 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Upload(_code) => return Err(<Error<T>>::CodeRejected.into()),
+				Code::Upload(code) =>
+					if T::AllowEVMBytecode::get() {
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
+						(executable, Default::default())
+					} else {
+						return Err(<Error<T>>::CodeRejected.into())
+					},
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
@@ -1333,19 +1345,9 @@ where
 			None => {
 				// Extract code and data from the input.
 				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-					match polkavm::ProgramBlob::blob_length(&input) {
-						Some(blob_len) => blob_len
-							.try_into()
-							.ok()
-							.and_then(|blob_len| (input.split_at_checked(blob_len)))
-							.unwrap_or_else(|| (&input[..], &[][..])),
-						_ => {
-							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-							(&input[..], &[][..])
-						},
-					}
+					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
 				} else {
-					return Err(EthTransactError::Message("Invalid transaction".into()));
+					(input, vec![])
 				};
 
 				// Dry run the call.
@@ -1354,8 +1356,8 @@ where
 					value,
 					gas_limit,
 					storage_deposit_limit,
-					Code::Upload(code.to_vec()),
-					data.to_vec(),
+					Code::Upload(code.clone()),
+					data.clone(),
 					None,
 					BumpNonce::No,
 				);
@@ -1390,8 +1392,8 @@ where
 						value,
 						gas_limit,
 						storage_deposit_limit,
-						code: code.to_vec(),
-						data: data.to_vec(),
+						code,
+						data,
 					}
 					.into();
 				(result, dispatch_call)

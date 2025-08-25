@@ -18,6 +18,7 @@
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
+mod sol;
 
 use crate::{
 	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
@@ -212,6 +213,10 @@ impl Test {
 	pub fn set_unstable_interface(unstable_interface: bool) {
 		UNSTABLE_INTERFACE.with(|v| *v.borrow_mut() = unstable_interface);
 	}
+
+	pub fn set_allow_evm_bytecode(allow_evm_bytecode: bool) {
+		ALLOW_E_V_M_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
+	}
 }
 
 parameter_types! {
@@ -320,6 +325,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
+	pub static AllowEVMBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
@@ -340,6 +346,7 @@ impl Config for Test {
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
+	type AllowEVMBytecode = AllowEVMBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;

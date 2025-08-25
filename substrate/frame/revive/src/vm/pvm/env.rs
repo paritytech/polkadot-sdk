@@ -23,7 +23,7 @@ use crate::{
 	limits,
 	primitives::ExecReturnValue,
 	storage::meter::Diff,
-	vm::{ExportedFunction, RuntimeCosts},
+	vm::{BytecodeType, ExportedFunction, RuntimeCosts},
 	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
@@ -121,6 +121,7 @@ where
 			deposit,
 			refcount: 0,
 			code_len,
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
