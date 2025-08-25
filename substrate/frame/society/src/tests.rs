@@ -1469,3 +1469,194 @@ fn poke_deposit_handles_insufficient_balance() {
 		);
 	});
 }
+
+#[test]
+fn challenge_with_non_consecutive_blocks_works() {
+	EnvBuilder::new().execute(|| {
+		let challenge_period: u64 = <Test as Config>::ChallengePeriod::get();
+		let now = challenge_period + 1;
+		let next_challenge_at = challenge_period + challenge_period;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+
+		assert_eq!(Society::next_challenge_at(), next_challenge_at);
+
+		Society::on_initialize(0);
+
+		// Add some members
+		place_members([20, 30, 40, 50]);
+		// Votes are empty
+		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 40), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 50), None);
+		// Check starting point
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
+		assert_eq!(Defending::<Test>::get(), None);
+
+		// early for challenge
+		let now = next_challenge_at - 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		Society::on_initialize(0);
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
+		assert_eq!(Defending::<Test>::get(), None);
+
+		// challenge with delay
+		let now = next_challenge_at + 2;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		Society::on_initialize(0);
+		assert_eq!(Defending::<Test>::get().unwrap().0, 40);
+		// They can always free vote for themselves
+		assert_ok!(Society::defender_vote(Origin::signed(40), false));
+		// everyone votes against 40
+		assert_ok!(Society::defender_vote(Origin::signed(20), false));
+		assert_ok!(Society::defender_vote(Origin::signed(30), false));
+		assert_ok!(Society::defender_vote(Origin::signed(50), false));
+
+		let next_challenge_at = next_challenge_at + challenge_period;
+		assert_eq!(Society::next_challenge_at(), next_challenge_at);
+
+		// early for challenge
+		let now = next_challenge_at - 2;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		Society::on_initialize(0);
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
+
+		// challenge with delay
+		let now = next_challenge_at - 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		Society::on_initialize(0);
+		assert_eq!(members(), vec![10, 20, 30, 40, 50]);
+
+		// challenge without delay
+		let now = next_challenge_at;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		Society::on_initialize(0);
+		// 40 is suspended
+		assert_eq!(members(), vec![10, 20, 30, 50]);
+		assert_eq!(
+			SuspendedMembers::<Test>::get(40),
+			Some(MemberRecord { rank: 0, strikes: 0, vouching: None, index: 3 })
+		);
+		// Reset votes for last challenge
+		assert_ok!(Society::cleanup_challenge(Origin::signed(0), 0, 10));
+		// New defender is chosen, 30 is challenged
+		assert_eq!(Defending::<Test>::get().unwrap().0, 30);
+		// Votes are reset
+		assert_eq!(DefenderVotes::<Test>::get(0, 20), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 30), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 40), None);
+		assert_eq!(DefenderVotes::<Test>::get(0, 50), None);
+	});
+}
+
+#[test]
+fn intake_with_non_consecutive_blocks_works() {
+	EnvBuilder::new().execute(|| {
+		let voting_period: u64 = <Test as Config>::VotingPeriod::get();
+		let claim_period: u64 = <Test as Config>::ClaimPeriod::get();
+		let rotation_period = voting_period + claim_period;
+		let now = rotation_period + 1;
+		let next_intake_at = rotation_period + rotation_period;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+
+		assert_eq!(Society::next_intake_at(), next_intake_at);
+		assert_eq!(Society::period(), Period::Voting { elapsed: 1, more: 2 });
+
+		Society::on_initialize(0);
+
+		assert_eq!(Balances::free_balance(20), 50);
+		// Bid causes Candidate Deposit to be reserved.
+		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+		assert_eq!(Balances::free_balance(20), 25);
+
+		// early for intake
+		let now = next_intake_at - 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		assert_eq!(Society::period(), Period::Claim { elapsed: 0, more: 1 });
+		Society::on_initialize(0);
+		assert_eq!(candidacies(), vec![]);
+
+		// intake with delay
+		let now = next_intake_at + 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		assert_eq!(Society::period(), Period::Intake { elapsed: 1 });
+		Society::on_initialize(0);
+		// 20 is now a candidate
+		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
+		// 10 (a member) can vote for the candidate
+		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		conclude_intake(true, None);
+
+		let next_intake_at = next_intake_at + rotation_period;
+		assert_eq!(Society::next_intake_at(), next_intake_at);
+
+		// intake without delay
+		let now = next_intake_at;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		assert_eq!(Society::period(), Period::Intake { elapsed: 0 });
+		Society::on_initialize(0);
+		// 20 is now a member of the society
+		assert_eq!(members(), vec![10, 20]);
+		// Reserved balance is returned
+		assert_eq!(Balances::free_balance(20), 50);
+	});
+}
+
+#[test]
+fn intake_idempotency() {
+	EnvBuilder::new().execute(|| {
+		let voting_period: u64 = <Test as Config>::VotingPeriod::get();
+		let claim_period: u64 = <Test as Config>::ClaimPeriod::get();
+		let rotation_period = voting_period + claim_period;
+		let now = rotation_period + 1;
+		let next_intake_at = rotation_period + rotation_period;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+
+		assert_eq!(Society::next_intake_at(), next_intake_at);
+		assert_eq!(Society::period(), Period::Voting { elapsed: 1, more: 2 });
+
+		// initialize the next intake at
+		Society::on_initialize(0);
+
+		// Bid to become a candidate
+		assert_eq!(Balances::free_balance(20), 50);
+		assert_ok!(Society::bid(RuntimeOrigin::signed(20), 0));
+
+		// intake
+		let now = next_intake_at;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		assert_eq!(Society::period(), Period::Intake { elapsed: 0 });
+		Society::on_initialize(0);
+		// 20 is now a candidate
+		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
+
+		// Bid one more account to become a candidate
+		assert_eq!(Balances::free_balance(40), 50);
+		assert_ok!(Society::bid(RuntimeOrigin::signed(40), 10));
+
+		// next intake has updated
+		let next_intake_at = next_intake_at + rotation_period;
+		assert_eq!(Society::next_intake_at(), next_intake_at);
+
+		// `on_initialize` at the same block provider block number has not effect
+		assert_eq!(Society::period(), Period::Voting { elapsed: 0, more: 3 });
+		Society::on_initialize(0);
+		// 20 is still the only candidate
+		assert_eq!(candidacies(), vec![(20, candidacy(1, 0, Deposit(25), 0, 0))]);
+
+		// 10 (a member) can vote for the candidate
+		assert_ok!(Society::vote(Origin::signed(10), 20, true));
+		// moves the block to the Claim period
+		conclude_intake(true, None);
+
+		// next intake adds the candidate to the society
+		let now = next_intake_at;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
+		assert_eq!(Society::period(), Period::Intake { elapsed: 0 });
+		Society::on_initialize(0);
+		// 20 is now a member of the society
+		assert_eq!(members(), vec![10, 20]);
+		// Reserved balance is returned
+		assert_eq!(Balances::free_balance(20), 50);
+	});
+}

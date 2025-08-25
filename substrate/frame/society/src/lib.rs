@@ -519,13 +519,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type PeriodSpend: Get<BalanceOf<Self, I>>;
 
-		/// The number of blocks on which new candidates should be voted on. Together with
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates should be
+		/// voted on. Together with
 		/// `ClaimPeriod`, this sums to the number of blocks between candidate intake periods.
 		#[pallet::constant]
 		type VotingPeriod: Get<BlockNumberFor<Self, I>>;
 
-		/// The number of blocks on which new candidates can claim their membership and be the
-		/// named head.
+		/// The number of [Config::BlockNumberProvider] blocks on which new candidates can claim
+		/// their membership and be the named head.
 		#[pallet::constant]
 		type ClaimPeriod: Get<BlockNumberFor<Self, I>>;
 
@@ -536,9 +537,9 @@ pub mod pallet {
 		/// The origin that is allowed to call `found`.
 		type FounderSetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// The number of blocks between membership challenges.
+		/// The number of [Config::BlockNumberProvider] blocks between membership challenges.
 		#[pallet::constant]
-		type ChallengePeriod: Get<SystemBlockNumberFor<Self>>;
+		type ChallengePeriod: Get<BlockNumberFor<Self, I>>;
 
 		/// The maximum number of payouts a member may have waiting unclaimed.
 		#[pallet::constant]
@@ -784,11 +785,20 @@ pub mod pallet {
 	pub type DefenderVotes<T: Config<I>, I: 'static = ()> =
 		StorageDoubleMap<_, Twox64Concat, RoundIndex, Twox64Concat, T::AccountId, Vote>;
 
+	/// Next intake rotation scheduled with [Config::BlockNumberProvider].
+	#[pallet::storage]
+	pub type NextIntakeAt<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T, I>>;
+
+	/// Next challenge rotation scheduled with [Config::BlockNumberProvider].
+	#[pallet::storage]
+	pub type NextChallengeAt<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T, I>>;
+
 	#[pallet::hooks]
 	impl<T: Config<I>, I: 'static> Hooks<SystemBlockNumberFor<T>> for Pallet<T, I> {
-		fn on_initialize(n: SystemBlockNumberFor<T>) -> Weight {
+		fn on_initialize(_n: SystemBlockNumberFor<T>) -> Weight {
 			let mut weight = Weight::zero();
 			let weights = T::BlockWeights::get();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let phrase = b"society_rotation";
 			// we'll need a random seed here.
@@ -801,18 +811,21 @@ pub mod pallet {
 			let mut rng = ChaChaRng::from_seed(seed);
 
 			// Run a candidate/membership rotation
-			match Self::period() {
-				Period::Voting { elapsed, .. } if elapsed.is_zero() => {
-					Self::rotate_intake(&mut rng);
-					weight.saturating_accrue(weights.max_block / 20);
-				},
-				_ => {},
+			let is_intake_moment = match Self::period() {
+				Period::Intake { .. } => true,
+				_ => false,
+			};
+			if is_intake_moment {
+				Self::rotate_intake(&mut rng);
+				weight.saturating_accrue(weights.max_block / 20);
+				Self::set_next_intake_at();
 			}
 
 			// Run a challenge rotation
-			if (n % T::ChallengePeriod::get()).is_zero() {
+			if now >= Self::next_challenge_at() {
 				Self::rotate_challenge(&mut rng);
 				weight.saturating_accrue(weights.max_block / 20);
+				Self::set_next_challenge_at();
 			}
 
 			weight
@@ -1475,9 +1488,11 @@ impl_ensure_origin_with_arg_ignoring_arg! {
 	{}
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Period<BlockNumber> {
 	Voting { elapsed: BlockNumber, more: BlockNumber },
 	Claim { elapsed: BlockNumber, more: BlockNumber },
+	Intake { elapsed: BlockNumber },
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -1488,11 +1503,70 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let rotation_period = voting_period + claim_period;
 		let now = T::BlockNumberProvider::current_block_number();
 		let phase = now % rotation_period;
-		if phase < voting_period {
+		if now >= Self::next_intake_at() {
+			Period::Intake { elapsed: now - Self::next_intake_at() }
+		} else if phase < voting_period {
 			Period::Voting { elapsed: phase, more: voting_period - phase }
 		} else {
 			Period::Claim { elapsed: phase - voting_period, more: rotation_period - phase }
 		}
+	}
+
+	/// Next intake (candidate/membership) rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next rotation period (voting + claim periods).
+	pub fn next_intake_at() -> BlockNumberFor<T, I> {
+		match NextIntakeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let rotation_period = T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get());
+				let elapsed = prev_block % rotation_period;
+				let next_intake_at = prev_block + (rotation_period - elapsed);
+				NextIntakeAt::<T, I>::put(next_intake_at);
+				next_intake_at
+			},
+		}
+	}
+
+	/// Set the next intake (candidate/membership) rotation.
+	///
+	/// This supposed to be called once the current intake is executed.
+	fn set_next_intake_at() {
+		let prev_next_intake_at = Self::next_intake_at();
+		let next_intake_at = prev_next_intake_at
+			.saturating_add(T::VotingPeriod::get().saturating_add(T::ClaimPeriod::get()));
+		NextIntakeAt::<T, I>::put(next_intake_at);
+	}
+
+	/// Returns the next challenge rotation scheduled with [Config::BlockNumberProvider].
+	///
+	/// Rounds the previous block number up to the next multiple of the challenge duration.
+	pub fn next_challenge_at() -> BlockNumberFor<T, I> {
+		match NextChallengeAt::<T, I>::get() {
+			Some(next) => next,
+			None => {
+				// executed once.
+				let now = T::BlockNumberProvider::current_block_number();
+				let prev_block = now.saturating_sub(BlockNumberFor::<T, I>::one());
+				let challenge_period = T::ChallengePeriod::get();
+				let elapsed = prev_block % challenge_period;
+				let next_challenge_at = prev_block + (challenge_period - elapsed);
+				NextChallengeAt::<T, I>::put(next_challenge_at);
+				next_challenge_at
+			},
+		}
+	}
+
+	/// Set the next challenge rotation.
+	///
+	/// This supposed to be called once the current challenge is executed.
+	fn set_next_challenge_at() {
+		let prev_next_challenge_at = Self::next_challenge_at();
+		let next_challenge_at = prev_next_challenge_at.saturating_add(T::ChallengePeriod::get());
+		NextChallengeAt::<T, I>::put(next_challenge_at);
 	}
 
 	/// Returns true if the given `target_round` is still in its initial voting phase.
