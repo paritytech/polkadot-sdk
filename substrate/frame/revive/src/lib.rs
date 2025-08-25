@@ -981,9 +981,8 @@ pub mod pallet {
 		/// * `data`: The input data to pass to the contract constructor.
 		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
 		/// 	semantics are used. If `None` then `CRATE1` is used.
-		/// * `signed_transaction`: The signed Ethereum transaction, represented as
-		// 		[crate::evm::TransactionSigned], provided by the Ethereum wallet.
-		///
+		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
+		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet.
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1001,7 +1000,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			signed_transaction: TransactionSigned,
+			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1026,7 +1025,7 @@ pub mod pallet {
 				}
 
 				Self::store_transaction(
-					signed_transaction,
+					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
 				);
@@ -1054,7 +1053,7 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
-			signed_transaction: TransactionSigned,
+			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1075,7 +1074,7 @@ pub mod pallet {
 				}
 
 				Self::store_transaction(
-					signed_transaction,
+					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
 				);
@@ -1502,7 +1501,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						signed_transaction: TransactionSigned::default(),
+						transaction_encoded: TransactionSigned::default().signed_payload(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1574,7 +1573,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						signed_transaction: TransactionSigned::default(),
+						transaction_encoded: TransactionSigned::default().signed_payload(),
 					}
 					.into();
 				(result, dispatch_call)
@@ -1798,12 +1797,12 @@ impl<T: Config> Pallet<T> {
 	/// Store a transaction payload with extra details.
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-	fn store_transaction(signed_transaction: TransactionSigned, success: bool, gas_used: Weight) {
+	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 
 		InflightEthTransactions::<T>::append(TransactionDetails {
-			signed_transaction,
+			transaction_encoded,
 			logs,
 			success,
 			gas_used,

@@ -313,7 +313,7 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 
-		let signed_transaction = tx.clone();
+		let transaction_encoded = tx.signed_payload();
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
@@ -361,7 +361,7 @@ pub trait EthExtra {
 					gas_limit,
 					storage_deposit_limit,
 					data,
-					signed_transaction,
+					transaction_encoded,
 				}
 				.into()
 			}
@@ -383,7 +383,7 @@ pub trait EthExtra {
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
-				signed_transaction,
+				transaction_encoded,
 			}
 			.into()
 		};

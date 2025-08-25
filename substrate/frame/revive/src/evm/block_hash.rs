@@ -21,7 +21,7 @@ use crate::evm::{
 	Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
 };
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use alloy_consensus::RlpEncodableReceipt;
 use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use codec::{Decode, Encode};
@@ -156,6 +156,10 @@ impl Block {
 		let TransactionDetails { transaction_encoded, logs, success, gas_used } = detail;
 
 		let tx_hash = H256(keccak_256(&transaction_encoded));
+		// The transaction type is the first byte from the encoded transaction,
+		// when the transaction is not legacy. For legacy transactions, there's
+		// no type defined. Additionally, the RLP encoding of the tx type byte
+		// is identical to the tx type.
 		let transaction_type = transaction_encoded
 			.first()
 			.cloned()
