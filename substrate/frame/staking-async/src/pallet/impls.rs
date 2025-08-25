@@ -16,6 +16,14 @@
 // limitations under the License.
 
 //! `pallet-staking-async`'s main `impl` blocks.
+//!
+//! This file contains the core implementation logic for the async staking pallet, including:
+//! - Ledger management
+//! - Bonding and unbonding operations
+//! - Staking rewards distribution
+//! - Nomination and validation operations
+//! - Snapshot creation for NPoS elections
+//! - Offence handling and slashing
 
 use crate::{
 	asset,
@@ -26,9 +34,14 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus, StakingLedger,
-	ValidatorPrefs, STAKING_ID,
+	UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{
+	boxed::Box,
+	collections::btree_map::BTreeMap,
+	vec,
+	vec::{IntoIter, Vec},
+};
 use frame_election_provider_support::{
 	bounds::CountBound, data_provider, DataProviderBounds, ElectionDataProvider, ElectionProvider,
 	PageIndex, ScoreProvider, SortedListProvider, VoteWeight, VoterOf,
@@ -211,9 +224,9 @@ impl<T: Config> Pallet<T> {
 	/// Calculate the earliest era that withdrawals are allowed for, considering:
 	/// - The current active era
 	/// - Any unprocessed offences in the queue
-	fn calculate_earliest_withdrawal_era(active_era: EraIndex) -> EraIndex {
+	pub(crate) fn calculate_earliest_withdrawal_era(active_era: EraIndex) -> EraIndex {
 		// get lowest era for which all offences are processed and withdrawals can be allowed.
-		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
+		OffenceQueueEras::<T>::get()
 			.as_ref()
 			.and_then(|eras| eras.first())
 			.copied()
@@ -222,16 +235,6 @@ impl<T: Config> Pallet<T> {
 			// above returns earliest era for which offences are NOT processed yet, so we subtract
 			// one from it which gives us the oldest era for which all offences are processed.
 			.saturating_sub(1)
-			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
-			// We do the same to processed offence era so they can be compared.
-			.saturating_add(T::BondingDuration::get());
-
-		// If there are unprocessed offences older than the active era, withdrawals are only
-		// allowed up to the last era for which offences have been processed.
-		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
-		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
-		// struggling to keep up with processing.
-		active_era.min(earliest_unlock_era_by_offence_queue)
 	}
 
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
@@ -888,11 +891,9 @@ impl<T: Config> Pallet<T> {
 		// dec provider
 		let _ = frame_system::Pallet::<T>::dec_providers(&stash)?;
 
-		return Ok(())
+		Ok(())
 	}
-}
 
-impl<T: Config> Pallet<T> {
 	/// Returns the current nominations quota for nominators.
 	///
 	/// Used by the runtime API.
@@ -913,6 +914,123 @@ impl<T: Config> Pallet<T> {
 
 	pub fn api_pending_rewards(era: EraIndex, account: T::AccountId) -> bool {
 		Eras::<T>::pending_rewards(era, &account)
+	}
+
+	/// Calculates the total stake of the lowest portion validators and stores it for the planned
+	/// era.
+	pub(crate) fn calculate_lowest_total_stake(era: EraIndex) {
+		// Only calculate if unbonding queue params have been set.
+		if let Some(params) = UnbondingQueueParams::<T>::get() {
+			// Determine the total stake from the lowest portion of validators and persist for the
+			// era.
+			let mut validator_total_stakes: Vec<_> =
+				ElectableStashes::<T>::get().into_iter().map(|(_, b)| b).collect();
+			let validators_to_check =
+				(params.lowest_ratio * validator_total_stakes.len() as u32).max(1) as usize;
+
+			// Sort exposure total stake by the lowest first and truncate to the lowest portion.
+			validator_total_stakes.sort();
+			validator_total_stakes.truncate(validators_to_check);
+
+			// Calculate the total stake of the lowest portion validators.
+			let total_stake = validator_total_stakes.into_iter().sum();
+
+			// Store the total stake of the lowest portion validators for the planned era.
+			Eras::<T>::set_lowest_stake(era, total_stake)
+		}
+	}
+
+	/// Internal implementation of unlocking chunks curation that:
+	/// - Processes provided unlock chunks to determine which can be immediately withdrawn.
+	/// - Recalculates unlock eras based on current unbonding queue parameters.
+	/// - Groups remaining chunks by their final unlock era.
+	///
+	/// Parameters:
+	/// - `current_era`: The current era index.
+	/// - `last_offence_era`: The era index of the last offence.
+	/// - `chunks`: Iterator over unlocking chunks to be curated.
+	///
+	/// Returns a tuple containing:
+	/// - First element: Tuple of (current era, immediately withdrawable amount)
+	/// - Second element: Map of era -> unlocking chunks that will be available in that era
+	pub(crate) fn curate_unlocking_chunks_inner(
+		current_era: EraIndex,
+		last_offence_era: EraIndex,
+		chunks: IntoIter<UnlockChunk<BalanceOf<T>>>,
+	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
+		let earliest_considered_era =
+			current_era.saturating_add(1).saturating_sub(T::MaxUnbondingDuration::get());
+		let (min_unlock_era, min_slashable_share) = match UnbondingQueueParams::<T>::get() {
+			None => (T::MaxUnbondingDuration::get(), Zero::zero()),
+			Some(params) => (params.unbond_period_lower_bound, params.min_slashable_share),
+		};
+		let mut result: BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>> = BTreeMap::new();
+		let mut free = BalanceOf::<T>::zero();
+		for chunk in chunks {
+			let max_release_era =
+				chunk.era.defensive_saturating_add(T::MaxUnbondingDuration::get());
+			let has_offence = last_offence_era < chunk.era;
+			if current_era >= max_release_era && !has_offence {
+				// We can immediately withdraw these funds.
+				free.saturating_accrue(chunk.value);
+			} else {
+				// Optimistically set the final releasing era to the minimum possible.
+				let mut final_era = chunk.era.defensive_saturating_add(min_unlock_era);
+				let mut total_unbond = BalanceOf::<T>::zero();
+
+				for era in (earliest_considered_era..=chunk.era).rev() {
+					let era_total_amount = Eras::<T>::get_total_unbond_for_era(era);
+					let unbond = if era == chunk.era {
+						era_total_amount.min(
+							chunk.previous_unbonded_stake.defensive_saturating_add(chunk.value),
+						)
+					} else {
+						era_total_amount
+					};
+					total_unbond.saturating_accrue(unbond);
+
+					let lowest_stake = Eras::<T>::get_lowest_stake(era);
+					let threshold =
+						(Perbill::from_percent(100) - min_slashable_share) * lowest_stake;
+					if total_unbond >= threshold {
+						final_era = final_era
+							.max(era.defensive_saturating_add(T::MaxUnbondingDuration::get()));
+						break;
+					}
+				}
+				if final_era <= current_era && !has_offence {
+					free.saturating_accrue(chunk.value);
+				} else {
+					if let Some(elem) = result.get_mut(&final_era) {
+						elem.push(chunk);
+					} else {
+						result.insert(final_era, vec![chunk]);
+					}
+				}
+			}
+		}
+		((current_era, free), result)
+	}
+
+	/// Curates the unlocking chunks for a stash account by:
+	/// - Calculating immediately withdrawable balance.
+	/// - Determining new unlock eras based on queue parameters.
+	/// - Organizing remaining chunks by era.
+	///
+	/// Returns a tuple of:
+	/// - Amount that can be immediately withdrawn.
+	/// - Map of era to remaining unlock chunks expected to be released in that era.
+	pub(crate) fn curate_unlocking_chunks(
+		stash: T::AccountId,
+		last_offence_era: EraIndex,
+	) -> ((EraIndex, BalanceOf<T>), BTreeMap<EraIndex, Vec<UnlockChunk<BalanceOf<T>>>>) {
+		let current_era = Rotator::<T>::planned_era();
+		let ledger = match Self::ledger(Stash(stash)) {
+			Ok(l) => l,
+			Err(_) => return ((current_era, Zero::zero()), BTreeMap::new()),
+		};
+		let chunks = ledger.unlocking.into_iter();
+		Self::curate_unlocking_chunks_inner(current_era, last_offence_era, chunks)
 	}
 }
 
@@ -1175,7 +1293,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
 			// this implies that slashes are applied immediately, so we can accept any offence up to
 			// bonding duration old.
-			active_era.index.saturating_sub(T::BondingDuration::get())
+			active_era.index.saturating_sub(T::MaxUnbondingDuration::get())
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the
 			// defferal duration.
@@ -1538,7 +1656,7 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 
 	fn bonding_duration() -> EraIndex {
-		T::BondingDuration::get()
+		T::MaxUnbondingDuration::get()
 	}
 
 	fn current_era() -> EraIndex {
@@ -2015,7 +2133,7 @@ impl<T: Config> Pallet<T> {
 			active_era.saturating_sub(oldest_unprocessed_offence_era);
 
 		// warn if less than 26 eras old.
-		if oldest_unprocessed_offence_age > 2.min(T::BondingDuration::get()) {
+		if oldest_unprocessed_offence_age > 2.min(T::MaxUnbondingDuration::get()) {
 			log!(
 				warn,
 				"Offence queue has unprocessed offences from older than 2 eras: oldest offence era in queue {:?} (active era: {:?})",
@@ -2026,7 +2144,7 @@ impl<T: Config> Pallet<T> {
 
 		// error if the oldest unprocessed offence era closer to bonding duration.
 		ensure!(
-			oldest_unprocessed_offence_age < T::BondingDuration::get() - 1,
+			oldest_unprocessed_offence_age < T::MaxUnbondingDuration::get() - 1,
 			"offences from era less than 3 eras old from active era not processed yet"
 		);
 
@@ -2040,7 +2158,7 @@ impl<T: Config> Pallet<T> {
 		// (4) Ensure all slashes older than (active era - 1) are applied.
 		// We will look at all eras before the active era as it can take 1 era for slashes
 		// to be applied.
-		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
+		for era in (active_era.saturating_sub(T::MaxUnbondingDuration::get()))..(active_era) {
 			// all unapplied slashes are expected to be applied until the active era. If this is not
 			// the case, then we need to use a permissionless call to apply all of them.
 			// See `Call::apply_slash` for more details.
