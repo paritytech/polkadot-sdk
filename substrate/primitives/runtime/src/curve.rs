@@ -41,6 +41,7 @@ pub enum Step<V> {
 ///
 /// The curve evaluates over the domain [`start`, `end`], clamping on either end.
 /// The initial value is specified and will step every `period` from there.
+/// The first step happens at `start` + `period`.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
 pub struct SteppedCurve<P, V> {
 	/// The starting point for the curve.
@@ -53,10 +54,6 @@ pub struct SteppedCurve<P, V> {
 	pub step: Step<V>,
 	/// The duration of each step.
 	pub period: P,
-	/// If calculating & storing incrementally, holds the current value.
-	pub current_value: V,
-	/// If calculating & storing incrementally, holds the moment of last update.
-	pub last_step: P,
 }
 
 impl<P, V> SteppedCurve<P, V>
