@@ -594,7 +594,6 @@ pub mod pallet {
 				}
 			}
 
-			// Process all account entries (both EOAs and contracts).
 			for genesis::Account { owner, address, balance, nonce, contract_data } in &self.accounts
 			{
 				let Ok(balance_with_dust) =
@@ -607,10 +606,7 @@ pub mod pallet {
 				let account_id = T::AddressMapper::to_account_id(address);
 				let (value, dust) = balance_with_dust.deconstruct();
 
-				// Set balance for both EOAs and contracts
 				let _ = T::Currency::set_balance(&account_id, value);
-
-				// Set nonce for both EOAs and contracts
 				frame_system::Account::<T>::mutate(&account_id, |info| {
 					info.nonce = (*nonce).into();
 				});
