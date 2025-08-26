@@ -34,8 +34,8 @@ pub extern "C" fn deploy() { }
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	let mut output_buf1 = [0u8; 32];
-	let output1 = &mut &mut output_buf1[..];
+	let mut output_buf = [0u8; 32];
+	let output = &mut &mut output_buf[..];
 	let _ = api::delegate_call(
 		uapi::CallFlags::empty(),
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
@@ -43,8 +43,8 @@ pub extern "C" fn call() {
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
 		&uapi::solidity_selector("ownCodeHash()"),
-		Some(output1),
+		Some(output),
 	).unwrap();
-	assert_ne!(output_buf1, [0u8; 32]);
-	api::return_value(uapi::ReturnFlags::empty(), &output_buf1);
+	assert_ne!(output_buf, [0u8; 32]);
+	api::return_value(uapi::ReturnFlags::empty(), &output_buf);
 }

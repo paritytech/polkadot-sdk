@@ -30,8 +30,8 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	let balance = u64_output!(api::balance,);
 
-	let mut output_buf1 = [0u8; 8];
-	let output1 = &mut &mut output_buf1[..];
+	let mut output_buf = [0u8; 8];
+	let output = &mut &mut output_buf[..];
 	let _ = api::call(
 		uapi::CallFlags::empty(),
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
@@ -40,10 +40,10 @@ pub extern "C" fn call() {
 		&[u8::MAX; 32], // No deposit limit.
 		&u256_bytes(0),
 		&uapi::solidity_selector("minimumBalance()"),
-		Some(output1),
+		Some(output),
 	).unwrap();
-	assert_ne!(output_buf1, [0u8; 8]);
-	let minimum_balance = u64::from_le_bytes(output_buf1);
+	assert_ne!(output_buf, [0u8; 8]);
+	let minimum_balance = u64::from_le_bytes(output_buf);
 
 	// Make the transferred value exceed the balance by adding the minimum balance.
 	let balance = balance + minimum_balance;
