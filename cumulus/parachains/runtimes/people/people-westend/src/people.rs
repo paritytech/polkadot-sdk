@@ -65,6 +65,7 @@ impl pallet_identity::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 }
 
 /// The fields that we use to identify the owner of an account with. Each corresponds to a field
