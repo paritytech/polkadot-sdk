@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use alloy_consensus::{Eip658Value, RlpEncodableReceipt};
+use alloy_core::primitives;
 use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{BlockNumberOrTag, ReceiptInfo, TransactionInfo, H256, U256};
@@ -73,10 +74,10 @@ fn encode_receipt_rlp(receipt_info: &ReceiptInfo) -> Vec<u8> {
 			.iter()
 			.map(|log| {
 				let data = log.data.clone().unwrap_or_default().0;
-				alloy_primitives::Log::new_unchecked(
+				primitives::Log::new_unchecked(
 					log.address.0.into(),
-					log.topics.iter().map(|t| alloy_primitives::FixedBytes::from(t.0)).collect(),
-					alloy_primitives::Bytes::from(data),
+					log.topics.iter().map(|t| primitives::FixedBytes::from(t.0)).collect(),
+					primitives::Bytes::from(data),
 				)
 			})
 			.collect(),

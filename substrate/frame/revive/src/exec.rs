@@ -17,6 +17,8 @@
 
 use crate::{
 	address::{self, AddressMapper},
+	eth_block_storage,
+	evm::block_hash::EventLog,
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -26,8 +28,8 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, InflightEthTxEvents,
+	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1597,7 +1599,14 @@ where
 		if block_number < self.block_number.saturating_sub(256u32.into()) {
 			return None;
 		}
-		Some(System::<T>::block_hash(&block_number).into())
+
+		// Fallback to the system block hash for older blocks
+		// 256 entries should suffice for all use cases, this mostly ensures
+		// our benchmarks are passing.
+		match crate::Pallet::<T>::eth_block_hash_from_number(block_number.into()) {
+			Some(hash) => Some(hash),
+			None => Some(System::<T>::block_hash(&block_number).into()),
+		}
 	}
 }
 
@@ -2020,6 +2029,15 @@ where
 		if_tracing(|tracer| {
 			tracer.log_event(contract, &topics, &data);
 		});
+
+		if eth_block_storage::is_executing_ethereum_call() {
+			InflightEthTxEvents::<T>::append(EventLog {
+				contract,
+				data: data.clone(),
+				topics: topics.clone(),
+			});
+		}
+
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
 	}
 

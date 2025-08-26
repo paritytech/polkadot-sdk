@@ -19,7 +19,7 @@
 use super::hex_serde::HexCodec;
 use alloc::{vec, vec::Vec};
 use alloy_core::hex;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
 	str::FromStr,
@@ -37,7 +37,7 @@ impl FromStr for Bytes {
 
 macro_rules! impl_hex {
     ($type:ident, $inner:ty, $default:expr) => {
-        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash)]
+        #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, Clone, Serialize, Deserialize, Hash, DecodeWithMemTracking)]
         #[doc = concat!("`", stringify!($inner), "`", " wrapper type for encoding and decoding hex strings")]
         pub struct $type(#[serde(with = "crate::evm::api::hex_serde")] pub $inner);
 
@@ -81,18 +81,6 @@ impl_hex!(Byte, u8, 0u8);
 impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
-
-impl Bytes256 {
-	/// Combine the logs bloom by bitwise OR operation.
-	///
-	/// This ensures that we can compute the block's logs bloom by
-	/// combining the logs bloom of all transactions in the block.
-	pub fn combine(&mut self, other: &Self) {
-		for (a, b) in self.0.iter_mut().zip(other.0.iter()) {
-			*a |= b;
-		}
-	}
-}
 
 #[test]
 fn serialize_works() {

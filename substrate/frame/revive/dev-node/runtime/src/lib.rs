@@ -329,7 +329,6 @@ impl pallet_revive::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
-	type LengthToFee = <Runtime as pallet_transaction_payment::Config>::LengthToFee;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive!(
