@@ -105,7 +105,8 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-	gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
+	// TODO: IDK which RuntimeCost to use here
+	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
 	context
 		.interpreter
