@@ -19,7 +19,6 @@ path = "src/main.rs"
 [dependencies]
 alloy-consensus = { workspace = true, default-features = false }
 alloy-core = { workspace = true, features = ["sol-types"] }
-alloy-primitives = { workspace = true, default-features = false }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
