@@ -108,6 +108,13 @@
 //! tar -czf eve-db.tgz data/ relay-data/
 //! ```
 //!
+//! And also the pruned node, needed by the related [`super::warp_sync_from_pruned_node`] test:
+//!
+//! ```bash
+//! cd $ZOMBIENET_SDK_BASE_DIR/pruned
+//! tar -czf warp-synced-pruned.tgz data/ relay-data/
+//! ```
+//!
 //! 3. Upload the archives to public URL (CI/CD team can help), and update the const's in this file
 //!    to point to them.
 
