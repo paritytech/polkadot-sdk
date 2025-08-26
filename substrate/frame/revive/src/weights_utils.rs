@@ -21,7 +21,7 @@ use frame_support::weights::Weight;
 pub trait OnFinalizeBlockParts {
 	/// Returns the fixed base cost of finalize_block operations.
 	///
-	/// This represents the constant overhead incurred during `on_finalize()` regardless 
+	/// This represents the constant overhead incurred during `on_finalize()` regardless
 	/// of transaction count or event data. Includes setup costs, storage reads/writes,
 	/// and other fixed operations.
 	fn on_finalize_block_fixed() -> Weight;
@@ -30,7 +30,7 @@ pub trait OnFinalizeBlockParts {
 	///
 	/// This weight is applied incrementally during each `eth_call()` to:
 	/// - Enforce gas limits before transaction execution
-	/// - Reject transactions early if block capacity would be exceeded  
+	/// - Reject transactions early if block capacity would be exceeded
 	/// - Account for transaction-specific processing costs (RLP encoding, etc.)
 	///
 	/// # Parameters
@@ -51,7 +51,8 @@ pub trait OnFinalizeBlockParts {
 	fn on_finalize_block_per_event(data_len: u32) -> Weight;
 }
 
-/// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo` benchmarks.
+/// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
+/// benchmarks.
 ///
 /// **Weight Formula:**
 /// ```text
@@ -72,13 +73,12 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 
 	fn on_finalize_block_per_event(data_len: u32) -> Weight {
 		// Base cost per event: cost difference between 1 event and 0 events
-		let per_event_base_cost = W::on_finalize_per_event(1)
-			.saturating_sub(W::on_finalize_per_event(0));
+		let per_event_base_cost =
+			W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0));
 
 		// Additional cost per byte of event data
 		let per_byte_cost = if data_len > 0 {
-			W::on_finalize_per_event_data(data_len)
-				.saturating_sub(W::on_finalize_per_event_data(0))
+			W::on_finalize_per_event_data(data_len).saturating_sub(W::on_finalize_per_event_data(0))
 		} else {
 			Weight::zero()
 		};

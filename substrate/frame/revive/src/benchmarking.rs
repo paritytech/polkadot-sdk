@@ -2515,9 +2515,7 @@ mod benchmarks {
 	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
 	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
 	#[benchmark(pov_mode = Measured)]
-	fn on_finalize_per_event(
-		e: Linear<0, 100>,
-	) -> Result<(), BenchmarkError> {
+	fn on_finalize_per_event(e: Linear<0, 100>) -> Result<(), BenchmarkError> {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
@@ -2534,7 +2532,7 @@ mod benchmarks {
 		for _ in 0..e {
 			InflightEthTxEvents::<T>::append(EventLog {
 				contract: instance.address,
-				data: vec![],  // Empty data to minimize data size impact
+				data: vec![],   // Empty data to minimize data size impact
 				topics: vec![], // No topics to minimize data size impact
 			});
 		}
@@ -2574,9 +2572,7 @@ mod benchmarks {
 	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
 	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
 	#[benchmark(pov_mode = Measured)]
-	fn on_finalize_per_event_data(
-		d: Linear<0, 16384>,
-	) -> Result<(), BenchmarkError> {
+	fn on_finalize_per_event_data(d: Linear<0, 16384>) -> Result<(), BenchmarkError> {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
