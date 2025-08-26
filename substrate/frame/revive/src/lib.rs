@@ -49,7 +49,7 @@ use crate::{
 		block_hash::{EventLog, ReceiptGasInfo, TransactionDetails},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
-		TransactionSigned, TransactionUnsigned, TYPE_EIP1559,
+		TransactionSigned, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
@@ -1436,7 +1436,7 @@ where
 			)));
 		};
 
-		let mut unsigned_tx: Option<TransactionUnsigned> = None;
+		let mut dummy_payload: Vec<u8> = Vec::new();
 
 		// Dry run the call
 		let (mut result, dispatch_call) = match tx.to {
@@ -1500,12 +1500,6 @@ where
 						result.storage_deposit,
 					);
 
-					match tx.clone().try_into_unsigned() {
-						Ok(tx) => unsigned_tx = Some(tx),
-						Err(_) =>
-							return Err(EthTransactError::Message("Invalid transaction".into())),
-					}
-
 					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
 						dest,
 						value,
@@ -1513,9 +1507,7 @@ where
 						storage_deposit_limit,
 						data: input.clone(),
 						// Payload is needed to determine costs.
-						// Safe to unwrap(), it is asserted when converting to TransactionUnsigned
-						// above
-						transaction_encoded: unsigned_tx.clone().unwrap().dummy_signed_payload(),
+						transaction_encoded: dummy_payload.clone(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1595,23 +1587,21 @@ where
 			},
 		};
 
-		if unsigned_tx.is_none() {
-			match tx.clone().try_into_unsigned() {
-				Ok(tx) => unsigned_tx = Some(tx),
+		if dummy_payload.is_empty() {
+			match tx.try_into_unsigned() {
+				Ok(tx) => dummy_payload = tx.dummy_signed_payload(),
 				Err(_) => return Err(EthTransactError::Message("Invalid transaction".into())),
 			}
 		}
 
-		// Safe to unwrap(), it is asserted when converting to TransactionUnsigned above
-		let signed_transaction =
-			match TransactionSigned::decode(&unsigned_tx.unwrap().dummy_signed_payload()) {
-				Ok(signed_transaction) => signed_transaction,
-				Err(err) =>
-					return Err(EthTransactError::Message(format!(
-						"Cannot decode transaction: {:?}",
-						err
-					))),
-			};
+		let signed_transaction = match TransactionSigned::decode(&dummy_payload) {
+			Ok(signed_transaction) => signed_transaction,
+			Err(err) =>
+				return Err(EthTransactError::Message(format!(
+					"Cannot decode transaction: {:?}",
+					err
+				))),
+		};
 
 		let eth_transact_call = crate::Call::<T>::eth_transact { signed_transaction };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
