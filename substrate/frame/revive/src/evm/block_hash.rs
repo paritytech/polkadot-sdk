@@ -384,30 +384,55 @@ mod test {
 
 		let manual_hash = manual_trie_root_compute(encoded_tx.clone());
 
-		// struct IncrementalHashBuilder {
-		// 	hash_builder: HashBuilder,
-		// 	index: usize,
+		struct IncrementalHashBuilder {
+			hash_builder: HashBuilder,
+			index: usize,
 
-		// 	// RLP encoded.
-		// 	first_transaction: Vec<u8>,
-		// 	// Prev transaction RLP encoded.
-		// 	prev_transaction: Vec<u8>,
-		// }
+			// RLP encoded.
+			first_transaction: Option<Vec<u8>>,
+		}
 
-		// impl IncrementalHashBuilder {
-		// 	pub fn new(first_transaction: Vec<u8>) -> Self {
-		// 		Self {
-		// 			hash_builder: HashBuilder::default(),
-		// 			index: 0,
-		// 			first_transaction,
-		// 			prev_transaction: Vec::new(),
-		// 		}
-		// 	}
+		impl IncrementalHashBuilder {
+			pub fn new(first_transaction: Vec<u8>) -> Self {
+				Self {
+					hash_builder: HashBuilder::default(),
+					index: 1,
+					first_transaction: Some(first_transaction),
+				}
+			}
 
-		// 	pub fn add_transaction(&mut self) {
+			pub fn add_transaction(&mut self, transaction: Vec<u8>) {
+				if self.index == 0x7f {
+					// Pushing the previous item since we are expecting the index
+					// to be index + 1 in the sorted order.
+					if let Some(tx) = self.first_transaction.take() {
+						let zero: usize = 0;
+						let rlp_index =
+							alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
 
-		// 	}
-		// }
+						self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+					}
+				}
+
+				let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&self.index);
+				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &transaction);
+
+				self.index += 1;
+			}
+
+			pub fn finish(&mut self) -> H256 {
+				// We have less than 0x7f items to the trie. Therefore, the
+				// first transaction index is the last one in the sorted vector
+				// by rlp encoding of the index.
+				if let Some(tx) = self.first_transaction.take() {
+					let zero: usize = 0;
+					let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
+					self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+				}
+
+				self.hash_builder.root().0.into()
+			}
+		}
 
 		// Incremental HashBuildup:
 		pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
@@ -450,9 +475,18 @@ mod test {
 		}
 		let manual_hash_2: H256 = hb.root().0.into();
 
+		let mut builder = IncrementalHashBuilder::new(encoded_tx[0].clone());
+		for tx in encoded_tx.iter().skip(1) {
+			builder.add_transaction(tx.clone())
+		}
+		let incremental_hash = builder.finish();
+		println!("Incremental hash: {:?}", incremental_hash);
+
 		println!("Manual Hash: {:?}", manual_hash);
 		println!("Built block Hash: {:?}", built_block.transactions_root);
 		println!("Real Block Tx Hash: {:?}", block.transactions_root);
+
+		assert_eq!(incremental_hash, block.transactions_root);
 
 		// This double checks the compute logic.
 		assert_eq!(manual_hash, block.transactions_root);
