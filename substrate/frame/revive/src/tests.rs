@@ -19,6 +19,7 @@ mod block_hash;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
+mod trie_roots;
 
 use crate::{
 	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
