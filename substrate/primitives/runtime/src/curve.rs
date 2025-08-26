@@ -19,10 +19,12 @@
 
 use crate::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion},
-	Perbill,
+	Perbill, FixedU128,
 };
 use core::ops::Sub;
 use scale_info::TypeInfo;
+use sp_arithmetic::{traits::Saturating, FixedPointNumber};
+use num_traits::One;
 
 /// The step type for the stepped curve.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
@@ -56,11 +58,6 @@ pub struct SteppedCurve<P, V> {
 	pub period: P,
 }
 
-use crate::FixedU128;
-use sp_arithmetic::traits::Saturating;
-use num_traits::One;
-use sp_arithmetic::FixedPointNumber;
-
 impl<P, V> SteppedCurve<P, V>
 where
 	P: AtLeast32BitUnsigned + Clone,
@@ -88,7 +85,6 @@ where
 
 		// Calculate how many full periods have passed, capped by usize.
 		let num_periods = (effective_point - self.start.clone()) / self.period.clone();
-		let num_periods_u32 = num_periods.clone().saturated_into::<u32>();
 		let num_periods_usize = num_periods.clone().saturated_into::<usize>();
 
 		if num_periods.is_zero() {
