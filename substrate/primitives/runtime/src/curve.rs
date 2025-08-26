@@ -56,10 +56,15 @@ pub struct SteppedCurve<P, V> {
 	pub period: P,
 }
 
+use crate::FixedU128;
+use sp_arithmetic::traits::Saturating;
+use num_traits::One;
+use sp_arithmetic::FixedPointNumber;
+
 impl<P, V> SteppedCurve<P, V>
 where
 	P: AtLeast32BitUnsigned + Clone,
-	V: AtLeast32BitUnsigned + Clone + From<P>,
+	V: AtLeast32BitUnsigned + Clone + Copy + From<P>,
 {
 	/// Creates a new `SteppedCurve`.
 	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
@@ -81,9 +86,10 @@ where
 		// Determine the effective point for calculation, capped by the end point if it exists.
 		let effective_point = self.end.clone().map_or(point.clone(), |e| point.min(e));
 
-		// Calculate how many full periods have passed, capped by u32.
+		// Calculate how many full periods have passed, capped by usize.
 		let num_periods = (effective_point - self.start.clone()) / self.period.clone();
 		let num_periods_u32 = num_periods.clone().saturated_into::<u32>();
+		let num_periods_usize = num_periods.clone().saturated_into::<usize>();
 
 		match self.step.clone() {
 			Step::Add(step_value) => {
@@ -98,21 +104,21 @@ where
 			},
 			Step::PctInc(percent) => {
 				// initial_value * (1 + percent) ^ num_periods
-				let mut current_value = self.initial_value.clone();
-				for _ in 0..num_periods_u32 { //<-- need to fix this
-					let increase = percent * current_value.clone();
-					current_value = current_value.saturating_add(increase);
-				}
-				current_value
+				let mut ratio = FixedU128::from(percent);
+                ratio = FixedU128::one().saturating_add(ratio);
+                let scale = ratio.saturating_pow(num_periods_usize);
+				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
+				let res = initial.clone().saturating_mul(scale);
+				res.into_inner().saturated_into::<V>()
 			},
 			Step::PctDec(percent) => {
 				// initial_value * (1 - percent) ^ num_periods
-				let mut current_value = self.initial_value.clone();
-				for _ in 0..num_periods_u32 {
-					let decrease = percent * current_value.clone();
-					current_value = current_value.saturating_sub(decrease);
-				}
-				current_value
+				let mut ratio = FixedU128::from(percent);
+                ratio = FixedU128::one().saturating_sub(ratio);
+                let scale = ratio.saturating_pow(num_periods_usize);
+				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
+				let res = initial.clone().saturating_mul(scale);
+				res.into_inner().saturated_into::<V>()
 			},
 		}
 	}
