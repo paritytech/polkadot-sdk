@@ -36,6 +36,7 @@ pub mod metadata;
 mod regular;
 pub mod roles;
 mod union_of;
+mod vesting;
 
 pub use enumerable::Inspect as InspectEnumerable;
 pub use freeze::{Inspect as InspectFreeze, Mutate as MutateFreeze};
@@ -49,3 +50,4 @@ pub use regular::{
 	Balanced, DecreaseIssuance, Dust, IncreaseIssuance, Inspect, Mutate, Unbalanced,
 };
 pub use union_of::UnionOf;
+pub use vesting::{Inspect as VestedInspect, Mutate as VestedMutate, Transfer as VestedTransfer};
