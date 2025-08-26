@@ -637,15 +637,11 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
-			// Account for the fixed part of the costs incurred in `on_finalize`.
-			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				<T as Config>::WeightInfo::on_finalize_block_fixed(),
-				DispatchClass::Normal,
-			);
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
 
-			Weight::zero()
+			// Account for the fixed part of the costs incurred in `on_finalize`.
+			<T as Config>::WeightInfo::on_finalize_block_fixed()
 		}
 
 		fn on_finalize(block_number: BlockNumberFor<T>) {
