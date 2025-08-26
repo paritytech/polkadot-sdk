@@ -129,10 +129,7 @@ const LOG_TARGET: &str = "runtime::revive";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{
-		pallet_prelude::{ValueQuery, *},
-		traits::FindAuthor,
-	};
+	use frame_support::{pallet_prelude::*, traits::FindAuthor};
 	use frame_system::pallet_prelude::*;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
