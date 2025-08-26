@@ -91,6 +91,10 @@ where
 		let num_periods_u32 = num_periods.clone().saturated_into::<u32>();
 		let num_periods_usize = num_periods.clone().saturated_into::<usize>();
 
+		if num_periods.is_zero() {
+			return self.initial_value.clone()
+		}
+
 		match self.step.clone() {
 			Step::Add(step_value) => {
 				// Initial_value + num_periods * step_value.
@@ -109,7 +113,7 @@ where
                 let scale = ratio.saturating_pow(num_periods_usize);
 				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
 				let res = initial.clone().saturating_mul(scale);
-				res.into_inner().saturated_into::<V>()
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 			Step::PctDec(percent) => {
 				// initial_value * (1 - percent) ^ num_periods
@@ -118,7 +122,7 @@ where
                 let scale = ratio.saturating_pow(num_periods_usize);
 				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
 				let res = initial.clone().saturating_mul(scale);
-				res.into_inner().saturated_into::<V>()
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 		}
 	}
@@ -275,7 +279,7 @@ fn stepped_curve_works() {
 	assert_eq!(pct_inc_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(12u32), 1100u32);
 	assert_eq!(pct_inc_curve.evaluate(20u32), 1610u32);
-	// assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
+	assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
 
 	// Step::PctDec.
 	let pct_dec_curve = SteppedCurve::new(
@@ -289,7 +293,7 @@ fn stepped_curve_works() {
 	assert_eq!(pct_dec_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_dec_curve.evaluate(12u32), 900u32);
 	assert_eq!(pct_dec_curve.evaluate(20u32), 590u32);
-	// assert_eq!(pct_dec_curve.evaluate(u32::MAX), u32::MIN);
+	assert_eq!(pct_dec_curve.evaluate(u32::MAX), u32::MIN);
 }
 
 #[test]
