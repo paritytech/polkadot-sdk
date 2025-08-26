@@ -17,6 +17,7 @@
 
 mod instructions;
 use crate::{
+	exec::ExecError,
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, BalanceOf, Code, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
@@ -198,12 +199,7 @@ fn run_call<'a, E: Ext>(
 		},
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
-			// TODO: Map error into an appropriate InstructionResult
-			let halt_reason = match err {
-				_ => InstructionResult::OutOfGas,
-			};
-
-			interpreter.halt(halt_reason);
+			interpreter.halt(exec_error_into_halt_reason::<E>(err));
 		},
 	}
 }
@@ -221,7 +217,7 @@ fn run_create<'a, E: Ext>(
 			arr.copy_from_slice(salt.as_le_slice());
 			Some(arr)
 		},
-		CreateScheme::Custom { .. } => None, // TODO: To check if we should implement it
+		CreateScheme::Custom { .. } => unreachable!("custom create schemes are not supported"),
 	};
 
 	let call_result = interpreter.extend.instantiate(
@@ -244,7 +240,6 @@ fn run_create<'a, E: Ext>(
 				let _ = interpreter.stack.push(primitives::U256::ZERO);
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
-				// OK
 				interpreter.return_data.clear();
 				let stack_item: Address = address.0.into();
 				let _ = interpreter.stack.push(stack_item.into_word().into());
@@ -253,12 +248,7 @@ fn run_create<'a, E: Ext>(
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
 			interpreter.return_data.clear();
-			// TODO: Map error into an appropriate InstructionResult
-			let halt_reason = match err {
-				_ => InstructionResult::OutOfGas,
-			};
-
-			interpreter.halt(halt_reason);
+			interpreter.halt(exec_error_into_halt_reason::<E>(err));
 		},
 	}
 }
@@ -320,5 +310,37 @@ impl InputsTr for EVMInputs {
 
 	fn call_value(&self) -> primitives::U256 {
 		panic!()
+	}
+}
+
+/// Infallible conversion of a `ExecError` to `ReturnErrorCode`.
+///
+/// This is used when converting the error returned from a subcall in order to map
+/// it to the equivalent EVM interpreter [InstructionResult].
+fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> InstructionResult {
+	use crate::exec::ErrorOrigin::Callee;
+
+	let transfer_failed = Error::<E::T>::TransferFailed.into();
+	let out_of_bounds = Error::<E::T>::OutOfBounds.into();
+	let out_of_gas = Error::<E::T>::OutOfGas.into();
+	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+	let duplicate_contract = Error::<E::T>::DuplicateContract.into();
+	let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
+	let value_too_large = Error::<E::T>::ValueTooLarge.into();
+	let code_rejected = Error::<E::T>::CodeRejected.into();
+	let static_memory_too_large = Error::<E::T>::StaticMemoryTooLarge.into();
+
+	// errors in the callee do not trap the caller
+	match (from.error, from.origin) {
+		(err, _) if err == static_memory_too_large => InstructionResult::MemoryOOG,
+		(err, _) if err == code_rejected => InstructionResult::OpcodeNotFound,
+		(err, _) if err == transfer_failed => InstructionResult::OutOfFunds,
+		(err, _) if err == duplicate_contract => InstructionResult::CreateCollision,
+		(err, _) if err == unsupported_precompile => InstructionResult::PrecompileError,
+		(err, _) if err == out_of_bounds => InstructionResult::OutOfOffset,
+		(err, _) if err == value_too_large => InstructionResult::OverflowPayment,
+		(err, Callee) if err == out_of_deposit => InstructionResult::OutOfFunds,
+		(err, Callee) if err == out_of_gas => InstructionResult::OutOfGas,
+		_ => InstructionResult::Revert,
 	}
 }
