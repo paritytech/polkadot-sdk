@@ -289,7 +289,7 @@ impl GenericTransaction {
 				input: tx.input.into(),
 				nonce: Some(tx.nonce),
 				value: Some(tx.value),
-				to: tx.to,
+				to: Some(tx.to),
 				gas: Some(tx.gas),
 				gas_price: Some(
 					base_gas_price
@@ -366,7 +366,7 @@ impl GenericTransaction {
 				input: self.input.to_bytes(),
 				nonce: self.nonce.unwrap_or_default(),
 				value: self.value.unwrap_or_default(),
-				to: self.to,
+				to: self.to.unwrap_or_default(),
 				gas: self.gas.unwrap_or_default(),
 				gas_price: self.max_fee_per_gas.unwrap_or_default(),
 				max_fee_per_gas: self.max_fee_per_gas.unwrap_or_default(),
@@ -432,7 +432,7 @@ fn from_unsigned_works_for_7702() {
 		input: Bytes::from(vec![1u8]),
 		nonce: U256::from(1),
 		value: U256::from(1),
-		to: Some(H160::zero()),
+		to: H160::zero(),
 		gas: U256::from(1),
 		gas_price: U256::from(20),
 		max_fee_per_gas: U256::from(20),
