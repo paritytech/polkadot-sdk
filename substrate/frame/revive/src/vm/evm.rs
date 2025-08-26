@@ -43,7 +43,18 @@ impl<T: Config> ContractBlob<T> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
-		Self::from_evm_code(code, owner)
+
+		let code_len = code.len() as u32;
+		let code_info = CodeInfo {
+			owner,
+			deposit: Default::default(),
+			refcount: 0,
+			code_len,
+			code_type: BytecodeType::Evm,
+			behaviour_version: Default::default(),
+		};
+
+		Self::from_evm_code(code, code_info)
 	}
 
 	/// Create a new contract from EVM runtime code.
@@ -55,10 +66,22 @@ impl<T: Config> ContractBlob<T> {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
-		Self::from_evm_code(code, owner)
+		let code_len = code.len() as u32;
+		let deposit = super::calculate_code_deposit::<T>(code_len);
+
+		let code_info = CodeInfo {
+			owner,
+			deposit,
+			refcount: 1,
+			code_len,
+			code_type: BytecodeType::Evm,
+			behaviour_version: Default::default(),
+		};
+
+		Self::from_evm_code(code, code_info)
 	}
 
-	fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+	fn from_evm_code(code: Vec<u8>, code_info: CodeInfo<T>) -> Result<Self, DispatchError> {
 		use revm::{bytecode::Bytecode, primitives::Bytes};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
@@ -66,15 +89,6 @@ impl<T: Config> ContractBlob<T> {
 			<Error<T>>::CodeRejected
 		})?;
 
-		let code_len = code.len() as u32;
-		let code_info = CodeInfo {
-			owner,
-			deposit: Default::default(),
-			refcount: 0,
-			code_len,
-			code_type: BytecodeType::Evm,
-			behaviour_version: Default::default(),
-		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
 		Ok(ContractBlob { code, code_info, code_hash })
 	}

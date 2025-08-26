@@ -16,10 +16,11 @@
 // limitations under the License.
 
 use crate::{
+	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
-		test_utils::{ensure_stored, get_contract_checked},
+		test_utils::{contract_base_deposit, ensure_stored, get_contract_checked},
 		ExtBuilder, Test,
 	},
 	Code, Config, PristineCode,
@@ -41,6 +42,10 @@ fn basic_evm_flow_works() {
 		// check the code exists
 		let contract = get_contract_checked(&addr).unwrap();
 		ensure_stored(contract.code_hash);
+
+		let deposit = contract_base_deposit(&addr);
+		assert_eq!(contract.total_deposit(), deposit);
+		assert_refcount!(contract.code_hash, 1);
 
 		let result = builder::bare_call(addr)
 			.data(

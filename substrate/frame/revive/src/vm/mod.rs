@@ -27,6 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
+	storage::meter::Diff,
 	weights::WeightInfo,
 	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
 	LOG_TARGET,
@@ -97,6 +98,15 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
+}
+
+/// Calculate the deposit required for storing code and its metadata.
+pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
+	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
+	let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
+		.update_contract::<T>(None)
+		.charge_or_zero();
+	deposit
 }
 
 impl ExportedFunction {
@@ -200,7 +210,6 @@ where
 					})?;
 					}
 
-					self.code_info.refcount = if self.code_info.is_pvm() { 0 } else { 1 };
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
 					Ok(deposit)

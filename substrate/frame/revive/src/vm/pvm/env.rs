@@ -22,12 +22,11 @@ use crate::{
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	storage::meter::Diff,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts},
+	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
 	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
-use codec::{Encode, MaxEncodedLen};
+use codec::Encode;
 use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
@@ -112,10 +111,8 @@ where
 		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
-		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
-			.update_contract::<T>(None)
-			.charge_or_zero();
+		let deposit = calculate_code_deposit::<T>(code_len);
+
 		let code_info = CodeInfo {
 			owner,
 			deposit,
