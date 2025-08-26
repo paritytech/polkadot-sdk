@@ -32,7 +32,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn basic_evm_flow_works() {
-	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -45,6 +45,9 @@ fn basic_evm_flow_works() {
 		let deposit = contract_base_deposit(&addr);
 		assert_eq!(contract.total_deposit(), deposit);
 		assert_refcount!(contract.code_hash, 1);
+
+		// init code is not stored
+		assert!(!PristineCode::<Test>::contains_key(init_hash));
 
 		let result = builder::bare_call(addr)
 			.data(
