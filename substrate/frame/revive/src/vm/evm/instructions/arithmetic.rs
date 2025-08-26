@@ -28,6 +28,8 @@ use revm::{
 	primitives::U256,
 };
 
+// NB: use the gas_legacy macro for all arithmetic instructions.
+
 /// Implements the ADD instruction - adds two values from stack.
 pub fn add<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
