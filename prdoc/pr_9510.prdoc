@@ -7,8 +7,10 @@ doc:
 crates:
 - name: snowbridge-inbound-queue-primitives
   bump: major
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: major
 - name: asset-hub-westend-runtime
   bump: patch
 - name: bridge-hub-westend-integration-tests
