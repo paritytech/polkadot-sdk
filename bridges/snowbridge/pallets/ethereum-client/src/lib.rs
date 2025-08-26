@@ -147,17 +147,14 @@ pub mod pallet {
 
 	/// Latest imported checkpoint root
 	#[pallet::storage]
-	#[pallet::getter(fn initial_checkpoint_root)]
 	pub type InitialCheckpointRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Latest imported finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn latest_finalized_block_root)]
 	pub type LatestFinalizedBlockRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Beacon state by finalized block root
 	#[pallet::storage]
-	#[pallet::getter(fn finalized_beacon_state)]
 	pub type FinalizedBeaconState<T: Config> =
 		StorageMap<_, Identity, H256, CompactBeaconState, OptionQuery>;
 
@@ -171,7 +168,6 @@ pub mod pallet {
 		StorageMap<_, Identity, u32, H256, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn validators_root)]
 	pub type ValidatorsRoot<T: Config> = StorageValue<_, H256, ValueQuery>;
 
 	/// Sync committee for current period
@@ -188,7 +184,6 @@ pub mod pallet {
 
 	/// The current operating mode of the pallet.
 	#[pallet::storage]
-	#[pallet::getter(fn operating_mode)]
 	pub type OperatingMode<T: Config> = StorageValue<_, BasicOperatingMode, ValueQuery>;
 
 	#[pallet::call]

@@ -215,16 +215,13 @@ pub mod pallet {
 
 	/// The set of registered agents
 	#[pallet::storage]
-	#[pallet::getter(fn agents)]
 	pub type Agents<T: Config> = StorageMap<_, Twox64Concat, AgentId, (), OptionQuery>;
 
 	/// The set of registered channels
 	#[pallet::storage]
-	#[pallet::getter(fn channels)]
 	pub type Channels<T: Config> = StorageMap<_, Twox64Concat, ChannelId, Channel, OptionQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn parameters)]
 	pub type PricingParameters<T: Config> =
 		StorageValue<_, PricingParametersOf<T>, ValueQuery, T::DefaultPricingParameters>;
 
