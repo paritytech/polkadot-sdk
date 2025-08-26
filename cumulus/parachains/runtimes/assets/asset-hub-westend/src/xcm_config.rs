@@ -534,12 +534,10 @@ pub type XcmRouter = WithUniqueTopic<(
 		crate::SnowbridgeSystemFrontend,
 		(
 			UnpaidRemoteExporter<
-				bridging::to_ethereum::EthereumNetworkExportTableV2,
-				XcmpQueue,
-				UniversalLocation,
-			>,
-			UnpaidRemoteExporter<
-				bridging::to_ethereum::EthereumNetworkExportTableV1,
+				(
+					bridging::to_ethereum::EthereumNetworkExportTableV2,
+					bridging::to_ethereum::EthereumNetworkExportTableV1,
+				),
 				XcmpQueue,
 				UniversalLocation,
 			>,
@@ -758,20 +756,20 @@ pub mod bridging {
 			/// Universal aliases
 			pub UniversalAliases: BTreeSet<(Location, Junction)> = BTreeSet::from_iter(
 				vec![
-					(SiblingBridgeHubWithEthereumInboundQueueV1Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 					(SiblingBridgeHubWithEthereumInboundQueueV2Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
+					(SiblingBridgeHubWithEthereumInboundQueueV1Instance::get(), GlobalConsensus(EthereumNetwork::get().into())),
 				]
 			);
 		}
+
+		pub type EthereumNetworkExportTableV1 =
+			xcm_builder::NetworkExportTable<EthereumBridgeTableV1>;
 
 		pub type EthereumNetworkExportTableV2 =
 			snowbridge_outbound_queue_primitives::v2::XcmFilterExporter<
 				xcm_builder::NetworkExportTable<EthereumBridgeTableV2>,
 				snowbridge_outbound_queue_primitives::v2::XcmForSnowbridgeV2,
 			>;
-
-		pub type EthereumNetworkExportTableV1 =
-			xcm_builder::NetworkExportTable<EthereumBridgeTableV1>;
 
 		pub type EthereumAssetFromEthereum =
 			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;

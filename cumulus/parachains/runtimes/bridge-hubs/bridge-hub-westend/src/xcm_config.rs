@@ -19,7 +19,7 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
-use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
+use crate::bridge_to_ethereum_config::{SnowbridgeFrontendLocation};
 use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
 	parameter_types,
@@ -56,6 +56,7 @@ use xcm_builder::{
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
+use testnet_parachains_constants::westend::locations::AssetHubLocation;
 
 // Re-export
 pub use testnet_parachains_constants::westend::locations::GovernanceLocation;

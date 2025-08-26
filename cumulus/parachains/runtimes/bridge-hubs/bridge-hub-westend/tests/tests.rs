@@ -63,6 +63,10 @@ use sp_runtime::{
 use testnet_parachains_constants::westend::{consensus::*, fee::WeightToFee};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
+use xcm::VersionedLocation;
+use crate::bridge_common_config::BridgeRewardBeneficiaries;
+use bridge_hub_test_utils::RuntimeHelper;
+use bridge_hub_test_utils::mock_open_hrmp_channel;
 
 // Random para id of sibling chain used in tests.
 pub const SIBLING_PARACHAIN_ID: u32 = 2053;
@@ -717,6 +721,26 @@ pub fn bridge_rewards_works() {
 			assert_ok!(Balances::mint_into(&expected_reward1_account, ExistentialDeposit::get()));
 			assert_ok!(Balances::mint_into(&expected_reward1_account, reward1.into()));
 			assert_ok!(Balances::mint_into(&account1, ExistentialDeposit::get()));
+			assert_ok!(Balances::mint_into(&account2, ExistentialDeposit::get() * 10000)); // To pay for delivery to AH when claiming the reward on BH
+
+			let included_head = RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::run_to_block(
+				2,
+				AccountId::from(Alice).into(),
+			);
+
+			let account_bytes: [u8; 32] = AccountId::from(Alice).into();
+			let slice: &[u8] = &account_bytes;
+
+			mock_open_hrmp_channel::<Runtime, cumulus_pallet_parachain_system::Pallet<Runtime>>(
+				1002.into(),
+				1000.into(),
+				included_head,
+				slice,
+				&SlotDurations {
+					relay: SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS.into()),
+					para: SlotDuration::from_millis(SLOT_DURATION),
+				},
+			);
 
 			// register rewards
 			use bp_relayers::RewardLedger;
@@ -758,7 +782,7 @@ pub fn bridge_rewards_works() {
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::NoRewardForRelayer
 			);
 
-			// not yet implemented for Snowbridge
+			// local account claiming is not supported for Snowbridge
 			assert_err!(
 				BridgeRelayers::claim_rewards(
 					RuntimeOrigin::signed(account2.clone()),
@@ -766,6 +790,13 @@ pub fn bridge_rewards_works() {
 				),
 				pallet_bridge_relayers::Error::<Runtime, BridgeRelayersInstance>::FailedToPayReward
 			);
+
+			let claim_location = VersionedLocation::V5(Location::new(1, [Parachain(1000), xcm::latest::Junction::AccountId32{ id: account2.clone().into(), network: None }]));
+			assert_ok!(BridgeRelayers::claim_rewards_to(
+				RuntimeOrigin::signed(account2.clone()),
+				BridgeReward::Snowbridge,
+				BridgeRewardBeneficiaries::AssetHubLocation(claim_location)
+			));
 		},
 	);
 }

@@ -23,7 +23,7 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use crate::{
-	bridge_to_ethereum_config::{AssetHubLocation, InboundQueueV2Location},
+	bridge_to_ethereum_config::{InboundQueueV2Location},
 	xcm_config::XcmConfig,
 	RuntimeCall, XcmRouter,
 };
@@ -35,6 +35,7 @@ use scale_info::TypeInfo;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
 use xcm::{opaque::latest::Location, VersionedLocation};
 use xcm_executor::XcmExecutor;
+use testnet_parachains_constants::westend::locations::AssetHubLocation;
 
 parameter_types! {
 	pub storage RequiredStakeForStakeAndSlash: Balance = 1_000_000;
