@@ -17,7 +17,7 @@
 
 use super::Context;
 
-use crate::{storage::WriteOutcome, vm::Ext, Key, RuntimeCosts, LOG_TARGET};
+use crate::{vm::Ext, Key, RuntimeCosts, LOG_TARGET};
 use revm::{
 	interpreter::{
 		gas::{self},
@@ -191,7 +191,10 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: write_outcome.old_len(), new_bytes: 32 });
+	gas!(
+		context.interpreter,
+		RuntimeCosts::SetStorage { old_bytes: write_outcome.old_len(), new_bytes: 32 }
+	);
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -211,21 +214,26 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	match write_outcome {
 		Ok(write_outcome) => {
-			gas!(context.interpreter, RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: write_outcome.old_len() });
-		}
+			gas!(
+				context.interpreter,
+				RuntimeCosts::SetTransientStorage {
+					new_bytes: 32,
+					old_bytes: write_outcome.old_len()
+				}
+			);
+		},
 		Err(err) => {
 			log::debug!(target: LOG_TARGET, "Transient storage write failed: {:?}", err);
 			context.interpreter.halt(InstructionResult::FatalExternalError);
-		}
+		},
 	}
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
 pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-
 	popn_top!([], index, context.interpreter);
-	gas!(context.interpreter, RuntimeCosts::GetTransientStorage( 32 ));
+	gas!(context.interpreter, RuntimeCosts::GetTransientStorage(32));
 
 	let key = Key::Fix(index.to_be_bytes());
 	let bytes = context.interpreter.extend.get_transient_storage(&key);
