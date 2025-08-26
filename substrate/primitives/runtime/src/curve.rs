@@ -19,12 +19,12 @@
 
 use crate::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion},
-	Perbill, FixedU128,
+	FixedU128, Perbill,
 };
 use core::ops::Sub;
+use num_traits::One;
 use scale_info::TypeInfo;
 use sp_arithmetic::{traits::Saturating, FixedPointNumber};
-use num_traits::One;
 
 /// The step type for the stepped curve.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
@@ -65,7 +65,7 @@ where
 {
 	/// Creates a new `SteppedCurve`.
 	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
-		Self { start, end, initial_value, step, period}
+		Self { start, end, initial_value, step, period }
 	}
 
 	/// Evaluate the curve at a given point.
@@ -100,24 +100,24 @@ where
 				initial.saturating_add(total_step)
 			},
 			Step::Subtract(step_value) => {
-				// Initial_value - num_periods * step_value
+				// Initial_value - num_periods * step_value.
 				let total_step = step_value.saturating_mul(num_periods.saturated_into::<V>());
 				initial.saturating_sub(total_step)
 			},
 			Step::PctInc(percent) => {
-				// initial_value * (1 + percent) ^ num_periods
+				// Initial_value * (1 + percent) ^ num_periods.
 				let mut ratio = FixedU128::from(percent);
-                ratio = FixedU128::one().saturating_add(ratio);
-                let scale = ratio.saturating_pow(num_periods_usize);
+				ratio = FixedU128::one().saturating_add(ratio);
+				let scale = ratio.saturating_pow(num_periods_usize);
 				let initial_fp = FixedU128::saturating_from_integer(initial);
 				let res = initial_fp.saturating_mul(scale);
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 			Step::PctDec(percent) => {
-				// initial_value * (1 - percent) ^ num_periods
+				// Initial_value * (1 - percent) ^ num_periods.
 				let mut ratio = FixedU128::from(percent);
-                ratio = FixedU128::one().saturating_sub(ratio);
-                let scale = ratio.saturating_pow(num_periods_usize);
+				ratio = FixedU128::one().saturating_sub(ratio);
+				let scale = ratio.saturating_pow(num_periods_usize);
 				let initial_fp = FixedU128::saturating_from_integer(initial);
 				let res = initial_fp.saturating_mul(scale);
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
@@ -214,37 +214,19 @@ where
 #[test]
 fn stepped_curve_works() {
 	// Curve with defined end.
-	let curve_with_end = SteppedCurve::new(
-		10u32,
-		Some(20u32),
-		100u32,
-		Step::Add(100u32),
-		2u32,
-	);
+	let curve_with_end = SteppedCurve::new(10u32, Some(20u32), 100u32, Step::Add(100u32), 2u32);
 	assert_eq!(curve_with_end.evaluate(20u32), 600u32);
 	assert_eq!(curve_with_end.evaluate(30u32), 600u32);
 
 	// Zero period curve.
-	let zero_period_curve = SteppedCurve::new(
-		10u32,
-		None,
-		100u32,
-		Step::Add(100u32),
-		0u32,
-	);
+	let zero_period_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 0u32);
 	assert_eq!(zero_period_curve.evaluate(5u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(11u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(12u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(20u32), 100u32);
 
 	// Step::Add.
-	let add_curve = SteppedCurve::new(
-		10u32,
-		None,
-		100u32,
-		Step::Add(100u32),
-		2u32,
-	);
+	let add_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 2u32);
 	assert_eq!(add_curve.evaluate(5u32), 100u32);
 	assert_eq!(add_curve.evaluate(11u32), 100u32);
 	assert_eq!(add_curve.evaluate(12u32), 200u32);
@@ -252,13 +234,7 @@ fn stepped_curve_works() {
 	assert_eq!(add_curve.evaluate(u32::MAX), u32::MAX);
 
 	// Step::Subtract.
-	let subtract_curve = SteppedCurve::new(
-		10u32,
-		None,
-		1000u32,
-		Step::Subtract(100u32),
-		2u32,
-	);
+	let subtract_curve = SteppedCurve::new(10u32, None, 1000u32, Step::Subtract(100u32), 2u32);
 	assert_eq!(subtract_curve.evaluate(5u32), 1000u32);
 	assert_eq!(subtract_curve.evaluate(11u32), 1000u32);
 	assert_eq!(subtract_curve.evaluate(12u32), 900u32);
@@ -266,13 +242,8 @@ fn stepped_curve_works() {
 	assert_eq!(subtract_curve.evaluate(u32::MAX), u32::MIN);
 
 	// Step::PctInc.
-	let pct_inc_curve = SteppedCurve::new(
-		10u32,
-		None,
-		1000u32,
-		Step::PctInc(Perbill::from_percent(10)),
-		2u32,
-	);
+	let pct_inc_curve =
+		SteppedCurve::new(10u32, None, 1000u32, Step::PctInc(Perbill::from_percent(10)), 2u32);
 	assert_eq!(pct_inc_curve.evaluate(5u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(12u32), 1100u32);
@@ -280,13 +251,8 @@ fn stepped_curve_works() {
 	assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
 
 	// Step::PctDec.
-	let pct_dec_curve = SteppedCurve::new(
-		10u32,
-		None,
-		1000u32,
-		Step::PctDec(Perbill::from_percent(10)),
-		2u32,
-	);
+	let pct_dec_curve =
+		SteppedCurve::new(10u32, None, 1000u32, Step::PctDec(Perbill::from_percent(10)), 2u32);
 	assert_eq!(pct_dec_curve.evaluate(5u32), 1000u32);
 	assert_eq!(pct_dec_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_dec_curve.evaluate(12u32), 900u32);
