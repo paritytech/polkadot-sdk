@@ -56,7 +56,6 @@ jobs:
 
   test-linux-stable:
     needs: [preflight]
-    if: false
     runs-on: parity-large-test
     timeout-minutes: 60
     strategy:
