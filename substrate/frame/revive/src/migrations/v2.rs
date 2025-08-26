@@ -23,7 +23,7 @@
 extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{vm::BytecodeType, weights::WeightInfo, Config, H256};
+use crate::{weights::WeightInfo, Config, H256};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -60,20 +60,27 @@ mod old {
 }
 
 mod new {
-	use super::{BytecodeType, Config};
+	use super::Config;
 	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, DebugNoBound, Identity};
+	use frame_support::{storage_alias, Identity, RuntimeDebugNoBound};
 
-	#[derive(PartialEq, Eq, DebugNoBound, Encode, Decode)]
+	#[derive(RuntimeDebugNoBound, Clone, Encode, Decode, PartialEq, Eq)]
+	pub enum BytecodeInfo<T: Config> {
+		Pvm {
+			owner: AccountIdOf<T>,
+			#[codec(compact)]
+			refcount: u64,
+		},
+		Evm,
+	}
+
+	#[derive(RuntimeDebugNoBound, PartialEq, Eq, Encode, Decode)]
 	pub struct CodeInfo<T: Config> {
-		pub owner: AccountIdOf<T>,
 		#[codec(compact)]
 		pub deposit: BalanceOf<T>,
-		#[codec(compact)]
-		pub refcount: u64,
 		pub code_len: u32,
-		pub code_type: BytecodeType,
+		pub bytecode_info: BytecodeInfo<T>,
 		pub behaviour_version: u32,
 	}
 
@@ -118,11 +125,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				new::CodeInfoOf::<T>::insert(
 					last_key,
 					new::CodeInfo {
-						owner: value.owner,
 						deposit: value.deposit,
-						refcount: value.refcount,
 						code_len: value.code_len,
-						code_type: BytecodeType::Pvm,
+						bytecode_info: new::BytecodeInfo::Pvm {
+							owner: value.owner,
+							refcount: value.refcount,
+						},
 						behaviour_version: value.behaviour_version,
 					},
 				);
@@ -163,19 +171,16 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				.expect("Failed to get the value after the migration");
 
 			let expected = new::CodeInfo {
-				owner: value.owner,
 				deposit: value.deposit,
-				refcount: value.refcount,
 				code_len: value.code_len,
-				code_type: BytecodeType::Pvm,
+				bytecode_info: new::BytecodeInfo::Pvm {
+					owner: value.owner,
+					refcount: value.refcount,
+				},
 				behaviour_version: value.behaviour_version,
 			};
 
-			assert_eq!(
-				new_value, expected,
-				"Migration failed: CodeInfo mismatch for key {:?}",
-				key
-			);
+			assert_eq!(new_value, expected, "Migration failed: CodeInfo mismatch for key {key:?}");
 		}
 
 		Ok(())
@@ -205,18 +210,19 @@ impl<T: Config> Migration<T> {
 		let migrated =
 			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
 
-		assert_eq!(
-			migrated,
-			new::CodeInfo {
+		let expected = new::CodeInfo {
+			deposit: old_code_info.deposit,
+			code_len: old_code_info.code_len,
+			bytecode_info: new::BytecodeInfo::Pvm {
 				owner: old_code_info.owner.clone(),
-				deposit: old_code_info.deposit,
 				refcount: old_code_info.refcount,
-				code_len: old_code_info.code_len,
-				behaviour_version: old_code_info.behaviour_version,
-				code_type: BytecodeType::Pvm,
 			},
-			"Migration failed: deposit mismatch for key {code_hash:?}",
-		);
+			behaviour_version: old_code_info.behaviour_version,
+		};
+
+		if migrated != expected {
+			panic!("Migration failed: deposit mismatch for key {code_hash:?}",);
+		}
 	}
 }
 

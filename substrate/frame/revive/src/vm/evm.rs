@@ -18,11 +18,12 @@
 mod instructions;
 
 use crate::{
-	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
-	LOG_TARGET,
+	storage::meter::Diff,
+	vm::{BytecodeInfo, ExecResult, Ext},
+	CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256, LOG_TARGET,
 };
 use alloc::vec::Vec;
+use codec::MaxEncodedLen;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
 use revm::{
@@ -39,18 +40,16 @@ use revm::{
 
 impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
-	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+	pub fn from_evm_init_code(code: Vec<u8>) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
 		let code_len = code.len() as u32;
 		let code_info = CodeInfo {
-			owner,
 			deposit: Default::default(),
-			refcount: 0,
 			code_len,
-			code_type: BytecodeType::Evm,
+			bytecode_info: BytecodeInfo::Evm,
 			behaviour_version: Default::default(),
 		};
 
@@ -58,21 +57,21 @@ impl<T: Config> ContractBlob<T> {
 	}
 
 	/// Create a new contract from EVM runtime code.
-	pub fn from_evm_runtime_code(
-		code: Vec<u8>,
-		owner: AccountIdOf<T>,
-	) -> Result<Self, DispatchError> {
+	pub fn from_evm_runtime_code(code: Vec<u8>) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
 		let code_len = code.len() as u32;
+		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
+		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
+			.update_contract::<T>(None)
+			.charge_or_zero();
+
 		let code_info = CodeInfo {
-			owner,
-			deposit: super::calculate_code_deposit::<T>(code_len),
-			refcount: 1,
+			deposit,
 			code_len,
-			code_type: BytecodeType::Evm,
+			bytecode_info: BytecodeInfo::Evm,
 			behaviour_version: Default::default(),
 		};
 

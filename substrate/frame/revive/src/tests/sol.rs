@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::{
-	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
@@ -44,7 +43,6 @@ fn basic_evm_flow_works() {
 		ensure_stored(contract.code_hash);
 		let deposit = contract_base_deposit(&addr);
 		assert_eq!(contract.total_deposit(), deposit);
-		assert_refcount!(contract.code_hash, 1);
 
 		// init code is not stored
 		assert!(!PristineCode::<Test>::contains_key(init_hash));

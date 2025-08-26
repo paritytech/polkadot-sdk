@@ -27,18 +27,13 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
-	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
+	AccountIdOf, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
 	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
-};
+use frame_support::{dispatch::DispatchResult, traits::fungible::MutateHold};
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -57,39 +52,37 @@ pub struct ContractBlob<T: Config> {
 	code_hash: H256,
 }
 
-#[derive(
-	PartialEq, Eq, Debug, Copy, Clone, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo,
-)]
-pub enum BytecodeType {
-	/// The code is a PVM bytecode.
-	Pvm,
-	/// The code is an EVM bytecode.
+/// Bytecode information including type-specific ownership data
+#[derive(Clone, Encode, Decode, Debug, PartialEq, Eq, scale_info::TypeInfo, MaxEncodedLen)]
+#[codec(mel_bound())]
+#[scale_info(skip_type_params(T))]
+pub enum BytecodeInfo<T: Config> {
+	/// PVM bytecode with ownership and refcount tracking
+	Pvm {
+		/// The account that has uploaded the contract code and hence is allowed to remove it.
+		owner: AccountIdOf<T>,
+		/// The number of instantiated contracts that use this as their code.
+		#[codec(compact)]
+		refcount: u64,
+	},
+	/// EVM bytecode
 	Evm,
 }
 
-/// Contract code related data, such as:
-///
-/// - owner of the contract, i.e. account uploaded its code,
-/// - storage deposit amount,
-/// - reference count,
+/// Contract code related data.
 ///
 /// It is stored in a separate storage entry to avoid loading the code when not necessary.
 #[derive(Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct CodeInfo<T: Config> {
-	/// The account that has uploaded the contract code and hence is allowed to remove it.
-	owner: AccountIdOf<T>,
 	/// The amount of balance that was deposited by the owner in order to store it on-chain.
 	#[codec(compact)]
 	deposit: BalanceOf<T>,
-	/// The number of instantiated contracts that use this as their code.
-	#[codec(compact)]
-	refcount: u64,
 	/// Length of the code in bytes.
 	code_len: u32,
-	/// Bytecode type
-	code_type: BytecodeType,
+	/// Bytecode information (type + ownership data for PVM)
+	bytecode_info: BytecodeInfo<T>,
 	/// The behaviour version that this contract operates under.
 	///
 	/// Whenever any observeable change (with the exception of weights) are made we need
@@ -98,14 +91,6 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
-}
-
-/// Calculate the deposit required for storing code and its metadata.
-pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
-	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-	Diff { bytes_added, items_added: 2, ..Default::default() }
-		.update_contract::<T>(None)
-		.charge_or_zero()
 }
 
 impl ExportedFunction {
@@ -118,6 +103,14 @@ impl ExportedFunction {
 	}
 }
 
+/// The bytecode type, either PVM or EVM
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, Copy)]
+pub enum BytecodeType {
+	Pvm,
+	Evm,
+}
+
 /// Cost of code loading from storage.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
@@ -128,7 +121,11 @@ struct CodeLoadToken {
 
 impl CodeLoadToken {
 	fn from_code_info<T: Config>(code_info: &CodeInfo<T>) -> Self {
-		Self { code_len: code_info.code_len, code_type: code_info.code_type }
+		let code_type = match &code_info.bytecode_info {
+			BytecodeInfo::Pvm { .. } => BytecodeType::Pvm,
+			BytecodeInfo::Evm => BytecodeType::Evm,
+		};
+		Self { code_len: code_info.code_len, code_type }
 	}
 }
 
@@ -160,32 +157,12 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	/// Remove the code from storage and refund the deposit to its owner.
-	///
-	/// Applies all necessary checks before removing the code.
-	pub fn remove(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
-			if let Some(code_info) = existing {
-				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
-				ensure!(&code_info.owner == origin, BadOrigin);
-				let _ = T::Currency::release(
-					&HoldReason::CodeUploadDepositReserve.into(),
-					&code_info.owner,
-					code_info.deposit,
-					BestEffort,
-				);
-
-				*existing = None;
-				<PristineCode<T>>::remove(&code_hash);
-				Ok(())
-			} else {
-				Err(<Error<T>>::CodeNotFound.into())
-			}
-		})
-	}
-
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(
+		&mut self,
+		owner: &AccountIdOf<T>,
+		skip_transfer: bool,
+	) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
@@ -200,13 +177,13 @@ where
 
 					if !skip_transfer {
 						T::Currency::hold(
-						&HoldReason::CodeUploadDepositReserve.into(),
-						&self.code_info.owner,
-						deposit,
-					) .map_err(|err| {
-							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+							&HoldReason::CodeUploadDepositReserve.into(),
+							owner,
+							deposit,
+						).map_err(|err| {
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
-					})?;
+						})?;
 					}
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
@@ -222,24 +199,33 @@ impl<T: Config> CodeInfo<T> {
 	#[cfg(test)]
 	pub fn new(owner: T::AccountId) -> Self {
 		CodeInfo {
-			owner,
 			deposit: Default::default(),
-			refcount: 0,
 			code_len: 0,
-			code_type: BytecodeType::Pvm,
+			bytecode_info: BytecodeInfo::Pvm { owner, refcount: 0 },
 			behaviour_version: Default::default(),
 		}
 	}
 
-	/// Returns reference count of the module.
+	/// Returns reference count of the module (only for PVM).
 	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
-		self.refcount
+		match &self.bytecode_info {
+			BytecodeInfo::Pvm { refcount, .. } => *refcount,
+			BytecodeInfo::Evm => 0,
+		}
 	}
 
 	/// Returns the deposit of the module.
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
+	}
+
+	/// Returns the owner of the module (only for PVM).
+	pub fn owner(&self) -> Option<&AccountIdOf<T>> {
+		match &self.bytecode_info {
+			BytecodeInfo::Pvm { owner, .. } => Some(owner),
+			BytecodeInfo::Evm => None,
+		}
 	}
 
 	/// Returns the code length.
@@ -249,11 +235,10 @@ impl<T: Config> CodeInfo<T> {
 
 	/// Returns true if the executable is a PVM blob.
 	pub fn is_pvm(&self) -> bool {
-		matches!(self.code_type, BytecodeType::Pvm)
+		matches!(self.bytecode_info, BytecodeInfo::Pvm { .. })
 	}
 
-	/// Returns the number of times the specified contract exists on the call stack. Delegated calls
-	/// Increment the reference count of a stored code by one.
+	/// Increment the reference count of a stored code by one (PVM only).
 	///
 	/// # Errors
 	///
@@ -262,18 +247,25 @@ impl<T: Config> CodeInfo<T> {
 	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
-				info.refcount = info
-					.refcount
-					.checked_add(1)
-					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
-				Ok(())
+				match &mut info.bytecode_info {
+					BytecodeInfo::Pvm { refcount, .. } => {
+						*refcount = refcount
+							.checked_add(1)
+							.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+						Ok(())
+					},
+					BytecodeInfo::Evm => {
+						// EVM contracts don't use refcounting, so this is a no-op
+						Ok(())
+					},
+				}
 			} else {
 				Err(Error::<T>::CodeNotFound.into())
 			}
 		})
 	}
 
-	/// Decrement the reference count of a stored code by one.
+	/// Decrement the reference count of a stored code by one (PVM only).
 	///
 	/// # Note
 	///
@@ -282,11 +274,18 @@ impl<T: Config> CodeInfo<T> {
 	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
 			if let Some(info) = existing {
-				info.refcount = info
-					.refcount
-					.checked_sub(1)
-					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
-				Ok(())
+				match &mut info.bytecode_info {
+					BytecodeInfo::Pvm { refcount, .. } => {
+						*refcount = refcount
+							.checked_sub(1)
+							.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+						Ok(())
+					},
+					BytecodeInfo::Evm => {
+						// EVM contracts don't use refcounting, so this is a no-op
+						Ok(())
+					},
+				}
 			} else {
 				Err(Error::<T>::CodeNotFound.into())
 			}

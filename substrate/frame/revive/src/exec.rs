@@ -1254,11 +1254,8 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
-						data,
-						caller.account_id()?.clone(),
-					)?;
-					code_deposit = module.store_code(skip_transfer)?;
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data)?;
+					code_deposit = module.store_code(caller.account_id()?, skip_transfer)?;
 					contract_info.code_hash = *module.code_hash();
 				}
 
