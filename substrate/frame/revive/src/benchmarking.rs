@@ -2454,12 +2454,12 @@ mod benchmarks {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
-		// Initialize block
-		let _ = Pallet::<T>::on_initialize(current_block);
-
 		// Pre-populate InflightTransactions with n real transactions of input size p
 		// This isolates the on_finalize processing cost from transaction execution
 		if n > 0 {
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
 			// Create input data of size p for realistic transaction payloads
 			let input_data = vec![0x42u8; p as usize];
 			let gas_consumed = Weight::from_parts(1_000_000, 1000);
@@ -2517,9 +2517,6 @@ mod benchmarks {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
-		// Initialize block
-		let _ = Pallet::<T>::on_initialize(current_block);
-
 		// Create a single transaction with m events and d bytes of event data
 		let input_data = vec![0x42u8; 100];
 		let signed_transaction = create_signed_transaction::<T>(
@@ -2572,6 +2569,9 @@ mod benchmarks {
 
 		#[block]
 		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
 			// Measure the finalization cost with specific event/data parameters
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
