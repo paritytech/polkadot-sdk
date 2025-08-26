@@ -1495,6 +1495,12 @@ where
 						result.storage_deposit,
 					);
 
+					match tx.clone().try_into_unsigned() {
+						Ok(tx) => dummy_payload = tx.dummy_signed_payload(),
+						Err(_) =>
+							return Err(EthTransactError::Message("Invalid transaction".into())),
+					}
+
 					let dispatch_call: <T as Config>::RuntimeCall = crate::Call::<T>::eth_call {
 						dest,
 						value,
