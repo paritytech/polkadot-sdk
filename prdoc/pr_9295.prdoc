@@ -16,11 +16,11 @@ doc:
 
 crates:
   - name: rococo-runtime
-    bump: minor
+    bump: major
   - name: westend-runtime
-    bump: minor
+    bump: major
   - name: kitchensink-runtime
-    bump: minor
+    bump: major
   - name: mmr-gadget
     bump: none
   - name: mmr-rpc
@@ -32,7 +32,7 @@ crates:
   - name: pallet-staking-async-rc-runtime
     bump: minor
   - name: sp-consensus-beefy
-    bump: none
+    bump: major
   - name: sp-mmr-primitives
     bump: minor
   - name: polkadot-service
