@@ -267,6 +267,7 @@ impl Block {
 mod test {
 	use super::*;
 	use crate::evm::{Block, ReceiptInfo};
+	use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 
 	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
 		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
@@ -382,6 +383,73 @@ mod test {
 		assert_eq!(built_block.receipts_root, block.receipts_root);
 
 		let manual_hash = manual_trie_root_compute(encoded_tx.clone());
+
+		// struct IncrementalHashBuilder {
+		// 	hash_builder: HashBuilder,
+		// 	index: usize,
+
+		// 	// RLP encoded.
+		// 	first_transaction: Vec<u8>,
+		// 	// Prev transaction RLP encoded.
+		// 	prev_transaction: Vec<u8>,
+		// }
+
+		// impl IncrementalHashBuilder {
+		// 	pub fn new(first_transaction: Vec<u8>) -> Self {
+		// 		Self {
+		// 			hash_builder: HashBuilder::default(),
+		// 			index: 0,
+		// 			first_transaction,
+		// 			prev_transaction: Vec::new(),
+		// 		}
+		// 	}
+
+		// 	pub fn add_transaction(&mut self) {
+
+		// 	}
+		// }
+
+		// Incremental HashBuildup:
+		pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
+			if i > 0x7f {
+				i
+			} else if i == 0x7f || i + 1 == len {
+				0
+			} else {
+				i + 1
+			}
+		}
+
+		let mut hb = HashBuilder::default();
+		let items_len = encoded_tx.len();
+
+		let mut total_size = 0;
+		for enc in &encoded_tx {
+			total_size += enc.len();
+		}
+
+		for i in 0..items_len {
+			let index = adjust_index_for_rlp(i, items_len);
+			println!("For tx={} using index={}", i, index);
+
+			let index_buffer = alloy_consensus::private::alloy_rlp::encode_fixed_size(&index);
+
+			// value_buffer.clear();
+			// encode(&items[index], &mut value_buffer);
+
+			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded_tx[index]);
+
+			// Each mask in these vectors holds a u16.
+			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
+			let size = hb.key.len() +
+				hb.value.as_slice().len() +
+				hb.stack.len() * 33 +
+				masks_len + hb.rlp_buf.len();
+
+			println!(" HB size is: {:?} vs total {:?}", size, total_size);
+		}
+		let manual_hash_2: H256 = hb.root().0.into();
+
 		println!("Manual Hash: {:?}", manual_hash);
 		println!("Built block Hash: {:?}", built_block.transactions_root);
 		println!("Real Block Tx Hash: {:?}", block.transactions_root);
