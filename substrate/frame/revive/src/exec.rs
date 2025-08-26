@@ -270,20 +270,6 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		salt: Option<&[u8; 32]>,
 	) -> Result<H160, ExecError>;
 
-	// /// Instantiate a contract from the given bytecode.
-	// ///
-	// /// Returns the original code size of the called contract.
-	// /// The newly created account will be associated with `code`. `value` specifies the amount of
-	// /// value transferred from the caller to the newly created account.
-	// fn instantiate_with_code(
-	// 	&mut self,
-	// 	gas_limit: Weight,
-	// 	deposit_limit: U256,
-	// 	code: Vec<u8>,
-	// 	value: U256,
-	// 	input_data: Vec<u8>,
-	// 	salt: Option<&[u8; 32]>,
-	// ) -> Result<H160, ExecError>;
 }
 
 /// Environment functions which are available to all pre-compiles.
