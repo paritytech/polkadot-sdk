@@ -6739,8 +6739,8 @@ dependencies = [
  "sp-version",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
- "subxt 0.41.0",
- "subxt-signer 0.41.0",
+ "subxt 0.43.0",
+ "subxt-signer 0.43.0",
  "thiserror 1.0.69",
  "thousands",
  "westend-runtime",
@@ -13217,7 +13217,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0",
  "substrate-bn",
- "subxt-signer 0.41.0",
+ "subxt-signer 0.43.0",
 ]
 
 [[package]]
@@ -13252,8 +13252,8 @@ dependencies = [
  "static_init",
  "substrate-cli-test-utils",
  "substrate-prometheus-endpoint",
- "subxt 0.41.0",
- "subxt-signer 0.41.0",
+ "subxt 0.43.0",
+ "subxt-signer 0.43.0",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -16054,7 +16054,7 @@ dependencies = [
  "substrate-frame-rpc-system",
  "substrate-prometheus-endpoint",
  "substrate-state-trie-migration-rpc",
- "subxt-metadata 0.41.0",
+ "subxt-metadata 0.43.0",
  "tokio",
  "wait-timeout",
 ]
@@ -20776,7 +20776,7 @@ dependencies = [
  "sp-state-machine",
  "sp-version",
  "sp-wasm-interface 20.0.0",
- "subxt 0.41.0",
+ "subxt 0.43.0",
  "thiserror 1.0.69",
 ]
 
@@ -24420,7 +24420,7 @@ dependencies = [
  "sp-keyring",
  "staging-node-inspect",
  "substrate-cli-test-utils",
- "subxt-signer 0.41.0",
+ "subxt-signer 0.43.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -25412,7 +25412,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ba7494d250d65dc3439365ac5e8e0fbb9c3992e6e84b7aa01d69e082249b8b8"
 dependencies = [
  "derive-where",
- "finito",
  "frame-metadata 20.0.0",
  "futures",
  "hex",
@@ -25425,7 +25424,6 @@ dependencies = [
  "subxt-core 0.41.0",
  "subxt-lightclient 0.41.0",
  "thiserror 2.0.16",
- "tokio",
  "tokio-util",
  "tracing",
  "url",
@@ -25438,6 +25436,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25de7727144780d780a6a7d78bbfd28414b8adbab68b05e87329c367d7705be4"
 dependencies = [
  "derive-where",
+ "finito",
  "frame-metadata 23.0.0",
  "futures",
  "hex",
@@ -25450,6 +25449,7 @@ dependencies = [
  "subxt-core 0.43.0",
  "subxt-lightclient 0.43.0",
  "thiserror 2.0.16",
+ "tokio",
  "tokio-util",
  "tracing",
  "url",
@@ -25492,11 +25492,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a9bd240ae819f64ac6898d7ec99a88c8b838dba2fb9d83b843feb70e77e34c8"
 dependencies = [
  "base64 0.22.1",
+ "bip32",
  "bip39",
  "cfg-if",
  "crypto_secretbox",
  "hex",
  "hmac 0.12.1",
+ "keccak-hash",
  "parity-scale-codec",
  "pbkdf2",
  "regex",
