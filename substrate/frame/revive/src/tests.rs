@@ -366,7 +366,7 @@ impl Config for Test {
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type DefaultChainId = DefaultChainId;
+	type ChainId = DefaultChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 }

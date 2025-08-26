@@ -31,7 +31,7 @@ use frame_support::{
 	MAX_EXTRINSIC_DEPTH,
 };
 use scale_info::{StaticTypeInfo, TypeInfo};
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
@@ -308,7 +308,7 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		};
 
-		if chain_id.unwrap_or_default() != crate::Pallet::<Self::Config>::chain_id().into() {
+		if chain_id.unwrap_or_default() != <Self::Config as Config>::ChainId::get().into() {
 			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
 			return Err(InvalidTransaction::Call);
 		}
@@ -475,7 +475,7 @@ mod test {
 			Self {
 				tx: GenericTransaction {
 					from: Some(Account::default().address()),
-					chain_id: Some(crate::Pallet::<Test>::chain_id().into()),
+					chain_id: Some(<Test as Config>::ChainId::get().into()),
 					gas_price: Some(U256::from(GAS_PRICE)),
 					..Default::default()
 				},

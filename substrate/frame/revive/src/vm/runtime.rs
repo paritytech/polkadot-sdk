@@ -1717,7 +1717,7 @@ pub mod env {
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&U256::from(crate::Pallet::<E::T>::chain_id()).to_little_endian(),
+			&U256::from(<E::T as Config>::ChainId::get()).to_little_endian(),
 			false,
 			|_| Some(RuntimeCosts::CopyToContract(32)),
 		)?)

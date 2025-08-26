@@ -322,7 +322,7 @@ parameter_types! {
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
 	type AddressMapper = AccountId32Mapper<Self>;
-	type DefaultChainId = ConstU64<420_420_420>;
+	type ChainId = ConstU64<420_420_420>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;
 	type NativeToEthRatio = ConstU32<1_000_000>;
