@@ -72,7 +72,7 @@ use frame_support::{
 		fungible::{Inspect, Mutate, MutateHold},
 		ConstU32, ConstU64, EnsureOrigin, Get, IsType, OriginTrait, Time,
 	},
-	weights::{WeightMeter, WeightToFee},
+	weights::WeightMeter,
 	BoundedVec, RuntimeDebugNoBound,
 };
 use frame_system::{
@@ -196,10 +196,6 @@ pub mod pallet {
 		/// Describes the weights of the dispatchables of this module and is also used to
 		/// construct a default cost schedule.
 		type WeightInfo: WeightInfo;
-
-		/// Convert a length value into a deductible fee based on the currency type.
-		#[pallet::no_default]
-		type LengthToFee: WeightToFee<Balance = BalanceOf<Self>>;
 
 		/// Type that allows the runtime authors to add new host functions for a contract to call.
 		///
@@ -591,7 +587,7 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -601,7 +597,7 @@ pub mod pallet {
 	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -627,7 +623,6 @@ pub mod pallet {
 		// We need this to place the substrate block
 		// hash into the logs of the receipts.
 		T::Hash: frame_support::traits::IsType<H256>,
-		// We need these to access the ETH block gas limit via `Self::evm_block_gas_limit()`.
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -642,8 +637,6 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
-			InflightEthTxEvents::<T>::kill();
-			InflightEthTransactions::<T>::kill();
 
 			Weight::zero()
 		}
@@ -665,7 +658,6 @@ pub mod pallet {
 			} else {
 				H256::default()
 			};
-			let base_gas_price = Self::evm_base_gas_price().into();
 			let gas_limit = Self::evm_block_gas_limit();
 			// This touches the storage, must account for weights.
 			let transactions = InflightEthTransactions::<T>::take();
@@ -677,7 +669,6 @@ pub mod pallet {
 				T::Time::now().into(),
 				block_author,
 				gas_limit,
-				base_gas_price,
 			);
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
@@ -988,9 +979,8 @@ pub mod pallet {
 		/// * `data`: The input data to pass to the contract constructor.
 		/// * `salt`: Used for the address derivation. If `Some` is supplied then `CREATE2`
 		/// 	semantics are used. If `None` then `CRATE1` is used.
-		/// * `signed_transaction`: The signed Ethereum transaction, represented as
-		// 		[crate::evm::TransactionSigned], provided by the Ethereum wallet.
-		///
+		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
+		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet.
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1008,7 +998,7 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			signed_transaction: TransactionSigned,
+			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1033,7 +1023,7 @@ pub mod pallet {
 				}
 
 				Self::store_transaction(
-					signed_transaction,
+					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
 				);
@@ -1061,7 +1051,7 @@ pub mod pallet {
 			gas_limit: Weight,
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 			data: Vec<u8>,
-			signed_transaction: TransactionSigned,
+			transaction_encoded: Vec<u8>,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin.clone())?;
 
@@ -1082,7 +1072,7 @@ pub mod pallet {
 				}
 
 				Self::store_transaction(
-					signed_transaction,
+					transaction_encoded,
 					output.result.is_ok(),
 					output.gas_consumed,
 				);
@@ -1509,7 +1499,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						signed_transaction: TransactionSigned::default(),
+						transaction_encoded: TransactionSigned::default().signed_payload(),
 					}
 					.into();
 					(result, dispatch_call)
@@ -1581,7 +1571,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						signed_transaction: TransactionSigned::default(),
+						transaction_encoded: TransactionSigned::default().signed_payload(),
 					}
 					.into();
 				(result, dispatch_call)
@@ -1676,19 +1666,11 @@ where
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		// 5 MiB.
-		let length_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(5 * 1024 * 1024, 0));
-
-		Self::evm_gas_from_weight(max_block_weight).saturating_add(Self::evm_fee_to_gas(length_fee))
+		Self::evm_gas_from_weight(max_block_weight)
 	}
 
 	/// Get the gas price.
 	pub fn evm_gas_price() -> U256 {
-		GAS_PRICE.into()
-	}
-
-	/// Get the base gas price.
-	pub fn evm_base_gas_price() -> U256 {
 		GAS_PRICE.into()
 	}
 
@@ -1813,12 +1795,15 @@ impl<T: Config> Pallet<T> {
 	/// Store a transaction payload with extra details.
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
-	fn store_transaction(signed_transaction: TransactionSigned, success: bool, gas_used: Weight) {
+	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 
-		InflightEthTransactions::<T>::mutate(|transactions| {
-			transactions.push(TransactionDetails { signed_transaction, logs, success, gas_used });
+		InflightEthTransactions::<T>::append(TransactionDetails {
+			transaction_encoded,
+			logs,
+			success,
+			gas_used,
 		});
 	}
 

@@ -19,7 +19,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 alloy-consensus = { workspace = true, default-features = false }
 alloy-core = { workspace = true, features = ["sol-types"] }
-alloy-primitives = { workspace = true, default-features = false }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }

@@ -243,7 +243,7 @@ builder!(
 		gas_limit: Weight,
 		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
-		signed_transaction: TransactionSigned,
+		transaction_encoded: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthCallBuilder`] with default values.
@@ -255,7 +255,7 @@ builder!(
 			gas_limit: GAS_LIMIT,
 			storage_deposit_limit: deposit_limit::<T>(),
 			data: vec![],
-			signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
 		}
 	}
 );
@@ -268,7 +268,7 @@ builder!(
 			storage_deposit_limit: BalanceOf<T>,
 			code: Vec<u8>,
 			data: Vec<u8>,
-			signed_transaction: TransactionSigned,
+			transaction_encoded: Vec<u8>,
 	) -> DispatchResultWithPostInfo;
 
 	/// Create a [`EthInstantiateWithCodeBuilder`] with default values.
@@ -280,7 +280,7 @@ builder!(
 			storage_deposit_limit: deposit_limit::<T>(),
 			code,
 			data: vec![],
-			signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		}
 	}
 );
