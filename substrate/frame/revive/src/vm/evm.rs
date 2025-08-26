@@ -317,18 +317,21 @@ impl InputsTr for EVMInputs {
 ///
 /// This is used when converting the error returned from a subcall in order to map
 /// it to the equivalent EVM interpreter [InstructionResult].
+///
+/// Most [ExecError] variants don't map to a [InstructionResult]. The conversion is
+/// lossy and defaults to [InstructionResult::Revert] for most cases.
 fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> InstructionResult {
 	use crate::exec::ErrorOrigin::Callee;
 
+	let static_memory_too_large = Error::<E::T>::StaticMemoryTooLarge.into();
+	let code_rejected = Error::<E::T>::CodeRejected.into();
 	let transfer_failed = Error::<E::T>::TransferFailed.into();
-	let out_of_bounds = Error::<E::T>::OutOfBounds.into();
-	let out_of_gas = Error::<E::T>::OutOfGas.into();
-	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 	let duplicate_contract = Error::<E::T>::DuplicateContract.into();
 	let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
+	let out_of_bounds = Error::<E::T>::OutOfBounds.into();
 	let value_too_large = Error::<E::T>::ValueTooLarge.into();
-	let code_rejected = Error::<E::T>::CodeRejected.into();
-	let static_memory_too_large = Error::<E::T>::StaticMemoryTooLarge.into();
+	let out_of_gas = Error::<E::T>::OutOfGas.into();
+	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 
 	// errors in the callee do not trap the caller
 	match (from.error, from.origin) {
