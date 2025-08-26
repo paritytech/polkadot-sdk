@@ -6,7 +6,7 @@ doc:
     update runtime configuration accordingly
 crates:
 - name: snowbridge-inbound-queue-primitives
-  bump: minor
+  bump: major
 - name: bridge-hub-westend-runtime
   bump: minor
 - name: asset-hub-westend-runtime
