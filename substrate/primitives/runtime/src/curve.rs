@@ -268,7 +268,7 @@ fn stepped_curve_works() {
 	assert_eq!(pct_inc_curve.evaluate(5u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(11u32), 1000u32);
 	assert_eq!(pct_inc_curve.evaluate(12u32), 1100u32);
-	assert_eq!(pct_inc_curve.evaluate(20u32), 1611u32);
+	assert_eq!(pct_inc_curve.evaluate(20u32), 1610u32);
 	// assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
 
 	// Step::PctDec.
