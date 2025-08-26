@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Provides various curves and their evaluations.
+//! Provides utilities for various curves.
 
 use crate::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion},
