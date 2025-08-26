@@ -740,7 +740,11 @@ pub struct Transaction7702Unsigned {
 	/// nonce
 	pub nonce: U256,
 	/// to address
-	pub to: Option<Address>,
+	///
+	/// # Note
+	///
+	/// Extracted from eip-7702: `Note, this implies a null destination is not valid.`
+	pub to: Address,
 	/// type
 	pub r#type: TypeEip7702,
 	/// value
