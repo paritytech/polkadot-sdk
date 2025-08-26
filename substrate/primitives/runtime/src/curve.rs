@@ -60,8 +60,8 @@ pub struct SteppedCurve<P, V> {
 
 impl<P, V> SteppedCurve<P, V>
 where
-	P: AtLeast32BitUnsigned + Clone + Copy,
-	V: AtLeast32BitUnsigned + Clone + Copy + From<P>,
+	P: AtLeast32BitUnsigned + Copy,
+	V: AtLeast32BitUnsigned + Copy + From<P>,
 {
 	/// Creates a new `SteppedCurve`.
 	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
@@ -224,6 +224,13 @@ fn stepped_curve_works() {
 	assert_eq!(zero_period_curve.evaluate(11u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(12u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(20u32), 100u32);
+
+	// Curve with different types.
+	let diff_types_curve = SteppedCurve::new(10u32, None, 100u64, Step::Add(100u64), 2u32);
+	assert_eq!(diff_types_curve.evaluate(5u32), 100u64);
+	assert_eq!(diff_types_curve.evaluate(11u32), 100u64);
+	assert_eq!(diff_types_curve.evaluate(12u32), 200u64);
+	assert_eq!(diff_types_curve.evaluate(20u32), 600u64);
 
 	// Step::Add.
 	let add_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 2u32);
