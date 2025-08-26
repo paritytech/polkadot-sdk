@@ -35,7 +35,11 @@ export function derivePubkeyFrom(d: string): string {
 	const derive = sr25519CreateDerive(miniSecret);
 	const keyPair = derive(d);
 	// Convert to SS58 address using Substrate format (42)
-	return fromBufferToBase58(42)(keyPair.publicKey);
+	return ss58(keyPair.publicKey);
+}
+
+export function ss58(key: Uint8Array): string {
+	return fromBufferToBase58(42)(key);
 }
 
 export type ApiDeclarations = {

@@ -118,8 +118,8 @@
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 use core::fmt::Display;
-use frame_support::pallet_prelude::*;
-use sp_runtime::{traits::Convert, Perbill};
+use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
+use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
 use sp_staking::SessionIndex;
 use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
@@ -438,49 +438,62 @@ impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message
 where
 	Sender: SendXcm,
 	Destination: Get<Location>,
-	Message: SplittableMessage + Display + Clone + Encode,
+	Message: Clone + Encode,
 	ToXcm: Convert<Message, Xcm<()>>,
 {
 	/// Send the message single-shot; no splitting.
-	pub fn send(message: Message) -> Result<(), ()> {
+	pub fn send(message: Message) -> Result<(), SendError> {
 		let xcm = ToXcm::convert(message);
 		let dest = Destination::get();
 		// send_xcm already calls validate internally
-		send_xcm::<Sender>(dest, xcm).map_err(|_| ()).map(|_| ())
+		send_xcm::<Sender>(dest, xcm).map(|_| ())
 	}
+}
 
+impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
+where
+	Sender: SendXcm,
+	Destination: Get<Location>,
+	Message: SplittableMessage + Display + Clone + Encode,
+	ToXcm: Convert<Message, Xcm<()>>,
+{
 	/// Safe send method to send a `message`, while validating it and using [`SplittableMessage`] to
 	/// split it into smaller pieces if XCM validation fails with `ExceedsMaxMessageSize`. It will
 	/// fail on other errors.
 	///
 	/// Returns `Ok()` if the message was sent using `XCM`, potentially with splitting up to
 	/// `maybe_max_step` times, `Err(())` otherwise.
-	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) -> Result<(), ()> {
+	pub fn split_then_send(
+		message: Message,
+		maybe_max_steps: Option<u32>,
+	) -> Result<(), SendError> {
 		let message_type_name = core::any::type_name::<Message>();
 		let dest = Destination::get();
-		let xcms = match Self::prepare(message, maybe_max_steps) {
-			Ok(x) => x,
-			Err(e) => {
-				log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
-				return Err(());
-			},
-		};
+		let xcms = Self::prepare(message, maybe_max_steps).inspect_err(|e| {
+			log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+		})?;
 
-		for (idx, xcm) in xcms.into_iter().enumerate() {
-			log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
-			let result = send_xcm::<Sender>(dest.clone(), xcm);
-			match result {
-				Ok(_) => {
+		match with_transaction_opaque_err(|| {
+			let all_sent = xcms.into_iter().enumerate().try_for_each(|(idx, xcm)| {
+				log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
+				send_xcm::<Sender>(dest.clone(), xcm).map(|_| {
 					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx);
-				},
-				Err(e) => {
-					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e)
-				},
-			}
-		}
+					()
+				}).inspect_err(|e| {
+					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e);
+				})
+			});
 
-		// TODO
-		Ok(())
+			match all_sent {
+				Ok(()) => TransactionOutcome::Commit(Ok(())),
+				Err(send_err) => TransactionOutcome::Rollback(Err(send_err)),
+			}
+		}) {
+			// just like https://doc.rust-lang.org/src/core/result.rs.html#1746 which I cannot use yet because not in 1.89
+			Ok(inner) => inner,
+			// unreachable; `with_transaction_opaque_err` always returns `Ok(inner)`
+			Err(_) => Err(SendError::Transport("unreachable")),
+		}
 	}
 
 	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {

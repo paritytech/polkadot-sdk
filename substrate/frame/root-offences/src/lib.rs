@@ -165,6 +165,15 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Same as [`Pallet::create_offence`], but it reports the offence directly to a
+		/// [`Config::ReportOffence`], aka pallet-offences first.
+		///
+		/// This is useful for more accurate testing of the e2e offence processing pipeline, as it
+		/// won't skip the `pallet-offences` step.
+		///
+		/// It generates an offence of type [`TestSpamOffence`], with cas a fixed `ID`, but can have
+		/// any `time_slot`, `session_index``, and `slash_fraction`. These values are the inputs of
+		/// transaction, int the same order.
 		#[pallet::call_index(1)]
 		#[pallet::weight(0)]
 		pub fn report_offence(

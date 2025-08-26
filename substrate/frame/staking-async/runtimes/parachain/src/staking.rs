@@ -504,7 +504,7 @@ pub struct StakingXcmToRelayChain;
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
 	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
-		rc_client::XCMSender::<
+		let _ = rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			StakingXcmDestination,
 			rc_client::ValidatorSetReport<Self::AccountId>,

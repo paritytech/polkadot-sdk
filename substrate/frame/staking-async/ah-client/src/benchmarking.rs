@@ -57,7 +57,7 @@ fn setup_buffered_offences<T: Config>(n: u32) -> SessionIndex {
 	let offences_map = create_buffered_offences::<T>(session, &offenders);
 
 	// Store the buffered offences
-	BufferedOffences::<T>::mutate(|buffered| {
+	MigrationBufferedOffences::<T>::mutate(|buffered| {
 		buffered.insert(session, offences_map);
 	});
 
@@ -77,17 +77,17 @@ mod benchmarks {
 		Mode::<T>::put(OperatingMode::Active);
 
 		// Verify offences exist before processing
-		assert!(BufferedOffences::<T>::get().contains_key(&session));
+		assert!(MigrationBufferedOffences::<T>::get().contains_key(&session));
 
 		#[block]
 		{
-			Pallet::<T>::process_buffered_offences();
+			Pallet::<T>::process_migration_buffered_offences();
 		}
 
 		// Verify some offences were processed
 		// In a real scenario, either the session is gone or has fewer offences
 		let remaining_offences =
-			BufferedOffences::<T>::get().get(&session).map(|m| m.len()).unwrap_or(0);
+			MigrationBufferedOffences::<T>::get().get(&session).map(|m| m.len()).unwrap_or(0);
 		let expected_remaining = if n > T::MaxOffenceBatchSize::get() {
 			(n - T::MaxOffenceBatchSize::get()) as usize
 		} else {

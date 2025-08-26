@@ -69,6 +69,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
+use sp_runtime::SaturatedConversion;
 use sp_staking::{
 	offence::{OffenceDetails, OffenceSeverity},
 	SessionIndex,
@@ -262,6 +263,14 @@ pub mod pallet {
 		/// A safety measure that asserts an incoming validator set must be at least this large.
 		type MinimumValidatorSetSize: Get<u32>;
 
+		/// A safety measure that assets when iterating over validator points (to be sent to AH), we
+		/// don't iterate over more items than this.
+		///
+		/// Validator may change session to session, and if session reports are not sent, validator
+		/// points that we store may well grow beyond the size of the validator set. A reasonable
+		/// value is `4 x validator_set`.
+		type MaximumValidatorsWithPoints: Get<u32>;
+
 		/// A type that gives us a reliable unix timestamp.
 		type UnixTime: UnixTime;
 
@@ -402,11 +411,30 @@ pub mod pallet {
 				},
 			}
 		}
+
+		#[cfg(feature = "std")]
+		pub fn pages() -> u32 {
+			let last_page = if Self::last_page_empty() { 0 } else { 1 };
+			SendQueueCursor::<T>::get().saturating_add(last_page)
+		}
+
+		#[cfg(feature = "std")]
+		pub fn count() -> u32 {
+			let last_index = SendQueueCursor::<T>::get();
+			let last_page = SendQueueOffences::<T>::get(last_index);
+			let last_page_count = last_page.len() as u32;
+			last_index.saturating_mul(T::MaxOffenceBatchSize::get()) + last_page_count
+		}
+
+		#[cfg(feature = "std")]
+		fn last_page_empty() -> bool {
+			SendQueueOffences::<T>::get(SendQueueCursor::<T>::get()).is_empty()
+		}
 	}
 
-	pub(crate) type QueuedOffenceOf<T> =
+	pub type QueuedOffenceOf<T> =
 		(SessionIndex, rc_client::Offence<<T as frame_system::Config>::AccountId>);
-	pub(crate) type QueuedOffencePageOf<T> =
+	pub type QueuedOffencePageOf<T> =
 		BoundedVec<QueuedOffenceOf<T>, <T as Config>::MaxOffenceBatchSize>;
 
 	// we have 3 options:
@@ -489,6 +517,14 @@ pub mod pallet {
 		///
 		/// It will be retried again in the next block
 		OffenceSendFailed,
+
+		/// Some validator points didin't make it to be included in the session report. Should
+		/// never happen, and means:
+		///
+		/// * a too low of a value is assigned to [`Config::MaximumValidatorsWithPoints`]
+		/// * Those who are calling into our `RewardsReporter` likely have a bad view of the
+		///   validator set, and are spamming us.
+		ValidatorPointDropped,
 	}
 
 	#[pallet::call]
@@ -618,15 +654,19 @@ pub mod pallet {
 					if page.is_empty() {
 						return Ok(())
 					}
-					let res = T::SendToAssetHub::relay_new_offence_queued(page.into_inner());
-					match res {
+					match T::SendToAssetHub::relay_new_offence_queued(page.into_inner()) {
 						Ok(()) => Ok(()),
-						Err(()) => Err(()),
+						Err(()) => {
+							Self::deposit_event(Event::Unexpected(
+								UnexpectedKind::OffenceSendFailed,
+							));
+							Err(())
+						},
 					}
 				});
 				weight
 			} else {
-				let processing_weight = Self::process_buffered_offences();
+				let processing_weight = Self::process_migration_buffered_offences();
 				weight.saturating_add(processing_weight)
 			}
 		}
@@ -813,9 +853,17 @@ pub mod pallet {
 		}
 
 		fn do_end_session(session_index: u32) {
-			use sp_runtime::SaturatedConversion;
+			// take and delete all validator points, limited by `MaximumValidatorsWithPoints`. There
+			// should be none left after this limit.
+			let validator_points = ValidatorPoints::<T>::iter()
+				.drain()
+				.take(T::MaximumValidatorsWithPoints::get() as usize)
+				.collect::<Vec<_>>();
+			if let Some(_) = ValidatorPoints::<T>::iter().next() {
+				// not much more we can do about it...
+				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::ValidatorPointDropped))
+			}
 
-			let validator_points = ValidatorPoints::<T>::iter().drain().collect::<Vec<_>>();
 			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|id| {
 				// keep track of starting session index at which the validator set was applied.
 				ValidatorSetAppliedAt::<T>::put(session_index + 1);
@@ -825,12 +873,22 @@ pub mod pallet {
 
 			let session_report = pallet_staking_async_rc_client::SessionReport {
 				end_index: session_index,
-				validator_points,
+				validator_points: validator_points.clone(),
 				activation_timestamp,
 				leftover: false,
 			};
 
-			T::SendToAssetHub::relay_session_report(session_report);
+			match T::SendToAssetHub::relay_session_report(session_report) {
+				Ok(()) => (),
+				Err(_) => {
+					// re-insert validator points. We fully drained the map just now, so it is safe
+					// to insert all again. Nothing is there to be overwritten.
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionReportSendFailed));
+					validator_points.into_iter().for_each(|(id, points)| {
+						ValidatorPoints::<T>::insert(id, points);
+					});
+				},
+			}
 		}
 
 		fn do_reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
@@ -848,7 +906,7 @@ pub mod pallet {
 		}
 
 		/// Process buffered offences and send them to AssetHub in batches.
-		pub(crate) fn process_buffered_offences() -> Weight {
+		pub(crate) fn process_migration_buffered_offences() -> Weight {
 			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
 
 			// Process and remove offences one session at a time
@@ -894,7 +952,13 @@ pub mod pallet {
 				);
 
 				let batch_size = offences_to_send.len();
-				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send);
+				#[allow(deprecated)] // process_migration_buffered_offences will be removed post AHM
+				match T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send) {
+					Ok(()) => (),
+					Err(_) => {
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
+					}
+				}
 
 				T::WeightInfo::process_buffered_offences(batch_size as u32)
 			} else {
@@ -1026,6 +1090,9 @@ mod send_queue_tests {
 
 			// --- when empty
 
+			assert_eq!(SendQueue::<Test>::count(), 0);
+			assert_eq!(SendQueue::<Test>::pages(), 0);
+
 			// get and keep
 			hypothetically!({
 				SendQueue::<Test>::get_and_maybe_delete(|page| {
@@ -1049,6 +1116,8 @@ mod send_queue_tests {
 				SendQueue::<Test>::append(o.clone());
 			}
 			assert_eq!(status(), (0, vec![page_size / 2]));
+			assert_eq!(SendQueue::<Test>::count(), page_size / 2);
+			assert_eq!(SendQueue::<Test>::pages(), 1);
 
 			// get and keep
 			hypothetically!({
@@ -1066,6 +1135,8 @@ mod send_queue_tests {
 					Ok(())
 				});
 				assert_eq!(status(), (0, vec![]));
+				assert_eq!(SendQueue::<Test>::count(), 0);
+				assert_eq!(SendQueue::<Test>::pages(), 0);
 			});
 
 			// -------- when 1 page full
@@ -1073,6 +1144,8 @@ mod send_queue_tests {
 				SendQueue::<Test>::append(o.clone());
 			}
 			assert_eq!(status(), (0, vec![page_size]));
+			assert_eq!(SendQueue::<Test>::count(), page_size);
+			assert_eq!(SendQueue::<Test>::pages(), 1);
 
 			// get and keep
 			hypothetically!({
@@ -1095,6 +1168,8 @@ mod send_queue_tests {
 			// -------- when more than 1 page full
 			SendQueue::<Test>::append(o.clone());
 			assert_eq!(status(), (1, vec![page_size, 1]));
+			assert_eq!(SendQueue::<Test>::count(), page_size + 1);
+			assert_eq!(SendQueue::<Test>::pages(), 2);
 
 			// get and keep
 			hypothetically!({

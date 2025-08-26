@@ -97,6 +97,7 @@ impl Config for Test {
 	type AdminOrigin = frame_system::EnsureRoot<u64>;
 	type SendToAssetHub = ();
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type MaximumValidatorsWithPoints = ConstU32<128>;
 	type UnixTime = MockUnixTime;
 	type PointsPerBlock = PointsPerBlock;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;

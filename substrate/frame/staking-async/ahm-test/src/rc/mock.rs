@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::shared;
 use ah_client::OperatingMode;
 use frame::{
 	deps::sp_runtime::testing::UintAuthorityId, testing_prelude::*, traits::fungible::Mutate,
@@ -25,9 +26,8 @@ use frame_election_provider_support::{
 };
 use frame_support::traits::FindAuthor;
 use pallet_staking_async_ah_client as ah_client;
+use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
 use sp_staking::SessionIndex;
-
-use crate::shared;
 
 pub type T = Runtime;
 
@@ -43,6 +43,7 @@ construct_runtime! {
 		Staking: pallet_staking,
 		StakingAhClient: pallet_staking_async_ah_client,
 		RootOffences: pallet_root_offences,
+		Offences: pallet_offences,
 	}
 }
 
@@ -244,10 +245,16 @@ impl pallet_staking::Config for Runtime {
 	type BondingDuration = ConstU32<3>;
 }
 
+impl pallet_offences::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+	type OnOffenceHandler = StakingAhClient;
+}
+
 impl pallet_root_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = StakingAhClient;
-	type ReportOffence = ();
+	type ReportOffence = Offences;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -259,9 +266,11 @@ pub enum OutgoingMessages {
 
 parameter_types! {
 	pub static MinimumValidatorSetSize: u32 = 4;
+	pub static MaximumValidatorsWithPoints: u32 = 32;
 	pub static MaxOffenceBatchSize: u32 = 50;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
+	pub static NextAhDeliveryFails: bool = false;
 }
 
 impl LocalQueue {
@@ -287,6 +296,7 @@ impl ah_client::Config for Runtime {
 	type AssetHubOrigin = EnsureSigned<AccountId>;
 	type UnixTime = Timestamp;
 	type MinimumValidatorSetSize = MinimumValidatorSetSize;
+	type MaximumValidatorsWithPoints = MaximumValidatorsWithPoints;
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Self;
@@ -294,14 +304,25 @@ impl ah_client::Config for Runtime {
 	type Fallback = Staking;
 }
 
-use pallet_staking_async_rc_client::{self as rc_client, ValidatorSetReport};
 pub struct DeliverToAH;
+impl DeliverToAH {
+	fn ensure_delivery_guard() -> Result<(), ()> {
+		if NextAhDeliveryFails::get() {
+			NextAhDeliveryFails::set(false);
+			Err(())
+		} else {
+			Ok(())
+		}
+	}
+}
+
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((
 				System::block_number(),
@@ -326,6 +347,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 	fn relay_session_report(
 		session_report: rc_client::SessionReport<Self::AccountId>,
 	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue
 				.push((System::block_number(), OutgoingMessages::SessionReport(session_report)));
@@ -347,6 +369,7 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 	fn relay_new_offence_queued(
 		offences: Vec<(SessionIndex, pallet_staking_async_rc_client::Offence<Self::AccountId>)>,
 	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue
 				.push((System::block_number(), OutgoingMessages::OffenceReportQueued(offences)));
@@ -367,6 +390,7 @@ parameter_types! {
 	pub static SessionEventsIndex: usize = 0;
 	pub static HistoricalEventsIndex: usize = 0;
 	pub static AhClientEventsIndex: usize = 0;
+	pub static OffenceEventsIndex: usize = 0;
 }
 
 pub fn historical_events_since_last_call() -> Vec<pallet_session::historical::Event<Runtime>> {
@@ -375,6 +399,13 @@ pub fn historical_events_since_last_call() -> Vec<pallet_session::historical::Ev
 	>();
 	let seen = HistoricalEventsIndex::get();
 	HistoricalEventsIndex::set(all.len());
+	all.into_iter().skip(seen).collect()
+}
+
+pub fn offence_events_since_last_call() -> Vec<pallet_offences::Event> {
+	let all = frame_system::Pallet::<Runtime>::read_events_for_pallet::<pallet_offences::Event>();
+	let seen = OffenceEventsIndex::get();
+	OffenceEventsIndex::set(all.len());
 	all.into_iter().skip(seen).collect()
 }
 
