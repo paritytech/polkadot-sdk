@@ -22,9 +22,11 @@ crates:
   - name: kitchensink-runtime
     bump: minor
   - name: mmr-gadget
+    bump: none
+  - name: mmr-rpc
     bump: minor
   - name: pallet-beefy
-    bump: minor
+    bump: major
   - name: pallet-beefy-mmr
     bump: patch
   - name: pallet-staking-async-rc-runtime
