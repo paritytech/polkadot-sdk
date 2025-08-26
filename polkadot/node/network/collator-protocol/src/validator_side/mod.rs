@@ -62,14 +62,16 @@ use super::{modify_reputation, tick_stream, LOG_TARGET};
 
 mod claim_queue_state;
 mod collation;
-mod error;
+pub mod error;
 mod metrics;
 
 use claim_queue_state::ClaimQueueState;
+pub use claim_queue_state::PerLeafClaimQueueState;
+pub use collation::BlockedCollationId;
 use collation::{
-	fetched_collation_sanity_check, BlockedCollationId, CollationEvent, CollationFetchError,
-	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
-	PendingCollationFetch, ProspectiveCandidate,
+	fetched_collation_sanity_check, CollationEvent, CollationFetchError, CollationFetchRequest,
+	CollationStatus, Collations, FetchedCollation, PendingCollation, PendingCollationFetch,
+	ProspectiveCandidate,
 };
 use error::{Error, FetchError, Result, SecondingError};
 
@@ -337,7 +339,7 @@ impl PeerData {
 #[derive(Debug)]
 struct GroupAssignments {
 	/// Current assignments.
-	current: Vec<ParaId>,
+	current: VecDeque<ParaId>,
 }
 
 struct PerRelayParent {
@@ -524,8 +526,8 @@ where
 		}
 	}
 
-	let assignment = GroupAssignments { current: assigned_paras.into_iter().collect() };
-	let collations = Collations::new(&assignment.current);
+	let assignment = GroupAssignments { current: assigned_paras };
+	let collations = Collations::new(assignment.current.iter());
 
 	Ok(Some(PerRelayParent {
 		assignment,
@@ -627,7 +629,7 @@ async fn note_good_collation(
 }
 
 /// Notify a collator that its collation got seconded.
-async fn notify_collation_seconded(
+pub async fn notify_collation_seconded(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	peer_id: PeerId,
 	version: CollationVersion,
@@ -1074,11 +1076,13 @@ fn ensure_seconding_limit_is_respected(
 					.current,
 			);
 			for _ in 0..seconded_and_pending {
-				cq_state.claim_at(ancestor, &para_id);
+				// It doesn't matter which type of claim we make for the purposes of this subsystem
+				// (pending or seconded).
+				cq_state.claim_pending_at(ancestor, &para_id, None);
 			}
 		}
 
-		if cq_state.can_claim_at(relay_parent, &para_id) {
+		if cq_state.can_claim_at(relay_parent, &para_id, None) {
 			gum::trace!(
 				target: LOG_TARGET,
 				?relay_parent,
@@ -1777,7 +1781,7 @@ async fn dequeue_next_collation_and_fetch<Context>(
 	}
 }
 
-async fn request_persisted_validation_data<Sender>(
+pub async fn request_persisted_validation_data<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
 	para_id: ParaId,
@@ -1798,7 +1802,7 @@ where
 	.map_err(SecondingError::RuntimeApi)
 }
 
-async fn request_prospective_validation_data<Sender>(
+pub async fn request_prospective_validation_data<Sender>(
 	sender: &mut Sender,
 	candidate_relay_parent: Hash,
 	parent_head_data_hash: Hash,
@@ -1851,7 +1855,12 @@ async fn kick_off_seconding<Context>(
 	};
 
 	// Sanity check of the candidate receipt version.
-	descriptor_version_sanity_check(candidate_receipt.descriptor(), per_relay_parent)?;
+	descriptor_version_sanity_check(
+		candidate_receipt.descriptor(),
+		per_relay_parent.v2_receipts,
+		per_relay_parent.current_core,
+		per_relay_parent.session_index,
+	)?;
 
 	let collations = &mut per_relay_parent.collations;
 
@@ -2128,7 +2137,7 @@ async fn handle_collation_fetch_response(
 // Returns the claim queue without fetched or pending advertisement. The resulting `Vec` keeps the
 // order in the claim queue so the earlier an element is located in the `Vec` the higher its
 // priority is.
-fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<Vec<ParaId>> {
+fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result<VecDeque<ParaId>> {
 	let relay_parent_state = state
 		.per_relay_parent
 		.get(relay_parent)
@@ -2153,7 +2162,9 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 			for para_id in &scheduled_paras {
 				let seconded_and_pending = state.seconded_and_pending_for_para(&ancestor, &para_id);
 				for _ in 0..seconded_and_pending {
-					cq_state.claim_at(&ancestor, &para_id);
+					// It doesn't matter which type of claim we make for the purposes of this
+					// subsystem (pending or seconded).
+					cq_state.claim_pending_at(ancestor, &para_id, None);
 				}
 			}
 		}
@@ -2167,7 +2178,7 @@ fn unfulfilled_claim_queue_entries(relay_parent: &Hash, state: &State) -> Result
 	// 3rd spot from the claim queue but it should be good enough.
 	let unfulfilled_entries = claim_queue_states
 		.iter_mut()
-		.map(|cq| cq.unclaimed_at(relay_parent))
+		.map(|cq| cq.get_free_at(relay_parent))
 		.max_by(|a, b| a.len().cmp(&b.len()))
 		.unwrap_or_default();
 
@@ -2226,27 +2237,26 @@ fn get_next_collation_to_fetch(
 }
 
 // Sanity check the candidate descriptor version.
-fn descriptor_version_sanity_check(
+pub fn descriptor_version_sanity_check(
 	descriptor: &CandidateDescriptorV2,
-	per_relay_parent: &PerRelayParent,
+	v2_receipts: bool,
+	current_core: CoreIndex,
+	current_session_index: SessionIndex,
 ) -> std::result::Result<(), SecondingError> {
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
-		CandidateDescriptorVersion::V2 if per_relay_parent.v2_receipts => {
+		CandidateDescriptorVersion::V2 if v2_receipts => {
 			if let Some(core_index) = descriptor.core_index() {
-				if core_index != per_relay_parent.current_core {
-					return Err(SecondingError::InvalidCoreIndex(
-						core_index.0,
-						per_relay_parent.current_core.0,
-					))
+				if core_index != current_core {
+					return Err(SecondingError::InvalidCoreIndex(core_index.0, current_core.0))
 				}
 			}
 
 			if let Some(session_index) = descriptor.session_index() {
-				if session_index != per_relay_parent.session_index {
+				if session_index != current_session_index {
 					return Err(SecondingError::InvalidSessionIndex(
 						session_index,
-						per_relay_parent.session_index,
+						current_session_index,
 					))
 				}
 			}
