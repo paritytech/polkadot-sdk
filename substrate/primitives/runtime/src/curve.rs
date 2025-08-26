@@ -83,7 +83,7 @@ where
 		}
 
 		// Determine the effective point for calculation, capped by the end point if it exists.
-		let effective_point = self.end.map_or(point.clone(), |e| point.min(e));
+		let effective_point = self.end.map_or(point, |e| point.min(e));
 
 		// Calculate how many full periods have passed, capped by usize.
 		let num_periods = (effective_point - self.start) / self.period;
