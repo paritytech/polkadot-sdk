@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Stepped Curve Primitive
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a stepped curve primitive for constructing stepped curves and evaluating them at points.
+
+crates:
+- name: sp-runtime
+  bump: minor
