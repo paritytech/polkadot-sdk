@@ -144,10 +144,7 @@ where
 
 		let (ticket, fee) =
 			validate_send::<XcmSender>(AssetHubLocation::get(), xcm).map_err(|_| XcmSendFailure)?;
-		XcmExecutor::charge_fees(relayer.clone(), fee).map_err(|e| {
-			log::error!(target: "rewards", "error is {:?}.", e);
-			ChargeFeesFailure
-		})?;
+		XcmExecutor::charge_fees(relayer.clone(), fee).map_err(|_| ChargeFeesFailure)?;
 		XcmSender::deliver(ticket).map_err(|_| XcmSendFailure)?;
 
 		Ok(())
