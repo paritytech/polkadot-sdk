@@ -17,11 +17,10 @@
 
 mod instructions;
 use crate::{
-	precompiles::{All as AllPrecompiles, Precompiles},
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, BalanceOf, Code, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, Pallet, RuntimeCosts, H256, LOG_TARGET, U256,
+	ExecReturnValue, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
@@ -146,37 +145,10 @@ fn run_call<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	call_input: Box<CallInputs>,
 ) {
-	let meter = interpreter.extend.gas_meter_mut();
-
 	let callee: H160 = if call_input.scheme.is_delegate_call() {
 		call_input.bytecode_address.0 .0.into()
 	} else {
 		call_input.target_address.0 .0.into()
-	};
-	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
-	match &precompile {
-		Some(precompile) if precompile.has_contract_info() => {
-			if meter.charge(RuntimeCosts::PrecompileWithInfoBase).is_err() {
-				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
-				return;
-			}
-		},
-		Some(_) =>
-			if meter.charge(RuntimeCosts::PrecompileBase).is_err() {
-				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
-				return;
-			},
-		None => {
-			let costs = if call_input.scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
-			} else {
-				RuntimeCosts::CallBase
-			};
-			if meter.charge(costs).is_err() {
-				interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
-				return;
-			}
-		},
 	};
 
 	let input = match &call_input.input {
@@ -186,7 +158,7 @@ fn run_call<'a, E: Ext>(
 	};
 	let call_result = match call_input.scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.extend.call(
-			Weight::from_parts(u64::MAX, u64::MAX),
+			Weight::from_parts(call_input.gas_limit, u64::MAX),
 			U256::MAX,
 			&callee,
 			U256::from_little_endian(call_input.call_value().as_le_slice()),
@@ -195,11 +167,10 @@ fn run_call<'a, E: Ext>(
 			call_input.is_static,
 		),
 		CallScheme::CallCode => {
-			interpreter.halt(revm::interpreter::InstructionResult::OpcodeNotFound);
-			return;
+			unreachable!()
 		},
 		CallScheme::DelegateCall => interpreter.extend.delegate_call(
-			Weight::from_parts(u64::MAX, u64::MAX),
+			Weight::from_parts(call_input.gas_limit, u64::MAX),
 			U256::MAX,
 			callee,
 			input,
@@ -242,19 +213,6 @@ fn run_create<'a, E: Ext>(
 	create_input: Box<CreateInputs>,
 ) {
 	let value = U256::from_little_endian(create_input.value.as_le_slice());
-	let meter = interpreter.extend.gas_meter_mut();
-
-	if meter
-		.charge(RuntimeCosts::Instantiate {
-			input_data_len: 0,
-			balance_transfer: Pallet::<E::T>::has_balance(value),
-			dust_transfer: Pallet::<E::T>::has_dust(value),
-		})
-		.is_err()
-	{
-		interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
-		return;
-	}
 
 	let salt = match create_input.scheme {
 		CreateScheme::Create => None,
@@ -267,7 +225,7 @@ fn run_create<'a, E: Ext>(
 	};
 
 	let call_result = interpreter.extend.instantiate(
-		Weight::from_parts(u64::MAX, u64::MAX),
+		Weight::from_parts(create_input.gas_limit, u64::MAX),
 		U256::MAX,
 		Code::Upload(create_input.init_code.to_vec()),
 		value,

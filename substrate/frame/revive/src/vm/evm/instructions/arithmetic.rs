@@ -109,7 +109,7 @@ pub fn mulmod<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn exp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let spec_id = context.interpreter.runtime_flag.spec_id();
 	popn_top!([op1], op2, context.interpreter);
-	gas_or_fail!(context.interpreter, revm_gas::exp_cost(spec_id, *op2));
+	gas_or_fail_legacy!(context.interpreter, revm_gas::exp_cost(spec_id, *op2));
 	*op2 = op1.pow(*op2);
 }
 

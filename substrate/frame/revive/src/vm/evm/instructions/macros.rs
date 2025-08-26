@@ -107,9 +107,9 @@ macro_rules! gas {
 
 /// Same as [`gas_legacy!`], but with `gas` as an option.
 #[macro_export]
-macro_rules! gas_or_fail {
+macro_rules! gas_or_fail_legacy {
 	($interpreter:expr, $gas:expr) => {
-		gas_or_fail!($interpreter, $gas, ())
+		gas_or_fail_legacy!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		match $gas {
@@ -127,7 +127,7 @@ use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
 
 /// Adapted from
 /// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
-pub fn record_memory_expansion<'a, E: Ext>(
+pub fn record_memory_expansion<E: Ext>(
 	memory: &mut MemoryGas,
 	ext: &mut E,
 	new_len: usize,

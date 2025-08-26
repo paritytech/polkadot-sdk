@@ -243,8 +243,7 @@ pub fn memory_resize<'a, E: Ext>(
 	memory_offset: U256,
 	len: usize,
 ) -> Option<usize> {
-	// Safe to cast usize to u64
-	gas_or_fail!(interpreter, revm_gas::copy_cost_verylow(len), None);
+	gas!(interpreter, RuntimeCosts::CopyFromContract(len as u32), None);
 	if len == 0 {
 		return None;
 	}

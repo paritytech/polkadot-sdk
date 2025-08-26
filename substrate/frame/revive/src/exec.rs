@@ -1823,7 +1823,7 @@ where
 				}
 				E::from_bytecode(bytecode.clone(), sender.clone())?
 			},
-			Code::Existing(hash) => E::from_storage(hash.clone(), self.gas_meter_mut())?,
+			Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
 		};
 		let executable = self.push_frame(
 			FrameArgs::Instantiate {

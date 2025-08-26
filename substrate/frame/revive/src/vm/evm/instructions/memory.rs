@@ -32,7 +32,7 @@ use revm::{
 pub fn mload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], top, context.interpreter);
-	let offset = as_usize_or_fail!(context.interpreter, top);
+	let offset: usize = as_usize_or_fail!(context.interpreter, top);
 	resize_memory!(context.interpreter, offset, 32);
 	*top =
 		U256::try_from_be_slice(context.interpreter.memory.slice_len(offset, 32).as_ref()).unwrap()
@@ -78,7 +78,7 @@ pub fn mcopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	// Into usize or fail
 	let len = as_usize_or_fail!(context.interpreter, len);
 	// Deduce gas
-	gas_or_fail!(context.interpreter, revm_gas::copy_cost_verylow(len));
+	gas_or_fail_legacy!(context.interpreter, revm_gas::copy_cost_verylow(len));
 	if len == 0 {
 		return;
 	}
