@@ -14,7 +14,12 @@ contract Host {
         return size;
     }
 
-    function extcodecopy(address /* account */, uint256 /* destOffset */, uint256 /* offset */, uint256 size) public pure returns (bytes memory) {
+    function extcodecopy(
+        address /* account */,
+        uint256 /* destOffset */,
+        uint256 /* offset */,
+        uint256 size
+    ) public pure returns (bytes memory) {
         bytes memory code = new bytes(size);
         return code;
     }
@@ -79,13 +84,24 @@ contract Host {
         }
     }
 
-    function log3(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3) public {
+    function log3(
+        bytes32 data,
+        bytes32 topic1,
+        bytes32 topic2,
+        bytes32 topic3
+    ) public {
         assembly {
             log3(data, 0x20, topic1, topic2, topic3)
         }
     }
 
-    function log4(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3, bytes32 topic4) public {
+    function log4(
+        bytes32 data,
+        bytes32 topic1,
+        bytes32 topic2,
+        bytes32 topic3,
+        bytes32 topic4
+    ) public {
         assembly {
             log4(data, 0x20, topic1, topic2, topic3, topic4)
         }

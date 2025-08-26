@@ -16,12 +16,11 @@ contract Caller {
         bytes memory _data,
         uint _gas
     ) external returns (bool success, bytes memory output) {
-        (success, output) = _callee.delegatecall{gas: _gas}(
-            _data
-        );
+        (success, output) = _callee.delegatecall{gas: _gas}(_data);
     }
 
-    function staticCall( // Don't rename to `static` (it's a Rust keyword).
+    function staticCall(
+        // Don't rename to `static` (it's a Rust keyword).
         address _callee,
         bytes memory _data,
         uint _gas
@@ -29,8 +28,7 @@ contract Caller {
         (success, output) = _callee.staticcall{gas: _gas}(_data);
     }
 
-    function create(bytes memory initcode
-    ) external returns (address addr) {
+    function create(bytes memory initcode) external returns (address addr) {
         assembly {
             // CREATE with no value
             addr := create(0, add(initcode, 0x20), mload(initcode))
@@ -41,7 +39,9 @@ contract Caller {
         }
     }
 
-    function create2(bytes memory initcode, bytes32 salt
+    function create2(
+        bytes memory initcode,
+        bytes32 salt
     ) external returns (address addr) {
         assembly {
             // CREATE2 with no value
