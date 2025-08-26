@@ -549,10 +549,7 @@ pub mod pallet {
 
 		/// Genesis configuration for a contract account.
 		#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
-		pub struct Account<T: Config> {
-			// owner of the contract, for PVM contracts.
-			#[serde(skip_serializing_if = "Option::is_none")]
-			pub owner: Option<T::AccountId>,
+		pub struct Account {
 			/// Contrat address.
 			pub address: H160,
 			/// Contract balance.
@@ -569,14 +566,11 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config>
-	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-	{
+	pub struct GenesisConfig<T: Config> {
 		/// Genesis mapped accounts.
 		pub mapped_accounts: Vec<T::AccountId>,
 		/// Account entries (both EOAs and contracts)
-		pub accounts: Vec<genesis::Account<T>>,
+		pub accounts: Vec<genesis::Account>,
 	}
 
 	#[pallet::genesis_build]
@@ -594,8 +588,7 @@ pub mod pallet {
 				}
 			}
 
-			for genesis::Account { owner, address, balance, nonce, contract_data } in &self.accounts
-			{
+			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let Ok(balance_with_dust) =
 					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(*balance).inspect_err(|err| {
 						log::error!(target: LOG_TARGET, "Failed to convert balance for {address:?}: {err:?}");
@@ -622,7 +615,7 @@ pub mod pallet {
 						let blob = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
 							ContractBlob::<T>::from_pvm_code(
 								code.clone(),
-								owner.clone().unwrap_or(Pallet::<T>::checking_account()),
+								Pallet::<T>::checking_account(),
 							)
 						} else {
 							ContractBlob::<T>::from_evm_runtime_code(code.clone())

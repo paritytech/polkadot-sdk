@@ -456,7 +456,6 @@ impl Default for Origin<Test> {
 #[test]
 fn ext_builder_with_genesis_config_works() {
 	let pvm_contract = Account {
-		owner: Some(BOB),
 		address: BOB_ADDR,
 		balance: U256::from(100),
 		nonce: 42,
@@ -467,7 +466,6 @@ fn ext_builder_with_genesis_config_works() {
 	};
 
 	let evm_contract = Account {
-		owner: None,
 		address: CHARLIE_ADDR,
 		balance: U256::from(100),
 		nonce: 43,
@@ -477,13 +475,8 @@ fn ext_builder_with_genesis_config_works() {
 		}),
 	};
 
-	let eoa = Account {
-		owner: None,
-		address: ALICE_ADDR,
-		balance: U256::from(100),
-		nonce: 44,
-		contract_data: None,
-	};
+	let eoa =
+		Account { address: ALICE_ADDR, balance: U256::from(100), nonce: 44, contract_data: None };
 	ExtBuilder::default()
 		.with_genesis_config(crate::GenesisConfig::<Test> {
 			mapped_accounts: vec![EVE],
