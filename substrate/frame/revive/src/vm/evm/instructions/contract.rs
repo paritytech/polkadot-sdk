@@ -154,7 +154,7 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Message call with alternative account's code.
 ///
-/// Isn't unsupported yet. `solc` [no longer emits it since Solidity v0.3.0 in 2016]
+/// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
 /// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
 pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
