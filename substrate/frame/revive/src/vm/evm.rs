@@ -19,8 +19,8 @@ mod instructions;
 
 use crate::{
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue,
-	H256, LOG_TARGET, U256,
+	AccountIdOf, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use instructions::instruction_table;
@@ -37,10 +37,7 @@ use revm::{
 	primitives::{self, hardfork::SpecId, Address},
 };
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
+impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
