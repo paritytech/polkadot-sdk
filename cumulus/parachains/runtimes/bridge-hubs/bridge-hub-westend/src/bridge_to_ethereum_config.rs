@@ -18,9 +18,9 @@ use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
 	xcm_config::{RelayNetwork, RootLocation, TreasuryAccount, UniversalLocation, XcmConfig},
-	Balances, BridgeRelayers, EthereumInboundQueue, EthereumInboundQueueV2, EthereumOutboundQueue,
-	EthereumOutboundQueueV2, EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent,
-	TransactionByteFee,
+	Balances, BridgeRelayers, EthereumBeaconClient, EthereumInboundQueue, EthereumInboundQueueV2,
+	EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem, EthereumSystemV2, MessageQueue,
+	Runtime, RuntimeEvent, TransactionByteFee,
 };
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
@@ -34,7 +34,6 @@ use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
-use crate::EthereumBeaconClient;
 use sp_core::H160;
 use sp_runtime::{
 	traits::{ConstU32, ConstU8, Keccak256},
