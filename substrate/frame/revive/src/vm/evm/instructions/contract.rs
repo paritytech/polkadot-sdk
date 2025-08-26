@@ -38,11 +38,11 @@ use revm::{
 	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
 };
 
-// TODO: Implement correct gas handling for all instructions below
-
 /// Implements the CREATE/CREATE2 instruction.
 ///
 /// Creates a new contract with provided bytecode.
+///
+/// TODO: Implement correct gas handling for all instructions below
 pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
@@ -54,7 +54,8 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 	popn!([value, code_offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
 
-	// TODO: Introduce EthInstantiateWithCode, which shall charge also gas based on the code length
+	// TODO: We do not charge for the new code in storage. When implementing the new gas:
+	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
 	let val = crate::U256::from_little_endian(value.as_le_slice());
 	gas!(
 		context.interpreter,
@@ -96,7 +97,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Create(Box::new(CreateInputs {
-			caller: Default::default(),
+			caller: context.interpreter.extend.address().0.into(),
 			scheme,
 			value,
 			init_code: code,
