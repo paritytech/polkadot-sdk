@@ -111,11 +111,9 @@ where
 		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
-		let deposit = calculate_code_deposit::<T>(code_len);
-
 		let code_info = CodeInfo {
 			owner,
-			deposit,
+			deposit: calculate_code_deposit::<T>(code_len),
 			refcount: 0,
 			code_len,
 			code_type: BytecodeType::Pvm,

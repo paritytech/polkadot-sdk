@@ -67,11 +67,9 @@ impl<T: Config> ContractBlob<T> {
 		}
 
 		let code_len = code.len() as u32;
-		let deposit = super::calculate_code_deposit::<T>(code_len);
-
 		let code_info = CodeInfo {
 			owner,
-			deposit,
+			deposit: super::calculate_code_deposit::<T>(code_len),
 			refcount: 1,
 			code_len,
 			code_type: BytecodeType::Evm,
