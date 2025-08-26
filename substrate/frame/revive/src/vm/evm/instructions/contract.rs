@@ -153,45 +153,11 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Implements the CALLCODE instruction.
 ///
 /// Message call with alternative account's code.
+///
+/// Isn't unsupported yet. `solc` [no longer emits it since Solidity v0.3.0 in 2016]
+/// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
 pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	// CALLCODE is not supported
 	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
-	return;
-
-	/*popn!([local_gas_limit, to, value], context.interpreter);
-	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
-	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
-
-	//pop!(context.interpreter, value);
-	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
-	else {
-		return;
-	};
-
-	// TODO: Handle the cold/warm storage correctly
-	let scheme = CallScheme::CallCode;
-	let input = CallInput::SharedBuffer(input);
-
-	let Some(gas_limit) = calc_call_gas(context.interpreter, to, scheme, input.len(), value) else {
-		return;
-	};
-
-	// Call host to interact with target contract
-	context
-		.interpreter
-		.bytecode
-		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
-			input,
-			gas_limit,
-			target_address: Default::default(),
-			caller: Default::default(),
-			bytecode_address: to,
-			value: CallValue::Transfer(value),
-			scheme,
-			is_static: context.interpreter.runtime_flag.is_static(),
-			return_memory_offset,
-		}))));*/
 }
 
 /// Implements the DELEGATECALL instruction.
