@@ -180,7 +180,7 @@ impl Block {
 			})
 			.collect();
 
-		self.gas_used.saturating_add(gas_used.ref_time().into());
+		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
