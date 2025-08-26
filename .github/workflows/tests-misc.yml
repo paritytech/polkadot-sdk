@@ -372,15 +372,15 @@ jobs:
         run: brew install protobuf
       - name: install solc
         run: brew install solidity
-      - name: install resolc
+      - name: Install resolc
         run: |
-          echo "Download the resolc binary"
-          curl -L -o resolc https://github.com/paritytech/revive/releases/download/v0.3.0/resolc-universal-apple-darwin
-          chmod +x resolc
-          mkdir -p ~/.local/bin
-          mv resolc ~/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          resolc --version 
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v${{ inputs.version }}/resolc-universal-apple-darwin"
+          echo "Downloading resolc v${{ inputs.version }} from $ASSET_URL"
+          curl -Lsf --show-error -o /tmp/resolc "$ASSET_URL"
+          sudo cp /tmp/resolc /usr/local/bin/resolc
+          sudo chmod 755 /usr/local/bin/resolc
+        with:
+          version: 0.3.0        
       - name: cargo info
         run: |
           echo "######## rustup show ########"

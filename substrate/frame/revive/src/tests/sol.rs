@@ -29,7 +29,7 @@ use crate::{
 		test_utils::{ensure_stored, get_contract_checked},
 		ExtBuilder, Test,
 	},
-	Code, Config,
+	Code, Config, PristineCode,
 };
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
@@ -83,5 +83,70 @@ fn basic_evm_flow_works() {
 			)
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+	});
+}
+
+#[test]
+fn basic_evm_flow_tracing_works() {
+	use crate::{
+		evm::{CallTrace, CallTracer, CallType},
+		test_utils::ALICE_ADDR,
+		tracing::trace,
+	};
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
+		});
+
+		let contract = get_contract_checked(&addr).unwrap();
+		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
+
+		assert_eq!(
+			tracer.collect_trace().unwrap(),
+			CallTrace {
+				from: ALICE_ADDR,
+				call_type: CallType::Create2,
+				to: addr,
+				input: code.into(),
+				output: runtime_code.into_inner().into(),
+				value: Some(crate::U256::zero()),
+				..Default::default()
+			}
+		);
+
+		let mut call_tracer = CallTracer::new(Default::default(), |_| crate::U256::zero());
+		let result = trace(&mut call_tracer, || {
+			builder::bare_call(addr)
+				.data(
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+
+		assert_eq!(
+			U256::from(55u32),
+			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
+		);
+
+		assert_eq!(
+			call_tracer.collect_trace().unwrap(),
+			CallTrace {
+				call_type: CallType::Call,
+				from: ALICE_ADDR,
+				to: addr,
+				input: Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+					.abi_encode()
+					.into(),
+				output: result.data.into(),
+				value: Some(crate::U256::zero()),
+				..Default::default()
+			},
+		);
 	});
 }
