@@ -191,48 +191,41 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	match write_outcome {
-		WriteOutcome::New => {
-			gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: 0, new_bytes: 32 });
-		},
-		WriteOutcome::Overwritten(overwritten_bytes) => {
-			gas!(
-				context.interpreter,
-				RuntimeCosts::SetStorage { old_bytes: overwritten_bytes, new_bytes: 32 }
-			);
-		},
-		WriteOutcome::Taken(_) => {
-			gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: 32, new_bytes: 32 });
-		},
-	}
+	gas!(context.interpreter, RuntimeCosts::SetStorage { old_bytes: write_outcome.old_len(), new_bytes: 32 });
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
-	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
 	popn!([index, value], context.interpreter);
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-	let _write_outcome = context.interpreter.extend.set_transient_storage(
+	let write_outcome = context.interpreter.extend.set_transient_storage(
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old,
 	);
 
-	// TODO: decide if we need to handle this outcome
-	// Does it matter if the value was new or overwritten?
+	match write_outcome {
+		Ok(write_outcome) => {
+			gas!(context.interpreter, RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: write_outcome.old_len() });
+		}
+		Err(err) => {
+			log::debug!(target: LOG_TARGET, "Transient storage write failed: {:?}", err);
+			context.interpreter.halt(InstructionResult::FatalExternalError);
+		}
+	}
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Load value from transient storage
 pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, gas::WARM_STORAGE_READ_COST);
 
 	popn_top!([], index, context.interpreter);
+	gas!(context.interpreter, RuntimeCosts::GetTransientStorage( 32 ));
 
 	let key = Key::Fix(index.to_be_bytes());
 	let bytes = context.interpreter.extend.get_transient_storage(&key);
