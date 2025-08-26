@@ -220,14 +220,6 @@ impl<T: Config> CodeInfo<T> {
 		self.deposit
 	}
 
-	/// Returns the owner of the module (only for PVM).
-	pub fn owner(&self) -> Option<&AccountIdOf<T>> {
-		match &self.bytecode_info {
-			BytecodeInfo::Pvm { owner, .. } => Some(owner),
-			BytecodeInfo::Evm => None,
-		}
-	}
-
 	/// Returns the code length.
 	pub fn code_len(&self) -> u64 {
 		self.code_len.into()
