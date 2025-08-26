@@ -28,8 +28,8 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -47,7 +47,7 @@ use sp_runtime::DispatchError;
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct ContractBlob<T: Config> {
-	code: CodeVec,
+	code: Vec<u8>,
 	// This isn't needed for contract execution and is not stored alongside it.
 	#[codec(skip)]
 	code_info: CodeInfo<T>,
@@ -201,7 +201,7 @@ where
 					}
 
 					self.code_info.refcount = 0;
-					<PristineCode<T>>::insert(code_hash, &self.code);
+					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
 					Ok(deposit)
 				},
@@ -311,7 +311,7 @@ where
 			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
 			let inputs = EVMInputs::new(input_data);
-			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
+			let bytecode = Bytecode::new_raw(self.code.into());
 			evm::call(bytecode, ext, inputs)
 		} else {
 			Err(Error::<T>::CodeRejected.into())

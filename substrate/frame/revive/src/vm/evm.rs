@@ -19,8 +19,8 @@ mod instructions;
 
 use crate::{
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, BalanceOf, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, H256, LOG_TARGET, U256,
+	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue,
+	H256, LOG_TARGET, U256,
 };
 use alloc::vec::Vec;
 use instructions::instruction_table;
@@ -41,16 +41,28 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	/// Create a new contract from EVM code.
+	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		use revm::{bytecode::Bytecode, primitives::Bytes};
-
-		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
-
-		// Also enforce the EIP-3860 limit on initcode size.
 		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
+		Self::from_evm_code(code, owner)
+	}
+
+	/// Create a new contract from EVM runtime code.
+	pub fn from_evm_runtime_code(
+		code: Vec<u8>,
+		owner: AccountIdOf<T>,
+	) -> Result<Self, DispatchError> {
+		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+			return Err(<Error<T>>::BlobTooLarge.into());
+		}
+
+		Self::from_evm_code(code, owner)
+	}
+
+	fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		use revm::{bytecode::Bytecode, primitives::Bytes};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );

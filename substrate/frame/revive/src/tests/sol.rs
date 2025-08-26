@@ -79,7 +79,7 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Create2,
 				to: addr,
 				input: code.into(),
-				output: runtime_code.into_inner().into(),
+				output: runtime_code.into(),
 				value: Some(crate::U256::zero()),
 				..Default::default()
 			}

@@ -66,11 +66,11 @@ impl<T: Config> ContractBlob<T> {
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
 		module_config.set_allow_sbrk(false);
 		module_config.set_aux_data_size(aux_data_size);
-		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
-			.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
+		let module =
+			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+				Error::<T>::CodeRejected
+			})?;
 
 		let entry_program_counter = module
 			.exports()
