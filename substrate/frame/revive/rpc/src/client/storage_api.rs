@@ -23,7 +23,10 @@ use crate::{
 	},
 	ClientError, H160,
 };
+use sp_core::H256;
 use subxt::{storage::Storage, OnlineClient};
+
+use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -59,5 +62,38 @@ impl StorageApi {
 	pub async fn get_contract_trie_id(&self, address: &H160) -> Result<Vec<u8>, ClientError> {
 		let ContractInfo { trie_id, .. } = self.get_contract_info(address).await?;
 		Ok(trie_id.0)
+	}
+
+	/// Get the receipt data from storage.
+	pub async fn get_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
+		let query = subxt::dynamic::storage("Revive", "ReceiptInfoData", ());
+
+		let Some(info) = self.0.fetch(&query).await? else {
+			return Err(ClientError::ReceiptDataNotFound);
+		};
+		let bytes = info.into_encoded();
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+	}
+
+	/// Get the Ethereum block from storage.
+	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
+		let query = subxt::dynamic::storage("Revive", "EthereumBlock", ());
+
+		let Some(info) = self.0.fetch(&query).await? else {
+			return Err(ClientError::EthereumBlockNotFound);
+		};
+		let bytes = info.into_encoded();
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+	}
+
+	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
+		let key: subxt::dynamic::Value = number.into();
+		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
+
+		let Some(info) = self.0.fetch(&query).await? else {
+			return Err(ClientError::EthereumBlockNotFound);
+		};
+		let bytes = info.into_encoded();
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
 }
