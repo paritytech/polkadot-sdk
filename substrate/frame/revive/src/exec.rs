@@ -407,6 +407,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Convert a native balance to EVM balance.
+	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2056,6 +2059,12 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	/// Convert a native balance to EVM balance.
+	//fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
+	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256 {
+		crate::Pallet::<T>::convert_native_to_evm(value)
 	}
 }
 

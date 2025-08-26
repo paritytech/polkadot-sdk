@@ -175,6 +175,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		panic!("MockExt::last_frame_output_mut")
 	}
+
+	fn convert_native_to_evm(&self, _value: crate::BalanceOf<T>) -> U256 {
+		panic!("MockExt::convert_native_to_evm")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
