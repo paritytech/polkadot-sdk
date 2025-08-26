@@ -24,14 +24,20 @@ use crate::{
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{
-		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
+		self,
+		alloy::sol_types::{
+			sol_data::{Bool, Bytes, FixedBytes, Uint},
+			SolType,
+		},
+		run::builtin as run_builtin_precompile,
+		BenchmarkSystem, BuiltinPrecompile, ISystem,
 	},
 	storage::WriteOutcome,
 	vm::pvm,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
-use alloy_core::sol_types::SolInterface;
+use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -579,13 +585,14 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let data = result.unwrap().data;
+		let raw_data = result.unwrap().data;
+		let data = Bytes::abi_decode(&raw_data).expect("decoding failed");
 		assert_ne!(
-			data.as_slice()[20..32],
+			data.0.as_ref()[20..32],
 			[0xEE; 12],
 			"fallback suffix found where none should be"
 		);
-		assert_eq!(T::AccountId::decode(&mut data.as_slice()), Ok(account_id),);
+		assert_eq!(T::AccountId::decode(&mut data.as_ref()), Ok(account_id),);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -659,7 +666,9 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(result.unwrap().data, vec![1u8]);
+		let raw_data = result.unwrap().data;
+		let is_origin = Bool::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert!(is_origin);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -680,7 +689,9 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(result.unwrap().data, vec![1u8]);
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -719,9 +730,10 @@ mod benchmarks {
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
-		let data = result.unwrap().data;
-		let ret: Weight = Decode::decode(&mut &data[..]).unwrap();
-		assert_eq!(weight_left_after.ref_time(), ret.ref_time());
+		let raw_data = result.unwrap().data;
+		type MyTy = (Uint<64>, Uint<64>);
+		let foo = MyTy::abi_decode(&raw_data[..]).unwrap();
+		assert_eq!(weight_left_after.ref_time(), foo.0);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -861,8 +873,16 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let min = T::Currency::minimum_balance();
-		assert_eq!(result.unwrap().data, min.encode());
+		let min: U256 = crate::Pallet::<T>::convert_native_to_evm(T::Currency::minimum_balance());
+		let min =
+			crate::precompiles::alloy::primitives::aliases::U256::abi_decode(&min.to_big_endian())
+				.unwrap();
+
+		let raw_data = result.unwrap().data;
+		let returned_min =
+			crate::precompiles::alloy::primitives::aliases::U256::abi_decode(&raw_data)
+				.expect("decoding failed");
+		assert_eq!(returned_min, min);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -2034,7 +2054,13 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
+		let truth: [u8; 32] = sp_io::hashing::blake2_256(&input);
+		let truth = FixedBytes::<32>::abi_encode(&truth);
+		let truth = FixedBytes::<32>::abi_decode(&truth[..]).expect("decoding failed");
+
+		let raw_data = result.unwrap().data;
+		let ret_hash = FixedBytes::<32>::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert_eq!(truth, ret_hash);
 	}
 
 	// `n`: Input to hash in bytes
@@ -2058,7 +2084,13 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		assert_eq!(sp_io::hashing::blake2_128(&input).to_vec(), result.unwrap().data);
+		let truth: [u8; 16] = sp_io::hashing::blake2_128(&input);
+		let truth = FixedBytes::<16>::abi_encode(&truth);
+		let truth = FixedBytes::<16>::abi_decode(&truth[..]).expect("decoding failed");
+
+		let raw_data = result.unwrap().data;
+		let ret_hash = FixedBytes::<16>::abi_decode(&raw_data[..]).expect("decoding failed");
+		assert_eq!(truth, ret_hash);
 	}
 
 	// `n`: Message input length to verify in bytes.

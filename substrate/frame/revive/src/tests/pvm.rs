@@ -27,6 +27,7 @@ use crate::{
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
+	precompiles::alloy::sol_types::{sol_data::Bool, SolType},
 	storage::DeletionQueueManager,
 	test_utils::builder::Contract,
 	tests::{
@@ -3473,7 +3474,8 @@ fn call_caller_is_root() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let ret = builder::bare_call(addr).origin(RuntimeOrigin::root()).build_and_unwrap_result();
-		assert_eq!(ret.data, vec![1]);
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_root);
 	});
 }
 
@@ -3489,7 +3491,8 @@ fn call_caller_is_root_from_non_root() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let ret = builder::bare_call(addr).build_and_unwrap_result();
-		assert_eq!(ret.data, vec![0]);
+		let is_root = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(!is_root);
 	});
 }
 
@@ -3505,7 +3508,8 @@ fn call_caller_is_origin() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let ret = builder::bare_call(addr).build_and_unwrap_result();
-		assert_eq!(ret.data, vec![1]);
+		let is_origin = Bool::abi_decode(&ret.data).expect("decoding failed");
+		assert!(is_origin);
 	});
 }
 

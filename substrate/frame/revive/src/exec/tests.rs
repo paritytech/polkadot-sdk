@@ -25,6 +25,7 @@ use super::*;
 use crate::{
 	exec::ExportedFunction::*,
 	gas::GasMeter,
+	precompiles::alloy::sol_types::{sol_data::Bool, SolType},
 	test_utils::*,
 	tests::{
 		test_utils::{get_balance, place_contract, set_balance},
@@ -898,7 +899,9 @@ fn caller_is_origin_returns_proper_values() {
 				pallet_revive_uapi::solidity_selector("callerIsOrigin()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_origin = ret.unwrap().data == vec![1];
+
+		let raw_data = ret.unwrap().data;
+		let caller_is_origin = Bool::abi_decode(&raw_data).expect("decoding to bool failed");
 		assert!(caller_is_origin);
 
 		// BOB calls CHARLIE
@@ -939,7 +942,7 @@ fn root_caller_succeeds() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = ret.unwrap().data == vec![1];
+		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
 		assert!(caller_is_root);
 		exec_success()
 	});
@@ -1006,7 +1009,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = ret.unwrap().data == vec![1];
+		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
 		assert!(!caller_is_root);
 		exec_success()
 	});
@@ -1022,7 +1025,7 @@ fn root_caller_succeeds_with_consecutive_calls() {
 				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
 			)
 			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = ret.unwrap().data == vec![1];
+		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
 		assert!(caller_is_root);
 
 		// BOB calls CHARLIE.

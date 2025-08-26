@@ -21,8 +21,8 @@ use crate::{
 	vm::RuntimeCosts,
 	Config, Origin, H160,
 };
-use alloc::{vec, vec::Vec};
-use alloy_core::sol;
+use alloc::vec::Vec;
+use alloy_core::{sol, sol_types::SolValue};
 use codec::Encode;
 use core::{marker::PhantomData, num::NonZero};
 use frame_support::traits::fungible::Inspect;
@@ -70,7 +70,7 @@ sol! {
 
 		/// Returns the amount of weight left.
 		/// The data is encoded as `Weight`.
-		function weightLeft() external view returns (uint);
+		function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
 	}
 }
 
@@ -91,12 +91,12 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
-				Ok(output.to_vec())
+				Ok(output.abi_encode())
 			},
 			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
 				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
 				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
-				Ok(output.to_vec())
+				Ok(output.abi_encode())
 			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
 				use crate::address::AddressMapper;
@@ -104,7 +104,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
 				let account_id =
 					T::AddressMapper::to_account_id(&H160::from_slice(input.as_slice()));
-				Ok(account_id.encode())
+				Ok(account_id.encode().abi_encode())
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
@@ -125,15 +125,15 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 						}
 					},
 				};
-				Ok(vec![is_origin as u8])
+				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
-				let caller_is_root = match env.caller() {
+				let is_root = match env.caller() {
 					Origin::Root => true,
 					Origin::Signed(_) => false,
 				};
-				Ok(vec![caller_is_root as u8])
+				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
@@ -144,13 +144,15 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
 				let minimum_balance = T::Currency::minimum_balance();
-				let output = minimum_balance.encode();
-				Ok(output)
+				let minimum_balance_as_evm_value = env.convert_native_to_evm(minimum_balance);
+				Ok(minimum_balance_as_evm_value.to_big_endian().abi_encode())
 			},
 			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
-				let gas_left = env.gas_meter().gas_left().encode();
-				Ok(gas_left)
+				let ref_time = env.gas_meter().gas_left().ref_time();
+				let proof_size = env.gas_meter().gas_left().proof_size();
+				let res = (ref_time, proof_size);
+				Ok(res.abi_encode())
 			},
 		}
 	}
@@ -163,7 +165,11 @@ mod tests {
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
 		pallet,
-		precompiles::{tests::run_test_vectors, BuiltinPrecompile},
+		precompiles::{
+			alloy::sol_types::{sol_data::Bytes, SolType},
+			tests::run_test_vectors,
+			BuiltinPrecompile,
+		},
 		tests::{ExtBuilder, Test},
 	};
 	use codec::Decode;
@@ -188,13 +194,15 @@ mod tests {
 			let input = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
 				input: unmapped_address.0.into(),
 			});
-			let expected_fallback_account_id =
+			let raw_data =
 				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
 					.unwrap();
 
 			// then
+			let expected_fallback_account_id =
+				Bytes::abi_decode(&raw_data).expect("decoding failed");
 			assert_eq!(
-				expected_fallback_account_id[20..32],
+				expected_fallback_account_id.0.as_ref()[20..32],
 				[0xEE; 12],
 				"no fallback suffix found where one should be"
 			);
@@ -219,18 +227,19 @@ mod tests {
 			let input = ISystem::ISystemCalls::toAccountId(ISystem::toAccountIdCall {
 				input: mapped_address.0.into(),
 			});
-			let data =
+			let raw_data =
 				<System<Test>>::call(&<System<Test>>::MATCHER.base_address(), &input, &mut ext)
 					.unwrap();
 
 			// then
+			let data = Bytes::abi_decode(&raw_data).expect("decoding failed");
 			assert_ne!(
-				data.as_slice()[20..32],
+				data.0.as_ref()[20..32],
 				[0xEE; 12],
 				"fallback suffix found where none should be"
 			);
 			assert_eq!(
-				<Test as frame_system::Config>::AccountId::decode(&mut data.as_slice()),
+				<Test as frame_system::Config>::AccountId::decode(&mut data.as_ref()),
 				Ok(EVE),
 			);
 		})
