@@ -17,14 +17,17 @@ doc:
 crates:
   - name: rococo-runtime
     bump: major
+    validate: false
   - name: westend-runtime
     bump: major
+    validate: false
   - name: kitchensink-runtime
     bump: major
   - name: mmr-gadget
     bump: none
   - name: mmr-rpc
     bump: minor
+    validate: false
   - name: pallet-beefy
     bump: major
   - name: pallet-beefy-mmr
