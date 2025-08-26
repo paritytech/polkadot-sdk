@@ -13095,6 +13095,7 @@ dependencies = [
  "polkavm 0.27.0",
  "polkavm-common 0.27.0",
  "pretty_assertions",
+ "proptest",
  "rand 0.8.5",
  "rand_pcg",
  "revm",

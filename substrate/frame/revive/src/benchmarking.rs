@@ -2330,6 +2330,34 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
+	#[benchmark]
+	fn console_call_overhead_scaling(n: Linear<1, 1000>) {
+		let message = "Transaction processed successfully";
+
+		#[block]
+		{
+			for _ in 0..n {
+				let formatted = alloc::format!("{}", message);
+				prevent_optimization(formatted);
+			}
+		}
+	}
+
+	#[benchmark]
+	fn console_string_length_impact(s: Linear<1, 10000>) {
+		let long_string = "x".repeat(s as usize);
+
+		#[block]
+		{
+			let formatted = alloc::format!("{}", long_string);
+			prevent_optimization(formatted);
+		}
+	}
+
+	fn prevent_optimization<T>(value: T) {
+		core::mem::drop(value);
+	}
+
 	impl_benchmark_test_suite!(
 		Contracts,
 		crate::tests::ExtBuilder::default().build(),

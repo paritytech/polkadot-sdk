@@ -1,0 +1,72 @@
+title: 'Add console.log precompile for revive EVM contracts'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces a comprehensive console.log precompile for Substrate's revive EVM contracts framework,
+      providing full compatibility with Foundry's console.sol library for debugging and development.
+      
+      ## Key Features
+      
+      - **Complete Foundry Compatibility**: Implements all 387 console.log function signatures from forge-std
+      - **Multiple Output Channels**: Broadcasts to Substrate logs, stdout, and RPC debug buffer
+      - **Type-Safe Parameter Handling**: Supports uint256, int256, string, bool, address, and bytes1-bytes32
+      - **Efficient Gas Usage**: Charges minimal gas cost (HostFn) for console operations
+      - **Development-Focused**: Designed for debugging and testing, not production logging
+      
+      ## Address Allocation
+      
+      The console precompile is deployed at address `0x000000000000000000000000000000000000000B` 
+      (decimal 11) within the builtin precompile address range.
+      
+      ## Function Signatures Supported
+      
+      - Empty log: `log()`
+      - Single parameter: `log(uint256)`, `log(string)`, `logBytes32(bytes32)`, etc.
+      - Two parameters: `log(uint256, string)`, `log(bool, address)`, etc.
+      - Three parameters: `log(string, uint256, bool)`, etc.
+      - Four parameters: `log(address, string, bool, uint256)`, etc.
+      - Named variants: `logInt()`, `logUint()`, `logString()`, `logBool()`, `logAddress()`, `logBytes()`
+      - Fixed-size bytes: `logBytes1()` through `logBytes32()`
+      
+      ## Usage Example
+      
+      ```solidity
+      import "forge-std/console.sol";
+      
+      contract MyContract {
+          function debug() public {
+              console.log("Debug value:", 42);
+              console.log("Address:", msg.sender);
+              console.log("Multiple values:", 100, true, "test");
+          }
+      }
+      ```
+      
+      ## Output Destinations
+      
+      Console messages are broadcast to three channels:
+      1. **Substrate Logs**: Via `log::info!` with target "console"
+      2. **Standard Output**: Direct stdout printing (std feature only)
+      3. **RPC Debug Buffer**: Via `sp_io::misc::print_utf8` for RPC debugging
+      
+      ## Testing and Validation
+      
+      Includes comprehensive property-based tests using proptest to verify:
+      - All console logging operations never panic
+      - INPUT = OUTPUT invariant (logged values match input values)
+      - Gas consumption scales appropriately with input size
+      - Edge cases: empty strings, zero values, maximum values, Unicode strings
+      - All 387 function signatures from Foundry's console.sol
+      
+      ## Dependencies Added
+      
+      - `proptest = "1.5"` for property-based testing
+      - Uses existing `alloy_core::sol!` macro for type-safe ABI generation
+      
+      This implementation enables seamless debugging workflows for developers transitioning from
+      Ethereum tooling to Substrate-based EVM environments.
+
+crates:
+  - name: pallet-revive
+    bump: minor
