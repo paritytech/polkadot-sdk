@@ -626,7 +626,7 @@ mod test {
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit,
-				signed_transaction,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);
@@ -649,7 +649,7 @@ mod test {
 				data,
 				gas_limit,
 				storage_deposit_limit,
-				signed_transaction,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);
