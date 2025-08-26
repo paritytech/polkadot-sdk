@@ -2050,7 +2050,7 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		crate::Pallet::<T>::block_author()
+		Some(crate::Pallet::<T>::block_author())
 	}
 
 	fn max_value_size(&self) -> u32 {
