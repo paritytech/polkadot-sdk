@@ -647,12 +647,7 @@ pub mod pallet {
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// If we cannot fetch the block author there's nothing we can do.
 			// Finding the block author traverses the digest logs.
-			let Some(block_author) = Self::block_author() else {
-				// Drain storage in case of errors.
-				InflightEthTxEvents::<T>::kill();
-				InflightEthTransactions::<T>::kill();
-				return;
-			};
+			let block_author = Self::block_author();
 
 			// Weights are accounted for in the `on_initialize`.
 			let eth_block_num: U256 = block_number.into();
@@ -1827,23 +1822,16 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	#[cfg(not(feature = "runtime-benchmarks"))]
 	/// The address of the validator that produced the current block.
-	pub fn block_author() -> Option<H160> {
+	pub fn block_author() -> H160 {
 		use frame_support::traits::FindAuthor;
 
 		let digest = <frame_system::Pallet<T>>::digest();
 		let pre_runtime_digests = digest.logs.iter().filter_map(|d| d.as_pre_runtime());
 
-		let account_id = T::FindAuthor::find_author(pre_runtime_digests)?;
-		Some(T::AddressMapper::to_address(&account_id))
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	/// The address of the validator that produced the current block.
-	/// Block author is None when benchmarking, which is not acceptable in `on_finalize`
-	pub fn block_author() -> Option<H160> {
-		Some(H160::default())
+		T::FindAuthor::find_author(pre_runtime_digests)
+			.map(|account_id| T::AddressMapper::to_address(&account_id))
+			.unwrap_or_default()
 	}
 
 	/// Returns the code at `address`.
@@ -2030,7 +2018,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn block_author() -> Option<$crate::H160> {
-					$crate::Pallet::<Self>::block_author()
+					Some($crate::Pallet::<Self>::block_author())
 				}
 
 				fn block_gas_limit() -> $crate::U256 {
@@ -2214,7 +2202,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 					let t = tracer.as_tracing();
 
 					t.watch_address(&tx.from.unwrap_or_default());
-					t.watch_address(&$crate::Pallet::<Self>::block_author().unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author());
 					let result = trace(t, || Self::eth_transact(tx));
 
 					if let Some(trace) = tracer.collect_trace() {
