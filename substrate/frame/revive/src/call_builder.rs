@@ -418,14 +418,8 @@ impl VmBinaryModule {
 
 	// Same as [`Self::sized`] but using EVM bytecode.
 	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::{JUMPDEST, STOP};
-
-		if size == 0 {
-			return Self::new(vec![])
-		}
-
-		let mut code = vec![STOP];
-		code.extend(vec![JUMPDEST; (size - 1) as usize]);
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
 		Self::new(code)
 	}
 
