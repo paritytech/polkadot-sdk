@@ -268,6 +268,7 @@ pub mod pallet {
 		///
 		/// This is a unique identifier assigned to each blockchain network,
 		/// preventing replay attacks.
+		#[pallet::constant]
 		type ChainId: Get<u64>;
 
 		/// The ratio between the decimal representation of the native token and the ETH token.
