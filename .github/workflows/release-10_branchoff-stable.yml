@@ -74,7 +74,7 @@ jobs:
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
-            owner: paritytech
+            owner: BDevParity
 
       - name: Checkout sources
         uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.7
