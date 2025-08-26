@@ -53,6 +53,10 @@ pub struct SteppedCurve<P, V> {
 	pub step: Step<V>,
 	/// The duration of each step.
 	pub period: P,
+	/// If calculating & storing incrementally, holds the current value.
+	pub current_value: V,
+	/// If calculating & storing incrementally, holds the moment of last update.
+	pub last_step: P,
 }
 
 impl<P, V> SteppedCurve<P, V>
@@ -62,7 +66,7 @@ where
 {
 	/// Creates a new `SteppedCurve`.
 	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
-		Self { start, end, initial_value, step, period }
+		Self { start, end, initial_value, step, period}
 	}
 
 	/// Evaluate the curve at a given point.
@@ -80,18 +84,18 @@ where
 		// Determine the effective point for calculation, capped by the end point if it exists.
 		let effective_point = self.end.clone().map_or(point.clone(), |e| point.min(e));
 
-		// Calculate how many full periods have passed.
+		// Calculate how many full periods have passed, capped by u32.
 		let num_periods = (effective_point - self.start.clone()) / self.period.clone();
 		let num_periods_u32 = num_periods.clone().saturated_into::<u32>();
 
 		match self.step.clone() {
 			Step::Add(step_value) => {
-				// initial_value + num_periods * step_value.
+				// Initial_value + num_periods * step_value.
 				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
 				self.initial_value.clone().saturating_add(total_step)
 			},
 			Step::Subtract(step_value) => {
-				// initial_value - num_periods * step_value
+				// Initial_value - num_periods * step_value
 				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
 				self.initial_value.clone().saturating_sub(total_step)
 			},
