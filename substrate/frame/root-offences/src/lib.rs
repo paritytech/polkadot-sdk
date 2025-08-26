@@ -42,6 +42,7 @@ pub mod pallet {
 	use sp_staking::{offence::ReportOffence, SessionIndex};
 
 	/// Custom offence type for testing spam scenarios.
+	///
 	/// This allows creating offences with arbitrary kinds and time slots.
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo)]
 	pub struct TestSpamOffence<Offender> {
@@ -89,10 +90,12 @@ pub mod pallet {
 	{
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 		/// The offence handler provided by the runtime.
 		///
 		/// This is a way to give the offence directly to the handling system (staking, ah-client).
 		type OffenceHandler: OnOffenceHandler<Self::AccountId, IdentificationTuple<Self>, Weight>;
+
 		/// The offence report system provided by the runtime.
 		///
 		/// This is a way to give the offence to the `pallet-offences` next.
@@ -173,7 +176,7 @@ pub mod pallet {
 		///
 		/// It generates an offence of type [`TestSpamOffence`], with cas a fixed `ID`, but can have
 		/// any `time_slot`, `session_index``, and `slash_fraction`. These values are the inputs of
-		/// transaction, int the same order.
+		/// transaction, int the same order, with an `IdentiticationTuple` coming first.
 		#[pallet::call_index(1)]
 		#[pallet::weight(0)]
 		pub fn report_offence(

@@ -183,13 +183,15 @@ pub trait SendToAssetHub {
 	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
 	///
 	/// This should always be implemented by [`pallet_staking_async_rc_client::XCMSender`].
-	#[deprecated(note = "use `relay_new_offence_queued` instead")]
+	#[deprecated(
+		note = "use `relay_new_offence_paged` instead. This old API should only be used for the migration"
+	)]
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<Offence<Self::AccountId>>,
 	) -> Result<(), ()>;
 
-	fn relay_new_offence_queued(
+	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()>;
 }
@@ -211,7 +213,7 @@ impl SendToAssetHub for () {
 		unimplemented!();
 	}
 
-	fn relay_new_offence_queued(
+	fn relay_new_offence_paged(
 		_offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()> {
 		unimplemented!()
@@ -442,6 +444,8 @@ where
 	ToXcm: Convert<Message, Xcm<()>>,
 {
 	/// Send the message single-shot; no splitting.
+	///
+	/// Useful for sending messages that are already paged/chunked, so we are sure that they fit in one message.
 	pub fn send(message: Message) -> Result<(), SendError> {
 		let xcm = ToXcm::convert(message);
 		let dest = Destination::get();
@@ -806,12 +810,12 @@ pub mod pallet {
 		#[pallet::weight(
 			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
 		)]
-		pub fn relay_new_offence_queued(
+		pub fn relay_new_offence_paged(
 			origin: OriginFor<T>,
 			offences: Vec<(SessionIndex, Offence<T::AccountId>)>,
 		) -> DispatchResultWithPostInfo {
-			log!(info, "Received new batch of {} offences", offences.len());
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+			log!(info, "Received new page of {} offences", offences.len());
 
 			let mut offences_by_session =
 				alloc::collections::BTreeMap::<SessionIndex, Vec<Offence<T::AccountId>>>::new();

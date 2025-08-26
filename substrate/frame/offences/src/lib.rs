@@ -112,7 +112,6 @@ where
 	fn report_offence(reporters: Vec<T::AccountId>, offence: O) -> Result<(), OffenceError> {
 		let offenders = offence.offenders();
 		let time_slot = offence.time_slot();
-		let init_len = offenders.len();
 
 		// Go through all offenders in the offence report and find all offenders that were spotted
 		// in unique reports.
@@ -124,12 +123,6 @@ where
 			};
 
 		let offenders_count = concurrent_offenders.len() as u32;
-		log::warn!(
-			target: LOG_TARGET,
-			"reporting {:?} original offenders, {:?} of which are unique",
-			init_len,
-			offenders_count
-		);
 
 		// The amount new offenders are slashed
 		let new_fraction = offence.slash_fraction(offenders_count);

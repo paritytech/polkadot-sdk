@@ -34,8 +34,9 @@
 //!
 //! ## Outgoing Messages
 //!
-//! All outgoing messages are handled by a single trait [`SendToAssetHub`]. They match the
-//! incoming messages of the `ah-client` pallet.
+//! All outgoing messages are handled by a single trait
+//! [`pallet_staking_async_rc_client::SendToAssetHub`]. They match the incoming messages of the
+//! `ah-client` pallet.
 //!
 //! ## Local Interfaces:
 //!
@@ -263,8 +264,8 @@ pub mod pallet {
 		/// A safety measure that asserts an incoming validator set must be at least this large.
 		type MinimumValidatorSetSize: Get<u32>;
 
-		/// A safety measure that assets when iterating over validator points (to be sent to AH), we
-		/// don't iterate over more items than this.
+		/// A safety measure that asserts when iterating over validator points (to be sent to AH),
+		/// we don't iterate too many times.
 		///
 		/// Validator may change session to session, and if session reports are not sent, validator
 		/// points that we store may well grow beyond the size of the validator set. A reasonable
@@ -377,9 +378,30 @@ pub mod pallet {
 	pub type MigrationBufferedOffences<T: Config> =
 		StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
 
+	/// Wrapper struct for storing offences, and getting them back page by page.
+	///
+	/// It has only two interfaces:
+	///
+	/// * [`SendQueue::append`], to add a single offeence.
+	/// * [`SendQueue::get_and_maybe_delete`] which retrieves the last page. Depending on the
+	///   closure, it may also delete that page. The returned value is indeed
+	///   [`Config::MaxOffenceBatchSize`] or less items.
+	///
+	/// Internally, it manages `SendQueueOffences` and `SendQueueCursor`, both of which should NEVER
+	/// be used manually.
+	///
+	/// It uses [`Config::MaxOffeenceBatchSize`] as the page size.
 	pub struct SendQueue<T: Config>(core::marker::PhantomData<T>);
 
+	/// A single buffered offence in [`SendQueue`].
+	pub type QueuedOffenceOf<T> =
+		(SessionIndex, rc_client::Offence<<T as frame_system::Config>::AccountId>);
+	/// A page of buffered offences in [`SendQueue`].
+	pub type QueuedOffencePageOf<T> =
+		BoundedVec<QueuedOffenceOf<T>, <T as Config>::MaxOffenceBatchSize>;
+
 	impl<T: Config> SendQueue<T> {
+		/// Add a single offence to the queue.
 		pub fn append(o: QueuedOffenceOf<T>) {
 			let mut index = SendQueueCursor::<T>::get();
 			match SendQueueOffences::<T>::try_mutate(index, |b| b.try_push(o.clone())) {
@@ -397,6 +419,7 @@ pub mod pallet {
 			}
 		}
 
+		// Get the last page of offences, and delete it if `op` returns `Ok(())`.
 		pub fn get_and_maybe_delete(op: impl FnOnce(QueuedOffencePageOf<T>) -> Result<(), ()>) {
 			let index = SendQueueCursor::<T>::get();
 			let page = SendQueueOffences::<T>::get(index);
@@ -432,19 +455,12 @@ pub mod pallet {
 		}
 	}
 
-	pub type QueuedOffenceOf<T> =
-		(SessionIndex, rc_client::Offence<<T as frame_system::Config>::AccountId>);
-	pub type QueuedOffencePageOf<T> =
-		BoundedVec<QueuedOffenceOf<T>, <T as Config>::MaxOffenceBatchSize>;
-
-	// we have 3 options:
-	// for now, just doing a value.
-	// better would be a map, where we iterate n items every block and drain it
-	// ideal would be a paged-map as created by oliver.
+	/// Internal storage item of [`SendQueue`]. Should not be used manually.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type SendQueueOffences<T: Config> =
 		StorageMap<_, Twox64Concat, u32, QueuedOffencePageOf<T>, ValueQuery>;
+	/// Internal storage item of [`SendQueue`]. Should not be used manually.
 	#[pallet::storage]
 	pub(crate) type SendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
 
@@ -647,27 +663,27 @@ pub mod pallet {
 
 			// Check if we have any buffered offences to send
 			let migration_buffered_offences = MigrationBufferedOffences::<T>::get();
-			weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if migration_buffered_offences.is_empty() {
 				// take a page from our send queue, and actually send it.
+				weight.saturating_accrue(T::DbWeight::get().reads(2));
 				SendQueue::<T>::get_and_maybe_delete(|page| {
 					if page.is_empty() {
 						return Ok(())
 					}
-					match T::SendToAssetHub::relay_new_offence_queued(page.into_inner()) {
-						Ok(()) => Ok(()),
-						Err(()) => {
+					// send the page if not empty. If sending returns `Ok`, we delete this page.
+					T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(
+						|_| {
 							Self::deposit_event(Event::Unexpected(
 								UnexpectedKind::OffenceSendFailed,
 							));
-							Err(())
 						},
-					}
+					)
 				});
 				weight
 			} else {
-				let processing_weight = Self::process_migration_buffered_offences();
-				weight.saturating_add(processing_weight)
+				let migration_processing_weight = Self::process_migration_buffered_offences();
+				weight.saturating_add(migration_processing_weight)
 			}
 		}
 	}
@@ -859,8 +875,10 @@ pub mod pallet {
 				.drain()
 				.take(T::MaximumValidatorsWithPoints::get() as usize)
 				.collect::<Vec<_>>();
+
+			// If there were more validators than `MaximumValidatorsWithPoints`..
 			if let Some(_) = ValidatorPoints::<T>::iter().next() {
-				// not much more we can do about it...
+				// ..not much more we can do about it other than an event.
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::ValidatorPointDropped))
 			}
 
@@ -881,8 +899,6 @@ pub mod pallet {
 			match T::SendToAssetHub::relay_session_report(session_report) {
 				Ok(()) => (),
 				Err(_) => {
-					// re-insert validator points. We fully drained the map just now, so it is safe
-					// to insert all again. Nothing is there to be overwritten.
 					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionReportSendFailed));
 					validator_points.into_iter().for_each(|(id, points)| {
 						ValidatorPoints::<T>::insert(id, points);
@@ -952,15 +968,16 @@ pub mod pallet {
 				);
 
 				let batch_size = offences_to_send.len();
-				#[allow(deprecated)] // process_migration_buffered_offences will be removed post AHM
-				match T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send) {
-					Ok(()) => (),
-					Err(_) => {
-						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
-					}
-				}
 
-				T::WeightInfo::process_buffered_offences(batch_size as u32)
+				// process_migration_buffered_offences will be removed post AHM
+				#[allow(deprecated)]
+				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send).inspect_err(
+					|_| {
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
+					},
+				);
+
+				T::WeightInfo::process_migration_buffered_offences(batch_size as u32)
 			} else {
 				Weight::zero()
 			}

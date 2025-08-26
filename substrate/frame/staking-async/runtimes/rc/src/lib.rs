@@ -701,7 +701,7 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 		)
 	}
 
-	fn relay_new_offence_queued(
+	fn relay_new_offence_paged(
 		offences: Vec<ah_client::QueuedOffenceOf<Runtime>>,
 	) -> Result<(), ()> {
 		rc_client::XCMSender::<

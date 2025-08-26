@@ -69,7 +69,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn process_buffered_offences(n: Linear<1, { T::MaxOffenceBatchSize::get() }>) {
+	fn process_migration_buffered_offences(n: Linear<1, { T::MaxOffenceBatchSize::get() }>) {
 		// Setup: Create buffered offences and put pallet in Active mode
 		let session = setup_buffered_offences::<T>(n);
 

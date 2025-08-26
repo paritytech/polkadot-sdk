@@ -504,7 +504,7 @@ fn on_offence_non_validator() {
 				LocalQueue::get_since_last_call(),
 				vec![(
 					151,
-					OutgoingMessages::OffenceReportQueued(vec![(
+					OutgoingMessages::OffenceReportPaged(vec![(
 						5,
 						Offence {
 							offender: 5,
@@ -527,7 +527,7 @@ fn offences_first_queued_and_then_sent() {
 		LocalQueue::flush();
 		let _ = session_events_since_last_call();
 
-		// submit an offence for a random account
+		// submit an offence for two accounts
 		assert_ok!(pallet_root_offences::Pallet::<Runtime>::create_offence(
 			RuntimeOrigin::root(),
 			vec![(4, Perbill::from_percent(50)), (5, Perbill::from_percent(50))],
@@ -535,18 +535,18 @@ fn offences_first_queued_and_then_sent() {
 			None
 		));
 
-		// Nothing is in our local (outgoing queue yet)
+		// Nothing is in our local outgoing queue yet
 		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
 
 		// roll one block forward
 		roll_next();
 
-		// now it is set.
+		// now it is in outbox.
 		assert_eq!(
 			LocalQueue::get_since_last_call(),
 			vec![(
 				2,
-				OutgoingMessages::OffenceReportQueued(vec![
+				OutgoingMessages::OffenceReportPaged(vec![
 					(
 						0,
 						Offence {
@@ -575,6 +575,7 @@ fn offences_spam_sent_page_by_page() {
 		// flush some relevant data
 		LocalQueue::flush();
 		let _ = session_events_since_last_call();
+
 		let onchain_batch_size = MaxOffenceBatchSize::get();
 		// fill 2.5 pages worth of offecnces all at once
 		let offence_count = 5 * onchain_batch_size / 2;
@@ -614,7 +615,7 @@ fn offences_spam_sent_page_by_page() {
 		// we have set 1 message in our outbox, which is consisted of a batch of offences. First page is `onchain_batch_size / 2`
 		assert!(matches!(
 			&LocalQueue::get_since_last_call()[..],
-			[(_, OutgoingMessages::OffenceReportQueued(ref offences))] if offences.len() as u32 == onchain_batch_size / 2
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size / 2
 		));
 		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 2 * onchain_batch_size);
 		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 2);
@@ -622,16 +623,20 @@ fn offences_spam_sent_page_by_page() {
 		// To spice it up, we simulate 1 failed attempt in the next page as well. This is equivalent to the DMP queue being too busy to receive this message from us.
 		NextAhDeliveryFails::set(true);
 		roll_next();
+
+		// offence queue has not changed, we didn't send anyhting.
 		assert!(LocalQueue::get_since_last_call().is_empty());
 		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 2 * onchain_batch_size);
 		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 2);
+
+		// even to warn us is emitted
 		assert_eq!(ah_client_events_since_last_call(), vec![ah_client::Event::Unexpected(UnexpectedKind::OffenceSendFailed)]);
 
 		// Now let's make real progress again
 		roll_next();
 		assert!(matches!(
 			&LocalQueue::get_since_last_call()[..],
-			[(_, OutgoingMessages::OffenceReportQueued(ref offences))] if offences.len() as u32 == onchain_batch_size
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
 		));
 		assert_eq!(ah_client::SendQueue::<Runtime>::count(), onchain_batch_size);
 		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 1);
@@ -640,7 +645,7 @@ fn offences_spam_sent_page_by_page() {
 		roll_next();
 		assert!(matches!(
 			&LocalQueue::get_since_last_call()[..],
-			[(_, OutgoingMessages::OffenceReportQueued(ref offences))] if offences.len() as u32 == onchain_batch_size
+			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
 		));
 		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 0);
 		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 0);
@@ -682,7 +687,7 @@ fn on_offence_non_validator_and_active() {
 				LocalQueue::get_since_last_call(),
 				vec![(
 					151,
-					OutgoingMessages::OffenceReportQueued(vec![
+					OutgoingMessages::OffenceReportPaged(vec![
 						(
 							5,
 							Offence {
@@ -747,7 +752,7 @@ fn wont_disable_past_session_offence() {
 				LocalQueue::get_since_last_call(),
 				vec![(
 					241,
-					OutgoingMessages::OffenceReportQueued(vec![(
+					OutgoingMessages::OffenceReportPaged(vec![(
 						5,
 						Offence {
 							offender: 1,
@@ -806,7 +811,7 @@ fn on_offence_disable_and_re_enabled_next_set() {
 				LocalQueue::get_since_last_call(),
 				vec![(
 					151,
-					OutgoingMessages::OffenceReportQueued(vec![(
+					OutgoingMessages::OffenceReportPaged(vec![(
 						5,
 						Offence {
 							offender: 4,

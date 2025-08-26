@@ -260,8 +260,9 @@ impl pallet_root_offences::Config for Runtime {
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),
+	#[deprecated(note = "use `OffenceReportPaged` instead. Only used for migration")]
 	OffenceReport(SessionIndex, Vec<rc_client::Offence<AccountId>>),
-	OffenceReportQueued(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
+	OffenceReportPaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 parameter_types! {
@@ -318,6 +319,8 @@ impl DeliverToAH {
 
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
+
+	#[allow(deprecated)] // can be removed post AHM
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
@@ -366,17 +369,17 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 		Ok(())
 	}
 
-	fn relay_new_offence_queued(
+	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, pallet_staking_async_rc_client::Offence<Self::AccountId>)>,
 	) -> Result<(), ()> {
 		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue
-				.push((System::block_number(), OutgoingMessages::OffenceReportQueued(offences)));
+				.push((System::block_number(), OutgoingMessages::OffenceReportPaged(offences)));
 			LocalQueue::set(Some(local_queue));
 		} else {
 			let origin = crate::ah::RuntimeOrigin::root();
-			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_queued(
+			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_paged(
 				origin,
 				offences.clone(),
 			)
