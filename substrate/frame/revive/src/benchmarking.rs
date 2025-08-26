@@ -2462,7 +2462,7 @@ mod benchmarks {
 
 			// Create input data of size p for realistic transaction payloads
 			let input_data = vec![0x42u8; p as usize];
-			let gas_consumed = Weight::from_parts(1_000_000, 1000);
+			let gas_used = Weight::from_parts(1_000_000, 1000);
 
 			for _ in 0..n {
 				// Create real signed transaction with input data of size p
@@ -2473,7 +2473,15 @@ mod benchmarks {
 					input_data.clone(),
 				);
 
-				Pallet::<T>::store_transaction(signed_transaction, true, gas_consumed);
+				// Store transaction
+				// Collect inflight events emitted by this EVM transaction.
+				let logs = InflightEthTxEvents::<T>::take();
+				InflightEthTransactions::<T>::append(TransactionDetails {
+					transaction_encoded: signed_transaction,
+					logs,
+					success: true,
+					gas_used,
+				});
 			}
 		}
 
@@ -2555,17 +2563,26 @@ mod benchmarks {
 					(event_data, topics)
 				};
 
-				Pallet::<T>::deposit_event(Event::<T>::ContractEmitted {
+				// Deposit event
+				InflightEthTxEvents::<T>::append(EventLog {
 					contract: instance.address,
 					data: event_data,
-					topics,
+					topics: topics.clone(),
 				});
 			}
 		}
 
-		let gas_consumed = Weight::from_parts(1_000_000, 1000);
+		let gas_used = Weight::from_parts(1_000_000, 1000);
 
-		Pallet::<T>::store_transaction(signed_transaction, true, gas_consumed);
+		// Store transaction
+		// Collect inflight events emitted by this EVM transaction.
+		let logs = InflightEthTxEvents::<T>::take();
+		InflightEthTransactions::<T>::append(TransactionDetails {
+			transaction_encoded: signed_transaction,
+			logs,
+			success: true,
+			gas_used,
+		});
 
 		#[block]
 		{
