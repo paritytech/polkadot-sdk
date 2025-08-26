@@ -60,7 +60,7 @@ pub struct SteppedCurve<P, V> {
 
 impl<P, V> SteppedCurve<P, V>
 where
-	P: AtLeast32BitUnsigned + Clone,
+	P: AtLeast32BitUnsigned + Clone + Copy,
 	V: AtLeast32BitUnsigned + Clone + Copy + From<P>,
 {
 	/// Creates a new `SteppedCurve`.
@@ -70,45 +70,47 @@ where
 
 	/// Evaluate the curve at a given point.
 	pub fn evaluate(&self, point: P) -> V {
+		let initial = self.initial_value;
+
 		// If the point is before the curve starts, return the initial value.
 		if point < self.start {
-			return self.initial_value.clone()
+			return initial;
 		}
 
 		// If the period is zero, the value never changes.
 		if self.period.is_zero() {
-			return self.initial_value.clone()
+			return initial;
 		}
 
 		// Determine the effective point for calculation, capped by the end point if it exists.
-		let effective_point = self.end.clone().map_or(point.clone(), |e| point.min(e));
+		let effective_point = self.end.map_or(point.clone(), |e| point.min(e));
 
 		// Calculate how many full periods have passed, capped by usize.
-		let num_periods = (effective_point - self.start.clone()) / self.period.clone();
-		let num_periods_usize = num_periods.clone().saturated_into::<usize>();
+		let num_periods = (effective_point - self.start) / self.period;
+		let num_periods_usize = num_periods.saturated_into::<usize>();
 
 		if num_periods.is_zero() {
-			return self.initial_value.clone()
+			return initial;
 		}
 
-		match self.step.clone() {
+		match self.step {
 			Step::Add(step_value) => {
 				// Initial_value + num_periods * step_value.
-				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
-				self.initial_value.clone().saturating_add(total_step)
+				let total_step = step_value.saturating_mul(num_periods.saturated_into::<V>());
+				initial.saturating_add(total_step)
 			},
 			Step::Subtract(step_value) => {
 				// Initial_value - num_periods * step_value
-				let total_step = step_value.saturating_mul(num_periods.clone().saturated_into::<V>());
-				self.initial_value.clone().saturating_sub(total_step)
+				let total_step = step_value.saturating_mul(num_periods.saturated_into::<V>());
+				initial.saturating_sub(total_step)
 			},
 			Step::PctInc(percent) => {
 				// initial_value * (1 + percent) ^ num_periods
 				let mut ratio = FixedU128::from(percent);
                 ratio = FixedU128::one().saturating_add(ratio);
                 let scale = ratio.saturating_pow(num_periods_usize);
-				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
-				let res = initial.clone().saturating_mul(scale);
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+				let res = initial_fp.saturating_mul(scale);
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 			Step::PctDec(percent) => {
@@ -116,8 +118,8 @@ where
 				let mut ratio = FixedU128::from(percent);
                 ratio = FixedU128::one().saturating_sub(ratio);
                 let scale = ratio.saturating_pow(num_periods_usize);
-				let initial = FixedU128::saturating_from_integer(self.initial_value.clone());
-				let res = initial.clone().saturating_mul(scale);
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+				let res = initial_fp.saturating_mul(scale);
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 		}
