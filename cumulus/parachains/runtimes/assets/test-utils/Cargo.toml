@@ -43,6 +43,7 @@ xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-xcm-bridge-hub-router = { workspace = true }
+pallet-xcm-bridge-router = { workspace = true }
 
 [features]
 default = ["std"]
@@ -60,6 +61,7 @@ std = [
 	"pallet-session/std",
 	"pallet-timestamp/std",
 	"pallet-xcm-bridge-hub-router/std",
+	"pallet-xcm-bridge-router/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
 	"parachains-common/std",

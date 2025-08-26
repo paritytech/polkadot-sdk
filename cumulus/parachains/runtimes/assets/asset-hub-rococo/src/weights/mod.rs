@@ -41,7 +41,7 @@ pub mod pallet_transaction_payment;
 pub mod pallet_uniques;
 pub mod pallet_utility;
 pub mod pallet_xcm;
-pub mod pallet_xcm_bridge_hub_router;
+pub mod pallet_xcm_bridge_router;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod xcm;

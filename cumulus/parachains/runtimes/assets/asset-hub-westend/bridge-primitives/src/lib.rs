@@ -24,7 +24,7 @@ use bp_messages::*;
 use bp_runtime::{
 	decl_bridge_finality_runtime_apis, decl_bridge_messages_runtime_apis, Chain, ChainId, Parachain,
 };
-pub use bp_xcm_bridge_hub_router::XcmBridgeHubRouterCall;
+pub use bp_xcm_bridge_router::XcmBridgeHubCall;
 use codec::{Decode, Encode};
 use frame_support::{
 	dispatch::DispatchClass,
@@ -47,7 +47,7 @@ use xcm::latest::prelude::*;
 pub enum Call {
 	/// `ToRococoXcmRouter` bridge pallet.
 	#[codec(index = 34)]
-	ToRococoXcmRouter(XcmBridgeHubRouterCall),
+	ToRococoXcmRouter(XcmBridgeHubCall<sp_core::H256>),
 }
 
 frame_support::parameter_types! {
@@ -69,7 +69,7 @@ pub fn build_congestion_message<RuntimeCall>(
 		Transact {
 			origin_kind: OriginKind::Xcm,
 			fallback_max_weight: Some(XcmBridgeHubRouterTransactCallMaxWeight::get()),
-			call: Call::ToRococoXcmRouter(XcmBridgeHubRouterCall::report_bridge_status {
+			call: Call::ToRococoXcmRouter(XcmBridgeHubCall::update_bridge_status {
 				bridge_id,
 				is_congested,
 			})
