@@ -343,43 +343,6 @@ mod test {
 					panic!("Transaction and receipt index do not match");
 				}
 
-				use crate::TransactionSigned;
-				let transaction_encoded = tx_info.transaction_signed.signed_payload();
-
-				pub fn decode(data: &[u8]) -> Result<TransactionSigned, rlp::DecoderError> {
-					use crate::evm::*;
-
-					if data.len() < 1 {
-						return Err(rlp::DecoderError::RlpIsTooShort);
-					}
-					match data[0] {
-						TYPE_EIP2930 => {
-							println!(" TYPE_EIP2930");
-							rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into)
-						},
-						TYPE_EIP1559 => {
-							println!(" TYPE_EIP1559");
-
-							rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into)
-						},
-						TYPE_EIP4844 => {
-							println!(" TYPE_EIP4844");
-							rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into)
-						},
-						TYPE_EIP7702 => {
-							println!(" TYPE_EIP7702");
-							rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into)
-						},
-						_ => {
-							println!(" LEGACY");
-							rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
-						},
-					}
-				}
-
-				let generic_transaction = decode(&transaction_encoded).unwrap();
-				println!(" Can DECODE!\n");
-
 				TransactionDetails {
 					transaction_encoded: tx_info.transaction_signed.signed_payload(),
 					logs: receipt_info
