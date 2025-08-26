@@ -56,7 +56,7 @@ pub use weights_ext::WeightInfoExt;
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, vec, vec::Vec};
-use bounded_collections::BoundedBTreeSet;
+use bounded_collections::{BoundedBTreeSet, BoundedSlice, BoundedVec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
@@ -70,7 +70,6 @@ use frame_support::{
 		QueuePausedQuery,
 	},
 	weights::{Weight, WeightMeter},
-	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
@@ -641,17 +640,14 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn enqueue_xcmp_messages(
+	fn enqueue_xcmp_messages<'a>(
 		sender: ParaId,
-		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
+		xcms: &[BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>],
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let batches_footprints = T::XcmpQueue::get_batches_footprints(
-			sender,
-			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
-			drop_threshold,
-		);
+		let batches_footprints =
+			T::XcmpQueue::get_batches_footprints(sender, xcms.iter().copied(), drop_threshold);
 
 		let best_batch_footprint = batches_footprints.search_best_by(|batch_info| {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
@@ -670,9 +666,7 @@ impl<T: Config> Pallet<T> {
 			best_batch_footprint,
 		));
 		T::XcmpQueue::enqueue_messages(
-			xcms.iter()
-				.take(best_batch_footprint.msgs_count)
-				.map(|xcm| xcm.as_bounded_slice()),
+			xcms.iter().take(best_batch_footprint.msgs_count).copied(),
 			sender,
 		);
 
@@ -695,42 +689,62 @@ impl<T: Config> Pallet<T> {
 	///
 	/// On error returns a partial batch with all the XCMs processed before the failure.
 	/// This can happen in case of a decoding/re-encoding failure.
-	pub(crate) fn take_first_concatenated_xcm(
-		data: &mut &[u8],
+	pub(crate) fn take_first_concatenated_xcm<'a>(
+		data: &mut &'a [u8],
 		meter: &mut WeightMeter,
-	) -> Result<Option<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>, ()> {
+	) -> Result<Option<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>, ()> {
 		if data.is_empty() {
 			return Ok(None)
 		}
 
-		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
+		// Let's make sure that we can decode at least an empty xcm message.
+		let base_weight = T::WeightInfo::take_first_concatenated_xcm(0);
+		if meter.try_consume(base_weight).is_err() {
 			defensive!("Out of weight; could not decode all; dropping");
 			return Err(())
 		}
 
-		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data).map_err(
+		let input_data = &mut &data[..];
+		let mut input = codec::CountedInput::new(input_data);
+		VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut input).map_err(
 			|error| {
 				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode XCM with depth limit");
 				()
 			},
 		)?;
-		Ok(Some(xcm.encode().try_into().map_err(|error| {
-			tracing::debug!(target: LOG_TARGET, ?error, "Failed to encode XCM after decoding");
+		let (xcm_data, remaining_data) = data.split_at(input.count() as usize);
+		*data = remaining_data;
+
+		// Consume the extra weight that it took to decode this message.
+		// This depends on the message len in bytes.
+		// Saturates if it's over the limit.
+		let extra_weight =
+			T::WeightInfo::take_first_concatenated_xcm(xcm_data.len() as u32) - base_weight;
+		meter.consume(extra_weight);
+
+		let xcm = Some(BoundedSlice::try_from(xcm_data).map_err(|error| {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				"Failed to take XCM after decoding: message is too long"
+			);
 			()
-		})?))
+		})?);
+
+		Ok(xcm)
 	}
 
 	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
 	/// batches.
 	///
 	/// We directly encode them again since that is needed later on.
-	pub(crate) fn take_first_concatenated_xcms(
-		data: &mut &[u8],
+	pub(crate) fn take_first_concatenated_xcms<'a>(
+		data: &mut &'a [u8],
 		batch_size: usize,
 		meter: &mut WeightMeter,
 	) -> Result<
-		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
-		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
 	> {
 		let mut batch = vec![];
 		loop {

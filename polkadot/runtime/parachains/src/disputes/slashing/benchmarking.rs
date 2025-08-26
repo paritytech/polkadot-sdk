@@ -76,6 +76,7 @@ where
 		let proof: Vec<u8> = vec![];
 
 		whitelist_account!(controller);
+		pallet_session::Pallet::<T>::ensure_can_pay_key_deposit(&controller).unwrap();
 		pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof)
 			.expect("session::set_keys should work");
 	}
