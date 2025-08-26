@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	time::Duration,
 };
 
@@ -207,6 +207,7 @@ struct CollationData {
 	collation: Collation,
 	core_index: CoreIndex,
 	stats: Option<CollationStats>,
+	session_index: SessionIndex,
 }
 
 impl CollationData {
@@ -241,6 +242,8 @@ struct PerRelayParent {
 	assignments: HashMap<CoreIndex, usize>,
 	/// The relay parent block number
 	block_number: Option<BlockNumber>,
+	/// The session index of this relay parent.
+	session_index: SessionIndex,
 }
 
 impl PerRelayParent {
@@ -248,6 +251,7 @@ impl PerRelayParent {
 		para_id: ParaId,
 		claim_queue: ClaimQueueSnapshot,
 		block_number: Option<BlockNumber>,
+		session_index: SessionIndex,
 	) -> Self {
 		let assignments =
 			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
@@ -263,6 +267,7 @@ impl PerRelayParent {
 			collations: HashMap::new(),
 			assignments,
 			block_number,
+			session_index,
 		}
 	}
 }
@@ -516,6 +521,7 @@ async fn distribute_collation<Context>(
 				status: CollationStatus::Created,
 			},
 			core_index,
+			session_index,
 			stats: per_relay_parent
 				.block_number
 				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
@@ -1242,7 +1248,7 @@ async fn handle_network_msg<Context>(
 		},
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
-			handle_our_view_change(ctx, state, view).await?;
+			handle_our_view_change(ctx, state, view, runtime).await?;
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
@@ -1323,16 +1329,18 @@ async fn handle_our_view_change<Context>(
 	ctx: &mut Context,
 	state: &mut State,
 	view: OurView,
+	runtime_info: &mut RuntimeInfo,
 ) -> Result<()> {
 	let Some(implicit_view) = &mut state.implicit_view else { return Ok(()) };
 	let Some(para_id) = state.collating_on else { return Ok(()) };
 
-	let removed: Vec<_> =
-		implicit_view.leaves().map(|l| *l).filter(|h| !view.contains(h)).collect();
+	let removed: Vec<_> = implicit_view.leaves().filter(|h| !view.contains(h)).copied().collect();
 	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
-		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
+		let session_index = runtime_info.get_session_index_for_child(ctx.sender(), *leaf).await?;
+
+		let claim_queue = fetch_claim_queue(ctx.sender(), *leaf).await?;
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
@@ -1342,7 +1350,7 @@ async fn handle_our_view_change<Context>(
 		let block_number = implicit_view.block_number(leaf);
 		state
 			.per_relay_parent
-			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number));
+			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number, session_index));
 
 		process_block_events(
 			ctx,
@@ -1368,15 +1376,43 @@ async fn handle_our_view_change<Context>(
 		for block_hash in allowed_ancestry {
 			let block_number = implicit_view.block_number(block_hash);
 
-			if state.per_relay_parent.get(block_hash).is_none() {
-				let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
-				state
-					.per_relay_parent
-					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue, block_number));
-			}
+			let per_relay_parent = match state.per_relay_parent.entry(*block_hash) {
+				Entry::Vacant(entry) => {
+					let claim_queue = match fetch_claim_queue(ctx.sender(), *block_hash).await {
+						Ok(cq) => cq,
+						Err(error) => {
+							gum::debug!(
+								target: LOG_TARGET,
+								?block_hash,
+								?error,
+								"Failed to fetch claim queue while iterating allowed ancestry",
+							);
+							continue
+						},
+					};
+					let session_index =
+						match runtime_info.get_session_index_for_child(ctx.sender(), *leaf).await {
+							Ok(si) => si,
+							Err(error) => {
+								gum::debug!(
+									target: LOG_TARGET,
+									?block_hash,
+									?error,
+									"Failed to fetch session index while iterating allowed ancestry",
+								);
+								continue
+							},
+						};
 
-			let per_relay_parent =
-				state.per_relay_parent.get_mut(block_hash).expect("Just inserted");
+					entry.insert(PerRelayParent::new(
+						para_id,
+						claim_queue,
+						block_number,
+						session_index,
+					))
+				},
+				Entry::Occupied(entry) => entry.into_mut(),
+			};
 
 			// Announce relevant collations to these peers.
 			for peer_id in &peers {
@@ -1394,6 +1430,8 @@ async fn handle_our_view_change<Context>(
 		}
 	}
 
+	let highest_session_index = state.per_relay_parent.values().map(|pr| pr.session_index).max();
+
 	for leaf in removed {
 		// If the leaf is deactivated it still may stay in the view as a part
 		// of implicit ancestry. Only update the state after the hash is actually
@@ -1402,14 +1440,18 @@ async fn handle_our_view_change<Context>(
 		let pruned = implicit_view.deactivate_leaf(leaf);
 
 		for removed in &pruned {
-			gum::debug!(target: LOG_TARGET, relay_parent = ?removed, "Removing relay parent because our view changed.");
+			gum::debug!(
+				target: LOG_TARGET,
+				relay_parent = ?removed,
+				"Removing relay parent because our view changed.",
+			);
 
 			if let Some(block_number) = maybe_block_number {
 				let expired_collations = state.collation_tracker.drain_expired(block_number);
 				process_expired_collations(expired_collations, *removed, para_id, &state.metrics);
 			}
 
-			// Get all the collations built on top of the removed feaf.
+			// Get all the collations built on top of the removed leaf.
 			let collations = state
 				.per_relay_parent
 				.remove(removed)
@@ -1418,12 +1460,16 @@ async fn handle_our_view_change<Context>(
 
 			for collation_with_core in collations.into_values() {
 				let collation = collation_with_core.collation();
-				let candidate_hash: CandidateHash = collation.receipt.hash();
+				let candidate_hash = collation.receipt.hash();
 
 				state.collation_result_senders.remove(&candidate_hash);
 				state.validator_groups_buf.remove_candidate(&candidate_hash);
 
-				process_out_of_view_collation(&mut state.collation_tracker, collation_with_core);
+				process_out_of_view_collation(
+					&mut state.collation_tracker,
+					collation_with_core,
+					highest_session_index,
+				);
 			}
 
 			state.waiting_collation_fetches.remove(removed);
@@ -1435,17 +1481,30 @@ async fn handle_our_view_change<Context>(
 fn process_out_of_view_collation(
 	collation_tracker: &mut CollationTracker,
 	mut collation_with_core: CollationData,
+	highest_session_index: Option<SessionIndex>,
 ) {
-	let collation = collation_with_core.collation();
-	let candidate_hash: CandidateHash = collation.receipt.hash();
+	let is_same_session =
+		highest_session_index.map_or(true, |hs| hs == collation_with_core.session_index);
+	let collation = collation_with_core.collation_mut();
+	let candidate_hash = collation.receipt.hash();
 
 	match collation.status {
-		CollationStatus::Created => gum::warn!(
-			target: LOG_TARGET,
-			?candidate_hash,
-			pov_hash = ?collation.pov.hash(),
-			"Collation wasn't advertised to any validator.",
-		),
+		CollationStatus::Created =>
+			if is_same_session {
+				gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					pov_hash = ?collation.pov.hash(),
+					"Collation wasn't advertised to any validator.",
+				)
+			} else {
+				gum::debug!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					pov_hash = ?collation.pov.hash(),
+					"Collation wasn't advertised because it was built on a relay chain block that is now part of an old session.",
+				)
+			},
 		CollationStatus::Advertised => gum::debug!(
 			target: LOG_TARGET,
 			?candidate_hash,

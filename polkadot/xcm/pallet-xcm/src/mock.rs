@@ -750,12 +750,14 @@ pub(crate) fn new_test_ext_with_balances(
 		balances,
 		// By default set actual latest XCM version
 		Some(XCM_VERSION),
+		vec![],
 	)
 }
 
 pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	balances: Vec<(AccountId, Balance)>,
 	safe_xcm_version: Option<XcmVersion>,
+	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -763,7 +765,7 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, supported_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Tests concerning bond, bond_extra, unbond, rebond, withdraw and chill for stakers.
+
 use super::*;
 use frame_support::{hypothetically_ok, traits::Currency};
-use sp_staking::{Stake, StakingInterface};
 
 #[test]
 fn existing_stash_cannot_bond() {
@@ -1073,73 +1074,7 @@ fn restricted_accounts_can_only_withdraw() {
 	})
 }
 
-#[test]
-fn permissionless_withdraw_overstake() {
-	ExtBuilder::default().build_and_execute(|| {
-		// Given Alice, Bob and Charlie with some stake.
-		let alice = 301;
-		let bob = 302;
-		let charlie = 303;
-		let _ = Balances::make_free_balance_be(&alice, 500);
-		let _ = Balances::make_free_balance_be(&bob, 500);
-		let _ = Balances::make_free_balance_be(&charlie, 500);
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(alice), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(bob), 100, RewardDestination::Staked));
-		assert_ok!(Staking::bond(RuntimeOrigin::signed(charlie), 100, RewardDestination::Staked));
-
-		// WHEN: charlie is partially unbonding.
-		assert_ok!(Staking::unbond(RuntimeOrigin::signed(charlie), 90));
-		let charlie_ledger = StakingLedger::<Test>::get(StakingAccount::Stash(charlie)).unwrap();
-
-		// AND: alice and charlie ledger having higher value than actual stake.
-		Ledger::<Test>::insert(alice, StakingLedger::<Test>::new(alice, 200));
-		Ledger::<Test>::insert(
-			charlie,
-			StakingLedger { stash: charlie, total: 200, active: 200 - 90, ..charlie_ledger },
-		);
-
-		// THEN overstake can be permissionlessly withdrawn.
-		let _ = staking_events_since_last_call();
-
-		// Alice stake is corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 200, active: 200 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), alice));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&alice).unwrap(),
-			Stake { total: 100, active: 100 }
-		);
-
-		// Charlie who is partially withdrawing also gets their stake corrected.
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200, active: 110 }
-		);
-		assert_ok!(Staking::withdraw_overstake(RuntimeOrigin::signed(1), charlie));
-		assert_eq!(
-			<Staking as StakingInterface>::stake(&charlie).unwrap(),
-			Stake { total: 200 - 100, active: 110 - 100 }
-		);
-
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![
-				Event::Withdrawn { stash: alice, amount: 200 - 100 },
-				Event::Withdrawn { stash: charlie, amount: 200 - 100 }
-			]
-		);
-
-		// but Bob ledger is fine and that cannot be withdrawn.
-		assert_noop!(
-			Staking::withdraw_overstake(RuntimeOrigin::signed(1), bob),
-			Error::<Test>::BoundNotMet
-		);
-	});
-}
-
-mod rebobd {
+mod rebond {
 	use super::*;
 
 	#[test]
@@ -1452,8 +1387,6 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
-				// Note: Even though the stash is a validator, the threshold to reap is min of
-				// nominator and validator bond
 				// no easy way to cause an account to go below ED, we tweak their staking ledger
 				// instead.
 
@@ -1466,8 +1399,8 @@ mod reap {
 					Error::<Test>::FundedTarget
 				);
 
-				// WHEN: set ledger to below min nominator bond.
-				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 999));
+				// WHEN: set ledger to below ED
+				Ledger::<Test>::insert(11, StakingLedger::<Test>::new(11, 9));
 
 				// THEN: reap-able
 				assert_ok!(Staking::reap_stash(RuntimeOrigin::signed(20), 11, 0));
@@ -1616,9 +1549,9 @@ mod staking_bounds_chill_other {
 			.min_nominator_bond(1_000)
 			.min_validator_bond(1_500)
 			.build_and_execute(|| {
-				// 500 is not enough for any role
+				// 50 is not enough for any role (less than ED)
 				assert_noop!(
-					Staking::bond(RuntimeOrigin::signed(3), 500, RewardDestination::Stash),
+					Staking::bond(RuntimeOrigin::signed(3), 50, RewardDestination::Stash),
 					Error::<Test>::InsufficientBond
 				);
 				// 1000 is enough for nominator but not for validator.

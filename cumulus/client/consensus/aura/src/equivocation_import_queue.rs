@@ -22,6 +22,7 @@
 /// should be thrown out and which ones should be kept.
 use codec::Codec;
 use cumulus_client_consensus_common::ParachainBlockImportMarker;
+use cumulus_primitives_core::{CumulusDigestItem, RelayBlockIdentifier};
 use parking_lot::Mutex;
 use polkadot_primitives::Hash as RHash;
 use sc_consensus::{
@@ -36,7 +37,7 @@ use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
-use sp_inherents::{CreateInherentDataProviders, InherentDataProvider};
+use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor};
 use std::{fmt::Debug, sync::Arc};
 
@@ -168,14 +169,13 @@ where
 					// We need some kind of identifier for the relay parent, in the worst case we
 					// take the all `0` hash.
 					let relay_parent =
-						cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-							pre_header.digest(),
-						)
-						.map(|r| r.0)
-						.unwrap_or_else(|| {
-							cumulus_primitives_core::extract_relay_parent(pre_header.digest())
-								.unwrap_or_default()
-						});
+						match CumulusDigestItem::find_relay_block_identifier(pre_header.digest()) {
+							None => Default::default(),
+							Some(RelayBlockIdentifier::ByHash(h)) |
+							Some(RelayBlockIdentifier::ByStorageRoot {
+								storage_root: h, ..
+							}) => h,
+						};
 
 					block_params.header = pre_header;
 					block_params.post_digests.push(seal_digest);
@@ -230,29 +230,14 @@ where
 				.await
 				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
 
-			let inherent_data = create_inherent_data_providers
-				.create_inherent_data()
-				.await
-				.map_err(|e| format!("Could not create inherent data {:?}", e))?;
-
-			let inherent_res = self
-				.client
-				.runtime_api()
-				.check_inherents(parent_hash, block, inherent_data)
-				.map_err(|e| format!("Unable to check block inherents {:?}", e))?;
-
-			if !inherent_res.ok() {
-				for (i, e) in inherent_res.into_errors() {
-					match create_inherent_data_providers.try_handle_error(&i, &e).await {
-						Some(res) => res.map_err(|e| format!("Inherent Error {:?}", e))?,
-						None =>
-							return Err(format!(
-								"Unknown inherent error, source {:?}",
-								String::from_utf8_lossy(&i[..])
-							)),
-					}
-				}
-			}
+			sp_block_builder::check_inherents(
+				self.client.clone(),
+				parent_hash,
+				block,
+				&create_inherent_data_providers,
+			)
+			.await
+			.map_err(|e| format!("Error checking block inherents {:?}", e))?;
 		}
 
 		Ok(block_params)

@@ -55,8 +55,17 @@
 
 pub use pallet::*;
 
+#[cfg(test)]
+pub mod mock;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+pub mod weights;
+
+pub use weights::WeightInfo;
+
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_staking::{
@@ -66,6 +75,15 @@ use sp_staking::{
 
 /// The balance type seen from this pallet's PoV.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
+
+/// Type alias for offence details
+pub type OffenceDetailsOf<T> = OffenceDetails<
+	<T as frame_system::Config>::AccountId,
+	(
+		<T as frame_system::Config>::AccountId,
+		sp_staking::Exposure<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	),
+>;
 
 const LOG_TARGET: &str = "runtime::staking-async::ah-client";
 
@@ -220,11 +238,28 @@ impl<T: Config>
 	}
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct BufferedOffence<AccountId> {
+	// rc_client::Offence takes multiple reporters, but in practice there is only one. In this
+	// pallet, we assume this is the case and store only the first reporter or none if empty.
+	pub reporter: Option<AccountId>,
+	pub slash_fraction: sp_runtime::Perbill,
+}
+
+/// A map of buffered offences, keyed by session index and then by offender account id.
+pub type BufferedOffencesMap<T> = BTreeMap<
+	SessionIndex,
+	BTreeMap<
+		<T as frame_system::Config>::AccountId,
+		BufferedOffence<<T as frame_system::Config>::AccountId>,
+	>,
+>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
 	use alloc::vec;
-	use frame_support::traits::UnixTime;
+	use frame_support::traits::{Hooks, UnixTime};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{historical, SessionManager};
 	use sp_runtime::{Perbill, Saturating};
@@ -270,6 +305,20 @@ pub mod pallet {
 		/// Number of points to award a validator per block authored.
 		type PointsPerBlock: Get<u32>;
 
+		/// Maximum number of offences to batch in a single message to AssetHub.
+		///
+		/// Used during `Active` mode to limit batch size when processing buffered offences
+		/// in `on_initialize`. During `Buffered` mode, offences are accumulated without batching.
+		/// When transitioning from `Buffered` to `Active` mode (via `on_migration_end`),
+		/// buffered offences remain stored and are processed gradually by `on_initialize`
+		/// using this batch size limit to prevent block overload.
+		///
+		/// **Performance characteristics**
+		/// - Base cost: ~30.9ms (XCM infrastructure overhead)
+		/// - Per-offence cost: ~0.073ms (linear scaling)
+		/// - At batch size 50: ~34.6ms total (~1.7% of 2-second compute allowance)
+		type MaxOffenceBatchSize: Get<u32>;
+
 		/// Interface to talk to the local Session pallet.
 		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId>;
 
@@ -286,6 +335,9 @@ pub mod pallet {
 				Weight,
 			> + frame_support::traits::RewardsReporter<Self::AccountId>
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
+
+		/// Information on runtime weights.
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -338,19 +390,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
-	/// Stores offences that have been received while the pallet is in [`OperatingMode::Buffered`]
-	/// mode.
+	/// Offences collected while in [`OperatingMode::Buffered`] mode.
 	///
-	/// These offences are collected and buffered for later processing when the pallet transitions
-	/// to [`OperatingMode::Active`]. This allows the system to defer slashing or reporting logic
-	/// until communication with the counterpart pallet on AssetHub is fully established.
+	/// These are temporarily stored and sent once the pallet switches to [`OperatingMode::Active`].
+	/// For each offender, only the highest `slash_fraction` is kept.
 	///
-	/// This storage is only used in `Buffered` mode; in `Active` mode, offences are immediately
-	/// sent, and in `Passive` mode, they are delegated to the [`Config::Fallback`] implementation.
+	/// Internally stores as a nested BTreeMap:
+	/// `session_index -> (offender -> (reporter, slash_fraction))`.
+	///
+	/// Note: While the [`rc_client::Offence`] type includes a list of reporters, in practice there
+	/// is only one. In this pallet, we assume this is the case and store only the first reporter.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type BufferedOffences<T: Config> =
-		StorageValue<_, Vec<(SessionIndex, Vec<rc_client::Offence<T::AccountId>>)>, ValueQuery>;
+	pub type BufferedOffences<T: Config> = StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -515,11 +567,33 @@ pub mod pallet {
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn force_on_migration_end(origin: OriginFor<T>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Self::do_set_mode(OperatingMode::Active);
-			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offences)| {
-				T::SendToAssetHub::relay_new_offence(slash_session, offences)
-			});
+			Self::on_migration_end();
 			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			let mut weight = Weight::zero();
+
+			let mode = Mode::<T>::get();
+			weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			if mode != OperatingMode::Active {
+				return weight;
+			}
+
+			// Check if we have any buffered offences to send
+			let buffered_offences = BufferedOffences::<T>::get();
+			weight = weight.saturating_add(T::DbWeight::get().reads(1));
+			if buffered_offences.is_empty() {
+				return weight;
+			}
+
+			let processing_weight = Self::process_buffered_offences();
+			weight = weight.saturating_add(processing_weight);
+
+			weight
 		}
 	}
 
@@ -609,55 +683,16 @@ pub mod pallet {
 			slash_fraction: &[Perbill],
 			slash_session: SessionIndex,
 		) -> Weight {
-			let mode = Mode::<T>::get();
-			if mode == OperatingMode::Passive {
-				// delegate to the fallback implementation.
-				return T::Fallback::on_offence(offenders, slash_fraction, slash_session);
-			}
-
-			// check if offence is from the active validator set.
-			let ongoing_offence = ValidatorSetAppliedAt::<T>::get()
-				.map(|start_session| slash_session >= start_session)
-				.unwrap_or(false);
-
-			let mut offenders_and_slashes = Vec::new();
-
-			// notify pallet-session about the offences
-			for (offence, fraction) in offenders.iter().cloned().zip(slash_fraction) {
-				if ongoing_offence {
-					// report the offence to the session pallet.
-					T::SessionInterface::report_offence(
-						offence.offender.0.clone(),
-						OffenceSeverity(*fraction),
-					);
-				}
-
-				// prepare an `Offence` instance for the XCM message. Note that we drop the
-				// identification.
-				let (offender, _full_identification) = offence.offender;
-				let reporters = offence.reporters;
-				offenders_and_slashes.push(rc_client::Offence {
-					offender,
-					reporters,
-					slash_fraction: *fraction,
-				});
-			}
-
-			match mode {
-				OperatingMode::Buffered => {
-					BufferedOffences::<T>::mutate(|buffered| {
-						buffered.push((slash_session, offenders_and_slashes.clone()));
-					});
-					log!(info, "Buffered offences: {:?}", offenders_and_slashes);
+			match Mode::<T>::get() {
+				OperatingMode::Passive => {
+					// delegate to the fallback implementation.
+					T::Fallback::on_offence(offenders, slash_fraction, slash_session)
 				},
-				OperatingMode::Active => {
-					log!(info, "sending offence report to AH");
-					T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes);
-				},
-				_ => (),
+				OperatingMode::Buffered =>
+					Self::on_offence_buffered(offenders, slash_fraction, slash_session),
+				OperatingMode::Active =>
+					Self::on_offence_active(offenders, slash_fraction, slash_session),
 			}
-
-			Weight::zero()
 		}
 	}
 
@@ -711,10 +746,8 @@ pub mod pallet {
 			);
 			Self::do_set_mode(OperatingMode::Active);
 
-			// send all buffered offences to AssetHub.
-			BufferedOffences::<T>::take().into_iter().for_each(|(slash_session, offences)| {
-				T::SendToAssetHub::relay_new_offence(slash_session, offences)
-			});
+			// Buffered offences will be processed gradually by on_initialize
+			// using MaxOffenceBatchSize to prevent block overload.
 		}
 
 		fn do_set_mode(new_mode: OperatingMode) {
@@ -777,6 +810,159 @@ pub mod pallet {
 			ValidatorPoints::<T>::mutate(author, |points| {
 				points.saturating_accrue(T::PointsPerBlock::get());
 			});
+		}
+
+		/// Process buffered offences and send them to AssetHub in batches.
+		pub(crate) fn process_buffered_offences() -> Weight {
+			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
+
+			// Process and remove offences one session at a time
+			let offences_sent = BufferedOffences::<T>::mutate(|buffered| {
+				let first_session_key = buffered.keys().next().copied()?;
+
+				let session_map = buffered.get_mut(&first_session_key)?;
+
+				// Take up to max_batch_size offences from this session
+				let keys_to_drain: Vec<_> =
+					session_map.keys().take(max_batch_size).cloned().collect();
+
+				let offences_to_send: Vec<_> = keys_to_drain
+					.into_iter()
+					.filter_map(|key| {
+						session_map.remove(&key).map(|offence| rc_client::Offence {
+							offender: key,
+							reporters: offence.reporter.into_iter().collect(),
+							slash_fraction: offence.slash_fraction,
+						})
+					})
+					.collect();
+
+				if !offences_to_send.is_empty() {
+					// Remove the entire session if it's now empty
+					if session_map.is_empty() {
+						buffered.remove(&first_session_key);
+						log!(debug, "Cleared all offences for session {}", first_session_key);
+					}
+
+					Some((first_session_key, offences_to_send))
+				} else {
+					None
+				}
+			});
+
+			if let Some((slash_session, offences_to_send)) = offences_sent {
+				log!(
+					info,
+					"Sending {} buffered offences for session {} to AssetHub",
+					offences_to_send.len(),
+					slash_session
+				);
+
+				let batch_size = offences_to_send.len();
+				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send);
+
+				T::WeightInfo::process_buffered_offences(batch_size as u32)
+			} else {
+				Weight::zero()
+			}
+		}
+
+		/// Check if an offence is from the active validator set.
+		fn is_ongoing_offence(slash_session: SessionIndex) -> bool {
+			ValidatorSetAppliedAt::<T>::get()
+				.map(|start_session| slash_session >= start_session)
+				.unwrap_or(false)
+		}
+
+		/// Handle offences in Buffered mode.
+		fn on_offence_buffered(
+			offenders: &[OffenceDetailsOf<T>],
+			slash_fraction: &[Perbill],
+			slash_session: SessionIndex,
+		) -> Weight {
+			let ongoing_offence = Self::is_ongoing_offence(slash_session);
+
+			let _: Vec<_> = offenders
+				.iter()
+				.cloned()
+				.zip(slash_fraction)
+				.map(|(offence, fraction)| {
+					if ongoing_offence {
+						// report the offence to the session pallet.
+						T::SessionInterface::report_offence(
+							offence.offender.0.clone(),
+							OffenceSeverity(*fraction),
+						);
+					}
+
+					let (offender, _full_identification) = offence.offender;
+					let reporters = offence.reporters;
+
+					// In `Buffered` mode, we buffer the offences for later processing.
+					// We only keep the highest slash fraction for each offender per session.
+					BufferedOffences::<T>::mutate(|buffered| {
+						let session_offences = buffered.entry(slash_session).or_default();
+						let entry = session_offences.entry(offender);
+
+						entry
+							.and_modify(|existing| {
+								if existing.slash_fraction < *fraction {
+									*existing = BufferedOffence {
+										reporter: reporters.first().cloned(),
+										slash_fraction: *fraction,
+									};
+								}
+							})
+							.or_insert(BufferedOffence {
+								reporter: reporters.first().cloned(),
+								slash_fraction: *fraction,
+							});
+					});
+
+					// Return unit for the map operation
+				})
+				.collect();
+
+			Weight::zero()
+		}
+
+		/// Handle offences in Active mode.
+		fn on_offence_active(
+			offenders: &[OffenceDetailsOf<T>],
+			slash_fraction: &[Perbill],
+			slash_session: SessionIndex,
+		) -> Weight {
+			let ongoing_offence = Self::is_ongoing_offence(slash_session);
+
+			let offenders_and_slashes_message: Vec<_> = offenders
+				.iter()
+				.cloned()
+				.zip(slash_fraction)
+				.map(|(offence, fraction)| {
+					if ongoing_offence {
+						// report the offence to the session pallet.
+						T::SessionInterface::report_offence(
+							offence.offender.0.clone(),
+							OffenceSeverity(*fraction),
+						);
+					}
+
+					let (offender, _full_identification) = offence.offender;
+					let reporters = offence.reporters;
+
+					// prepare an `Offence` instance for the XCM message. Note that we drop
+					// the identification.
+					rc_client::Offence { offender, reporters, slash_fraction: *fraction }
+				})
+				.collect();
+
+			// Send offence report to Asset Hub
+			if !offenders_and_slashes_message.is_empty() {
+				log!(info, "sending offence report to AH");
+				T::SendToAssetHub::relay_new_offence(slash_session, offenders_and_slashes_message);
+			}
+
+			Weight::zero()
 		}
 	}
 }

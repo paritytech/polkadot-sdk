@@ -1038,7 +1038,7 @@ pub async fn bench_approvals_run(
 
 		let block_time = Instant::now().sub(block_start_ts).as_millis() as u64;
 		env.metrics().set_block_time(block_time);
-		gum::info!("Block time {}", format!("{:?}ms", block_time).cyan());
+		gum::info!("Block time {}", format!("{block_time:?}ms").cyan());
 
 		system_clock
 			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + 1))
@@ -1166,7 +1166,7 @@ pub async fn bench_approvals_run(
 	let duration: u128 = start_marker.elapsed().as_millis();
 	gum::info!(
 		"All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}",
-		format!("{:?}ms", duration).cyan(),
+		format!("{duration:?}ms").cyan(),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_sent_messages_from_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)

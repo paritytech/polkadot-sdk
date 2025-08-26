@@ -20,8 +20,8 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
-	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
@@ -294,6 +294,23 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
+		// Check transaction type and reject unsupported transaction types
+		match &tx {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
+			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+				// Supported transaction types, continue processing
+			},
+			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
@@ -313,15 +330,7 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
-			value.unwrap_or_default(),
-			ConversionPrecision::Exact,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-			InvalidTransaction::Call
-		})?;
-
+		let value = value.unwrap_or_default();
 		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =
@@ -341,14 +350,14 @@ pub trait EthExtra {
 					InvalidTransaction::Call
 				})?;
 
-				if value != 0u32.into() {
+				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
 					return Err(InvalidTransaction::Call)
 				}
 
 				call
 			} else {
-				crate::Call::call::<Self::Config> {
+				crate::Call::eth_call::<Self::Config> {
 					dest,
 					value,
 					gas_limit,
@@ -604,9 +613,9 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::call::<Test> {
+			crate::Call::eth_call::<Test> {
 				dest: tx.to.unwrap(),
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
@@ -627,7 +636,7 @@ mod test {
 		assert_eq!(
 			call,
 			crate::Call::eth_instantiate_with_code::<Test> {
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				code,
 				data,
 				gas_limit,

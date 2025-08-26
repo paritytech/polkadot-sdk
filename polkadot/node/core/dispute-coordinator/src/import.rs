@@ -104,7 +104,9 @@ impl<'a> CandidateEnvironment<'a> {
 			d
 		};
 
-		let controlled_indices = controlled_indices.get(session_index, &session.validators).clone();
+		let controlled_indices = controlled_indices
+			.get(session_index, &session.validators)
+			.map_or(HashSet::new(), |index| HashSet::from([index]));
 
 		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
 	}

@@ -266,7 +266,7 @@ macro_rules! enter_span {
 	};
 }
 
-#[cfg(feature = "test-utils")]
+#[cfg(feature = "std")]
 pub mod test_log_capture {
 	use std::{
 		io::Write,
