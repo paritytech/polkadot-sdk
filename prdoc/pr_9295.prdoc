@@ -30,7 +30,7 @@ crates:
   - name: pallet-beefy-mmr
     bump: patch
   - name: pallet-staking-async-rc-runtime
-    bump: minor
+    bump: major
   - name: sp-consensus-beefy
     bump: major
   - name: sp-mmr-primitives
