@@ -2497,35 +2497,31 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` per-transaction component costs.
+	/// Benchmark the `on_finalize` per-event costs.
 	///
-	/// This benchmark measures the computational cost of processing individual
-	/// transaction components (events and their data) within the finalization process.
-	/// Uses a single transaction to isolate component-specific costs.
+	/// This benchmark measures the computational cost of processing events
+	/// within the finalization process, isolating the overhead of event count.
+	/// Uses a single transaction with varying numbers of minimal events.
 	///
 	/// ## Parameters:
 	/// - `e`: Number of events per transaction
-	/// - `d`: Total size of event data in bytes
 	///
 	/// ## Test Setup:
-	/// - Creates 1 transaction with specified parameters
-	/// - Transaction has `e` ContractEmitted events
-	/// - `d` total bytes of data across all events
+	/// - Creates 1 transaction with `e` ContractEmitted events
+	/// - Each event contains minimal data (no topics, empty data field)
 	///
 	/// ## Usage:
-	/// Calculate marginal costs:
-	/// - Per event: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
-	/// - Per byte of event data: `on_finalize_per_transaction(1, d) -
-	///   on_finalize_per_transaction(1, 0)`
+	/// Measures the per-event processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event(0)` - baseline finalization cost
+	/// - Per event: `on_finalize_per_event(e)` - linear scaling with event count
 	#[benchmark(pov_mode = Measured)]
-	fn on_finalize_per_transaction(
+	fn on_finalize_per_event(
 		e: Linear<0, 100>,
-		d: Linear<0, 16384>,
 	) -> Result<(), BenchmarkError> {
 		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
 			setup_finalize_block_benchmark::<T>()?;
 
-		// Create a single transaction with m events and d bytes of event data
+		// Create a single transaction with e events, each with minimal data
 		let input_data = vec![0x42u8; 100];
 		let signed_transaction = create_signed_transaction::<T>(
 			&signer_key,
@@ -2533,49 +2529,19 @@ mod benchmarks {
 			evm_value,
 			input_data.clone(),
 		);
-		// Create e events, distributing d bytes across them
-		if e > 0 {
-			let bytes_per_event = if d > 0 { d / e } else { 0 };
-			let extra_bytes = if d > 0 { d % e } else { 0 };
 
-			for i in 0..e {
-				let event_data_size = bytes_per_event + if i == 0 { extra_bytes } else { 0 };
-
-				let (event_data, topics) = if d < 32 {
-					// If total data is less than 32 bytes, put all in data field
-					(vec![0x42u8; event_data_size as usize], vec![])
-				} else {
-					// Fill topics first, then put remaining bytes in data field
-					let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, event_data_size / 32);
-					let topic_bytes_used = num_topics * 32;
-					let data_bytes_remaining = event_data_size - topic_bytes_used;
-
-					// Create topics filled with topic index
-					let mut topics = Vec::new();
-					for topic_index in 0..num_topics {
-						let topic_data = [topic_index as u8; 32];
-						topics.push(H256::from(topic_data));
-					}
-
-					// Remaining bytes go to data field
-					let event_data = vec![0x42u8; data_bytes_remaining as usize];
-
-					(event_data, topics)
-				};
-
-				// Deposit event
-				InflightEthTxEvents::<T>::append(EventLog {
-					contract: instance.address,
-					data: event_data,
-					topics: topics.clone(),
-				});
-			}
+		// Create e events with minimal data to isolate event count overhead
+		for _ in 0..e {
+			InflightEthTxEvents::<T>::append(EventLog {
+				contract: instance.address,
+				data: vec![],  // Empty data to minimize data size impact
+				topics: vec![], // No topics to minimize data size impact
+			});
 		}
 
 		let gas_used = Weight::from_parts(1_000_000, 1000);
 
 		// Store transaction
-		// Collect inflight events emitted by this EVM transaction.
 		let logs = InflightEthTxEvents::<T>::take();
 		InflightEthTransactions::<T>::append(TransactionDetails {
 			transaction_encoded: signed_transaction,
@@ -2589,7 +2555,87 @@ mod benchmarks {
 			// Initialize block
 			let _ = Pallet::<T>::on_initialize(current_block);
 
-			// Measure the finalization cost with specific event/data parameters
+			// Measure the finalization cost with e events
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Verify transaction count
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// ## Test Setup:
+	/// - Creates 1 transaction with 1 ContractEmitted event
+	/// - Event contains `d` total bytes of data across data field and topics
+	///
+	/// ## Usage:
+	/// Measures the per-byte event data processing overhead during finalization
+	/// - Fixed cost: `on_finalize_per_event_data(0)` - baseline cost with empty event
+	/// - Per byte: `on_finalize_per_event_data(d)` - linear scaling with data size
+	#[benchmark(pov_mode = Measured)]
+	fn on_finalize_per_event_data(
+		d: Linear<0, 16384>,
+	) -> Result<(), BenchmarkError> {
+		let (instance, _origin, _storage_deposit, evm_value, signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Create a single transaction with one event containing d bytes of data
+		let input_data = vec![0x42u8; 100];
+		let signed_transaction = create_signed_transaction::<T>(
+			&signer_key,
+			instance.address,
+			evm_value,
+			input_data.clone(),
+		);
+
+		// Create one event with d bytes of data distributed across topics and data field
+		let (event_data, topics) = if d < 32 {
+			// If total data is less than 32 bytes, put all in data field
+			(vec![0x42u8; d as usize], vec![])
+		} else {
+			// Fill topics first, then put remaining bytes in data field
+			let num_topics = core::cmp::min(limits::NUM_EVENT_TOPICS, d / 32);
+			let topic_bytes_used = num_topics * 32;
+			let data_bytes_remaining = d - topic_bytes_used;
+
+			// Create topics filled with sequential data
+			let mut topics = Vec::new();
+			for topic_index in 0..num_topics {
+				let topic_data = [topic_index as u8; 32];
+				topics.push(H256::from(topic_data));
+			}
+
+			// Remaining bytes go to data field
+			let event_data = vec![0x42u8; data_bytes_remaining as usize];
+
+			(event_data, topics)
+		};
+
+		// Deposit single event with d bytes of data
+		InflightEthTxEvents::<T>::append(EventLog {
+			contract: instance.address,
+			data: event_data,
+			topics,
+		});
+
+		let gas_used = Weight::from_parts(1_000_000, 1000);
+
+		// Store transaction
+		let logs = InflightEthTxEvents::<T>::take();
+		InflightEthTransactions::<T>::append(TransactionDetails {
+			transaction_encoded: signed_transaction,
+			logs,
+			success: true,
+			gas_used,
+		});
+
+		#[block]
+		{
+			// Initialize block
+			let _ = Pallet::<T>::on_initialize(current_block);
+
+			// Measure the finalization cost with d bytes of event data
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 

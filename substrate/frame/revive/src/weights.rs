@@ -144,7 +144,8 @@ pub trait WeightInfo {
 	fn instr_empty_loop(r: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 	fn on_finalize(n: u32, p: u32, ) -> Weight;
-	fn on_finalize_per_transaction(e: u32, d: u32, ) -> Weight;
+	fn on_finalize_per_event(e: u32, ) -> Weight;
+	fn on_finalize_per_event_data(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1251,21 +1252,35 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `e` is `[0, 100]`.
-	/// The range of component `d` is `[0, 16384]`.
-	fn on_finalize_per_transaction(e: u32, d: u32, ) -> Weight {
+	fn on_finalize_per_event(e: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `631 + d * (1 ±0) + e * (56 ±0)`
-		//  Estimated: `2423 + d * (1 ±0) + e * (70 ±1)`
+		//  Measured:  `631 + e * (56 ±0)`
+		//  Estimated: `2423 + e * (70 ±1)`
 		// Minimum execution time: 20_000_000 picoseconds.
 		Weight::from_parts(13_249_502, 2423)
 			// Standard Error: 6_871
 			.saturating_add(Weight::from_parts(1_198_945, 0).saturating_mul(e.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(Weight::from_parts(0, 70).saturating_mul(e.into()))
+	}
+
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 16384]`.
+	fn on_finalize_per_event_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `631 + d * (1 ±0)`
+		//  Estimated: `2423 + d * (1 ±0)`
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(13_249_502, 2423)
 			// Standard Error: 42
 			.saturating_add(Weight::from_parts(3_336, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
-			.saturating_add(Weight::from_parts(0, 70).saturating_mul(e.into()))
 	}
 }
 
@@ -2372,20 +2387,34 @@ impl WeightInfo for () {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `e` is `[0, 100]`.
-	/// The range of component `d` is `[0, 16384]`.
-	fn on_finalize_per_transaction(e: u32, d: u32, ) -> Weight {
+	fn on_finalize_per_event(e: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `631 + d * (1 ±0) + e * (56 ±0)`
-		//  Estimated: `2423 + d * (1 ±0) + e * (70 ±1)`
+		//  Measured:  `631 + e * (56 ±0)`
+		//  Estimated: `2423 + e * (70 ±1)`
 		// Minimum execution time: 20_000_000 picoseconds.
 		Weight::from_parts(13_249_502, 2423)
 			// Standard Error: 6_871
 			.saturating_add(Weight::from_parts(1_198_945, 0).saturating_mul(e.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(Weight::from_parts(0, 70).saturating_mul(e.into()))
+	}
+
+	/// Storage: `Revive::EthereumBlock` (r:0 w:1)
+	/// Proof: `Revive::EthereumBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
+	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 16384]`.
+	fn on_finalize_per_event_data(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `631 + d * (1 ±0)`
+		//  Estimated: `2423 + d * (1 ±0)`
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(13_249_502, 2423)
 			// Standard Error: 42
 			.saturating_add(Weight::from_parts(3_336, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(Weight::from_parts(0, 1).saturating_mul(d.into()))
-			.saturating_add(Weight::from_parts(0, 70).saturating_mul(e.into()))
 	}
 }

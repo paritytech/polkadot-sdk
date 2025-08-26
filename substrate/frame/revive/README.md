@@ -42,16 +42,23 @@ Total Weight = fixed_part +
                Σ(per_event_part(data_len_j))
 ```
 
-**Weight Components:**
+**High-Level Weight API (`OnFinalizeBlockParts` trait):**
+The pallet exposes these weight calculation methods for runtime use:
 - **Fixed cost**: `on_finalize_block_fixed()` - Base overhead regardless of transaction/event count
 - **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
 - **Per-event cost**: `on_finalize_block_per_event(data_len)` - Applied dynamically during each `deposit_event()`
 
-**Differential Calculation Methodology:**
-The system uses mathematical differencing to isolate marginal costs:
+**Underlying Benchmark Functions (`WeightInfo` trait):**
+These low-level benchmarks measure raw computational costs and are used to derive the high-level weights:
+- **Base finalization**: `on_finalize(n, p)` - Measures cost of finalizing `n` transactions with `p` payload size
+- **Per-event overhead**: `on_finalize_per_event(e)` - Measures cost scaling with `e` event count
+- **Per-data overhead**: `on_finalize_per_event_data(d)` - Measures cost scaling with `d` bytes of event data
+
+**Weight Derivation Methodology:**
+The high-level API methods use differential calculation to isolate marginal costs from benchmarks:
 - Per-transaction: `on_finalize(1, payload_size) - on_finalize(0, 0)`
-- Per-event base: `on_finalize_per_transaction(1, 0) - on_finalize_per_transaction(0, 0)`
-- Per-byte of event data: `on_finalize_per_transaction(1, data_len) - on_finalize_per_transaction(1, 0)`
+- Per-event base: `on_finalize_per_event(1) - on_finalize_per_event(0)`
+- Per-byte of event data: `on_finalize_per_event_data(data_len) - on_finalize_per_event_data(0)`
 
 This comprehensive weight model ensures that:
 - Transactions emitting many events are properly weighted based on event count and data size
