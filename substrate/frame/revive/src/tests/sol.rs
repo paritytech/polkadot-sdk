@@ -20,7 +20,7 @@ use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
-		test_utils::{contract_base_deposit, ensure_stored, get_contract_checked},
+		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
 	Code, Config, PristineCode,
@@ -40,9 +40,8 @@ fn basic_evm_flow_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// check the code exists
-		let contract = get_contract_checked(&addr).unwrap();
+		let contract = get_contract(&addr);
 		ensure_stored(contract.code_hash);
-
 		let deposit = contract_base_deposit(&addr);
 		assert_eq!(contract.total_deposit(), deposit);
 		assert_refcount!(contract.code_hash, 1);
@@ -74,7 +73,7 @@ fn basic_evm_flow_tracing_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
 		});
 
-		let contract = get_contract_checked(&addr).unwrap();
+		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
 		assert_eq!(
