@@ -291,12 +291,29 @@ pub trait EthExtra {
 		CallOf<Self::Config>: From<crate::Call<Self::Config>>,
 		<Self::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 	{
+		// Check transaction type and reject unsupported transaction types
+		match &tx {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
+			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+				// Supported transaction types, continue processing
+			},
+			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
-		let signed_transaction = tx.clone();
+		let transaction_encoded = tx.signed_payload();
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
@@ -344,7 +361,7 @@ pub trait EthExtra {
 					gas_limit,
 					storage_deposit_limit,
 					data,
-					signed_transaction,
+					transaction_encoded,
 				}
 				.into()
 			}
@@ -366,7 +383,7 @@ pub trait EthExtra {
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
-				signed_transaction,
+				transaction_encoded,
 			}
 			.into()
 		};
@@ -609,7 +626,7 @@ mod test {
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit,
-				signed_transaction,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);
@@ -632,7 +649,7 @@ mod test {
 				data,
 				gas_limit,
 				storage_deposit_limit,
-				signed_transaction,
+				transaction_encoded: signed_transaction.signed_payload(),
 			}
 			.into()
 		);

@@ -2031,8 +2031,10 @@ where
 		});
 
 		if eth_block_storage::is_executing_ethereum_call() {
-			InflightEthTxEvents::<T>::mutate(|events| {
-				events.push(EventLog { contract, data: data.clone(), topics: topics.clone() });
+			InflightEthTxEvents::<T>::append(EventLog {
+				contract,
+				data: data.clone(),
+				topics: topics.clone(),
 			});
 		}
 

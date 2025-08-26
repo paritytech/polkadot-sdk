@@ -17,11 +17,13 @@
 //!Types, and traits to integrate pallet-revive with EVM.
 #![warn(missing_docs)]
 
-use crate::evm::{Block, HashesOrTransactionInfos, TransactionSigned};
-use alloc::vec::Vec;
+use crate::evm::{
+	Block, HashesOrTransactionInfos, TYPE_EIP1559, TYPE_EIP2930, TYPE_EIP4844, TYPE_EIP7702,
+};
+
+use alloc::{vec, vec::Vec};
 use alloy_consensus::RlpEncodableReceipt;
-use alloy_core::primitives::bytes::BufMut;
-use alloy_primitives::Bloom;
+use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -44,8 +46,8 @@ pub struct EventLog {
 /// The transaction details needed to build the ethereum block hash.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug)]
 pub struct TransactionDetails {
-	/// The signed transaction.
-	pub signed_transaction: TransactionSigned,
+	/// The RLP encoding of the signed transaction.
+	pub transaction_encoded: Vec<u8>,
 	/// The logs emitted by the transaction.
 	pub logs: Vec<EventLog>,
 	/// Whether the transaction was successful.
@@ -58,22 +60,13 @@ pub struct TransactionDetails {
 /// layer without losing accuracy.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
-	/// The actual value per gas deducted from the sender's account. Before EIP-1559, this
-	/// is equal to the transaction's gas price. After, it is equal to baseFeePerGas +
-	/// min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas).
-	///
-	/// Note: Since there's a runtime API to extract the base gas fee (`fn gas_price()`)
-	/// and we have access to the `TransactionSigned` struct, we can compute the effective gas
-	/// price in the RPC layer.
-	pub effective_gas_price: U256,
-
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
 }
 
 /// A processed transaction by `Block::process_transaction_details`.
 struct TransactionProcessed {
-	encoded_tx: Vec<u8>,
+	transaction_encoded: Vec<u8>,
 	tx_hash: H256,
 	gas_info: ReceiptGasInfo,
 	encoded_receipt: Vec<u8>,
@@ -104,7 +97,6 @@ impl Block {
 		timestamp: U256,
 		block_author: H160,
 		gas_limit: U256,
-		base_gas_price: U256,
 	) -> (H256, Block, Vec<ReceiptGasInfo>) {
 		let mut block = Self {
 			number: block_number,
@@ -130,9 +122,9 @@ impl Block {
 		let mut logs_bloom = Bloom::default();
 
 		for detail in transaction_details {
-			let processed = block.process_transaction_details(detail, base_gas_price);
+			let processed = block.process_transaction_details(detail);
 
-			signed_tx.push(processed.encoded_tx);
+			signed_tx.push(processed.transaction_encoded);
 			tx_hashes.push(processed.tx_hash);
 			gas_infos.push(processed.gas_info);
 			receipts.push(processed.encoded_receipt);
@@ -143,6 +135,8 @@ impl Block {
 		let transactions_root = Self::compute_trie_root(&signed_tx);
 		let receipts_root = Self::compute_trie_root(&receipts);
 
+		// We use the transaction root as state root since the state
+		// root is not yet computed by the substrate block.
 		block.state_root = transactions_root.0.into();
 		block.transactions_root = transactions_root.0.into();
 		block.receipts_root = receipts_root.0.into();
@@ -158,31 +152,35 @@ impl Block {
 	/// Returns a tuple of the RLP encoded transaction and receipt.
 	///
 	/// Internally collects the total gas used.
-	fn process_transaction_details(
-		&mut self,
-		detail: TransactionDetails,
-		base_gas_price: U256,
-	) -> TransactionProcessed {
-		let TransactionDetails { signed_transaction, logs, success, gas_used } = detail;
+	fn process_transaction_details(&mut self, detail: TransactionDetails) -> TransactionProcessed {
+		let TransactionDetails { transaction_encoded, logs, success, gas_used } = detail;
 
-		let encoded_tx = signed_transaction.signed_payload();
-		let tx_hash = H256(keccak_256(&encoded_tx));
+		let tx_hash = H256(keccak_256(&transaction_encoded));
+		// The transaction type is the first byte from the encoded transaction,
+		// when the transaction is not legacy. For legacy transactions, there's
+		// no type defined. Additionally, the RLP encoding of the tx type byte
+		// is identical to the tx type.
+		let transaction_type = transaction_encoded
+			.first()
+			.cloned()
+			.map(|first| match first {
+				TYPE_EIP2930 | TYPE_EIP1559 | TYPE_EIP4844 | TYPE_EIP7702 => vec![first],
+				_ => vec![],
+			})
+			.unwrap_or_default();
 
 		let logs = logs
 			.into_iter()
 			.map(|log| {
-				alloy_primitives::Log::new_unchecked(
+				Log::new_unchecked(
 					log.contract.0.into(),
-					log.topics
-						.into_iter()
-						.map(|h| alloy_primitives::FixedBytes::from(h.0))
-						.collect::<Vec<_>>(),
-					alloy_primitives::Bytes::from(log.data),
+					log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+					log.data.into(),
 				)
 			})
 			.collect();
 
-		self.gas_used += gas_used.ref_time().into();
+		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
 
 		let receipt = alloy_consensus::Receipt {
 			status: success.into(),
@@ -193,25 +191,25 @@ impl Block {
 		let receipt_bloom = receipt.bloom_slow();
 
 		// Receipt encoding must be prefixed with the rlp(transaction type).
-		let mut encoded_receipt = signed_transaction.signed_type();
-		encoded_receipt
-			.reserve(encoded_receipt.len() + receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		let mut encoded_receipt = transaction_type;
+		let encoded_len = encoded_receipt
+			.len()
+			.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		encoded_receipt.reserve(encoded_len);
+
 		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
 
 		TransactionProcessed {
-			encoded_tx,
+			transaction_encoded,
 			tx_hash,
-			gas_info: ReceiptGasInfo {
-				effective_gas_price: signed_transaction.effective_gas_price(base_gas_price),
-				gas_used: gas_used.ref_time().into(),
-			},
+			gas_info: ReceiptGasInfo { gas_used: gas_used.ref_time().into() },
 			encoded_receipt,
 			receipt_bloom,
 		}
 	}
 
 	/// Compute the trie root using the `(rlp(index), encoded(item))` pairs.
-	pub fn compute_trie_root(items: &[Vec<u8>]) -> alloy_primitives::B256 {
+	pub fn compute_trie_root(items: &[Vec<u8>]) -> B256 {
 		alloy_consensus::proofs::ordered_trie_root_with_encoder(items, |item, buf| {
 			buf.put_slice(item)
 		})
@@ -241,14 +239,24 @@ impl Block {
 			extra_data: self.extra_data.clone().0.into(),
 			mix_hash: self.mix_hash.0.into(),
 			nonce: self.nonce.0.into(),
-			base_fee_per_gas: self.base_fee_per_gas.map(|gas| gas.as_u64()),
-			withdrawals_root: self.withdrawals_root.map(|root| root.0.into()),
-			blob_gas_used: self.blob_gas_used.map(|gas| gas.as_u64()),
-			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
+			// <<<<<<< HEAD
+			// 			base_fee_per_gas: self.base_fee_per_gas.map(|gas| gas.as_u64()),
+			// 			withdrawals_root: self.withdrawals_root.map(|root| root.0.into()),
+			// 			blob_gas_used: self.blob_gas_used.map(|gas| gas.as_u64()),
+			// 			excess_blob_gas: self.excess_blob_gas.map(|gas| gas.as_u64()),
+			// 			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
+			// 			requests_hash: self.requests_hash.map(|hash| hash.0.into()),
+
+			// 			difficulty: Default::default(),
+			// =======
+			base_fee_per_gas: Some(self.base_fee_per_gas.as_u64()),
+			withdrawals_root: Some(self.withdrawals_root.0.into()),
+			blob_gas_used: Some(self.blob_gas_used.as_u64()),
+			excess_blob_gas: Some(self.excess_blob_gas.as_u64()),
 			parent_beacon_block_root: self.parent_beacon_block_root.map(|root| root.0.into()),
 			requests_hash: self.requests_hash.map(|hash| hash.0.into()),
 
-			difficulty: Default::default(),
+			..Default::default()
 		};
 
 		alloy_header.hash_slow().0.into()
@@ -335,8 +343,45 @@ mod test {
 					panic!("Transaction and receipt index do not match");
 				}
 
+				use crate::TransactionSigned;
+				let transaction_encoded = tx_info.transaction_signed.signed_payload();
+
+				pub fn decode(data: &[u8]) -> Result<TransactionSigned, rlp::DecoderError> {
+					use crate::evm::*;
+
+					if data.len() < 1 {
+						return Err(rlp::DecoderError::RlpIsTooShort);
+					}
+					match data[0] {
+						TYPE_EIP2930 => {
+							println!(" TYPE_EIP2930");
+							rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into)
+						},
+						TYPE_EIP1559 => {
+							println!(" TYPE_EIP1559");
+
+							rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into)
+						},
+						TYPE_EIP4844 => {
+							println!(" TYPE_EIP4844");
+							rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into)
+						},
+						TYPE_EIP7702 => {
+							println!(" TYPE_EIP7702");
+							rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into)
+						},
+						_ => {
+							println!(" LEGACY");
+							rlp::decode::<TransactionLegacySigned>(data).map(Into::into)
+						},
+					}
+				}
+
+				let generic_transaction = decode(&transaction_encoded).unwrap();
+				println!(" Can DECODE!\n");
+
 				TransactionDetails {
-					signed_transaction: tx_info.transaction_signed,
+					transaction_encoded: tx_info.transaction_signed.signed_payload(),
 					logs: receipt_info
 						.logs
 						.into_iter()
@@ -362,14 +407,16 @@ mod test {
 			block.timestamp.into(),
 			block.miner.into(),
 			Default::default(),
-			block.base_fee_per_gas.unwrap_or_default().into(),
 		)
 		.1;
 
 		assert_eq!(built_block.gas_used, block.gas_used);
 		assert_eq!(built_block.logs_bloom, block.logs_bloom);
 		// We are using the tx root for state root.
-		assert_eq!(built_block.state_root, block.transactions_root);
+		assert_eq!(built_block.state_root, built_block.transactions_root);
+
+		// Double check the receipts roots.
+		assert_eq!(built_block.receipts_root, block.receipts_root);
 
 		let manual_hash = manual_trie_root_compute(encoded_tx.clone());
 		println!("Manual Hash: {:?}", manual_hash);
@@ -380,8 +427,5 @@ mod test {
 		assert_eq!(manual_hash, block.transactions_root);
 		// This ensures we can compute the same transaction root as Ethereum.
 		assert_eq!(block.transactions_root, built_block.transactions_root);
-
-		// Double check the receipts roots.
-		assert_eq!(built_block.receipts_root, block.receipts_root);
 	}
 }

@@ -38,7 +38,7 @@ impl PartialEq for EventLog {
 impl PartialEq for TransactionDetails {
 	// Ignore the weight since its subject to change.
 	fn eq(&self, other: &Self) -> bool {
-		self.signed_transaction == other.signed_transaction &&
+		self.transaction_encoded == other.transaction_encoded &&
 			self.logs == other.logs &&
 			self.success == other.success
 	}
@@ -47,8 +47,7 @@ impl PartialEq for TransactionDetails {
 #[test]
 fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
-		let receipt_data =
-			vec![ReceiptGasInfo { effective_gas_price: 1.into(), gas_used: 1.into() }];
+		let receipt_data = vec![ReceiptGasInfo { gas_used: 1.into() }];
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
@@ -57,14 +56,15 @@ fn on_initialize_clears_storage() {
 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
 
 		let transactions = vec![TransactionDetails {
-			signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
+				.signed_payload(),
 			logs: vec![event.clone()],
 			success: true,
 			gas_used: Weight::zero(),
 		}];
 
 		InflightEthTransactions::<Test>::put(transactions.clone());
-		assert_eq!(InflightEthTransactions::<Test>::get(), transactions);
+		assert_eq!(InflightEthTransactions::<Test>::get(), transactions.clone());
 
 		let block = EthBlock { number: 1.into(), ..Default::default() };
 		EthereumBlock::<Test>::put(block.clone());
@@ -72,9 +72,11 @@ fn on_initialize_clears_storage() {
 
 		Contracts::on_initialize(0);
 
+		// The events and tx info is killed on the finalized hook.
+		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event]);
+		assert_eq!(InflightEthTransactions::<Test>::get(), transactions);
+		// RPC queried storage is cleared out.
 		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
-		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
 }
@@ -104,13 +106,15 @@ fn transactions_are_captured() {
 		let transactions = InflightEthTransactions::<Test>::get();
 		let expected = vec![
 			TransactionDetails {
-				signed_transaction: TransactionSigned::TransactionLegacySigned(Default::default()),
+				transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
+					.signed_payload(),
 				logs: vec![],
 				success: true,
 				gas_used: Weight::zero(),
 			},
 			TransactionDetails {
-				signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
+				transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
+					.signed_payload(),
 				logs: vec![],
 				success: true,
 				gas_used: Weight::zero(),
@@ -152,7 +156,8 @@ fn events_are_captured() {
 
 		let transactions = InflightEthTransactions::<Test>::get();
 		let expected = vec![TransactionDetails {
-			signed_transaction: TransactionSigned::Transaction4844Signed(Default::default()),
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
+				.signed_payload(),
 			logs: vec![EventLog {
 				data: vec![1, 2, 3, 4],
 				topics: vec![H256::repeat_byte(42)],

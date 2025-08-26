@@ -262,7 +262,7 @@ mod benchmarks {
 			storage_deposit,
 			code,
 			input,
-			TransactionSigned::default(),
+			TransactionSigned::default().signed_payload(),
 		);
 
 		let deposit =
@@ -398,7 +398,7 @@ mod benchmarks {
 			Weight::MAX,
 			storage_deposit,
 			data,
-			TransactionSigned::default(),
+			TransactionSigned::default().signed_payload(),
 		);
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),

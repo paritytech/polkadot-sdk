@@ -354,7 +354,6 @@ impl Config for Test {
 	type ChainId = ChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
-	type LengthToFee = <Test as pallet_transaction_payment::Config>::LengthToFee;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {
