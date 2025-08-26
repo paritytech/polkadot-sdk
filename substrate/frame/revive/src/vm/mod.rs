@@ -160,7 +160,7 @@ where
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(
 		&mut self,
-		owner: &AccountIdOf<T>,
+		origin: &AccountIdOf<T>,
 		skip_transfer: bool,
 	) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
@@ -170,18 +170,17 @@ where
 				Some(_) => Ok(Default::default()),
 				// Upload a new contract code.
 				// We need to store the code and its code_info, and collect the deposit.
-				// This `None` case happens only with freshly uploaded modules. This means that
-				// the `owner` is always the origin of the current transaction.
+				// This `None` case happens only with freshly uploaded modules.
 				None => {
 					let deposit = self.code_info.deposit;
 
 					if !skip_transfer {
 						T::Currency::hold(
 							&HoldReason::CodeUploadDepositReserve.into(),
-							owner,
+							origin,
 							deposit,
 						).map_err(|err| {
-							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", owner);
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for origin: {origin:?}: {err:?}");
 							<Error<T>>::StorageDepositNotEnoughFunds
 						})?;
 					}
