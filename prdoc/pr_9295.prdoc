@@ -6,8 +6,10 @@ title: 'MMR: add ancestry proof generation runtime method and RPC call'
 doc:
   - audience: Runtime Dev
     description: |
-      This PR adds the `generate_ancestry_proof` to `MmrApi` and bumps the `MmrApi` version
-       from 2 to 3. Deprecates the related `generate_ancestry_proof` method of `BeefyApi`.
+      This PR adds the `generate_ancestry_proof` to `MmrApi` and bumps the
+      `MmrApi` version from 2 to 3.
+      Removes the related `generate_ancestry_proof` method of `BeefyApi`;
+      `mmr::MmrAPI::generate_ancestry_proof` should be used instead.
   - audience: Node Dev
     description: |
       This PR adds the `mmr_generateAncestryProof` call to the RPC.
