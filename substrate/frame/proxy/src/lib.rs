@@ -37,7 +37,14 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
-	traits::{Currency, InstanceFilter, ReservableCurrency},
+	traits::{
+		fungible::{
+			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
+			Inspect as FunInspect, Mutate as FunMutate,
+		},
+		tokens::Precision,
+		InstanceFilter,
+	},
 };
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -45,7 +52,7 @@ pub use weights::WeightInfo;
 type CallHashOf<T> = <<T as Config>::CallHasher as Hash>::Output;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	<<T as Config>::Currency as FunInspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type BlockNumberFor<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -127,6 +134,31 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Hold reasons for the proxy pallet.
+	#[pallet::composite_enum]
+	#[derive(
+		Encode,
+		Decode,
+		DecodeWithMemTracking,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		Ord,
+		PartialOrd,
+		RuntimeDebug,
+		MaxEncodedLen,
+		TypeInfo,
+	)]
+	pub enum HoldReason {
+		/// The funds are held as deposit for proxy registration.
+		#[codec(index = 0)]
+		ProxyDeposit,
+		/// The funds are held as deposit for proxy announcements.
+		#[codec(index = 1)]
+		AnnouncementDeposit,
+	}
+
 	/// Configuration trait.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -143,7 +175,12 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// The currency mechanism.
-		type Currency: ReservableCurrency<Self::AccountId>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ FunMutate<Self::AccountId>
+			+ FunHoldBalanced<Self::AccountId>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
@@ -354,7 +391,7 @@ pub mod pallet {
 				vec![proxy_def].try_into().map_err(|_| Error::<T>::TooMany)?;
 
 			let deposit = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
-			T::Currency::reserve(&who, deposit)?;
+			T::Currency::hold(&HoldReason::ProxyDeposit.into(), &who, deposit)?;
 
 			Proxies::<T>::insert(&pure, (bounded_proxies, deposit));
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or_default();
@@ -404,7 +441,12 @@ pub mod pallet {
 			ensure!(proxy == who, Error::<T>::NoPermission);
 
 			let (_, deposit) = Proxies::<T>::take(&who);
-			T::Currency::unreserve(&spawner, deposit);
+			let _ = T::Currency::release(
+				&HoldReason::ProxyDeposit.into(),
+				&spawner,
+				deposit,
+				Precision::BestEffort,
+			);
 
 			Self::deposit_event(Event::PureKilled {
 				pure: who,
@@ -460,6 +502,7 @@ pub mod pallet {
 					T::AnnouncementDepositBase::get(),
 					T::AnnouncementDepositFactor::get(),
 					pending.len(),
+					&HoldReason::AnnouncementDeposit.into(),
 				)
 				.map(|d| {
 					d.expect("Just pushed; pending.len() > 0; rejig_deposit returns Some; qed")
@@ -596,6 +639,7 @@ pub mod pallet {
 					T::ProxyDepositBase::get(),
 					T::ProxyDepositFactor::get(),
 					proxies.len(),
+					&HoldReason::ProxyDeposit.into(),
 				)?;
 
 				match maybe_new_deposit {
@@ -637,6 +681,7 @@ pub mod pallet {
 					T::AnnouncementDepositBase::get(),
 					T::AnnouncementDepositFactor::get(),
 					announcements.len(),
+					&HoldReason::AnnouncementDeposit.into(),
 				)?;
 
 				match maybe_new_deposit {
@@ -867,9 +912,18 @@ impl<T: Config> Pallet<T> {
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
 			let new_deposit = Self::deposit(proxies.len() as u32);
 			if new_deposit > *deposit {
-				T::Currency::reserve(delegator, new_deposit - *deposit)?;
+				T::Currency::hold(
+					&HoldReason::ProxyDeposit.into(),
+					delegator,
+					new_deposit - *deposit,
+				)?;
 			} else if new_deposit < *deposit {
-				T::Currency::unreserve(delegator, *deposit - new_deposit);
+				let _ = T::Currency::release(
+					&HoldReason::ProxyDeposit.into(),
+					delegator,
+					*deposit - new_deposit,
+					Precision::BestEffort,
+				);
 			}
 			*deposit = new_deposit;
 			Self::deposit_event(Event::<T>::ProxyAdded {
@@ -907,9 +961,18 @@ impl<T: Config> Pallet<T> {
 			proxies.remove(i);
 			let new_deposit = Self::deposit(proxies.len() as u32);
 			if new_deposit > old_deposit {
-				T::Currency::reserve(delegator, new_deposit - old_deposit)?;
+				T::Currency::hold(
+					&HoldReason::ProxyDeposit.into(),
+					delegator,
+					new_deposit - old_deposit,
+				)?;
 			} else if new_deposit < old_deposit {
-				T::Currency::unreserve(delegator, old_deposit - new_deposit);
+				let _ = T::Currency::release(
+					&HoldReason::ProxyDeposit.into(),
+					delegator,
+					old_deposit - new_deposit,
+					Precision::BestEffort,
+				);
 			}
 			if !proxies.is_empty() {
 				*x = Some((proxies, new_deposit))
@@ -938,18 +1001,19 @@ impl<T: Config> Pallet<T> {
 		base: BalanceOf<T>,
 		factor: BalanceOf<T>,
 		len: usize,
+		hold_reason: &T::RuntimeHoldReason,
 	) -> Result<Option<BalanceOf<T>>, DispatchError> {
 		let new_deposit =
 			if len == 0 { BalanceOf::<T>::zero() } else { base + factor * (len as u32).into() };
 		if new_deposit > old_deposit {
-			T::Currency::reserve(who, new_deposit.saturating_sub(old_deposit))?;
+			T::Currency::hold(hold_reason, who, new_deposit.saturating_sub(old_deposit))?;
 		} else if new_deposit < old_deposit {
 			let excess = old_deposit.saturating_sub(new_deposit);
-			let remaining_unreserved = T::Currency::unreserve(who, excess);
-			if !remaining_unreserved.is_zero() {
+			let released = T::Currency::release(hold_reason, who, excess, Precision::BestEffort)?;
+			if released < excess {
 				defensive!(
-					"Failed to unreserve full amount. (Requested, Actual)",
-					(excess, excess.saturating_sub(remaining_unreserved))
+					"Failed to release full amount. (Requested, Released)",
+					(excess, released)
 				);
 			}
 		}
@@ -973,6 +1037,7 @@ impl<T: Config> Pallet<T> {
 				T::AnnouncementDepositBase::get(),
 				T::AnnouncementDepositFactor::get(),
 				pending.len(),
+				&HoldReason::AnnouncementDeposit.into(),
 			)?
 			.map(|deposit| (pending, deposit));
 			Ok(())
@@ -1027,6 +1092,11 @@ impl<T: Config> Pallet<T> {
 	/// - `delegator`: The delegator account.
 	pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
 		let (_, old_deposit) = Proxies::<T>::take(&delegator);
-		T::Currency::unreserve(&delegator, old_deposit);
+		let _ = T::Currency::release(
+			&HoldReason::ProxyDeposit.into(),
+			&delegator,
+			old_deposit,
+			Precision::BestEffort,
+		);
 	}
 }
