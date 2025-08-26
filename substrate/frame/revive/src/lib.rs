@@ -540,14 +540,38 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		/// Genesis mapped accounts
 		pub mapped_accounts: Vec<T::AccountId>,
+		/// Externally owned EVM accounts with (H160 address, U256 balance)
+		pub externally_owned_accounts: Vec<(H160, U256)>,
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		BalanceOf<T>: TryFrom<U256>,
+	{
 		fn build(&self) {
+			use frame_support::traits::fungible::Mutate;
 			for id in &self.mapped_accounts {
-				if let Err(err) = T::AddressMapper::map(id) {
+				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
+				}
+			}
+
+			for (addr, balance) in &self.externally_owned_accounts {
+				let Ok(balance_with_dust) =
+					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(*balance)
+				else {
+					log::error!(target: LOG_TARGET, "Failed to convert balance for {addr:?}");
+					continue;
+				};
+
+				let (value, dust) = balance_with_dust.deconstruct();
+				let _ = T::Currency::set_balance(&T::AddressMapper::to_account_id(addr), value);
+				if dust > 0 {
+					AccountInfoOf::<T>::insert(
+						addr,
+						AccountInfo { account_type: AccountType::EOA, dust },
+					);
 				}
 			}
 		}

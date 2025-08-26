@@ -420,6 +420,7 @@ members = [
 	"substrate/frame/referenda",
 	"substrate/frame/remark",
 	"substrate/frame/revive",
+	"substrate/frame/revive/evm-tester",
 	"substrate/frame/revive/dev-node/node",
 	"substrate/frame/revive/dev-node/runtime",
 	"substrate/frame/revive/fixtures",
@@ -1050,6 +1051,7 @@ pallet-staking-reward-curve = { path = "substrate/frame/staking/reward-curve", d
 pallet-staking-reward-fn = { path = "substrate/frame/staking/reward-fn", default-features = false }
 pallet-staking-runtime-api = { path = "substrate/frame/staking/runtime-api", default-features = false }
 revive-dev-node = { path = "substrate/frame/revive/dev-node/node" }
+revive-evm-tester = { path = "substrate/frame/revive/evm-tester" }
 revive-dev-runtime = { path = "substrate/frame/revive/dev-node/runtime" }
 # TODO: remove the reward stuff as they are not needed here
 pallet-derivatives = { path = "polkadot/xcm/pallet-derivatives", default-features = false }

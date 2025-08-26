@@ -22,7 +22,7 @@ mod sol;
 
 use crate::{
 	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
-	CodeInfoOf, Config, Origin, Pallet,
+	CodeInfoOf, Config, GenesisConfig, Origin, Pallet,
 };
 use frame_support::{
 	assert_ok, derive_impl,
@@ -370,6 +370,7 @@ pub struct ExtBuilder {
 	existential_deposit: u64,
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
+	genesis_config: GenesisConfig<Test>,
 }
 
 impl Default for ExtBuilder {
@@ -378,6 +379,7 @@ impl Default for ExtBuilder {
 			existential_deposit: ExistentialDeposit::get(),
 			storage_version: None,
 			code_hashes: vec![],
+			genesis_config: GenesisConfig::<Test>::default(),
 		}
 	}
 }
@@ -389,6 +391,10 @@ impl ExtBuilder {
 	}
 	pub fn with_code_hashes(mut self, code_hashes: Vec<sp_core::H256>) -> Self {
 		self.code_hashes = code_hashes;
+		self
+	}
+	pub fn with_genesis_config(mut self, genesis_config: GenesisConfig<Test>) -> Self {
+		self.genesis_config = genesis_config;
 		self
 	}
 	pub fn set_associated_consts(&self) {
@@ -407,7 +413,7 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
+		self.genesis_config.assimilate_storage(&mut t).unwrap();
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {
@@ -440,4 +446,22 @@ impl Default for Origin<Test> {
 	fn default() -> Self {
 		Self::Signed(ALICE)
 	}
+}
+
+#[test]
+fn ext_builder_with_genesis_config_works() {
+	use crate::AddressMapper;
+	use sp_core::U256;
+	let balance = U256::from(100);
+
+	ExtBuilder::default()
+		.with_genesis_config(crate::GenesisConfig::<Test> {
+			mapped_accounts: vec![EVE],
+			externally_owned_accounts: vec![(ALICE_ADDR, balance)],
+		})
+		.build()
+		.execute_with(|| {
+			assert_eq!(Pallet::<Test>::evm_balance(&ALICE_ADDR), balance);
+			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+		});
 }

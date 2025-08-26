@@ -14774,6 +14774,7 @@ checksum = "1fd6780a80ae0c52cc120a26a1a42c1ae51b247a253e4e06113d23d2c2edd078"
 dependencies = [
  "phf_macros",
  "phf_shared",
+ "serde",
 ]
 
 [[package]]
@@ -18542,6 +18543,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "revive-evm-tester"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-balances",
+ "pallet-revive",
+ "regex",
+ "revive-dev-runtime",
+ "revm",
+ "revm-statetest-types",
+ "serde",
+ "serde_json",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-storage 19.0.0",
+]
+
+[[package]]
 name = "revm"
 version = "27.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18728,6 +18751,19 @@ dependencies = [
  "revm-bytecode",
  "revm-primitives",
  "serde",
+]
+
+[[package]]
+name = "revm-statetest-types"
+version = "8.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da6b09ec00d025cedd83a01af556ad53ec9754775332ce811de2d4e68927b332"
+dependencies = [
+ "k256",
+ "revm",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

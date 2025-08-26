@@ -1,0 +1,32 @@
+[package]
+name = "revive-evm-tester"
+version = "0.1.0"
+authors = ["Parity Technologies <admin@parity.io>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "State test runner for Revive EVM compatibility testing"
+
+[[bin]]
+name = "statetest"
+path = "src/main.rs"
+
+[dependencies]
+clap = { features = ["derive"], workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+hex = { workspace = true }
+regex = { workspace = true }
+revm-statetest-types = "8.0"
+revm = { workspace = true }
+revive-dev-runtime = { workspace  = true }
+pallet-revive = { workspace = true }
+sp-io = { workspace = true }
+sp-storage = { workspace = true }
+sp-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-balances = { workspace = true }
+
+
+
