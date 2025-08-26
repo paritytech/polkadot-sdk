@@ -200,7 +200,7 @@ where
 					})?;
 					}
 
-					self.code_info.refcount = 0;
+					self.code_info.refcount = if self.code_info.is_pvm() { 0 } else { 1 };
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
 					Ok(deposit)
