@@ -22,8 +22,7 @@ use core::marker::PhantomData;
 use frame_support::traits::{tokens::PaymentStatus, Get};
 use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
-use xcm_executor::traits::{FeeReason, QueryHandler, QueryResponseStatus};
-use xcm_executor::traits::FeeManager;
+use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
 
 pub use frame_support::traits::tokens::transfer::Transfer;
 
@@ -81,7 +80,7 @@ impl<
 		RemoteFee: GetDefaultRemoteFee,
 	> Transfer
 	for TransferOverXcm<
-	XcmFeeHandler,
+		XcmFeeHandler,
 		Router,
 		Querier,
 		Timeout,
@@ -109,18 +108,22 @@ impl<
 	) -> Result<Self::Id, Self::Error> {
 		let fee_asset = remote_fee.unwrap_or_else(RemoteFee::get_default_remote_fee);
 
-		let (message, asset_location, query_id) =
-			Self::get_remote_transfer_xcm(from, to, asset_kind, amount, fee_asset)?;
-
-		let (ticket, delivery_fees) =
-			Router::validate(&mut Some(asset_location), &mut Some(message))?;
-		Router::deliver(ticket)?;
-
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation
 		})?;
 
+		let (message, asset_location, query_id) = Self::get_remote_transfer_xcm(
+			from_location.clone(),
+			to,
+			asset_kind,
+			amount,
+			fee_asset,
+		)?;
+
+		let (ticket, delivery_fees) =
+			Router::validate(&mut Some(asset_location), &mut Some(message))?;
+		Router::deliver(ticket)?;
 
 		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
 			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
@@ -184,7 +187,7 @@ impl<
 {
 	/// Gets the XCM executing the transfer on the remote chain.
 	pub fn get_remote_transfer_xcm(
-		from: &<Self as Transfer>::Payer,
+		from_location: Location,
 		to: &<Self as Transfer>::Beneficiary,
 		asset_kind: <Self as Transfer>::AssetKind,
 		amount: <Self as Transfer>::Balance,
@@ -194,11 +197,6 @@ impl<
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
 
 		let origin_location_on_remote = Self::origin_location_on_remote(&asset_location)?;
-
-		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
-			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
-			Error::InvalidLocation
-		})?;
 
 		let beneficiary = TransactorRefToLocation::try_convert(to).map_err(|error| {
 			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
