@@ -567,7 +567,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Genesis mapped accounts.
+		/// Genesis mapped accounts
 		pub mapped_accounts: Vec<T::AccountId>,
 		/// Account entries (both EOAs and contracts)
 		pub accounts: Vec<genesis::Account>,
