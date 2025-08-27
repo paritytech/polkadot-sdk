@@ -130,6 +130,8 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
+	use crate::{evm::block_hash::EthereumBlockBuilder, EventLog};
+	use alloc::vec::Vec;
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -145,6 +147,18 @@ pub(crate) mod eth_block_storage {
 	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 		executing_call::using(&mut true, f)
 	}
+
+	/// The incremental block builder that builds the trie root hashes
+	/// on the go with optimal storage.
+	pub static INCREMENTAL_BUILDER: spin::Mutex<EthereumBlockBuilder> =
+		spin::Mutex::new(EthereumBlockBuilder::new());
+
+	/// The events emitted by this pallet while executing the current inflight transaction.
+	///
+	/// The events are needed to reconstruct the receipt root hash, as they represent the
+	/// logs emitted by the contract. The events are consumed when the transaction is
+	/// completed.
+	pub static INFLIGHT_EVENTS: spin::Mutex<Vec<EventLog>> = spin::Mutex::new(Vec::new());
 }
 
 #[frame_support::pallet]
@@ -558,18 +572,6 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<EventLog>, ValueQuery>;
 
-	/// The EVM submitted transactions that are inflight for the current block.
-	///
-	/// The transactions are needed to construct the ETH block.
-	///
-	/// This contains the information about transaction payload, transaction index within the block,
-	/// the events emitted by the transaction, the status of the transaction (success or not), and
-	/// the gas consumed.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type InflightEthTransactions<T: Config> =
-		StorageValue<_, Vec<TransactionDetails>, ValueQuery>;
-
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
 	/// # Note
@@ -638,6 +640,9 @@ pub mod pallet {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
 
+			// Reset the block builder for the next block.
+			eth_block_storage::INCREMENTAL_BUILDER.lock().reset();
+
 			Weight::zero()
 		}
 
@@ -645,9 +650,6 @@ pub mod pallet {
 			// If we cannot fetch the block author there's nothing we can do.
 			// Finding the block author traverses the digest logs.
 			let Some(block_author) = Self::block_author() else {
-				// Drain storage in case of errors.
-				InflightEthTxEvents::<T>::kill();
-				InflightEthTransactions::<T>::kill();
 				return;
 			};
 
@@ -659,17 +661,11 @@ pub mod pallet {
 				H256::default()
 			};
 			let gas_limit = Self::evm_block_gas_limit();
-			// This touches the storage, must account for weights.
-			let transactions = InflightEthTransactions::<T>::take();
 
-			let (block_hash, block, receipt_data) = EthBlock::build(
-				transactions,
-				eth_block_num,
-				parent_hash,
-				T::Time::now().into(),
-				block_author,
-				gas_limit,
-			);
+			let (block_hash, block, receipt_data) = eth_block_storage::INCREMENTAL_BUILDER
+				.lock()
+				.build(eth_block_num, parent_hash, T::Time::now().into(), block_author, gas_limit);
+
 			// Put the block hash into storage.
 			BlockHash::<T>::insert(eth_block_num, block_hash);
 
@@ -1797,14 +1793,17 @@ impl<T: Config> Pallet<T> {
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
-		let logs = InflightEthTxEvents::<T>::take();
+		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.lock();
+		let logs = core::mem::replace(&mut *inflight_events, Vec::new());
 
-		InflightEthTransactions::<T>::append(TransactionDetails {
-			transaction_encoded,
-			logs,
-			success,
-			gas_used,
-		});
+		eth_block_storage::INCREMENTAL_BUILDER
+			.lock()
+			.process_transaction(TransactionDetails {
+				transaction_encoded,
+				logs,
+				success,
+				gas_used,
+			});
 	}
 
 	/// The address of the validator that produced the current block.

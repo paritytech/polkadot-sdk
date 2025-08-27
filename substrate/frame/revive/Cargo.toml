@@ -40,6 +40,7 @@ revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
+spin = { version = "0.10.0" }
 
 # Polkadot SDK Dependencies
 bn = { workspace = true }

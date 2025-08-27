@@ -321,15 +321,20 @@ pub struct EthereumBlockBuilder {
 
 impl EthereumBlockBuilder {
 	/// Constructs a new [`EthereumBlockBuilder`].
-	pub fn new() -> Self {
+	pub const fn new() -> Self {
 		Self {
 			transaction_root_builder: None,
 			receipts_root_builder: None,
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
-			logs_bloom: Bloom::default(),
+			logs_bloom: Bloom(FixedBytes::ZERO),
 			gas_info: Vec::new(),
 		}
+	}
+
+	/// Reset the state of the block builder to accommodate for the next block.
+	pub fn reset(&mut self) {
+		*self = Self::new();
 	}
 
 	/// Process a single transaction at a time.
@@ -379,7 +384,7 @@ impl EthereumBlockBuilder {
 
 	/// Build the ethereum block from provided data.
 	pub fn build(
-		mut self,
+		&mut self,
 		block_number: U256,
 		parent_hash: H256,
 		timestamp: U256,
@@ -389,8 +394,8 @@ impl EthereumBlockBuilder {
 		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
 		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
 
-		println!("Incr hash tx: {:?}", transactions_root);
-		println!("Incr hash receipts: {:?}", receipts_root);
+		let tx_hashes = core::mem::replace(&mut self.tx_hashes, Vec::new());
+		let gas_info = core::mem::replace(&mut self.gas_info, Vec::new());
 
 		let block = Block {
 			number: block_number,
@@ -406,13 +411,13 @@ impl EthereumBlockBuilder {
 			gas_used: self.gas_used,
 
 			logs_bloom: (*self.logs_bloom.data()).into(),
-			transactions: HashesOrTransactionInfos::Hashes(self.tx_hashes),
+			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
 			..Default::default()
 		};
 
 		let block_hash = block.header_hash();
-		(block_hash, block, self.gas_info)
+		(block_hash, block, gas_info)
 	}
 
 	fn compute_trie_root(builder: &mut Option<IncrementalHashBuilder>) -> H256 {

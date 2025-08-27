@@ -28,8 +28,8 @@ use crate::{
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, InflightEthTxEvents,
-	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
+	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -2031,7 +2031,7 @@ where
 		});
 
 		if eth_block_storage::is_executing_ethereum_call() {
-			InflightEthTxEvents::<T>::append(EventLog {
+			eth_block_storage::INFLIGHT_EVENTS.lock().push(EventLog {
 				contract,
 				data: data.clone(),
 				topics: topics.clone(),
