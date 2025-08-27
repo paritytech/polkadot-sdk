@@ -79,7 +79,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
 	let Some(code) =
-		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.into_inner())
+		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.to_vec())
 	else {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
