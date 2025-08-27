@@ -206,7 +206,7 @@ fn extcodecopy_works() {
 			let contract_info = test_utils::get_contract(&dummy_addr);
 			let code_hash = contract_info.code_hash;
 			let expected_code = crate::PristineCode::<Test>::get(&code_hash)
-				.map(|bounded_vec| bounded_vec.into_inner())
+				.map(|bounded_vec| bounded_vec.to_vec())
 				.unwrap_or_default();
 			expected_code[code_start..code_start + code_len].to_vec()
 		};
