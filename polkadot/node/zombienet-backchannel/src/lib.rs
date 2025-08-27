@@ -107,7 +107,7 @@ impl ZombienetBackchannel {
 			let (tx, _rx) = broadcast::channel(256);
 			let (tx_relay, mut rx_relay) = broadcast::channel::<BackchannelItem>(256);
 
-			// receive from the ws and send to all subcribers
+			// receive from the ws and send to all subscribers
 			let tx1 = tx.clone();
 			tokio::spawn(async move {
 				while let Some(Ok(Message::Text(text))) = read.next().await {
