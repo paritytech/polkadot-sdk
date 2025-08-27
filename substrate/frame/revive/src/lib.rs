@@ -550,7 +550,7 @@ pub mod pallet {
 		/// Genesis configuration for a contract account.
 		#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 		pub struct Account {
-			/// Contrat address.
+			/// Contract address.
 			pub address: H160,
 			/// Contract balance.
 			#[serde(default)]
