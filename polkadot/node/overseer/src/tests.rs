@@ -1432,7 +1432,7 @@ fn overseer_all_subsystems_can_receive_their_priority_messages() {
 }
 
 // Test that when subsystem processes messages slow, the priority messages are processed before
-// the normal messages. This is important to ensure that the subsytem can handle priority messages.
+// the normal messages. This is important to ensure that the subsystem can handle priority messages.
 fn overseer_check_subsystem_can_receive_their_priority_messages(
 	normal_msgs: Vec<AllMessages>,
 	prio_msgs: Vec<AllMessages>,
