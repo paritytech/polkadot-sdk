@@ -974,4 +974,185 @@ mod tests {
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 		Ok(())
 	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_insert_get(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+
+		// Test forward lookup
+		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
+		assert_eq!(resolved, Some(substrate_hash));
+
+		// Test reverse lookup
+		let resolved = provider.get_ethereum_hash(&substrate_hash).await;
+		assert_eq!(resolved, Some(ethereum_hash));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_overwrite(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash1 = H256::from([2u8; 32]);
+		let substrate_hash2 = H256::from([3u8; 32]);
+		let block_number = 42u64;
+
+		// Insert first mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash1, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
+
+		// Insert second mapping (should overwrite)
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash2, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
+
+		// Old mapping should be gone
+		assert_eq!(provider.get_ethereum_hash(&substrate_hash1).await, None);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_remove(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash1 = H256::from([1u8; 32]);
+		let ethereum_hash2 = H256::from([2u8; 32]);
+		let substrate_hash1 = H256::from([3u8; 32]);
+		let substrate_hash2 = H256::from([4u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mappings
+		provider
+			.insert_block_mapping(&ethereum_hash1, &substrate_hash1, block_number)
+			.await?;
+		provider
+			.insert_block_mapping(&ethereum_hash2, &substrate_hash2, block_number)
+			.await?;
+
+		// Verify they exist
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(substrate_hash1));
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
+
+		// Remove one mapping
+		provider.remove_block_mappings(&[ethereum_hash1]).await?;
+
+		// Verify removal
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, None);
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_pruning_integration(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
+
+		// Remove substrate block (this should also remove the mapping)
+		provider.remove(&[substrate_hash]).await?;
+
+		// Mapping should be gone
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, None);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_logs_with_ethereum_block_hash_mapping(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 1u64;
+
+		// Create a log with substrate hash
+		let log = Log {
+			block_hash: substrate_hash,
+			block_number: block_number.into(),
+			address: H160::from([1u8; 20]),
+			topics: vec![H256::from([1u8; 32])],
+			transaction_hash: H256::from([3u8; 32]),
+			transaction_index: U256::from(0),
+			log_index: U256::from(0),
+			data: Some(vec![0u8; 32].into()),
+			..Default::default()
+		};
+
+		// Insert the log
+		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				logs: vec![log.clone()],
+				transaction_hash: log.transaction_hash,
+				transaction_index: log.transaction_index,
+				..Default::default()
+			},
+		)];
+		provider.insert(&block, &receipts).await?;
+
+		// Insert block mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+
+		// Query logs using Ethereum block hash (should resolve to substrate hash)
+		let logs = provider
+			.logs(Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }))
+			.await?;
+		assert_eq!(logs, vec![log]);
+
+		Ok(())
+	}
+
+	async fn count_mappings(pool: &SqlitePool) -> usize {
+		let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM eth_to_substrate_blocks")
+			.fetch_one(pool)
+			.await
+			.unwrap();
+		count as _
+	}
+
+	#[sqlx::test]
+	async fn test_mapping_count(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Initially no mappings
+		assert_eq!(count_mappings(&provider.pool).await, 0);
+
+		// Insert some mappings
+		provider
+			.insert_block_mapping(&H256::from([1u8; 32]), &H256::from([2u8; 32]), 1)
+			.await?;
+		provider
+			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
+			.await?;
+
+		assert_eq!(count_mappings(&provider.pool).await, 2);
+
+		// Remove one
+		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
+		assert_eq!(count_mappings(&provider.pool).await, 1);
+
+		Ok(())
+	}
 }
