@@ -155,11 +155,8 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(),
-			VmBinaryModule::evm_sized(c - 1),
-			vec![],
-		)?;
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
