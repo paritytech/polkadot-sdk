@@ -84,7 +84,6 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-
 	let Ok(code_offset) = code_offset.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
