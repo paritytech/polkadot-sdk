@@ -45,6 +45,9 @@ pub trait Transfer {
 	/// The unit type can be used here to indicate there's only one kind of asset to do payments
 	/// with. When implementing, it should be clear from the context what that asset is.
 	type AssetKind;
+
+	/// Asset that is used to pay the xcm execution fees on the remote chain.
+	type RemoteFeeAsset;
 	/// An identifier given to an individual payment.
 	type Id: FullCodec + MaxEncodedLen + TypeInfo + Clone + Eq + PartialEq + Debug + Copy;
 	/// An error which could be returned by the Pay type
@@ -56,7 +59,7 @@ pub trait Transfer {
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: Option<(Self::AssetKind, Self::Balance)>,
+		remote_fee: Option<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error>;
 
 	/// Check how a payment has proceeded. `id` must have been previously returned by `pay` for

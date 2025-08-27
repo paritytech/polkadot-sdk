@@ -30,7 +30,7 @@ const LOG_TARGET: &str = "xcm::transfer_remote";
 
 /// Abstraction to get a default remote xcm execution fee from the remote chain.
 pub trait GetDefaultRemoteFee {
-	fn get_default_remote_fee(xcm: Xcm<()>, asset_id: Option<AssetId>) -> Asset;
+	fn get_default_remote_fee() -> Asset;
 }
 
 /// Transfer an asset on a remote chain (in practice this should be only asset hub).
@@ -87,6 +87,7 @@ impl<
 	type Payer = Transactor;
 	type Beneficiary = Transactor;
 	type AssetKind = AssetKind;
+	type RemoteFeeAsset = Asset;
 	type Id = QueryId;
 	type Error = Error;
 
@@ -95,10 +96,12 @@ impl<
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: Option<(Self::AssetKind, Self::Balance)>,
+		remote_fee: Option<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
+		let fee_asset = remote_fee.unwrap_or_else(RemoteFee::get_default_remote_fee);
+
 		let (message, asset_location, query_id) =
-			Self::get_remote_transfer_xcm(from, to, asset_kind, amount)?;
+			Self::get_remote_transfer_xcm(from, to, asset_kind, amount, fee_asset)?;
 
 		let (ticket, _delivery_fees) =
 			Router::validate(&mut Some(asset_location), &mut Some(message))?;
@@ -163,6 +166,7 @@ impl<
 		to: &<Self as Transfer>::Beneficiary,
 		asset_kind: <Self as Transfer>::AssetKind,
 		amount: <Self as Transfer>::Balance,
+		fee_asset: <Self as Transfer>::RemoteFeeAsset,
 	) -> Result<(Xcm<()>, Location, QueryId), Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
@@ -184,8 +188,6 @@ impl<
 			Timeout::get(),
 			from_location.interior.clone(),
 		);
-
-		let fee_asset = RemoteFee::get_default_remote_fee(Xcm::new(), None);
 
 		let message = remote_transfer_xcm(
 			from_location,
