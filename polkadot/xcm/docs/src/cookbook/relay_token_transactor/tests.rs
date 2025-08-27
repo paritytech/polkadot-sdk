@@ -72,9 +72,7 @@ fn reserve_asset_transfers_work() {
 			Box::new(VersionedAssetId::from(AssetId(Location::here()))),
 			Box::new(TransferType::LocalReserve),
 			Box::new(VersionedXcm::from(
-				Xcm::<()>::builder_unsafe()
-					.deposit_asset(AllCounted(1), beneficiary)
-					.build()
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
 			)),
 			WeightLimit::Unlimited,
 		));
@@ -114,9 +112,7 @@ fn reserve_asset_transfers_work() {
 			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
 			Box::new(TransferType::DestinationReserve),
 			Box::new(VersionedXcm::from(
-				Xcm::<()>::builder_unsafe()
-					.deposit_asset(AllCounted(1), beneficiary)
-					.build()
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
 			)),
 			WeightLimit::Unlimited,
 		));

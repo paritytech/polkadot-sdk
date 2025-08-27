@@ -139,7 +139,7 @@ pub(crate) fn send_assets_from_asset_hub_westend(
 	// For knowing what reserve to pick.
 	// We only allow using the same transfer type for assets and fees right now.
 	// And only `LocalReserve` or `DestinationReserve`.
-	transfer_type: TransferType
+	transfer_type: TransferType,
 ) -> DispatchResult {
 	let signed_origin =
 		<AssetHubWestend as Chain>::RuntimeOrigin::signed(AssetHubWestendSender::get().into());
@@ -164,9 +164,7 @@ pub(crate) fn send_assets_from_asset_hub_westend(
 			bx!(remote_fee_id.into()),
 			bx!(transfer_type),
 			bx!(VersionedXcm::from(
-				Xcm::<()>::builder_unsafe()
-					.deposit_asset(AllCounted(1), beneficiary)
-					.build()
+				Xcm::<()>::builder_unsafe().deposit_asset(AllCounted(1), beneficiary).build()
 			)),
 			WeightLimit::Unlimited,
 		)
