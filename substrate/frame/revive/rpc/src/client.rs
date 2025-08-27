@@ -476,6 +476,44 @@ impl Client {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
+	/// Get an EVM transaction receipt by Ethereum hash with automatic resolution.
+	pub async fn receipt_by_ethereum_hash_and_index(
+		&self,
+		ethereum_hash: &H256,
+		transaction_index: usize,
+	) -> Option<ReceiptInfo> {
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await;
+		}
+		// Fallback: treat as Substrate hash
+		self.receipt_by_hash_and_index(ethereum_hash, transaction_index).await
+	}
+
+	/// Get receipts count per block using Ethereum block hash with automatic resolution.
+	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.receipts_count_per_block(&substrate_hash).await;
+		}
+		// Fallback: treat as Substrate hash
+		self.receipts_count_per_block(ethereum_hash).await
+	}
+
+	/// Populate missing block mappings for existing blocks.
+	/// This can be used for historical data population.
+	pub async fn populate_missing_mappings(&self, substrate_block: &SubstrateBlock) -> Result<(), ClientError> {
+		self.receipt_provider.populate_missing_mappings(substrate_block).await
+	}
+
+	/// Batch populate missing mappings for a range of blocks.
+	pub async fn batch_populate_mappings(
+		&self,
+		start_block: SubstrateBlockNumber,
+		end_block: SubstrateBlockNumber,
+		batch_size: usize,
+	) -> Result<u32, ClientError> {
+		self.receipt_provider.batch_populate_mappings(start_block, end_block, batch_size).await
+	}
+
 	/// Get the system health.
 	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
 		let health = self.rpc.system_health().await?;
@@ -524,6 +562,27 @@ impl Client {
 		hash: &SubstrateBlockHash,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		self.block_provider.block_by_hash(hash).await
+	}
+
+	/// Resolve Ethereum block hash to Substrate block hash, then get the block.
+	/// This method provides the abstraction layer needed by the RPC APIs.
+	pub async fn resolve_substrate_hash(&self, ethereum_hash: &H256) -> Option<H256> {
+		self.receipt_provider.get_substrate_hash(ethereum_hash).await
+	}
+
+	/// Get a block by Ethereum hash with automatic resolution to Substrate hash.
+	/// Falls back to treating the hash as a Substrate hash if no mapping exists.
+	pub async fn block_by_ethereum_hash(
+		&self,
+		ethereum_hash: &H256,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		// First try to resolve the Ethereum hash to a Substrate hash
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.block_by_hash(&substrate_hash).await;
+		}
+
+		// Fallback: treat the provided hash as a Substrate hash (backward compatibility)
+		self.block_by_hash(ethereum_hash).await
 	}
 
 	/// Get a block by number
