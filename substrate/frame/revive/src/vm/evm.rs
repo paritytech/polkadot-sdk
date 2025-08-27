@@ -126,8 +126,8 @@ fn run_plain<WIRE: InterpreterTypes>(
 	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 	host: &mut DummyHost,
 ) -> InterpreterAction {
-	use revm::bytecode::OpCode;
 	use crate::alloc::string::ToString;
+	use revm::bytecode::OpCode;
 	while interpreter.bytecode.is_not_end() {
 		log::trace!(
 			"[{}]: {}, stacktop: {}, memory size: {} {:?}",
