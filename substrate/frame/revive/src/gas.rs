@@ -219,15 +219,6 @@ impl<T: Config> GasMeter<T> {
 		Ok(ChargedAmount(amount))
 	}
 
-	/// Charge the initial cost for executing EVM bytecode.
-	pub fn charge_evm_init_cost(&mut self) -> Result<(), DispatchError> {
-		self.gas_left = self
-			.gas_left
-			.checked_sub(&T::WeightInfo::evm_opcode(0))
-			.ok_or_else(|| Error::<T>::OutOfGas)?;
-		Ok(())
-	}
-
 	/// Charge the base cost for executing an EVM opcode.
 	pub fn charge_evm_base_cost(&mut self) -> Result<(), DispatchError> {
 		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
