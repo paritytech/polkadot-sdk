@@ -1157,7 +1157,24 @@ impl<T: Config> SendXcm for Pallet<T> {
 	fn deliver((id, xcm): (ParaId, VersionedXcm<()>)) -> Result<XcmHash, SendError> {
 		let hash = xcm.using_encoded(sp_io::hashing::blake2_256);
 
-		match Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm) {
+		let mut encoding = XcmEncoding::Simple;
+		// We'll switch to `XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm` when we roll out
+		// XCMv6.
+		// TODO: Test this after XCMv6 is defined.
+		if xcm.identify_version() > xcm::v5::VERSION {
+			encoding = XcmEncoding::Double;
+		}
+		let result = match encoding {
+			XcmEncoding::Simple =>
+				Self::send_fragment(id, XcmpMessageFormat::ConcatenatedVersionedXcm, xcm),
+			XcmEncoding::Double => Self::send_fragment(
+				id,
+				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm,
+				xcm.encode(),
+			),
+		};
+
+		match result {
 			Ok(_) => {
 				Self::deposit_event(Event::XcmpMessageSent { message_hash: hash });
 				Ok(hash)
