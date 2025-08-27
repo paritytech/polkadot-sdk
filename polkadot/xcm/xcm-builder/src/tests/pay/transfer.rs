@@ -61,7 +61,7 @@ impl GetDefaultRemoteFee for ConstantKsmDefaultFee {
 }
 
 /// Scenario:
-/// Account #3 on the local chain, parachain 2001, controls an amount of funds on parachain 2.
+/// Account #3 on the local chain, parachain 42, controls an amount of funds on parachain 2.
 /// [`PayOverXcm::pay`] creates the correct message for account #3 to pay another account, account
 /// #5, on parachain 1000, remotely, in its native token.
 #[test]
@@ -162,7 +162,7 @@ fn transfer_over_xcm_works() {
 		assert_eq!(mock::Assets::balance(1, &recipient), transfer_amount);
 
 		let expected_lower_bound = INITIAL_BALANCE - transfer_amount - fee_amount;
-		assert!(mock::Assets::balance(1, &sender_account_on_target) > expected_lower_bound);
+		assert_eq!(mock::Assets::balance(1, &sender_account_on_target), expected_lower_bound);
 	});
 }
 
