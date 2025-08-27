@@ -219,7 +219,7 @@ impl Block {
 	}
 
 	/// Compute the ETH header hash.
-	fn header_hash(&self) -> H256 {
+	pub fn header_hash(&self) -> H256 {
 		// Note: Cap the gas limit to u64::MAX.
 		// In practice, it should be impossible to fill a u64::MAX gas limit
 		// of an either Ethereum or Substrate block.
@@ -307,6 +307,144 @@ impl IncrementalHashBuilder {
 	}
 }
 
+/// Ethereum block builder.
+pub struct EthereumBlockBuilder {
+	transaction_root_builder: Option<IncrementalHashBuilder>,
+	receipts_root_builder: Option<IncrementalHashBuilder>,
+
+	gas_used: U256,
+	tx_hashes: Vec<H256>,
+
+	logs_bloom: Bloom,
+	gas_info: Vec<ReceiptGasInfo>,
+}
+
+impl EthereumBlockBuilder {
+	/// Constructs a new [`EthereumBlockBuilder`].
+	pub fn new() -> Self {
+		Self {
+			transaction_root_builder: None,
+			receipts_root_builder: None,
+			gas_used: U256::zero(),
+			tx_hashes: Vec::new(),
+			logs_bloom: Bloom::default(),
+			gas_info: Vec::new(),
+		}
+	}
+
+	/// Process a single transaction at a time.
+	pub fn process_transaction(&mut self, detail: TransactionDetails) {
+		let TransactionDetails { transaction_encoded, logs, success, gas_used } = detail;
+
+		let tx_hash = H256(keccak_256(&transaction_encoded));
+		self.tx_hashes.push(tx_hash);
+
+		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
+		Self::add_builder_value(&mut self.transaction_root_builder, transaction_encoded);
+
+		let logs = logs
+			.into_iter()
+			.map(|log| {
+				Log::new_unchecked(
+					log.contract.0.into(),
+					log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+					log.data.into(),
+				)
+			})
+			.collect();
+
+		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
+		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
+
+		let receipt = alloy_consensus::Receipt {
+			status: success.into(),
+			cumulative_gas_used: self.gas_used.as_u64(),
+			logs,
+		};
+
+		let receipt_bloom = receipt.bloom_slow();
+		self.logs_bloom.accrue_bloom(&receipt_bloom);
+
+		// Receipt encoding must be prefixed with the rlp(transaction type).
+		let mut encoded_receipt = transaction_type;
+		let encoded_len = encoded_receipt
+			.len()
+			.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+		encoded_receipt.reserve(encoded_len);
+
+		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+
+		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
+	}
+
+	/// Build the ethereum block from provided data.
+	pub fn build(
+		mut self,
+		block_number: U256,
+		parent_hash: H256,
+		timestamp: U256,
+		block_author: H160,
+		gas_limit: U256,
+	) -> (H256, Block, Vec<ReceiptGasInfo>) {
+		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
+		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
+
+		println!("Incr hash tx: {:?}", transactions_root);
+		println!("Incr hash receipts: {:?}", receipts_root);
+
+		let block = Block {
+			number: block_number,
+			parent_hash,
+			timestamp,
+			miner: block_author,
+			gas_limit,
+
+			state_root: transactions_root.clone(),
+			transactions_root,
+			receipts_root,
+
+			gas_used: self.gas_used,
+
+			logs_bloom: (*self.logs_bloom.data()).into(),
+			transactions: HashesOrTransactionInfos::Hashes(self.tx_hashes),
+
+			..Default::default()
+		};
+
+		let block_hash = block.header_hash();
+		(block_hash, block, self.gas_info)
+	}
+
+	fn compute_trie_root(builder: &mut Option<IncrementalHashBuilder>) -> H256 {
+		match builder {
+			Some(builder) => builder.finish(),
+			None => HashBuilder::default().root().0.into(),
+		}
+	}
+
+	fn add_builder_value(builder: &mut Option<IncrementalHashBuilder>, value: Vec<u8>) {
+		match builder {
+			Some(builder) => builder.add_value(value),
+			None => *builder = Some(IncrementalHashBuilder::new(value)),
+		}
+	}
+
+	fn extract_transaction_type(transaction_encoded: &[u8]) -> Vec<u8> {
+		// The transaction type is the first byte from the encoded transaction,
+		// when the transaction is not legacy. For legacy transactions, there's
+		// no type defined. Additionally, the RLP encoding of the tx type byte
+		// is identical to the tx type.
+		transaction_encoded
+			.first()
+			.cloned()
+			.map(|first| match first {
+				TYPE_EIP2930 | TYPE_EIP1559 | TYPE_EIP4844 | TYPE_EIP7702 => vec![first],
+				_ => vec![],
+			})
+			.unwrap_or_default()
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -330,19 +468,19 @@ mod test {
 		let items_len = encoded.len();
 		for i in 0..items_len {
 			let index = adjust_index_for_rlp(i, items_len);
-			println!("For tx={} using index={}", i, index);
+			// println!("For tx={} using index={}", i, index);
 
 			let index_buffer = alloy_consensus::private::alloy_rlp::encode_fixed_size(&index);
 			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded[index]);
 
 			// Each mask in these vectors holds a u16.
 			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
-			let size = hb.key.len() +
+			let _size = hb.key.len() +
 				hb.value.as_slice().len() +
 				hb.stack.len() * 33 +
 				masks_len + hb.rlp_buf.len();
 
-			println!(" HB size is: {size}");
+			// println!(" HB size is: {size}");
 		}
 
 		hb.root().0.into()
@@ -399,10 +537,26 @@ mod test {
 			})
 			.collect();
 
+		let mut incremental_block = EthereumBlockBuilder::new();
+		for details in &transaction_details {
+			incremental_block.process_transaction(details.clone());
+		}
+
 		// The block hash would differ here because we don't take into account
 		// the ommers and other fields from the substrate perspective.
 		// However, the state roots must be identical.
-		let built_block = Block::build(
+		let built_incremental = incremental_block.build(
+			block.number,
+			block.parent_hash,
+			block.timestamp,
+			block.miner,
+			Default::default(),
+		);
+
+		// The block hash would differ here because we don't take into account
+		// the ommers and other fields from the substrate perspective.
+		// However, the state roots must be identical.
+		let old_built_block = Block::build(
 			transaction_details,
 			block.number.into(),
 			block.parent_hash.into(),
@@ -411,6 +565,9 @@ mod test {
 			Default::default(),
 		)
 		.1;
+
+		assert_eq!(old_built_block, built_incremental.1);
+		let built_block = built_incremental.1;
 
 		assert_eq!(built_block.gas_used, block.gas_used);
 		assert_eq!(built_block.logs_bloom, block.logs_bloom);
