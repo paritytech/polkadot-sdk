@@ -17,7 +17,7 @@
 
 use crate::{
 	subxt_client::{self, runtime_types::pallet_revive::storage::ContractInfo, SrcChainConfig},
-	ClientError, H160,
+	ClientError, H160, LOG_TARGET,
 };
 use sp_core::H256;
 use subxt::{storage::Storage, OnlineClient};
@@ -79,10 +79,21 @@ impl StorageApi {
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
-		let key: subxt::dynamic::Value = number.into();
+		// TODO revert BlockHash key type to U256
+		let key = number.into();
 		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
 
-		let Some(info) = self.0.fetch(&query).await? else {
+		let Some(info) = self.0.fetch(&query).await.inspect_err(|e| {
+			log::error!(
+				target: LOG_TARGET,
+				"get_ethereum_block_hash {number} error = {e:?}"
+			)
+		})?
+		else {
+			log::error!(
+				target: LOG_TARGET,
+				"get_ethereum_block_hash {number} ERROR block not found"
+			);
 			return Err(ClientError::EthereumBlockNotFound);
 		};
 		let bytes = info.into_encoded();
