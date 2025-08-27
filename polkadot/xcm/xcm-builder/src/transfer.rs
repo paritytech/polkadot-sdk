@@ -22,7 +22,8 @@ use core::marker::PhantomData;
 use frame_support::traits::{tokens::PaymentStatus, Get};
 use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
-use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
+use xcm_executor::traits::{FeeReason, QueryHandler, QueryResponseStatus};
+use xcm_executor::traits::FeeManager;
 
 pub use frame_support::traits::tokens::transfer::Transfer;
 
@@ -48,6 +49,7 @@ pub trait GetDefaultRemoteFee {
 pub struct TransferOverXcm<
 	Router,
 	Querier,
+	XcmFeeHandler,
 	Timeout,
 	Transactors,
 	AssetKind,
@@ -58,6 +60,7 @@ pub struct TransferOverXcm<
 	PhantomData<(
 		Router,
 		Querier,
+		XcmFeeHandler,
 		Timeout,
 		Transactors,
 		AssetKind,
@@ -69,6 +72,7 @@ pub struct TransferOverXcm<
 impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
+		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
@@ -77,6 +81,7 @@ impl<
 		RemoteFee: GetDefaultRemoteFee,
 	> Transfer
 	for TransferOverXcm<
+	XcmFeeHandler,
 		Router,
 		Querier,
 		Timeout,
@@ -107,9 +112,20 @@ impl<
 		let (message, asset_location, query_id) =
 			Self::get_remote_transfer_xcm(from, to, asset_kind, amount, fee_asset)?;
 
-		let (ticket, _delivery_fees) =
+		let (ticket, delivery_fees) =
 			Router::validate(&mut Some(asset_location), &mut Some(message))?;
 		Router::deliver(ticket)?;
+
+		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
+			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
+			Error::InvalidLocation
+		})?;
+
+
+		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
+			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
+		}
+
 		Ok(query_id)
 	}
 
@@ -146,6 +162,7 @@ impl<
 impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
+		HandleXcmFee: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
@@ -154,6 +171,7 @@ impl<
 		RemoteFee: GetDefaultRemoteFee,
 	>
 	TransferOverXcm<
+		HandleXcmFee,
 		Router,
 		Querier,
 		Timeout,

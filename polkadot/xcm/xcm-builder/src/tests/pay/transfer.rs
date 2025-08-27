@@ -86,6 +86,7 @@ fn transfer_over_xcm_works() {
 			Asset { id: AssetId(RelayLocation::get()), fun: Fungible(1_000_000_000_000_u128) };
 
 		assert_ok!(TransferOverXcm::<
+			TestFeeManager,
 			TestMessageSender,
 			TestQueryHandler<TestConfig, BlockNumber>,
 			Timeout,
@@ -143,6 +144,7 @@ fn transfer_over_xcm_works_with_default_fee() {
 		assert_eq!(mock::Assets::balance(1, &recipient), 0);
 
 		assert_ok!(TransferOverXcm::<
+			TestFeeManager,
 			TestMessageSender,
 			TestQueryHandler<TestConfig, BlockNumber>,
 			Timeout,
@@ -183,6 +185,7 @@ fn sender_on_remote_works() {
 	};
 
 	let sender_on_remote = TransferOverXcm::<
+		TestFeeManager,
 		TestMessageSender,
 		TestQueryHandler<TestConfig, BlockNumber>,
 		Timeout,
