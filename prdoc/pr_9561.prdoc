@@ -1,0 +1,7 @@
+title: added trace logging in EVM interpreter loop
+doc:
+- audience: Runtime Dev
+  description: Added trace logging for each instruction to evm::run function
+crates:
+- name: pallet-revive
+  bump: patch
