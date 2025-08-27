@@ -29,21 +29,24 @@ use sp_arithmetic::{traits::Saturating, FixedPointNumber};
 /// The step type for the stepped curve.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
 pub enum Step<V> {
-	/// Increase the value by a percentage.
+	/// Increase the value by a percentage at each step.
 	PctInc(Perbill),
-	/// Decrease the value by a percentage.
+	/// Decrease the value by a percentage at each step.
 	PctDec(Perbill),
-	/// Increment by a value.
+	/// Increment by a value at each step.
 	Add(V),
-	/// Decrement by a value.
+	/// Decrement by a value at each step.
 	Subtract(V),
+	/// Asymptotically move towards a desired value by a percentage at each step.
+	///
+	/// Step size will be (asymptote - current_value) * pct.
+	AsymptoticPct(V, Perbill),
 }
 
 /// A stepped curve.
 ///
-/// The curve evaluates over the domain [`start`, `end`], clamping on either end.
-/// The initial value is specified and will step every `period` from there.
-/// The first step happens at `start` + `period`.
+/// Steps every `period` from the `initial_value` as defined by `step`.
+/// First step from `initial_value` takes place at `start` + `period`.
 #[derive(PartialEq, Eq, sp_core::RuntimeDebug, TypeInfo, Clone)]
 pub struct SteppedCurve<P, V> {
 	/// The starting point for the curve.
@@ -66,6 +69,11 @@ where
 	/// Creates a new `SteppedCurve`.
 	pub fn new(start: P, end: Option<P>, initial_value: V, step: Step<V>, period: P) -> Self {
 		Self { start, end, initial_value, step, period }
+	}
+
+	/// Step size
+	pub fn step_size_at(&self, point: P) -> V {
+		self.initial_value
 	}
 
 	/// Evaluate the curve at a given point.
@@ -120,6 +128,24 @@ where
 				let scale = ratio.saturating_pow(num_periods_usize);
 				let initial_fp = FixedU128::saturating_from_integer(initial);
 				let res = initial_fp.saturating_mul(scale);
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+			},
+			Step::AsymptoticPct(asymptote, percent) => {
+				// asymptote +/- diff(asymptote, initial_value) * (1-percent)^num_periods.
+				let ratio = FixedU128::one().saturating_sub(FixedU128::from(percent));
+				let scale = ratio.saturating_pow(num_periods_usize);
+
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+				let asymptote_fp = FixedU128::saturating_from_integer(asymptote);
+
+				let res = if initial >= asymptote {
+					let diff = initial_fp.saturating_sub(asymptote_fp);
+					asymptote_fp.saturating_add(diff.saturating_mul(scale))
+				} else {
+					let diff = asymptote_fp.saturating_sub(initial_fp);
+					asymptote_fp.saturating_sub(diff.saturating_mul(scale))
+				};
+				
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 		}
@@ -265,6 +291,62 @@ fn stepped_curve_works() {
 	assert_eq!(pct_dec_curve.evaluate(12u32), 900u32);
 	assert_eq!(pct_dec_curve.evaluate(20u32), 590u32);
 	assert_eq!(pct_dec_curve.evaluate(u32::MAX), u32::MIN);
+
+	// Step::AsymptoticPct increasing.
+	let asymptotic_increasing = SteppedCurve::new(
+		10u32,
+		None,
+		0u32,
+		Step::AsymptoticPct(1000u32, Perbill::from_percent(10)),
+		2u32,
+	);
+	assert_eq!(asymptotic_increasing.evaluate(5u32), 0u32);
+	assert_eq!(asymptotic_increasing.evaluate(11u32), 0u32);
+	assert_eq!(asymptotic_increasing.evaluate(12u32), 100u32);
+	assert_eq!(asymptotic_increasing.evaluate(14u32), 190u32);
+	assert_eq!(asymptotic_increasing.evaluate(16u32), 271u32);
+	assert_eq!(asymptotic_increasing.evaluate(u32::MAX), 1000u32);
+
+	// Step::AsymptoticPct decreasing.
+	let asymptotic_decreasing = SteppedCurve::new(
+		10u32,
+		None,
+		1000u32,
+		Step::AsymptoticPct(0u32, Perbill::from_percent(10)),
+		2u32,
+	);
+	assert_eq!(asymptotic_decreasing.evaluate(5u32), 1000u32);
+	assert_eq!(asymptotic_decreasing.evaluate(11u32), 1000u32);
+	assert_eq!(asymptotic_decreasing.evaluate(12u32), 900u32);
+	assert_eq!(asymptotic_decreasing.evaluate(14u32), 810u32);
+	assert_eq!(asymptotic_decreasing.evaluate(16u32), 729u32);
+	assert_eq!(asymptotic_decreasing.evaluate(u32::MAX), 0u32);
+
+	// Step::AsymptoticPct stable.
+	let asymptotic_stable = SteppedCurve::new(
+		10u32,
+		None,
+		1000u32,
+		Step::AsymptoticPct(1000u32, Perbill::from_percent(10)),
+		2u32,
+	);
+	assert_eq!(asymptotic_stable.evaluate(5u32), 1000u32);
+	assert_eq!(asymptotic_stable.evaluate(12u32), 1000u32);
+	assert_eq!(asymptotic_stable.evaluate(20u32), 1000u32);
+
+	// Step::AsymptoticPct capped end.
+	let asymptotic_with_end = SteppedCurve::new(
+		10u32,
+		Some(14u32),
+		0u32,
+		Step::AsymptoticPct(1000u32, Perbill::from_percent(10)),
+		2u32,
+	);
+	assert_eq!(asymptotic_with_end.evaluate(5u32), 0u32);
+	assert_eq!(asymptotic_with_end.evaluate(11u32), 0u32);
+	assert_eq!(asymptotic_with_end.evaluate(12u32), 100u32);
+	assert_eq!(asymptotic_with_end.evaluate(14u32), 190u32);
+	assert_eq!(asymptotic_with_end.evaluate(16u32), 190u32);
 }
 
 #[test]
