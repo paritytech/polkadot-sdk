@@ -27,4 +27,11 @@ contract Callee {
             result := 1  // never reached
         }
     }
+
+    function stop() public pure returns (uint256 result) {
+        assembly {
+            stop()
+            result := 1  // never reached
+        }
+    }
 }

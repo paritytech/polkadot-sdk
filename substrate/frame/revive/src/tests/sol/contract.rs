@@ -198,6 +198,8 @@ fn call_revert() {
 #[test]
 fn call_invalid_opcode() {
 	for fixture_type in [FixtureType::Resolc] {
+		// TODO: Check why there is difference between EVM and PVM execution - it fails for
+		// FixtureType::Solc
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
@@ -216,7 +218,6 @@ fn call_invalid_opcode() {
 
 			log::info!("Caller  addr: {:?}", caller_addr);
 
-			// Call revert and assert failure
 			let result = builder::bare_call(caller_addr)
 				.data(
 					Caller::normalCall {
@@ -230,8 +231,49 @@ fn call_invalid_opcode() {
 				.build_and_unwrap_result();
 			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 
-			//log::info!("Result: {:?}", result);
 			assert!(!result.success, "Invalid opcode should propagate as error");
+
+			let data = result.output.as_ref();
+			assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
+		});
+	}
+}
+
+#[test]
+fn call_stop_opcode() {
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			// Instantiate the callee contract, which can echo a value.
+			let Contract { addr: callee_addr, .. } =
+				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+			log::info!("Callee  addr: {:?}", callee_addr);
+
+			// Instantiate the caller contract.
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+			log::info!("Caller  addr: {:?}", caller_addr);
+
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::normalCall {
+						_callee: callee_addr.0.into(),
+						_value: U256::ZERO,
+						_data: Callee::stopCall {}.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+
+			assert!(result.success);
 
 			let data = result.output.as_ref();
 			assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
