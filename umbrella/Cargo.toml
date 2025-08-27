@@ -1168,7 +1168,7 @@ version = "0.18.1"
 path = "../substrate/frame/benchmarking"
 default-features = false
 optional = true
-version = "39.1.0"
+version = "39.1.1"
 
 [dependencies.frame-benchmarking-pallet-pov]
 path = "../substrate/frame/benchmarking/pov"
@@ -2308,7 +2308,7 @@ version = "18.2.1"
 path = "../polkadot/xcm/xcm-executor"
 default-features = false
 optional = true
-version = "18.0.4"
+version = "18.0.5"
 
 [dependencies.substrate-bip39]
 path = "../substrate/utils/substrate-bip39"
@@ -3166,7 +3166,7 @@ version = "42.0.0"
 path = "../substrate/utils/prometheus"
 default-features = false
 optional = true
-version = "0.17.1"
+version = "0.17.7"
 
 [dependencies.substrate-rpc-client]
 path = "../substrate/utils/frame/rpc/client"

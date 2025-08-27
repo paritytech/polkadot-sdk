@@ -771,7 +771,7 @@ fork-tree = { path = "substrate/utils/fork-tree", default-features = false, vers
 forwarded-header-value = { version = "0.1.1" }
 fraction = { version = "0.13.1" }
 frame = { path = "substrate/frame", default-features = false, package = "polkadot-sdk-frame", version = "0.8.1" }
-frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "39.1.0" }
+frame-benchmarking = { path = "substrate/frame/benchmarking", default-features = false, version = "39.1.1" }
 frame-benchmarking-cli = { path = "substrate/utils/frame/benchmarking-cli", default-features = false, version = "46.2.0" }
 frame-benchmarking-pallet-pov = { default-features = false, path = "substrate/frame/benchmarking/pov" }
 frame-election-provider-solution-type = { path = "substrate/frame/election-provider-support/solution-type", default-features = false, version = "14.0.2" }
@@ -1100,7 +1100,7 @@ proc-macro-warning = { version = "1.0.0", default-features = false }
 proc-macro2 = { version = "1.0.86" }
 procfs = { version = "0.16.0" }
 prometheus = { version = "0.13.0", default-features = false }
-prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint", version = "0.17.1" }
+prometheus-endpoint = { path = "substrate/utils/prometheus", default-features = false, package = "substrate-prometheus-endpoint", version = "0.17.7" }
 prometheus-parse = { version = "0.2.2" }
 prost = { version = "0.12.4" }
 prost-build = { version = "0.13.2" }
@@ -1380,7 +1380,7 @@ xcm = { path = "polkadot/xcm", default-features = false, package = "staging-xcm"
 xcm-builder = { path = "polkadot/xcm/xcm-builder", default-features = false, package = "staging-xcm-builder", version = "18.2.1" }
 xcm-docs = { path = "polkadot/xcm/docs", version = "0.1.0" }
 xcm-emulator = { path = "cumulus/xcm/xcm-emulator", default-features = false, version = "0.17.2" }
-xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.4" }
+xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, package = "staging-xcm-executor", version = "18.0.5" }
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false, version = "11.0.1" }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false, version = "0.5.3" }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false, version = "18.1.0" }
