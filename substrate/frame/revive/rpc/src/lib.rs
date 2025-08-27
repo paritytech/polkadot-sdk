@@ -214,7 +214,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		block_hash: H256,
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<Block>> {
-		let Some(block) = self.client.block_by_hash(&block_hash).await? else {
+		let Some(block) = self.client.block_by_ethereum_hash(&block_hash).await? else {
 			return Ok(None);
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
@@ -275,7 +275,7 @@ impl EthRpcServer for EthRpcServerImpl {
 		} else {
 			self.client.latest_block().await.hash()
 		};
-		Ok(self.client.receipts_count_per_block(&block_hash).await.map(U256::from))
+		Ok(self.client.receipts_count_per_ethereum_block(&block_hash).await.map(U256::from))
 	}
 
 	async fn get_block_transaction_count_by_number(
@@ -316,7 +316,7 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Option<TransactionInfo>> {
 		let Some(receipt) = self
 			.client
-			.receipt_by_hash_and_index(
+			.receipt_by_ethereum_hash_and_index(
 				&block_hash,
 				transaction_index.try_into().map_err(|_| EthRpcError::ConversionError)?,
 			)
