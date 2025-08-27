@@ -1,0 +1,12 @@
+title: 'Parachains runtime: properly filter backed candidate votes'
+doc:
+- audience: Todo
+  description: |-
+    The `filter_backed_statements_from_disabled_validators` function does not properly map indices in the validator group to indices in the validity votes vec. This PR fixes that.
+
+    TODO:
+    - [x] add more tests
+    - [ ] PRDoc
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
