@@ -6,6 +6,7 @@ use revive_dev_runtime::Runtime;
 use revm_statetest_types::{Test as PostState, TestUnit as StateTest};
 use serde::{Deserialize, Serialize};
 use sp_core::H160;
+use std::collections::BTreeMap;
 
 use revm::{
 	context::cfg::CfgEnv,
@@ -135,27 +136,17 @@ pub fn execute_state_test(
 }
 
 struct ExtBuilder {
-	existential_deposit: u64,
 	genesis_config: pallet_revive::GenesisConfig<Runtime>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		Self {
-			existential_deposit: 1, // Minimal existential deposit for testing
-			genesis_config: pallet_revive::GenesisConfig::<Runtime>::default(),
-		}
+		Self { genesis_config: pallet_revive::GenesisConfig::<Runtime>::default() }
 	}
 }
 
 impl ExtBuilder {
-	#[allow(unused)]
-	fn existential_deposit(mut self, existential_deposit: u64) -> Self {
-		self.existential_deposit = existential_deposit;
-		self
-	}
-
-	fn with_genesis_config(
+	pub fn with_genesis_config(
 		mut self,
 		genesis_config: pallet_revive::GenesisConfig<Runtime>,
 	) -> Self {
@@ -169,23 +160,39 @@ impl ExtBuilder {
 			.build_storage()
 			.expect("Failed to build storage");
 
-		// Prepare externally owned EVM accounts from test_case.pre
-		let mut externally_owned_accounts = Vec::new();
+		let mut genesis_config = self.genesis_config;
 
+		// Convert test_case.pre accounts to genesis accounts
+		let mut accounts = Vec::new();
 		for (evm_address, account_info) in &test_case.pre {
 			let addr = H160::from_slice(evm_address.0.as_slice());
-			let value = sp_core::U256::from_big_endian(&account_info.balance.to_be_bytes::<32>());
+			let balance = sp_core::U256::from_big_endian(&account_info.balance.to_be_bytes::<32>());
 
-			externally_owned_accounts.push((addr, value));
+			// Convert contract data if code exists
+			let contract_data = if account_info.code.is_empty() {
+				None
+			} else {
+				// Convert storage from HashMap to BTreeMap with proper key format
+				let mut storage = BTreeMap::new();
+				for (key, value) in &account_info.storage {
+					storage.insert(key.to_be_bytes(), value.to_be_bytes());
+				}
 
-			// TODO: Set up contract code if account_info.code is not empty
-			// TODO: Set up storage for contracts
-			// TODO: Set nonce appropriately
+				Some(pallet_revive::genesis::ContractData {
+					code: account_info.code.to_vec(),
+					storage,
+				})
+			};
+
+			accounts.push(pallet_revive::genesis::Account {
+				address: addr,
+				balance,
+				nonce: account_info.nonce as u32,
+				contract_data,
+			});
 		}
 
-		// Create genesis config with EVM accounts from test case
-		let mut genesis_config = self.genesis_config;
-		genesis_config.externally_owned_accounts = externally_owned_accounts;
+		genesis_config.accounts = accounts;
 
 		// Assimilate the genesis config into storage
 		genesis_config

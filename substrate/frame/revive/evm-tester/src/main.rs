@@ -19,6 +19,7 @@ use revm_statetest_types::{
 
 mod cli;
 mod executor;
+pub mod transaction_helper;
 
 #[cfg(test)]
 mod tests;
