@@ -74,13 +74,12 @@ fn fungible_amount(asset: Asset) -> u128 {
 
 /// Scenario:
 /// Account #3 on the local chain, parachain 42, controls an amount of funds on parachain 2.
-/// [`PayOverXcm::pay`] creates the correct message for account #3 to pay another account, account
-/// #5, on parachain 1000, remotely, in its native token.
+/// [`TransferOverXcm::pay`] creates the correct message for account #3 to pay another account, account
+/// #5, on parachain 1000, remotely, in the relay chains native token.
 #[test]
-fn transfer_over_xcm_works() {
+fn transfer_over_xcm_works_with_default_fee() {
 	sp_tracing::init_for_tests();
 
-	let sender_para_id = MockRuntimeParachainId::get();
 	let recipient = AccountId::new([5u8; 32]);
 
 	// transact the parents native asset on parachain 1000.
@@ -116,29 +115,11 @@ fn transfer_over_xcm_works() {
 
 		let fee_asset = ConstantKsmDefaultFee::get_default_remote_fee(Xcm::new(), None);
 
-		let expected_message = Xcm(vec![
-			// Change the origin to the local account on the target chain
-			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
-			// Assume that we always pay in native for now
-			WithdrawAsset(fee_asset.clone().into()),
-			PayFees { asset: fee_asset.clone() },
-			SetAppendix(Xcm(vec![
-				ReportError(QueryResponseInfo {
-					destination: (Parent, Parachain(sender_para_id.into())).into(),
-					query_id: 1,
-					max_weight: Weight::zero(),
-				}),
-				RefundSurplus,
-				DepositAsset {
-					assets: AssetFilter::Wild(WildAsset::All),
-					beneficiary: SenderLocationOnTarget::get(),
-				},
-			])),
-			TransferAsset {
-				beneficiary: AccountId32 { network: None, id: recipient.clone().into() }.into(),
-				assets: (asset_kind.asset_id, transfer_amount).into(),
-			},
-		]);
+		let expected_message = remote_transfer_xcm(
+			recipient.clone(),
+			(asset_kind.asset_id, transfer_amount).into(),
+			fee_asset.clone(),
+		);
 		let expected_hash = fake_message_hash(&expected_message);
 
 		assert_eq!(
@@ -151,7 +132,7 @@ fn transfer_over_xcm_works() {
 			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
 
 		// Execute message in parachain 1000 with our parachains's origin
-		let origin = (Parent, Parachain(sender_para_id.into()));
+		let origin = (Parent, Parachain(MockRuntimeParachainId::get().into()));
 		let _result = XcmExecutor::<XcmConfig>::prepare_and_execute(
 			origin,
 			message,
@@ -200,4 +181,34 @@ fn sender_on_remote_works() {
 	.unwrap();
 
 	assert_eq!(sender_location_on_target, sender_on_remote,);
+}
+
+fn remote_transfer_xcm<Call>(
+	recipient: AccountId,
+	transfer_asset: Asset,
+	fee_asset: Asset,
+) -> Xcm<Call> {
+	Xcm(vec![
+		// Change the origin to the local account on the target chain
+		DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
+		// Assume that we always pay in native for now
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset.clone() },
+		SetAppendix(Xcm(vec![
+			ReportError(QueryResponseInfo {
+				destination: (Parent, Parachain(MockRuntimeParachainId::get().into())).into(),
+				query_id: 1,
+				max_weight: Weight::zero(),
+			}),
+			RefundSurplus,
+			DepositAsset {
+				assets: AssetFilter::Wild(WildAsset::All),
+				beneficiary: SenderLocationOnTarget::get(),
+			},
+		])),
+		TransferAsset {
+			beneficiary: AccountId32 { network: None, id: recipient.clone().into() }.into(),
+			assets: transfer_asset.into(),
+		},
+	])
 }
