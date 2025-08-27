@@ -18,8 +18,7 @@
 //! the correct destination
 
 use super::{mock::*, *};
-use crate::{AliasesIntoAccountId32, LocatableAssetId};
-use codec::{Decode, Encode};
+use crate::AliasesIntoAccountId32;
 use frame_support::{
 	assert_ok, parameter_types,
 	traits::{fungible::Mutate, fungibles::Mutate as FungiblesMutate},
@@ -29,21 +28,6 @@ use xcm::{
 	v5::{AssetId, Location, Parent},
 };
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
-
-/// Type representing both a location and an asset that is held at that location.
-/// The id of the held asset is relative to the location where it is being held.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct AssetKind {
-	destination: Location,
-	asset_id: AssetId,
-}
-
-pub struct LocatableAssetKindConverter;
-impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
-	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
-		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
-	}
-}
 
 parameter_types! {
 	pub SenderAccount: AccountId = AccountId::new([3u8; 32]);
