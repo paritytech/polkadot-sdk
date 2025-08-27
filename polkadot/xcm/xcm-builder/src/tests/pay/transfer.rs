@@ -40,9 +40,9 @@ parameter_types! {
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 
-struct ConstantKsmDefaultFee;
+struct ConstantRelayTokenDefaultFee;
 
-impl GetDefaultRemoteFee for ConstantKsmDefaultFee {
+impl GetDefaultRemoteFee for ConstantRelayTokenDefaultFee {
 	fn get_default_remote_fee() -> Asset {
 		Asset { id: AssetId(RelayLocation::get()), fun: Fungible(500_000_000_000_u128) }
 	}
@@ -52,7 +52,7 @@ fn fungible_amount(asset: Asset) -> u128 {
 	let Asset { id: _, ref fun } = asset;
 	match fun {
 		Fungible(fee) => *fee,
-		NonFungible(_) => panic!("Invalid fee"),
+		NonFungible(_) => panic!("not fungible"),
 	}
 }
 
@@ -93,7 +93,7 @@ fn transfer_over_xcm_works() {
 			AssetKind,
 			LocatableAssetKindConverter,
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-			ConstantKsmDefaultFee,
+			ConstantRelayTokenDefaultFee,
 		>::transfer(
 			&SenderAccount::get(),
 			&recipient,
@@ -150,12 +150,12 @@ fn transfer_over_xcm_works_with_default_fee() {
 			AssetKind,
 			LocatableAssetKindConverter,
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-			ConstantKsmDefaultFee,
+			ConstantRelayTokenDefaultFee,
 		>::transfer(
 			&SenderAccount::get(), &recipient, asset_kind.clone(), transfer_amount, None
 		));
 
-		let fee_asset = ConstantKsmDefaultFee::get_default_remote_fee();
+		let fee_asset = ConstantRelayTokenDefaultFee::get_default_remote_fee();
 
 		let expected_message = remote_transfer_xcm(
 			recipient.clone(),
@@ -190,7 +190,7 @@ fn sender_on_remote_works() {
 		AssetKind,
 		LocatableAssetKindConverter,
 		AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		ConstantKsmDefaultFee,
+		ConstantRelayTokenDefaultFee,
 	>::from_on_remote(&SenderAccount::get(), asset_kind.clone())
 	.unwrap();
 
@@ -227,7 +227,6 @@ fn remote_transfer_xcm<Call>(
 	Xcm(vec![
 		// Change the origin to the local account on the target chain
 		DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
-		// Assume that we always pay in native for now
 		WithdrawAsset(fee_asset.clone().into()),
 		PayFees { asset: fee_asset.clone() },
 		SetAppendix(Xcm(vec![
