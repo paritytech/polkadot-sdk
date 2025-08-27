@@ -30,6 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod tests;
 pub mod weights;
 
@@ -43,7 +44,7 @@ use frame::{
 			Inspect as FunInspect, Mutate as FunMutate,
 		},
 		tokens::Precision,
-		InstanceFilter,
+		InstanceFilter, StorageVersion,
 	},
 };
 pub use pallet::*;
@@ -131,7 +132,11 @@ pub enum DepositKind {
 pub mod pallet {
 	use super::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Hold reasons for the proxy pallet.
@@ -767,6 +772,28 @@ pub mod pallet {
 			old_deposit: BalanceOf<T>,
 			new_deposit: BalanceOf<T>,
 		},
+		/// Migration has started.
+		MigrationStarted,
+		/// Proxy deposit successfully migrated from reserve to hold.
+		ProxyDepositMigrated { delegator: T::AccountId, amount: BalanceOf<T> },
+		/// Proxy configuration removed during migration due to hold failure.
+		/// Funds are left in the account's free balance.
+		/// For pure proxies, spawners can recover funds using proxy calls.
+		ProxyRemovedDuringMigration {
+			delegator: T::AccountId,
+			proxy_count: u32,
+			refunded: BalanceOf<T>,
+		},
+		/// Announcement deposit successfully migrated from reserve to hold.
+		AnnouncementDepositMigrated { announcer: T::AccountId, amount: BalanceOf<T> },
+		/// Announcements removed during migration due to hold failure.
+		AnnouncementsRemovedDuringMigration {
+			announcer: T::AccountId,
+			announcement_count: u32,
+			refunded: BalanceOf<T>,
+		},
+		/// Migration completed successfully.
+		MigrationCompleted,
 	}
 
 	#[pallet::error]

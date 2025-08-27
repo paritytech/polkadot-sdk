@@ -3,6 +3,7 @@ doc:
   - audience: Runtime Dev
     description: |
       - Migrate pallet-proxy from using Currency trait to using fungible traits, addressing the balance overlap issue where proxy reserves couldn't overlap with staking holds.
+      - Implements multi-block migration with graceful degradation to convert proxy and announcement reserves to holds during runtime upgrade.
 crates: 
 - name: pallet-proxy
   bump: major
