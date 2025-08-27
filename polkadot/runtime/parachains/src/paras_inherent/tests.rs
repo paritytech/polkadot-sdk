@@ -4776,5 +4776,43 @@ mod sanitizers {
 				});
 			}
 		}
+
+		// Disable Bob which is second validator in group for core 0.
+		// Para 0 candidate has a single valid vote that is removed
+		// because Bob is disabled.
+		//
+		// This test ensures we remove the right validty votes from the backed candidate
+		#[test]
+		fn drop_right_indices() {
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para();
+
+				set_disabled_validators(vec![1]);
+
+				let (backed, _) = expected_backed_candidates_with_core
+					.get_mut(&ParaId::from(1))
+					.unwrap()
+					.first_mut()
+					.unwrap();
+				let (indices, core) = backed.validator_indices_and_core_index();
+				let mut indices = BitVec::<_>::from(indices);
+
+				indices.set(0, false);
+				backed.validity_votes_mut().remove(0);
+				backed.set_validator_indices_and_core_index(indices, core);
+
+				let mut untouched = expected_backed_candidates_with_core.clone();
+
+				filter_backed_statements_from_disabled_validators::<Test>(
+					&mut expected_backed_candidates_with_core,
+					&shared::AllowedRelayParents::<Test>::get(),
+				);
+
+				untouched.remove(&ParaId::from(1)).unwrap();
+
+				assert_eq!(expected_backed_candidates_with_core, untouched);
+			});
+		}
 	}
 }
