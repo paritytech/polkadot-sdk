@@ -126,7 +126,7 @@ fn run_plain<WIRE: InterpreterTypes>(
 	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 	host: &mut DummyHost,
 ) -> InterpreterAction {
-	use crate::alloc::string::ToString;
+	use crate::{alloc::string::ToString, format};
 	use revm::bytecode::OpCode;
 	while interpreter.bytecode.is_not_end() {
 		log::trace!(
@@ -139,7 +139,7 @@ fn run_plain<WIRE: InterpreterTypes>(
 			// printing at most the first 32 bytes of memory
 			interpreter
 				.memory
-				.slice_len(0, std::cmp::min(32, interpreter.memory.size()))
+				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
 				.to_vec(),
 		);
 		interpreter.step(instruction_table, host);
