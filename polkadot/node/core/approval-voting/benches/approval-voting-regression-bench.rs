@@ -83,8 +83,8 @@ fn main() -> Result<(), String> {
 		("Sent to peers", 63995.2200, 0.01),
 	]));
 	messages.extend(average_usage.check_cpu_usage(&[
-		("approval-distribution", 0.0, 0.1),
-		("approval-voting", 0.0, 0.1),
+		("approval-distribution", 0.0002, 0.1),
+		("approval-voting", 0.0002, 0.1),
 		("approval-voting-parallel", 12.3817, 0.1),
 	]));
 
