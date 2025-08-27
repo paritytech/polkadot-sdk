@@ -586,7 +586,7 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, U256, H256, ValueQuery>;
+	pub type BlockHash<T: Config> = StorageMap<_, Twox64Concat, u64, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -699,7 +699,7 @@ pub mod pallet {
 			// Note: This read should be accounted for.
 			let eth_block_num: U256 = block_number.into();
 			let parent_hash = if eth_block_num > U256::zero() {
-				BlockHash::<T>::get(eth_block_num - 1)
+				BlockHash::<T>::get(eth_block_num.as_u64() - 1)
 			} else {
 				H256::default()
 			};
@@ -720,16 +720,17 @@ pub mod pallet {
 			// the method's documentation for computational details.
 			let (block_hash, block, receipt_data) = block_builder.build(transactions);
 			// Put the block hash into storage.
-			BlockHash::<T>::insert(eth_block_num, block_hash);
+			BlockHash::<T>::insert(eth_block_num.as_u64(), block_hash);
 
 			// Prune older block hashes.
 			let block_hash_count = BLOCK_HASH_COUNT;
 			let to_remove =
 				eth_block_num.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
 			if !to_remove.is_zero() {
-				<BlockHash<T>>::remove(U256::from(
-					UniqueSaturatedInto::<u32>::unique_saturated_into(to_remove),
-				));
+				<BlockHash<T>>::remove(
+					U256::from(UniqueSaturatedInto::<u32>::unique_saturated_into(to_remove))
+						.as_u64(),
+				);
 			}
 			// Store the ETH block into the last block.
 			EthereumBlock::<T>::put(block);
@@ -1633,7 +1634,7 @@ where
 	/// The Ethereum block number is identical to the Substrate block number.
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
-		let hash = <BlockHash<T>>::get(number);
+		let hash = <BlockHash<T>>::get(number.as_u64());
 		if hash == H256::zero() {
 			None
 		} else {
