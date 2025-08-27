@@ -99,6 +99,91 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some((block_hash, transaction_index))
 	}
 
+	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
+	pub async fn insert_block_mapping(
+		&self,
+		ethereum_block_hash: &H256,
+		substrate_block_hash: &H256,
+		block_number: u64,
+	) -> Result<(), ClientError> {
+		let ethereum_hash = ethereum_block_hash.as_ref();
+		let substrate_hash = substrate_block_hash.as_ref();
+		let block_number = block_number as i64;
+
+		query!(
+			r#"
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
+			VALUES ($1, $2, $3)
+			"#,
+			ethereum_hash,
+			substrate_hash,
+			block_number
+		)
+		.execute(&self.pool)
+		.await?;
+
+		Ok(())
+	}
+
+	/// Get the Substrate block hash for the given Ethereum block hash.
+	pub async fn get_substrate_hash(&self, ethereum_block_hash: &H256) -> Option<H256> {
+		let ethereum_hash = ethereum_block_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT substrate_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE ethereum_block_hash = $1
+			"#,
+			ethereum_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.ok()??;
+
+		Some(H256::from_slice(&result.substrate_block_hash[..]))
+	}
+
+	/// Get the Ethereum block hash for the given Substrate block hash.
+	pub async fn get_ethereum_hash(&self, substrate_block_hash: &H256) -> Option<H256> {
+		let substrate_hash = substrate_block_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE substrate_block_hash = $1
+			"#,
+			substrate_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.ok()??;
+
+		Some(H256::from_slice(&result.ethereum_block_hash[..]))
+	}
+
+	/// Remove block mappings for the given Ethereum block hashes.
+	pub async fn remove_block_mappings(
+		&self,
+		ethereum_block_hashes: &[H256],
+	) -> Result<(), ClientError> {
+		if ethereum_block_hashes.is_empty() {
+			return Ok(());
+		}
+
+		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
+		let sql = format!(
+			"DELETE FROM eth_to_substrate_blocks WHERE ethereum_block_hash in ({placeholders})"
+		);
+		let mut query = sqlx::query(&sql);
+
+		for ethereum_hash in ethereum_block_hashes {
+			query = query.bind(ethereum_hash.as_ref());
+		}
+
+		query.execute(&self.pool).await?;
+		Ok(())
+	}
+
 	/// Deletes older records from the database.
 	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
 		if block_hashes.is_empty() {
@@ -113,14 +198,21 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
 		let mut delete_logs_query = sqlx::query(&sql);
 
+		let sql = format!(
+			"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
+		);
+		let mut delete_mappings_query = sqlx::query(&sql);
+
 		for block_hash in block_hashes {
 			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
 			delete_logs_query = delete_logs_query.bind(block_hash.as_ref());
+			delete_mappings_query = delete_mappings_query.bind(block_hash.as_ref());
 		}
 
 		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
 		let delete_logs = delete_logs_query.execute(&self.pool);
-		tokio::try_join!(delete_transaction_hashes, delete_logs)?;
+		let delete_mappings = delete_mappings_query.execute(&self.pool);
+		tokio::try_join!(delete_transaction_hashes, delete_logs, delete_mappings)?;
 		Ok(())
 	}
 
