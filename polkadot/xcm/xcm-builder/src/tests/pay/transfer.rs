@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{fungible::Mutate, fungibles::Mutate as FungiblesMutate},
 };
 use xcm::{
-	latest::{BodyId, BodyPart, InteriorLocation, Junctions::X2, Xcm},
+	latest::{InteriorLocation, Junctions::X2, Xcm},
 	v5::{AssetId, Location, Parent},
 };
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
@@ -47,8 +47,12 @@ impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAs
 
 parameter_types! {
 	pub SenderAccount: AccountId = AccountId::new([3u8; 32]);
+	pub SenderLocationOnTarget: Location = Location::new(
+		1,
+		X2([Parachain(MockRuntimeParachainId::get().into()), AccountId32 { network: None, id: SenderAccount::get().into() }].into()),
+	);
+	pub SenderAccountOnTarget: AccountId = SovereignAccountOf::convert_location(&SenderLocationOnTarget::get()).expect("can convert");
 	pub InteriorAccount: InteriorLocation = AccountId32 { id: SenderAccount::get().into(), network: None }.into();
-	pub InteriorBody: InteriorLocation = Plurality { id: BodyId::Treasury, part: BodyPart::Voice }.into();
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 
@@ -57,6 +61,14 @@ struct ConstantKsmDefaultFee;
 impl GetDefaultRemoteFee for ConstantKsmDefaultFee {
 	fn get_default_remote_fee(_: Xcm<()>, _: Option<AssetId>) -> Asset {
 		Asset { id: AssetId(RelayLocation::get()), fun: Fungible(500_000_000_000_u128) }
+	}
+}
+
+fn fungible_amount(asset: Asset) -> u128 {
+	let Asset { id: _, ref fun } = asset;
+	match fun {
+		Fungible(fee) => *fee,
+		NonFungible(_) => panic!("Invalid fee"),
 	}
 }
 
@@ -69,14 +81,6 @@ fn transfer_over_xcm_works() {
 	sp_tracing::init_for_tests();
 
 	let sender_para_id = MockRuntimeParachainId::get();
-	let sender = AccountId::new([1u8; 32]);
-	let sender_location_on_target = Location::new(
-		1,
-		X2([Parachain(sender_para_id.into()), AccountId32 { network: None, id: [1; 32] }].into()),
-	);
-	let sender_account_on_target =
-		SovereignAccountOf::convert_location(&sender_location_on_target).expect("can convert");
-
 	let recipient = AccountId::new([5u8; 32]);
 
 	// transact the parents native asset on parachain 1000.
@@ -88,10 +92,10 @@ fn transfer_over_xcm_works() {
 
 	new_test_ext().execute_with(|| {
 		// The parachain's native token
-		mock::Assets::set_balance(0, &sender_account_on_target, INITIAL_BALANCE);
+		mock::Assets::set_balance(0, &SenderAccountOnTarget::get(), INITIAL_BALANCE);
 		// The relaychain's native token
-		mock::Assets::set_balance(1, &sender_account_on_target, INITIAL_BALANCE);
-		mock::Balances::set_balance(&sender_account_on_target, INITIAL_BALANCE);
+		mock::Assets::set_balance(1, &SenderAccountOnTarget::get(), INITIAL_BALANCE);
+		mock::Balances::set_balance(&SenderAccountOnTarget::get(), INITIAL_BALANCE);
 
 		// Check starting balance
 		assert_eq!(mock::Assets::balance(0, &recipient), 0);
@@ -106,21 +110,18 @@ fn transfer_over_xcm_works() {
 			LocatableAssetKindConverter,
 			AliasesIntoAccountId32<AnyNetwork, AccountId>,
 			ConstantKsmDefaultFee,
-		>::transfer(&sender, &recipient, asset_kind.clone(), transfer_amount, None));
+		>::transfer(
+			&SenderAccount::get(), &recipient, asset_kind.clone(), transfer_amount, None
+		));
 
 		let fee_asset = ConstantKsmDefaultFee::get_default_remote_fee(Xcm::new(), None);
-		let Asset { id: _, ref fun } = fee_asset;
-		let fee_amount = match fun {
-			Fungible(fee) => *fee,
-			NonFungible(_) => panic!("Invalid fee"),
-		};
 
 		let expected_message = Xcm(vec![
 			// Change the origin to the local account on the target chain
-			DescendOrigin(AccountId32 { id: sender.into(), network: None }.into()),
+			DescendOrigin(AccountId32 { id: SenderAccount::get().into(), network: None }.into()),
 			// Assume that we always pay in native for now
 			WithdrawAsset(fee_asset.clone().into()),
-			PayFees { asset: fee_asset },
+			PayFees { asset: fee_asset.clone() },
 			SetAppendix(Xcm(vec![
 				ReportError(QueryResponseInfo {
 					destination: (Parent, Parachain(sender_para_id.into())).into(),
@@ -130,7 +131,7 @@ fn transfer_over_xcm_works() {
 				RefundSurplus,
 				DepositAsset {
 					assets: AssetFilter::Wild(WildAsset::All),
-					beneficiary: sender_location_on_target,
+					beneficiary: SenderLocationOnTarget::get(),
 				},
 			])),
 			TransferAsset {
@@ -164,8 +165,8 @@ fn transfer_over_xcm_works() {
 		// The mock trader does not refund any weight. Hence, the balance is exactly the
 		// initial amount minus what we withdrew for transferring and paying the remote fees.
 		assert_eq!(
-			mock::Assets::balance(1, &sender_account_on_target),
-			INITIAL_BALANCE - transfer_amount - fee_amount
+			mock::Assets::balance(1, &SenderAccountOnTarget::get()),
+			INITIAL_BALANCE - transfer_amount - fungible_amount(fee_asset)
 		);
 	});
 }
