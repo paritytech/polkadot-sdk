@@ -34,7 +34,7 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight},
 };
-use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
+use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use sp_core::U256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -470,7 +470,7 @@ fn ext_builder_with_genesis_config_works() {
 		balance: U256::from(100),
 		nonce: 43,
 		contract_data: Some(ContractData {
-			code: compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap().0,
+			code: vec![revm::bytecode::opcode::RETURN],
 			storage: [([3u8; 32], [4u8; 32])].into_iter().collect(),
 		}),
 	};

@@ -581,12 +581,16 @@ pub mod pallet {
 	{
 		fn build(&self) {
 			use crate::{exec::Key, vm::ContractBlob};
-			use frame_support::traits::fungible::Mutate;
+			use frame_support::{traits::fungible::Mutate, PalletId};
+			use sp_runtime::traits::AccountIdConversion;
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
+
+			// Account owner for all PVM contracts deployed in genesis.
+			let owner: AccountIdOf<T> = PalletId(*b"py/revgn").into_account_truncating();
 
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let Ok(balance_with_dust) =
@@ -613,16 +617,16 @@ pub mod pallet {
 					},
 					Some(genesis::ContractData { code, storage }) => {
 						let blob = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-							ContractBlob::<T>::from_pvm_code(
-								code.clone(),
-								Pallet::<T>::checking_account(),
-							)
+							ContractBlob::<T>::from_pvm_code(   code.clone(), owner.clone()).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
+							})
 						} else {
-							ContractBlob::<T>::from_evm_runtime_code(code.clone())
+							ContractBlob::<T>::from_evm_runtime_code(code.clone()).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
+							})
 						};
 
 						let Ok(blob) = blob else {
-							log::error!(target: LOG_TARGET, "Failed to create ContractBlob for {address:?}");
 							continue;
 						};
 
