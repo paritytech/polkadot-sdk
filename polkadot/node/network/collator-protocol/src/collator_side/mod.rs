@@ -1525,7 +1525,7 @@ fn process_out_of_view_collation(
 	let Some(mut stats) = collation_with_core.take_stats() else { return };
 
 	// If the collation stats are still available, it means it was never
-	// succesfully fetched, even if a fetch request was received, but not succeed.
+	// successfully fetched, even if a fetch request was received, but not succeed.
 	//
 	// Will expire in it's current state at the next block import.
 	stats.set_pre_backing_status(collation_status);
@@ -1661,7 +1661,7 @@ async fn run_inner<Context>(
 								let our_para_id = collation_with_core.collation().receipt.descriptor.para_id();
 
 								if let Some(mut stats) = maybe_stats {
-									// Update the timestamp when collation has been sent (from subsysytem perspective)
+									// Update the timestamp when collation has been sent (from subsystem perspective)
 									stats.set_fetched_at(std::time::Instant::now());
 									gum::debug!(
 										target: LOG_TARGET_STATS,
