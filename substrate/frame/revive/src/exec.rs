@@ -1258,7 +1258,8 @@ where
 						data,
 						caller.account_id()?.clone(),
 					)?;
-					code_deposit = module.store_code(skip_transfer)?;
+					module.store_code(skip_transfer)?;
+					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
 
 					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
