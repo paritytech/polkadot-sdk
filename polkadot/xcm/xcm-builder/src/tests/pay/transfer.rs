@@ -161,8 +161,12 @@ fn transfer_over_xcm_works() {
 
 		assert_eq!(mock::Assets::balance(1, &recipient), transfer_amount);
 
-		let expected_lower_bound = INITIAL_BALANCE - transfer_amount - fee_amount;
-		assert_eq!(mock::Assets::balance(1, &sender_account_on_target), expected_lower_bound);
+		// The mock trader does not refund any weight. Hence, the balance is exactly the
+		// initial amount minus what we withdrew for transferring and paying the remote fees.
+		assert_eq!(
+			mock::Assets::balance(1, &sender_account_on_target),
+			INITIAL_BALANCE - transfer_amount - fee_amount
+		);
 	});
 }
 
