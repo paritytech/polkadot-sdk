@@ -184,6 +184,92 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
+	/// Populate missing block mappings for existing blocks.
+	/// This method can be used to backfill mappings for historical data.
+	pub async fn populate_missing_mappings(
+		&self,
+		substrate_block: &SubstrateBlock,
+	) -> Result<(), ClientError> {
+		let substrate_hash = substrate_block.hash();
+		let substrate_hash_ref = substrate_hash.as_ref();
+		let block_number = substrate_block.number() as u64;
+
+		// Check if mapping already exists
+		let existing = query!(
+			r#"
+			SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!: bool"
+			"#,
+			substrate_hash_ref
+		)
+		.fetch_one(&self.pool)
+		.await?;
+
+		if existing.exists {
+			return Ok(());
+		}
+
+		// Get the Ethereum block hash and insert mapping
+		if let Some(ethereum_hash) =
+			self.receipt_extractor.get_ethereum_block_hash(substrate_block).await
+		{
+			self.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number).await?;
+			log::debug!(
+				target: LOG_TARGET,
+				"Populated mapping: ETH {:?} -> Substrate {:?} (block #{})",
+				ethereum_hash,
+				substrate_hash,
+				block_number
+			);
+		}
+
+		Ok(())
+	}
+
+	/// Batch populate missing mappings for a range of blocks.
+	/// This is useful for historical data population.
+	pub async fn batch_populate_mappings(
+		&self,
+		start_block: u32,
+		end_block: u32,
+		batch_size: usize,
+	) -> Result<u32, ClientError> {
+		let mut populated = 0u32;
+		let mut current = start_block;
+
+		while current <= end_block {
+			let batch_end = std::cmp::min(current + batch_size as u32 - 1, end_block);
+
+			for block_num in current..=batch_end {
+				if let Some(block) = self.block_provider.block_by_number(block_num).await? {
+					self.populate_missing_mappings(&block).await?;
+					populated += 1;
+				}
+			}
+
+			current = batch_end + 1;
+
+			// Log progress every 100 blocks
+			if populated % 100 == 0 {
+				log::info!(
+					target: LOG_TARGET,
+					"Block mapping population progress: {} blocks processed (current: {})",
+					populated,
+					batch_end
+				);
+			}
+		}
+
+		log::info!(
+			target: LOG_TARGET,
+			"Completed block mapping population: {} mappings created for blocks {}-{}",
+			populated,
+			start_block,
+			end_block
+		);
+
+		Ok(populated)
+	}
+
 	/// Deletes older records from the database.
 	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
 		if block_hashes.is_empty() {
@@ -240,6 +326,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert(block, &receipts).await?;
+
+		// Insert block mapping from Ethereum to Substrate hash
+		if let Some(ethereum_hash) = self.receipt_extractor.get_ethereum_block_hash(block).await {
+			let substrate_hash = block.hash();
+			let block_number = block.number() as u64;
+			self.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number).await?;
+		}
+
 		Ok(receipts)
 	}
 
