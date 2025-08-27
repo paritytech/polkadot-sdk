@@ -40,6 +40,18 @@ parameter_types! {
 	pub Timeout: BlockNumber = 5; // 5 blocks
 }
 
+type TestTransferOverXcm = TransferOverXcm<
+	TestFeeManager,
+	TestMessageSender,
+	TestQueryHandler<TestConfig, BlockNumber>,
+	Timeout,
+	AccountId,
+	AssetKind,
+	LocatableAssetKindConverter,
+	AliasesIntoAccountId32<AnyNetwork, AccountId>,
+	ConstantRelayTokenDefaultFee,
+>;
+
 struct ConstantRelayTokenDefaultFee;
 
 impl GetDefaultRemoteFee for ConstantRelayTokenDefaultFee {
@@ -58,7 +70,7 @@ fn fungible_amount(asset: Asset) -> u128 {
 
 /// Scenario:
 /// Account #3 on the local chain, parachain 42, controls an amount of funds on parachain 2.
-/// [`TransferOverXcm::pay`] creates the correct message for account #3 to pay another account,
+/// [`TransferOverXcm::transfer`] creates the correct message for account #3 to pay another account,
 /// account #5, on parachain 1000, remotely, in the relay chains native token.
 #[test]
 fn transfer_over_xcm_works() {
@@ -85,17 +97,7 @@ fn transfer_over_xcm_works() {
 		let fee_asset =
 			Asset { id: AssetId(RelayLocation::get()), fun: Fungible(1_000_000_000_000_u128) };
 
-		assert_ok!(TransferOverXcm::<
-			TestFeeManager,
-			TestMessageSender,
-			TestQueryHandler<TestConfig, BlockNumber>,
-			Timeout,
-			AccountId,
-			AssetKind,
-			LocatableAssetKindConverter,
-			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-			ConstantRelayTokenDefaultFee,
-		>::transfer(
+		assert_ok!(TestTransferOverXcm::transfer(
 			&SenderAccount::get(),
 			&recipient,
 			asset_kind.clone(),
@@ -143,18 +145,12 @@ fn transfer_over_xcm_works_with_default_fee() {
 		assert_eq!(mock::Assets::balance(0, &recipient), 0);
 		assert_eq!(mock::Assets::balance(1, &recipient), 0);
 
-		assert_ok!(TransferOverXcm::<
-			TestFeeManager,
-			TestMessageSender,
-			TestQueryHandler<TestConfig, BlockNumber>,
-			Timeout,
-			AccountId,
-			AssetKind,
-			LocatableAssetKindConverter,
-			AliasesIntoAccountId32<AnyNetwork, AccountId>,
-			ConstantRelayTokenDefaultFee,
-		>::transfer(
-			&SenderAccount::get(), &recipient, asset_kind.clone(), transfer_amount, None
+		assert_ok!(TestTransferOverXcm::transfer(
+			&SenderAccount::get(),
+			&recipient,
+			asset_kind.clone(),
+			transfer_amount,
+			None
 		));
 
 		let fee_asset = ConstantRelayTokenDefaultFee::get_default_remote_fee();
@@ -184,18 +180,8 @@ fn sender_on_remote_works() {
 		asset_id: RelayLocation::get().into(),
 	};
 
-	let sender_on_remote = TransferOverXcm::<
-		TestFeeManager,
-		TestMessageSender,
-		TestQueryHandler<TestConfig, BlockNumber>,
-		Timeout,
-		AccountId,
-		AssetKind,
-		LocatableAssetKindConverter,
-		AliasesIntoAccountId32<AnyNetwork, AccountId>,
-		ConstantRelayTokenDefaultFee,
-	>::from_on_remote(&SenderAccount::get(), asset_kind.clone())
-	.unwrap();
+	let sender_on_remote =
+		TestTransferOverXcm::from_on_remote(&SenderAccount::get(), asset_kind.clone()).unwrap();
 
 	assert_eq!(sender_on_remote, SenderLocationOnTarget::get());
 }
