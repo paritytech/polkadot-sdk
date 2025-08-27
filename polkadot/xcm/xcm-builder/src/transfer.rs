@@ -28,7 +28,11 @@ pub use frame_support::traits::tokens::transfer::Transfer;
 
 const LOG_TARGET: &str = "xcm::transfer_remote";
 
-/// Abstraction to get a default remote xcm execution fee from the remote chain.
+/// Abstraction to get a default remote xcm execution fee.
+///
+/// This might come from some pallet's storage value that is frequently
+/// updated with the result of a dry-run execution to make sure that the
+/// fee is sensible.
 pub trait GetDefaultRemoteFee {
 	fn get_default_remote_fee() -> Asset;
 }
