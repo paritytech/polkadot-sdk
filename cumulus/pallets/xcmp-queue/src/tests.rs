@@ -220,7 +220,11 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);
-			let res = XcmpQueue::enqueue_xcmp_messages(1000.into(), &xcms, &mut weight_meter);
+			let res = XcmpQueue::enqueue_xcmp_messages(
+				1000.into(),
+				&xcms.iter().map(|xcm| xcm.as_bounded_slice()).collect::<Vec<_>>(),
+				&mut weight_meter,
+			);
 			if idx < xcms.len() - 1 {
 				assert!(res.is_err());
 			} else {
@@ -709,10 +713,10 @@ fn take_first_concatenated_xcm_works() {
 			.unwrap();
 		match i % 2 {
 			0 => {
-				assert_eq!(xcm, versioned_xcm(older_xcm_version).encode());
+				assert_eq!(xcm.to_vec(), versioned_xcm(older_xcm_version).encode());
 			},
 			1 => {
-				assert_eq!(xcm, versioned_xcm(newer_xcm_version).encode());
+				assert_eq!(xcm.to_vec(), versioned_xcm(newer_xcm_version).encode());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
@@ -756,11 +760,11 @@ fn take_first_concatenated_xcms_works() {
 	let data = &mut &page[1..];
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(0, 5))
+		Ok(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(5, 4))
+		Ok(generate_mock_xcm_batch(5, 4).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 
 	// Should return partial batch on error
@@ -770,7 +774,7 @@ fn take_first_concatenated_xcms_works() {
 	page.extend(generate_mock_xcm(5).encode());
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(&mut &page[1..], 10, &mut WeightMeter::new()),
-		Err(generate_mock_xcm_batch(0, 5))
+		Err(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 }
 
