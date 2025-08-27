@@ -726,7 +726,7 @@ fn advertise_and_send_collation() {
 				})
 				.await
 				.unwrap();
-			// Re-requesting collation should fail, becasue the relay parent is out of the view.
+			// Re-requesting collation should fail, because the relay parent is out of the view.
 			rx.await.unwrap_err();
 
 			assert!(overseer_recv_with_timeout(&mut virtual_overseer, TIMEOUT).await.is_none());
