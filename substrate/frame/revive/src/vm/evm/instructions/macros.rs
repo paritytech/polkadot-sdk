@@ -136,7 +136,7 @@ pub fn record_memory_expansion<E: Ext>(
 		return MemoryExtensionResult::Same;
 	};
 
-	// NB: Commented this for now so that extending memory will not cost any gas.
+	// TODO: Commented this for now so that extending memory will not cost any gas.
 	// if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
 	// 	return MemoryExtensionResult::OutOfGas;
 	// }
