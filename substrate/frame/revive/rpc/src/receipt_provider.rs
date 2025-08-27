@@ -491,7 +491,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
 			},
 			(None, None, Some(hash)) => {
-				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
+				// Try to resolve Ethereum hash to Substrate hash first
+				let substrate_hash = if let Some(resolved) = self.get_substrate_hash(&hash).await {
+					resolved
+				} else {
+					// Fallback: treat as Substrate hash for backward compatibility
+					hash
+				};
+				qb.push(" AND block_hash = ").push_bind(substrate_hash.0.to_vec());
 			},
 			(None, None, None) => {
 				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
