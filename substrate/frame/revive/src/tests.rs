@@ -21,8 +21,11 @@ mod pvm;
 mod sol;
 
 use crate::{
-	self as pallet_revive, test_utils::*, AccountId32Mapper, BalanceOf, BalanceWithDust,
-	CodeInfoOf, Config, GenesisConfig, Origin, Pallet,
+	self as pallet_revive,
+	genesis::{Account, ContractData},
+	test_utils::*,
+	AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, CodeInfoOf, Config,
+	GenesisConfig, Origin, Pallet, PristineCode,
 };
 use frame_support::{
 	assert_ok, derive_impl,
@@ -31,7 +34,9 @@ use frame_support::{
 	traits::{ConstU32, ConstU64, FindAuthor, StorageVersion},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, FixedFee, IdentityFee, Weight},
 };
+use pallet_revive_fixtures::compile_module;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
+use sp_core::U256;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
@@ -450,18 +455,58 @@ impl Default for Origin<Test> {
 
 #[test]
 fn ext_builder_with_genesis_config_works() {
-	use crate::AddressMapper;
-	use sp_core::U256;
-	let balance = U256::from(100);
+	let pvm_contract = Account {
+		address: BOB_ADDR,
+		balance: U256::from(100),
+		nonce: 42,
+		contract_data: Some(ContractData {
+			code: compile_module("dummy").unwrap().0,
+			storage: [([1u8; 32], [2u8; 32])].into_iter().collect(),
+		}),
+	};
 
+	let evm_contract = Account {
+		address: CHARLIE_ADDR,
+		balance: U256::from(100),
+		nonce: 43,
+		contract_data: Some(ContractData {
+			code: vec![revm::bytecode::opcode::RETURN],
+			storage: [([3u8; 32], [4u8; 32])].into_iter().collect(),
+		}),
+	};
+
+	let eoa =
+		Account { address: ALICE_ADDR, balance: U256::from(100), nonce: 44, contract_data: None };
 	ExtBuilder::default()
 		.with_genesis_config(crate::GenesisConfig::<Test> {
 			mapped_accounts: vec![EVE],
-			externally_owned_accounts: vec![(ALICE_ADDR, balance)],
+			accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
 		})
 		.build()
 		.execute_with(|| {
-			assert_eq!(Pallet::<Test>::evm_balance(&ALICE_ADDR), balance);
+			// account is mapped
 			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+			// EOA is created
+			assert_eq!(Pallet::<Test>::evm_balance(&eoa.address), eoa.balance);
+
+			// Contract is created
+			for contract in [pvm_contract, evm_contract] {
+				let contract_data = contract.contract_data.unwrap();
+				let contract_info = test_utils::get_contract(&contract.address);
+				assert_eq!(
+					PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
+					contract_data.code
+				);
+				assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
+				assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);
+
+				for (key, value) in contract_data.storage.iter() {
+					assert_eq!(
+						Pallet::<Test>::get_storage(contract.address, *key),
+						Ok(Some(value.to_vec()))
+					);
+				}
+			}
 		});
 }

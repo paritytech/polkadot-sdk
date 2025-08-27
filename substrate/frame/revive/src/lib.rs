@@ -90,7 +90,7 @@ pub use crate::{
 		create1, create2, is_eth_derived, AccountId32Mapper, AddressMapper, TestAccountMapper,
 	},
 	exec::{Key, MomentOf, Origin},
-	pallet::*,
+	pallet::{genesis, *},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -535,43 +535,123 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
+	pub mod genesis {
+		use super::*;
+
+		/// Genesis configuration for contract-specific data.
+		#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+		pub struct ContractData {
+			/// Contract code.
+			pub code: Vec<u8>,
+			/// Initial storage entries as 32-byte key/value pairs.
+			pub storage: alloc::collections::BTreeMap<[u8; 32], [u8; 32]>,
+		}
+
+		/// Genesis configuration for a contract account.
+		#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
+		pub struct Account {
+			/// Contrat address.
+			pub address: H160,
+			/// Contract balance.
+			#[serde(default)]
+			pub balance: U256,
+			/// Account nonce
+			#[serde(default)]
+			pub nonce: u32,
+			/// Contract-specific data (code and storage). None for EOAs.
+			#[serde(flatten, skip_serializing_if = "Option::is_none")]
+			pub contract_data: Option<ContractData>,
+		}
+	}
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
 		/// Genesis mapped accounts
 		pub mapped_accounts: Vec<T::AccountId>,
-		/// Externally owned EVM accounts with (H160 address, U256 balance)
-		pub externally_owned_accounts: Vec<(H160, U256)>,
+		/// Account entries (both EOAs and contracts)
+		pub accounts: Vec<genesis::Account>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
-		BalanceOf<T>: TryFrom<U256>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		T::Nonce: From<u32>,
 	{
 		fn build(&self) {
-			use frame_support::traits::fungible::Mutate;
+			use crate::{exec::Key, vm::ContractBlob};
+			use frame_support::{traits::fungible::Mutate, PalletId};
+			use sp_runtime::traits::AccountIdConversion;
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
 
-			for (addr, balance) in &self.externally_owned_accounts {
+			// Account owner for all PVM contracts deployed in genesis.
+			let owner: AccountIdOf<T> = PalletId(*b"py/revgn").into_account_truncating();
+
+			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let Ok(balance_with_dust) =
-					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(*balance)
+					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(*balance).inspect_err(|err| {
+						log::error!(target: LOG_TARGET, "Failed to convert balance for {address:?}: {err:?}");
+					})
 				else {
-					log::error!(target: LOG_TARGET, "Failed to convert balance for {addr:?}");
 					continue;
 				};
-
+				let account_id = T::AddressMapper::to_account_id(address);
 				let (value, dust) = balance_with_dust.deconstruct();
-				let _ = T::Currency::set_balance(&T::AddressMapper::to_account_id(addr), value);
-				if dust > 0 {
-					AccountInfoOf::<T>::insert(
-						addr,
-						AccountInfo { account_type: AccountType::EOA, dust },
-					);
+
+				let _ = T::Currency::set_balance(&account_id, value);
+				frame_system::Account::<T>::mutate(&account_id, |info| {
+					info.nonce = (*nonce).into();
+				});
+
+				match contract_data {
+					None => {
+						AccountInfoOf::<T>::insert(
+							address,
+							AccountInfo { account_type: AccountType::EOA, dust },
+						);
+					},
+					Some(genesis::ContractData { code, storage }) => {
+						let blob = if code.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+							ContractBlob::<T>::from_pvm_code(   code.clone(), owner.clone()).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
+							})
+						} else {
+							ContractBlob::<T>::from_evm_runtime_code(code.clone()).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
+							})
+						};
+
+						let Ok(blob) = blob else {
+							continue;
+						};
+
+						let code_hash = *blob.code_hash();
+						let Ok(info) = <ContractInfo<T>>::new(&address, 0u32.into(), code_hash)
+							.inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
+							})
+						else {
+							continue;
+						};
+
+						AccountInfoOf::<T>::insert(
+							address,
+							AccountInfo { account_type: info.clone().into(), dust },
+						);
+
+						<PristineCode<T>>::insert(blob.code_hash(), code);
+						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
+						for (k, v) in storage {
+							let _ = info.write(&Key::from_fixed(*k), Some(v.to_vec()), None, false).inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to write genesis storage for {address:?} at key {k:?}: {err:?}");
+							});
+						}
+					},
 				}
 			}
 		}
@@ -977,7 +1057,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove(&origin, code_hash)?;
+			<ContractBlob<T>>::remove_pvm_code(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1179,8 +1259,7 @@ where
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
-						let origin = T::UploadOrigin::ensure_origin(origin)?;
-						let executable = ContractBlob::from_evm_init_code(code, origin)?;
+						let executable = ContractBlob::from_evm_init_code(code)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
@@ -1568,8 +1647,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin)?;
-		let deposit = module.store_code(skip_transfer)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin.clone())?;
+		let deposit = module.store_code(&origin, skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}

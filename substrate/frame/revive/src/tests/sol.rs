@@ -19,7 +19,7 @@ use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
-		test_utils::{ensure_stored, get_contract_checked},
+		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
 	Code, Config, PristineCode,
@@ -31,7 +31,7 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn basic_evm_flow_works() {
-	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -39,8 +39,13 @@ fn basic_evm_flow_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// check the code exists
-		let contract = get_contract_checked(&addr).unwrap();
+		let contract = get_contract(&addr);
 		ensure_stored(contract.code_hash);
+		let deposit = contract_base_deposit(&addr);
+		assert_eq!(contract.total_deposit(), deposit);
+
+		// init code is not stored
+		assert!(!PristineCode::<Test>::contains_key(init_hash));
 
 		let result = builder::bare_call(addr)
 			.data(
@@ -69,7 +74,7 @@ fn basic_evm_flow_tracing_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
 		});
 
-		let contract = get_contract_checked(&addr).unwrap();
+		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
 		assert_eq!(
