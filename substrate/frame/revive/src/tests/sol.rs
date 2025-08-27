@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
@@ -35,14 +36,16 @@ fn basic_evm_flow_works() {
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract();
 
 		// check the code exists
 		let contract = get_contract(&addr);
 		ensure_stored(contract.code_hash);
 		let deposit = contract_base_deposit(&addr);
 		assert_eq!(contract.total_deposit(), deposit);
+		assert_refcount!(contract.code_hash, 1);
 
 		// init code is not stored
 		assert!(!PristineCode::<Test>::contains_key(init_hash));
@@ -54,6 +57,13 @@ fn basic_evm_flow_works() {
 			)
 			.build_and_unwrap_result();
 		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+
+		// Instantiate again
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some([2; 32]))
+			.build_and_unwrap_contract();
+		let contract = get_contract(&addr);
+		assert_refcount!(contract.code_hash, 2);
 	});
 }
 

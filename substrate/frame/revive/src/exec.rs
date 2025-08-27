@@ -1127,7 +1127,6 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let origin = self.origin.clone();
 			let skip_transfer = self.skip_transfer;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
@@ -1144,7 +1143,7 @@ where
 			if entry_point == ExportedFunction::Constructor {
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
-				let origin = &origin.account_id()?;
+				let origin = &self.origin.account_id()?;
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
@@ -1255,9 +1254,14 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data)?;
-					code_deposit = module.store_code(origin.account_id()?, skip_transfer)?;
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
+						data,
+						caller.account_id()?.clone(),
+					)?;
+					code_deposit = module.store_code(skip_transfer)?;
 					contract_info.code_hash = *module.code_hash();
+
+					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
 				}
 
 				let deposit = contract_info.update_base_deposit(code_deposit);

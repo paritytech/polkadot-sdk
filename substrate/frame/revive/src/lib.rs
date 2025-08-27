@@ -953,7 +953,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove_pvm_code(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1155,7 +1155,8 @@ where
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
-						let executable = ContractBlob::from_evm_init_code(code)?;
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
@@ -1543,8 +1544,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin.clone())?;
-		let deposit = module.store_code(&origin, skip_transfer)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
