@@ -2632,6 +2632,7 @@ mod sanitizers {
 				sp_keyring::Sr25519Keyring::Ferdie,
 				sp_keyring::Sr25519Keyring::One,
 				sp_keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::AliceStash,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -2774,6 +2775,7 @@ mod sanitizers {
 					ValidatorIndex(5),
 					ValidatorIndex(6),
 					ValidatorIndex(7),
+					ValidatorIndex(8),
 				]
 			);
 
@@ -4572,13 +4574,13 @@ mod sanitizers {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
 					get_test_data_one_core_per_para(BackingKind::Threshold);
 
-				// Disable Eve
-				set_disabled_validators(vec![4]);
+				// Disable `AliceStash`
+				set_disabled_validators(vec![7]);
 
 				let before = expected_backed_candidates_with_core.clone();
 
-				// Eve is disabled but no backing statement is signed by it so nothing should be
-				// filtered
+				// AliceStash is disabled but no backing statement is signed by it so nothing should
+				// be filtered
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
