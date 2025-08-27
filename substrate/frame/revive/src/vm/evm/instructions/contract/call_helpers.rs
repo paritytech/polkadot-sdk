@@ -93,15 +93,13 @@ pub fn calc_call_gas<'a, E: Ext>(
 			gas!(interpreter, RuntimeCosts::PrecompileDecode(input_len as u32), None);
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
 			let base_cost = if scheme.is_delegate_call() {
 				RuntimeCosts::DelegateCallBase
 			} else {
 				RuntimeCosts::CallBase
 			};
 			gas!(interpreter, base_cost, None);
-
-			gas!(interpreter, RuntimeCosts::CopyFromContract(input_len as u32), None);
 		},
 	};
 	if !value.is_zero() {
