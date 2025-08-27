@@ -39,3 +39,4 @@ try-runtime = [
 	"frame/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 ]
+experimental = ["frame/experimental"]
