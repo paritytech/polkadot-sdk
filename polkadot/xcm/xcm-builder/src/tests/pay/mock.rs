@@ -135,6 +135,21 @@ parameter_types! {
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
 }
 
+/// Type representing both a location and an asset that is held at that location.
+/// The id of the held asset is relative to the location where it is being held.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetKind {
+	pub destination: Location,
+	pub asset_id: AssetId,
+}
+
+pub struct LocatableAssetKindConverter;
+impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
+	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
+		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
+	}
+}
+
 type AssetIdForAssets = u128;
 
 pub struct FromLocationToAsset<Location, AssetId>(core::marker::PhantomData<(Location, AssetId)>);
