@@ -31,7 +31,7 @@ use revm::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
-		interpreter_types::InputsTr,
+		interpreter_types::{InputsTr, Jumps, LoopControl, MemoryTr, StackTr},
 		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
 	primitives::{self, hardfork::SpecId, Address},
@@ -105,7 +105,8 @@ fn run<WIRE: InterpreterTypes>(
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
-	let action = interpreter.run_plain(table, host);
+	let action = run_plain(interpreter, table, host);
+	log::trace!("{:?}", action);
 	match action {
 		InterpreterAction::Return(result) => return result,
 		InterpreterAction::NewFrame(_) => {
@@ -117,6 +118,32 @@ fn run<WIRE: InterpreterTypes>(
 			)
 		},
 	}
+}
+
+/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
+fn run_plain<WIRE: InterpreterTypes>(
+	interpreter: &mut Interpreter<WIRE>,
+	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
+	host: &mut DummyHost,
+) -> InterpreterAction {
+	use revm::bytecode::OpCode;
+	while interpreter.bytecode.is_not_end() {
+		log::trace!(
+			"[{}]: {}, stacktop: {}, memory size: {} {:?}",
+			interpreter.bytecode.pc(),
+			OpCode::new(interpreter.bytecode.opcode())
+				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
+			interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
+			interpreter.memory.size(),
+			// printing at most the first 32 bytes of memory
+			interpreter
+				.memory
+				.slice_len(0, std::cmp::min(32, interpreter.memory.size()))
+				.to_vec(),
+		);
+		interpreter.step(instruction_table, host);
+	}
+	interpreter.take_next_action()
 }
 
 /// EVMInterpreter implements the `InterpreterTypes`.
