@@ -290,7 +290,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, HoldReason},
 		Custom: custom::{Pallet, Call, ValidateUnsigned, Inherent},
 		Custom2: custom2::{Pallet, Call, ValidateUnsigned, Inherent},
 	}
@@ -445,6 +445,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type WeightInfo = MockTxPaymentWeights;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl custom::Config for Runtime {}

@@ -624,6 +624,7 @@ impl pallet_transaction_payment::Config for Runtime {
 		MaximumMultiplier,
 	>;
 	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;

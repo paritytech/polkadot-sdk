@@ -543,6 +543,7 @@ fn refund_does_not_recreate_account() {
 				.unwrap()
 				.unwrap();
 			assert_eq!(Balances::free_balance(2), 0);
+			assert!(!System::account_exists(&2));
 			// Transfer Event
 			System::assert_has_event(RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 				from: 2,

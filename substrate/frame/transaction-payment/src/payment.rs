@@ -16,7 +16,7 @@
 // limitations under the License.
 
 /// ! Traits and default implementation for paying transaction fees.
-use crate::Config;
+use crate::{Config, HoldReason, LOG_TARGET};
 
 use core::marker::PhantomData;
 use sp_runtime::{
@@ -26,12 +26,13 @@ use sp_runtime::{
 
 use frame_support::{
 	traits::{
-		fungible::{Balanced, Credit, Debt, Inspect},
-		tokens::{Precision, WithdrawConsequence},
+		fungible::{Balanced, Credit, Inspect, MutateHold},
+		tokens::{Fortitude, Precision, Preservation, WithdrawConsequence},
 		Currency, ExistenceRequirement, Imbalance, OnUnbalanced, WithdrawReasons,
 	},
 	unsigned::TransactionValidityError,
 };
+use frame_system::Pallet as System;
 
 type NegativeImbalanceOf<C, T> =
 	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
@@ -98,7 +99,7 @@ pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
 impl<T, F, OU> OnChargeTransaction<T> for FungibleAdapter<F, OU>
 where
 	T: Config,
-	F: Balanced<T::AccountId>,
+	F: Balanced<T::AccountId> + MutateHold<T::AccountId, Reason = T::RuntimeHoldReason>,
 	OU: OnUnbalanced<Credit<T::AccountId, F>>,
 {
 	type LiquidityInfo = Option<Credit<T::AccountId, F>>;
@@ -109,22 +110,28 @@ where
 		_call: &<T>::RuntimeCall,
 		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
 		fee: Self::Balance,
-		_tip: Self::Balance,
+		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		if fee.is_zero() {
 			return Ok(None)
 		}
 
-		match F::withdraw(
-			who,
-			fee,
-			Precision::Exact,
-			frame_support::traits::tokens::Preservation::Preserve,
-			frame_support::traits::tokens::Fortitude::Polite,
-		) {
-			Ok(imbalance) => Ok(Some(imbalance)),
-			Err(_) => Err(InvalidTransaction::Payment.into()),
-		}
+		// We need to have the account stay alive even when all the free balance is sent away.
+		// Otherwise the held balance is burned before we have a chance to recover it.
+		<System<T>>::inc_providers(who);
+
+		// Put on hold so that pallets can withdraw from it in order to pay for deposits.
+		F::hold(&HoldReason::Payment.into(), who, fee.saturating_sub(tip))
+			.map_err(|_| InvalidTransaction::Payment)?;
+
+		// Pallets have no way of knowing the amount of tip. Hence they have no way
+		// of making sure that they don't consume the tip. This is why we exclude it
+		// from the hold.
+		let tip_credit =
+			F::withdraw(who, tip, Precision::Exact, Preservation::Preserve, Fortitude::Polite)
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+
+		Ok(Some(tip_credit))
 	}
 
 	fn can_withdraw_fee(
@@ -150,28 +157,38 @@ where
 		_post_info: &PostDispatchInfoOf<<T>::RuntimeCall>,
 		corrected_fee: Self::Balance,
 		tip: Self::Balance,
-		already_withdrawn: Self::LiquidityInfo,
+		tip_credit: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		if let Some(paid) = already_withdrawn {
-			// Calculate how much refund we should return
-			let refund_amount = paid.peek().saturating_sub(corrected_fee);
-			// Refund to the the account that paid the fees if it exists & refund is non-zero.
-			// Otherwise, don't refund anything.
-			let refund_imbalance =
-				if refund_amount > Zero::zero() && F::total_balance(who) > F::Balance::zero() {
-					F::deposit(who, refund_amount, Precision::BestEffort)
-						.unwrap_or_else(|_| Debt::<T::AccountId, F>::zero())
-				} else {
-					Debt::<T::AccountId, F>::zero()
-				};
-			// merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid: Credit<T::AccountId, F> = paid
-				.offset(refund_imbalance)
-				.same()
-				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-			// Call someone else to handle the imbalance (fee and tip separately)
-			let (tip, fee) = adjusted_paid.split(tip);
-			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+		if let Some(tip_credit) = tip_credit {
+			let corrected_fee = corrected_fee.saturating_sub(tip);
+			let account_dead = <System<T>>::reference_count(who) == 1;
+			let available_fee =
+				F::release_all(&HoldReason::Payment.into(), who, Precision::BestEffort)
+					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+
+			// If pallets take away too much it makes the transaction invalid. They need to make
+			// sure that this does not happen.
+			if available_fee < corrected_fee {
+				log::error!(target: LOG_TARGET, "Not enough balance on hold to pay tx fees. This is a bug.");
+				Err(TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			}
+
+			// Do not re-create account in case it is only held alive by this pallet
+			let payable_fee =
+				if account_dead { available_fee } else { available_fee.min(corrected_fee) };
+
+			let adjusted_paid = F::withdraw(
+				who,
+				payable_fee,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			)
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+
+			<System<T>>::dec_providers(who).expect("We increased the provider in withdraw_fee. We assume all other providers are balanced. qed");
+
+			OU::on_unbalanceds(Some(adjusted_paid).into_iter().chain(Some(tip_credit)));
 		}
 
 		Ok(())

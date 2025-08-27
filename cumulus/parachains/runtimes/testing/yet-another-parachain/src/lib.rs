@@ -260,6 +260,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Self>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl pallet_sudo::Config for Runtime {

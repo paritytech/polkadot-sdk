@@ -258,6 +258,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightInfo = weights::pallet_transaction_payment::WeightInfo<Runtime>;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 parameter_types! {
