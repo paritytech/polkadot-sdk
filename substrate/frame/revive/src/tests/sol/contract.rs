@@ -21,8 +21,6 @@ use sp_core::H160;
 #[test]
 fn staticcall_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let _ = sp_tracing::try_init_simple();
-
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
@@ -84,8 +82,6 @@ fn staticcall_works() {
 #[test]
 fn call_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let _ = sp_tracing::try_init_simple();
-
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
@@ -147,10 +143,105 @@ fn call_works() {
 }
 
 #[test]
+fn call_revert() {
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			// Instantiate the callee contract, which can echo a value.
+			let Contract { addr: callee_addr, .. } =
+				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+			log::info!("Callee  addr: {:?}", callee_addr);
+
+			// Instantiate the caller contract.
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+			log::info!("Caller  addr: {:?}", caller_addr);
+
+			// Call revert and assert failure
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::normalCall {
+						_callee: callee_addr.0.into(),
+						_value: U256::ZERO,
+						_data: Callee::revertCall {}.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			assert!(!result.success, "Call should propagate revert");
+			log::info!("Returned data: {:?}", result.output);
+			assert!(result.output.len() > 0, "Returned data should contain revert message");
+
+			let data = result.output.as_ref();
+
+			// string length
+			let str_len = U256::from_be_slice(&data[36..68]).to::<usize>();
+
+			// string bytes
+			let str_start = 68;
+			let str_end = str_start + str_len;
+			let reason_bytes = &data[str_start..str_end];
+			let reason = std::str::from_utf8(reason_bytes).unwrap();
+			assert_eq!(reason, "This is a revert");
+		});
+	}
+}
+
+#[test]
+fn call_invalid_opcode() {
+	for fixture_type in [FixtureType::Resolc] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			// Instantiate the callee contract, which can echo a value.
+			let Contract { addr: callee_addr, .. } =
+				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+			log::info!("Callee  addr: {:?}", callee_addr);
+
+			// Instantiate the caller contract.
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+			log::info!("Caller  addr: {:?}", caller_addr);
+
+			// Call revert and assert failure
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::normalCall {
+						_callee: callee_addr.0.into(),
+						_value: U256::ZERO,
+						_data: Callee::invalidCall {}.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+
+			//log::info!("Result: {:?}", result);
+			assert!(!result.success, "Invalid opcode should propagate as error");
+
+			let data = result.output.as_ref();
+			assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
+		});
+	}
+}
+
+#[test]
 fn delegatecall_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let _ = sp_tracing::try_init_simple();
-
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 

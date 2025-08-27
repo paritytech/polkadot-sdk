@@ -15,4 +15,16 @@ contract Callee {
     function store(uint _data) external {
         stored = _data;
     }
+
+    function revert() public pure returns (uint256) {
+        require(false, "This is a revert");
+        return 42; // never reached
+    }
+
+    function invalid() public pure returns (uint256 result) {
+        assembly {
+            invalid() // 0xFE opcode
+            result := 1  // never reached
+        }
+    }
 }

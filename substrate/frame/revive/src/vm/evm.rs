@@ -344,6 +344,6 @@ fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> InstructionResult {
 		(err, _) if err == value_too_large => InstructionResult::OverflowPayment,
 		(err, Callee) if err == out_of_deposit => InstructionResult::OutOfFunds,
 		(err, Callee) if err == out_of_gas => InstructionResult::OutOfGas,
-		_ => InstructionResult::Revert,
+		_ => InstructionResult::FatalExternalError,
 	}
 }
