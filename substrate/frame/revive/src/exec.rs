@@ -208,7 +208,8 @@ pub trait Ext: PrecompileWithInfoExt {
 
 	/// Transfer all funds to `beneficiary`.
 	///
-	/// The contract is *NOT* deleted.
+	/// The contract is *NOT* deleted *unless* this function is called in the same transaction
+	/// as the contract was created.
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
@@ -1693,21 +1694,28 @@ where
 	}
 
 	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		let frame = self.top_frame_mut();
-		if frame.entry_point == ExportedFunction::Constructor {
-			return Err(Error::<T>::TerminatedInConstructor.into());
-		}
 		let from = self.account_id();
 		let to = T::AddressMapper::to_account_id(beneficiary);
 		let value: U256 = self.balance();
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+
 		if value.is_zero() {
 			return Ok(());
 		}
 		transfer_with_dust::<T>(&from, &to, value)?;
+
+		// If this is called in the same transaction as the contract was created then the contract
+		// is deleted.
+		if self.top_frame().entry_point == ExportedFunction::Constructor {
+			let frame = self.top_frame_mut();
+			let info = frame.terminate();
+			frame.nested_storage.terminate(&info, to);
+			info.queue_trie_for_deletion();
+			let account_address = T::AddressMapper::to_address(&frame.account_id);
+			AccountInfoOf::<T>::remove(&account_address);
+			ImmutableDataOf::<T>::remove(&account_address);
+			<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+		}
 		Ok(())
 	}
 

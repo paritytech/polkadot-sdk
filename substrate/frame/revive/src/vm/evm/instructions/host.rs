@@ -290,6 +290,8 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	// Check if we're in a static context
+	require_non_staticcall!(context.interpreter);
 	popn!([beneficiary], context.interpreter);
 	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
 	let dispatch_result = context.interpreter.extend.selfdestruct(&h160);
