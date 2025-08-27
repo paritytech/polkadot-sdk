@@ -185,7 +185,14 @@ impl ReceiptExtractor {
 			ClientError::RecoverEthAddressFailed
 		})?;
 
-		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
+		// TODO below causes such errors:
+		// ```
+		// 2025-08-27 23:34:42.026  WARN tokio-runtime-worker eth-rpc: Error extracting extrinsic: SubxtError(Rpc(ClientError(User(UserError { code: 4003, message: "Client error: UnknownBlock: Expect block number from id: BlockId::Hash(0x69a76a3ffb732205f70236a5ac95653680a193dee3c02f489ba88af4e9cc8978)", data: None }))))
+		// 2025-08-27 23:34:42.026 ERROR tokio-runtime-worker eth-rpc: Failed to process block 9: SubxtError(Rpc(ClientError(User(UserError { code: 4003, message: "Client error: UnknownBlock: Expect block number from id: BlockId::Hash(0x69a76a3ffb732205f70236a5ac95653680a193dee3c02f489ba88af4e9cc8978)", data: None }))))
+		// 2025-08-27 23:34:42.923 DEBUG tokio-runtime-worker eth-rpc: Processing block receipts for Substrate block 0x84fcafbf84a9cce7d0aa9a6c9ef219c6f4dc1b96697a864a95bb0effeea3d4d3 (block #7)
+		// ```
+		// let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
+		let base_gas_price = U256::zero();
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 
