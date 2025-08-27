@@ -30,9 +30,12 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use xcm::{latest::prelude::*, VersionedAssets, VersionedXcm, VersionedAssetId};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::{traits::{ConvertLocation, TransferType}, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,

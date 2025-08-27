@@ -38,8 +38,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssets, VersionedAssetId, VersionedXcm};
-use xcm_executor::{traits::{ConvertLocation, TransferType}, XcmExecutor};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
