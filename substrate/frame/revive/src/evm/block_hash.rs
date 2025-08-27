@@ -259,38 +259,35 @@ impl Block {
 
 /// Build the Trie Root Hash incrementally.
 pub struct IncrementalHashBuilder {
+	/// Hash builder.
 	hash_builder: HashBuilder,
+	/// The index of the current value.
 	index: usize,
-
-	// RLP encoded.
-	first_transaction: Option<Vec<u8>>,
+	/// RLP encoded value.
+	first_value: Option<Vec<u8>>,
 }
 
 impl IncrementalHashBuilder {
-	/// Construct the hash builder from the first transaction.
-	pub fn new(first_transaction: Vec<u8>) -> Self {
-		Self {
-			hash_builder: HashBuilder::default(),
-			index: 1,
-			first_transaction: Some(first_transaction),
-		}
+	/// Construct the hash builder from the first value.
+	pub fn new(first_value: Vec<u8>) -> Self {
+		Self { hash_builder: HashBuilder::default(), index: 1, first_value: Some(first_value) }
 	}
 
-	/// Add a transaction to the hash builder.
-	pub fn add_transaction(&mut self, transaction: Vec<u8>) {
+	/// Add a new value to the hash builder.
+	pub fn add_value(&mut self, value: Vec<u8>) {
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
-			if let Some(tx) = self.first_transaction.take() {
+			if let Some(encoded_value) = self.first_value.take() {
 				let zero: usize = 0;
 				let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
 
-				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 			}
 		}
 
 		let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&self.index);
-		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &transaction);
+		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		self.index += 1;
 	}
@@ -298,12 +295,12 @@ impl IncrementalHashBuilder {
 	/// Build the trie root hash.
 	pub fn finish(&mut self) -> H256 {
 		// We have less than 0x7f items to the trie. Therefore, the
-		// first transaction index is the last one in the sorted vector
+		// first value index is the last one in the sorted vector
 		// by rlp encoding of the index.
-		if let Some(tx) = self.first_transaction.take() {
+		if let Some(encoded_value) = self.first_value.take() {
 			let zero: usize = 0;
 			let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
-			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
 		self.hash_builder.root().0.into()
@@ -314,7 +311,6 @@ impl IncrementalHashBuilder {
 mod test {
 	use super::*;
 	use crate::evm::{Block, ReceiptInfo};
-	use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 
 	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
 		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
@@ -430,14 +426,15 @@ mod test {
 		for enc in &encoded_tx {
 			total_size += enc.len();
 		}
+		println!("Total size used by transactions: {:?}", total_size);
 
 		let mut builder = IncrementalHashBuilder::new(encoded_tx[0].clone());
 		for tx in encoded_tx.iter().skip(1) {
-			builder.add_transaction(tx.clone())
+			builder.add_value(tx.clone())
 		}
 		let incremental_hash = builder.finish();
-		println!("Incremental hash: {:?}", incremental_hash);
 
+		println!("Incremental hash: {:?}", incremental_hash);
 		println!("Manual Hash: {:?}", manual_hash);
 		println!("Built block Hash: {:?}", built_block.transactions_root);
 		println!("Real Block Tx Hash: {:?}", block.transactions_root);
