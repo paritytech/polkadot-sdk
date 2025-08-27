@@ -78,8 +78,6 @@ fn fungible_amount(asset: Asset) -> u128 {
 /// account #5, on parachain 1000, remotely, in the relay chains native token.
 #[test]
 fn transfer_over_xcm_works() {
-	sp_tracing::init_for_tests();
-
 	let recipient = AccountId::new([5u8; 32]);
 
 	// transact the parents native asset on parachain 1000.
@@ -140,8 +138,6 @@ fn transfer_over_xcm_works() {
 
 #[test]
 fn transfer_over_xcm_works_with_default_fee() {
-	sp_tracing::init_for_tests();
-
 	let recipient = AccountId::new([5u8; 32]);
 
 	// transact the parents native asset on parachain 1000.
@@ -197,15 +193,6 @@ fn transfer_over_xcm_works_with_default_fee() {
 
 #[test]
 fn sender_on_remote_works() {
-	sp_tracing::init_for_tests();
-
-	let sender_para_id = MockRuntimeParachainId::get();
-	let sender = AccountId::new([1u8; 32]);
-	let sender_location_on_target = Location::new(
-		1,
-		X2([Parachain(sender_para_id.into()), AccountId32 { network: None, id: [1; 32] }].into()),
-	);
-
 	let asset_kind = AssetKind {
 		destination: (Parent, Parachain(1000)).into(),
 		asset_id: RelayLocation::get().into(),
@@ -220,10 +207,10 @@ fn sender_on_remote_works() {
 		LocatableAssetKindConverter,
 		AliasesIntoAccountId32<AnyNetwork, AccountId>,
 		ConstantKsmDefaultFee,
-	>::from_on_remote(&sender, asset_kind.clone())
+	>::from_on_remote(&SenderAccount::get(), asset_kind.clone())
 	.unwrap();
 
-	assert_eq!(sender_location_on_target, sender_on_remote,);
+	assert_eq!(sender_on_remote, SenderLocationOnTarget::get());
 }
 
 fn assert_send_and_execute_msg(expected_message: Xcm<()>) {
