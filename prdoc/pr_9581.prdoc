@@ -1,0 +1,12 @@
+title: 'fix: parachain informant'
+doc:
+- audience: Node Operator
+  description: |-
+    Closes https://github.com/paritytech/polkadot-sdk/issues/9559.
+
+    The parachain informant was logging information for all parachains, not just ours. This PR fixes that by filtering the events by parachain ID.
+
+    I tried adding a zombienet test for this but there isn't really a good way to do it. So I ended up only testing manually with zombienet, by creating a network of two parachains and adding some extra logging to ensure that the events are now being filtered out correctly.
+crates:
+- name: cumulus-client-service
+  bump: patch
