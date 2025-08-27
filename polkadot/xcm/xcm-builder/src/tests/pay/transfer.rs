@@ -74,8 +74,8 @@ fn fungible_amount(asset: Asset) -> u128 {
 
 /// Scenario:
 /// Account #3 on the local chain, parachain 42, controls an amount of funds on parachain 2.
-/// [`TransferOverXcm::pay`] creates the correct message for account #3 to pay another account, account
-/// #5, on parachain 1000, remotely, in the relay chains native token.
+/// [`TransferOverXcm::pay`] creates the correct message for account #3 to pay another account,
+/// account #5, on parachain 1000, remotely, in the relay chains native token.
 #[test]
 fn transfer_over_xcm_works_with_default_fee() {
 	sp_tracing::init_for_tests();
@@ -120,26 +120,7 @@ fn transfer_over_xcm_works_with_default_fee() {
 			(asset_kind.asset_id, transfer_amount).into(),
 			fee_asset.clone(),
 		);
-		let expected_hash = fake_message_hash(&expected_message);
-
-		assert_eq!(
-			sent_xcm(),
-			vec![((Parent, Parachain(1000)).into(), expected_message, expected_hash)]
-		);
-
-		let (_, message, mut hash) = sent_xcm()[0].clone();
-		let message =
-			Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
-
-		// Execute message in parachain 1000 with our parachains's origin
-		let origin = (Parent, Parachain(MockRuntimeParachainId::get().into()));
-		let _result = XcmExecutor::<XcmConfig>::prepare_and_execute(
-			origin,
-			message,
-			&mut hash,
-			Weight::MAX,
-			Weight::zero(),
-		);
+		assert_send_and_execute_msg(expected_message);
 
 		assert_eq!(mock::Assets::balance(1, &recipient), transfer_amount);
 
@@ -181,6 +162,28 @@ fn sender_on_remote_works() {
 	.unwrap();
 
 	assert_eq!(sender_location_on_target, sender_on_remote,);
+}
+
+fn assert_send_and_execute_msg(expected_message: Xcm<()>) {
+	let expected_hash = fake_message_hash(&expected_message);
+
+	assert_eq!(
+		sent_xcm(),
+		vec![((Parent, Parachain(1000)).into(), expected_message, expected_hash)]
+	);
+
+	let (_, message, mut hash) = sent_xcm()[0].clone();
+	let message = Xcm::<<XcmConfig as xcm_executor::Config>::RuntimeCall>::from(message.clone());
+
+	// Execute message in parachain 1000 with our parachains's origin
+	let origin = (Parent, Parachain(MockRuntimeParachainId::get().into()));
+	let _result = XcmExecutor::<XcmConfig>::prepare_and_execute(
+		origin,
+		message,
+		&mut hash,
+		Weight::MAX,
+		Weight::zero(),
+	);
 }
 
 fn remote_transfer_xcm<Call>(
