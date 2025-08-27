@@ -132,6 +132,7 @@ const LOG_TARGET: &str = "runtime::revive";
 pub(crate) mod eth_block_storage {
 	use crate::{evm::block_hash::EthereumBlockBuilder, EventLog};
 	use alloc::vec::Vec;
+	use core::cell::{RefCell, RefMut};
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -148,17 +149,37 @@ pub(crate) mod eth_block_storage {
 		executing_call::using(&mut true, f)
 	}
 
+	/// A safe global value in the WASM environment.
+	pub struct SafeGlobal<T> {
+		inner: RefCell<T>,
+	}
+
+	// This is safe as long there is no threads in wasm32.
+	unsafe impl<T> ::core::marker::Sync for SafeGlobal<T> {}
+
+	impl<T> SafeGlobal<T> {
+		/// Construct a new [`SafeGlobal`].
+		pub const fn new(value: T) -> Self {
+			Self { inner: RefCell::new(value) }
+		}
+
+		/// Mutably borrows the wrapped value.
+		pub fn borrow_mut(&self) -> RefMut<'_, T> {
+			self.inner.borrow_mut()
+		}
+	}
+
 	/// The incremental block builder that builds the trie root hashes
 	/// on the go with optimal storage.
-	pub static INCREMENTAL_BUILDER: spin::Mutex<EthereumBlockBuilder> =
-		spin::Mutex::new(EthereumBlockBuilder::new());
+	pub static INCREMENTAL_BUILDER: SafeGlobal<EthereumBlockBuilder> =
+		SafeGlobal::new(EthereumBlockBuilder::new());
 
 	/// The events emitted by this pallet while executing the current inflight transaction.
 	///
 	/// The events are needed to reconstruct the receipt root hash, as they represent the
 	/// logs emitted by the contract. The events are consumed when the transaction is
 	/// completed.
-	pub static INFLIGHT_EVENTS: spin::Mutex<Vec<EventLog>> = spin::Mutex::new(Vec::new());
+	pub static INFLIGHT_EVENTS: SafeGlobal<Vec<EventLog>> = SafeGlobal::new(Vec::new());
 }
 
 #[frame_support::pallet]
@@ -641,7 +662,7 @@ pub mod pallet {
 			EthereumBlock::<T>::kill();
 
 			// Reset the block builder for the next block.
-			eth_block_storage::INCREMENTAL_BUILDER.lock().reset();
+			eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().reset();
 
 			Weight::zero()
 		}
@@ -663,7 +684,7 @@ pub mod pallet {
 			let gas_limit = Self::evm_block_gas_limit();
 
 			let (block_hash, block, receipt_data) = eth_block_storage::INCREMENTAL_BUILDER
-				.lock()
+				.borrow_mut()
 				.build(eth_block_num, parent_hash, T::Time::now().into(), block_author, gas_limit);
 
 			// Put the block hash into storage.
@@ -1793,17 +1814,12 @@ impl<T: Config> Pallet<T> {
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
 		// Collect inflight events emitted by this EVM transaction.
-		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.lock();
+		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.borrow_mut();
 		let logs = core::mem::replace(&mut *inflight_events, Vec::new());
 
-		eth_block_storage::INCREMENTAL_BUILDER
-			.lock()
-			.process_transaction(TransactionDetails {
-				transaction_encoded,
-				logs,
-				success,
-				gas_used,
-			});
+		eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
+			TransactionDetails { transaction_encoded, logs, success, gas_used },
+		);
 	}
 
 	/// The address of the validator that produced the current block.

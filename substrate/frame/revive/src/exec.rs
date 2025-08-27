@@ -2031,7 +2031,7 @@ where
 		});
 
 		if eth_block_storage::is_executing_ethereum_call() {
-			eth_block_storage::INFLIGHT_EVENTS.lock().push(EventLog {
+			eth_block_storage::INFLIGHT_EVENTS.borrow_mut().push(EventLog {
 				contract,
 				data: data.clone(),
 				topics: topics.clone(),
