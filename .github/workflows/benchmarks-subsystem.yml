@@ -65,7 +65,7 @@ jobs:
       - name: Run Benchmarks
         id: run-benchmarks
         run: |
-          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks || echo "Benchmarks failed"
+          forklift cargo bench -p ${{ matrix.features.name }} --bench ${{ matrix.features.bench }} --features subsystem-benchmarks
           ls -lsa ./charts
 
       - name: Upload artifacts
@@ -117,6 +117,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -129,6 +130,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -141,6 +143,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -153,6 +156,7 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
 
       - name: Generate ${{ env.BENCH }}
         env:
@@ -165,3 +169,4 @@ jobs:
           benchmark-data-dir-path: ./bench/${{ env.BENCH }}
           github-token: ${{ steps.app-token.outputs.token }}
           auto-push: true
+          max-items-in-chart: 500
