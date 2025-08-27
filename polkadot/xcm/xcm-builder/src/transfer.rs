@@ -123,12 +123,11 @@ impl<
 	fn ensure_successful(
 		_: &Self::Payer,
 		_: &Self::Beneficiary,
-		_: Self::AssetKind,
+		asset_kind: Self::AssetKind,
 		_: Self::Balance,
 	) {
-		// We cannot generally guarantee this will go through successfully since we don't have any
-		// control over the XCM transport layers. We just assume that the benchmark environment
-		// will be sending it somewhere sensible.
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
+		Router::ensure_successful_delivery(Some(locatable.location));
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
