@@ -122,7 +122,7 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const RelayLocation: Location = Here.into_location();
+	pub const RelayLocation: Location = Location::parent();
 	pub const AnyNetwork: Option<NetworkId> = None;
 	pub MockRuntimeParachainId: ParaId = 42u32.into();
 	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(MockRuntimeParachainId::get().into())).into();
@@ -154,6 +154,7 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	fn convert_back(value: &AssetIdForAssets) -> Option<Location> {
 		match value {
 			0u128 => Some(Location { parents: 1, interior: Here }),
+			1u128 => Some(Location { parents: 0, interior: Here }),
 			para_id @ 1..=1000 =>
 				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
 			_ => None,
