@@ -22,7 +22,10 @@ use crate::evm::{
 };
 
 use alloc::{vec, vec::Vec};
-use alloy_consensus::RlpEncodableReceipt;
+use alloy_consensus::{
+	private::alloy_trie::{HashBuilder, Nibbles},
+	RlpEncodableReceipt,
+};
 use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
@@ -254,6 +257,59 @@ impl Block {
 	}
 }
 
+/// Build the Trie Root Hash incrementally.
+pub struct IncrementalHashBuilder {
+	hash_builder: HashBuilder,
+	index: usize,
+
+	// RLP encoded.
+	first_transaction: Option<Vec<u8>>,
+}
+
+impl IncrementalHashBuilder {
+	/// Construct the hash builder from the first transaction.
+	pub fn new(first_transaction: Vec<u8>) -> Self {
+		Self {
+			hash_builder: HashBuilder::default(),
+			index: 1,
+			first_transaction: Some(first_transaction),
+		}
+	}
+
+	/// Add a transaction to the hash builder.
+	pub fn add_transaction(&mut self, transaction: Vec<u8>) {
+		if self.index == 0x7f {
+			// Pushing the previous item since we are expecting the index
+			// to be index + 1 in the sorted order.
+			if let Some(tx) = self.first_transaction.take() {
+				let zero: usize = 0;
+				let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
+
+				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+			}
+		}
+
+		let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&self.index);
+		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &transaction);
+
+		self.index += 1;
+	}
+
+	/// Build the trie root hash.
+	pub fn finish(&mut self) -> H256 {
+		// We have less than 0x7f items to the trie. Therefore, the
+		// first transaction index is the last one in the sorted vector
+		// by rlp encoding of the index.
+		if let Some(tx) = self.first_transaction.take() {
+			let zero: usize = 0;
+			let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
+			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
+		}
+
+		self.hash_builder.root().0.into()
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -263,42 +319,37 @@ mod test {
 	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
 		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 
-		// Helper function to RLP-encode a transaction index
-		fn rlp_encode_index(index: u64) -> Vec<u8> {
-			let mut buffer = Vec::new();
-			alloy_consensus::private::alloy_rlp::Encodable::encode(&index, &mut buffer);
-			buffer
+		pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
+			if i > 0x7f {
+				i
+			} else if i == 0x7f || i + 1 == len {
+				0
+			} else {
+				i + 1
+			}
 		}
 
-		let mut hash_builder = HashBuilder::default();
+		let mut hb = HashBuilder::default();
 
-		let mut pairs: Vec<_> = encoded
-			.into_iter()
-			.enumerate()
-			.map(|(index, tx)| {
-				let key = rlp_encode_index(index as u64);
-				let mut nibbles = Nibbles::new();
-				for byte in key.iter() {
-					// Split each byte into two nibbles (high and low 4 bits)
-					let high_nibble = (byte >> 4) & 0x0F;
-					let low_nibble = byte & 0x0F;
-					nibbles.push(high_nibble);
-					nibbles.push(low_nibble);
-				}
+		let items_len = encoded.len();
+		for i in 0..items_len {
+			let index = adjust_index_for_rlp(i, items_len);
+			println!("For tx={} using index={}", i, index);
 
-				(nibbles, tx)
-			})
-			.collect();
-		// Sort by nibble key.
-		// This gives the right lexicographical order to add leaves to the trie.
-		pairs.sort_by(|x, y| x.0.cmp(&y.0));
+			let index_buffer = alloy_consensus::private::alloy_rlp::encode_fixed_size(&index);
+			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded[index]);
 
-		for (key, tx) in pairs {
-			hash_builder.add_leaf(key, &tx);
+			// Each mask in these vectors holds a u16.
+			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
+			let size = hb.key.len() +
+				hb.value.as_slice().len() +
+				hb.stack.len() * 33 +
+				masks_len + hb.rlp_buf.len();
+
+			println!(" HB size is: {size}");
 		}
 
-		let tx_root_hash = hash_builder.root();
-		tx_root_hash.0.into()
+		hb.root().0.into()
 	}
 
 	#[test]
@@ -375,96 +426,10 @@ mod test {
 
 		let manual_hash = manual_trie_root_compute(encoded_tx.clone());
 
-		struct IncrementalHashBuilder {
-			hash_builder: HashBuilder,
-			index: usize,
-
-			// RLP encoded.
-			first_transaction: Option<Vec<u8>>,
-		}
-
-		impl IncrementalHashBuilder {
-			pub fn new(first_transaction: Vec<u8>) -> Self {
-				Self {
-					hash_builder: HashBuilder::default(),
-					index: 1,
-					first_transaction: Some(first_transaction),
-				}
-			}
-
-			pub fn add_transaction(&mut self, transaction: Vec<u8>) {
-				if self.index == 0x7f {
-					// Pushing the previous item since we are expecting the index
-					// to be index + 1 in the sorted order.
-					if let Some(tx) = self.first_transaction.take() {
-						let zero: usize = 0;
-						let rlp_index =
-							alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
-
-						self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
-					}
-				}
-
-				let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&self.index);
-				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &transaction);
-
-				self.index += 1;
-			}
-
-			pub fn finish(&mut self) -> H256 {
-				// We have less than 0x7f items to the trie. Therefore, the
-				// first transaction index is the last one in the sorted vector
-				// by rlp encoding of the index.
-				if let Some(tx) = self.first_transaction.take() {
-					let zero: usize = 0;
-					let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
-					self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &tx);
-				}
-
-				self.hash_builder.root().0.into()
-			}
-		}
-
-		// Incremental HashBuildup:
-		pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
-			if i > 0x7f {
-				i
-			} else if i == 0x7f || i + 1 == len {
-				0
-			} else {
-				i + 1
-			}
-		}
-
-		let mut hb = HashBuilder::default();
-		let items_len = encoded_tx.len();
-
 		let mut total_size = 0;
 		for enc in &encoded_tx {
 			total_size += enc.len();
 		}
-
-		for i in 0..items_len {
-			let index = adjust_index_for_rlp(i, items_len);
-			println!("For tx={} using index={}", i, index);
-
-			let index_buffer = alloy_consensus::private::alloy_rlp::encode_fixed_size(&index);
-
-			// value_buffer.clear();
-			// encode(&items[index], &mut value_buffer);
-
-			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded_tx[index]);
-
-			// Each mask in these vectors holds a u16.
-			let masks_len = (hb.state_masks.len() + hb.tree_masks.len() + hb.hash_masks.len()) * 2;
-			let size = hb.key.len() +
-				hb.value.as_slice().len() +
-				hb.stack.len() * 33 +
-				masks_len + hb.rlp_buf.len();
-
-			println!(" HB size is: {:?} vs total {:?}", size, total_size);
-		}
-		let manual_hash_2: H256 = hb.root().0.into();
 
 		let mut builder = IncrementalHashBuilder::new(encoded_tx[0].clone());
 		for tx in encoded_tx.iter().skip(1) {
