@@ -313,7 +313,7 @@ pub struct EthereumBlockBuilder {
 	receipts_root_builder: Option<IncrementalHashBuilder>,
 
 	gas_used: U256,
-	tx_hashes: Vec<H256>,
+	pub(crate) tx_hashes: Vec<H256>,
 
 	logs_bloom: Bloom,
 	gas_info: Vec<ReceiptGasInfo>,
