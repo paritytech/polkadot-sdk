@@ -30,6 +30,6 @@ doc:
     \ contribution!\n\n\u2704 -----------------------------------------------------------------------------"
 crates:
 - name: pallet-revive-fixtures
-  bump: patch
+  bump: major
 - name: pallet-revive
-  bump: patch
+  bump: major
