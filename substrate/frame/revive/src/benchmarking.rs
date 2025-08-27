@@ -2251,7 +2251,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the cost of executing `r` noop (JUMPDEST - 1 EVM GAS) instructions.
+	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		use crate::vm::evm;
