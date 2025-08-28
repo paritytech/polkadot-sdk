@@ -17,7 +17,10 @@
 
 use super::Context;
 
-use crate::{vm::Ext, Key, RuntimeCosts, LOG_TARGET};
+use crate::{
+	vm::{evm::U256Converter, Ext},
+	Key, RuntimeCosts, LOG_TARGET,
+};
 use revm::{
 	interpreter::{
 		gas::{self},
@@ -35,17 +38,14 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	popn_top!([], top, context.interpreter);
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	let balance = context.interpreter.extend.balance_of(&h160);
-	let bytes: [u8; 32] = balance.to_big_endian();
-	*top = U256::from_be_bytes(bytes);
+	*top = context.interpreter.extend.balance_of(&h160).into_revm_u256();
 }
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Balance);
 	let balance = context.interpreter.extend.balance();
-	let bytes: [u8; 32] = balance.to_big_endian();
-	let alloy_balance = U256::from_be_bytes(bytes);
+	let alloy_balance = balance.into_revm_u256();
 	push!(context.interpreter, alloy_balance);
 }
 
@@ -79,12 +79,11 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
 	let Some(code) =
-		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.into_inner())
+		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.to_vec())
 	else {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-
 	let Ok(code_offset) = code_offset.try_into() else {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
@@ -182,6 +181,17 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
+	// Charge gas before set_storage and later adjust it down to the true gas cost
+	let Ok(charged_amount) = context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
+	else {
+		context.interpreter.halt(InstructionResult::OutOfGas);
+		return;
+	};
+
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
 	let Ok(write_outcome) = context.interpreter.extend.set_storage(
@@ -192,9 +202,9 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	gas!(
-		context.interpreter,
-		RuntimeCosts::SetStorage { old_bytes: write_outcome.old_len(), new_bytes: 32 }
+	context.interpreter.extend.gas_meter_mut().adjust_gas(
+		charged_amount,
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
 	);
 }
 
@@ -204,6 +214,17 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
+
+	// Charge gas before set_storage and later adjust it down to the true gas cost
+	let Ok(charged_amount) = context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
+	else {
+		context.interpreter.halt(InstructionResult::OutOfGas);
+		return;
+	};
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
@@ -215,12 +236,12 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	match write_outcome {
 		Ok(write_outcome) => {
-			gas!(
-				context.interpreter,
+			context.interpreter.extend.gas_meter_mut().adjust_gas(
+				charged_amount,
 				RuntimeCosts::SetTransientStorage {
 					new_bytes: 32,
-					old_bytes: write_outcome.old_len()
-				}
+					old_bytes: write_outcome.old_len(),
+				},
 			);
 		},
 		Err(err) => {
@@ -291,6 +312,8 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	// Check if we're in a static context
+	require_non_staticcall!(context.interpreter);
 	popn!([beneficiary], context.interpreter);
 	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
 	let dispatch_result = context.interpreter.extend.selfdestruct(&h160);

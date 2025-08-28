@@ -208,7 +208,8 @@ pub trait Ext: PrecompileWithInfoExt {
 
 	/// Transfer all funds to `beneficiary`.
 	///
-	/// The contract is *NOT* deleted.
+	/// The contract is *NOT* deleted *unless* this function is called in the same transaction
+	/// as the contract was created.
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
@@ -1330,10 +1331,6 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					if output.data.len() > revm::primitives::eip170::MAX_CODE_SIZE {
-						return Err(Error::<T>::BlobTooLarge.into());
-					}
-
 					// Only keep return data for tracing
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
 						core::mem::replace(&mut output.data, Default::default())
@@ -1341,12 +1338,15 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
 						data,
 						caller.account_id()?.clone(),
 					)?;
-					code_deposit = module.store_code(skip_transfer)?;
+					module.store_code(skip_transfer)?;
+					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
+
+					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
 				}
 
 				let deposit = contract_info.update_base_deposit(code_deposit);
@@ -1693,21 +1693,28 @@ where
 	}
 
 	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		let frame = self.top_frame_mut();
-		if frame.entry_point == ExportedFunction::Constructor {
-			return Err(Error::<T>::TerminatedInConstructor.into());
-		}
 		let from = self.account_id();
 		let to = T::AddressMapper::to_account_id(beneficiary);
 		let value: U256 = self.balance();
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+
 		if value.is_zero() {
 			return Ok(());
 		}
 		transfer_with_dust::<T>(&from, &to, value)?;
+
+		// If this is called in the same transaction as the contract was created then the contract
+		// is deleted.
+		if self.top_frame().entry_point == ExportedFunction::Constructor {
+			let frame = self.top_frame_mut();
+			let info = frame.terminate();
+			frame.nested_storage.terminate(&info, to);
+			info.queue_trie_for_deletion();
+			let account_address = T::AddressMapper::to_address(&frame.account_id);
+			AccountInfoOf::<T>::remove(&account_address);
+			ImmutableDataOf::<T>::remove(&account_address);
+			<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+		}
 		Ok(())
 	}
 

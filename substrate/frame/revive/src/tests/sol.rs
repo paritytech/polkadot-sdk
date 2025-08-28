@@ -23,10 +23,11 @@ mod memory;
 mod stack;
 
 use crate::{
+	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
 	tests::{
 		builder,
-		test_utils::{ensure_stored, get_contract_checked},
+		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 		ExtBuilder, Test,
 	},
 	Code, Config, PristineCode,
@@ -65,24 +66,36 @@ pub fn make_evm_bytecode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 
 #[test]
 fn basic_evm_flow_works() {
-	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		for i in 1u8..=2 {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+				.salt(Some([i; 32]))
+				.build_and_unwrap_contract();
 
-		// check the code exists
-		let contract = get_contract_checked(&addr).unwrap();
-		ensure_stored(contract.code_hash);
+			// check the code exists
+			let contract = get_contract(&addr);
+			ensure_stored(contract.code_hash);
+			let deposit = contract_base_deposit(&addr);
+			assert_eq!(contract.total_deposit(), deposit);
+			assert_refcount!(contract.code_hash, i as u64);
 
-		let result = builder::bare_call(addr)
-			.data(
-				Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
-					.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		assert_eq!(U256::from(55u32), U256::from_be_bytes::<32>(result.data.try_into().unwrap()));
+			let result = builder::bare_call(addr)
+				.data(
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(10u64) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert_eq!(
+				U256::from(55u32),
+				U256::from_be_bytes::<32>(result.data.try_into().unwrap())
+			);
+		}
+
+		// init code is not stored
+		assert!(!PristineCode::<Test>::contains_key(init_hash));
 	});
 }
 
@@ -103,7 +116,7 @@ fn basic_evm_flow_tracing_works() {
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract()
 		});
 
-		let contract = get_contract_checked(&addr).unwrap();
+		let contract = get_contract(&addr);
 		let runtime_code = PristineCode::<Test>::get(contract.code_hash).unwrap();
 
 		assert_eq!(
@@ -113,7 +126,7 @@ fn basic_evm_flow_tracing_works() {
 				call_type: CallType::Create2,
 				to: addr,
 				input: code.into(),
-				output: runtime_code.into_inner().into(),
+				output: runtime_code.into(),
 				value: Some(crate::U256::zero()),
 				..Default::default()
 			}

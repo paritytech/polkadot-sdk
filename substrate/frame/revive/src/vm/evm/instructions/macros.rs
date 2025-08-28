@@ -98,7 +98,7 @@ macro_rules! gas {
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		let meter = $interpreter.extend.gas_meter_mut();
-		if meter.charge_evm_base_cost().is_err() || meter.charge($gas).is_err() {
+		if meter.charge_evm_gas(1).is_err() || meter.charge($gas).is_err() {
 			$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 			return $ret;
 		}
@@ -136,7 +136,7 @@ pub fn record_memory_expansion<E: Ext>(
 		return MemoryExtensionResult::Same;
 	};
 
-	// NB: Commented this for now so that extending memory will not cost any gas.
+	// TODO: Commented this for now so that extending memory will not cost any gas.
 	// if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
 	// 	return MemoryExtensionResult::OutOfGas;
 	// }

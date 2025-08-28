@@ -2,8 +2,7 @@
 pragma solidity ^0.8.24;
 
 contract Memory {
-
-	function testMemory() public {
+    function testMemory() public {
         uint256 value = 0xfe;
         assembly {
             mstore(0, value)
@@ -22,15 +21,19 @@ contract Memory {
         assembly {
             result := mload(0)
         }
-        require(result == 0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe, "Memory test failed");
+        require(
+            result ==
+                0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe,
+            "Memory test failed"
+        );
 
         assembly {
             result := msize()
         }
         require(result == 96, "Memory size test failed");
-	}
+    }
 
-	function testMsize(uint256 offset) public returns (uint256) {
+    function testMsize(uint256 offset) public returns (uint256) {
         assembly {
             mstore(offset, 123)
         }
@@ -38,10 +41,15 @@ contract Memory {
         assembly {
             value := msize()
         }
-		return value;
-	}
+        return value;
+    }
 
-	function testMcopy(uint256 dstOffset, uint256 offset, uint256 size, uint256 value) public returns (uint256) {
+    function testMcopy(
+        uint256 dstOffset,
+        uint256 offset,
+        uint256 size,
+        uint256 value
+    ) public returns (uint256) {
         assembly {
             mstore(dstOffset, 0)
         }
@@ -58,8 +66,5 @@ contract Memory {
             result := mload(dstOffset)
         }
         return result;
-	}
-
-
-
+    }
 }

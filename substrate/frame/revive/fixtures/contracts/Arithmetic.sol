@@ -2,11 +2,10 @@
 pragma solidity ^0.8.0;
 
 contract Arithmetic {
-
     function testArithmetic() public {
         // ADD tests
         require(20 + 22 == 42, "ADD basic");
-        
+
         // SUB tests
         require(42 - 20 == 22, "SUB basic");
 
@@ -40,9 +39,15 @@ contract Arithmetic {
         require(0 ** 5 == 0, "EXP zero base");
 
         // SIGNEXTEND tests
-        uint result1; assembly { result1 := signextend(0, 0xff) }
+        uint result1;
+        assembly {
+            result1 := signextend(0, 0xff)
+        }
         require(result1 == type(uint256).max, "SIGNEXTEND negative byte");
-        uint result2; assembly { result2 := signextend(0, 0x7f) }
+        uint result2;
+        assembly {
+            result2 := signextend(0, 0x7f)
+        }
         require(result2 == 0x7f, "SIGNEXTEND positive byte");
     }
 }
