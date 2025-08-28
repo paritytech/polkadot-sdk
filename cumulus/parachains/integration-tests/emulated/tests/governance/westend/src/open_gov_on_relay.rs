@@ -13,19 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{common::*, imports::*};
-use emulated_integration_tests_common::{
-	assert_whitelisted,
-	impls::RelayChain,
-	xcm_emulator::{Chain, Parachain, TestExt},
-};
+use emulated_integration_tests_common::xcm_emulator::{Chain, Parachain, TestExt};
 use westend_runtime::governance::pallet_custom_origins::Origin;
 use westend_system_emulated_network::{
 	AssetHubWestendPara as AssetHubWestend, BridgeHubWestendPara as BridgeHubWestend,
 	CoretimeWestendPara as CoretimeWestend, PeopleWestendPara as PeopleWestend,
 	WestendRelay as Westend,
 };
-
-use westend_system_emulated_network::westend_emulated_chain::westend_runtime::Dmp;
 
 #[test]
 fn relaychain_can_authorize_upgrade_for_itself() {
