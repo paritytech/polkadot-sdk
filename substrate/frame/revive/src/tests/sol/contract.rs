@@ -197,9 +197,7 @@ fn call_revert() {
 
 #[test]
 fn call_invalid_opcode() {
-	for fixture_type in [FixtureType::Resolc] {
-		// TODO: Check why there is difference between EVM and PVM execution - it fails for
-		// FixtureType::Solc
+	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
 
