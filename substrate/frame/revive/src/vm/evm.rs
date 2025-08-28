@@ -110,14 +110,14 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 	let table = instruction_table::<'a, E>();
 	let result = run(&mut interpreter, &table);
 
-	if result.is_error() {
-		Err(Error::<E::T>::ContractTrapped.into())
-	} else {
-		Ok(ExecReturnValue {
-			flags: if result.is_revert() { ReturnFlags::REVERT } else { ReturnFlags::empty() },
-			data: result.output.to_vec(),
+	instruction_result_into_exec_error::<E>(result.result)
+		.map(Err)
+		.unwrap_or_else(|| {
+			Ok(ExecReturnValue {
+				flags: if result.is_revert() { ReturnFlags::REVERT } else { ReturnFlags::empty() },
+				data: result.output.to_vec(),
+			})
 		})
-	}
 }
 
 /// Runs the EVM interpreter until it returns an action.
@@ -338,22 +338,54 @@ fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> Option<InstructionRes
 	let code_rejected = Error::<E::T>::CodeRejected.into();
 	let transfer_failed = Error::<E::T>::TransferFailed.into();
 	let duplicate_contract = Error::<E::T>::DuplicateContract.into();
-	let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
-	let out_of_bounds = Error::<E::T>::OutOfBounds.into();
+	let balance_conversion_failed = Error::<E::T>::BalanceConversionFailed.into();
 	let value_too_large = Error::<E::T>::ValueTooLarge.into();
 	let out_of_gas = Error::<E::T>::OutOfGas.into();
 	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
 
 	Some(match from.error {
-		err if err == static_memory_too_large => InstructionResult::MemoryOOG,
+		err if err == static_memory_too_large => InstructionResult::MemoryLimitOOG,
 		err if err == code_rejected => InstructionResult::OpcodeNotFound,
 		err if err == transfer_failed => InstructionResult::OutOfFunds,
 		err if err == duplicate_contract => InstructionResult::CreateCollision,
-		err if err == unsupported_precompile => InstructionResult::PrecompileError,
-		err if err == out_of_bounds => InstructionResult::OutOfOffset,
+		err if err == balance_conversion_failed => InstructionResult::OverflowPayment,
 		err if err == value_too_large => InstructionResult::OverflowPayment,
 		err if err == out_of_deposit => InstructionResult::OutOfFunds,
 		err if err == out_of_gas => InstructionResult::OutOfGas,
 		_ => InstructionResult::Revert,
 	})
+}
+
+/// Map [InstructionResult] into an [ExecError] for passing it up the stack.
+///
+/// Returns `None` if the instruction result is not an error case.
+fn instruction_result_into_exec_error<E: Ext>(from: InstructionResult) -> Option<ExecError> {
+	match from {
+		InstructionResult::OutOfGas
+		| InstructionResult::InvalidOperandOOG
+		| InstructionResult::ReentrancySentryOOG
+		| InstructionResult::PrecompileOOG
+		| InstructionResult::MemoryOOG => Some(Error::<E::T>::OutOfGas),
+		InstructionResult::MemoryLimitOOG => Some(Error::<E::T>::StaticMemoryTooLarge),
+		InstructionResult::OpcodeNotFound
+		| InstructionResult::InvalidJump
+		| InstructionResult::NotActivated
+		| InstructionResult::InvalidFEOpcode
+		| InstructionResult::CreateContractStartingWithEF => Some(Error::<E::T>::InvalidInstruction),
+		InstructionResult::CallNotAllowedInsideStatic
+		| InstructionResult::StateChangeDuringStaticCall => Some(Error::<E::T>::StateChangeDenied),
+		InstructionResult::StackUnderflow
+		| InstructionResult::StackOverflow
+		| InstructionResult::NonceOverflow
+		| InstructionResult::PrecompileError
+		| InstructionResult::FatalExternalError => Some(Error::<E::T>::ContractTrapped),
+		InstructionResult::OutOfOffset => Some(Error::<E::T>::OutOfBounds),
+		InstructionResult::CreateCollision => Some(Error::<E::T>::DuplicateContract),
+		InstructionResult::OverflowPayment => Some(Error::<E::T>::BalanceConversionFailed),
+		InstructionResult::CreateContractSizeLimit | InstructionResult::CreateInitCodeSizeLimit => {
+			Some(Error::<E::T>::StaticMemoryTooLarge)
+		},
+		_ => None,
+	}
+	.map(Into::into)
 }
