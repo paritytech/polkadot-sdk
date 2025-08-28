@@ -627,7 +627,37 @@ where
 	}
 
 	/// Return the storage root after applying the given `delta`.
-	pub fn storage_root<'a, 'b>(
+	pub fn storage_root<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+	) -> (H::Out, PrefixedMemoryDB<H>) {
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+
+		let root = self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
+			let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+			let res = match state_version {
+				StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+					&mut eph, self.root, delta, recorder, cache,
+				),
+				StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+					&mut eph, self.root, delta, recorder, cache,
+				),
+			};
+
+			match res {
+				Ok(ret) => (Some(ret), ret),
+				Err(e) => {
+					warn!(target: "trie", "Failed to write to trie: {}", e);
+					(None, self.root)
+				},
+			}
+		});
+
+		(root, write_overlay)
+	}
+	/// Return the storage root after applying the given `delta`.
+	pub fn trigger_storage_root_size_estimation<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
@@ -688,12 +718,11 @@ where
 
 	/// Returns the child storage root for the child trie `child_info` after applying the given
 	/// `delta`.
-	pub fn child_storage_root<'a, 'b>(
+	pub fn child_storage_root<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
 	) -> (H::Out, bool, PrefixedMemoryDB<H>) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
