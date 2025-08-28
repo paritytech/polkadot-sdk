@@ -1,0 +1,8 @@
+title: XCMP small fix
+doc:
+- audience: Runtime Dev
+  description: This PR changes the behavior in case we can't decode an XCMP signal
+    from breaking to processing the next XCMP pages
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
