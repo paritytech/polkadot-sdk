@@ -370,6 +370,17 @@ jobs:
           components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install protobuf
         run: brew install protobuf
+      - name: install solc
+        run: brew install solidity
+      - name: Install resolc
+        run: |
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v${{ inputs.version }}/resolc-universal-apple-darwin"
+          echo "Downloading resolc v${{ inputs.version }} from $ASSET_URL"
+          curl -Lsf --show-error -o /tmp/resolc "$ASSET_URL"
+          sudo cp /tmp/resolc /usr/local/bin/resolc
+          sudo chmod 755 /usr/local/bin/resolc
+        with:
+          version: 0.3.0        
       - name: cargo info
         run: |
           echo "######## rustup show ########"
@@ -406,3 +417,4 @@ jobs:
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
+

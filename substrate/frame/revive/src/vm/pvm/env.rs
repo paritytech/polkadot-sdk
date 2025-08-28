@@ -22,12 +22,11 @@ use crate::{
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	storage::meter::Diff,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts},
+	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
 	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
-use codec::{Encode, MaxEncodedLen};
+use codec::Encode;
 use core::mem;
 use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
@@ -66,11 +65,11 @@ impl<T: Config> ContractBlob<T> {
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
 		module_config.set_allow_sbrk(false);
 		module_config.set_aux_data_size(aux_data_size);
-		let module = polkavm::Module::new(&engine, &module_config, self.code.into_inner().into())
-			.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
-			Error::<T>::CodeRejected
-		})?;
+		let module =
+			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
+				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");
+				Error::<T>::CodeRejected
+			})?;
 
 		let entry_program_counter = module
 			.exports()
@@ -112,10 +111,8 @@ where
 		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
-		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
-			.update_contract::<T>(None)
-			.charge_or_zero();
+		let deposit = calculate_code_deposit::<T>(code_len);
+
 		let code_info = CodeInfo {
 			owner,
 			deposit,

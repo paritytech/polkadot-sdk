@@ -27,9 +27,10 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	exec::{ExecError, ExecResult, Executable, ExportedFunction, Ext},
 	gas::{GasMeter, Token},
+	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, CodeVec, Config, Error, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
+	LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -48,7 +49,7 @@ use sp_runtime::DispatchError;
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct ContractBlob<T: Config> {
-	code: CodeVec,
+	code: Vec<u8>,
 	// This isn't needed for contract execution and is not stored alongside it.
 	#[codec(skip)]
 	code_info: CodeInfo<T>,
@@ -98,6 +99,15 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
+}
+
+/// Calculate the deposit required for storing code and its metadata.
+pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
+	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
+	let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
+		.update_contract::<T>(None)
+		.charge_or_zero();
+	deposit
 }
 
 impl ExportedFunction {
@@ -201,8 +211,7 @@ where
 					})?;
 					}
 
-					self.code_info.refcount = 0;
-					<PristineCode<T>>::insert(code_hash, &self.code);
+					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
 					Ok(deposit)
 				},
@@ -316,7 +325,7 @@ where
 			use crate::vm::evm::EVMInputs;
 			use revm::bytecode::Bytecode;
 			let inputs = EVMInputs::new(input_data);
-			let bytecode = Bytecode::new_raw(self.code.into_inner().into());
+			let bytecode = Bytecode::new_raw(self.code.into());
 			evm::call(bytecode, ext, inputs)
 		} else {
 			Err(Error::<T>::CodeRejected.into())

@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod instructions;
 use crate::{
 	exec::ExecError,
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, BalanceOf, Code, CodeInfo, CodeVec, Config, ContractBlob, DispatchError, Error,
+	AccountIdOf, BalanceOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error,
 	ExecReturnValue, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -43,6 +42,8 @@ use revm::{
 use sp_core::H160;
 use sp_runtime::Weight;
 
+mod instructions;
+
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
 ///
 /// After Ethereum's Merge (Sept 2022), the `DIFFICULTY` opcode was redefined to return
@@ -64,19 +65,12 @@ pub const EVM_BYTECODE_LIMIT: usize = 24_576;
 /// 49,152 bytes (0xC000).
 pub const EVM_INITCODE_LIMIT: usize = EVM_BYTECODE_LIMIT * 2;
 
-impl<T: Config> ContractBlob<T>
-where
-	BalanceOf<T>: Into<U256> + TryFrom<U256>,
-{
-	/// Create a new contract from EVM code.
-	pub fn from_evm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		use revm::{bytecode::Bytecode, primitives::Bytes};
-
-		let code: CodeVec = code.try_into().map_err(|_| <Error<T>>::BlobTooLarge)?;
-		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
-			<Error<T>>::CodeRejected
-		})?;
+impl<T: Config> ContractBlob<T> {
+	/// Create a new contract from EVM init code.
+	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		if code.len() > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+			return Err(<Error<T>>::BlobTooLarge.into());
+		}
 
 		// EIP-3541: Reject new contract code starting with the 0xEF byte
 		if code.first() == Some(&0xEF) {
@@ -97,6 +91,42 @@ where
 			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
 		};
+
+		Self::from_evm_code(code, code_info)
+	}
+
+	/// Create a new contract from EVM runtime code.
+	pub fn from_evm_runtime_code(
+		code: Vec<u8>,
+		owner: AccountIdOf<T>,
+	) -> Result<Self, DispatchError> {
+		if code.len() > revm::primitives::eip170::MAX_CODE_SIZE {
+			return Err(<Error<T>>::BlobTooLarge.into());
+		}
+
+		let code_len = code.len() as u32;
+		let deposit = super::calculate_code_deposit::<T>(code_len);
+
+		let code_info = CodeInfo {
+			owner,
+			deposit,
+			refcount: 0,
+			code_len,
+			code_type: BytecodeType::Evm,
+			behaviour_version: Default::default(),
+		};
+
+		Self::from_evm_code(code, code_info)
+	}
+
+	fn from_evm_code(code: Vec<u8>, code_info: CodeInfo<T>) -> Result<Self, DispatchError> {
+		use revm::{bytecode::Bytecode, primitives::Bytes};
+
+		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
+			<Error<T>>::CodeRejected
+		})?;
+
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
 		Ok(ContractBlob { code, code_info, code_hash })
 	}
@@ -104,8 +134,6 @@ where
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
-	ext.gas_meter_mut().charge_evm_init_cost()?;
-
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
@@ -398,4 +426,26 @@ fn instruction_result_into_exec_error<E: Ext>(from: InstructionResult) -> Option
 		_ => None,
 	}
 	.map(Into::into)
+}
+
+/// Blanket conversion trait between `sp_core::U256` and `revm::primitives::U256`
+#[allow(dead_code)]
+pub trait U256Converter {
+	/// Convert `self` into `revm::primitives::U256`
+	fn into_revm_u256(&self) -> revm::primitives::U256;
+
+	/// Convert from `revm::primitives::U256` into `Self`
+	fn from_revm_u256(value: &revm::primitives::U256) -> Self;
+}
+
+impl U256Converter for sp_core::U256 {
+	fn into_revm_u256(&self) -> revm::primitives::U256 {
+		let bytes = self.to_big_endian();
+		revm::primitives::U256::from_be_bytes(bytes)
+	}
+
+	fn from_revm_u256(value: &revm::primitives::U256) -> Self {
+		let bytes = value.to_be_bytes::<32>();
+		sp_core::U256::from_big_endian(&bytes)
+	}
 }

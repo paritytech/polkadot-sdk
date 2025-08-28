@@ -98,7 +98,7 @@ macro_rules! gas {
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		let meter = $interpreter.extend.gas_meter_mut();
-		if meter.charge_evm_base_cost().is_err() || meter.charge($gas).is_err() {
+		if meter.charge_evm_gas(1).is_err() || meter.charge($gas).is_err() {
 			$interpreter.halt(revm::interpreter::InstructionResult::OutOfGas);
 			return $ret;
 		}

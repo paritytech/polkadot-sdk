@@ -37,7 +37,7 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 
 /// Module containing the old storage items.
-pub mod old {
+mod old {
 	use super::Config;
 	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
 	use codec::{Decode, Encode};
@@ -59,7 +59,7 @@ pub mod old {
 	pub type CodeInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H256, CodeInfo<T>>;
 }
 
-pub mod new {
+mod new {
 	use super::{BytecodeType, Config};
 	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
 	use codec::{Decode, Encode};
@@ -161,34 +161,62 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		for (key, value) in prev_map {
 			let new_value = new::CodeInfoOf::<T>::get(key)
 				.expect("Failed to get the value after the migration");
+
+			let expected = new::CodeInfo {
+				owner: value.owner,
+				deposit: value.deposit,
+				refcount: value.refcount,
+				code_len: value.code_len,
+				code_type: BytecodeType::Pvm,
+				behaviour_version: value.behaviour_version,
+			};
+
 			assert_eq!(
-				value.owner, new_value.owner,
-				"Migration failed: owner mismatch after migration"
-			);
-			assert_eq!(
-				value.deposit, new_value.deposit,
-				"Migration failed: deposit mismatch after migration"
-			);
-			assert_eq!(
-				value.refcount, new_value.refcount,
-				"Migration failed: refcount mismatch after migration"
-			);
-			assert_eq!(
-				value.code_len, new_value.code_len,
-				"Migration failed: code_len mismatch after migration"
-			);
-			assert_eq!(
-				value.behaviour_version, new_value.behaviour_version,
-				"Migration failed: behaviour_version mismatch after migration"
-			);
-			assert_eq!(
-				new_value.code_type,
-				BytecodeType::Pvm,
-				"Migration failed: code_type should be Pvm after migration"
+				new_value, expected,
+				"Migration failed: CodeInfo mismatch for key {:?}",
+				key
 			);
 		}
 
 		Ok(())
+	}
+}
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+impl<T: Config> Migration<T> {
+	/// Insert an old CodeInfo for benchmarking purposes.
+	pub fn insert_old_code_info(code_hash: H256, code_info: old::CodeInfo<T>) {
+		old::CodeInfoOf::<T>::insert(code_hash, code_info);
+	}
+
+	/// Create an old CodeInfo struct for benchmarking.
+	pub fn create_old_code_info(
+		owner: crate::AccountIdOf<T>,
+		deposit: crate::BalanceOf<T>,
+		refcount: u64,
+		code_len: u32,
+		behaviour_version: u32,
+	) -> old::CodeInfo<T> {
+		old::CodeInfo { owner, deposit, refcount, code_len, behaviour_version }
+	}
+
+	/// Assert that the migrated CodeInfo matches the expected values from the old CodeInfo.
+	pub fn assert_migrated_code_info_matches(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+		let migrated =
+			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
+
+		assert_eq!(
+			migrated,
+			new::CodeInfo {
+				owner: old_code_info.owner.clone(),
+				deposit: old_code_info.deposit,
+				refcount: old_code_info.refcount,
+				code_len: old_code_info.code_len,
+				behaviour_version: old_code_info.behaviour_version,
+				code_type: BytecodeType::Pvm,
+			},
+			"Migration failed: deposit mismatch for key {code_hash:?}",
+		);
 	}
 }
 
@@ -206,15 +234,15 @@ fn migrate_to_v2() {
 
 		for i in 0..10u8 {
 			let code_hash = H256::from([i; 32]);
-			let old_info = old::CodeInfo {
-				owner: AccountIdOf::<Test>::from([i; 32]),
-				deposit: (1000u32 + i as u32).into(),
-				refcount: 1 + i as u64,
-				code_len: 100 + i as u32,
-				behaviour_version: i as u32,
-			};
+			let old_info = Migration::<Test>::create_old_code_info(
+				AccountIdOf::<Test>::from([i; 32]),
+				(1000u32 + i as u32).into(),
+				1 + i as u64,
+				100 + i as u32,
+				i as u32,
+			);
 
-			old::CodeInfoOf::<Test>::insert(code_hash, old_info.clone());
+			Migration::<Test>::insert_old_code_info(code_hash, old_info.clone());
 			original_values.insert(code_hash, old_info);
 		}
 
@@ -224,28 +252,11 @@ fn migrate_to_v2() {
 			cursor = Some(new_cursor);
 		}
 
-		assert_eq!(new::CodeInfoOf::<Test>::iter().count(), 10);
+		assert_eq!(crate::CodeInfoOf::<Test>::iter().count(), 10);
 
 		// Verify all values match between old and new with code_type set to PVM
 		for (code_hash, old_value) in original_values {
-			let new_value = new::CodeInfoOf::<Test>::get(code_hash)
-				.expect("New storage should contain migrated value");
-
-			assert_eq!(new_value.owner, old_value.owner, "Owner should match original value");
-			assert_eq!(new_value.deposit, old_value.deposit, "Deposit should match original value");
-			assert_eq!(
-				new_value.refcount, old_value.refcount,
-				"Refcount should match original value"
-			);
-			assert_eq!(
-				new_value.code_len, old_value.code_len,
-				"Code length should match original value"
-			);
-			assert_eq!(
-				new_value.behaviour_version, old_value.behaviour_version,
-				"Behaviour version should match original value"
-			);
-			assert_eq!(new_value.code_type, BytecodeType::Pvm, "Code type should be set to PVM");
+			Migration::<Test>::assert_migrated_code_info_matches(code_hash, &old_value);
 		}
 	})
 }

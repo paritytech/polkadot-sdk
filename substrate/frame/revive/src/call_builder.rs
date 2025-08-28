@@ -416,16 +416,10 @@ impl VmBinaryModule {
 		Self::with_num_instructions(size / 3)
 	}
 
-	// Same as sized but using EVM bytecode.
+	// Same as [`Self::sized`] but using EVM bytecode.
 	pub fn evm_sized(size: u32) -> Self {
-		use revm::bytecode::opcode::{JUMPDEST, STOP};
-
-		if size == 0 {
-			return Self::new(vec![])
-		}
-
-		let mut code = vec![STOP];
-		code.extend(vec![JUMPDEST; (size - 1) as usize]);
+		use revm::bytecode::opcode::STOP;
+		let code = vec![STOP; size as usize];
 		Self::new(code)
 	}
 
@@ -491,7 +485,7 @@ impl VmBinaryModule {
 		Self::new(code)
 	}
 
-	/// An evm contract that executes  `n` JUMPDEST instructions.
+	/// An evm contract that executes `size` JUMPDEST instructions.
 	pub fn evm_noop(size: u32) -> Self {
 		use revm::bytecode::opcode::JUMPDEST;
 

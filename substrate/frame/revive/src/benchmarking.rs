@@ -27,7 +27,7 @@ use crate::{
 		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
 	},
 	storage::WriteOutcome,
-	vm::{pvm, BytecodeType},
+	vm::pvm,
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
@@ -154,12 +154,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(),
-			VmBinaryModule::evm_sized(c - 1),
-			vec![],
-		)?;
+	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -2251,7 +2248,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the cost of EVM instructions.
+	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		use crate::vm::evm;
@@ -2383,16 +2380,14 @@ mod benchmarks {
 	fn v2_migration_step() {
 		use crate::migrations::v2;
 		let code_hash = H256::from([0; 32]);
-		v2::old::CodeInfoOf::<T>::insert(
-			code_hash,
-			v2::old::CodeInfo {
-				owner: whitelisted_caller(),
-				deposit: 1000u32.into(),
-				refcount: 1,
-				code_len: 100,
-				behaviour_version: 0,
-			},
+		let old_code_info = v2::Migration::<T>::create_old_code_info(
+			whitelisted_caller(),
+			1000u32.into(),
+			1,
+			100,
+			0,
 		);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info.clone());
 		let mut meter = WeightMeter::new();
 
 		#[block]
@@ -2400,17 +2395,7 @@ mod benchmarks {
 			v2::Migration::<T>::step(None, &mut meter).unwrap();
 		}
 
-		assert_eq!(
-			v2::new::CodeInfoOf::<T>::get(&code_hash).unwrap(),
-			v2::new::CodeInfo {
-				owner: whitelisted_caller(),
-				deposit: 1000u32.into(),
-				refcount: 1,
-				code_len: 100,
-				code_type: BytecodeType::Pvm,
-				behaviour_version: 0,
-			},
-		);
+		v2::Migration::<T>::assert_migrated_code_info_matches(code_hash, &old_code_info);
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
