@@ -9,7 +9,7 @@ import {
 import { fromBufferToBase58 } from "@polkadot-api/substrate-bindings";
 import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
-import { createLogger, format, log, transports } from "winston";
+import { createLogger, format, transports } from "winston";
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
 import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, type KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner } from "polkadot-api/signer";

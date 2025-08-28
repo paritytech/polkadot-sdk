@@ -1,6 +1,6 @@
 import { rcPresetFor, runPreset } from "./cmd";
 import { logger } from "./utils";
-import { monitorDmpQueue } from "./dmp-monitor";
+import { monitorVmpQueues } from "./vmp-monitor";
 import { Command } from "commander";
 
 export enum Presets {
@@ -32,28 +32,34 @@ if (require.main === module) {
 		});
 
 	program
-		.command("monitor-dmp")
-		.description("Monitor DMP (Downward Message Passing) queue status and metrics")
+		.command("monitor-vmp")
+		.description("Monitor VMP (Vertical Message Passing) - both DMP and UMP queues")
 		.option(
-			"-p, --port <port>",
-			"WebSocket port to connect to the chain",
+			"--relay-port <port>",
+			"Relay chain WebSocket port",
 			"9944"
+		)
+		.option(
+			"--para-port <port>",
+			"Parachain WebSocket port (optional)",
+			"9946"
 		)
 		.option(
 			"-r, --refresh <seconds>",
 			"Refresh interval in seconds",
-			"5"
+			"3"
 		)
 		.option(
 			"--para-id <id>",
-			"Specific parachain ID to monitor (default: 1100)"
+			"Specific parachain ID to monitor (default: all)"
 		)
 		.action(async (options) => {
-			const { port, refresh, paraId } = options;
-			await monitorDmpQueue({
-				port: parseInt(port),
+			const { relayPort, paraPort, refresh, paraId } = options;
+			await monitorVmpQueues({
+				relayPort: parseInt(relayPort),
+				paraPort: paraPort ? parseInt(paraPort) : undefined,
 				refreshInterval: parseInt(refresh),
-				paraId: paraId ? parseInt(paraId) : 1100
+				paraId: paraId ? parseInt(paraId) : undefined
 			});
 		});
 

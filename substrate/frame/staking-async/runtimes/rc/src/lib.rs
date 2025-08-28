@@ -136,6 +136,53 @@ use pallet_staking_async_rc_runtime_constants::{
 	time::*,
 };
 
+pub mod pallet_reward_point_filler {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[frame_support::pallet]
+	pub mod pallet {
+		use super::*;
+
+		#[pallet::config]
+		pub trait Config: frame_system::Config + pallet_staking_async_ah_client::Config {
+			type FillValidatorPointsTo: Get<u32>;
+		}
+
+		#[pallet::pallet]
+		pub struct Pallet<T>(_);
+
+		#[pallet::hooks]
+		impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+		where
+			T::AccountId: From<[u8; 32]>,
+		{
+			fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+				let current =
+					pallet_staking_async_ah_client::ValidatorPoints::<T>::iter().count() as u32;
+				if let Some(deficit) = T::FillValidatorPointsTo::get().checked_sub(current) {
+					for index in 0..deficit {
+						let unique = index.to_le_bytes();
+						let mut key = [0u8; 32];
+						// first 4 bytes should be `unique`, rest 0
+						key[..4].copy_from_slice(&unique);
+						pallet_staking_async_ah_client::ValidatorPoints::<T>::insert(
+							T::AccountId::from(key),
+							42,
+						);
+					}
+				}
+				Default::default()
+			}
+		}
+	}
+}
+
+impl pallet_reward_point_filler::pallet::Config for Runtime {
+	// we may have 2/4 validators by default, so let's fill it up to 994.
+	type FillValidatorPointsTo = ConstU32<994>;
+}
+
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -1915,6 +1962,8 @@ mod runtime {
 	pub type StakingAhClient = pallet_staking_async_ah_client;
 	#[runtime::pallet_index(68)]
 	pub type PresetStore = pallet_staking_async_preset_store;
+	#[runtime::pallet_index(69)]
+	pub type RewardPointFiller = pallet_reward_point_filler::pallet;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]

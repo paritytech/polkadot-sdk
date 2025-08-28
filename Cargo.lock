@@ -13569,6 +13569,7 @@ dependencies = [
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
+ "pallet-staking-async-ah-client",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
