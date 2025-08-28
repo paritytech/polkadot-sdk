@@ -26,7 +26,6 @@ use std::{
 	collections::{hash_map::HashMap, hash_set::HashSet},
 	iter::IntoIterator,
 	pin::Pin,
-	time::Duration,
 };
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
@@ -41,7 +40,7 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
-	Id as paraId, SessionIndex, ValidatorIndex,
+	Id as paraId, Id, SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -92,6 +91,10 @@ pub struct Requester {
 	req_protocol_names: ReqProtocolNames,
 }
 
+/// A compact representation of a parachain candidate core's essential information,
+/// used to streamline chunk-fetching tasks. This structure normalizes data from both
+/// occupied and scheduled cores into a unified format containing only the fields
+/// necessary for chunk fetching and validation.
 struct CoreInfo {
 	/// The candidate hash.
 	candidate_hash: CandidateHash,
@@ -201,71 +204,16 @@ impl Requester {
 
 		let groups = get_validator_groups(sender, new_head.hash).await?;
 		if let Err(err) = self
-			.schedule_chunk_prefetch(ctx, runtime, new_head, leaf_session_index, &groups)
+			.early_request_chunks(ctx, runtime, new_head, leaf_session_index, &groups)
 			.await
 		{
 			gum::warn!(
 				target: LOG_TARGET,
 				error = ?err,
-				"Failed to schedule chunk prefetch for activated leaf"
+				"Failed to early request chunks for activated leaf"
 			);
 		}
 		Ok(())
-	}
-
-	/// wait until halfway to the next slot and then request chunks for the activated leaf.
-	async fn schedule_chunk_prefetch<Context>(
-		&mut self,
-		ctx: &mut Context,
-		runtime: &mut RuntimeInfo,
-		new_head: ActivatedLeaf,
-		leaf_session_index: SessionIndex,
-		groups: &(Vec<Vec<ValidatorIndex>>, GroupRotationInfo),
-	) -> Result<()> {
-		let delay = Self::time_until_next_half_slot().await;
-
-		if delay > 0 {
-			gum::trace!(
-				target: LOG_TARGET,
-				until_next_ms = delay * 2,
-				half_wait_ms = delay,
-				"Delaying early_request_chunks until halfway to next slot",
-			);
-			futures_timer::Delay::new(Duration::from_millis(delay)).await;
-		}
-
-		self.early_request_chunks(ctx, runtime, new_head, leaf_session_index, groups)
-			.await
-			.inspect_err(|err| {
-				gum::warn!(
-					target: LOG_TARGET,
-					error = ?err,
-					"Failed to early request chunks for activated leaf"
-				)
-			})
-	}
-
-	#[cfg(not(test))]
-	/// Calculate time until next half slot
-	async fn time_until_next_half_slot() -> u64 {
-		const SLOT_DURATION_MS: u64 = 6_000;
-
-		use std::time::{SystemTime, UNIX_EPOCH};
-
-		SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.map(|duration| {
-				let now = duration.as_millis() as u64;
-				let remainder = now % SLOT_DURATION_MS;
-				SLOT_DURATION_MS.saturating_sub(remainder) / 2
-			})
-			.unwrap_or_default()
-	}
-
-	#[cfg(test)]
-	// In tests, don't delay to keep them fast and deterministic.
-	async fn time_until_next_half_slot() -> u64 {
-		return 0;
 	}
 
 	async fn early_request_chunks<Context>(
@@ -287,26 +235,32 @@ impl Requester {
 				);
 				err
 			})?;
+		let availability_cores = availability_cores.as_ref();
 
 		let backable_candidates = self
-			.fetch_backable_candidates(&activated_leaf, sender, &availability_cores)
+			.fetch_backable_candidates(&activated_leaf, sender, availability_cores)
 			.await?;
 
 		let total_cores = validator_groups.0.len();
 
 		// Process candidates and collect cores
-		let cores = backable_candidates
+		let scheduled_cores = backable_candidates
 			.into_iter()
 			.flat_map(|(para, candidates)| {
-				let availability_cores = availability_cores.clone();
-
 				candidates.into_iter().filter_map(move |candidate| {
 					let receipt = candidate.candidate();
-					let core_index = receipt.descriptor.core_index()?;
-					let core_state = availability_cores.get(core_index.0 as usize)?;
 
+					// Handle both V1 and V2 candidates
+					let core_index = if let Some(core_index) = receipt.descriptor.core_index() {
+						// V2 candidate - has explicit core index
+						core_index
+					} else {
+						// V1 candidate - find core index by matching para_id with scheduled cores
+						Self::core_index_for_candidate_v1(availability_cores, para)?
+					};
+
+					let core_state = availability_cores.get(core_index.0 as usize)?;
 					match core_state {
-						CoreState::Free => None,
 						CoreState::Scheduled(s) if para == s.para_id => Some((
 							core_index,
 							CoreInfo {
@@ -318,24 +272,27 @@ impl Requester {
 									.group_for_core(core_index, total_cores),
 							},
 						)),
-						CoreState::Occupied(o) if para == o.candidate_descriptor.para_id() =>
-							Some((
-								core_index,
-								CoreInfo {
-									candidate_hash: o.candidate_hash,
-									relay_parent: o.candidate_descriptor.relay_parent(),
-									erasure_root: o.candidate_descriptor.erasure_root(),
-									group_responsible: o.group_responsible,
-								},
-							)),
 						_ => None,
 					}
 				})
 			})
 			.collect::<Vec<_>>();
 
-		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, cores)
+		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, scheduled_cores)
 			.await
+	}
+
+	fn core_index_for_candidate_v1(
+		availability_cores: &Vec<CoreState>,
+		para: Id,
+	) -> Option<CoreIndex> {
+		let matching_core_index = availability_cores.iter().enumerate().find_map(
+			|(idx, core_state)| match core_state {
+				CoreState::Scheduled(s) if s.para_id == para => Some(CoreIndex(idx as u32)),
+				_ => None,
+			},
+		)?;
+		Some(matching_core_index)
 	}
 
 	/// Requests the hashes of backable candidates from prospective parachains subsystem,
