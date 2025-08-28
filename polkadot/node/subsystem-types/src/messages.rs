@@ -739,7 +739,7 @@ pub enum RuntimeApiRequest {
 	/// Returns a list of validators that lost a past session dispute and need to be slashed.
 	/// `V5`
 	UnappliedSlashes(
-		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
+		RuntimeApiSender<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	),
 	/// Returns a merkle proof of a validator session key.
 	/// `V5`
@@ -747,7 +747,7 @@ pub enum RuntimeApiRequest {
 	/// Submits an unsigned extrinsic to slash validator who lost a past session dispute.
 	/// `V5`
 	SubmitReportDisputeLost(
-		slashing::LegacyDisputeProof,
+		slashing::DisputeProof,
 		slashing::OpaqueKeyOwnershipProof,
 		RuntimeApiSender<Option<()>>,
 	),

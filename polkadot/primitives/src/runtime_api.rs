@@ -233,7 +233,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
 		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>;
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
@@ -245,7 +245,7 @@ sp_api::decl_runtime_apis! {
 		/// a candidate of a past session.
 		/// NOTE: This function is only available since parachain host version 5.
 		fn submit_report_dispute_lost(
-			dispute_proof: slashing::LegacyDisputeProof,
+			dispute_proof: slashing::DisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()>;
 

@@ -28,7 +28,7 @@ use polkadot_node_subsystem_util::runtime::{
 	self, get_candidate_events, get_on_chain_votes, get_unapplied_slashes,
 };
 use polkadot_primitives::{
-	slashing::LegacyPendingSlashes, BlockNumber, CandidateEvent, CandidateHash,
+	slashing::PendingSlashes, BlockNumber, CandidateEvent, CandidateHash,
 	CandidateReceiptV2 as CandidateReceipt, Hash, ScrapedOnChainVotes, SessionIndex,
 };
 
@@ -64,7 +64,7 @@ const LRU_OBSERVED_BLOCKS_CAPACITY: u32 = 2 * MAX_FINALITY_LAG;
 pub struct ScrapedUpdates {
 	pub on_chain_votes: Vec<ScrapedOnChainVotes>,
 	pub included_receipts: Vec<CandidateReceipt>,
-	pub unapplied_slashes: Vec<(SessionIndex, CandidateHash, LegacyPendingSlashes)>,
+	pub unapplied_slashes: Vec<(SessionIndex, CandidateHash, PendingSlashes)>,
 }
 
 impl ScrapedUpdates {

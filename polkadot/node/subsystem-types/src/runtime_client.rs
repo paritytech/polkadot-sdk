@@ -246,7 +246,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError>;
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError>;
 
 	/// Returns a merkle proof of a validator session key in a past session.
 	async fn key_ownership_proof(
@@ -260,7 +260,7 @@ pub trait RuntimeApiSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::LegacyDisputeProof,
+		dispute_proof: slashing::DisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError>;
 
@@ -564,7 +564,7 @@ where
 	async fn unapplied_slashes(
 		&self,
 		at: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
 		self.client.runtime_api().unapplied_slashes(at)
 	}
 
@@ -579,7 +579,7 @@ where
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::LegacyDisputeProof,
+		dispute_proof: slashing::DisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		let mut runtime_api = self.client.runtime_api();

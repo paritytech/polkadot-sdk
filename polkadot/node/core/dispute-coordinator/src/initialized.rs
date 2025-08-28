@@ -397,7 +397,7 @@ impl Initialized {
 		&mut self,
 		ctx: &mut Context,
 		relay_parent: Hash,
-		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>,
+		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
 			gum::info!(
@@ -436,7 +436,7 @@ impl Initialized {
 							key_ownership_proofs.push(key_ownership_proof);
 							let time_slot =
 								slashing::DisputesTimeSlot::new(session_index, candidate_hash);
-							let dispute_proof = slashing::LegacyDisputeProof {
+							let dispute_proof = slashing::DisputeProof {
 								time_slot,
 								kind: pending.kind,
 								validator_index: *validator_index,

@@ -1068,7 +1068,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn unapplied_slashes(
-		) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
+		) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 			runtime_impl::unapplied_slashes::<Runtime>()
 		}
 
@@ -1083,7 +1083,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_dispute_lost(
-			dispute_proof: slashing::LegacyDisputeProof,
+			dispute_proof: slashing::DisputeProof,
 			key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 		) -> Option<()> {
 			runtime_impl::submit_unsigned_slashing_report::<Runtime>(

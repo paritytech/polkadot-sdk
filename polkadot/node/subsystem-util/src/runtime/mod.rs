@@ -427,7 +427,7 @@ where
 pub async fn get_unapplied_slashes<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>
+) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
@@ -453,7 +453,7 @@ where
 pub async fn submit_report_dispute_lost<Sender>(
 	sender: &mut Sender,
 	relay_parent: Hash,
-	dispute_proof: slashing::LegacyDisputeProof,
+	dispute_proof: slashing::DisputeProof,
 	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Result<Option<()>>
 where

@@ -63,8 +63,7 @@ pub(crate) struct RequestResultCache {
 		LruMap<(Hash, ParaId, OccupiedCoreAssumption), Option<ValidationCodeHash>>,
 	version: LruMap<Hash, u32>,
 	disputes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>>,
-	unapplied_slashes:
-		LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>>,
+	unapplied_slashes: LruMap<Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>>,
 	key_ownership_proof: LruMap<(Hash, ValidatorId), Option<slashing::OpaqueKeyOwnershipProof>>,
 	minimum_backing_votes: LruMap<SessionIndex, u32>,
 	disabled_validators: LruMap<Hash, Vec<ValidatorIndex>>,
@@ -432,14 +431,14 @@ impl RequestResultCache {
 	pub(crate) fn unapplied_slashes(
 		&mut self,
 		relay_parent: &Hash,
-	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>> {
+	) -> Option<&Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>> {
 		self.unapplied_slashes.get(relay_parent).map(|v| &*v)
 	}
 
 	pub(crate) fn cache_unapplied_slashes(
 		&mut self,
 		relay_parent: Hash,
-		value: Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>,
+		value: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		self.unapplied_slashes.insert(relay_parent, value);
 	}
@@ -462,7 +461,7 @@ impl RequestResultCache {
 	// This request is never cached, hence always returns `None`.
 	pub(crate) fn submit_report_dispute_lost(
 		&mut self,
-		_key: (Hash, slashing::LegacyDisputeProof, slashing::OpaqueKeyOwnershipProof),
+		_key: (Hash, slashing::DisputeProof, slashing::OpaqueKeyOwnershipProof),
 	) -> Option<&Option<()>> {
 		None
 	}
@@ -648,7 +647,7 @@ pub(crate) enum RequestResult {
 	ValidationCodeHash(Hash, ParaId, OccupiedCoreAssumption, Option<ValidationCodeHash>),
 	Version(Hash, u32),
 	Disputes(Hash, Vec<(SessionIndex, CandidateHash, DisputeState<BlockNumber>)>),
-	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>),
+	UnappliedSlashes(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
 	KeyOwnershipProof(Hash, ValidatorId, Option<slashing::OpaqueKeyOwnershipProof>),
 	// This is a request with side-effects.
 	#[allow(dead_code)]

@@ -225,7 +225,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn unapplied_slashes(
 		&self,
 		_: Hash,
-	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>, ApiError> {
+	) -> Result<Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>, ApiError> {
 		todo!("Not required for tests")
 	}
 
@@ -240,7 +240,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		_: Hash,
-		_: slashing::LegacyDisputeProof,
+		_: slashing::DisputeProof,
 		_: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		todo!("Not required for tests")

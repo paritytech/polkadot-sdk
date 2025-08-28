@@ -375,13 +375,13 @@ pub fn session_executor_params<T: session_info::Config>(
 
 /// Implementation of `unapplied_slashes` runtime API
 pub fn unapplied_slashes<T: disputes::slashing::Config>(
-) -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)> {
+) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
 	disputes::slashing::Pallet::<T>::unapplied_slashes()
 }
 
 /// Implementation of `submit_report_dispute_lost` runtime API
 pub fn submit_unsigned_slashing_report<T: disputes::slashing::Config>(
-	dispute_proof: slashing::LegacyDisputeProof,
+	dispute_proof: slashing::DisputeProof,
 	key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 ) -> Option<()> {
 	let key_ownership_proof = key_ownership_proof.decode()?;

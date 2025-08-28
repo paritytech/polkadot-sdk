@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! `V8` Primitives.
+//! `V9` Primitives.
 
 use alloc::{
 	collections::{BTreeMap, BTreeSet, VecDeque},
@@ -38,7 +38,6 @@ use sp_arithmetic::{
 	Perbill,
 };
 
-use crate::slashing::DisputesTimeSlot;
 use bounded_collections::BoundedVec;
 use serde::{Deserialize, Serialize};
 use sp_core::{ConstU32, RuntimeDebug};
@@ -3000,70 +2999,6 @@ impl TryFrom<DisputeOffenceKind> for super::v9::slashing::SlashingOffenceKind {
 			DisputeOffenceKind::AgainstValid => Ok(Self::AgainstValid),
 			DisputeOffenceKind::ForInvalidApproved => Err(()),
 		}
-	}
-}
-
-/// Slashes that are waiting to be applied once we have validator key
-/// identification.
-#[derive(Encode, Decode, TypeInfo, Debug, Clone)]
-pub struct PendingSlashes {
-	/// Indices and keys of the validators who lost a dispute and are pending
-	/// slashes.
-	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
-	/// The dispute outcome.
-	pub kind: DisputeOffenceKind,
-}
-
-impl From<super::v9::slashing::LegacyPendingSlashes> for PendingSlashes {
-	fn from(old: super::v9::slashing::LegacyPendingSlashes) -> Self {
-		let keys = old.keys;
-		let kind = old.kind.into();
-		Self { keys, kind }
-	}
-}
-
-impl TryFrom<PendingSlashes> for super::v9::slashing::LegacyPendingSlashes {
-	type Error = ();
-
-	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
-		Ok(Self { keys: value.keys, kind: value.kind.try_into()? })
-	}
-}
-
-/// We store most of the information about a lost dispute on chain. This struct
-/// is required to identify and verify it.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
-pub struct DisputeProof {
-	/// Time slot when the dispute occurred.
-	pub time_slot: DisputesTimeSlot,
-	/// The dispute outcome.
-	pub kind: DisputeOffenceKind,
-	/// The index of the validator who lost a dispute.
-	pub validator_index: ValidatorIndex,
-	/// The parachain session key of the validator.
-	pub validator_id: ValidatorId,
-}
-
-impl From<super::v9::slashing::LegacyDisputeProof> for DisputeProof {
-	fn from(old: super::v9::slashing::LegacyDisputeProof) -> Self {
-		let time_slot = old.time_slot;
-		let kind = old.kind.into(); // infallible conversion
-		let validator_index = old.validator_index;
-		let validator_id = old.validator_id;
-		Self { time_slot, kind, validator_index, validator_id }
-	}
-}
-
-impl TryFrom<DisputeProof> for super::v9::slashing::LegacyDisputeProof {
-	type Error = ();
-
-	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
-		Ok(Self {
-			time_slot: value.time_slot,
-			kind: value.kind.try_into()?,
-			validator_index: value.validator_index,
-			validator_id: value.validator_id,
-		})
 	}
 }
 

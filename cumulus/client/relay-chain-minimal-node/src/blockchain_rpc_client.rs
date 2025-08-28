@@ -361,7 +361,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		Vec<(
 			polkadot_primitives::SessionIndex,
 			polkadot_primitives::CandidateHash,
-			slashing::LegacyPendingSlashes,
+			slashing::PendingSlashes,
 		)>,
 		ApiError,
 	> {
@@ -379,7 +379,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 	async fn submit_report_dispute_lost(
 		&self,
 		at: Hash,
-		dispute_proof: slashing::LegacyDisputeProof,
+		dispute_proof: slashing::DisputeProof,
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -> Result<Option<()>, ApiError> {
 		Ok(self
