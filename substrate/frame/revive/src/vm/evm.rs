@@ -202,7 +202,8 @@ impl InputsTr for EVMInputs {
 }
 
 /// Blanket conversion trait between `sp_core::U256` and `revm::primitives::U256`
-trait U256Converter {
+#[allow(dead_code)]
+pub trait U256Converter {
 	/// Convert `self` into `revm::primitives::U256`
 	fn into_revm_u256(&self) -> revm::primitives::U256;
 
