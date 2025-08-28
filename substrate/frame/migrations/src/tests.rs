@@ -89,26 +89,6 @@ fn simple_multiple_works() {
 }
 
 #[test]
-fn nth_migrating_prefixes_works() {
-	test_closure(|| {
-		MockedMigrations::set(vec![(SucceedAfter, 2), (FailAfter, 3)]);
-
-		// Migration 0: SucceedAfter
-		let prefixes0 = MockedMigrations::nth_migrating_prefixes(0).unwrap().unwrap();
-		assert_eq!(prefixes0.len(), 3);
-		assert!(prefixes0.contains(&mocked_id(SucceedAfter, 2).into_inner()));
-
-		// Migration 1: FailAfter
-		let prefixes1 = MockedMigrations::nth_migrating_prefixes(1).unwrap().unwrap();
-		assert_eq!(prefixes1.len(), 2);
-		assert!(prefixes1.contains(&mocked_id(FailAfter, 3).into_inner()));
-
-		// Out-of-bounds case
-		assert!(MockedMigrations::nth_migrating_prefixes(2).is_none());
-	});
-}
-
-#[test]
 #[cfg_attr(feature = "try-runtime", should_panic)]
 fn failing_migration_sets_cursor_to_stuck() {
 	test_closure(|| {

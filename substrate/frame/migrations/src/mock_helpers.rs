@@ -123,44 +123,8 @@ impl SteppedMigrations for MockedMigrations {
 		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
 	}
 
-	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-		let migrations = MIGRATIONS::get();
-		let (kind, steps) = migrations.get(n as usize)?;
-
-		let mut prefixes = Vec::new();
-
-		// Always include the migration ID as a prefix
-		prefixes.push(mocked_id(*kind, *steps).into_inner());
-
-		// Add type-specific mock prefixes that simulate real pallet storage
-		match kind {
-			SucceedAfter => {
-				prefixes.push(b"System".to_vec());
-				prefixes.push(b"Balances".to_vec());
-			},
-			FailAfter => {
-				prefixes.push(b"Staking".to_vec());
-			},
-			TimeoutAfter => {
-				prefixes.push(b"Democracy".to_vec());
-				prefixes.push(b"Council".to_vec());
-			},
-			HighWeightAfter(_) => {
-				prefixes.push(b"Multisig".to_vec());
-				prefixes.push(b"Utility".to_vec());
-				prefixes.push(b"Proxy".to_vec());
-			},
-			#[cfg(feature = "try-runtime")]
-			PreUpgradeFail => {
-				prefixes.push(b"Scheduler".to_vec());
-			},
-			#[cfg(feature = "try-runtime")]
-			PostUpgradeFail => {
-				prefixes.push(b"Identity".to_vec());
-			},
-		}
-
-		Some(Ok(prefixes))
+	fn nth_migrating_prefixes(_n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+		None
 	}
 
 	#[cfg(feature = "try-runtime")]
