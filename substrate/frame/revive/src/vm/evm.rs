@@ -78,7 +78,17 @@ where
 			<Error<T>>::CodeRejected
 		})?;
 
+		// EIP-3541: Reject new contract code starting with the 0xEF byte
+		if code.first() == Some(&0xEF) {
+			return Err(<Error<T>>::CodeRejected.into());
+		}
+
 		let code_len = code.len() as u32;
+		// EIP-7907: Code limit set to 0xc000 (~49kb).
+		if code_len as usize > EVM_BYTECODE_LIMIT {
+			return Err(<Error<T>>::BlobTooLarge.into());
+		}
+
 		let code_info = CodeInfo {
 			owner,
 			deposit: Default::default(),
