@@ -125,19 +125,19 @@ mod benchmarks {
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
-		// Verify the initial deposit amount in storage and reserved balance
+		// Verify the initial deposit amount in storage and held balance
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
-		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
+		assert_eq!(T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller), original_deposit);
 
 		// The additional amount we'll add to the deposit for the index
 		let additional_amount = 2u32.into();
 
-		// Reserve the additional amount from the caller's balance
-		T::Currency::reserve(&caller, additional_amount)?;
+		// Hold the additional amount from the caller's balance
+		T::Currency::hold(&HoldReason::DepositForIndex.into(), &caller, additional_amount)?;
 
-		// Verify the additional amount was reserved
+		// Verify the additional amount was held
 		assert_eq!(
-			T::Currency::reserved_balance(&caller),
+			T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller),
 			original_deposit.saturating_add(additional_amount)
 		);
 
@@ -162,7 +162,7 @@ mod benchmarks {
 		assert!(Accounts::<T>::contains_key(account_index));
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
-		assert_eq!(T::Currency::reserved_balance(&caller), original_deposit);
+		assert_eq!(T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller), original_deposit);
 		Ok(())
 	}
 
