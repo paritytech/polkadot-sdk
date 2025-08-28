@@ -344,17 +344,23 @@ fn transfer_relay_token() {
 			[GlobalConsensus(Ethereum { chain_id: CHAIN_ID })],
 		));
 
-		let beneficiary = VersionedLocation::V4(Location::new(
+		let beneficiary = Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
-		));
+		);
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(destination),
-			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe()
+					.deposit_asset(AllCounted(1), beneficiary)
+					.build()
+			)),
 			Unlimited,
 		));
 
