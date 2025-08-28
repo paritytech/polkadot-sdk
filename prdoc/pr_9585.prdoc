@@ -1,0 +1,7 @@
+title: Whitelist DOT transfer to remote consensus
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: pallet-xcm
+  bump: patch
