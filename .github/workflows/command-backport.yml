@@ -30,7 +30,7 @@ jobs:
         github.event.pull_request.base.ref == 'master'
       )
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check for backport labels
         id: check_labels
@@ -60,7 +60,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ steps.generate_token.outputs.token }}
 

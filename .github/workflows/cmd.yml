@@ -168,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Save output of help
         id: help
@@ -235,7 +235,7 @@ jobs:
       RUNNER: ${{ steps.set-image.outputs.RUNNER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - id: set-image
         run: |
@@ -282,7 +282,7 @@ jobs:
       PR_NUMBER: ${{ github.event.issue.number }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Start cmd with gh cli
         env:

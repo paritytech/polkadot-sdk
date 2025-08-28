@@ -54,7 +54,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Download repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install gh cli
         id: gh
         uses: ./.github/actions/set-up-gh
