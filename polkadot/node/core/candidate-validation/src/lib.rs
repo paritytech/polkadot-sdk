@@ -1315,11 +1315,6 @@ fn perform_basic_checks(
 		return Err(InvalidCandidate::CodeHashMismatch)
 	}
 
-	// No-op for `v2` receipts.
-	if let Err(()) = candidate.check_collator_signature() {
-		return Err(InvalidCandidate::BadSignature)
-	}
-
 	Ok(())
 }
 
