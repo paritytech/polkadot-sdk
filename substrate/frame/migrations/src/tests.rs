@@ -17,9 +17,7 @@
 
 #![cfg(test)]
 
-use frame_support::{
-	migrations::SteppedMigrations, pallet_prelude::Weight, traits::OnRuntimeUpgrade,
-};
+use frame_support::{pallet_prelude::Weight, traits::OnRuntimeUpgrade};
 
 use crate::{
 	mock::{Test as T, *},
