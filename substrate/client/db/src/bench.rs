@@ -465,19 +465,18 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 			.map_or(Default::default(), |s| s.child_storage_root(child_info, delta, state_version))
 	}
 
-	fn storage_root2<'a, 'b>(
+	fn trigger_storage_root_size_estimation<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 		xxx: Option<BackendSnapshot<'b, Hasher>>,
 	) -> (Hasher::Output, BackendTransaction<Hasher>) {
-		self.state
-			.borrow()
-			.as_ref()
-			.map_or(Default::default(), |s| s.storage_root2(delta, state_version, xxx))
+		self.state.borrow().as_ref().map_or(Default::default(), |s| {
+			s.trigger_storage_root_size_estimation(delta, state_version, xxx)
+		})
 	}
 
-	fn child_storage_root2<'a, 'b>(
+	fn trigger_child_storage_root_size_estimation<'a, 'b>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
@@ -485,7 +484,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		xxx: Option<BackendSnapshot<'b, Hasher>>,
 	) -> (Hasher::Output, bool, BackendTransaction<Hasher>) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
-			s.child_storage_root2(child_info, delta, state_version, xxx)
+			s.trigger_child_storage_root_size_estimation(child_info, delta, state_version, xxx)
 		})
 	}
 

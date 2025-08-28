@@ -747,8 +747,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 					.as_ref()
 					.map(|t| t.transaction_storage_root.clone()),
 			));
-			let (root2, transaction) =
-				backend.full_storage_root2(delta, child_delta, state_version, xxx);
+			let (root2, transaction) = backend.trigger_storage_root_size_estimation_full(
+				delta,
+				child_delta,
+				state_version,
+				xxx,
+			);
 
 			// transcation_nodes = transaction.keys().len();
 

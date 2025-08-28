@@ -249,41 +249,13 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Calculate the storage root, with given delta over what is already stored in
 	/// the backend, and produce a "transaction" that can be used to commit.
 	/// Does not include child storage updates.
-	fn storage_root2<'a, 'b>(
-		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
-		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, BackendTransaction<H>)
-	where
-		H::Out: Ord;
-
-	/// Calculate the child storage root, with given delta over what is already stored in
-	/// the backend, and produce a "transaction" that can be used to commit. The second argument
-	/// is true if child storage root equals default storage root.
-	fn child_storage_root2<'a, 'b>(
-		&self,
-		child_info: &ChildInfo,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
-		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, bool, BackendTransaction<H>)
-	where
-		H::Out: Ord;
-
-	/// Calculate the storage root, with given delta over what is already stored in
-	/// the backend, and produce a "transaction" that can be used to commit.
-	/// Does not include child storage updates.
 	fn storage_root<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
 	) -> (H::Out, BackendTransaction<H>)
 	where
-		H::Out: Ord,
-	{
-		self.storage_root2(delta, state_version, None)
-	}
+		H::Out: Ord;
 
 	/// Calculate the child storage root, with given delta over what is already stored in
 	/// the backend, and produce a "transaction" that can be used to commit. The second argument
@@ -295,10 +267,32 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		state_version: StateVersion,
 	) -> (H::Out, bool, BackendTransaction<H>)
 	where
-		H::Out: Ord,
-	{
-		self.child_storage_root2(child_info, delta, state_version, None)
-	}
+		H::Out: Ord;
+
+	/// Calculate the storage root, with given delta over what is already stored in
+	/// the backend, and produce a "transaction" that can be used to commit.
+	/// Does not include child storage updates.
+	fn trigger_storage_root_size_estimation<'a, 'b>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: Option<BackendSnapshot<'b, H>>,
+	) -> (H::Out, BackendTransaction<H>)
+	where
+		H::Out: Ord;
+
+	/// Calculate the child storage root, with given delta over what is already stored in
+	/// the backend, and produce a "transaction" that can be used to commit. The second argument
+	/// is true if child storage root equals default storage root.
+	fn trigger_child_storage_root_size_estimation<'a, 'b>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		state_version: StateVersion,
+		xxx: Option<BackendSnapshot<'b, H>>,
+	) -> (H::Out, bool, BackendTransaction<H>)
+	where
+		H::Out: Ord;
 
 	/// Returns a lifetimeless raw storage iterator.
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error>;
@@ -321,6 +315,9 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		})
 	}
 
+	/// Calculate the storage root, with given delta over what is already stored
+	/// in the backend, and produce a "transaction" that can be used to commit.
+	/// Does include child storage updates.
 	fn full_storage_root<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
@@ -332,13 +329,35 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord + Encode,
 	{
-		self.full_storage_root2(delta, child_deltas, state_version, None)
+		let mut txs = BackendTransaction::with_hasher(RandomState::default());
+		let mut child_roots: Vec<_> = Default::default();
+		// child first
+		for (child_info, child_delta) in child_deltas {
+			let (child_root, empty, child_txs) =
+				self.child_storage_root(child_info, child_delta, state_version);
+			let prefixed_storage_key = child_info.prefixed_storage_key();
+			txs.consolidate(child_txs);
+			if empty {
+				child_roots.push((prefixed_storage_key.into_inner(), None));
+			} else {
+				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
+			}
+		}
+		let (root, parent_txs) = self.storage_root(
+			delta
+				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
+				.chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
+			state_version,
+		);
+		txs.consolidate(parent_txs);
+
+		(root, txs)
 	}
 
 	/// Calculate the storage root, with given delta over what is already stored
 	/// in the backend, and produce a "transaction" that can be used to commit.
 	/// Does include child storage updates.
-	fn full_storage_root2<'a, 'b>(
+	fn trigger_storage_root_size_estimation_full<'a, 'b>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		child_deltas: impl Iterator<
@@ -354,8 +373,12 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		let mut child_roots: Vec<_> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			let (child_root, empty, child_txs) =
-				self.child_storage_root2(child_info, child_delta, state_version, xxx.clone());
+			let (child_root, empty, child_txs) = self.trigger_child_storage_root_size_estimation(
+				child_info,
+				child_delta,
+				state_version,
+				xxx.clone(),
+			);
 			let prefixed_storage_key = child_info.prefixed_storage_key();
 			txs.consolidate(child_txs);
 			if empty {
@@ -364,7 +387,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
 			}
 		}
-		let (root, parent_txs) = self.storage_root2(
+		let (root, parent_txs) = self.trigger_storage_root_size_estimation(
 			delta
 				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
 				.chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
