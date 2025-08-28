@@ -24,7 +24,7 @@ use frame::deps::{
 };
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
-use super::{parachain, relay_chain};
+use super::{asset_para, relay_chain, simple_para};
 
 pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([1u8; 32]);
@@ -33,10 +33,19 @@ pub const CENTS: u64 = 100_000_000;
 pub const INITIAL_BALANCE: u64 = UNITS;
 
 decl_test_parachain! {
-	pub struct ParaA {
+	pub struct SimplePara {
 		Runtime = parachain::Runtime,
-		XcmpMessageHandler = parachain::MessageQueue,
-		DmpMessageHandler = parachain::MessageQueue,
+		XcmpMessageHandler = simple_para::MessageQueue,
+		DmpMessageHandler = simple_para::MessageQueue,
+		new_ext = para_ext(),
+	}
+}
+
+decl_test_parachain! {
+	pub struct AssetPara {
+		Runtime = parachain::Runtime,
+		XcmpMessageHandler = asset_para::MessageQueue,
+		DmpMessageHandler = asset_para::MessageQueue,
 		new_ext = para_ext(),
 	}
 }
@@ -57,7 +66,7 @@ decl_test_network! {
 	pub struct MockNet {
 		relay_chain = Relay,
 		parachains = vec![
-			(2222, ParaA),
+			(2222, SimplePara),
 		],
 	}
 }

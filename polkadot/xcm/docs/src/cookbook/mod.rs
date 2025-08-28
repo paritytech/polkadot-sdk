@@ -30,4 +30,4 @@ pub mod relay_token_transactor;
 /// Register a parachain's token as a foreign asset on another chain.
 ///
 /// In practice this is used by many ecosystem chains to register their token on the Asset Hubs.
-pub mod register_and_use_foreign_assets;
+pub mod foreign_assets_and_asset_conversion;

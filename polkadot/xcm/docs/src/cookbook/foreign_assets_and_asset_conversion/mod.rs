@@ -39,7 +39,8 @@
 //! For the rest of the code, be sure to check the contents of this module.
 
 /// The parachain runtime for this example
-pub mod parachain;
+pub mod simple_para;
+pub mod asset_para;
 
 /// The relay chain runtime for this example.
 pub mod relay_chain;
