@@ -23,7 +23,7 @@ use bp_relayers::{PayRewardFromAccount, RewardsAccountOwner, RewardsAccountParam
 use bridge_common_config::{BridgeRelayersInstance, BridgeReward, RequiredStakeForStakeAndSlash};
 use bridge_hub_test_utils::{
 	test_cases::{from_parachain, run_test},
-	GovernanceOrigin, RuntimeHelper, SlotDurations,
+	GovernanceOrigin, SlotDurations,
 };
 use bridge_hub_westend_runtime::{
 	bridge_common_config, bridge_to_rococo_config,
