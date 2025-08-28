@@ -17,24 +17,28 @@
 
 //! # Multi-Block Migration v2
 //!
-//! This migrate the old `CodeInfoOf` storage to the new `CodeInfoOf` which add the new `code_type`
+//! - migrate the old `CodeInfoOf` storage to the new `CodeInfoOf` which add the new `code_type`
 //! field.
+//! - Unhold the deposit on the owner and transfer it to the pallet account.
 
 extern crate alloc;
-
 use super::PALLET_MIGRATIONS_ID;
-use crate::{vm::BytecodeType, weights::WeightInfo, Config, H256};
+use crate::{vm::BytecodeType, weights::WeightInfo, Config, Pallet, H256, LOG_TARGET};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
+	traits::{
+		fungible::MutateHold,
+		tokens::{Fortitude, Precision, Restriction},
+	},
 	weights::WeightMeter,
 };
 
 #[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
+use frame_support::sp_runtime::TryRuntimeError;
 
 /// Module containing the old storage items.
 mod old {
@@ -108,13 +112,29 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				break;
 			}
 
-			let iter = if let Some(last_key) = cursor {
+			let mut iter = if let Some(last_key) = cursor {
 				old::CodeInfoOf::<T>::iter_from(old::CodeInfoOf::<T>::hashed_key_for(last_key))
 			} else {
 				old::CodeInfoOf::<T>::iter()
 			};
 
-			if let Some((last_key, value)) = iter.drain().next() {
+			if let Some((last_key, value)) = iter.next() {
+				if let Err(err) = T::Currency::transfer_on_hold(
+					&crate::HoldReason::CodeUploadDepositReserve.into(),
+					&value.owner,
+					&Pallet::<T>::pallet_account(),
+					value.deposit,
+					Precision::Exact,
+					Restriction::OnHold,
+					Fortitude::Polite,
+				) {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to unhold the deposit for code hash {last_key:?} and owner {:?}: {err:?}",
+						value.owner,
+					);
+				}
+
 				new::CodeInfoOf::<T>::insert(
 					last_key,
 					new::CodeInfo {
@@ -136,15 +156,21 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
+
+		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::pallet_account()) {
+			return Err(TryRuntimeError::Other(
+				"pallet_account should exist before running the migration",
+			))
+		}
 
 		// Return the state of the storage before the migration.
 		Ok(old::CodeInfoOf::<T>::iter().collect::<BTreeMap<_, _>>().encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
 
 		// Check the state of the storage after the migration.

@@ -26,18 +26,21 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
+	frame_support::traits::tokens::Restriction,
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
-	LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, HoldReason, PristineCode,
+	Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
-	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
+	traits::{
+		fungible::MutateHold,
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
@@ -74,7 +77,9 @@ pub enum BytecodeType {
 /// - reference count,
 ///
 /// It is stored in a separate storage entry to avoid loading the code when not necessary.
-#[derive(Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	frame_support::DebugNoBound, Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct CodeInfo<T: Config> {
@@ -161,30 +166,6 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	/// Remove the code from storage and refund the deposit to its owner.
-	///
-	/// Applies all necessary checks before removing the code.
-	pub fn remove(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
-			if let Some(code_info) = existing {
-				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
-				ensure!(&code_info.owner == origin, BadOrigin);
-				let _ = T::Currency::release(
-					&HoldReason::CodeUploadDepositReserve.into(),
-					&code_info.owner,
-					code_info.deposit,
-					BestEffort,
-				);
-
-				*existing = None;
-				<PristineCode<T>>::remove(&code_hash);
-				Ok(())
-			} else {
-				Err(<Error<T>>::CodeNotFound.into())
-			}
-		})
-	}
-
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
@@ -200,11 +181,15 @@ where
 					let deposit = self.code_info.deposit;
 
 					if !skip_transfer {
-						T::Currency::hold(
-						&HoldReason::CodeUploadDepositReserve.into(),
-						&self.code_info.owner,
-						deposit,
-					) .map_err(|err| {
+						T::Currency::transfer_and_hold(
+							&HoldReason::CodeUploadDepositReserve.into(),
+							&self.code_info.owner,
+							&crate::Pallet::<T>::pallet_account(), deposit,
+							Precision::Exact,
+							Preservation::Preserve,
+							Fortitude::Polite,
+						)
+					 .map_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
@@ -275,21 +260,32 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Decrement the reference count of a stored code by one.
-	///
-	/// # Note
-	///
-	/// A contract whose reference count dropped to zero isn't automatically removed. A
-	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
-			if let Some(info) = existing {
-				info.refcount = info
+	/// Remove the code from storage when the reference count is zero.
+	pub fn decrement_refcount(code_hash: H256) -> Result<CodeRemoved, DispatchError> {
+		<CodeInfoOf<T>>::try_mutate_exists(code_hash, |existing| {
+			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
+
+			if code_info.refcount == 1 {
+				T::Currency::transfer_on_hold(
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&crate::Pallet::<T>::pallet_account(),
+					&code_info.owner,
+					code_info.deposit,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+
+				<PristineCode<T>>::remove(&code_hash);
+				*existing = None;
+
+				Ok(CodeRemoved::Yes)
+			} else {
+				code_info.refcount = code_info
 					.refcount
 					.checked_sub(1)
 					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
-				Ok(())
-			} else {
-				Err(Error::<T>::CodeNotFound.into())
+				Ok(CodeRemoved::No)
 			}
 		})
 	}

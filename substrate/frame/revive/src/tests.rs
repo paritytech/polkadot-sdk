@@ -401,7 +401,10 @@ impl ExtBuilder {
 		let checking_account = Pallet::<Test>::checking_account();
 
 		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
+			balances: vec![
+				(checking_account.clone(), 1_000_000_000_000),
+				(Pallet::<Test>::pallet_account(), 1_000_000_000_000),
+			],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)

@@ -46,7 +46,7 @@ use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	storage::child,
 	traits::{
-		fungible::{BalancedHold, Inspect, Mutate, MutateHold},
+		fungible::{BalancedHold, Inspect, Mutate},
 		tokens::Preservation,
 		OnIdle, OnInitialize,
 	},
@@ -490,8 +490,12 @@ fn instantiate_unique_trie_id() {
 
 	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
-			.unwrap();
+		Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			binary.clone(),
+			deposit_limit::<Test>(),
+		)
+		.unwrap();
 
 		// Instantiate the contract and store its trie id for later comparison.
 		let Contract { addr, .. } =
@@ -508,6 +512,8 @@ fn instantiate_unique_trie_id() {
 		assert_ok!(builder::call(addr).build());
 
 		// Re-Instantiate after termination.
+		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
+			.unwrap();
 		assert_ok!(builder::instantiate(code_hash).build());
 
 		// Trie ids shouldn't match or we might have a collision
@@ -1000,6 +1006,7 @@ fn self_destruct_works() {
 			.build_and_unwrap_contract();
 
 		let hold_balance = contract_base_deposit(&contract.addr);
+		let upload_deposit = get_code_deposit(&code_hash);
 
 		// Check that the BOB contract has been instantiated.
 		let _ = get_contract(&contract.addr);
@@ -1010,8 +1017,8 @@ fn self_destruct_works() {
 		// Call BOB without input data which triggers termination.
 		assert_matches!(builder::call(contract.addr).build(), Ok(_));
 
-		// Check that code is still there but refcount dropped to zero.
-		assert_refcount!(&code_hash, 0);
+		// Check that the code is gone
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 
 		// Check that account is gone
 		assert!(get_contract_checked(&contract.addr).is_none());
@@ -1033,6 +1040,18 @@ fn self_destruct_works() {
 		pretty_assertions::assert_eq!(
 			System::events(),
 			vec![
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
+						reason: <Test as Config>::RuntimeHoldReason::Contracts(
+							HoldReason::CodeUploadDepositReserve,
+						),
+						source: Pallet::<Test>::pallet_account(),
+						dest: ALICE,
+						amount: upload_deposit,
+					}),
+					topics: vec![],
+				},
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
@@ -1711,10 +1730,7 @@ fn refcounter() {
 
 		// remove the last contract
 		assert_ok!(builder::call(addr2).build());
-		assert_refcount!(code_hash, 0);
-
-		// refcount is `0` but code should still exists because it needs to be removed manually
-		assert!(crate::PristineCode::<Test>::contains_key(&code_hash));
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 	});
 }
 
@@ -1936,84 +1952,6 @@ fn upload_code_not_enough_balance() {
 }
 
 #[test]
-fn remove_code_works() {
-	let (binary, code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Drop previous events
-		initialize_block(2);
-
-		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, 1_000,));
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		expected_deposit(ensure_stored(code_hash));
-		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
-	});
-}
-
-#[test]
-fn remove_code_wrong_origin() {
-	let (binary, code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Drop previous events
-		initialize_block(2);
-
-		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, 1_000,));
-		// Ensure the contract was stored and get expected deposit amount to be reserved.
-		expected_deposit(ensure_stored(code_hash));
-
-		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(BOB), code_hash),
-			sp_runtime::traits::BadOrigin,
-		);
-	});
-}
-
-#[test]
-fn remove_code_in_use() {
-	let (binary, code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		assert_ok!(builder::instantiate_with_code(binary).build());
-
-		// Drop previous events
-		initialize_block(2);
-
-		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
-			<Error<Test>>::CodeInUse,
-		);
-
-		assert_eq!(System::events(), vec![]);
-	});
-}
-
-#[test]
-fn remove_code_not_found() {
-	let (_binary, code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-
-		// Drop previous events
-		initialize_block(2);
-
-		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
-			<Error<Test>>::CodeNotFound,
-		);
-
-		assert_eq!(System::events(), vec![]);
-	});
-}
-
-#[test]
 fn instantiate_with_zero_balance_works() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -2042,12 +1980,13 @@ fn instantiate_with_zero_balance_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						source: ALICE,
+						dest: Pallet::<Test>::pallet_account(),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
-						who: ALICE,
-						amount: 777,
 					}),
 					topics: vec![],
 				},
@@ -2130,12 +2069,13 @@ fn instantiate_with_below_existential_deposit_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Held {
+					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
+						source: ALICE,
+						dest: Pallet::<Test>::pallet_account(),
+						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
-						who: ALICE,
-						amount: 777,
 					}),
 					topics: vec![],
 				},
@@ -2367,7 +2307,7 @@ fn set_code_extrinsic() {
 		// successful call
 		assert_ok!(Contracts::set_code(RuntimeOrigin::root(), addr, new_code_hash));
 		assert_eq!(get_contract(&addr).code_hash, new_code_hash);
-		assert_refcount!(&code_hash, 0);
+		assert!(PristineCode::<Test>::get(&code_hash).is_none());
 		assert_refcount!(&new_code_hash, 1);
 	});
 }
@@ -2770,10 +2710,9 @@ fn deposit_limit_in_nested_instantiate() {
 fn deposit_limit_honors_liquidity_restrictions() {
 	let (binary, _code_hash) = compile_module("store_call").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-		let bobs_balance = 1_000;
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
-		let _ = <Test as Config>::Currency::set_balance(&BOB, bobs_balance);
 		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, min_balance);
 
 		// Instantiate the BOB contract.
 		let Contract { addr, account_id } =
@@ -2787,13 +2726,6 @@ fn deposit_limit_honors_liquidity_restrictions() {
 			info_deposit + min_balance
 		);
 
-		// check that the hold is honored
-		<Test as Config>::Currency::hold(
-			&HoldReason::CodeUploadDepositReserve.into(),
-			&BOB,
-			bobs_balance - min_balance,
-		)
-		.unwrap();
 		assert_err_ignore_postinfo!(
 			builder::call(addr)
 				.origin(RuntimeOrigin::signed(BOB))
@@ -2802,7 +2734,6 @@ fn deposit_limit_honors_liquidity_restrictions() {
 				.build(),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
 		);
-		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), min_balance);
 	});
 }
 
@@ -2893,7 +2824,7 @@ fn native_dependency_deposit_works() {
 				.build_and_unwrap_result();
 
 			// Check updated storage_deposit due to code size changes
-			let deposit_diff = lockup_deposit_percent.mul_ceil(get_code_deposit(&code_hash)) -
+			let deposit_diff = lockup_deposit_percent.mul_ceil(upload_deposit) -
 				lockup_deposit_percent.mul_ceil(get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
@@ -2954,18 +2885,6 @@ fn root_cannot_upload_code() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
 			Contracts::upload_code(RuntimeOrigin::root(), binary, deposit_limit::<Test>()),
-			DispatchError::BadOrigin,
-		);
-	});
-}
-
-#[test]
-fn root_cannot_remove_code() {
-	let (_, code_hash) = compile_module("dummy").unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(
-			Contracts::remove_code(RuntimeOrigin::root(), code_hash),
 			DispatchError::BadOrigin,
 		);
 	});

@@ -61,8 +61,8 @@ use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
-		PostDispatchInfo, RawOrigin,
+		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
+		RawOrigin,
 	},
 	ensure,
 	pallet_prelude::DispatchClass,
@@ -81,7 +81,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -942,22 +942,6 @@ pub mod pallet {
 			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
 		}
 
-		/// Remove the code stored under `code_hash` and refund the deposit to its owner.
-		///
-		/// A code can only be removed by its original uploader (its owner) and only if it is
-		/// not used by any contract.
-		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::remove_code())]
-		pub fn remove_code(
-			origin: OriginFor<T>,
-			code_hash: sp_core::H256,
-		) -> DispatchResultWithPostInfo {
-			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove(&origin, code_hash)?;
-			// we waive the fee because removing unused code is beneficial
-			Ok(Pays::No.into())
-		}
-
 		/// Privileged function that changes the code of an existing contract.
 		///
 		/// This takes care of updating refcounts and all other necessary operations. Returns
@@ -986,7 +970,7 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1580,6 +1564,11 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	fn pallet_account() -> AccountIdOf<T> {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/rev  ").into_account_truncating()
+	}
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
