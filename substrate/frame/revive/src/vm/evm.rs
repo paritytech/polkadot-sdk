@@ -368,6 +368,8 @@ impl InputsTr for EVMInputs {
 /// the error is recoverable or not. This guarantees consistent behavior accross both
 /// VM backends.
 fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> Option<InstructionResult> {
+	log::trace!("call frame execution error in EVM caller: {:?}", &from);
+
 	if super::exec_error_into_return_code::<E>(from).is_ok() {
 		return None;
 	}

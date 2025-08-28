@@ -372,8 +372,10 @@ fn create_works() {
 		let create_call_data =
 			Caller::createCall { initcode: Bytes::from(callee_code.clone()) }.abi_encode();
 
-		let result =
-			builder::bare_call(caller_addr).data(create_call_data).build_and_unwrap_result();
+		let result = builder::bare_call(caller_addr)
+			.data(create_call_data)
+			.native_value(1_000)
+			.build_and_unwrap_result();
 
 		let callee_addr = Caller::createCall::abi_decode_returns(&result.data).unwrap();
 
@@ -410,8 +412,10 @@ fn create2_works() {
 		let create_call_data =
 			Caller::create2Call { initcode: initcode.clone(), salt: FixedBytes(salt) }.abi_encode();
 
-		let result =
-			builder::bare_call(caller_addr).data(create_call_data).build_and_unwrap_result();
+		let result = builder::bare_call(caller_addr)
+			.data(create_call_data)
+			.native_value(1000)
+			.build_and_unwrap_result();
 
 		let callee_addr = Caller::create2Call::abi_decode_returns(&result.data).unwrap();
 

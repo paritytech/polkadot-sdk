@@ -24,11 +24,13 @@ contract Caller {
         address _callee,
         bytes memory _data,
         uint _gas
-    ) external returns (bool success, bytes memory output) {
+    ) external view returns (bool success, bytes memory output) {
         (success, output) = _callee.staticcall{gas: _gas}(_data);
     }
 
-    function create(bytes memory initcode) external returns (address addr) {
+    function create(
+        bytes memory initcode
+    ) external payable returns (address addr) {
         assembly {
             // CREATE with no value
             addr := create(0, add(initcode, 0x20), mload(initcode))
@@ -42,7 +44,7 @@ contract Caller {
     function create2(
         bytes memory initcode,
         bytes32 salt
-    ) external returns (address addr) {
+    ) external payable returns (address addr) {
         assembly {
             // CREATE2 with no value
             addr := create2(0, add(initcode, 0x20), mload(initcode), salt)

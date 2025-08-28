@@ -308,7 +308,7 @@ where
 	}
 
 	fn from_bytecode(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		ContractBlob::from_evm_code(code, owner)
+		ContractBlob::from_evm_runtime_code(code, owner)
 	}
 
 	fn execute<E: Ext<T = T>>(
