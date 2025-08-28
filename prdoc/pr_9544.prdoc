@@ -23,3 +23,5 @@ doc:
 crates:
 - name: pallet-xcm
   bump: patch
+- name: asset-test-utils
+  bump: patch
