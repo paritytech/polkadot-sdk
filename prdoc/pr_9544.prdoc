@@ -25,3 +25,11 @@ crates:
   bump: patch
 - name: asset-test-utils
   bump: patch
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
