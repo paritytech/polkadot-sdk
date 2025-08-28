@@ -13458,7 +13458,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "19.2.0"
+version = "19.2.1"
 dependencies = [
  "bounded-collections",
  "frame-benchmarking",
