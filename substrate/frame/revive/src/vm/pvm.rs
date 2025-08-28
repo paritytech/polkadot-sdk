@@ -458,31 +458,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		Ok(())
 	}
 
-	/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
-	///
-	/// This is used when converting the error returned from a subcall in order to decide
-	/// whether to trap the caller or allow handling of the error.
-	fn exec_error_into_return_code(from: ExecError) -> Result<ReturnErrorCode, DispatchError> {
-		use crate::exec::ErrorOrigin::Callee;
-		use ReturnErrorCode::*;
-
-		let transfer_failed = Error::<E::T>::TransferFailed.into();
-		let out_of_gas = Error::<E::T>::OutOfGas.into();
-		let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
-		let duplicate_contract = Error::<E::T>::DuplicateContract.into();
-		let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
-
-		// errors in the callee do not trap the caller
-		match (from.error, from.origin) {
-			(err, _) if err == transfer_failed => Ok(TransferFailed),
-			(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
-			(err, _) if err == unsupported_precompile => Err(err),
-			(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
-			(_, Callee) => Ok(CalleeTrapped),
-			(err, _) => Err(err),
-		}
-	}
-
 	fn decode_key(&self, memory: &M, key_ptr: u32, key_len: u32) -> Result<Key, TrapReason> {
 		let res = match key_len {
 			SENTINEL => {
@@ -823,7 +798,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => {
-				let error_code = Self::exec_error_into_return_code(err)?;
+				let error_code = super::exec_error_into_return_code::<E>(err)?;
 				memory.write(output_len_ptr, &0u32.to_le_bytes())?;
 				Ok(error_code)
 			},
@@ -908,7 +883,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(Self::exec_error_into_return_code(err)?),
+			Err(err) => Ok(super::exec_error_into_return_code::<E>(err)?),
 		}
 	}
 }
