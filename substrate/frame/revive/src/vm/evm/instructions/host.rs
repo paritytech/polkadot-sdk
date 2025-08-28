@@ -17,7 +17,10 @@
 
 use super::Context;
 
-use crate::{vm::Ext, Key, RuntimeCosts, LOG_TARGET, vm::evm::U256Converter};
+use crate::{
+	vm::{evm::U256Converter, Ext},
+	Key, RuntimeCosts, LOG_TARGET,
+};
 use revm::{
 	interpreter::{
 		gas::{self},
@@ -178,6 +181,17 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([index, value], context.interpreter);
 
+	// Charge gas before set_storage and later adjust it down to the true gas cost
+	let Ok(charged_amount) = context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
+	else {
+		context.interpreter.halt(InstructionResult::OutOfGas);
+		return;
+	};
+
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
 	let Ok(write_outcome) = context.interpreter.extend.set_storage(
@@ -188,9 +202,9 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	gas!(
-		context.interpreter,
-		RuntimeCosts::SetStorage { old_bytes: write_outcome.old_len(), new_bytes: 32 }
+	context.interpreter.extend.gas_meter_mut().adjust_gas(
+		charged_amount,
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
 	);
 }
 
@@ -200,6 +214,17 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
+
+	// Charge gas before set_storage and later adjust it down to the true gas cost
+	let Ok(charged_amount) = context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
+	else {
+		context.interpreter.halt(InstructionResult::OutOfGas);
+		return;
+	};
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
@@ -211,12 +236,12 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	match write_outcome {
 		Ok(write_outcome) => {
-			gas!(
-				context.interpreter,
+			context.interpreter.extend.gas_meter_mut().adjust_gas(
+				charged_amount,
 				RuntimeCosts::SetTransientStorage {
 					new_bytes: 32,
-					old_bytes: write_outcome.old_len()
-				}
+					old_bytes: write_outcome.old_len(),
+				},
 			);
 		},
 		Err(err) => {
