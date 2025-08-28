@@ -8,4 +8,4 @@ doc:
     Relay to Asset Hub, parachains should start to trust AH as root as well)
 crates:
 - name: emulated-integration-tests-common
-  bump: patch
+  bump: minor
