@@ -200,3 +200,24 @@ impl InputsTr for EVMInputs {
 		primitives::U256::ZERO
 	}
 }
+
+/// Blanket conversion trait between `sp_core::U256` and `revm::primitives::U256`
+trait U256Converter {
+	/// Convert `self` into `revm::primitives::U256`
+	fn into_revm_u256(&self) -> revm::primitives::U256;
+
+	/// Convert from `revm::primitives::U256` into `Self`
+	fn from_revm_u256(value: &revm::primitives::U256) -> Self;
+}
+
+impl U256Converter for sp_core::U256 {
+	fn into_revm_u256(&self) -> revm::primitives::U256 {
+		let bytes = self.to_big_endian();
+		revm::primitives::U256::from_be_bytes(bytes)
+	}
+
+	fn from_revm_u256(value: &revm::primitives::U256) -> Self {
+		let bytes = value.to_be_bytes::<32>();
+		sp_core::U256::from_big_endian(&bytes)
+	}
+}
