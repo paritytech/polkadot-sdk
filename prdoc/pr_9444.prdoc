@@ -1,0 +1,32 @@
+title: 'Feat: speculative availability'
+doc:
+- audience: Node Operator
+  description: |-
+    ### Description
+    What do we want to achieve?
+    - Request availability chunks early before the candidate gets backed on the chain.
+
+    ### How?
+    - Pull the backable candidates from the prospective parachain into the availability distribution subsystem. (Hash of candidates)
+    - request backable candidates from backing subsystem (candidate receipt)
+    - start the fetch task
+
+    As it's an early request, we assume the previous block is available.
+
+
+    ### Changes
+    - Moved request_backable_candidates, get_backable_candidates and bitfields_indicate_availability functions from `provisioner/src/lib.rs` to `subsystem-util/src/lib.rs`.
+    - Implement a function to request chunks early.
+
+    ---
+    ### Issue
+    partially resolves #5544
+crates:
+- name: polkadot-node-core-provisioner
+  bump: minor
+- name: polkadot-availability-distribution
+  bump: minor
+- name: polkadot-overseer
+  bump: minor
+- name: polkadot-node-subsystem-util
+  bump: minor
