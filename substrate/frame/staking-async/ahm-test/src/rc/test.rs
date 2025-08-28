@@ -403,7 +403,49 @@ fn keep_validator_points_if_session_report_not_sent() {
 
 #[test]
 fn reports_unexpected_event_if_too_many_validator_points() {
-	todo!();
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// create 1 too many validator points
+		for v in 0..=MaximumValidatorsWithPoints::get() {
+			ah_client::ValidatorPoints::<Runtime>::insert(v as AccountId, 100);
+		}
+
+		// roll until next session
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 1, false);
+
+		// message is placed in the outbox
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(
+				30,
+				OutgoingMessages::SessionReport(SessionReport {
+					validator_points, ..
+				})
+			)] if validator_points.len() as u32 == MaximumValidatorsWithPoints::get()
+		));
+
+		// but there is an unexpected event for us
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::ValidatorPointDropped)]
+		);
+
+		// and one validator point is left;
+		assert_eq!(ah_client::ValidatorPoints::<Runtime>::iter().count(), 1);
+
+		// it will be sent in the next session report
+		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 2, false);
+
+		assert!(matches!(
+			&LocalQueue::get_since_last_call()[..],
+			[(
+				60,
+				OutgoingMessages::SessionReport(SessionReport {
+					validator_points, ..
+				})
+			)] if validator_points.len() as u32 == 1 + 1
+			// 1 more validator point added by the authorship pallet in our test setup
+		));
+	})
 }
 
 #[test]

@@ -178,7 +178,7 @@ pub mod pallet {
 		/// any `time_slot`, `session_index``, and `slash_fraction`. These values are the inputs of
 		/// transaction, int the same order, with an `IdentiticationTuple` coming first.
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::DbWeight::get().reads(2))]
 		pub fn report_offence(
 			origin: OriginFor<T>,
 			offences: Vec<(IdentificationTuple<T>, SessionIndex, u128, u32)>,

@@ -11,7 +11,7 @@ import { withPolkadotSdkCompat } from "polkadot-api/polkadot-sdk-compat";
 import { getWsProvider } from "polkadot-api/ws-provider/web";
 import { createLogger, format, log, transports } from "winston";
 import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
-import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy } from "@polkadot-labs/hdkd-helpers";
+import { DEV_PHRASE, entropyToMiniSecret, mnemonicToEntropy, type KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
 export const GlobalTimeout = 30 * 60 * 1000;
@@ -28,7 +28,14 @@ export const logger = createLogger({
 const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));
 const derive = sr25519CreateDerive(miniSecret);
 const aliceKeyPair = derive("//Alice");
+
 export const alice = getPolkadotSigner(aliceKeyPair.publicKey, "Sr25519", aliceKeyPair.sign);
+
+export function deriveFrom(s: string, d: string): KeyPair {
+	const miniSecret = entropyToMiniSecret(mnemonicToEntropy(s));
+	const derive = sr25519CreateDerive(miniSecret);
+	return derive(d);
+}
 
 export function derivePubkeyFrom(d: string): string {
 	const miniSecret = entropyToMiniSecret(mnemonicToEntropy(DEV_PHRASE));

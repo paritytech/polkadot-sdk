@@ -268,8 +268,15 @@ pub mod pallet {
 		/// we don't iterate too many times.
 		///
 		/// Validator may change session to session, and if session reports are not sent, validator
-		/// points that we store may well grow beyond the size of the validator set. A reasonable
-		/// value is `4 x validator_set`.
+		/// points that we store may well grow beyond the size of the validator set. Yet, a too
+		/// large of an upper bound may also exceed the maximum size of a single DMP message.
+		/// Consult the test `message_queue_sizes` for more information.
+		///
+		/// Note that in case a single session report is larger than a single DMP message, it might
+		/// still be sent over if we use
+		/// [`pallet_staking_async_rc_client::XCMSender::split_and_send`]. This will make the size
+		/// of each individual message smaller, yet, it will still try and push them all to the
+		/// queue at the same time.
 		type MaximumValidatorsWithPoints: Get<u32>;
 
 		/// A type that gives us a reliable unix timestamp.
@@ -280,11 +287,18 @@ pub mod pallet {
 
 		/// Maximum number of offences to batch in a single message to AssetHub.
 		///
-		/// Used during `Active` mode to limit batch size when processing buffered offences
-		/// in `on_initialize`. During `Buffered` mode, offences are accumulated without batching.
-		/// When transitioning from `Buffered` to `Active` mode (via `on_migration_end`),
-		/// buffered offences remain stored and are processed gradually by `on_initialize`
-		/// using this batch size limit to prevent block overload.
+		/// This value is used in two places:
+		///
+		/// * (will be removed post migration): Number of buffered offences that are passed to
+		///   [`pallet_staking_async_rc_client::SendToAssetHub::relay_new_offence`]. This mechanism
+		///   sends over offences that happend during the AssetHub migration (`Buffered` mode) to AH
+		///   post migration (`Active` mode).
+		/// * Number of batched offences that are send under normal operation to AssetHub. at each
+		///   block.
+		///
+		/// Both of these happen `on_initialize.`
+		///
+		/// Sensible value: See `message_queue_sizes`.
 		///
 		/// **Performance characteristics**
 		/// - Base cost: ~30.9ms (XCM infrastructure overhead)
@@ -971,11 +985,13 @@ pub mod pallet {
 
 				// process_migration_buffered_offences will be removed post AHM
 				#[allow(deprecated)]
-				T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send).inspect_err(
-					|_| {
-						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
-					},
-				);
+				let _no_retry =
+					T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send)
+						.inspect_err(|_| {
+							Self::deposit_event(Event::Unexpected(
+								UnexpectedKind::OffenceSendFailed,
+							));
+						});
 
 				T::WeightInfo::process_migration_buffered_offences(batch_size as u32)
 			} else {
@@ -1039,7 +1055,7 @@ pub mod pallet {
 				})
 				.collect();
 
-			Weight::zero()
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 
 		/// Handle offences in Active mode.
@@ -1068,8 +1084,7 @@ pub mod pallet {
 				SendQueue::<T>::append((slash_session, offence))
 			});
 
-			// TODO
-			Weight::zero()
+			T::DbWeight::get().reads_writes(2, 2)
 		}
 	}
 }
