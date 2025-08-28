@@ -11,9 +11,8 @@ use std::{
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
 use statrs::statistics::OrderStatistics;
-use subxt::PolkadotConfig;
 use zombienet_sdk::{
-	subxt::{ext::futures, OnlineClient},
+	subxt::{ext::futures, OnlineClient, PolkadotConfig},
 	AddCollatorOptions, LocalFileSystem, Network, NetworkConfig, NetworkNode,
 };
 

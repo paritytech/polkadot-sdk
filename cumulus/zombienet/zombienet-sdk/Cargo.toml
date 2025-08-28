@@ -20,11 +20,10 @@ zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
-subxt = { version = "0.38.1", default-features = false }
 sp-statement-store = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-statrs = "0.18.0"
+statrs = { workspace = true }
 
 [features]
 zombie-ci = []
