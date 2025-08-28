@@ -2,8 +2,6 @@ title: '[XCMP] Add support for double encoded XCMs'
 doc:
 - audience: Runtime Dev
   description: |-
-    Related to https://github.com/paritytech/polkadot-sdk/issues/8308
-
     This PR adds support for sending and receiving double encoded XCMs via XCMP.
 
     ## Description
@@ -27,4 +25,4 @@ crates:
 - name: cumulus-pallet-xcmp-queue
   bump: patch
 - name: polkadot-parachain-primitives
-  bump: patch
+  bump: major
