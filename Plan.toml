@@ -2684,9 +2684,9 @@ reason = "changed"
 [[crate]]
 # polkadot/runtime/parachains
 name = "polkadot-runtime-parachains"
-from = "20.0.1"
-to = "21.0.0"
-bump = "major"
+from = "21.0.0"
+to = "21.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3266,9 +3266,9 @@ reason = "changed"
 [[crate]]
 # polkadot/runtime/westend
 name = "westend-runtime"
-from = "25.0.0"
-to = "26.0.0"
-bump = "major"
+from = "26.0.0"
+to = "26.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
