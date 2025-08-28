@@ -223,12 +223,7 @@ fn extcodecopy_works() {
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "test reverted");
 		let actual_code = {
-			let length = u32::from_be_bytes([
-				result.data[60],
-				result.data[61],
-				result.data[62],
-				result.data[63],
-			]) as usize;
+			let length = u32::from_be_bytes(result.data[60..64].try_into().unwrap()) as usize;
 			&result.data[64..64 + length]
 		};
 
