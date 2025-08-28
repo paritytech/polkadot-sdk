@@ -1512,6 +1512,7 @@ pub mod pallet {
 				fee_asset_item,
 				&assets_transfer_type,
 				&fees_transfer_type,
+				&dest,
 			)?;
 
 			Self::do_transfer_assets(
@@ -2099,6 +2100,7 @@ impl<T: Config> Pallet<T> {
 			fee_asset_item,
 			&assets_transfer_type,
 			&fees_transfer_type,
+			&dest,
 		)?;
 
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(

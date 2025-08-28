@@ -49,6 +49,7 @@ impl<T: Config> Pallet<T> {
 		fee_asset_index: usize,
 		assets_transfer_type: &TransferType,
 		fees_transfer_type: &TransferType,
+		dest: &Location,
 	) -> Result<(), Error<T>> {
 		// Extract fee asset and check both assets and fees separately.
 		let mut remaining_assets = assets.clone();
@@ -58,10 +59,10 @@ impl<T: Config> Pallet<T> {
 		let fee_asset = remaining_assets.remove(fee_asset_index);
 
 		// Check remaining assets with their transfer type.
-		Self::ensure_one_transfer_type_allowed(&remaining_assets, &assets_transfer_type)?;
+		Self::ensure_one_transfer_type_allowed(&remaining_assets, &assets_transfer_type, dest)?;
 
 		// Check fee asset with its transfer type.
-		Self::ensure_one_transfer_type_allowed(&[fee_asset], &fees_transfer_type)?;
+		Self::ensure_one_transfer_type_allowed(&[fee_asset], &fees_transfer_type, dest)?;
 
 		Ok(())
 	}
@@ -73,6 +74,7 @@ impl<T: Config> Pallet<T> {
 	fn ensure_one_transfer_type_allowed(
 		assets: &[Asset],
 		transfer_type: &TransferType,
+		dest: &Location,
 	) -> Result<(), Error<T>> {
 		// Check if any reserve transfer (LocalReserve, DestinationReserve, or RemoteReserve)
 		// is being attempted.
@@ -90,7 +92,7 @@ impl<T: Config> Pallet<T> {
 
 		// Check if any asset is a network native asset.
 		for asset in assets {
-			if Self::is_network_native_asset(&asset.id) {
+			if Self::is_network_native_asset(&asset.id, dest) {
 				tracing::debug!(
 					target: "xcm::pallet_xcm::transfer_assets",
 					asset_id = ?asset.id, ?transfer_type,
@@ -109,7 +111,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns true if the asset is a native network asset (DOT, KSM, WND, PAS) that should be
 	/// blocked during Asset Hub Migration.
-	fn is_network_native_asset(asset_id: &AssetId) -> bool {
+	fn is_network_native_asset(asset_id: &AssetId, dest: &Location) -> bool {
 		let universal_location = T::UniversalLocation::get();
 		let asset_location = &asset_id.0;
 
@@ -151,7 +153,8 @@ impl<T: Config> Pallet<T> {
 						},
 						_ => false,
 					};
-					is_target_network && *asset_location == Location::parent()
+					let is_remote_network = dest.parents == 2;
+					is_target_network && *asset_location == Location::parent() && !is_remote_network
 				} else {
 					false
 				}
