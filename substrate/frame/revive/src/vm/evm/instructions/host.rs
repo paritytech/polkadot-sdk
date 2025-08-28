@@ -17,7 +17,7 @@
 
 use super::Context;
 
-use crate::{vm::Ext, Key, RuntimeCosts, LOG_TARGET};
+use crate::{vm::Ext, Key, RuntimeCosts, LOG_TARGET, vm::evm::U256Converter};
 use revm::{
 	interpreter::{
 		gas::{self},
@@ -35,17 +35,14 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BalanceOf);
 	popn_top!([], top, context.interpreter);
 	let h160 = sp_core::H160::from_slice(&top.to_be_bytes::<32>()[12..]);
-	let balance = context.interpreter.extend.balance_of(&h160);
-	let bytes: [u8; 32] = balance.to_big_endian();
-	*top = U256::from_be_bytes(bytes);
+	*top = context.interpreter.extend.balance_of(&h160).into_revm_u256();
 }
 
 /// EIP-1884: Repricing for trie-size-dependent opcodes
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Balance);
 	let balance = context.interpreter.extend.balance();
-	let bytes: [u8; 32] = balance.to_big_endian();
-	let alloy_balance = U256::from_be_bytes(bytes);
+	let alloy_balance = balance.into_revm_u256();
 	push!(context.interpreter, alloy_balance);
 }
 
