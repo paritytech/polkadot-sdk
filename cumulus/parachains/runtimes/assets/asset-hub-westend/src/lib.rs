@@ -2238,8 +2238,26 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
+					// We get an account to create USDT and give it enough WND to exist.
+					let account = frame_benchmarking::whitelisted_caller();
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+						&account,
+						ExistentialDeposit::get() + (1_000 * UNITS)
+					));
+
+					// We then create USDT.
+					let usdt_location = Location::new(0, [PalletInstance(50), GeneralIndex(1984)]);
+					assert_ok!(ForeignAssets::force_create(
+						RuntimeOrigin::root(),
+						usdt_location.clone().into(),
+						account.clone().into(),
+						true,
+						1
+					));
+
+					// And return USDT as the reserve transferable asset.
 					Some((
-						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(Parent.into()) },
+						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(usdt_location) },
 						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}
