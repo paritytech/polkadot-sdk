@@ -108,7 +108,12 @@ pub struct OverlayedChanges<H: Hasher> {
 	/// Caches the "storage transaction" that is created while calling `storage_root`.
 	///
 	/// This transaction can be applied to the backend to persist the state changes.
-	storage_transaction_cache: Option<()>,
+	storage_transaction_cache: Option<StorageTransactionCache<H>>,
+
+	/// Caches the "storage transaction" that is created while calling `storage_root`.
+	///
+	/// This transaction can be applied to the backend to persist the state changes.
+	storage_transaction_cache2_flag: Option<()>,
 
 	// todo: better name
 	storage_transaction_cache2: xxx::BackendSnapshots<StorageTransactionCache<H>>,
@@ -124,6 +129,7 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
+			storage_transaction_cache2_flag: None,
 			storage_transaction_cache2: Default::default(),
 		}
 	}
@@ -139,6 +145,7 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			collect_extrinsics: self.collect_extrinsics,
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
+			storage_transaction_cache2_flag: self.storage_transaction_cache2_flag.clone(),
 			storage_transaction_cache2: self.storage_transaction_cache2.clone(),
 		}
 	}
@@ -315,6 +322,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// `storage_transaction_cache`.
 	fn mark_dirty(&mut self) {
 		self.storage_transaction_cache = None;
+		self.storage_transaction_cache2_flag = None;
 	}
 
 	/// Returns a double-Option: None if the key is unknown (i.e. and the query should be referred
@@ -599,18 +607,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 	where
 		H::Out: Ord + Encode + 'static + codec::Codec,
 	{
-		let (transaction, transaction_storage_root) =
-			match self.storage_transaction_cache2.take_and_consolidate() {
-				Some(cache) => cache.into_inner(),
-				// If the transaction does not exist, we generate it.
-				None => {
-					self.storage_root(backend, state_version);
-					self.storage_transaction_cache2
-						.take_and_consolidate()
-						.expect("`storage_transaction_cache` was just initialized; qed")
-						.into_inner()
-				},
-			};
+		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
+			Some(cache) => cache.into_inner(),
+			// If the transaction does not exist, we generate it.
+			None => {
+				self.storage_root(backend, state_version);
+				self.storage_transaction_cache
+					.take()
+					.expect("`storage_transaction_cache` was just initialized; qed")
+					.into_inner()
+			},
+		};
 
 		use core::mem::take;
 		let main_storage_changes =
@@ -667,9 +674,37 @@ impl<H: Hasher> OverlayedChanges<H> {
 		state_version: StateVersion,
 	) -> (H::Out, bool)
 	where
+		H::Out: Ord + Encode,
+	{
+		if let Some(cache) = &self.storage_transaction_cache {
+			return (cache.transaction_storage_root, true)
+		}
+
+		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
+
+		let child_delta = self
+			.children
+			.values_mut()
+			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
+
+		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
+
+		self.storage_transaction_cache =
+			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
+
+		(root, false)
+	}
+
+	// todo: doc
+	pub fn trigger_storage_root_size_estimation<B: Backend<H>>(
+		&mut self,
+		backend: &B,
+		state_version: StateVersion,
+	) -> (H::Out, bool)
+	where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		if self.storage_transaction_cache.is_some() {
+		if self.storage_transaction_cache2_flag.is_some() {
 			if let Some(cache) = self.storage_transaction_cache2.recent_item() {
 				crate::debug!(target: "overlayed_changes", "storage_root (cache)");
 				return (cache.transaction_storage_root, true)
@@ -720,7 +755,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			// crate::debug!(target: "overlayed_changes", "XXXXXXX: {:?} delta: {} snapshot_len:
 			// {}", root2, delta_count, snapshot_len);
 
-			self.storage_transaction_cache = Some(());
+			self.storage_transaction_cache2_flag = Some(());
 			// self.storage_transaction_cache = Some(StorageTransactionCache {
 			// 	transaction: transaction.clone(),
 			// 	transaction_storage_root: root2,
