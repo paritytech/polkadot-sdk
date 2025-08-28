@@ -106,7 +106,8 @@ fn run<WIRE: InterpreterTypes>(
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
 	let action = run_plain(interpreter, table, host);
-	log::trace!("{:?}", action);
+	#[cfg(feature = "std")]
+	log::trace!(target: LOG_TARGET, "{:?}", action);
 	match action {
 		InterpreterAction::Return(result) => return result,
 		InterpreterAction::NewFrame(_) => {
@@ -129,15 +130,16 @@ fn run_plain<WIRE: InterpreterTypes>(
 	use crate::{alloc::string::ToString, format};
 	use revm::bytecode::OpCode;
 	while interpreter.bytecode.is_not_end() {
-		log::trace!(
-			"[{}]: {}, stacktop: {}, memory size: {} {:?}",
-			interpreter.bytecode.pc(),
-			OpCode::new(interpreter.bytecode.opcode())
+		#[cfg(feature = "std")]
+		log::trace!(target: LOG_TARGET, 
+			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
+			pc = interpreter.bytecode.pc(),
+			opcode = OpCode::new(interpreter.bytecode.opcode())
 				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
-			interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
-			interpreter.memory.size(),
+			stacktop = interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
+			memsize = interpreter.memory.size(),
 			// printing at most the first 32 bytes of memory
-			interpreter
+			memory = interpreter
 				.memory
 				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
 				.to_vec(),
