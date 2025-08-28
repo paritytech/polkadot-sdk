@@ -123,7 +123,7 @@ use frame_support::traits::PalletInfoAccess;
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, WeightLimit, XCM_VERSION,
+	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 
 use xcm_runtime_apis::{
@@ -2246,10 +2246,11 @@ pallet_revive::impl_runtime_apis_plus_revive!(
 					));
 
 					// We then create USDT.
-					let usdt_location = Location::new(0, [PalletInstance(50), GeneralIndex(1984)]);
-					assert_ok!(ForeignAssets::force_create(
+					let usdt_id = 1984u32;
+					let usdt_location = Location::new(0, [PalletInstance(50), GeneralIndex(usdt_id.into())]);
+					assert_ok!(Assets::force_create(
 						RuntimeOrigin::root(),
-						usdt_location.clone().into(),
+						usdt_id.into(),
 						account.clone().into(),
 						true,
 						1
