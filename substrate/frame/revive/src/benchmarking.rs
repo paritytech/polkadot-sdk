@@ -2401,7 +2401,7 @@ mod benchmarks {
 			v2::Migration::<T>::step(None, &mut meter).unwrap();
 		}
 
-		v2::Migration::<T>::assert_migrated_code_info_matches(code_hash, &old_code_info);
+		v2::Migration::<T>::assert_migrated_code_info(code_hash, &old_code_info);
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);

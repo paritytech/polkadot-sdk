@@ -38,7 +38,7 @@ use frame_support::{
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
-use frame_support::sp_runtime::TryRuntimeError;
+use frame_support::{sp_runtime::TryRuntimeError, traits::fungible::InspectHold};
 
 /// Module containing the old storage items.
 mod old {
@@ -172,6 +172,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
+		use sp_runtime::{traits::Zero, Saturating};
 
 		// Check the state of the storage after the migration.
 		let prev_map = BTreeMap::<H256, old::CodeInfo<T>>::decode(&mut &prev[..])
@@ -184,10 +185,13 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			"Migration failed: the number of items in the storage after the migration is not the same as before"
 		);
 
+		let deposit_sum: crate::BalanceOf<T> = Zero::zero();
+
 		for (key, value) in prev_map {
 			let new_value = new::CodeInfoOf::<T>::get(key)
 				.expect("Failed to get the value after the migration");
 
+			deposit_sum.saturating_add(value.deposit);
 			let expected = new::CodeInfo {
 				owner: value.owner,
 				deposit: value.deposit,
@@ -201,6 +205,20 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				new_value, expected,
 				"Migration failed: CodeInfo mismatch for key {:?}",
 				key
+			);
+
+			assert!(<T as Config>::Currency::balance_on_hold(
+				&crate::HoldReason::CodeUploadDepositReserve.into(),
+				&expected.owner
+			)
+			.is_zero());
+
+			assert_eq!(
+				<T as Config>::Currency::balance_on_hold(
+					&crate::HoldReason::CodeUploadDepositReserve.into(),
+					&Pallet::<T>::pallet_account(),
+				),
+				deposit_sum,
 			);
 		}
 
@@ -223,11 +241,17 @@ impl<T: Config> Migration<T> {
 		code_len: u32,
 		behaviour_version: u32,
 	) -> old::CodeInfo<T> {
+		use frame_support::traits::fungible::Mutate;
+		T::Currency::mint_into(&owner, Pallet::<T>::min_balance() + deposit)
+			.expect("Failed to mint into owner account");
+		T::Currency::hold(&crate::HoldReason::CodeUploadDepositReserve.into(), &owner, deposit)
+			.expect("Failed to hold the deposit on the owner account");
+
 		old::CodeInfo { owner, deposit, refcount, code_len, behaviour_version }
 	}
 
 	/// Assert that the migrated CodeInfo matches the expected values from the old CodeInfo.
-	pub fn assert_migrated_code_info_matches(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+	pub fn assert_migrated_code_info(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
 		let migrated =
 			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
 
@@ -282,7 +306,7 @@ fn migrate_to_v2() {
 
 		// Verify all values match between old and new with code_type set to PVM
 		for (code_hash, old_value) in original_values {
-			Migration::<Test>::assert_migrated_code_info_matches(code_hash, &old_value);
+			Migration::<Test>::assert_migrated_code_info(code_hash, &old_value);
 		}
 	})
 }

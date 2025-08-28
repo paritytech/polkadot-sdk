@@ -403,7 +403,7 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
 				(checking_account.clone(), 1_000_000_000_000),
-				(Pallet::<Test>::pallet_account(), 1_000_000_000_000),
+				(Pallet::<Test>::pallet_account(), Contracts::min_balance()),
 			],
 			..Default::default()
 		}
