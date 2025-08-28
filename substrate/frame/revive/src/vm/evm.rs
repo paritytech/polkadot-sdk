@@ -152,7 +152,7 @@ fn run_plain<WIRE: InterpreterTypes>(
 	use revm::bytecode::OpCode;
 	while interpreter.bytecode.is_not_end() {
 		#[cfg(feature = "std")]
-		log::trace!(target: LOG_TARGET, 
+		log::trace!(target: LOG_TARGET,
 			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
 			pc = interpreter.bytecode.pc(),
 			opcode = OpCode::new(interpreter.bytecode.opcode())
