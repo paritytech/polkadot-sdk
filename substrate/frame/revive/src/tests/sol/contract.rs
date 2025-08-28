@@ -6,13 +6,13 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE, ALICE_ADDR},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, Error,
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes, U256},
 	sol_types::SolCall,
 };
-use frame_support::traits::fungible::Mutate;
+use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
@@ -235,6 +235,24 @@ fn call_invalid_opcode() {
 			assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
 		});
 	}
+}
+
+#[test]
+fn invalid_opcode_evm() {
+	let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Instantiate the callee contract, which can echo a value.
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(callee_addr)
+			.data(Callee::invalidCall {}.abi_encode().into())
+			.build();
+		assert_err!(result.result, <Error<Test>>::InvalidInstruction);
+	});
 }
 
 #[test]
