@@ -555,6 +555,18 @@ where
 		root.encode()
 	}
 
+	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
+		let _guard = guard();
+
+		self.overlay.trigger_storage_root_size_estimation(self.backend, state_version);
+
+		trace!(
+			target: "state",
+			method = "TriggerStorageRootSizeEstimation",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+		);
+	}
+
 	fn child_storage_root(
 		&mut self,
 		child_info: &ChildInfo,

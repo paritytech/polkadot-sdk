@@ -310,6 +310,10 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
+	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
+		todo!()
+	}
+
 	fn storage_start_transaction(&mut self) {
 		self.overlay.start_transaction()
 	}
