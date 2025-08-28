@@ -35,7 +35,7 @@ mod benchmarks {
 	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
@@ -48,10 +48,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -67,7 +67,7 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -83,10 +83,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
-		T::Currency::make_free_balance_be(&original, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&original, BalanceOf::<T>::max_value());
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::Currency::make_free_balance_be(&recipient, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&recipient, BalanceOf::<T>::max_value());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
 
@@ -102,7 +102,7 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -118,7 +118,7 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
 		let original_deposit = T::Deposit::get();
 
