@@ -1331,10 +1331,6 @@ where
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
 				if !is_pvm {
-					if output.data.len() > revm::primitives::eip170::MAX_CODE_SIZE {
-						return Err(Error::<T>::BlobTooLarge.into());
-					}
-
 					// Only keep return data for tracing
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
 						core::mem::replace(&mut output.data, Default::default())
@@ -1342,12 +1338,15 @@ where
 						output.data.clone()
 					};
 
-					let mut module = crate::ContractBlob::<T>::from_evm_init_code(
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
 						data,
 						caller.account_id()?.clone(),
 					)?;
-					code_deposit = module.store_code(skip_transfer)?;
+					module.store_code(skip_transfer)?;
+					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
+
+					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
 				}
 
 				let deposit = contract_info.update_base_deposit(code_deposit);

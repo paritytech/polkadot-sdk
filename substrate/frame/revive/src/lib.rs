@@ -107,7 +107,6 @@ pub use crate::vm::pvm::SyscallDoc;
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
@@ -496,8 +495,11 @@ pub mod pallet {
 	}
 
 	/// A mapping from a contract's code hash to its code.
+	/// The code's size is bounded by [`crate::limits::BLOB_BYTES`] for PVM and
+	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
 	#[pallet::storage]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
+	#[pallet::unbounded]
+	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
