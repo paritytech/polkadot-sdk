@@ -62,13 +62,24 @@ contract Host {
         }
     }
 
-    function log3Op(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3) public {
+    function log3Op(
+        bytes32 data,
+        bytes32 topic1,
+        bytes32 topic2,
+        bytes32 topic3
+    ) public {
         assembly {
             log3(data, 0x20, topic1, topic2, topic3)
         }
     }
 
-    function log4Op(bytes32 data, bytes32 topic1, bytes32 topic2, bytes32 topic3, bytes32 topic4) public {
+    function log4Op(
+        bytes32 data,
+        bytes32 topic1,
+        bytes32 topic2,
+        bytes32 topic3,
+        bytes32 topic4
+    ) public {
         assembly {
             log4(data, 0x20, topic1, topic2, topic3, topic4)
         }
