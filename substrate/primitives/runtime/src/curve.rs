@@ -71,7 +71,9 @@ where
 		Self { start, end, initial_value, step, period }
 	}
 
-	/// Step size
+	/// Returns the last occuring step size from a given `point`.
+	/// 
+	/// Ex. In period 4, the last step was 10 -> 7, it would return -3.
 	pub fn step_size_at(&self, point: P) -> V {
 		self.initial_value
 	}
