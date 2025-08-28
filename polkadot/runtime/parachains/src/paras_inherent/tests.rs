@@ -2602,7 +2602,7 @@ mod sanitizers {
 
 		// Generate test data for the candidates and assert that the environment is set as expected
 		// (check the comments for details)
-		fn get_test_data_one_core_per_para() -> TestData {
+		fn get_test_data_one_core_per_para(backing_kind: BackingKind) -> TestData {
 			const RELAY_PARENT_NUM: u32 = 3;
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
@@ -2629,6 +2629,10 @@ mod sanitizers {
 				sp_keyring::Sr25519Keyring::Charlie,
 				sp_keyring::Sr25519Keyring::Dave,
 				sp_keyring::Sr25519Keyring::Eve,
+				sp_keyring::Sr25519Keyring::Ferdie,
+				sp_keyring::Sr25519Keyring::One,
+				sp_keyring::Sr25519Keyring::Two,
+				sp_keyring::Sr25519Keyring::AliceStash,
 			];
 			for validator in validators.iter() {
 				Keystore::sr25519_generate_new(
@@ -2657,8 +2661,8 @@ mod sanitizers {
 
 			// Set the validator groups in `scheduler`
 			scheduler::Pallet::<Test>::set_validator_groups(vec![
-				vec![ValidatorIndex(0), ValidatorIndex(1)],
-				vec![ValidatorIndex(2), ValidatorIndex(3)],
+				vec![ValidatorIndex(0), ValidatorIndex(1), ValidatorIndex(2), ValidatorIndex(3)],
+				vec![ValidatorIndex(4), ValidatorIndex(5), ValidatorIndex(6), ValidatorIndex(7)],
 			]);
 
 			// Update scheduler's claimqueue with the parachains
@@ -2713,8 +2717,8 @@ mod sanitizers {
 			// Callback used for backing candidates
 			let group_validators = |group_index: GroupIndex| {
 				match group_index {
-					group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1]),
-					group_index if group_index == GroupIndex::from(1) => Some(vec![2, 3]),
+					group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1, 2, 3]),
+					group_index if group_index == GroupIndex::from(1) => Some(vec![4, 5, 6, 7]),
 					_ => panic!("Group index out of bounds"),
 				}
 				.map(|m| m.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
@@ -2748,7 +2752,7 @@ mod sanitizers {
 						group_validators(GroupIndex::from(idx0 as u32)).unwrap().as_ref(),
 						&keystore,
 						&signing_context,
-						BackingKind::Threshold,
+						backing_kind,
 						CoreIndex(idx0 as u32),
 					);
 					backed
@@ -2767,7 +2771,11 @@ mod sanitizers {
 					ValidatorIndex(1),
 					ValidatorIndex(2),
 					ValidatorIndex(3),
-					ValidatorIndex(4)
+					ValidatorIndex(4),
+					ValidatorIndex(5),
+					ValidatorIndex(6),
+					ValidatorIndex(7),
+					ValidatorIndex(8),
 				]
 			);
 
@@ -4218,7 +4226,7 @@ mod sanitizers {
 					backed_candidates,
 					expected_backed_candidates_with_core,
 					scheduled_paras: scheduled,
-				} = get_test_data_one_core_per_para();
+				} = get_test_data_one_core_per_para(BackingKind::Threshold);
 
 				assert_eq!(
 					sanitize_backed_candidates::<Test>(
@@ -4430,7 +4438,7 @@ mod sanitizers {
 				let TestData { backed_candidates, .. } = if multiple_cores_per_para {
 					get_test_data_multiple_cores_per_para(v2_descriptor)
 				} else {
-					get_test_data_one_core_per_para()
+					get_test_data_one_core_per_para(BackingKind::Threshold)
 				};
 				let scheduled = BTreeMap::new();
 
@@ -4451,7 +4459,7 @@ mod sanitizers {
 		fn concluded_invalid_are_filtered_out_single_core_per_para() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { backed_candidates, scheduled_paras: scheduled, .. } =
-					get_test_data_one_core_per_para();
+					get_test_data_one_core_per_para(BackingKind::Threshold);
 
 				// mark every second one as concluded invalid
 				let set = {
@@ -4564,15 +4572,15 @@ mod sanitizers {
 		fn disabled_non_signing_validator_doesnt_get_filtered() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para();
+					get_test_data_one_core_per_para(BackingKind::Threshold);
 
-				// Disable Eve
-				set_disabled_validators(vec![4]);
+				// Disable `AliceStash`
+				set_disabled_validators(vec![7]);
 
 				let before = expected_backed_candidates_with_core.clone();
 
-				// Eve is disabled but no backing statement is signed by it so nothing should be
-				// filtered
+				// AliceStash is disabled but no backing statement is signed by it so nothing should
+				// be filtered
 				filter_backed_statements_from_disabled_validators::<Test>(
 					&mut expected_backed_candidates_with_core,
 					&shared::AllowedRelayParents::<Test>::get(),
@@ -4585,7 +4593,7 @@ mod sanitizers {
 		fn drop_statements_from_disabled_without_dropping_candidate() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para();
+					get_test_data_one_core_per_para(BackingKind::Threshold);
 
 				// Disable Alice
 				set_disabled_validators(vec![0]);
@@ -4686,7 +4694,7 @@ mod sanitizers {
 		fn drop_candidate_if_all_statements_are_from_disabled_single_core_per_para() {
 			new_test_ext(default_config()).execute_with(|| {
 				let TestData { mut expected_backed_candidates_with_core, .. } =
-					get_test_data_one_core_per_para();
+					get_test_data_one_core_per_para(BackingKind::Threshold);
 
 				// Disable Alice and Bob
 				set_disabled_validators(vec![0, 1]);
@@ -4775,6 +4783,94 @@ mod sanitizers {
 					assert_eq!(expected_backed_candidates_with_core, untouched);
 				});
 			}
+		}
+
+		// Disable Dave which is 4th validator in group for core 0.
+		// Para 0 candidate has a single valid vote that is removed
+		// because Dave is disabled.
+		//
+		// This test ensures we remove the right validity vote from the backed candidate.
+		#[test]
+		fn drop_right_vote_basic() {
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para(BackingKind::Unanimous);
+
+				set_disabled_validators(vec![3]);
+
+				let (backed, _) = expected_backed_candidates_with_core
+					.get_mut(&ParaId::from(1))
+					.unwrap()
+					.first_mut()
+					.unwrap();
+				let (indices, core) = backed.validator_indices_and_core_index();
+				let mut indices = BitVec::<_>::from(indices);
+
+				indices.set(0, false);
+				indices.set(1, false);
+				backed.validity_votes_mut().remove(0);
+				backed.validity_votes_mut().remove(1);
+
+				backed.set_validator_indices_and_core_index(indices, core);
+
+				let mut untouched = expected_backed_candidates_with_core.clone();
+
+				filter_backed_statements_from_disabled_validators::<Test>(
+					&mut expected_backed_candidates_with_core,
+					&shared::AllowedRelayParents::<Test>::get(),
+				);
+
+				untouched.remove(&ParaId::from(1)).unwrap();
+
+				assert_eq!(expected_backed_candidates_with_core, untouched);
+			});
+		}
+
+		// Disable Bob which is second validator in group for core 0.
+		//
+		// This test ensures we remove the right validty votes from the backed candidate,
+		// and calls `process_candidates` that will check the vote signatures.
+		// Will fail if we remove the wrong vote.
+		#[test]
+		fn drop_right_vote_and_process_candidates() {
+			new_test_ext(default_config()).execute_with(|| {
+				let TestData { mut expected_backed_candidates_with_core, .. } =
+					get_test_data_one_core_per_para(BackingKind::Unanimous);
+
+				// Second validator in group is disabled.
+				set_disabled_validators(vec![1]);
+
+				let (backed, _) = expected_backed_candidates_with_core
+					.get_mut(&ParaId::from(1))
+					.unwrap()
+					.first_mut()
+					.unwrap();
+				let (indices, core) = backed.validator_indices_and_core_index();
+				let mut indices = BitVec::<_>::from(indices);
+
+				// First validator did not provide vote.
+				indices.set(0, false);
+				backed.validity_votes_mut().remove(0);
+				backed.set_validator_indices_and_core_index(indices, core);
+
+				let untouched = expected_backed_candidates_with_core.clone();
+
+				filter_backed_statements_from_disabled_validators::<Test>(
+					&mut expected_backed_candidates_with_core,
+					&shared::AllowedRelayParents::<Test>::get(),
+				);
+
+				let candidate_receipt_with_backing_validator_indices =
+					inclusion::Pallet::<Test>::process_candidates(
+						&shared::AllowedRelayParents::<Test>::get(),
+						&expected_backed_candidates_with_core,
+						scheduler::Pallet::<Test>::group_validators,
+					)
+					.unwrap();
+
+				// No candidate was dropped.
+				assert_eq!(candidate_receipt_with_backing_validator_indices.len(), untouched.len());
+			});
 		}
 	}
 }
