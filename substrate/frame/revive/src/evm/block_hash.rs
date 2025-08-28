@@ -258,7 +258,66 @@ impl Block {
 	}
 }
 
-/// Build the Trie Root Hash incrementally.
+/// The Incremental Hash Builder is designed to efficiently compute the transaction and receipt
+/// trie roots in Ethereum, minimizing memory usage. This is achieved by constructing the Merkle
+/// Trie incrementally, rather than storing all values in memory simultaneously.
+///
+/// ## ETH Trie Overview
+///
+/// In Ethereum, the trie calculates the hash of a node (leaf) by combining the remaining key path
+/// with the RLP-encoded item, as follows:
+///
+/// ```ignore
+/// 	hash (remaining of the key path ++ RLP (item))
+/// ```
+///
+/// Because the hash incorporates the remaining key path, computing the trie root accurately
+/// requires more than just the hash of the RLP-encoded item (hash(RLP(item))). To address this, the
+/// Incremental Hash Builder leverages the internal structure of the Ethereum trie to optimize
+/// memory usage.
+///
+/// The Ethereum trie is ordered by the RLP-encoded index of items (RLP(index)). This ordering
+/// allows the trie to be built incrementally, provided the items are added in a consistent order.
+/// We leverage the following property of encoding RLP indexes to avoid sorting the items (and
+/// therefore, we avoid knowing the number of items in advance):
+///
+/// ```ignore
+/// rlp(1) < rlp(2) < ... < rlp(127) < RLP (0) < rlp(128) < ... < rlp(n)
+/// ```
+/// For more details see:
+/// https://github.com/alloy-rs/trie/blob/3e762bcb65f25710c309e7d8cb6c9ed7e3fdada1/src/root.rs#L7-L16
+///
+/// This property allows the builder to add items in the order of indices 1, 2, ..., 127, followed
+/// by index 0, and then index 128 onward. In this implementation, the focus is on placing the first
+/// RLP encoded value at index 128.
+///
+/// The primary optimization comes from computing the hash (remaining_key_path ++ RLP(item)) as
+/// early as possible during the trie construction process. This approach minimizes the memory
+/// required by avoiding the need to store all items simultaneously.
+///
+/// For transactions, from real ethereum block, we can observe the following:
+///  - worst case we use 90% less space
+///  - best case we use 99.5% less space
+///
+/// ```ignore
+///  hash max 8042
+///  hash min 444
+///  hash total 79655
+///  hash saved worst case 0.1009603916891595
+///  hash saved best case 0.005574038039043374
+/// ```
+///
+/// For receipts, from real ethereum block, we can observe the following:
+/// - worst case we use 94% less space
+/// - best case we use 99.3% less space
+///
+/// ```ignore
+///  hash max 7249
+///  hash min 760
+///  hash total 106054
+///  hash saved worst case 0.06835197163709054
+///  hash saved best case 0.007166160635148132
+/// ```
 pub struct IncrementalHashBuilder {
 	/// Hash builder.
 	hash_builder: HashBuilder,
@@ -266,12 +325,24 @@ pub struct IncrementalHashBuilder {
 	index: usize,
 	/// RLP encoded value.
 	first_value: Option<Vec<u8>>,
+
+	__metrics_min: usize,
+	__metrics_max: usize,
+	__metrics_total_values: usize,
 }
 
 impl IncrementalHashBuilder {
 	/// Construct the hash builder from the first value.
 	pub fn new(first_value: Vec<u8>) -> Self {
-		Self { hash_builder: HashBuilder::default(), index: 1, first_value: Some(first_value) }
+		Self {
+			hash_builder: HashBuilder::default(),
+			index: 1,
+			first_value: Some(first_value),
+
+			__metrics_min: usize::MAX,
+			__metrics_max: 0,
+			__metrics_total_values: 0,
+		}
 	}
 
 	/// Add a new value to the hash builder.
@@ -291,6 +362,12 @@ impl IncrementalHashBuilder {
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		self.index += 1;
+
+		// Update metrics.
+		let used_mem = self.__hash_size();
+		self.__metrics_min = self.__metrics_min.min(used_mem);
+		self.__metrics_max = self.__metrics_max.max(used_mem);
+		self.__metrics_total_values += value.len();
 	}
 
 	/// Build the trie root hash.
@@ -304,7 +381,58 @@ impl IncrementalHashBuilder {
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
+		println!(" hash max {}", self.__metrics_max);
+		println!(" hash min {}", self.__metrics_min);
+		println!(" hash total {}", self.__metrics_total_values);
+		println!(
+			" hash saved worst case {}",
+			self.__metrics_max as f64 / self.__metrics_total_values as f64
+		);
+		println!(
+			" hash saved best case {}",
+			self.__metrics_min as f64 / self.__metrics_total_values as f64
+		);
+
 		self.hash_builder.root().0.into()
+	}
+
+	fn __hash_size(&self) -> usize {
+		// Masks store u16 (2 bytes):
+		let masks_len = (self.hash_builder.state_masks.len() +
+			self.hash_builder.tree_masks.len() +
+			self.hash_builder.hash_masks.len()) *
+			2;
+
+		// Nibble key is:
+		// pub struct Nibbles {
+		//     /// Nibbles length.
+		//     // This field goes first, because the derived implementation of `PartialEq` compares
+		// the fields     // in order, so we can short-circuit the comparison if the `length`
+		// field differs.     pub(crate) length: usize,
+		//     /// The nibbles themselves, stored as a 256-bit unsigned integer with most
+		// significant bits set     /// first.
+		//     pub(crate) nibbles: U256,
+		// }
+		// This could be reduced to 40 bytes.
+		40 +
+
+			//	Value is of form:
+			// pub struct HashBuilderValue {
+			// 	/// Stores the bytes of either the leaf node value or the hash of adjacent nodes.
+			// 	#[cfg_attr(feature = "serde", serde(with = "hex"))]
+			// 	buf: Vec<u8>,
+			// 	/// The kind of value that is stored in `buf`.
+			// 	kind: HashBuilderValueKind,
+			// }
+			self.hash_builder.value.as_slice().len() +
+
+			// RLP nodes in stack are represented by:
+			// const MAX: usize = 33;
+			// pub struct RlpNode(ArrayVec<u8, MAX>);
+			self.hash_builder.stack.len() * 33 +
+
+			// pub rlp_buf: Vec<u8>,
+			masks_len + self.hash_builder.rlp_buf.len()
 	}
 }
 
