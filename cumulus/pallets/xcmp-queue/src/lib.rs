@@ -879,7 +879,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							Ok(ChannelSignal::Resume) => Self::resume_channel(sender),
 							Err(_) => {
 								defensive!("Undecodable channel signal - dropping");
-								break
+								continue
 							},
 						}
 					},
