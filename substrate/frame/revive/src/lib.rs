@@ -545,6 +545,13 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			if !System::<T>::account_exists(&Pallet::<T>::pallet_account()) {
+				let _ = T::Currency::mint_into(
+					&Pallet::<T>::pallet_account(),
+					T::Currency::minimum_balance(),
+				);
+			}
+
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
