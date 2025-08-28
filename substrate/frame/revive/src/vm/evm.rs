@@ -19,8 +19,8 @@ use crate::{
 	exec::ExecError,
 	vec,
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, BalanceOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error,
-	ExecReturnValue, H256, LOG_TARGET, U256,
+	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
+	LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
@@ -200,7 +200,7 @@ fn run_call<'a, E: Ext>(
 			Weight::from_parts(call_input.gas_limit, u64::MAX),
 			U256::MAX,
 			&callee,
-			U256::from_little_endian(call_input.call_value().as_le_slice()),
+			U256::from_revm_u256(&call_input.call_value()),
 			input,
 			true,
 			call_input.is_static,
@@ -248,7 +248,7 @@ fn run_create<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	create_input: Box<CreateInputs>,
 ) {
-	let value = U256::from_little_endian(create_input.value.as_le_slice());
+	let value = U256::from_revm_u256(&create_input.value);
 
 	let salt = match create_input.scheme {
 		CreateScheme::Create => None,

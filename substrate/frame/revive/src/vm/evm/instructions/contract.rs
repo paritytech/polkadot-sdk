@@ -17,14 +17,16 @@
 
 mod call_helpers;
 
-pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
-
 use super::{utility::IntoAddress, Context};
 use crate::{
-	vm::{evm::EVM_INITCODE_LIMIT, Ext, RuntimeCosts},
+	vm::{
+		evm::{U256Converter, EVM_INITCODE_LIMIT},
+		Ext, RuntimeCosts,
+	},
 	Pallet,
 };
 use alloc::boxed::Box;
+pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
@@ -56,7 +58,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 
 	// TODO: We do not charge for the new code in storage. When implementing the new gas:
 	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
-	let val = crate::U256::from_little_endian(value.as_le_slice());
+	let val = crate::U256::from_revm_u256(&value);
 	gas!(
 		context.interpreter,
 		RuntimeCosts::Instantiate {

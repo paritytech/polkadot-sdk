@@ -17,7 +17,7 @@
 
 use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
-	vm::Ext,
+	vm::{evm::U256Converter, Ext},
 	Pallet, RuntimeCosts,
 };
 use core::ops::Range;
@@ -106,9 +106,7 @@ pub fn calc_call_gas<'a, E: Ext>(
 		gas!(
 			interpreter,
 			RuntimeCosts::CallTransferSurcharge {
-				dust_transfer: Pallet::<E::T>::has_dust(crate::U256::from_little_endian(
-					value.as_le_slice()
-				)),
+				dust_transfer: Pallet::<E::T>::has_dust(crate::U256::from_revm_u256(&value)),
 			},
 			None
 		);

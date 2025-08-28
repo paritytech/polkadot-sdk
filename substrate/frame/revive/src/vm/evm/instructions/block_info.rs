@@ -18,7 +18,7 @@
 use super::Context;
 use crate::{
 	vm::{
-		evm::{BASE_FEE, DIFFICULTY},
+		evm::{U256Converter, BASE_FEE, DIFFICULTY},
 		Ext,
 	},
 	RuntimeCosts,
@@ -51,7 +51,7 @@ pub fn coinbase<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn timestamp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Now);
 	let timestamp = context.interpreter.extend.now();
-	push!(context.interpreter, U256::from_limbs(timestamp.0));
+	push!(context.interpreter, timestamp.into_revm_u256());
 }
 
 /// Implements the NUMBER instruction.
@@ -60,7 +60,7 @@ pub fn timestamp<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn block_number<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BlockNumber);
 	let block_number = context.interpreter.extend.block_number();
-	push!(context.interpreter, U256::from_limbs(block_number.0));
+	push!(context.interpreter, block_number.into_revm_u256());
 }
 
 /// Implements the DIFFICULTY/PREVRANDAO instruction.
@@ -83,7 +83,7 @@ pub fn gaslimit<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BaseFee);
-	push!(context.interpreter, U256::from_limbs(BASE_FEE.0));
+	push!(context.interpreter, BASE_FEE.into_revm_u256());
 }
 
 /// EIP-7516: BLOBBASEFEE opcode is not supported

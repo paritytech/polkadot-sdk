@@ -18,7 +18,7 @@
 use super::Context;
 use crate::{
 	address::AddressMapper,
-	vm::{Ext, RuntimeCosts},
+	vm::{evm::U256Converter, Ext, RuntimeCosts},
 	Config,
 };
 use core::ptr;
@@ -159,7 +159,7 @@ pub fn calldatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn callvalue<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::ValueTransferred);
 	let call_value = context.interpreter.extend.value_transferred();
-	push!(context.interpreter, U256::from_limbs(call_value.0));
+	push!(context.interpreter, call_value.into_revm_u256());
 }
 
 /// Implements the CALLDATACOPY instruction.
@@ -243,7 +243,7 @@ pub fn memory_resize<'a, E: Ext>(
 	memory_offset: U256,
 	len: usize,
 ) -> Option<usize> {
-	gas!(interpreter, RuntimeCosts::CopyFromContract(len as u32), None);
+	gas!(interpreter, RuntimeCosts::CopyToContract(len as u32), None);
 	if len == 0 {
 		return None;
 	}
