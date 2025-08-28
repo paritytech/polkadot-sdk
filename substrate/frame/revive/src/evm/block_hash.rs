@@ -27,6 +27,7 @@ use alloy_consensus::{
 	RlpEncodableReceipt,
 };
 use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
+use alloy_rlp::Encodable;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -280,13 +281,13 @@ impl IncrementalHashBuilder {
 			// to be index + 1 in the sorted order.
 			if let Some(encoded_value) = self.first_value.take() {
 				let zero: usize = 0;
-				let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
+				let rlp_index = alloy_rlp::encode_fixed_size(&zero);
 
 				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 			}
 		}
 
-		let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&self.index);
+		let rlp_index = alloy_rlp::encode_fixed_size(&self.index);
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		self.index += 1;
@@ -299,11 +300,100 @@ impl IncrementalHashBuilder {
 		// by rlp encoding of the index.
 		if let Some(encoded_value) = self.first_value.take() {
 			let zero: usize = 0;
-			let rlp_index = alloy_consensus::private::alloy_rlp::encode_fixed_size(&zero);
+			let rlp_index = alloy_rlp::encode_fixed_size(&zero);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
 		self.hash_builder.root().0.into()
+	}
+}
+
+/// Accumulate receipts into a stream of RLP encoded bytes.
+/// This is a very straight forward implementation that RLP encodes logs as they are added.
+///
+/// The main goal is to generate the RLP-encoded representation of receipts
+/// which is required to compute the receipt root hash, without storing the full receipt
+/// data in memory.
+///
+/// One approach is to store the full receipt in memory, together with the RLP encoding
+/// of the receipt.
+///
+/// However, since we only care about the RLP encoding of the receipt, we can optimize the memory
+/// usage by only storing the RLP encoded value and the logs directly. This effectively saves
+/// the need to store the full receipt (which can grow unboundedly due to the number of logs), and
+/// builds the RLP encoding incrementally as logs are added.
+///
+/// The implementation leverages the RLP encoding details of the receipt:
+///
+/// ```ignore
+/// // Memory representation of the RLP encoded receipt:
+/// [
+/// 	ReceiptHeader ++ rlp(status) ++ rlp(gas) ++ rlp(bloom)
+/// 			++ LogsHeader ++ rlp(log1) ++ rlp(log2) ++ ... ++ rlp(logN)
+/// ]
+/// ```
+///
+/// The optimization comes from the fact that `rlp(log1) ++ rlp(log2) ++ ... ++ rlp(logN)`
+/// can be built incrementally.
+///
+/// On average, from the real ethereum block, this implementation reduces the memory usage by 30%.
+///  `EncodedReceipt Space optimization (on average): 0.6995642434146292`
+pub struct AccumulateReceipt {
+	/// The RLP bytes where the logs are accumulated.
+	encoding: Vec<u8>,
+	/// The bloom filter collected from accumulating logs.
+	bloom: Bloom,
+}
+
+impl AccumulateReceipt {
+	/// Constructs a new [`AccumulateReceipt`].
+	pub const fn new() -> Self {
+		Self { encoding: Vec::new(), bloom: Bloom(FixedBytes::ZERO) }
+	}
+
+	/// Reset the state of the receipt accumulator.
+	pub fn reset(&mut self) {
+		*self = Self::new();
+	}
+
+	/// Add the log into the accumulated receipt.
+	///
+	/// This accrues the log bloom and keeps track of the RLP encoding of the log.
+	pub fn add_log(&mut self, log: EventLog) {
+		let log = Log::new_unchecked(
+			log.contract.0.into(),
+			log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+			log.data.into(),
+		);
+		self.bloom.accrue_log(&log);
+		log.encode(&mut self.encoding);
+	}
+
+	/// Finalize the accumulated receipt and return the RLP encoded bytes.
+	pub fn finish(&mut self, status: bool, gas: u64, transaction_type: Vec<u8>) -> Vec<u8> {
+		let logs_length = self.encoding.len();
+		let list_header_length = logs_length + alloy_rlp::length_of_length(logs_length);
+
+		let header = alloy_rlp::Header {
+			list: true,
+			payload_length: alloy_rlp::Encodable::length(&status) +
+				alloy_rlp::Encodable::length(&gas) +
+				alloy_rlp::Encodable::length(&self.bloom) +
+				list_header_length,
+		};
+
+		let mut encoded = transaction_type;
+		header.encode(&mut encoded);
+		alloy_rlp::Encodable::encode(&status, &mut encoded);
+		alloy_rlp::Encodable::encode(&gas, &mut encoded);
+		alloy_rlp::Encodable::encode(&self.bloom, &mut encoded);
+
+		let logs_header = alloy_rlp::Header { list: true, payload_length: logs_length };
+		logs_header.encode(&mut encoded);
+
+		encoded.extend(self.encoding.clone());
+
+		encoded
 	}
 }
 
@@ -317,6 +407,12 @@ pub struct EthereumBlockBuilder {
 
 	logs_bloom: Bloom,
 	gas_info: Vec<ReceiptGasInfo>,
+
+	receipt: AccumulateReceipt,
+
+	// Added to capture the gains of receipts encoding.
+	__metrics_receipts: f64,
+	__metrics_receipts_len: usize,
 }
 
 impl EthereumBlockBuilder {
@@ -329,6 +425,10 @@ impl EthereumBlockBuilder {
 			tx_hashes: Vec::new(),
 			logs_bloom: Bloom(FixedBytes::ZERO),
 			gas_info: Vec::new(),
+			receipt: AccumulateReceipt::new(),
+
+			__metrics_receipts: 0.0,
+			__metrics_receipts_len: 0,
 		}
 	}
 
@@ -337,9 +437,14 @@ impl EthereumBlockBuilder {
 		*self = Self::new();
 	}
 
+	/// Adds a log to the current receipt object.
+	pub fn add_log(&mut self, log: EventLog) {
+		self.receipt.add_log(log);
+	}
+
 	/// Process a single transaction at a time.
 	pub fn process_transaction(&mut self, detail: TransactionDetails) {
-		let TransactionDetails { transaction_encoded, logs, success, gas_used } = detail;
+		let TransactionDetails { transaction_encoded, success, gas_used, logs } = detail;
 
 		let tx_hash = H256(keccak_256(&transaction_encoded));
 		self.tx_hashes.push(tx_hash);
@@ -347,37 +452,67 @@ impl EthereumBlockBuilder {
 		let transaction_type = Self::extract_transaction_type(transaction_encoded.as_slice());
 		Self::add_builder_value(&mut self.transaction_root_builder, transaction_encoded);
 
-		let logs = logs
-			.into_iter()
-			.map(|log| {
-				Log::new_unchecked(
-					log.contract.0.into(),
-					log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
-					log.data.into(),
-				)
-			})
-			.collect();
+		// The following block is used to derive the optimization number and
+		// will be removed once we determine the optimal path forward:
+		{
+			let mut size = 0;
+
+			let logs = logs
+				.into_iter()
+				.map(|log| {
+					// Data len (u8) + topics (32 * u8) + contract (20 * u8)
+					size += log.data.len() + log.topics.len() * 32 + 20;
+
+					let log = Log::new_unchecked(
+						log.contract.0.into(),
+						log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+						log.data.into(),
+					);
+
+					log
+				})
+				.collect();
+
+			// success + gas + bloom.
+			size += 1 + 8 + 32;
+
+			let receipt = alloy_consensus::Receipt {
+				status: success.into(),
+				cumulative_gas_used: self.gas_used.as_u64(),
+				logs,
+			};
+
+			let receipt_bloom = receipt.bloom_slow();
+			self.logs_bloom.accrue_bloom(&receipt_bloom);
+
+			// Receipt encoding must be prefixed with the rlp(transaction type).
+			let mut encoded_receipt = transaction_type.clone();
+			let encoded_len = encoded_receipt
+				.len()
+				.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
+			encoded_receipt.reserve(encoded_len);
+
+			receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+
+			println!("+Encoded receipt {:?}", encoded_receipt.len());
+			println!("+Used receipt space  {:?}", size + encoded_receipt.len());
+
+			let used_space_ratio =
+				encoded_receipt.len() as f64 / (size + encoded_receipt.len()) as f64;
+			self.__metrics_receipts += used_space_ratio;
+			self.__metrics_receipts_len += 1;
+
+			println!("+  Used space ratio  {:?}", used_space_ratio);
+		}
 
 		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
 		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 
-		let receipt = alloy_consensus::Receipt {
-			status: success.into(),
-			cumulative_gas_used: self.gas_used.as_u64(),
-			logs,
-		};
-
-		let receipt_bloom = receipt.bloom_slow();
+		let receipt_bloom = self.receipt.bloom.clone();
 		self.logs_bloom.accrue_bloom(&receipt_bloom);
-
-		// Receipt encoding must be prefixed with the rlp(transaction type).
-		let mut encoded_receipt = transaction_type;
-		let encoded_len = encoded_receipt
-			.len()
-			.saturating_add(receipt.rlp_encoded_length_with_bloom(&receipt_bloom));
-		encoded_receipt.reserve(encoded_len);
-
-		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+		let encoded_receipt =
+			self.receipt.finish(success, self.gas_used.as_u64(), transaction_type);
+		self.receipt.reset();
 
 		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
 	}
@@ -391,6 +526,11 @@ impl EthereumBlockBuilder {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (H256, Block, Vec<ReceiptGasInfo>) {
+		println!(
+			" EncodedReceipt Space optimization (on average): {:?}",
+			self.__metrics_receipts / self.__metrics_receipts_len as f64
+		);
+
 		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
 		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
 
@@ -475,7 +615,7 @@ mod test {
 			let index = adjust_index_for_rlp(i, items_len);
 			// println!("For tx={} using index={}", i, index);
 
-			let index_buffer = alloy_consensus::private::alloy_rlp::encode_fixed_size(&index);
+			let index_buffer = alloy_rlp::encode_fixed_size(&index);
 			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded[index]);
 
 			// Each mask in these vectors holds a u16.
@@ -544,7 +684,17 @@ mod test {
 
 		let mut incremental_block = EthereumBlockBuilder::new();
 		for details in &transaction_details {
+			let mut log_size = 0;
+
+			for log in &details.logs {
+				let current_size = log.data.len() + log.topics.len() * 32 + 20;
+
+				log_size += current_size;
+				incremental_block.add_log(log.clone());
+			}
+
 			incremental_block.process_transaction(details.clone());
+			println!(" Otherwise size {:?}", log_size);
 		}
 
 		// The block hash would differ here because we don't take into account
