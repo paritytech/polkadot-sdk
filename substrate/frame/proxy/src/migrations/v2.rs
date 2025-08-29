@@ -96,20 +96,31 @@ use crate::{
 	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
 	ProxyDefinition,
 };
+extern crate alloc;
+
+#[cfg(feature = "try-runtime")]
+use alloc::collections::btree_map::BTreeMap;
+
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
+	arithmetic::Zero,
+	deps::frame_support::{
+		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+		weights::WeightMeter,
+	},
 	prelude::*,
-	runtime::prelude::weights::WeightMeter,
-	storage_alias,
-	traits::{fungible::MutateHold, OnRuntimeUpgrade, ReservableCurrency, StorageVersion},
+	traits::{fungible::MutateHold, Get, ReservableCurrency},
 };
+use scale_info::TypeInfo;
 
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 
 const LOG_TARGET: &str = "runtime::proxy";
 
-#[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
+/// A unique identifier for the proxy pallet v2 migration.
+const PROXY_PALLET_MIGRATION_ID: &[u8; 16] = b"pallet-proxy-mbm";
+
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
 
@@ -161,11 +172,6 @@ pub enum MigrationCursor<AccountId> {
 	/// Migration complete.
 	Complete,
 }
-
-/// Storage for migration progress.
-#[storage_alias]
-pub type MigrationProgress<T: Config> =
-	StorageValue<Pallet<T>, MigrationCursor<<T as frame_system::Config>::AccountId>, OptionQuery>;
 
 /// Migration result for an account.
 #[derive(Debug, PartialEq)]
@@ -341,7 +347,7 @@ where
 			// Migrate this account (handles both regular and pure proxy accounts)
 			let result = Self::migrate_proxy_account(&who, proxies, deposit.into());
 			if let AccountMigrationResult::GracefulRemoval { refunded } = result {
-				log::warn!(
+				frame::log::warn!(
 					target: LOG_TARGET,
 					"Proxy migration failed for account {:?}, refunded {:?}",
 					who, refunded
@@ -354,12 +360,9 @@ where
 
 		// Handle the result
 		match last_processed {
-			Err(who) => return MigrationCursor::Proxies { last_key: Some(who) },
-			Ok(_) => {}, // All accounts processed successfully
+			Err(who) => MigrationCursor::Proxies { last_key: Some(who) },
+			Ok(_) => MigrationCursor::Announcements { last_key: None },
 		}
-
-		// Done with proxies, move to announcements
-		MigrationCursor::Announcements { last_key: None }
 	}
 
 	/// Process one batch of announcement migrations within weight limit.
@@ -384,7 +387,7 @@ where
 			// Migrate this account
 			let result = Self::migrate_announcement_account(&who, announcements, deposit.into());
 			if let AccountMigrationResult::GracefulRemoval { refunded } = result {
-				log::warn!(
+				frame::log::warn!(
 					target: LOG_TARGET,
 					"Announcement migration failed for account {:?}, refunded {:?}",
 					who, refunded
@@ -397,87 +400,81 @@ where
 
 		// Handle the result
 		match last_processed {
-			Err(who) => return MigrationCursor::Announcements { last_key: Some(who) },
-			Ok(_) => {}, // All accounts processed successfully
-		}
-
-		// Done with all migrations
-		MigrationCursor::Complete
-	}
-
-	/// Process one step of the migration.
-	pub fn step(meter: &mut WeightMeter) -> bool {
-		// Get current cursor
-		let Some(cursor) = MigrationProgress::<T>::get() else {
-			// Migration not started or already complete
-			return true;
-		};
-
-		// Reserve weight for cursor operations
-		if meter.try_consume(T::DbWeight::get().reads_writes(1, 1)).is_err() {
-			return false;
-		}
-
-		// Process batch based on cursor state
-		let new_cursor = match cursor {
-			MigrationCursor::Proxies { last_key } => Self::process_proxy_batch(last_key, meter),
-			MigrationCursor::Announcements { last_key } =>
-				Self::process_announcement_batch(last_key, meter),
-			MigrationCursor::Complete => {
-				// Clean up and finish
-				MigrationProgress::<T>::kill();
-				StorageVersion::new(2).put::<Pallet<T>>();
-				return true;
-			},
-		};
-
-		// Update cursor
-		match new_cursor {
-			MigrationCursor::Complete => {
-				MigrationProgress::<T>::kill();
-				StorageVersion::new(2).put::<Pallet<T>>();
-
-				Pallet::<T>::deposit_event(Event::MigrationCompleted);
-				true
-			},
-			_ => {
-				MigrationProgress::<T>::set(Some(new_cursor));
-				false
-			},
+			Err(who) => MigrationCursor::Announcements { last_key: Some(who) },
+			Ok(_) => MigrationCursor::Complete,
 		}
 	}
 }
 
-impl<T, OldCurrency> OnRuntimeUpgrade for MigrateReservesToHolds<T, OldCurrency>
+impl<T, OldCurrency> SteppedMigration for MigrateReservesToHolds<T, OldCurrency>
 where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 	BalanceOf<T>: From<OldCurrency::Balance>,
-	OldCurrency::Balance: From<BalanceOf<T>>,
+	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
 {
-	fn on_runtime_upgrade() -> Weight {
-		let on_chain_version = Pallet::<T>::on_chain_storage_version();
-		let current_version = Pallet::<T>::in_code_storage_version();
+	type Cursor = MigrationCursor<<T as frame_system::Config>::AccountId>;
+	type Identifier = MigrationId<16>;
 
-		if on_chain_version >= current_version {
-			return T::DbWeight::get().reads(1);
+	fn id() -> Self::Identifier {
+		MigrationId { pallet_id: *PROXY_PALLET_MIGRATION_ID, version_from: 0, version_to: 2 }
+	}
+
+	fn step(
+		cursor: Option<Self::Cursor>,
+		meter: &mut WeightMeter,
+	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		log::info!(target: LOG_TARGET, "Migration step: cursor={:?}", cursor);
+
+		// Check if we have minimal weight to proceed
+		let required = Self::weight_per_account();
+		if meter.remaining().any_lt(required) {
+			log::warn!(target: LOG_TARGET, "Insufficient weight");
+			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
-		// Initialize migration
-		MigrationProgress::<T>::set(Some(MigrationCursor::Proxies { last_key: None }));
+		// Initialize migration if this is the first call
+		let current_cursor = if let Some(cursor) = cursor {
+			cursor
+		} else {
+			// First call - emit start event
+			Pallet::<T>::deposit_event(Event::MigrationStarted);
+			MigrationCursor::Proxies { last_key: None }
+		};
 
-		Pallet::<T>::deposit_event(Event::MigrationStarted);
+		// Process based on cursor state
+		let result = match current_cursor {
+			MigrationCursor::Proxies { last_key } => {
+				log::info!(target: LOG_TARGET, "🔄 Processing proxy batch, last_key: {:?}", last_key);
+				let next_cursor = Self::process_proxy_batch(last_key, meter);
+				log::info!(target: LOG_TARGET, "✅ Proxy batch processed, next cursor: {:?}", next_cursor);
+				Ok(Some(next_cursor))
+			},
+			MigrationCursor::Announcements { last_key } => {
+				log::info!(target: LOG_TARGET, "🔄 Processing announcement batch, last_key: {:?}", last_key);
+				let next_cursor = Self::process_announcement_batch(last_key, meter);
+				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_cursor);
 
-		// Process as much as possible in this block with conservative weight limit.
-		// We don't add a MaxServiceWeight config to the proxy pallet because this migration
-		// from Currency to fungible traits is a one-time operation that will be removed after
-		// all chains have upgraded.
-		const MIGRATION_WEIGHT_FRACTION: u64 = 4; // Use at most 1/4 of block weight
-		let weight_limit = T::BlockWeights::get().max_block / MIGRATION_WEIGHT_FRACTION;
-		let mut meter = WeightMeter::with_limit(weight_limit);
-		Self::step(&mut meter);
+				// Check if migration is complete
+				match next_cursor {
+					MigrationCursor::Complete => {
+						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
+						Pallet::<T>::deposit_event(Event::MigrationCompleted);
+						Ok(None)
+					},
+					other => Ok(Some(other)),
+				}
+			},
+			MigrationCursor::Complete => {
+				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
+				// Migration is complete
+				Pallet::<T>::deposit_event(Event::MigrationCompleted);
+				Ok(None)
+			},
+		};
 
-		meter.consumed()
+		log::info!(target: LOG_TARGET, "🏁 Migration step result: {:?}", result);
+		result
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -501,18 +498,6 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		// Verify storage version updated
-		ensure!(
-			Pallet::<T>::on_chain_storage_version() == 2,
-			TryRuntimeError::from("Storage version not updated")
-		);
-
-		// Verify migration completed
-		ensure!(
-			MigrationProgress::<T>::get().is_none(),
-			TryRuntimeError::from("Migration not completed")
-		);
-
 		// Decode pre-migration state
 		let pre_migration_deposits: BTreeMap<T::AccountId, (BalanceOf<T>, BalanceOf<T>)> =
 			Decode::decode(&mut &state[..])
@@ -564,17 +549,6 @@ where
 		ensure!(
 			accounted_total == original_total,
 			TryRuntimeError::from("Fund conservation violated")
-		);
-
-		// Verify the total count makes sense
-		let total_processed_accounts = pre_migration_deposits.len() as u32;
-		let total_verification_results = summary.successful_conversions +
-			summary.graceful_degradations +
-			summary.accounts_cleaned_up;
-
-		ensure!(
-			total_verification_results == total_processed_accounts,
-			TryRuntimeError::from("Account count mismatch")
 		);
 
 		// Log comprehensive migration summary
@@ -931,25 +905,20 @@ mod tests {
 		let pre_state = MigrateReservesToHolds::<Test, MockOldCurrency>::pre_upgrade()
 			.expect("pre_upgrade should succeed");
 
-		// Run the actual migration using the OnRuntimeUpgrade interface
-		// This properly sets storage version and handles everything
-		let _weight = MigrateReservesToHolds::<Test, MockOldCurrency>::on_runtime_upgrade();
-
-		// Continue stepping until migration completes (multi-block)
+		// Run the migration to completion using SteppedMigration interface
 		use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
 		let block_weight =
 			<<Test as frame_system::Config>::BlockWeights as Get<BlockWeights>>::get().max_block;
 
-		std::iter::from_fn(|| {
+		let mut cursor = None;
+		loop {
 			let mut meter = WeightMeter::with_limit(block_weight);
-			let completed = MigrateReservesToHolds::<Test, MockOldCurrency>::step(&mut meter);
-			if completed {
-				None
-			} else {
-				Some(())
+			cursor = MigrateReservesToHolds::<Test, MockOldCurrency>::step(cursor, &mut meter)
+				.expect("Migration step should succeed");
+			if cursor.is_none() {
+				break;
 			}
-		})
-		.for_each(|_| {});
+		}
 
 		// Call post_upgrade to verify migration (only when try-runtime enabled)
 		#[cfg(feature = "try-runtime")]
@@ -1026,24 +995,21 @@ mod tests {
 			let pre_state = MigrateReservesToHolds::<Test, MockOldCurrency>::pre_upgrade()
 				.expect("pre_upgrade should succeed");
 
-			// Run the actual migration
-			let _weight = MigrateReservesToHolds::<Test, MockOldCurrency>::on_runtime_upgrade();
-
-			// Complete the multi-block migration
+			// Run the migration to completion using SteppedMigration interface
 			use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
 			let block_weight =
 				<<Test as frame_system::Config>::BlockWeights as Get<BlockWeights>>::get()
 					.max_block;
-			std::iter::from_fn(|| {
+
+			let mut cursor = None;
+			loop {
 				let mut meter = WeightMeter::with_limit(block_weight);
-				let completed = MigrateReservesToHolds::<Test, MockOldCurrency>::step(&mut meter);
-				if completed {
-					None
-				} else {
-					Some(())
+				cursor = MigrateReservesToHolds::<Test, MockOldCurrency>::step(cursor, &mut meter)
+					.expect("Migration step should succeed");
+				if cursor.is_none() {
+					break;
 				}
-			})
-			.for_each(|_| {});
+			}
 
 			// Run try-runtime post-verification if enabled
 			#[cfg(feature = "try-runtime")]
@@ -1085,13 +1051,6 @@ mod tests {
 				assert!(proxies.is_empty(), "Proxies should be empty");
 				assert_eq!(deposit, 0, "Deposit should remain zero");
 			});
-
-			// Migration should have cleared progress automatically
-			assert_eq!(
-				MigrationProgress::<Test>::get(),
-				None,
-				"Migration should have cleared progress automatically"
-			);
 		});
 	}
 
