@@ -1698,11 +1698,9 @@ where
 		let value: U256 = self.balance();
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 
-		if value.is_zero() {
-			return Ok(());
+		if !value.is_zero() {
+			transfer_with_dust::<T>(&from, &to, value)?;
 		}
-
-		transfer_with_dust::<T>(&from, &to, value)?;
 
 		// If this is called in the same transaction as the contract was created then the contract
 		// is deleted.
