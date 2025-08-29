@@ -164,14 +164,6 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
-		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::account_id()) {
-			log::error!(
-				target: LOG_TARGET,
-				"Revive account {:?} should be created before running the migration", Pallet::<T>::account_id()
-			);
-			return Err(TryRuntimeError::Other("Revive account does not exist"))
-		}
-
 		// Return the state of the storage before the migration.
 		Ok(old::CodeInfoOf::<T>::iter().collect::<BTreeMap<_, _>>().encode())
 	}
