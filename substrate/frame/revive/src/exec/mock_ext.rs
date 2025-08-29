@@ -16,9 +16,11 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
+	exec::{
+		AccountIdOf, DispatchResult, ExecError, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
