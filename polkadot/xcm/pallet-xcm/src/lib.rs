@@ -2091,6 +2091,16 @@ impl<T: Config> Pallet<T> {
 		// Ensure all assets (including fees) have same reserve location.
 		ensure!(assets_transfer_type == fees_transfer_type, Error::<T>::TooManyReserves);
 
+		// We check for network native asset reserve transfers in preparation for the Asset Hub
+		// Migration. This check will be removed after the migration and the determined
+		// reserve location adjusted accordingly. For more information, see https://github.com/paritytech/polkadot-sdk/issues/9054.
+		Self::ensure_network_asset_reserve_transfer_allowed(
+			&assets,
+			fee_asset_item,
+			&assets_transfer_type,
+			&fees_transfer_type,
+		)?;
+
 		let (local_xcm, remote_xcm) = Self::build_xcm_transfer_type(
 			origin.clone(),
 			dest.clone(),
