@@ -17,6 +17,8 @@
 
 //! # XCM Configuration
 
+use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
+use crate::cookbook::foreign_assets_and_asset_conversion::network::SIMPLE_PARA_ID;
 use frame::{
 	deps::frame_system,
 	runtime::prelude::*,
@@ -29,8 +31,6 @@ use xcm_builder::{
 	SignedToAccountId32,
 };
 use xcm_executor::XcmExecutor;
-use crate::cookbook::foreign_assets_and_asset_conversion::network::SIMPLE_PARA_ID;
-use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
