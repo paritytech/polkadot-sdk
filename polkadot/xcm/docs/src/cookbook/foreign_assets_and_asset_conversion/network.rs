@@ -62,6 +62,10 @@ decl_test_relay_chain! {
 	}
 }
 
+pub const SIMPLE_PARA_ID: u32 = 2222;
+pub const ASSET_PARA_ID: u32 = 3333;
+
+
 decl_test_network! {
 	pub struct MockNet {
 		relay_chain = Relay,
