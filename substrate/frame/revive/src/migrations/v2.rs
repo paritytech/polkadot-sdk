@@ -160,9 +160,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		use codec::Encode;
 
 		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::pallet_account()) {
-			return Err(TryRuntimeError::Other(
-				"pallet_account should exist before running the migration",
-			))
+			log::error!(
+				target: LOG_TARGET,
+				"Revive account {:?} should be created before running the migration", Pallet::<T>::pallet_account()
+			);
+			return Err(TryRuntimeError::Other("Revive account does not exist"))
 		}
 
 		// Return the state of the storage before the migration.
@@ -187,46 +189,24 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 		let deposit_sum: crate::BalanceOf<T> = Zero::zero();
 
-		for (key, value) in prev_map {
-			let new_value = new::CodeInfoOf::<T>::get(key)
-				.expect("Failed to get the value after the migration");
-
-			deposit_sum.saturating_add(value.deposit);
-			let expected = new::CodeInfo {
-				owner: value.owner,
-				deposit: value.deposit,
-				refcount: value.refcount,
-				code_len: value.code_len,
-				code_type: BytecodeType::Pvm,
-				behaviour_version: value.behaviour_version,
-			};
-
-			assert_eq!(
-				new_value, expected,
-				"Migration failed: CodeInfo mismatch for key {:?}",
-				key
-			);
-
-			assert!(<T as Config>::Currency::balance_on_hold(
-				&crate::HoldReason::CodeUploadDepositReserve.into(),
-				&expected.owner
-			)
-			.is_zero());
-
-			assert_eq!(
-				<T as Config>::Currency::balance_on_hold(
-					&crate::HoldReason::CodeUploadDepositReserve.into(),
-					&Pallet::<T>::pallet_account(),
-				),
-				deposit_sum,
-			);
+		for (code_hash, old_code_info) in prev_map {
+			deposit_sum.saturating_add(old_code_info.deposit);
+			Self::assert_migrated_code_info(code_hash, &old_code_info);
 		}
+
+		assert_eq!(
+			<T as Config>::Currency::balance_on_hold(
+				&crate::HoldReason::CodeUploadDepositReserve.into(),
+				&Pallet::<T>::pallet_account(),
+			),
+			deposit_sum,
+		);
 
 		Ok(())
 	}
 }
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 impl<T: Config> Migration<T> {
 	/// Insert an old CodeInfo for benchmarking purposes.
 	pub fn insert_old_code_info(code_hash: H256, code_info: old::CodeInfo<T>) {
@@ -252,8 +232,16 @@ impl<T: Config> Migration<T> {
 
 	/// Assert that the migrated CodeInfo matches the expected values from the old CodeInfo.
 	pub fn assert_migrated_code_info(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+		use frame_support::traits::fungible::InspectHold;
+		use sp_runtime::traits::Zero;
 		let migrated =
 			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
+
+		assert!(<T as Config>::Currency::balance_on_hold(
+			&crate::HoldReason::CodeUploadDepositReserve.into(),
+			&old_code_info.owner
+		)
+		.is_zero());
 
 		assert_eq!(
 			migrated,

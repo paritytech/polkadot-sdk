@@ -108,10 +108,9 @@ pub struct CodeInfo<T: Config> {
 /// Calculate the deposit required for storing code and its metadata.
 pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
 	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-	let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
+	Diff { bytes_added, items_added: 2, ..Default::default() }
 		.update_contract::<T>(None)
-		.charge_or_zero();
-	deposit
+		.charge_or_zero()
 }
 
 impl ExportedFunction {
