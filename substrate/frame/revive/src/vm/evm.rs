@@ -156,6 +156,13 @@ fn run<'a, E: Ext>(
 		match action {
 			InterpreterAction::Return(result) => {
 				log::debug!(target: LOG_TARGET, "Evm return {:?}", result);
+				debug_assert!(
+					result.gas.limit() == 0 &&
+						result.gas.remaining() == 0 &&
+						result.gas.refunded() == 0,
+					"Interpreter gas state should remain unchanged; found: {:?}",
+					result.gas,
+				);
 				return result;
 			},
 			InterpreterAction::NewFrame(frame_input) => match frame_input {

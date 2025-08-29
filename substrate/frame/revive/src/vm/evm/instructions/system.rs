@@ -25,7 +25,7 @@ use core::ptr;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{InputsTr, LegacyBytecode, MemoryTr, ReturnData, RuntimeFlag, StackTr},
+		interpreter_types::{InputsTr, LegacyBytecode, MemoryTr, ReturnData, StackTr},
 		CallInput, InstructionResult, Interpreter,
 	},
 	primitives::{Address, B256, KECCAK_EMPTY, U256},
