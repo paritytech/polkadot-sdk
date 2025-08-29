@@ -349,9 +349,9 @@ impl InputsTr for EVMInputs {
 /// equivalent EVM interpreter [InstructionResult].
 ///
 /// - Returns `None` when the caller can recover the error.
-/// - Otherwise, some [InstructionResult] error code (the halt reason) is returned.
-///   Most [ExecError] variants don't map to a [InstructionResult]. The conversion is
-///   lossy and defaults to [InstructionResult::Revert] for most cases.
+/// - Otherwise, some [InstructionResult] error code (the halt reason) is returned. Most [ExecError]
+///   variants don't map to a [InstructionResult]. The conversion is lossy and defaults to
+///   [InstructionResult::Revert] for most cases.
 ///
 /// Uses the overarching [super::exec_error_into_return_code] method to determine if
 /// the error is recoverable or not. This guarantees consistent behavior accross both
@@ -390,30 +390,29 @@ fn exec_error_into_halt_reason<E: Ext>(from: ExecError) -> Option<InstructionRes
 /// Returns `None` if the instruction result is not an error case.
 fn instruction_result_into_exec_error<E: Ext>(from: InstructionResult) -> Option<ExecError> {
 	match from {
-		InstructionResult::OutOfGas
-		| InstructionResult::InvalidOperandOOG
-		| InstructionResult::ReentrancySentryOOG
-		| InstructionResult::PrecompileOOG
-		| InstructionResult::MemoryOOG => Some(Error::<E::T>::OutOfGas),
+		InstructionResult::OutOfGas |
+		InstructionResult::InvalidOperandOOG |
+		InstructionResult::ReentrancySentryOOG |
+		InstructionResult::PrecompileOOG |
+		InstructionResult::MemoryOOG => Some(Error::<E::T>::OutOfGas),
 		InstructionResult::MemoryLimitOOG => Some(Error::<E::T>::StaticMemoryTooLarge),
-		InstructionResult::OpcodeNotFound
-		| InstructionResult::InvalidJump
-		| InstructionResult::NotActivated
-		| InstructionResult::InvalidFEOpcode
-		| InstructionResult::CreateContractStartingWithEF => Some(Error::<E::T>::InvalidInstruction),
-		InstructionResult::CallNotAllowedInsideStatic
-		| InstructionResult::StateChangeDuringStaticCall => Some(Error::<E::T>::StateChangeDenied),
-		InstructionResult::StackUnderflow
-		| InstructionResult::StackOverflow
-		| InstructionResult::NonceOverflow
-		| InstructionResult::PrecompileError
-		| InstructionResult::FatalExternalError => Some(Error::<E::T>::ContractTrapped),
+		InstructionResult::OpcodeNotFound |
+		InstructionResult::InvalidJump |
+		InstructionResult::NotActivated |
+		InstructionResult::InvalidFEOpcode |
+		InstructionResult::CreateContractStartingWithEF => Some(Error::<E::T>::InvalidInstruction),
+		InstructionResult::CallNotAllowedInsideStatic |
+		InstructionResult::StateChangeDuringStaticCall => Some(Error::<E::T>::StateChangeDenied),
+		InstructionResult::StackUnderflow |
+		InstructionResult::StackOverflow |
+		InstructionResult::NonceOverflow |
+		InstructionResult::PrecompileError |
+		InstructionResult::FatalExternalError => Some(Error::<E::T>::ContractTrapped),
 		InstructionResult::OutOfOffset => Some(Error::<E::T>::OutOfBounds),
 		InstructionResult::CreateCollision => Some(Error::<E::T>::DuplicateContract),
 		InstructionResult::OverflowPayment => Some(Error::<E::T>::BalanceConversionFailed),
-		InstructionResult::CreateContractSizeLimit | InstructionResult::CreateInitCodeSizeLimit => {
-			Some(Error::<E::T>::StaticMemoryTooLarge)
-		},
+		InstructionResult::CreateContractSizeLimit | InstructionResult::CreateInitCodeSizeLimit =>
+			Some(Error::<E::T>::StaticMemoryTooLarge),
 		_ => None,
 	}
 	.map(Into::into)
