@@ -4,8 +4,9 @@ doc:
     description: |
       - Migrate pallet-proxy from using Currency trait to using fungible traits, addressing the balance overlap issue where proxy reserves couldn't overlap with staking holds.
       - Implements multi-block migration with graceful degradation to convert proxy and announcement reserves to holds during runtime upgrade.
-      - Fix benchmarks: the key difference is that holds come from total balance, while old reserves are separate from free balance.
-      - Add 4 force recovery functions for governance intervention if migration fails. Pure proxy accounts can become permanently inaccessible when they lose their proxy configuration but retain funds in a keyless account. The new recovery functions ensure no funds become permanently locked while maintaining security through Root-only access.
+        - Pure proxy accounts can become permanently inaccessible when they lose their proxy configuration but retain funds in a keyless account. The existing Balances::force_transfer functions ensures no funds become permanently locked
+        - For a regolar account with proxies if the migration fails, the user retain control of their funds and can reconfigure proxies,
+      - Fix benchmarks and update weigths.
 crates: 
 - name: pallet-proxy
   bump: major

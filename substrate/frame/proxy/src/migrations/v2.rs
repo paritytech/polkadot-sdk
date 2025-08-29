@@ -20,7 +20,77 @@
 //! This migration uses multi-block execution with graceful degradation:
 //! - Multi-block: Handles accounts with weight-limited batching without timing out
 //! - Graceful degradation: Any migration failure results in proxy removal + refund
-//! - No permanent fund loss, force recovery possible if migration fails (e.g. for pure proxies)
+//! - No permanent fund loss, governance can recover funds if needed using existing tools
+//!
+//! ## Recovery Process for Failed Migrations
+//!
+//! When migration fails, the behavior differs based on account type:
+//!
+//! ### Scenario 1: Regular Account with Proxies
+//! ```text
+//! Before migration:
+//! - Account A (has private key) owns proxies [B, C, D]
+//! - A paid 30 tokens deposit for these proxies
+//! - A has 1000 total tokens (970 free + 30 reserved)
+//!
+//! After failed migration:
+//! - All proxy relationships A→[B,C,D] removed
+//! - 30 tokens unreserved back to A's free balance
+//! - A now has 1000 free tokens, 0 reserved
+//! - A still has full control (private key)
+//!
+//! Recovery process:
+//! - ✅ User self-recovery: A can manually re-add proxies using new hold system
+//! - A calls add_proxy(B, ProxyType::Any, 0)
+//! - A calls add_proxy(C, ProxyType::Transfer, 0)
+//! - A calls add_proxy(D, ProxyType::Staking, 0)
+//! - New deposits are held using fungible traits
+//! - Result: A has restored proxy functionality
+//! ```
+//!
+//! ### Scenario 2: Pure Proxy Account
+//! ```text
+//! Before migration:
+//! - Pure Proxy P (no private key) created by Spawner S
+//! - S paid 20 tokens deposit to create P
+//! - P accumulated 50 additional tokens from other sources
+//! - P total: 70 tokens, S controls P via proxy
+//!
+//! After failed migration:
+//! - Proxy relationship S→P removed
+//! - 20 tokens deposit refunded to S's free balance ✅
+//! - P still has 50 tokens but is now inaccessible ❌
+//! - S can no longer control P (no private key for P)
+//!
+//! Recovery process:
+//! - ⚠️ Governance intervention required: Only Root can recover stranded funds
+//! - Root calls Balances::force_transfer(
+//!     source: P,           // Pure proxy account
+//!     dest: S,            // Original spawner
+//!     value: 50 tokens    // Remaining stranded funds
+//!   )
+//! - P account now empty, can be reaped
+//! - S has recovered all funds (20 from deposit + 50 from transfer)
+//! - If S still needs proxy functionality, S can create new pure proxy
+//! ```
+//!
+//! ### Key Differences
+//!
+//! | Aspect | Regular Account | Pure Proxy |
+//! |--------|-----------------|------------|
+//! | **Deposit Recovery** | ✅ Automatic | ✅ Automatic |
+//! | **Account Access** | ✅ Owner has private key | ❌ No private key exists |
+//! | **Proxy Restoration** | ✅ Owner can re-add manually | ❌ Cannot restore (inaccessible) |
+//! | **Stranded Funds** | ❌ No stranded funds | ⚠️ Other funds become inaccessible |
+//! | **Recovery Method** | 🔧 User self-service | 🏛️ Governance intervention |
+//! | **Tool Needed** | Normal proxy extrinsics | `Balances::force_transfer` |
+//!
+//! ### Important Notes
+//!
+//! - **Regular accounts**: Migration failure is an **inconvenience** (user must re-add proxies)
+//! - **Pure proxies**: Migration failure is a **fund loss risk** (requires governance to recover)
+//! - **Governance tool**: Use `Balances::force_transfer` (not custom proxy functions)
+//! - **No fund loss**: Every failure case has a recovery path that preserves funds
 
 use crate::{
 	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
@@ -181,7 +251,7 @@ where
 				//
 				// For pure proxies (keyless accounts):
 				// - Proxy config removed, funds stay in pure proxy's free balance
-				// - Governance can recover funds using force recovery functions
+				// - Governance can recover funds using Balances::force_transfer
 
 				Proxies::<T>::remove(who);
 
@@ -234,7 +304,8 @@ where
 			Err(_) => {
 				// Graceful degradation: remove announcements
 				// The unreserved funds remain in the account's free balance
-				// This is safe since announcements are tied to regular accounts, not pure proxies
+				// Safe for regular accounts (user retains control)
+				// For pure proxies: governance can use Balances::force_transfer if needed
 				Announcements::<T>::remove(who);
 
 				Pallet::<T>::deposit_event(Event::AnnouncementsRemovedDuringMigration {
@@ -267,7 +338,7 @@ where
 				return Err(who);
 			}
 
-			// Migrate this account (handles pure proxies internally)
+			// Migrate this account (handles both regular and pure proxy accounts)
 			let result = Self::migrate_proxy_account(&who, proxies, deposit.into());
 			if let AccountMigrationResult::GracefulRemoval { refunded } = result {
 				log::warn!(
