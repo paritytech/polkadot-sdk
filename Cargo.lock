@@ -27779,17 +27779,22 @@ dependencies = [
 name = "xcm-docs"
 version = "0.1.0"
 dependencies = [
+ "assets-common",
  "docify",
+ "pallet-asset-conversion",
+ "pallet-assets",
  "pallet-balances",
  "pallet-message-queue",
  "pallet-xcm",
  "parity-scale-codec",
+ "polkadot-parachain-primitives",
  "polkadot-runtime-parachains",
  "polkadot-sdk-frame",
  "scale-info",
  "simple-mermaid",
  "sp-io",
  "sp-runtime",
+ "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",

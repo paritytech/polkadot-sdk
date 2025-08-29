@@ -23,22 +23,21 @@ use frame::{
 	traits::{Disabled, Everything, Nothing},
 };
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
-	SignedToAccountId32,
-};
+use xcm_builder::{AccountId32Aliases, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, SiblingParachainConvertsVia, SignedToAccountId32};
 use xcm_executor::XcmExecutor;
+use polkadot_parachain_primitives::primitives::Sibling;
 
 use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 parameter_types! {
-	pub RelayLocation: Location = Location::parent();
+	pub HereLocation: Location = Location::here();
 	pub ThisNetwork: NetworkId = NetworkId::Polkadot;
 }
 
 pub type LocationToAccountId = (
-	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
+	// Sibling parachain origins convert to AccountId via the `ParaId::into`.
+	SiblingParachainConvertsVia<Sibling, AccountId>,
+	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<ThisNetwork, AccountId>,
 );
 
@@ -166,7 +165,7 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	// A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
-	type CurrencyMatcher = IsConcrete<RelayLocation>;
+	type CurrencyMatcher = IsConcrete<HereLocation>;
 	// Pallet benchmarks, no need for this recipe
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	// Runtime types
