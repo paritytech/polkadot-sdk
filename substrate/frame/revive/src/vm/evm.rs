@@ -149,11 +149,12 @@ fn run_plain<WIRE: InterpreterTypes>(
 	host: &mut DummyHost,
 ) -> InterpreterAction {
 	#[cfg(feature = "std")]
+	use crate::{alloc::string::ToString, format};
+	#[cfg(feature = "std")]
 	use revm::{
 		bytecode::OpCode,
-		interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr}};
-	#[cfg(feature = "std")]
-	use crate::{alloc::string::ToString, format};
+		interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+	};
 	while interpreter.bytecode.is_not_end() {
 		#[cfg(feature = "std")]
 		log::trace!(target: LOG_TARGET,
