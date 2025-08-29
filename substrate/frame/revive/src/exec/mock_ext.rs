@@ -29,7 +29,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{dispatch::DispatchResult, weights::Weight};
+use frame_support::weights::Weight;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
