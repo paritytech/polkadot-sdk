@@ -9,6 +9,12 @@ use xcm::prelude::Location;
 /// We allow root to execute privileged asset operations.
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
+parameter_types! {
+	pub const AssetDeposit: Balance = 10;
+	pub const MetadataDepositBase: Balance = 10;
+	pub const MetadataDepositPerByte: Balance = 1;
+}
+
 /// Assets managed by some foreign location.
 ///
 /// Note: we do not declare a `ForeignAssetsCall` type, as this type is used in proxy definitions.
@@ -21,6 +27,9 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Balance = Balance;
 	type AssetId = Location;
 	type AssetIdParameter = Location;
+	type AssetDeposit = AssetDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type Currency = Balances;
 	type CreateOrigin = ForeignCreators<
 		(FromSiblingParachain<parachain_info::Pallet<Runtime>, Location>,),
