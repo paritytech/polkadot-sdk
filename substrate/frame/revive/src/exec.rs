@@ -1713,7 +1713,7 @@ where
 			let account_address = T::AddressMapper::to_address(&frame.account_id);
 			AccountInfoOf::<T>::remove(&account_address);
 			ImmutableDataOf::<T>::remove(&account_address);
-			<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+			let _ = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 		}
 		Ok(())
 	}
