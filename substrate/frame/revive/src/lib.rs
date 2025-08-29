@@ -1571,7 +1571,8 @@ where
 }
 
 impl<T: Config> Pallet<T> {
-	fn pallet_account() -> AccountIdOf<T> {
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn pallet_account() -> AccountIdOf<T> {
 		use frame_support::PalletId;
 		use sp_runtime::traits::AccountIdConversion;
 		PalletId(*b"py/rev  ").into_account_truncating()
