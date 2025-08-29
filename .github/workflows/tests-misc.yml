@@ -379,6 +379,7 @@ jobs:
           curl -Lsf --show-error -o /tmp/resolc "$ASSET_URL"
           sudo cp /tmp/resolc /usr/local/bin/resolc
           sudo chmod 755 /usr/local/bin/resolc
+          xattr -c /usr/local/bin/resolc
         with:
           version: 0.3.0        
       - name: cargo info
