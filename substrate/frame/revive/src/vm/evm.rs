@@ -25,8 +25,6 @@ use crate::{
 use alloc::vec::Vec;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
-#[cfg(feature = "std")]
-use revm::interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr};
 use revm::{
 	bytecode::Bytecode,
 	interpreter::{
@@ -150,8 +148,12 @@ fn run_plain<WIRE: InterpreterTypes>(
 	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 	host: &mut DummyHost,
 ) -> InterpreterAction {
+	#[cfg(feature = "std")]
+	use revm::{
+		bytecode::OpCode,
+		interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr}};
+	#[cfg(feature = "std")]
 	use crate::{alloc::string::ToString, format};
-	use revm::bytecode::OpCode;
 	while interpreter.bytecode.is_not_end() {
 		#[cfg(feature = "std")]
 		log::trace!(target: LOG_TARGET,
