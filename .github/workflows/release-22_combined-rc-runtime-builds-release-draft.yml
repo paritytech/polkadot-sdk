@@ -41,6 +41,7 @@ on:
           - chain-spec-builder
           - substrate-node
           - eth-rpc
+          - subkey
           - all
       release_tag:
         description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcY or polkadot-stableYYMM(-X)
