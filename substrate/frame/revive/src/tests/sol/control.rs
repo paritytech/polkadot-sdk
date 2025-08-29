@@ -69,6 +69,52 @@ fn jump_works() {
 		);
 	});
 }
+#[test]
+fn jumpdest_works() {
+	// Test invalid jumpdest
+	let expected_value = 0xfefefefe_u64;
+	let runtime_code: Vec<u8> = vec![
+		// This will jump to the MSTORE instruction, should give an error
+		vec![PUSH1, 0x09_u8],
+		vec![JUMP],
+		vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
+		vec![PUSH0],
+		vec![MSTORE],
+		// return whatever is in memory at location 0
+		vec![JUMPDEST],
+		vec![PUSH1, 0x20_u8],
+		vec![PUSH0],
+		vec![RETURN],
+	]
+	.into_iter()
+	.flatten()
+	.collect();
+	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr).build();
+
+		assert!(result.result.is_err(), "test did not error");
+		if let Err(err) = result.result {
+			if let sp_runtime::DispatchError::Module(module_error) = err {
+				let message = module_error.message.as_ref().unwrap();
+				assert_eq!(*message, "ContractTrapped");
+			} else {
+				assert!(false, "unexpected error: {err:?}");
+			}
+		}
+		// assert!(!result.did_revert(), "test reverted");
+		// assert_eq!(
+		// 	U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
+		// 	U256::from(expected_value),
+		// 	"memory test should return {expected_value}"
+		// );
+	});
+}
 
 #[test]
 fn jumpi_works() {
