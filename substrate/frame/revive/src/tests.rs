@@ -215,7 +215,7 @@ impl Test {
 	}
 
 	pub fn set_allow_evm_bytecode(allow_evm_bytecode: bool) {
-		ALLOW_E_V_M_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
+		ALLOW_EVM_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
 	}
 }
 
@@ -325,7 +325,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
-	pub static AllowEVMBytecode: bool = true;
+	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
@@ -346,7 +346,7 @@ impl Config for Test {
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type AllowEVMBytecode = AllowEVMBytecode;
+	type AllowEVMBytecode = AllowEvmBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -403,7 +403,7 @@ impl ExtBuilder {
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![
 				(checking_account.clone(), 1_000_000_000_000),
-				(Pallet::<Test>::pallet_account(), Contracts::min_balance()),
+				(Pallet::<Test>::account_id(), Contracts::min_balance()),
 			],
 			..Default::default()
 		}

@@ -235,7 +235,7 @@ mod benchmarks {
 		// uploading the code reserves some balance in the pallet's account
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&Pallet::<T>::account_id(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
@@ -287,7 +287,7 @@ mod benchmarks {
 		// uploading the code reserves some balance in the pallet account
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&Pallet::<T>::account_id(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
@@ -333,7 +333,7 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&Pallet::<T>::account_id(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
@@ -375,7 +375,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&Pallet::<T>::account_id(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -419,7 +419,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&Pallet::<T>::account_id(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -456,7 +456,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin, code, storage_deposit);
 		// uploading the code reserves some balance in the pallet's account
-		assert!(T::Currency::total_balance_on_hold(&Pallet::<T>::pallet_account()) > 0u32.into());
+		assert!(T::Currency::total_balance_on_hold(&Pallet::<T>::account_id()) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
@@ -466,7 +466,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		let pallet_account = Pallet::<T>::pallet_account();
+		let pallet_account = Pallet::<T>::account_id();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());

@@ -1046,7 +1046,7 @@ fn self_destruct_works() {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
 						),
-						source: Pallet::<Test>::pallet_account(),
+						source: Pallet::<Test>::account_id(),
 						dest: ALICE,
 						amount: upload_deposit,
 					}),
@@ -2059,7 +2059,7 @@ fn instantiate_with_zero_balance_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
-						dest: Pallet::<Test>::pallet_account(),
+						dest: Pallet::<Test>::account_id(),
 						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,
@@ -2148,7 +2148,7 @@ fn instantiate_with_below_existential_deposit_works() {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferAndHold {
 						source: ALICE,
-						dest: Pallet::<Test>::pallet_account(),
+						dest: Pallet::<Test>::account_id(),
 						transferred: 777,
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::CodeUploadDepositReserve,

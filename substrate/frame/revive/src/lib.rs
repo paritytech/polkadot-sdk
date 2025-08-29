@@ -545,9 +545,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			if !System::<T>::account_exists(&Pallet::<T>::pallet_account()) {
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
 				let _ = T::Currency::mint_into(
-					&Pallet::<T>::pallet_account(),
+					&Pallet::<T>::account_id(),
 					T::Currency::minimum_balance(),
 				);
 			}
@@ -1590,11 +1590,12 @@ where
 
 impl<T: Config> Pallet<T> {
 	/// Pallet account, used to hold funds for contracts upload deposit.
-	pub fn pallet_account() -> AccountIdOf<T> {
+	pub fn account_id() -> T::AccountId {
 		use frame_support::PalletId;
 		use sp_runtime::traits::AccountIdConversion;
 		PalletId(*b"py/rev  ").into_account_truncating()
 	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()

@@ -175,7 +175,7 @@ where
 				ensure!(&code_info.owner == origin, BadOrigin);
 				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::pallet_account(),
+					&crate::Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					Precision::Exact,
@@ -210,7 +210,7 @@ where
 						T::Currency::transfer_and_hold(
 							&HoldReason::CodeUploadDepositReserve.into(),
 							&self.code_info.owner,
-							&crate::Pallet::<T>::pallet_account(), deposit,
+							&crate::Pallet::<T>::account_id(), deposit,
 							Precision::Exact,
 							Preservation::Preserve,
 							Fortitude::Polite,
@@ -294,7 +294,7 @@ impl<T: Config> CodeInfo<T> {
 			if code_info.refcount == 1 {
 				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::pallet_account(),
+					&crate::Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					Precision::Exact,

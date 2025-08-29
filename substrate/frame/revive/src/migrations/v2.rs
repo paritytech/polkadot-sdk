@@ -122,7 +122,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				if let Err(err) = T::Currency::transfer_on_hold(
 					&crate::HoldReason::CodeUploadDepositReserve.into(),
 					&value.owner,
-					&Pallet::<T>::pallet_account(),
+					&Pallet::<T>::account_id(),
 					value.deposit,
 					Precision::Exact,
 					Restriction::OnHold,
@@ -159,10 +159,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
-		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::pallet_account()) {
+		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::account_id()) {
 			log::error!(
 				target: LOG_TARGET,
-				"Revive account {:?} should be created before running the migration", Pallet::<T>::pallet_account()
+				"Revive account {:?} should be created before running the migration", Pallet::<T>::account_id()
 			);
 			return Err(TryRuntimeError::Other("Revive account does not exist"))
 		}
@@ -197,7 +197,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		assert_eq!(
 			<T as Config>::Currency::balance_on_hold(
 				&crate::HoldReason::CodeUploadDepositReserve.into(),
-				&Pallet::<T>::pallet_account(),
+				&Pallet::<T>::account_id(),
 			),
 			deposit_sum,
 		);
