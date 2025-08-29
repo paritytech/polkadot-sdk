@@ -25,13 +25,15 @@ use crate::{
 use alloc::vec::Vec;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
+#[cfg(feature = "std")]
+use revm::interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr};
 use revm::{
 	bytecode::Bytecode,
 	interpreter::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
-		interpreter_types::{InputsTr, Jumps, LoopControl, MemoryTr, StackTr},
+		interpreter_types::InputsTr,
 		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
 	primitives::{self, hardfork::SpecId, Address},
