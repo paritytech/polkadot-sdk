@@ -34,7 +34,7 @@ pub const INITIAL_BALANCE: u64 = UNITS;
 
 decl_test_parachain! {
 	pub struct SimplePara {
-		Runtime = parachain::Runtime,
+		Runtime = simple_para::Runtime,
 		XcmpMessageHandler = simple_para::MessageQueue,
 		DmpMessageHandler = simple_para::MessageQueue,
 		new_ext = simple_para_ext(),
@@ -43,7 +43,7 @@ decl_test_parachain! {
 
 decl_test_parachain! {
 	pub struct AssetPara {
-		Runtime = parachain::Runtime,
+		Runtime = asset_para::Runtime,
 		XcmpMessageHandler = asset_para::MessageQueue,
 		DmpMessageHandler = asset_para::MessageQueue,
 		new_ext = asset_para_ext(),
