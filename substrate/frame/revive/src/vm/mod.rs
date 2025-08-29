@@ -210,7 +210,8 @@ where
 						T::Currency::transfer_and_hold(
 							&HoldReason::CodeUploadDepositReserve.into(),
 							&self.code_info.owner,
-							&crate::Pallet::<T>::account_id(), deposit,
+							&crate::Pallet::<T>::account_id(),
+							deposit,
 							Precision::Exact,
 							Preservation::Preserve,
 							Fortitude::Polite,
