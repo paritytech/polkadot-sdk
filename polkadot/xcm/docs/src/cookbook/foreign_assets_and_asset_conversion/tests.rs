@@ -45,19 +45,12 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-	SimplePara::execute_with(|| {
-		let fee_payment: Asset = (Location::here(), 9u128 * UNITS).into();
+    // Step 1. Create the asset on the target chain and set its metadata.
 
+	SimplePara::execute_with(|| {
 		let xcm = Xcm(vec![
-			// SetAppendix(Xcm(vec![
-			// 	RefundSurplus,
-			// 	DepositAsset {
-			// 		assets: AssetFilter::Wild(WildAsset::All),
-			// 		beneficiary: Location::new(1, Parachain(SIMPLE_PARA_ID)),
-			// 	},
-			// ])),
-			// WithdrawAsset(fee_payment.clone().into()),
-			// PayFees { asset: fee_payment },
+			// We have free execution on the target chain, but usually we need
+            // a Withdraw and a PayFees execution here.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
@@ -93,6 +86,7 @@ fn registering_foreign_assets_work() {
 	AssetPara::execute_with(|| {
 		use asset_para::assets::AssetDeposit;
 
+        // Confirm that we have successfully created the asset.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Created {
 				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
@@ -101,6 +95,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
+        // The creation of the asset required an asset deposit
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.clone(),
@@ -108,6 +103,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
+        // Confirm that we have successfully set the metadata.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::MetadataSet {
 				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
@@ -118,6 +114,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
+        // The setting of the metadata required a deposit too.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.into(),
@@ -126,4 +123,10 @@ fn registering_foreign_assets_work() {
 			},
 		));
 	});
+
+	// Todo: Step 2. Create a pool with the AssetPara's native asset and the foreign asset that
+	// we just registered.
+
+	// Todo: Step 3. Show how we can transfer our asset to the relay chain, and pay XCM-execution
+	// fees with it.
 }
