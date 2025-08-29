@@ -55,6 +55,8 @@ pub type LocationToAccountId = (
 	SiblingParachainConvertsVia<Sibling, AccountId>,
 	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
 	AccountId32Aliases<ThisNetwork, AccountId>,
+	// Foreign locations alias into accounts according to a hash of their standard description.
+	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
 );
 
 /// Configuration related to asset transactors

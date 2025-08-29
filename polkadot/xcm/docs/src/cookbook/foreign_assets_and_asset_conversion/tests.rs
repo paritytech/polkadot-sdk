@@ -51,15 +51,15 @@ fn registering_foreign_assets_work() {
 	.expect("Can convert");
 
 	AssetPara::execute_with(|| {
-		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, UNITS));
-		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), UNITS);
+		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, 10 * UNITS));
+		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), 10 * UNITS);
 	});
 
 	SimplePara::execute_with(|| {
 		// We specify `Parent` because we are referencing the Relay Chain token.
 		// This chain doesn't have a token of its own, so we always refer to this token,
 		// and we do so by the Location of the Relay Chain.
-		let fee_payment: Asset = (Location::here(), 25u128 * CENTS as u128).into();
+		let fee_payment: Asset = (Location::here(), 10u128 * UNITS).into();
 
 		let xcm = Xcm(vec![
 			// SetAppendix(Xcm(vec![
@@ -71,6 +71,17 @@ fn registering_foreign_assets_work() {
 			// ])),
 			// WithdrawAsset(fee_payment.clone().into()),
 			// PayFees { asset: fee_payment },
+			Transact {
+				origin_kind: OriginKind::Xcm,
+				fallback_max_weight: None,
+				call: asset_para::RuntimeCall::ForeignAssets(pallet_assets::Call::create {
+					id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
+					admin: simple_para_sovereign.into(),
+					min_balance: 1_000_000_000,
+				})
+					.encode()
+					.into(),
+			},
 			Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				fallback_max_weight: None,
