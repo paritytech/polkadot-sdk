@@ -17,10 +17,8 @@
 
 use super::{
 	asset_para,
-	network::{
-		AssetPara, MockNet, SimplePara, ASSET_PARA_ID,
-		SIMPLE_PARA_ID, UNITS,
-	}, simple_para,
+	network::{AssetPara, MockNet, SimplePara, ASSET_PARA_ID, SIMPLE_PARA_ID, UNITS},
+	simple_para,
 };
 use frame::{prelude::fungible::Mutate, testing_prelude::*};
 use test_log::test;

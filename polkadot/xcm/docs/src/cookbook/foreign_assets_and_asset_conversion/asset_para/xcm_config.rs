@@ -17,7 +17,11 @@
 
 //! # XCM Configuration
 
-use super::assets::NativeAndAssets;
+use super::{
+	assets::NativeAndAssets, AccountId, AssetConversion, Balance, Balances, ForeignAssets,
+	MessageQueue, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
+};
+use crate::cookbook::foreign_assets_and_asset_conversion::network::ASSET_PARA_ID;
 use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation};
 use frame::{
 	deps::frame_system,
@@ -30,13 +34,14 @@ use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
-use xcm_builder::{AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWithExplicitGlobalConsensus, UsingComponents};
-use xcm_executor::XcmExecutor;
-use crate::cookbook::foreign_assets_and_asset_conversion::network::ASSET_PARA_ID;
-use super::{
-	AccountId, AssetConversion, Balance, Balances, ForeignAssets, MessageQueue, PoolAssets,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
+use xcm_builder::{
+	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, StartsWithExplicitGlobalConsensus,
+	UsingComponents,
 };
+use xcm_executor::XcmExecutor;
 
 parameter_types! {
 	pub HereLocation: Location = Location::here();

@@ -19,7 +19,7 @@
 
 use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
 use xcm_executor::XcmExecutor;
-use xcm_simulator::{mock_message_queue,};
+use xcm_simulator::mock_message_queue;
 pub mod xcm_config;
 
 pub(crate) mod assets;
