@@ -27780,6 +27780,10 @@ name = "xcm-docs"
 version = "0.1.0"
 dependencies = [
  "assets-common",
+ "cumulus-pallet-parachain-system",
+ "cumulus-pallet-xcm",
+ "cumulus-pallet-xcmp-queue",
+ "cumulus-primitives-core",
  "cumulus-primitives-utility",
  "docify",
  "pallet-asset-conversion",
@@ -27801,6 +27805,7 @@ dependencies = [
  "staging-xcm-builder",
  "staging-xcm-executor",
  "test-log",
+ "xcm-emulator",
  "xcm-simulator",
 ]
 

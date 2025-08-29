@@ -22,8 +22,7 @@ use frame::deps::{
 	sp_io::TestExternalities,
 	sp_runtime::{AccountId32, BuildStorage},
 };
-use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
-
+use xcm_emulator::{decl_test_parachains, decl_test_relay_chains, decl_test_networks};
 use super::{asset_para, relay_chain, simple_para};
 
 pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
@@ -32,16 +31,16 @@ pub const UNITS: u64 = 10_000_000_000;
 pub const CENTS: u64 = 100_000_000;
 pub const INITIAL_BALANCE: u64 = UNITS;
 
-decl_test_parachain! {
+decl_test_parachains! {
 	pub struct SimplePara {
-		Runtime = parachain::Runtime,
+		runtime = parachain::Runtime,
 		XcmpMessageHandler = simple_para::MessageQueue,
 		DmpMessageHandler = simple_para::MessageQueue,
 		new_ext = simple_para_ext(),
 	}
 }
 
-decl_test_parachain! {
+decl_test_parachains! {
 	pub struct AssetPara {
 		Runtime = parachain::Runtime,
 		XcmpMessageHandler = asset_para::MessageQueue,
@@ -50,7 +49,7 @@ decl_test_parachain! {
 	}
 }
 
-decl_test_relay_chain! {
+decl_test_relay_chains! {
 	pub struct Relay {
 		Runtime = relay_chain::Runtime,
 		RuntimeCall = relay_chain::RuntimeCall,
@@ -62,12 +61,15 @@ decl_test_relay_chain! {
 	}
 }
 
-decl_test_network! {
+pub const SIMPLE_PARA_ID: u32 = 2222;
+pub const ASSET_PARA_ID: u32 = 3333;
+
+decl_test_networks! {
 	pub struct MockNet {
 		relay_chain = Relay,
 		parachains = vec![
-			(2222, SimplePara),
-			(3333, AssetPara),
+			(SIMPLE_PARA_ID, SimplePara),
+			(ASSET_PARA_ID, AssetPara),
 		],
 	}
 }
