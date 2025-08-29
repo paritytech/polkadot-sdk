@@ -798,6 +798,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 parameter_types! {
+	/// TODO: analyzer based on the kb size of an offence, and max messages that can be queued in the DMP queue.
 	pub const MaxOffenceBatchSize: u32 = 50;
 }
 

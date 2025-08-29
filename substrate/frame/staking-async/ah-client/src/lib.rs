@@ -396,52 +396,52 @@ pub mod pallet {
 	///
 	/// It has only two interfaces:
 	///
-	/// * [`SendQueue::append`], to add a single offeence.
-	/// * [`SendQueue::get_and_maybe_delete`] which retrieves the last page. Depending on the
+	/// * [`OffenceSendQueue::append`], to add a single offeence.
+	/// * [`OffenceSendQueue::get_and_maybe_delete`] which retrieves the last page. Depending on the
 	///   closure, it may also delete that page. The returned value is indeed
 	///   [`Config::MaxOffenceBatchSize`] or less items.
 	///
-	/// Internally, it manages `SendQueueOffences` and `SendQueueCursor`, both of which should NEVER
+	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of which should NEVER
 	/// be used manually.
 	///
 	/// It uses [`Config::MaxOffeenceBatchSize`] as the page size.
-	pub struct SendQueue<T: Config>(core::marker::PhantomData<T>);
+	pub struct OffenceSendQueue<T: Config>(core::marker::PhantomData<T>);
 
-	/// A single buffered offence in [`SendQueue`].
+	/// A single buffered offence in [`OffenceSendQueue`].
 	pub type QueuedOffenceOf<T> =
 		(SessionIndex, rc_client::Offence<<T as frame_system::Config>::AccountId>);
-	/// A page of buffered offences in [`SendQueue`].
+	/// A page of buffered offences in [`OffenceSendQueue`].
 	pub type QueuedOffencePageOf<T> =
 		BoundedVec<QueuedOffenceOf<T>, <T as Config>::MaxOffenceBatchSize>;
 
-	impl<T: Config> SendQueue<T> {
+	impl<T: Config> OffenceSendQueue<T> {
 		/// Add a single offence to the queue.
 		pub fn append(o: QueuedOffenceOf<T>) {
-			let mut index = SendQueueCursor::<T>::get();
-			match SendQueueOffences::<T>::try_mutate(index, |b| b.try_push(o.clone())) {
+			let mut index = OffenceSendQueueCursor::<T>::get();
+			match OffenceSendQueueOffences::<T>::try_mutate(index, |b| b.try_push(o.clone())) {
 				Ok(_) => {
 					// `index` had empty slot -- all good.
 				},
 				Err(_) => {
 					index += 1;
-					SendQueueOffences::<T>::insert(
+					OffenceSendQueueOffences::<T>::insert(
 						index,
 						BoundedVec::<_, _>::try_from(vec![o]).expect("1 is less than 16; qed"),
 					);
-					SendQueueCursor::<T>::mutate(|i| *i += 1);
+					OffenceSendQueueCursor::<T>::mutate(|i| *i += 1);
 				},
 			}
 		}
 
 		// Get the last page of offences, and delete it if `op` returns `Ok(())`.
 		pub fn get_and_maybe_delete(op: impl FnOnce(QueuedOffencePageOf<T>) -> Result<(), ()>) {
-			let index = SendQueueCursor::<T>::get();
-			let page = SendQueueOffences::<T>::get(index);
+			let index = OffenceSendQueueCursor::<T>::get();
+			let page = OffenceSendQueueOffences::<T>::get(index);
 			let res = op(page);
 			match res {
 				Ok(_) => {
-					SendQueueOffences::<T>::remove(index);
-					SendQueueCursor::<T>::mutate(|i| *i = i.saturating_sub(1))
+					OffenceSendQueueOffences::<T>::remove(index);
+					OffenceSendQueueCursor::<T>::mutate(|i| *i = i.saturating_sub(1))
 				},
 				Err(_) => {
 					// nada
@@ -452,31 +452,31 @@ pub mod pallet {
 		#[cfg(feature = "std")]
 		pub fn pages() -> u32 {
 			let last_page = if Self::last_page_empty() { 0 } else { 1 };
-			SendQueueCursor::<T>::get().saturating_add(last_page)
+			OffenceSendQueueCursor::<T>::get().saturating_add(last_page)
 		}
 
 		#[cfg(feature = "std")]
 		pub fn count() -> u32 {
-			let last_index = SendQueueCursor::<T>::get();
-			let last_page = SendQueueOffences::<T>::get(last_index);
+			let last_index = OffenceSendQueueCursor::<T>::get();
+			let last_page = OffenceSendQueueOffences::<T>::get(last_index);
 			let last_page_count = last_page.len() as u32;
 			last_index.saturating_mul(T::MaxOffenceBatchSize::get()) + last_page_count
 		}
 
 		#[cfg(feature = "std")]
 		fn last_page_empty() -> bool {
-			SendQueueOffences::<T>::get(SendQueueCursor::<T>::get()).is_empty()
+			OffenceSendQueueOffences::<T>::get(OffenceSendQueueCursor::<T>::get()).is_empty()
 		}
 	}
 
-	/// Internal storage item of [`SendQueue`]. Should not be used manually.
+	/// Internal storage item of [`OffenceSendQueue`]. Should not be used manually.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type SendQueueOffences<T: Config> =
+	pub(crate) type OffenceSendQueueOffences<T: Config> =
 		StorageMap<_, Twox64Concat, u32, QueuedOffencePageOf<T>, ValueQuery>;
-	/// Internal storage item of [`SendQueue`]. Should not be used manually.
+	/// Internal storage item of [`OffenceSendQueue`]. Should not be used manually.
 	#[pallet::storage]
-	pub(crate) type SendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub(crate) type OffenceSendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -681,7 +681,7 @@ pub mod pallet {
 			if migration_buffered_offences.is_empty() {
 				// take a page from our send queue, and actually send it.
 				weight.saturating_accrue(T::DbWeight::get().reads(2));
-				SendQueue::<T>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
 					if page.is_empty() {
 						return Ok(())
 					}
@@ -1081,7 +1081,7 @@ pub mod pallet {
 				// prepare an `Offence` instance for the XCM message. Note that we drop
 				// the identification.
 				let offence = rc_client::Offence { offender, reporters, slash_fraction: *fraction };
-				SendQueue::<T>::append((slash_session, offence))
+				OffenceSendQueue::<T>::append((slash_session, offence))
 			});
 
 			T::DbWeight::get().reads_writes(2, 2)
@@ -1099,9 +1099,9 @@ mod send_queue_tests {
 
 	// (cursor, len_of_pages)
 	fn status() -> (u32, Vec<u32>) {
-		let mut sorted = SendQueueOffences::<Test>::iter().collect::<Vec<_>>();
+		let mut sorted = OffenceSendQueueOffences::<Test>::iter().collect::<Vec<_>>();
 		sorted.sort_by(|x, y| x.0.cmp(&y.0));
-		(SendQueueCursor::<Test>::get(), sorted.into_iter().map(|(_, v)| v.len() as u32).collect())
+		(OffenceSendQueueCursor::<Test>::get(), sorted.into_iter().map(|(_, v)| v.len() as u32).collect())
 	}
 
 	#[test]
@@ -1122,12 +1122,12 @@ mod send_queue_tests {
 
 			// --- when empty
 
-			assert_eq!(SendQueue::<Test>::count(), 0);
-			assert_eq!(SendQueue::<Test>::pages(), 0);
+			assert_eq!(OffenceSendQueue::<Test>::count(), 0);
+			assert_eq!(OffenceSendQueue::<Test>::pages(), 0);
 
 			// get and keep
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len(), 0);
 					Err(())
 				});
@@ -1136,7 +1136,7 @@ mod send_queue_tests {
 
 			// get and delete
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len(), 0);
 					Ok(())
 				});
@@ -1145,15 +1145,15 @@ mod send_queue_tests {
 
 			// -------- when 1 page half filled
 			for _ in 0..page_size / 2 {
-				SendQueue::<Test>::append(o.clone());
+				OffenceSendQueue::<Test>::append(o.clone());
 			}
 			assert_eq!(status(), (0, vec![page_size / 2]));
-			assert_eq!(SendQueue::<Test>::count(), page_size / 2);
-			assert_eq!(SendQueue::<Test>::pages(), 1);
+			assert_eq!(OffenceSendQueue::<Test>::count(), page_size / 2);
+			assert_eq!(OffenceSendQueue::<Test>::pages(), 1);
 
 			// get and keep
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len() as u32, page_size / 2);
 					Err(())
 				});
@@ -1162,26 +1162,26 @@ mod send_queue_tests {
 
 			// get and delete
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len() as u32, page_size / 2);
 					Ok(())
 				});
 				assert_eq!(status(), (0, vec![]));
-				assert_eq!(SendQueue::<Test>::count(), 0);
-				assert_eq!(SendQueue::<Test>::pages(), 0);
+				assert_eq!(OffenceSendQueue::<Test>::count(), 0);
+				assert_eq!(OffenceSendQueue::<Test>::pages(), 0);
 			});
 
 			// -------- when 1 page full
 			for _ in 0..page_size / 2 {
-				SendQueue::<Test>::append(o.clone());
+				OffenceSendQueue::<Test>::append(o.clone());
 			}
 			assert_eq!(status(), (0, vec![page_size]));
-			assert_eq!(SendQueue::<Test>::count(), page_size);
-			assert_eq!(SendQueue::<Test>::pages(), 1);
+			assert_eq!(OffenceSendQueue::<Test>::count(), page_size);
+			assert_eq!(OffenceSendQueue::<Test>::pages(), 1);
 
 			// get and keep
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len() as u32, page_size);
 					Err(())
 				});
@@ -1190,7 +1190,7 @@ mod send_queue_tests {
 
 			// get and delete
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len() as u32, page_size);
 					Ok(())
 				});
@@ -1198,14 +1198,14 @@ mod send_queue_tests {
 			});
 
 			// -------- when more than 1 page full
-			SendQueue::<Test>::append(o.clone());
+			OffenceSendQueue::<Test>::append(o.clone());
 			assert_eq!(status(), (1, vec![page_size, 1]));
-			assert_eq!(SendQueue::<Test>::count(), page_size + 1);
-			assert_eq!(SendQueue::<Test>::pages(), 2);
+			assert_eq!(OffenceSendQueue::<Test>::count(), page_size + 1);
+			assert_eq!(OffenceSendQueue::<Test>::pages(), 2);
 
 			// get and keep
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len(), 1);
 					Err(())
 				});
@@ -1214,7 +1214,7 @@ mod send_queue_tests {
 
 			// get and delete
 			hypothetically!({
-				SendQueue::<Test>::get_and_maybe_delete(|page| {
+				OffenceSendQueue::<Test>::get_and_maybe_delete(|page| {
 					assert_eq!(page.len(), 1);
 					Ok(())
 				});

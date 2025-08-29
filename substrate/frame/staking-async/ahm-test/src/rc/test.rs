@@ -644,9 +644,9 @@ fn offences_spam_sent_page_by_page() {
 
 		// offence pallet will try and deduplicate them, but they all have the same time-slot,
 		// therefore are all reported to ah-client.
-		assert_eq!(ah_client::SendQueue::<Runtime>::count(), offence_count);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), offence_count);
 		// 2.5 pages worth of offences
-		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 3);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 3);
 
 		// Nothing is in our local (outgoing queue yet)
 		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
@@ -659,8 +659,8 @@ fn offences_spam_sent_page_by_page() {
 			&LocalQueue::get_since_last_call()[..],
 			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size / 2
 		));
-		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 2 * onchain_batch_size);
-		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 2);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 2 * onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 2);
 
 		// To spice it up, we simulate 1 failed attempt in the next page as well. This is equivalent to the DMP queue being too busy to receive this message from us.
 		NextAhDeliveryFails::set(true);
@@ -668,8 +668,8 @@ fn offences_spam_sent_page_by_page() {
 
 		// offence queue has not changed, we didn't send anyhting.
 		assert!(LocalQueue::get_since_last_call().is_empty());
-		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 2 * onchain_batch_size);
-		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 2);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 2 * onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 2);
 
 		// even to warn us is emitted
 		assert_eq!(ah_client_events_since_last_call(), vec![ah_client::Event::Unexpected(UnexpectedKind::OffenceSendFailed)]);
@@ -680,8 +680,8 @@ fn offences_spam_sent_page_by_page() {
 			&LocalQueue::get_since_last_call()[..],
 			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
 		));
-		assert_eq!(ah_client::SendQueue::<Runtime>::count(), onchain_batch_size);
-		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 1);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), onchain_batch_size);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 1);
 
 
 		roll_next();
@@ -689,8 +689,8 @@ fn offences_spam_sent_page_by_page() {
 			&LocalQueue::get_since_last_call()[..],
 			[(_, OutgoingMessages::OffenceReportPaged(ref offences))] if offences.len() as u32 == onchain_batch_size
 		));
-		assert_eq!(ah_client::SendQueue::<Runtime>::count(), 0);
-		assert_eq!(ah_client::SendQueue::<Runtime>::pages(), 0);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::count(), 0);
+		assert_eq!(ah_client::OffenceSendQueue::<Runtime>::pages(), 0);
 
 		// nothing more is set to outbox.
 		roll_next();
