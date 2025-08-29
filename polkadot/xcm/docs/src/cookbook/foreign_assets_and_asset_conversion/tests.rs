@@ -15,12 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::{asset_para, network::{AssetPara, MockNet, Relay, SimplePara, ALICE, BOB, CENTS, INITIAL_BALANCE}, relay_chain, simple_para};
+use super::{
+	asset_para,
+	network::{AssetPara, MockNet, Relay, SimplePara, ALICE, BOB, CENTS, INITIAL_BALANCE},
+	relay_chain, simple_para,
+};
+use crate::cookbook::foreign_assets_and_asset_conversion::network::{
+	ASSET_PARA_ID, SIMPLE_PARA_ID,
+};
 use frame::testing_prelude::*;
 use test_log::test;
 use xcm::prelude::*;
 use xcm_simulator::TestExt;
-use crate::cookbook::foreign_assets_and_asset_conversion::network::{ASSET_PARA_ID, SIMPLE_PARA_ID};
 
 #[docify::export]
 #[test]
@@ -37,7 +43,6 @@ fn registering_foreign_assets_work() {
 	SimplePara::execute_with(|| {
 		assert_eq!(simple_para::Balances::free_balance(&BOB), 0);
 	});
-
 
 	SimplePara::execute_with(|| {
 		// We specify `Parent` because we are referencing the Relay Chain token.
@@ -58,15 +63,15 @@ fn registering_foreign_assets_work() {
 			Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				fallback_max_weight: None,
-				call: asset_para::RuntimeCall::ForeignAssets(
-					pallet_assets::Call::set_metadata {
-						id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
-						name: "Simple Para Token".into(),
-						symbol: "TOK".into(),
-						decimals: 12,
-					}
-				).encode().into()
-			}
+				call: asset_para::RuntimeCall::ForeignAssets(pallet_assets::Call::set_metadata {
+					id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
+					name: "Simple Para Token".into(),
+					symbol: "TOK".into(),
+					decimals: 12,
+				})
+				.encode()
+				.into(),
+			},
 		]);
 
 		assert_ok!(simple_para::XcmPallet::send(
@@ -77,5 +82,16 @@ fn registering_foreign_assets_work() {
 	});
 
 	AssetPara::execute_with(|| {
+		type Event = asset_para::RuntimeEvent;
+
+		asset_para::System::assert_has_event(Event::ForeignAssets(
+			pallet_assets::Event::MetadataSet {
+				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
+				name: "Simple Para Token".into(),
+				symbol: "TOK".into(),
+				decimals: 12,
+				is_frozen: false,
+			},
+		))
 	});
 }
