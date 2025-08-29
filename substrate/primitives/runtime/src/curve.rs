@@ -71,9 +71,9 @@ where
 		Self { start, end, initial_value, step, period }
 	}
 
-	/// Returns the magnitude of the last occuring step size from a given `point`.
+	/// Returns the magnitude of the step size occuring at the start of this point's period.
 	/// If no step has occured, will return 0.
-	/// 
+	///
 	/// Ex. In period 4, the last step taken was 10 -> 7, it would return 3.
 	pub fn last_step_size(&self, point: P) -> V {
 		let initial = self.initial_value;
@@ -89,70 +89,27 @@ where
 		}
 
 		// Determine the effective point for calculation, capped by the end point if it exists.
-		let effective_point = self.end.map_or(point, |e| point.min(e));
+		let _effective_point = self.end.map_or(point, |e| point.min(e));
 
-		// Calculate how many full periods have passed, capped by usize.
-		let num_periods = (effective_point - self.start) / self.period;
-		let num_periods_usize = num_periods.saturated_into::<usize>();
+		// Calculate how many full periods have passed.
+		let num_periods = (point - self.start) / self.period;
 
 		if num_periods.is_zero() {
 			return V::zero();
 		}
 
-		match self.step {
-			Step::Add(step_value) | Step::Subtract(step_value) => {
-				// Will always be the step value.
-				return step_value;
-			},
-			Step::PctInc(percent) => {
-				// Value in current period - Value in previous period
-				let mut ratio = FixedU128::from(percent);
-				ratio = FixedU128::one().saturating_add(ratio);
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-			
-				let scale_curr = ratio.saturating_pow(num_periods_usize);
-				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
-				let res_curr = initial_fp.saturating_mul(scale_curr);
-				let res_previous = initial_fp.saturating_mul(scale_prev);
-				let res = res_curr.saturating_sub(res_previous);
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
-			},
-			Step::PctDec(percent) => {
-				// Value in previous period - Value in current period.
-				let mut ratio = FixedU128::from(percent);
-				ratio = FixedU128::one().saturating_sub(ratio);
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-			
-				let scale_curr = ratio.saturating_pow(num_periods_usize);
-				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
-				let res_curr = initial_fp.saturating_mul(scale_curr);
-				let res_previous = initial_fp.saturating_mul(scale_prev);
-				let res = res_previous.saturating_sub(res_curr);
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
-			},
-			Step::AsymptoticPct(asymptote, percent) => {
-				// Difference
-				let ratio = FixedU128::one().saturating_sub(FixedU128::from(percent));
-				let scale_curr = ratio.saturating_pow(num_periods_usize);
-				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
+		// Points for calculating step difference.
+		let prev_period_point = self.start + (num_periods - P::one()) * self.period;
+		let curr_period_point = self.start + num_periods * self.period;
 
-				let initial_fp = FixedU128::saturating_from_integer(initial);
-				let asymptote_fp = FixedU128::saturating_from_integer(asymptote);
+		// Evaluate the curve at those two points.
+		let val_prev = self.evaluate(prev_period_point);
+		let val_curr = self.evaluate(curr_period_point);
 
-				let res = if initial >= asymptote {
-					let diff = initial_fp.saturating_sub(asymptote_fp);
-					let res_curr = asymptote_fp.saturating_add(diff.saturating_mul(scale_curr));
-					let res_prev = asymptote_fp.saturating_add(diff.saturating_mul(scale_prev));
-					res_prev.saturating_sub(res_curr)
-				} else {
-					let diff = asymptote_fp.saturating_sub(initial_fp);
-					let res_curr = asymptote_fp.saturating_sub(diff.saturating_mul(scale_curr))
-					let res_prev = asymptote_fp.saturating_sub(diff.saturating_mul(scale_prev))
-					res_curr.saturating_sub(res_prev)
-				};
-				
-				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
-			},
+		if val_curr >= val_prev {
+			return val_curr.saturating_sub(val_prev);
+		} else {
+			return val_prev.saturating_sub(val_curr);
 		}
 	}
 
@@ -225,7 +182,7 @@ where
 					let diff = asymptote_fp.saturating_sub(initial_fp);
 					asymptote_fp.saturating_sub(diff.saturating_mul(scale))
 				};
-				
+
 				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
 			},
 		}
@@ -323,6 +280,10 @@ fn stepped_curve_works() {
 	let curve_with_end = SteppedCurve::new(10u32, Some(20u32), 100u32, Step::Add(100u32), 2u32);
 	assert_eq!(curve_with_end.evaluate(20u32), 600u32);
 	assert_eq!(curve_with_end.evaluate(30u32), 600u32);
+	assert_eq!(curve_with_end.last_step_size(10u32), 0u32);
+	assert_eq!(curve_with_end.last_step_size(20u32), 100u32);
+	assert_eq!(curve_with_end.last_step_size(22u32), 0u32);
+	assert_eq!(curve_with_end.last_step_size(30u32), 0u32);
 
 	// Zero period curve.
 	let zero_period_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 0u32);
@@ -330,6 +291,7 @@ fn stepped_curve_works() {
 	assert_eq!(zero_period_curve.evaluate(11u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(12u32), 100u32);
 	assert_eq!(zero_period_curve.evaluate(20u32), 100u32);
+	assert_eq!(zero_period_curve.last_step_size(20u32), 0u32);
 
 	// Curve with different types.
 	let diff_types_curve = SteppedCurve::new(10u32, None, 100u64, Step::Add(100u64), 2u32);
@@ -337,6 +299,7 @@ fn stepped_curve_works() {
 	assert_eq!(diff_types_curve.evaluate(11u32), 100u64);
 	assert_eq!(diff_types_curve.evaluate(12u32), 200u64);
 	assert_eq!(diff_types_curve.evaluate(20u32), 600u64);
+	assert_eq!(diff_types_curve.last_step_size(20u32), 100u64);
 
 	// Step::Add.
 	let add_curve = SteppedCurve::new(10u32, None, 100u32, Step::Add(100u32), 2u32);
@@ -345,6 +308,9 @@ fn stepped_curve_works() {
 	assert_eq!(add_curve.evaluate(12u32), 200u32);
 	assert_eq!(add_curve.evaluate(20u32), 600u32);
 	assert_eq!(add_curve.evaluate(u32::MAX), u32::MAX);
+	assert_eq!(add_curve.last_step_size(11u32), 0u32);
+	assert_eq!(add_curve.last_step_size(12u32), 100u32);
+	assert_eq!(add_curve.last_step_size(20u32), 100u32);
 
 	// Step::Subtract.
 	let subtract_curve = SteppedCurve::new(10u32, None, 1000u32, Step::Subtract(100u32), 2u32);
@@ -353,6 +319,9 @@ fn stepped_curve_works() {
 	assert_eq!(subtract_curve.evaluate(12u32), 900u32);
 	assert_eq!(subtract_curve.evaluate(20u32), 500u32);
 	assert_eq!(subtract_curve.evaluate(u32::MAX), u32::MIN);
+	assert_eq!(subtract_curve.last_step_size(11u32), 0u32);
+	assert_eq!(subtract_curve.last_step_size(12u32), 100u32);
+	assert_eq!(subtract_curve.last_step_size(20u32), 100u32);
 
 	// Step::PctInc.
 	let pct_inc_curve =
@@ -362,6 +331,10 @@ fn stepped_curve_works() {
 	assert_eq!(pct_inc_curve.evaluate(12u32), 1100u32);
 	assert_eq!(pct_inc_curve.evaluate(20u32), 1610u32);
 	assert_eq!(pct_inc_curve.evaluate(u32::MAX), u32::MAX);
+	assert_eq!(pct_inc_curve.last_step_size(11u32), 0u32);
+	assert_eq!(pct_inc_curve.last_step_size(12u32), 100u32);
+	assert_eq!(pct_inc_curve.last_step_size(20u32), 146u32);
+	assert_eq!(pct_inc_curve.last_step_size(u32::MAX), 0u32);
 
 	// Step::PctDec.
 	let pct_dec_curve =
@@ -371,6 +344,10 @@ fn stepped_curve_works() {
 	assert_eq!(pct_dec_curve.evaluate(12u32), 900u32);
 	assert_eq!(pct_dec_curve.evaluate(20u32), 590u32);
 	assert_eq!(pct_dec_curve.evaluate(u32::MAX), u32::MIN);
+	assert_eq!(pct_dec_curve.last_step_size(11u32), 0u32);
+	assert_eq!(pct_dec_curve.last_step_size(12u32), 100u32);
+	assert_eq!(pct_dec_curve.last_step_size(20u32), 66u32);
+	assert_eq!(pct_dec_curve.last_step_size(u32::MAX), 0u32);
 
 	// Step::AsymptoticPct increasing.
 	let asymptotic_increasing = SteppedCurve::new(
@@ -386,6 +363,12 @@ fn stepped_curve_works() {
 	assert_eq!(asymptotic_increasing.evaluate(14u32), 190u32);
 	assert_eq!(asymptotic_increasing.evaluate(16u32), 271u32);
 	assert_eq!(asymptotic_increasing.evaluate(u32::MAX), 1000u32);
+	assert_eq!(asymptotic_increasing.last_step_size(5u32), 0u32);
+	assert_eq!(asymptotic_increasing.last_step_size(11u32), 0u32);
+	assert_eq!(asymptotic_increasing.last_step_size(12u32), 100u32);
+	assert_eq!(asymptotic_increasing.last_step_size(14u32), 90u32);
+	assert_eq!(asymptotic_increasing.last_step_size(16u32), 81u32);
+	assert_eq!(asymptotic_increasing.last_step_size(u32::MAX), 0u32);
 
 	// Step::AsymptoticPct decreasing.
 	let asymptotic_decreasing = SteppedCurve::new(
@@ -401,6 +384,12 @@ fn stepped_curve_works() {
 	assert_eq!(asymptotic_decreasing.evaluate(14u32), 810u32);
 	assert_eq!(asymptotic_decreasing.evaluate(16u32), 729u32);
 	assert_eq!(asymptotic_decreasing.evaluate(u32::MAX), 0u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(5u32), 0u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(11u32), 0u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(12u32), 100u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(14u32), 90u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(16u32), 81u32);
+	assert_eq!(asymptotic_decreasing.last_step_size(u32::MAX), 0u32);
 
 	// Step::AsymptoticPct stable.
 	let asymptotic_stable = SteppedCurve::new(
@@ -413,6 +402,9 @@ fn stepped_curve_works() {
 	assert_eq!(asymptotic_stable.evaluate(5u32), 1000u32);
 	assert_eq!(asymptotic_stable.evaluate(12u32), 1000u32);
 	assert_eq!(asymptotic_stable.evaluate(20u32), 1000u32);
+	assert_eq!(asymptotic_stable.last_step_size(5u32), 0u32);
+	assert_eq!(asymptotic_stable.last_step_size(12u32), 0u32);
+	assert_eq!(asymptotic_stable.last_step_size(20u32), 0u32);
 
 	// Step::AsymptoticPct capped end.
 	let asymptotic_with_end = SteppedCurve::new(
@@ -427,6 +419,12 @@ fn stepped_curve_works() {
 	assert_eq!(asymptotic_with_end.evaluate(12u32), 100u32);
 	assert_eq!(asymptotic_with_end.evaluate(14u32), 190u32);
 	assert_eq!(asymptotic_with_end.evaluate(16u32), 190u32);
+	assert_eq!(asymptotic_with_end.last_step_size(5u32), 0u32);
+	assert_eq!(asymptotic_with_end.last_step_size(11u32), 0u32);
+	assert_eq!(asymptotic_with_end.last_step_size(12u32), 100u32);
+	assert_eq!(asymptotic_with_end.last_step_size(14u32), 90u32);
+	assert_eq!(asymptotic_with_end.last_step_size(16u32), 0u32);
+	assert_eq!(asymptotic_with_end.last_step_size(18u32), 0u32);
 }
 
 #[test]
