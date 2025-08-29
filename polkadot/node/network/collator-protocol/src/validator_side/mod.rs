@@ -1799,7 +1799,7 @@ async fn run_inner<Context>(
 	gum::trace!(
 		target: LOG_TARGET,
 		?eviction_policy,
-		?ah_invulnerables,
+		ah_invulnerables=?state.ah_invulnerables,
 		?hold_off_duration,
 		"starting up"
 	);
