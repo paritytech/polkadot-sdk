@@ -939,7 +939,7 @@ pub mod pallet {
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
 		///
-		///If the refcount of the code reaches zero after terminating the last contract that
+		/// If the refcount of the code reaches zero after terminating the last contract that
 		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
