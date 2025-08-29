@@ -29,7 +29,7 @@ use xcm_config::XcmConfig;
 
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = frame::deps::sp_runtime::AccountId32;
-pub type Balance = u64;
+pub type Balance = u128;
 
 construct_runtime! {
 	pub struct Runtime {
@@ -66,6 +66,7 @@ parameter_types! {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
+	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 }
 

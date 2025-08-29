@@ -71,15 +71,15 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolAssets = PoolAssets;
 	// Storage deposit for pool setup within asset conversion pallet
 	// and pool's lp token creation within assets pallet.
-	type PoolSetupFee = ConstU64<UNITS>;
+	type PoolSetupFee = ConstU128<UNITS>;
 	type PoolSetupFeeAsset = HereLocation;
-    // Usually you put here the treasury account.
+	// Usually you put here the treasury account.
 	type PoolSetupFeeTarget = ();
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type LPFee = ConstU32<3>;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
-	type MintMinLiquidity = ConstU64<100>;
+	type MintMinLiquidity = ConstU128<100>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

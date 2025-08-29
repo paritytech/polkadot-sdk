@@ -19,7 +19,9 @@ xcm-simulator = { workspace = true, default-features = true }
 # For building FRAME runtimes
 assets-common = {workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
+cumulus-primitives-utility = { workspace = true, default-features = true }
 frame = { features = ["runtime"], workspace = true, default-features = true }
+parachains-common = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 scale-info = { workspace = true }

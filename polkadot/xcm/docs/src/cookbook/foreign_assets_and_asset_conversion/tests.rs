@@ -15,15 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+use super::{
+	network::{AssetPara, MockNet, Relay, SimplePara, ALICE, BOB, CENTS, INITIAL_BALANCE},
+	relay_chain, simple_para,
+};
 use frame::testing_prelude::*;
 use test_log::test;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::TestExt;
-use super::{
-	network::{MockNet, SimplePara, AssetPara, Relay, ALICE, BOB, CENTS, INITIAL_BALANCE},
-	simple_para, relay_chain,
-};
 
 #[docify::export]
 #[test]
