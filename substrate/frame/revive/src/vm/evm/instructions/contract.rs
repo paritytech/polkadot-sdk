@@ -19,10 +19,7 @@ mod call_helpers;
 
 use super::{utility::IntoAddress, Context};
 use crate::{
-	vm::{
-		evm::{U256Converter, EVM_INITCODE_LIMIT},
-		Ext, RuntimeCosts,
-	},
+	vm::{evm::U256Converter, Ext, RuntimeCosts},
 	Pallet,
 };
 use alloc::boxed::Box;
@@ -72,8 +69,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 	if len != 0 {
 		// EIP-3860: Limit and meter initcode
 		if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::SHANGHAI) {
-			// Limit is set as double of max contract bytecode size
-			if len > 2 * EVM_INITCODE_LIMIT {
+			if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
 				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
 				return;
 			}

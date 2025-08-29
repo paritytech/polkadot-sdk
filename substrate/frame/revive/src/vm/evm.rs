@@ -57,14 +57,6 @@ pub(crate) const DIFFICULTY: u64 = 2500000000000000_u64;
 /// For `pallet-revive`, this is hardcoded to 0
 pub(crate) const BASE_FEE: U256 = U256::zero();
 
-/// EVM max deployed runtime code size (EIP-170).
-/// 24,576 bytes (0x6000).
-pub const EVM_BYTECODE_LIMIT: usize = 24_576;
-
-/// EVM max initcode size (EIP-3860).
-/// 49,152 bytes (0xC000).
-pub const EVM_INITCODE_LIMIT: usize = EVM_BYTECODE_LIMIT * 2;
-
 impl<T: Config> ContractBlob<T> {
 	/// Create a new contract from EVM init code.
 	pub fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
@@ -78,11 +70,6 @@ impl<T: Config> ContractBlob<T> {
 		}
 
 		let code_len = code.len() as u32;
-		// EIP-7907: Code limit set to 0xc000 (~49kb).
-		if code_len as usize > EVM_BYTECODE_LIMIT {
-			return Err(<Error<T>>::BlobTooLarge.into());
-		}
-
 		let code_info = CodeInfo {
 			owner,
 			deposit: Default::default(),
