@@ -26,20 +26,19 @@ use frame::{
 	testing_prelude::weights::IdentityFee,
 	traits::{Disabled, Equals, Everything, Nothing},
 };
-use frame::traits::TransformOrigin;
-use frame::deps::sp_core;
-use parachains_common::message_queue::ParaIdToSibling;
 use polkadot_parachain_primitives::primitives::Sibling;
-use polkadot_runtime_parachains::inclusion::AggregateMessageOrigin;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
-use xcm_builder::{AccountId32Aliases, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, IsConcrete, ParentAsSuperuser, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWithExplicitGlobalConsensus, UsingComponents};
-use xcm_simulator::ParaId;
+use xcm_builder::{
+	AccountId32Aliases, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, IsConcrete,
+	SiblingParachainConvertsVia, SignedToAccountId32, StartsWithExplicitGlobalConsensus,
+	UsingComponents,
+};
 use xcm_executor::XcmExecutor;
 
 use super::{
 	AccountId, AssetConversion, Balance, Balances, ForeignAssets, MessageQueue, PoolAssets,
-	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet, ParachainSystem,
+	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
 };
 
 parameter_types! {
@@ -297,47 +296,4 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
 	type AuthorizedAliasConsideration = Disabled;
-}
-
-impl cumulus_pallet_xcm::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-// pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
-// 	DeliveryFeeAssetId,
-// 	BaseDeliveryFee,
-// 	TransactionByteFee,
-// 	XcmpQueue,
-// >;
-
-/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
-/// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
-/// biases the kind of local `Origin` it will become.
-pub type XcmOriginToTransactDispatchOrigin = (
-	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
-	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
-	// foreign chains who want to have a local sovereign account on this chain which they control.
-	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
-	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
-	// recognised.
-	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
-);
-
-
-impl cumulus_pallet_xcmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ParachainSystem;
-	type VersionWrapper = XcmPallet;
-	// Enqueue XCMP messages from siblings for later processing.
-	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
-	type ControllerOrigin = EnsureRoot<AccountId>;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
-	type MaxActiveOutboundChannels = ConstU32<128>;
-	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
-	// need to set the page size larger than that until we reduce the channel size on-chain.
-	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 }

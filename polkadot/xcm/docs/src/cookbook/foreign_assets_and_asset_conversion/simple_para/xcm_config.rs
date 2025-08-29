@@ -18,18 +18,19 @@
 //! # XCM Configuration
 
 use frame::{
-	deps::{frame_system, sp_core},
+	deps::frame_system,
 	runtime::prelude::*,
 	traits::{Disabled, Everything, Nothing},
 };
-use frame::traits::TransformOrigin;
-use parachains_common::message_queue::ParaIdToSibling;
-use polkadot_runtime_parachains::inclusion::AggregateMessageOrigin;
 use xcm::latest::prelude::*;
-use xcm_builder::{AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, SiblingParachainAsNative, SignedToAccountId32, SovereignSignedViaLocation};
+use xcm_builder::{
+	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
+	SignedToAccountId32,
+};
 use xcm_executor::XcmExecutor;
-use xcm_simulator::ParaId;
-use super::{XcmPallet, ParachainSystem, AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
+
+use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 parameter_types! {
 	pub RelayLocation: Location = Location::parent();
@@ -174,63 +175,4 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
 	type AuthorizedAliasConsideration = Disabled;
-}
-
-impl cumulus_pallet_xcmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ParachainSystem;
-	type VersionWrapper = XcmPallet;
-	// Enqueue XCMP messages from siblings for later processing.
-	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
-	type ControllerOrigin = EnsureRoot<AccountId>;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = cumulus_pallet_xcmp_queue::weights::SubstrateWeight<Runtime>;
-	type PriceForSiblingDelivery = ();
-	type MaxActiveOutboundChannels = ConstU32<128>;
-	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
-	// need to set the page size larger than that until we reduce the channel size on-chain.
-	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
-}
-
-impl cumulus_pallet_xcm::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-// pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
-// 	DeliveryFeeAssetId,
-// 	BaseDeliveryFee,
-// 	TransactionByteFee,
-// 	XcmpQueue,
-// >;
-
-/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
-/// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
-/// biases the kind of local `Origin` it will become.
-pub type XcmOriginToTransactDispatchOrigin = (
-	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
-	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
-	// foreign chains who want to have a local sovereign account on this chain which they control.
-	SovereignSignedViaLocation<LocationToAccountId, crate::cookbook::foreign_assets_and_asset_conversion::asset_para::RuntimeOrigin>,
-	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
-	// recognised.
-	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, crate::cookbook::foreign_assets_and_asset_conversion::asset_para::RuntimeOrigin>,
-);
-
-impl cumulus_pallet_xcmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ParachainSystem;
-	type VersionWrapper = XcmPallet;
-	// Enqueue XCMP messages from siblings for later processing.
-	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
-	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
-	type ControllerOrigin = EnsureRoot<crate::cookbook::foreign_assets_and_asset_conversion::asset_para::AccountId>;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
-	type MaxActiveOutboundChannels = ConstU32<128>;
-	// Most on-chain HRMP channels are configured to use 102400 bytes of max message size, so we
-	// need to set the page size larger than that until we reduce the channel size on-chain.
-	type MaxPageSize = ConstU32<{ 103 * 1024 }>;
 }
