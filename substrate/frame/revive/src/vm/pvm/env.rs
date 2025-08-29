@@ -955,9 +955,11 @@ pub mod env {
 	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::SetCodeHash)?;
+		let charged = self.charge_gas(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
 		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		self.ext.set_code_hash(code_hash)?;
+		if matches!(self.ext.set_code_hash(code_hash)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::SetCodeHash { old_code_removed: false });
+		}
 		Ok(())
 	}
 
@@ -1007,9 +1009,11 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		self.ext.terminate(&beneficiary)?;
+		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
+		}
 		Err(TrapReason::Termination)
 	}
 

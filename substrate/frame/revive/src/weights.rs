@@ -119,7 +119,7 @@ pub trait WeightInfo {
 	fn seal_call_data_load() -> Weight;
 	fn seal_call_data_copy(n: u32, ) -> Weight;
 	fn seal_return(n: u32, ) -> Weight;
-	fn seal_terminate() -> Weight;
+	fn seal_terminate(n:u32) -> Weight;
 	fn seal_deposit_event(t: u32, n: u32, ) -> Weight;
 	fn get_storage_empty() -> Weight;
 	fn get_storage_full() -> Weight;
@@ -157,7 +157,7 @@ pub trait WeightInfo {
 	fn bn128_pairing(n: u32, ) -> Weight;
 	fn blake2f(n: u32, ) -> Weight;
 	fn seal_ecdsa_to_eth_address() -> Weight;
-	fn seal_set_code_hash() -> Weight;
+	fn seal_set_code_hash(n: u32) -> Weight;
 	fn evm_opcode(r: u32, ) -> Weight;
 	fn instr(r: u32, ) -> Weight;
 	fn instr_empty_loop(r: u32, ) -> Weight;
@@ -771,7 +771,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `Measured`)
 	/// Storage: `Revive::ImmutableDataOf` (r:0 w:1)
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
-	fn seal_terminate() -> Weight {
+	fn seal_terminate(_u: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `583`
 		//  Estimated: `4048`
@@ -1210,7 +1210,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	fn seal_set_code_hash() -> Weight {
+	fn seal_set_code_hash(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `297`
 		//  Estimated: `3762`
@@ -1880,7 +1880,7 @@ impl WeightInfo for () {
 	/// Proof: `Revive::DeletionQueue` (`max_values`: None, `max_size`: Some(142), added: 2617, mode: `Measured`)
 	/// Storage: `Revive::ImmutableDataOf` (r:0 w:1)
 	/// Proof: `Revive::ImmutableDataOf` (`max_values`: None, `max_size`: Some(4118), added: 6593, mode: `Measured`)
-	fn seal_terminate() -> Weight {
+	fn seal_terminate(_u: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `583`
 		//  Estimated: `4048`
@@ -2319,7 +2319,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
-	fn seal_set_code_hash() -> Weight {
+	fn seal_set_code_hash(_n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `297`
 		//  Estimated: `3762`

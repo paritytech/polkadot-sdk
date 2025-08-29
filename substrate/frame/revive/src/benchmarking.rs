@@ -232,9 +232,11 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		// uploading the code reserves some balance in the pallet's account
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&Pallet::<T>::pallet_account(),
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
@@ -282,9 +284,11 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		// uploading the code reserves some balance in the pallet account
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&Pallet::<T>::pallet_account(),
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
@@ -327,8 +331,10 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&Pallet::<T>::pallet_account(),
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
 		// value was removed from the caller
@@ -369,7 +375,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
+			&Pallet::<T>::pallet_account(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -413,7 +419,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
+			&Pallet::<T>::pallet_account(),
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -449,8 +455,8 @@ mod benchmarks {
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
 		_(origin, code, storage_deposit);
-		// uploading the code reserves some balance in the callers account
-		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		// uploading the code reserves some balance in the pallet's account
+		assert!(T::Currency::total_balance_on_hold(&Pallet::<T>::pallet_account()) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
@@ -460,6 +466,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
+		let pallet_account = Pallet::<T>::pallet_account();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -467,12 +474,12 @@ mod benchmarks {
 		let uploaded =
 			<Contracts<T>>::bare_upload_code(origin.clone().into(), code, storage_deposit)?;
 		assert_eq!(uploaded.code_hash, hash);
-		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&caller));
+		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&pallet_account));
 		assert!(<Contract<T>>::code_exists(&hash));
 		#[extrinsic_call]
 		_(origin, hash);
 		// removing the code should have unreserved the deposit
-		assert_eq!(T::Currency::total_balance_on_hold(&caller), 0u32.into());
+		assert_eq!(T::Currency::total_balance_on_hold(&pallet_account), 0u32.into());
 		assert!(<Contract<T>>::code_removed(&hash));
 		Ok(())
 	}
@@ -1102,11 +1109,21 @@ mod benchmarks {
 		));
 	}
 
+	/// Benchmark the ocst of terminating a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate() -> Result<(), BenchmarkError> {
+	fn seal_terminate(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_code = r == 1;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(runtime, memory: [beneficiary.encode(),]);
+		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		let code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_code {
+			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -1115,6 +1132,7 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
+		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
 
 		Ok(())
 	}
@@ -2231,12 +2249,23 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
+	/// Benchmark the cost of setting the code hash of a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
-		let code_hash =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_old_code = r == 1;
+		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
+			.info()?
+			.code_hash;
 
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
+		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
+		let old_code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_old_code {
+			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -2245,6 +2274,7 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
+		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
 		Ok(())
 	}
 
@@ -2395,7 +2425,7 @@ mod benchmarks {
 			v2::Migration::<T>::step(None, &mut meter).unwrap();
 		}
 
-		v2::Migration::<T>::assert_migrated_code_info_matches(code_hash, &old_code_info);
+		v2::Migration::<T>::assert_migrated_code_info(code_hash, &old_code_info);
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
