@@ -18,14 +18,11 @@
 //! # Runtime
 
 use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
-use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
-use xcm::latest::Junction;
 use xcm_executor::XcmExecutor;
-use xcm_simulator::{mock_message_queue, ProcessMessage, ProcessMessageError};
-use xcm_simulator::WeightMeter;
+use xcm_simulator::{mock_message_queue,};
 pub mod xcm_config;
 
-mod assets;
+pub(crate) mod assets;
 
 use xcm_config::XcmConfig;
 
