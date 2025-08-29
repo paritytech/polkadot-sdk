@@ -370,6 +370,7 @@ pub struct ExtBuilder {
 	existential_deposit: u64,
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
+	genesis_config: Option<crate::GenesisConfig<Test>>,
 }
 
 impl Default for ExtBuilder {
@@ -378,11 +379,17 @@ impl Default for ExtBuilder {
 			existential_deposit: ExistentialDeposit::get(),
 			storage_version: None,
 			code_hashes: vec![],
+			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
 		}
 	}
 }
 
 impl ExtBuilder {
+	/// The pallet genesis config to use, or None if you don't want to include it.
+	pub fn genesis_config(mut self, config: Option<crate::GenesisConfig<Test>>) -> Self {
+		self.genesis_config = config;
+		self
+	}
 	pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
 		self.existential_deposit = existential_deposit;
 		self
@@ -401,16 +408,15 @@ impl ExtBuilder {
 		let checking_account = Pallet::<Test>::checking_account();
 
 		pallet_balances::GenesisConfig::<Test> {
-			balances: vec![
-				(checking_account.clone(), 1_000_000_000_000),
-				(Pallet::<Test>::account_id(), Contracts::min_balance()),
-			],
+			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		crate::GenesisConfig::<Test>::default().assimilate_storage(&mut t).unwrap();
+		if let Some(genesis_config) = self.genesis_config {
+			genesis_config.assimilate_storage(&mut t).unwrap();
+		}
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {

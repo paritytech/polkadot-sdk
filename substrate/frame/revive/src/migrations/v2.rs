@@ -263,7 +263,7 @@ fn migrate_to_v2() {
 	};
 	use alloc::collections::BTreeMap;
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		// Store the original values to verify against later
 		let mut original_values = BTreeMap::new();
 
