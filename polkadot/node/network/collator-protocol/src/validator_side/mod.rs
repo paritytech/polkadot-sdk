@@ -77,7 +77,7 @@ use collation::{
 };
 use error::{Error, FetchError, Result, SecondingError};
 
-const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1300); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
+const ASSET_HUB_PARA_ID: ParaId = ParaId::new(500); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
 
 #[cfg(test)]
 mod tests;
