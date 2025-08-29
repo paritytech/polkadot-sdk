@@ -31,7 +31,7 @@ pub use xcm_config::LocationToAccountId;
 use xcm_config::XcmConfig;
 
 pub type AccountId = AccountId32;
-pub type Balance = u64;
+pub type Balance = u128;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -48,6 +48,7 @@ impl frame_system::Config for Runtime {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
+	type Balance = Balance;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

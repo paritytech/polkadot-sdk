@@ -28,9 +28,9 @@ use super::{asset_para, relay_chain, simple_para};
 
 pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([1u8; 32]);
-pub const UNITS: u64 = 10_000_000_000;
-pub const CENTS: u64 = 100_000_000;
-pub const INITIAL_BALANCE: u64 = UNITS;
+pub const UNITS: u128 = 10_000_000_000;
+pub const CENTS: u128 = 100_000_000;
+pub const INITIAL_BALANCE: u128 = UNITS;
 
 decl_test_parachain! {
 	pub struct SimplePara {

@@ -29,7 +29,7 @@ use xcm_builder::{
 	SignedToAccountId32,
 };
 use xcm_executor::XcmExecutor;
-
+use crate::cookbook::foreign_assets_and_asset_conversion::network::SIMPLE_PARA_ID;
 use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 
 parameter_types! {
@@ -91,7 +91,7 @@ mod weigher {
 }
 
 parameter_types! {
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Polkadot), Parachain(2222)].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Polkadot), Parachain(SIMPLE_PARA_ID)].into();
 }
 
 pub struct XcmConfig;
