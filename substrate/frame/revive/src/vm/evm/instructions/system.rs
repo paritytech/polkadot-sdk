@@ -193,14 +193,12 @@ pub fn calldatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatasize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::from(context.interpreter.return_data.buffer().len()));
 }
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	popn!([memory_offset, offset, len], context.interpreter);
 
 	let len = as_usize_or_fail!(context.interpreter, len);
@@ -231,6 +229,8 @@ pub fn returndatacopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Pushes the amount of remaining gas onto the stack.
 pub fn gas<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::RefTimeLeft);
+	// TODO: This accounts only for 'ref_time' now. It should be fixed to also account for other
+	// costs. See #9577 for more context.
 	let gas = context.interpreter.extend.gas_meter().gas_left().ref_time();
 	push!(context.interpreter, U256::from(gas));
 }

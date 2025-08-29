@@ -68,6 +68,7 @@ pub fn resize_memory<'a, E: Ext>(
 	Some(offset..offset + len)
 }
 
+/// Calculates gas cost and limit for call instructions.
 #[inline]
 pub fn calc_call_gas<'a, E: Ext>(
 	interpreter: &mut Interpreter<crate::vm::evm::EVMInterpreter<'a, E>>,
@@ -100,6 +101,8 @@ pub fn calc_call_gas<'a, E: Ext>(
 				RuntimeCosts::CallBase
 			};
 			gas!(interpreter, base_cost, None);
+
+			gas!(interpreter, RuntimeCosts::CopyFromContract(input_len as u32), None);
 		},
 	};
 	if !value.is_zero() {

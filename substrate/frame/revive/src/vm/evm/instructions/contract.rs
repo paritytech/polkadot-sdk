@@ -34,32 +34,26 @@ use revm::{
 		interpreter_types::{LoopControl, RuntimeFlag, StackTr},
 		CallInput, InstructionResult,
 	},
-	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
+	primitives::{Address, Bytes, B256, U256},
 };
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
 /// Creates a new contract with provided bytecode.
-///
-/// TODO: Implement correct gas handling for all instructions below
 pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
-
-	// EIP-1014: Skinny CREATE2
-	if IS_CREATE2 {
-		check!(context.interpreter, PETERSBURG);
-	}
 
 	popn!([value, code_offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
 
 	// TODO: We do not charge for the new code in storage. When implementing the new gas:
 	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
+	// See #9577 for more context.
 	let val = crate::U256::from_revm_u256(&value);
 	gas!(
 		context.interpreter,
 		RuntimeCosts::Instantiate {
-			input_data_len: 0,
+			input_data_len: len as u32, // We charge for initcode execution
 			balance_transfer: Pallet::<E::T>::has_balance(val),
 			dust_transfer: Pallet::<E::T>::has_dust(val),
 		}
@@ -67,12 +61,10 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 
 	let mut code = Bytes::new();
 	if len != 0 {
-		// EIP-3860: Limit and meter initcode
-		if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::SHANGHAI) {
-			if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
-				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
-				return;
-			}
+		// EIP-3860: Limit initcode
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+			context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
+			return;
 		}
 
 		let code_offset = as_usize_or_fail!(context.interpreter, code_offset);
@@ -109,7 +101,8 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([local_gas_limit, to, value], context.interpreter);
 	let to = to.into_address();
-	// Max gas limit is not possible in real ethereum situation.
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
 	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let has_transfer = !value.is_zero();
@@ -123,7 +116,6 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	// TODO: Handle the cold/warm storage correctly
 	let scheme = CallScheme::Call;
 	let input = CallInput::SharedBuffer(input);
 
@@ -162,10 +154,10 @@ pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Message call with alternative account's code but same sender and value.
 pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, HOMESTEAD);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
 	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
@@ -173,7 +165,6 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	// TODO: Handle the cold/warm storage correctly
 	let scheme = CallScheme::DelegateCall;
 	let input = CallInput::SharedBuffer(input);
 
@@ -203,10 +194,10 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Static message call (cannot modify state).
 pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
 	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
@@ -214,7 +205,6 @@ pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	// TODO: Handle the cold/warm storage correctly
 	let scheme = CallScheme::StaticCall;
 	let input = CallInput::SharedBuffer(input);
 

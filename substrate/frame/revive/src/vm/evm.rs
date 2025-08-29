@@ -155,7 +155,7 @@ fn run<'a, E: Ext>(
 		let action = interpreter.run_plain(table, host);
 		match action {
 			InterpreterAction::Return(result) => {
-				log::info!("Return {:?}", result);
+				log::debug!(target: LOG_TARGET, "Evm return {:?}", result);
 				return result;
 			},
 			InterpreterAction::NewFrame(frame_input) => match frame_input {
@@ -216,6 +216,7 @@ fn run_call<'a, E: Ext>(
 	match call_result {
 		Ok(()) => {
 			// success or revert
+			// TODO: Charge CopyToContract
 			interpreter
 				.memory
 				.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
@@ -263,6 +264,7 @@ fn run_create<'a, E: Ext>(
 		Ok(address) => {
 			if return_value.did_revert() {
 				// Contract creation reverted — return data must be propagated
+				// TODO: Charge CopyToContract
 				interpreter.return_data.set_buffer(return_data);
 				let _ = interpreter.stack.push(primitives::U256::ZERO);
 			} else {
