@@ -251,8 +251,8 @@ pub mod pallet {
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
 				
-				// Slash the held amount (consume it permanently)
-				T::Currency::slash_held(&HoldReason::DepositForIndex.into(), &who, amount)?;
+				// Burn the held amount (consume it permanently)
+				T::Currency::burn_held(&HoldReason::DepositForIndex.into(), &who, amount, Precision::Exact, Fortitude::Force)?;
 				
 				*maybe_value = Some((account, Zero::zero(), true));
 				Ok(())
