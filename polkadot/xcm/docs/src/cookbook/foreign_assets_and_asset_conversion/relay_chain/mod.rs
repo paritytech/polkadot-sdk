@@ -16,6 +16,8 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Relay chain runtime mock.
+//!
+//! It is a simple runtime that knows just enough to forward an XCM.
 
 use frame::{
 	deps::{frame_support::weights::WeightMeter, sp_runtime::AccountId32},

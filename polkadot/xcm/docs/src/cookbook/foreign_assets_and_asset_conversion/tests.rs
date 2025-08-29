@@ -45,12 +45,12 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-    // Step 1. Create the asset on the target chain and set its metadata.
+	// Step 1. Create the asset on the target chain and set its metadata.
 
 	SimplePara::execute_with(|| {
 		let xcm = Xcm(vec![
 			// We have free execution on the target chain, but usually we need
-            // a Withdraw and a PayFees execution here.
+			// a Withdraw and a PayFees execution here.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
@@ -86,7 +86,7 @@ fn registering_foreign_assets_work() {
 	AssetPara::execute_with(|| {
 		use asset_para::assets::AssetDeposit;
 
-        // Confirm that we have successfully created the asset.
+		// Confirm that we have successfully created the asset.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Created {
 				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
@@ -95,7 +95,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-        // The creation of the asset required an asset deposit
+		// The creation of the asset required an asset deposit
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.clone(),
@@ -103,7 +103,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-        // Confirm that we have successfully set the metadata.
+		// Confirm that we have successfully set the metadata.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::MetadataSet {
 				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
@@ -114,7 +114,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-        // The setting of the metadata required a deposit too.
+		// The setting of the metadata required a deposit too.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.into(),
