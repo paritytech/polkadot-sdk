@@ -67,6 +67,7 @@ decl_test_network! {
 		relay_chain = Relay,
 		parachains = vec![
 			(2222, SimplePara),
+			(3333, AssetPara),
 		],
 	}
 }
