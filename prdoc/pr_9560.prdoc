@@ -11,23 +11,23 @@ crates:
 - name: pallet-proxy
   bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
 - name: rococo-runtime
-  bump: patch
+  bump: major
 - name: asset-hub-rococo-runtime
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: collectives-westend-runtime
-  bump: patch
+  bump: major
 - name: coretime-rococo-runtime
-  bump: patch
+  bump: major
 - name: coretime-westend-runtime
-  bump: patch
+  bump: major
 - name: people-rococo-runtime
-  bump: patch
+  bump: major
 - name: people-westend-runtime
-  bump: patch
+  bump: major
 - name: pallet-contracts
   bump: patch
 - name: pallet-revive
