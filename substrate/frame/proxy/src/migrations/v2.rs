@@ -406,8 +406,13 @@ where
 
 		Pallet::<T>::deposit_event(Event::MigrationStarted);
 
-		// Process as much as possible in this block
-		let mut meter = WeightMeter::with_limit(T::BlockWeights::get().max_block);
+		// Process as much as possible in this block with conservative weight limit.
+		// We don't add a MaxServiceWeight config to the proxy pallet because this migration
+		// from Currency to fungible traits is a one-time operation that will be removed after
+		// all chains have upgraded.
+		const MIGRATION_WEIGHT_FRACTION: u64 = 4; // Use at most 1/4 of block weight
+		let weight_limit = T::BlockWeights::get().max_block / MIGRATION_WEIGHT_FRACTION;
+		let mut meter = WeightMeter::with_limit(weight_limit);
 		Self::step(&mut meter);
 
 		meter.consumed()
