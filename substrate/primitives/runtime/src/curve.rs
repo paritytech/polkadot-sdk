@@ -428,6 +428,25 @@ fn stepped_curve_works() {
 }
 
 #[test]
+fn jays_test() {
+	let asymptotic_increasing = SteppedCurve::new(
+		0u32,
+		None,
+		1_676_733_867u64,
+		Step::AsymptoticPct(2_100_000_000u64, Perbill::from_float(0.2628)),
+		1u32,
+	);
+	assert_eq!(asymptotic_increasing.evaluate(1u32), 1_787_968_206u64);
+	assert_eq!(asymptotic_increasing.evaluate(2u32), 1_869_970_161u64);
+	assert_eq!(asymptotic_increasing.evaluate(3u32), 1_930_422_002u64);
+	assert_eq!(asymptotic_increasing.evaluate(u32::MAX), 2_100_000_000u64);
+	assert_eq!(asymptotic_increasing.last_step_size(1u32), 111_234_339u64);
+	assert_eq!(asymptotic_increasing.last_step_size(2u32), 82_001_955u64);
+	assert_eq!(asymptotic_increasing.last_step_size(3u32), 60_451_841u64);
+	assert_eq!(asymptotic_increasing.last_step_size(u32::MAX), 0u64);
+}
+
+#[test]
 fn test_multiply_by_rational_saturating() {
 	let div = 100u32;
 	for value in 0..=div {
