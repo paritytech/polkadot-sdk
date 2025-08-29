@@ -70,7 +70,7 @@ mod asset_transactor {
 	};
 
 	parameter_types! {
-		pub ParentRelayLocation: Location = Location::parent();
+		pub HereLocation: Location = Location::here();
 	}
 
 	/// AssetTransactor for handling the relay chain token
@@ -82,7 +82,7 @@ mod asset_transactor {
 		// This transactor deals with the native token of the Relay Chain.
 		// This token is referenced by the Location of the Relay Chain relative to this chain
 		// -- Location::parent().
-		IsConcrete<ParentRelayLocation>,
+		IsConcrete<HereLocation>,
 		// How to convert an XCM Location into a local account id.
 		// This is also something that's configured in the XCM executor.
 		LocationToAccountId,
