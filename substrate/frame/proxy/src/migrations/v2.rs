@@ -18,9 +18,9 @@
 //! Migration from v1 to v2: Convert proxy and announcement reserves to holds.
 //!
 //! This migration uses multi-block execution with graceful degradation:
-//! - Multi-block: Handles thousands of accounts with weight-limited batching without timing out
+//! - Multi-block: Handles accounts with weight-limited batching without timing out
 //! - Graceful degradation: Any migration failure results in proxy removal + refund
-//!  (no permanent fund loss, manual recovery possible for pure proxies)
+//! - No permanent fund loss, force recovery possible if migration fails (e.g. for pure proxies)
 
 use crate::{
 	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
@@ -132,15 +132,6 @@ where
 	/// - Who delegates to X (requires scanning all proxy relationships)
 	/// - Whether X is a pure proxy or regular account (no storage marker)
 	/// - Who spawned X as pure proxy (spawner info not stored)
-	///
-	/// **Manual intervention options for pure proxies:**
-	/// If a pure proxy Y (controlled by spawner X) fails migration:
-	/// 1. X can call `proxy(Y, transfer, X, amount)` to recover Y's funds to X
-	/// 2. X can call `proxy(Y, kill_pure, disambiguation_index)` to destroy Y
-	/// 3. X can create a new pure proxy Z using `create_pure()` with new system
-	///
-	/// This manual process ensures no funds are permanently lost while avoiding
-	/// complex and unreliable pure proxy detection during migration.
 
 	/// Migrate a single proxy account with graceful degradation.
 	/// Handles both regular accounts and pure proxies.
@@ -187,10 +178,7 @@ where
 				//
 				// For pure proxies (keyless accounts):
 				// - Proxy config removed, funds stay in pure proxy's free balance
-				// - Delegator can recover funds manually using:
-				//   1. `proxy(pure_proxy, transfer, delegator, amount)`
-				//   2. `proxy(pure_proxy, kill_pure, index)` to destroy
-				//   3. `create_pure()` to create new one with hold system
+				// - Governance can recover funds using force recovery functions
 
 				Proxies::<T>::remove(who);
 

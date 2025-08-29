@@ -721,6 +721,156 @@ pub mod pallet {
 
 			Ok(if deposit_updated { Pays::No.into() } else { Pays::Yes.into() })
 		}
+
+		/// Force add a proxy relationship - can restore failed pure proxy access.
+		///
+		/// This function bypasses normal signature checks and can be used by governance
+		/// to restore proxy relationships, particularly for pure proxy recovery scenarios
+		/// where accounts become inaccessible after migration failures.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `delegator`: The account that will have a proxy added.
+		/// - `delegate`: The account that will be granted proxy permissions.
+		/// - `proxy_type`: The permissions granted to the proxy account.
+		/// - `delay`: The announcement period required for this proxy.
+		#[pallet::call_index(11)]
+		#[pallet::weight(T::WeightInfo::add_proxy(T::MaxProxies::get()))]
+		pub fn force_add_proxy(
+			origin: OriginFor<T>,
+			delegator: AccountIdLookupOf<T>,
+			delegate: AccountIdLookupOf<T>,
+			proxy_type: T::ProxyType,
+			delay: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let delegator = T::Lookup::lookup(delegator)?;
+			let delegate = T::Lookup::lookup(delegate)?;
+
+			Self::add_proxy_delegate(&delegator, delegate.clone(), proxy_type.clone(), delay)?;
+
+			Self::deposit_event(Event::ForceProxyAdded {
+				delegator,
+				delegatee: delegate,
+				proxy_type,
+				delay,
+			});
+
+			Ok(())
+		}
+
+		/// Force remove a proxy relationship.
+		///
+		/// This function bypasses normal signature checks and can be used by governance
+		/// for emergency cleanup of proxy relationships.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `delegator`: The account that currently has the proxy.
+		/// - `delegate`: The account that is currently granted proxy permissions.
+		/// - `proxy_type`: The permissions currently granted to the proxy account.
+		/// - `delay`: The announcement period required for this proxy.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::remove_proxy(T::MaxProxies::get()))]
+		pub fn force_remove_proxy(
+			origin: OriginFor<T>,
+			delegator: AccountIdLookupOf<T>,
+			delegate: AccountIdLookupOf<T>,
+			proxy_type: T::ProxyType,
+			delay: BlockNumberFor<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let delegator = T::Lookup::lookup(delegator)?;
+			let delegate = T::Lookup::lookup(delegate)?;
+
+			Self::remove_proxy_delegate(&delegator, delegate.clone(), proxy_type.clone(), delay)?;
+
+			Self::deposit_event(Event::ForceProxyRemoved {
+				delegator,
+				delegatee: delegate,
+				proxy_type,
+				delay,
+			});
+
+			Ok(())
+		}
+
+		/// Force clear all proxies for an account.
+		///
+		/// This function bypasses normal signature checks and can be used by governance
+		/// for emergency cleanup when normal proxy management is not possible.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `delegator`: The account whose proxies will be cleared.
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::remove_proxies(T::MaxProxies::get()))]
+		pub fn force_remove_proxies(
+			origin: OriginFor<T>,
+			delegator: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let delegator = T::Lookup::lookup(delegator)?;
+
+			let (proxies, old_deposit) = Proxies::<T>::take(&delegator);
+			let proxy_count = proxies.len() as u32;
+
+			let released = T::Currency::release(
+				&HoldReason::ProxyDeposit.into(),
+				&delegator,
+				old_deposit,
+				Precision::BestEffort,
+			)
+			.unwrap_or_default();
+
+			Self::deposit_event(Event::ForceProxiesCleared { delegator, proxy_count, released });
+
+			Ok(())
+		}
+
+		/// Force clear all announcements for a delegate.
+		///
+		/// This function bypasses normal signature checks and can be used by governance
+		/// for emergency cleanup of announcement deposits.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Parameters:
+		/// - `delegate`: The delegate account whose announcements will be cleared.
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::remove_announcement(
+			T::MaxPending::get(),
+			T::MaxProxies::get()
+		))]
+		pub fn force_remove_announcements(
+			origin: OriginFor<T>,
+			delegate: AccountIdLookupOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let delegate = T::Lookup::lookup(delegate)?;
+
+			let (announcements, old_deposit) = Announcements::<T>::take(&delegate);
+			let announcement_count = announcements.len() as u32;
+
+			let released = T::Currency::release(
+				&HoldReason::AnnouncementDeposit.into(),
+				&delegate,
+				old_deposit,
+				Precision::BestEffort,
+			)
+			.unwrap_or_default();
+
+			Self::deposit_event(Event::ForceAnnouncementsCleared {
+				delegate,
+				announcement_count,
+				released,
+			});
+
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -794,6 +944,28 @@ pub mod pallet {
 		},
 		/// Migration completed successfully.
 		MigrationCompleted,
+		/// A proxy was forcibly added by governance.
+		ForceProxyAdded {
+			delegator: T::AccountId,
+			delegatee: T::AccountId,
+			proxy_type: T::ProxyType,
+			delay: BlockNumberFor<T>,
+		},
+		/// A proxy was forcibly removed by governance.
+		ForceProxyRemoved {
+			delegator: T::AccountId,
+			delegatee: T::AccountId,
+			proxy_type: T::ProxyType,
+			delay: BlockNumberFor<T>,
+		},
+		/// All proxies were forcibly cleared by governance.
+		ForceProxiesCleared { delegator: T::AccountId, proxy_count: u32, released: BalanceOf<T> },
+		/// All announcements were forcibly cleared by governance.
+		ForceAnnouncementsCleared {
+			delegate: T::AccountId,
+			announcement_count: u32,
+			released: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
