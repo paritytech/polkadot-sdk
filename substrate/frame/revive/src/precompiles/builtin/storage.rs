@@ -103,8 +103,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 						.map_err(|_| Error::Revert("failed setting storage".into()))?
 				};
 				env.gas_meter_mut().adjust_gas(charged, costs(outcome.old_len()));
-				let ret = outcome.old_len_with_sentinel();
-				Ok(ret.abi_encode())
+				Ok(outcome.old_len_with_sentinel().abi_encode())
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
 				flags,
@@ -129,9 +128,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					env.get_storage_size(&key)
 				};
 				env.gas_meter_mut().adjust_gas(charged, costs(outcome.unwrap_or(0)));
-				let ret = outcome.unwrap_or(SENTINEL);
-				let ret2 = ret.abi_encode();
-				Ok(ret2)
+				Ok(outcome.unwrap_or(SENTINEL).abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)
@@ -154,13 +151,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 				if let crate::storage::WriteOutcome::Taken(value) = outcome {
 					env.gas_meter_mut().adjust_gas(charged, costs(value.len() as u32));
-					let enc = value.abi_encode();
-					Ok(enc)
+					Ok(value.abi_encode())
 				} else {
 					env.gas_meter_mut().adjust_gas(charged, costs(0));
-					let empty: Vec<u8> = crate::vec![];
-					let enc = empty.abi_encode();
-					Ok(enc)
+					Ok(Vec::<u8>::new().abi_encode())
 				}
 			},
 		}
