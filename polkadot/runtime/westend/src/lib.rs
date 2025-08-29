@@ -2916,14 +2916,7 @@ sp_api::impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
-					// Relay can reserve transfer native token to some random parachain.
-					Some((
-						Asset {
-							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Here.into())
-						},
-						crate::Junction::Parachain(RandomParaId::get().into()).into(),
-					))
+					None
 				}
 
 				fn set_up_complex_asset_transfer(
