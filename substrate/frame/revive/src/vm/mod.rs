@@ -26,7 +26,7 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
-	frame_support::traits::tokens::Restriction,
+	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
@@ -165,6 +165,33 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
+	/// Remove the code from storage and refund the deposit to its owner.
+	///
+	/// Applies all necessary checks before removing the code.
+	pub fn remove(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
+		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
+			if let Some(code_info) = existing {
+				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
+				ensure!(&code_info.owner == origin, BadOrigin);
+				T::Currency::transfer_on_hold(
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&crate::Pallet::<T>::pallet_account(),
+					&code_info.owner,
+					code_info.deposit,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+
+				*existing = None;
+				<PristineCode<T>>::remove(&code_hash);
+				Ok(())
+			} else {
+				Err(<Error<T>>::CodeNotFound.into())
+			}
+		})
+	}
+
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
@@ -275,8 +302,8 @@ impl<T: Config> CodeInfo<T> {
 					Fortitude::Polite,
 				)?;
 
-				<PristineCode<T>>::remove(&code_hash);
 				*existing = None;
+				<PristineCode<T>>::remove(&code_hash);
 
 				Ok(CodeRemoved::Yes)
 			} else {

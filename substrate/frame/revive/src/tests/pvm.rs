@@ -1952,6 +1952,83 @@ fn upload_code_not_enough_balance() {
 }
 
 #[test]
+fn remove_code_works() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Drop previous events
+		initialize_block(2);
+
+		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, 1_000,));
+		// Ensure the contract was stored and get expected deposit amount to be reserved.
+		expected_deposit(ensure_stored(code_hash));
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+	});
+}
+#[test]
+fn remove_code_wrong_origin() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Drop previous events
+		initialize_block(2);
+
+		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, 1_000,));
+		// Ensure the contract was stored and get expected deposit amount to be reserved.
+		expected_deposit(ensure_stored(code_hash));
+
+		assert_noop!(
+			Contracts::remove_code(RuntimeOrigin::signed(BOB), code_hash),
+			sp_runtime::traits::BadOrigin,
+		);
+	});
+}
+
+#[test]
+fn remove_code_in_use() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		assert_ok!(builder::instantiate_with_code(binary).build());
+
+		// Drop previous events
+		initialize_block(2);
+
+		assert_noop!(
+			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			<Error<Test>>::CodeInUse,
+		);
+
+		assert_eq!(System::events(), vec![]);
+	});
+}
+
+#[test]
+fn remove_code_not_found() {
+	let (_binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Drop previous events
+		initialize_block(2);
+
+		assert_noop!(
+			Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash),
+			<Error<Test>>::CodeNotFound,
+		);
+
+		assert_eq!(System::events(), vec![]);
+	});
+}
+
+#[test]
 fn instantiate_with_zero_balance_works() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
@@ -2885,6 +2962,18 @@ fn root_cannot_upload_code() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
 			Contracts::upload_code(RuntimeOrigin::root(), binary, deposit_limit::<Test>()),
+			DispatchError::BadOrigin,
+		);
+	});
+}
+
+#[test]
+fn root_cannot_remove_code() {
+	let (_, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		assert_noop!(
+			Contracts::remove_code(RuntimeOrigin::root(), code_hash),
 			DispatchError::BadOrigin,
 		);
 	});

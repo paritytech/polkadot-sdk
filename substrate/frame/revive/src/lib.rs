@@ -61,8 +61,8 @@ use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo,
-		RawOrigin,
+		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
+		PostDispatchInfo, RawOrigin,
 	},
 	ensure,
 	pallet_prelude::DispatchClass,
@@ -949,6 +949,22 @@ pub mod pallet {
 			#[pallet::compact] storage_deposit_limit: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::bare_upload_code(origin, code, storage_deposit_limit).map(|_| ())
+		}
+
+		/// Remove the code stored under `code_hash` and refund the deposit to its owner.
+		///
+		/// A code can only be removed by its original uploader (its owner) and only if it is
+		/// not used by any contract.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::remove_code())]
+		pub fn remove_code(
+			origin: OriginFor<T>,
+			code_hash: sp_core::H256,
+		) -> DispatchResultWithPostInfo {
+			let origin = ensure_signed(origin)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
+			// we waive the fee because removing unused code is beneficial
+			Ok(Pays::No.into())
 		}
 
 		/// Privileged function that changes the code of an existing contract.

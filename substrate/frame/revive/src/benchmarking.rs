@@ -460,6 +460,30 @@ mod benchmarks {
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
+	// Removing code does not depend on the size of the contract because all the information
+	// needed to verify the removal claim (refcount, owner) is stored in a separate storage
+	// item (`CodeInfoOf`).
+	#[benchmark(pov_mode = Measured)]
+	fn remove_code() -> Result<(), BenchmarkError> {
+		let caller = whitelisted_caller();
+		let pallet_account = Pallet::<T>::pallet_account();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
+		let origin = RawOrigin::Signed(caller.clone());
+		let storage_deposit = default_deposit_limit::<T>();
+		let uploaded =
+			<Contracts<T>>::bare_upload_code(origin.clone().into(), code, storage_deposit)?;
+		assert_eq!(uploaded.code_hash, hash);
+		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&pallet_account));
+		assert!(<Contract<T>>::code_exists(&hash));
+		#[extrinsic_call]
+		_(origin, hash);
+		// removing the code should have unreserved the deposit
+		assert_eq!(T::Currency::total_balance_on_hold(&pallet_account), 0u32.into());
+		assert!(<Contract<T>>::code_removed(&hash));
+		Ok(())
+	}
+
 	#[benchmark(pov_mode = Measured)]
 	fn set_code() -> Result<(), BenchmarkError> {
 		let instance =
