@@ -65,7 +65,6 @@ decl_test_relay_chain! {
 pub const SIMPLE_PARA_ID: u32 = 2222;
 pub const ASSET_PARA_ID: u32 = 3333;
 
-
 decl_test_network! {
 	pub struct MockNet {
 		relay_chain = Relay,
@@ -91,7 +90,15 @@ pub fn simple_para_ext() -> TestExternalities {
 pub fn asset_para_ext() -> TestExternalities {
 	use asset_para::{MessageQueue, Runtime, System};
 
-	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	parachain_info::GenesisConfig::<Runtime> {
+		parachain_id: ASSET_PARA_ID.into(),
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
