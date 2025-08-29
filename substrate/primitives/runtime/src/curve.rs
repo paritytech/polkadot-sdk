@@ -71,11 +71,89 @@ where
 		Self { start, end, initial_value, step, period }
 	}
 
-	/// Returns the last occuring step size from a given `point`.
+	/// Returns the magnitude of the last occuring step size from a given `point`.
+	/// If no step has occured, will return 0.
 	/// 
-	/// Ex. In period 4, the last step was 10 -> 7, it would return -3.
-	pub fn step_size_at(&self, point: P) -> V {
-		self.initial_value
+	/// Ex. In period 4, the last step taken was 10 -> 7, it would return 3.
+	pub fn last_step_size(&self, point: P) -> V {
+		let initial = self.initial_value;
+
+		// No step taken yet.
+		if point < self.start {
+			return V::zero();
+		}
+
+		// If the period is zero, the value never changes.
+		if self.period.is_zero() {
+			return V::zero();
+		}
+
+		// Determine the effective point for calculation, capped by the end point if it exists.
+		let effective_point = self.end.map_or(point, |e| point.min(e));
+
+		// Calculate how many full periods have passed, capped by usize.
+		let num_periods = (effective_point - self.start) / self.period;
+		let num_periods_usize = num_periods.saturated_into::<usize>();
+
+		if num_periods.is_zero() {
+			return V::zero();
+		}
+
+		match self.step {
+			Step::Add(step_value) | Step::Subtract(step_value) => {
+				// Will always be the step value.
+				return step_value;
+			},
+			Step::PctInc(percent) => {
+				// Value in current period - Value in previous period
+				let mut ratio = FixedU128::from(percent);
+				ratio = FixedU128::one().saturating_add(ratio);
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+			
+				let scale_curr = ratio.saturating_pow(num_periods_usize);
+				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
+				let res_curr = initial_fp.saturating_mul(scale_curr);
+				let res_previous = initial_fp.saturating_mul(scale_prev);
+				let res = res_curr.saturating_sub(res_previous);
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+			},
+			Step::PctDec(percent) => {
+				// Value in previous period - Value in current period.
+				let mut ratio = FixedU128::from(percent);
+				ratio = FixedU128::one().saturating_sub(ratio);
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+			
+				let scale_curr = ratio.saturating_pow(num_periods_usize);
+				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
+				let res_curr = initial_fp.saturating_mul(scale_curr);
+				let res_previous = initial_fp.saturating_mul(scale_prev);
+				let res = res_previous.saturating_sub(res_curr);
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+			},
+			Step::AsymptoticPct(asymptote, percent) => {
+				// Difference
+				let ratio = FixedU128::one().saturating_sub(FixedU128::from(percent));
+				let scale_curr = ratio.saturating_pow(num_periods_usize);
+				let scale_prev = ratio.saturating_pow(num_periods_usize - 1);
+
+				let initial_fp = FixedU128::saturating_from_integer(initial);
+				let asymptote_fp = FixedU128::saturating_from_integer(asymptote);
+
+				let res = if initial >= asymptote {
+					let diff = initial_fp.saturating_sub(asymptote_fp);
+					let res_curr = asymptote_fp.saturating_add(diff.saturating_mul(scale_curr));
+					let res_prev = asymptote_fp.saturating_add(diff.saturating_mul(scale_prev));
+					res_prev.saturating_sub(res_curr)
+				} else {
+					let diff = asymptote_fp.saturating_sub(initial_fp);
+					let res_curr = asymptote_fp.saturating_sub(diff.saturating_mul(scale_curr))
+					let res_prev = asymptote_fp.saturating_sub(diff.saturating_mul(scale_prev))
+					res_curr.saturating_sub(res_prev)
+				};
+				
+				(res.into_inner() / FixedU128::DIV).saturated_into::<V>()
+			},
+		}
 	}
 
 	/// Evaluate the curve at a given point.
