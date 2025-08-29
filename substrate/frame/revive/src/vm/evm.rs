@@ -145,7 +145,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 		})
 }
 
-/// Runs the EVM interpreter until it returns an action.
+/// Runs the EVM interpreter
 fn run<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
