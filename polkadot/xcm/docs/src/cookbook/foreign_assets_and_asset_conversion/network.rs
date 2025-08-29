@@ -37,7 +37,7 @@ decl_test_parachain! {
 		Runtime = parachain::Runtime,
 		XcmpMessageHandler = simple_para::MessageQueue,
 		DmpMessageHandler = simple_para::MessageQueue,
-		new_ext = para_ext(),
+		new_ext = simple_para_ext(),
 	}
 }
 
@@ -46,7 +46,7 @@ decl_test_parachain! {
 		Runtime = parachain::Runtime,
 		XcmpMessageHandler = asset_para::MessageQueue,
 		DmpMessageHandler = asset_para::MessageQueue,
-		new_ext = para_ext(),
+		new_ext = asset_para_ext(),
 	}
 }
 
@@ -71,11 +71,23 @@ decl_test_network! {
 	}
 }
 
-pub fn para_ext() -> TestExternalities {
-	use parachain::{MessageQueue, Runtime, System};
+pub fn simple_para_ext() -> TestExternalities {
+	use simple_para::{MessageQueue, Runtime, System};
 
 	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
-	let mut ext = frame::deps::sp_io::TestExternalities::new(t);
+	let mut ext = TestExternalities::new(t);
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		MessageQueue::set_para_id(2222.into());
+	});
+	ext
+}
+
+pub fn asset_para_ext() -> TestExternalities {
+	use asset_para::{MessageQueue, Runtime, System};
+
+	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
 		MessageQueue::set_para_id(2222.into());
