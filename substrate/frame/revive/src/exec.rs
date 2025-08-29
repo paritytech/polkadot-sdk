@@ -1701,6 +1701,7 @@ where
 		if value.is_zero() {
 			return Ok(());
 		}
+
 		transfer_with_dust::<T>(&from, &to, value)?;
 
 		// If this is called in the same transaction as the contract was created then the contract
