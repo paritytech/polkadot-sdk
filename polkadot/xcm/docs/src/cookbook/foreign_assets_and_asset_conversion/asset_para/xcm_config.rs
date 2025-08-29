@@ -78,23 +78,6 @@ mod asset_transactor {
 	pub type AssetTransactor = FungibleTransactor;
 }
 
-/// Configuration related to token reserves
-#[docify::export]
-mod is_reserve {
-	use super::*;
-
-	parameter_types! {
-		/// Reserves are specified using a pair `(AssetFilter, Location)`.
-		/// Each pair means that the specified Location is a reserve for all the assets in AssetsFilter.
-		/// Here, we are specifying that the Relay Chain is the reserve location for its native token.
-		pub RelayTokenForRelay: (AssetFilter, Location) =
-		  (Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }), Parent.into());
-	}
-
-	/// The wrapper type xcm_builder::Case is needed in order to use this in the configuration.
-	pub type IsReserve = xcm_builder::Case<RelayTokenForRelay>;
-}
-
 mod weigher {
 	use super::*;
 	use xcm_builder::FixedWeightBounds;
@@ -119,7 +102,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = asset_transactor::AssetTransactor;
 	type OriginConverter = ();
 	// The declaration of which Locations are reserves for which Assets.
-	type IsReserve = is_reserve::IsReserve;
+	type IsReserve = ();
 	type IsTeleporter = ();
 	type UniversalLocation = UniversalLocation;
 	// This is not safe, you should use `xcm_builder::AllowTopLevelPaidExecutionFrom<T>` in a
