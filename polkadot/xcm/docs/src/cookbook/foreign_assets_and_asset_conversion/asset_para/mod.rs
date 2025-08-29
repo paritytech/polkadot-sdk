@@ -18,10 +18,12 @@
 //! # Runtime
 
 use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
+use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueueId};
+use xcm::latest::Junction;
 use xcm_executor::XcmExecutor;
-use xcm_simulator::mock_message_queue;
-
-mod xcm_config;
+use xcm_simulator::{mock_message_queue, ProcessMessage, ProcessMessageError};
+use xcm_simulator::WeightMeter;
+pub mod xcm_config;
 
 mod assets;
 
@@ -41,6 +43,7 @@ construct_runtime! {
 		AssetConversion: pallet_asset_conversion,
 		Balances: pallet_balances,
 		XcmPallet: pallet_xcm,
+		CumulusXcm: cumulus_pallet_xcm,
 	}
 }
 

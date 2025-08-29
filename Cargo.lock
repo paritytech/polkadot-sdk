@@ -27780,6 +27780,7 @@ name = "xcm-docs"
 version = "0.1.0"
 dependencies = [
  "assets-common",
+ "cumulus-pallet-xcm",
  "cumulus-primitives-utility",
  "docify",
  "pallet-asset-conversion",

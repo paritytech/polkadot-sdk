@@ -26,16 +26,13 @@ use frame::{
 	testing_prelude::weights::IdentityFee,
 	traits::{Disabled, Equals, Everything, Nothing},
 };
+use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
-use xcm_builder::{
-	AccountId32Aliases, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, IsConcrete,
-	SiblingParachainConvertsVia, SignedToAccountId32, StartsWithExplicitGlobalConsensus,
-	UsingComponents,
-};
+use xcm_builder::{AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, StartsWithExplicitGlobalConsensus, UsingComponents};
 use xcm_executor::XcmExecutor;
-
+use crate::cookbook::foreign_assets_and_asset_conversion::network::ASSET_PARA_ID;
 use super::{
 	AccountId, AssetConversion, Balance, Balances, ForeignAssets, MessageQueue, PoolAssets,
 	Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
@@ -215,13 +212,31 @@ type Traders = (
 	>,
 );
 
+/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
+/// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
+/// biases the kind of local `Origin` it will become.
+pub type XcmOriginToTransactDispatchOrigin = (
+	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
+	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
+	// foreign chains who want to have a local sovereign account on this chain which they control.
+	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
+	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
+	// recognised.
+	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
+	// Native signed account converter; this just converts an `AccountId32` origin into a normal
+	// `Origin::Signed` origin of the same 32-byte value.
+	SignedAccountId32AsNative<ThisNetwork, RuntimeOrigin>,
+	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+	XcmPassthrough<RuntimeOrigin>,
+);
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = ();
 	type XcmEventEmitter = ();
 	type AssetTransactor = asset_transactor::AssetTransactors;
-	type OriginConverter = ();
+	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// The declaration of which Locations are reserves for which Assets.
 	type IsReserve = ();
 	type IsTeleporter = TrustedTeleporters;
@@ -296,4 +311,9 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
 	type AuthorizedAliasConsideration = Disabled;
+}
+
+impl cumulus_pallet_xcm::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
