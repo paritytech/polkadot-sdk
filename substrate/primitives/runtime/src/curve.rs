@@ -76,8 +76,6 @@ where
 	///
 	/// Ex. In period 4, the last step taken was 10 -> 7, it would return 3.
 	pub fn last_step_size(&self, point: P) -> V {
-		let initial = self.initial_value;
-
 		// No step taken yet.
 		if point < self.start {
 			return V::zero();
