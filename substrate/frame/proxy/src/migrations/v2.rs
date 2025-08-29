@@ -102,6 +102,7 @@ extern crate alloc;
 use alloc::collections::btree_map::BTreeMap;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::sync::atomic::{AtomicU32, Ordering};
 use frame::{
 	arithmetic::Zero,
 	deps::frame_support::{
@@ -120,6 +121,38 @@ const LOG_TARGET: &str = "runtime::proxy";
 
 /// A unique identifier for the proxy pallet v2 migration.
 const PROXY_PALLET_MIGRATION_ID: &[u8; 16] = b"pallet-proxy-mbm";
+
+/// Migration statistics counters
+static PROXIES_MIGRATED: AtomicU32 = AtomicU32::new(0);
+static PROXIES_GRACEFULLY_DEGRADED: AtomicU32 = AtomicU32::new(0);
+static ANNOUNCEMENTS_MIGRATED: AtomicU32 = AtomicU32::new(0);
+static ANNOUNCEMENTS_GRACEFULLY_DEGRADED: AtomicU32 = AtomicU32::new(0);
+
+/// Reset migration statistics (for testing)
+#[cfg(test)]
+fn reset_migration_stats() {
+	PROXIES_MIGRATED.store(0, Ordering::Relaxed);
+	PROXIES_GRACEFULLY_DEGRADED.store(0, Ordering::Relaxed);
+	ANNOUNCEMENTS_MIGRATED.store(0, Ordering::Relaxed);
+	ANNOUNCEMENTS_GRACEFULLY_DEGRADED.store(0, Ordering::Relaxed);
+}
+
+/// Log current migration statistics
+fn log_migration_stats() {
+	let proxies_migrated = PROXIES_MIGRATED.load(Ordering::Relaxed);
+	let proxies_degraded = PROXIES_GRACEFULLY_DEGRADED.load(Ordering::Relaxed);
+	let announcements_migrated = ANNOUNCEMENTS_MIGRATED.load(Ordering::Relaxed);
+	let announcements_degraded = ANNOUNCEMENTS_GRACEFULLY_DEGRADED.load(Ordering::Relaxed);
+
+	log::info!(
+		target: LOG_TARGET,
+		"📊 Migration Stats - Proxies: {} migrated, {} gracefully degraded | Announcements: {} migrated, {} gracefully degraded",
+		proxies_migrated,
+		proxies_degraded,
+		announcements_migrated,
+		announcements_degraded
+	);
+}
 
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
@@ -242,6 +275,14 @@ where
 		match T::Currency::hold(&HoldReason::ProxyDeposit.into(), who, actually_unreserved) {
 			Ok(_) => {
 				// Success: deposit migrated to hold
+				PROXIES_MIGRATED.fetch_add(1, Ordering::Relaxed);
+				log::info!(
+					target: LOG_TARGET,
+					"✅ Proxy migrated: account {:?}, {} proxies, deposit {:?}",
+					who,
+					proxies.len(),
+					actually_unreserved
+				);
 				Pallet::<T>::deposit_event(Event::ProxyDepositMigrated {
 					delegator: who.clone(),
 					amount: actually_unreserved,
@@ -259,6 +300,14 @@ where
 				// - Proxy config removed, funds stay in pure proxy's free balance
 				// - Governance can recover funds using Balances::force_transfer
 
+				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				log::warn!(
+					target: LOG_TARGET,
+					"⚠️  Proxy gracefully degraded: account {:?}, {} proxies removed, deposit {:?} refunded",
+					who,
+					proxies.len(),
+					actually_unreserved
+				);
 				Proxies::<T>::remove(who);
 
 				Pallet::<T>::deposit_event(Event::ProxyRemovedDuringMigration {
@@ -301,6 +350,14 @@ where
 		match T::Currency::hold(&HoldReason::AnnouncementDeposit.into(), who, actually_unreserved) {
 			Ok(_) => {
 				// Success: announcement deposit migrated
+				ANNOUNCEMENTS_MIGRATED.fetch_add(1, Ordering::Relaxed);
+				log::info!(
+					target: LOG_TARGET,
+					"✅ Announcement migrated: account {:?}, {} announcements, deposit {:?}",
+					who,
+					announcements.len(),
+					actually_unreserved
+				);
 				Pallet::<T>::deposit_event(Event::AnnouncementDepositMigrated {
 					announcer: who.clone(),
 					amount: actually_unreserved,
@@ -312,6 +369,14 @@ where
 				// The unreserved funds remain in the account's free balance
 				// Safe for regular accounts (user retains control)
 				// For pure proxies: governance can use Balances::force_transfer if needed
+				ANNOUNCEMENTS_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				log::warn!(
+					target: LOG_TARGET,
+					"⚠️  Announcement gracefully degraded: account {:?}, {} announcements removed, deposit {:?} refunded",
+					who,
+					announcements.len(),
+					actually_unreserved
+				);
 				Announcements::<T>::remove(who);
 
 				Pallet::<T>::deposit_event(Event::AnnouncementsRemovedDuringMigration {
@@ -447,18 +512,21 @@ where
 			MigrationCursor::Proxies { last_key } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing proxy batch, last_key: {:?}", last_key);
 				let next_cursor = Self::process_proxy_batch(last_key, meter);
+				log_migration_stats();
 				log::info!(target: LOG_TARGET, "✅ Proxy batch processed, next cursor: {:?}", next_cursor);
 				Ok(Some(next_cursor))
 			},
 			MigrationCursor::Announcements { last_key } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing announcement batch, last_key: {:?}", last_key);
 				let next_cursor = Self::process_announcement_batch(last_key, meter);
+				log_migration_stats();
 				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_cursor);
 
 				// Check if migration is complete
 				match next_cursor {
 					MigrationCursor::Complete => {
 						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
+						log_migration_stats();
 						Pallet::<T>::deposit_event(Event::MigrationCompleted);
 						Ok(None)
 					},
@@ -467,6 +535,7 @@ where
 			},
 			MigrationCursor::Complete => {
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
+				log_migration_stats();
 				// Migration is complete
 				Pallet::<T>::deposit_event(Event::MigrationCompleted);
 				Ok(None)
@@ -878,6 +947,11 @@ mod tests {
 		assert_ok!(MockOldCurrency::reserve(&who, reserved));
 	}
 
+	// Helper to setup tests with clean migration stats
+	fn setup_test_with_clean_stats() {
+		reset_migration_stats();
+	}
+
 	// Helper to setup multiple accounts without clearing between them
 	fn setup_multiple_accounts_with_reserves(accounts: &[(AccountId, Balance)]) {
 		// Clear reserves once at the start
@@ -929,6 +1003,7 @@ mod tests {
 	#[test]
 	fn migration_test() {
 		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
 			// Setup accounts with both proxies and announcements for comprehensive testing
 			// Mix of normal accounts and accounts that will trigger account cleanup
 			setup_multiple_accounts_with_reserves(&[(1, 1000), (2, 1000), (3, 1000)]);
@@ -1057,6 +1132,7 @@ mod tests {
 	#[test]
 	fn migrate_proxy_graceful_degradation_on_hold_failure() {
 		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
 			let who = 1;
 			let reserved = 1000;
 
