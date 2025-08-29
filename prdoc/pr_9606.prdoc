@@ -2,16 +2,8 @@ title: Expose account/contract revive types to use externally
 doc:
 - audience: Runtime User
   description: |-
-    # Description
-
-    Part of https://github.com/paritytech/polkadot-sdk/issues/9553
-    See https://github.com/paritytech/foundry-polkadot/issues/276
-
     Exposes revive types to use in foundry-polkadot project.
 
-    ## Integration
-
-    Should not affect downstream projects.
 crates:
 - name: pallet-revive
   bump: patch
