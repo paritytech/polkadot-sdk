@@ -45,8 +45,7 @@ pub fn balance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn selfbalance<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::Balance);
 	let balance = context.interpreter.extend.balance();
-	let alloy_balance = balance.into_revm_u256();
-	push!(context.interpreter, alloy_balance);
+	push!(context.interpreter, balance.into_revm_u256());
 }
 
 /// Implements the EXTCODESIZE instruction.
@@ -119,8 +118,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas!(context.interpreter, RuntimeCosts::BlockHash);
 	popn_top!([], number, context.interpreter);
-
-	let requested_number = sp_core::U256::from_big_endian(&number.to_be_bytes::<32>());
+	let requested_number = <sp_core::U256 as U256Converter>::from_revm_u256(&number);
 
 	let block_number = context.interpreter.extend.block_number();
 

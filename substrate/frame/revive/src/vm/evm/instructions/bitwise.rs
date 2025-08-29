@@ -23,8 +23,6 @@ use revm::{
 	primitives::U256,
 };
 
-// NB: use the gas_legacy macro for all bitwise instructions.
-
 /// Implements the LT instruction - less than comparison.
 pub fn lt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
