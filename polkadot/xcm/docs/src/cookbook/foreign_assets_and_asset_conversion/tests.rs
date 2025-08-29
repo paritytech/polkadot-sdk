@@ -17,15 +17,16 @@
 
 use super::{
 	asset_para,
-	network::{AssetPara, MockNet, Relay, SimplePara, ALICE, BOB, CENTS, INITIAL_BALANCE},
+	network::{
+		AssetPara, MockNet, Relay, SimplePara, ALICE, ASSET_PARA_ID, BOB, CENTS, INITIAL_BALANCE,
+		SIMPLE_PARA_ID, UNITS,
+	},
 	relay_chain, simple_para,
 };
-use crate::cookbook::foreign_assets_and_asset_conversion::network::{
-	ASSET_PARA_ID, SIMPLE_PARA_ID,
-};
-use frame::testing_prelude::*;
+use frame::{prelude::fungible::Mutate, testing_prelude::*};
 use test_log::test;
 use xcm::prelude::*;
+use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::TestExt;
 
 #[docify::export]
@@ -44,6 +45,16 @@ fn registering_foreign_assets_work() {
 		assert_eq!(simple_para::Balances::free_balance(&BOB), 0);
 	});
 
+	let simple_para_sovereign = asset_para::xcm_config::LocationToAccountId::convert_location(
+		&Location::new(1, Parachain(SIMPLE_PARA_ID)),
+	)
+	.expect("Can convert");
+
+	AssetPara::execute_with(|| {
+		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, UNITS));
+		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), UNITS);
+	});
+
 	SimplePara::execute_with(|| {
 		// We specify `Parent` because we are referencing the Relay Chain token.
 		// This chain doesn't have a token of its own, so we always refer to this token,
@@ -51,15 +62,15 @@ fn registering_foreign_assets_work() {
 		let fee_payment: Asset = (Location::here(), 25u128 * CENTS as u128).into();
 
 		let xcm = Xcm(vec![
-			SetAppendix(Xcm(vec![
-				RefundSurplus,
-				DepositAsset {
-					assets: AssetFilter::Wild(WildAsset::All),
-					beneficiary: Location::new(1, Parachain(SIMPLE_PARA_ID)),
-				},
-			])),
-			WithdrawAsset(fee_payment.clone().into()),
-			PayFees { asset: fee_payment },
+			// SetAppendix(Xcm(vec![
+			// 	RefundSurplus,
+			// 	DepositAsset {
+			// 		assets: AssetFilter::Wild(WildAsset::All),
+			// 		beneficiary: Location::new(1, Parachain(SIMPLE_PARA_ID)),
+			// 	},
+			// ])),
+			// WithdrawAsset(fee_payment.clone().into()),
+			// PayFees { asset: fee_payment },
 			Transact {
 				origin_kind: OriginKind::SovereignAccount,
 				fallback_max_weight: None,
@@ -82,9 +93,7 @@ fn registering_foreign_assets_work() {
 	});
 
 	AssetPara::execute_with(|| {
-		type Event = asset_para::RuntimeEvent;
-
-		asset_para::System::assert_has_event(Event::ForeignAssets(
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::MetadataSet {
 				asset_id: Location::new(1, Parachain(SIMPLE_PARA_ID)),
 				name: "Simple Para Token".into(),

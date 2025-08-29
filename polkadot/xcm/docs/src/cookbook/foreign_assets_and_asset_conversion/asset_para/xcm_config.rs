@@ -44,7 +44,7 @@ use super::{
 parameter_types! {
 	pub HereLocation: Location = Location::here();
 	pub ThisNetwork: NetworkId = NetworkId::Polkadot;
-	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Polkadot), Parachain(2222)].into();
+	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Polkadot), Parachain(ASSET_PARA_ID)].into();
 	pub UniversalLocationNetworkId: NetworkId = UniversalLocation::get().global_consensus().unwrap();
 	pub PoolAssetsPalletLocation: Location =
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
