@@ -520,5 +520,187 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn force_add_proxy(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let delegate: T::AccountId = account("delegate", 0, SEED);
+		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
+
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
+
+		// Add p-1 proxies first to test with existing proxies
+		for i in 1..p {
+			let delegate: T::AccountId = account("delegate", i, SEED);
+			let _ = Proxy::<T>::add_proxy(
+				RawOrigin::Signed(caller.clone()).into(),
+				T::Lookup::unlookup(delegate),
+				T::ProxyType::default(),
+				0u32.into(),
+			);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, caller_lookup, delegate_lookup, T::ProxyType::default(), 0u32.into());
+
+		assert_last_event::<T>(
+			Event::ForceProxyAdded {
+				delegator: caller,
+				delegatee: delegate,
+				proxy_type: T::ProxyType::default(),
+				delay: 0u32.into(),
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_remove_proxy(
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let delegate: T::AccountId = account("delegate", 0, SEED);
+		let delegate_lookup = T::Lookup::unlookup(delegate.clone());
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
+
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
+
+		// Add p proxies first
+		for i in 0..p {
+			let delegate_i: T::AccountId = account("delegate", i, SEED);
+			let _ = Proxy::<T>::add_proxy(
+				RawOrigin::Signed(caller.clone()).into(),
+				T::Lookup::unlookup(delegate_i),
+				T::ProxyType::default(),
+				0u32.into(),
+			);
+		}
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, caller_lookup, delegate_lookup, T::ProxyType::default(), 0u32.into());
+
+		assert_last_event::<T>(
+			Event::ForceProxyRemoved {
+				delegator: caller,
+				delegatee: delegate,
+				proxy_type: T::ProxyType::default(),
+				delay: 0u32.into(),
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_remove_proxies(p: Linear<1, { T::MaxProxies::get() }>) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
+
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
+
+		// Add p proxies
+		for i in 0..p {
+			let delegate: T::AccountId = account("delegate", i, SEED);
+			let _ = Proxy::<T>::add_proxy(
+				RawOrigin::Signed(caller.clone()).into(),
+				T::Lookup::unlookup(delegate),
+				T::ProxyType::default(),
+				0u32.into(),
+			);
+		}
+
+		// Get held balance before force removal
+		let held_balance = T::Currency::balance_on_hold(&HoldReason::ProxyDeposit.into(), &caller);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, caller_lookup);
+
+		assert_last_event::<T>(
+			Event::ForceProxiesCleared {
+				delegator: caller,
+				proxy_count: p,
+				released: held_balance,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_remove_announcements(
+		a: Linear<0, { T::MaxPending::get() }>,
+		p: Linear<1, { T::MaxProxies::get() - 1 }>,
+	) -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+		let target: T::AccountId = account("target", 0, SEED);
+		let target_lookup = T::Lookup::unlookup(target.clone());
+		let caller_lookup = T::Lookup::unlookup(caller.clone());
+
+		// Mint sufficient balance for operations and deposits
+		let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&caller, balance_amount);
+		let _ = <T::Currency as FunMutate<_>>::mint_into(&target, balance_amount);
+
+		// Add proxy with delay to enable announcements
+		let _ = Proxy::<T>::add_proxy(
+			RawOrigin::Signed(target.clone()).into(),
+			caller_lookup.clone(),
+			T::ProxyType::default(),
+			1u32.into(),
+		);
+
+		// Add other proxies for target account (p-1 proxies)
+		for i in 1..p {
+			let delegate: T::AccountId = account("delegate", i, SEED);
+			let _ = Proxy::<T>::add_proxy(
+				RawOrigin::Signed(target.clone()).into(),
+				T::Lookup::unlookup(delegate),
+				T::ProxyType::default(),
+				0u32.into(),
+			);
+		}
+
+		// Create announcements
+		for i in 0..a {
+			let remark = vec![i as u8; (i + 1) as usize];
+			let call: <T as Config>::RuntimeCall =
+				frame_system::Call::<T>::remark { remark }.into();
+			let call_hash = T::CallHasher::hash_of(&call);
+			let _ = Proxy::<T>::announce(
+				RawOrigin::Signed(caller.clone()).into(),
+				target_lookup.clone(),
+				call_hash,
+			);
+		}
+
+		// Get held balance before force removal
+		let held_balance =
+			T::Currency::balance_on_hold(&HoldReason::AnnouncementDeposit.into(), &caller);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, caller_lookup);
+
+		assert_last_event::<T>(
+			Event::ForceAnnouncementsCleared {
+				delegate: caller,
+				announcement_count: a,
+				released: held_balance,
+			}
+			.into(),
+		);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Proxy, crate::tests::new_test_ext(), crate::tests::Test);
 }
