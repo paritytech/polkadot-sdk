@@ -72,7 +72,6 @@ fn jump_works() {
 #[test]
 fn jumpdest_works() {
 	// Test invalid jumpdest
-	let expected_value = 0xfefefefe_u64;
 	let runtime_code: Vec<u8> = vec![
 		// This will jump to the MSTORE instruction, should give an error
 		vec![PUSH1, 0x09_u8],
@@ -107,12 +106,6 @@ fn jumpdest_works() {
 				assert!(false, "unexpected error: {err:?}");
 			}
 		}
-		// assert!(!result.did_revert(), "test reverted");
-		// assert_eq!(
-		// 	U256::from_be_bytes::<32>(result.data.try_into().unwrap()),
-		// 	U256::from(expected_value),
-		// 	"memory test should return {expected_value}"
-		// );
 	});
 }
 
