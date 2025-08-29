@@ -107,6 +107,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
+		if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
+			let _ =
+				T::Currency::mint_into(&Pallet::<T>::account_id(), T::Currency::minimum_balance());
+		}
+
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;

@@ -1593,7 +1593,7 @@ impl<T: Config> Pallet<T> {
 	pub fn account_id() -> T::AccountId {
 		use frame_support::PalletId;
 		use sp_runtime::traits::AccountIdConversion;
-		PalletId(*b"py/rev  ").into_account_truncating()
+		PalletId(*b"py/reviv").into_account_truncating()
 	}
 
 	/// Returns true if the evm value carries dust.
