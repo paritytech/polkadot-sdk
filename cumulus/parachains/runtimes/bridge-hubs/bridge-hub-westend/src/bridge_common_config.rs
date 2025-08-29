@@ -23,16 +23,17 @@
 
 use super::{weights, AccountId, Balance, Balances, BlockNumber, Runtime, RuntimeEvent};
 use crate::{
-	bridge_to_ethereum_config::{AssetHubLocation, InboundQueueV2Location},
-	xcm_config::XcmConfig,
-	RuntimeCall, XcmRouter,
+	bridge_to_ethereum_config::InboundQueueV2Location, xcm_config::XcmConfig, RuntimeCall,
+	XcmRouter,
 };
 use bp_messages::LegacyLaneId;
 use bp_relayers::RewardsAccountParams;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use scale_info::TypeInfo;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::westend::{
+	locations::AssetHubLocation, snowbridge::EthereumNetwork,
+};
 use xcm::{opaque::latest::Location, VersionedLocation};
 use xcm_executor::XcmExecutor;
 
