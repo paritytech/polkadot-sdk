@@ -33,6 +33,9 @@ use frame::{
 	traits::{fungible::MutateHold, OnRuntimeUpgrade, ReservableCurrency, StorageVersion},
 };
 
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+
 const LOG_TARGET: &str = "runtime::proxy";
 
 #[cfg(feature = "try-runtime")]
@@ -428,14 +431,21 @@ where
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		// Verify storage version updated
-		ensure!(Pallet::<T>::on_chain_storage_version() == 2, "Storage version not updated");
+		ensure!(
+			Pallet::<T>::on_chain_storage_version() == 2,
+			TryRuntimeError::from("Storage version not updated")
+		);
 
 		// Verify migration completed
-		ensure!(MigrationProgress::<T>::get().is_none(), "Migration not completed");
+		ensure!(
+			MigrationProgress::<T>::get().is_none(),
+			TryRuntimeError::from("Migration not completed")
+		);
 
 		// Decode pre-migration state
 		let pre_migration_deposits: BTreeMap<T::AccountId, (BalanceOf<T>, BalanceOf<T>)> =
-			Decode::decode(&mut &state[..]).map_err(|_| "Failed to decode pre_upgrade state")?;
+			Decode::decode(&mut &state[..])
+				.map_err(|_| TryRuntimeError::from("Failed to decode pre_upgrade state"))?;
 
 		// Verify each account
 		let verification_results: Result<Vec<_>, TryRuntimeError> = pre_migration_deposits
@@ -480,7 +490,10 @@ where
 
 		let accounted_total = summary.total_converted_to_holds + summary.total_released_to_users;
 
-		ensure!(accounted_total == original_total, "Fund conservation violated");
+		ensure!(
+			accounted_total == original_total,
+			TryRuntimeError::from("Fund conservation violated")
+		);
 
 		// Verify the total count makes sense
 		let total_processed_accounts = pre_migration_deposits.len() as u32;
@@ -490,7 +503,7 @@ where
 
 		ensure!(
 			total_verification_results == total_processed_accounts,
-			"Account count mismatch: processed {} accounts but verification shows {} results"
+			TryRuntimeError::from("Account count mismatch")
 		);
 
 		// Log comprehensive migration summary
@@ -541,14 +554,14 @@ where
 			ensure!(
 				current_proxy_deposit == old_proxy_deposit &&
 					current_announcement_deposit == old_announcement_deposit,
-				"Deposit amounts changed during migration"
+				TryRuntimeError::from("Deposit amounts changed during migration")
 			);
 
 			// Verify funds are held correctly
 			ensure!(
 				held_proxy >= current_proxy_deposit &&
 					held_announcement >= current_announcement_deposit,
-				"Insufficient holds for account"
+				TryRuntimeError::from("Insufficient holds for account")
 			);
 
 			return Ok(AccountVerification::SuccessfulConversion {
@@ -559,9 +572,15 @@ where
 
 		// Case 2: Only proxies exist
 		if has_proxies && !has_announcements {
-			ensure!(current_proxy_deposit == old_proxy_deposit, "Proxy deposit amount changed");
+			ensure!(
+				current_proxy_deposit == old_proxy_deposit,
+				TryRuntimeError::from("Proxy deposit amount changed")
+			);
 
-			ensure!(held_proxy >= current_proxy_deposit, "Insufficient proxy hold");
+			ensure!(
+				held_proxy >= current_proxy_deposit,
+				TryRuntimeError::from("Insufficient proxy hold")
+			);
 
 			// Announcement was gracefully degraded or never existed
 			let released = if old_announcement_deposit.is_zero() {
@@ -580,12 +599,12 @@ where
 		if !has_proxies && has_announcements {
 			ensure!(
 				current_announcement_deposit == old_announcement_deposit,
-				"Announcement deposit amount changed"
+				TryRuntimeError::from("Announcement deposit amount changed")
 			);
 
 			ensure!(
 				held_announcement >= current_announcement_deposit,
-				"Insufficient announcement hold"
+				TryRuntimeError::from("Insufficient announcement hold")
 			);
 
 			// Proxy was gracefully degraded or never existed
@@ -611,7 +630,7 @@ where
 		// Verify no holds remain
 		ensure!(
 			held_proxy.is_zero() && held_announcement.is_zero(),
-			"Account has storage removed but still has holds"
+			TryRuntimeError::from("Account has storage removed but still has holds")
 		);
 
 		// No need to check for reserves since we've migrated to holds
