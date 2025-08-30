@@ -31,7 +31,3 @@ jobs:
       pgp_kms_key: ${{ secrets.PGP_KMS_KEY }}
       pgp_kms_hash: ${{ secrets.PGP_KMS_HASH }}
       aws_default_region: ${{ secrets.AWS_DEFAULT_REGION }}
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
