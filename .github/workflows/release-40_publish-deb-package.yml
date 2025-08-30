@@ -1,6 +1,5 @@
 name: Release - Publish polkadot deb package
 
-# This workflow publishes the polkadot Debian package by calling a reusable workflow.
 on:
   workflow_dispatch:
     inputs:
