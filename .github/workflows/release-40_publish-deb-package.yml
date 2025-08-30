@@ -25,3 +25,7 @@ jobs:
       aws_repo_base_path: "s3://releases-package-repos"
       cloudfront_distribution_id: "E36FKEYWDXAZYJ"
     secrets: inherit
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
