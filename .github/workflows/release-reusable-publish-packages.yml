@@ -208,6 +208,9 @@ jobs:
             cp "$rpmname" "$LOCAL_REPO_PATH/"
             chmod 644 "$LOCAL_REPO_PATH"/*.rpm
 
+            # Ensure directory permissions are correct
+            chmod 755 "$LOCAL_REPO_PATH"
+
             # Create RPM macros file
             # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg and not %_gpg_path /home/nonroot/.gnupg
             # Create a temporary directory for rpm macros
@@ -223,7 +226,7 @@ jobs:
                 -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
                 -v "${LOCAL_REPO_PATH}:/rpm:rw" \
                 -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
-                --user "$(id -u):$(id -g)" \
+                --user root:root \  # Changed from $(id -u):$(id -g) to root:root
                 --rm \
                 docker.io/paritytech/rpm \
                 /bin/bash -c '
