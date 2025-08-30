@@ -237,7 +237,7 @@ jobs:
                     echo "=== RPM version ===";
                     rpm --version;
                     echo "=== Signing attempt ===";
-                    cd /rpm && rpm --addsign "${rpm_filename}"
+                    cd /rpm && rpm --addsign polkadot_*.rpm
                 '
 
             # Cleanup
