@@ -215,9 +215,12 @@ jobs:
 
             # Run inside podman to work around outdated rpm installation on host
             podman run \
-              -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent" \
-              -v "${LOCAL_REPO_PATH}/${rpm_filename}:/home/nonroot/${rpm_filename}" \
-              --rm -it docker.io/paritytech/rpm rpm --addsign "${rpm_filename}"
+              -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
+              -v "${LOCAL_REPO_PATH}:/rpm:rw" \
+              --user "$(id -u):$(id -g)" \
+              --rm \
+              docker.io/paritytech/rpm \
+              rpm --addsign "/rpm/${rpm_filename}"
 
             echo "Creating a repo"
             createrepo --update "$LOCAL_REPO_PATH"
