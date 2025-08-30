@@ -205,7 +205,7 @@ jobs:
             echo "Found RPM package: $rpmname"
             
             # Copy the RPM to the correct directory, create the repo
-            cp "${binpath}/${rpmname}" "$LOCAL_REPO_PATH"
+            cp "$rpmname" "$LOCAL_REPO_PATH/"
 
             # Run inside podman to work around outdated rpm installation on host
             # https://github.com/paritytech/release-engineering/issues/22
