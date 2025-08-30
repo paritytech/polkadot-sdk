@@ -208,12 +208,22 @@ jobs:
             cp "$rpmname" "$LOCAL_REPO_PATH/"
             chmod 644 "$LOCAL_REPO_PATH"/*.rpm
 
-            # Run inside podman to work around outdated rpm installation on host
-            # https://github.com/paritytech/release-engineering/issues/22
+            # Create RPM macros file
+            echo "Creating RPM macros file"
+            cat > ~/.rpmmacros << EOF
+              %_signature gpg
+              %_gpg_path /home/nonroot/.gnupg
+              %_gpg_name security@parity.io
+              %_gpgbin /usr/bin/gpg
+              %__gpg_sign_cmd %{__gpg} gpg --force-v3-sigs --batch --verbose --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
+              EOF
+            chmod 600 ~/.rpmmacros
+
             rpm_filename=$(basename "$rpmname")
             echo "Signing RPM package: $rpm_filename"
 
             # Run inside podman to work around outdated rpm installation on host
+            # https://github.com/paritytech/release-engineering/issues/22
             podman run \
               -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
               -v "${LOCAL_REPO_PATH}:/rpm:rw" \
