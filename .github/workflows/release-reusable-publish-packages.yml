@@ -232,7 +232,19 @@ jobs:
               --user "$(id -u):$(id -g)" \
               --rm \
               docker.io/paritytech/rpm \
-              rpm --addsign "/rpm/${rpm_filename}"
+              /bin/bash -c '
+                  echo "=== Debug Info ===";
+                  echo "Current user: $(id)";
+                  echo "Working directory: $(pwd)";
+                  echo "RPM macros file contents:";
+                  cat /home/nonroot/.rpmmacros;
+                  echo "=== File permissions ===";
+                  ls -la /home/nonroot/.rpmmacros;
+                  echo "=== RPM version ===";
+                  rpm --version;
+                  echo "=== Signing attempt ===";
+                  rpm --addsign "/rpm/${rpm_filename}"
+              '
 
             echo "Creating a repo"
             createrepo --update "$LOCAL_REPO_PATH"
