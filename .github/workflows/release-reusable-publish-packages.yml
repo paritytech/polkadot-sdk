@@ -210,42 +210,39 @@ jobs:
 
             # Create RPM macros file
             # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg and not %_gpg_path /home/nonroot/.gnupg
-            echo "Copying RPM macros file from: ${{ github.workspace }}/.github/workflows/rpmmacros"
-            cp "${{ github.workspace }}/.github/workflows/rpmmacros" ~/.rpmmacros
-            chmod 600 ~/.rpmmacros
-            ls -la ~/.rpmmacros  # Debug: verify file exists and permissions
-            cat ~/.rpmmacros     # Debug: verify content
-
-            # Debug: Show file contents and location
-            echo "Host machine rpmmacros content:"
-            cat ~/.rpmmacros
+            # Create a temporary directory for rpm macros
+            TEMP_DIR=$(mktemp -d)
+            cp "${{ github.workspace }}/.github/workflows/rpmmacros" "${TEMP_DIR}/rpmmacros"
+            chmod 644 "${TEMP_DIR}/rpmmacros"  # Make readable by all users
 
             rpm_filename=$(basename "$rpmname")
             echo "Signing RPM package: $rpm_filename"
 
-            # Run inside podman to work around outdated rpm installation on host
-            # https://github.com/paritytech/release-engineering/issues/22
+            # Run inside podman with corrected permissions
             podman run \
-              -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
-              -v "${LOCAL_REPO_PATH}:/rpm:rw" \
-              -v "${HOME}/.rpmmacros:/home/nonroot/.rpmmacros:ro" \
-              --user "$(id -u):$(id -g)" \
-              --rm \
-              docker.io/paritytech/rpm \
-              /bin/bash -c '
-                  echo "=== Debug Info ===";
-                  echo "Current user: $(id)";
-                  echo "Working directory: $(pwd)";
-                  echo "RPM macros file contents:";
-                  cat /home/nonroot/.rpmmacros;
-                  echo "=== File permissions ===";
-                  ls -la /home/nonroot/.rpmmacros;
-                  echo "=== RPM version ===";
-                  rpm --version;
-                  echo "=== Signing attempt ===";
-                  rpm --addsign "/rpm/${rpm_filename}"
-              '
+                -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
+                -v "${LOCAL_REPO_PATH}:/rpm:rw" \
+                -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
+                --user "$(id -u):$(id -g)" \
+                --rm \
+                docker.io/paritytech/rpm \
+                /bin/bash -c '
+                    echo "=== Debug Info ===";
+                    echo "Current user: $(id)";
+                    echo "Working directory: $(pwd)";
+                    echo "RPM macros file contents:";
+                    cat /etc/rpm/macros.sign;
+                    echo "=== File permissions ===";
+                    ls -la /etc/rpm/macros.sign;
+                    echo "=== RPM version ===";
+                    rpm --version;
+                    echo "=== Signing attempt ===";
+                    rpm --addsign "/rpm/${rpm_filename}"
+                '
 
+            # Cleanup
+            rm -rf "${TEMP_DIR}"
+            
             echo "Creating a repo"
             createrepo --update "$LOCAL_REPO_PATH"
           fi
