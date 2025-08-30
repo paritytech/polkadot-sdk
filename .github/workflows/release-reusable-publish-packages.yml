@@ -227,6 +227,7 @@ jobs:
             podman run \
               -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
               -v "${LOCAL_REPO_PATH}:/rpm:rw" \
+              -v "${HOME}/.rpmmacros:/home/nonroot/.rpmmacros:ro" \
               --user "$(id -u):$(id -g)" \
               --rm \
               docker.io/paritytech/rpm \
