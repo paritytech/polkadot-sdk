@@ -97,6 +97,14 @@ pub mod pallet {
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;
 
+		/// A `RuntimeCall` that is checked by the XCM executor's barrier logic.
+		///
+		/// This represents a call used to benchmark the cost of barrier evaluation in both
+		/// acceptance and rejection cases.
+		///
+		/// If set to `Err`, benchmarks which rely on a `barrier_check` will be skipped.
+		fn barrier_check() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError>;
+
 		/// Returns a valid pallet info for `ExpectPallet` or `QueryPallet` benchmark.
 		///
 		/// By default returns `frame_system::Pallet` info with expected pallet index `0`.
