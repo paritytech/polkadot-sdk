@@ -23,6 +23,19 @@ on:
         description: CloudFront Distribution ID for cache invalidation
         required: true
         type: string
+    secrets:
+      upstream_content_sync_app_key:
+        required: true
+      aws_release_access_key_id:
+        required: true
+      aws_release_secret_access_key:
+        required: true
+      pgp_kms_key:
+        required: true
+      pgp_kms_hash:
+        required: true
+      aws_default_region:
+        required: true
  
 jobs:
   check-synchronization:
