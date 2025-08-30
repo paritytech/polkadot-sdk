@@ -216,6 +216,10 @@ jobs:
             ls -la ~/.rpmmacros  # Debug: verify file exists and permissions
             cat ~/.rpmmacros     # Debug: verify content
 
+            # Debug: Show file contents and location
+            echo "Host machine rpmmacros content:"
+            cat ~/.rpmmacros
+
             rpm_filename=$(basename "$rpmname")
             echo "Signing RPM package: $rpm_filename"
 
