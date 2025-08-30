@@ -1,0 +1,222 @@
+name: Reusable - Publish Package
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Current final release tag (e.g., polkadot-stableYYMM)
+        required: true
+        type: string
+      distribution:
+        description: Distribution where to publish package (e.g., release, staging)
+        required: true
+        type: string
+      package_type:
+        description: Type of package to publish (deb or rpm)
+        required: true
+        type: choice
+        options:
+          - 'deb'
+          - 'rpm'
+      aws_repo_base_path:
+        description: Base S3 path for package repositories
+        required: true
+        type: string
+      cloudfront_distribution_id:
+        description: CloudFront Distribution ID for cache invalidation
+        required: true
+        type: string
+ 
+jobs:
+  check-synchronization:
+    uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    secrets:
+      fork_writer_app_key: ${{ secrets.upstream_content_sync_app_key }}
+
+  validate-inputs:
+    needs: [check-synchronization]
+    if: ${{ needs.check-synchronization.outputs.checks_passed }} == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+        release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Validate inputs
+        id: validate_inputs
+        run: |
+          # Source common library for helper functions
+          . ./.github/scripts/common/lib.sh
+          RELEASE_TAG=$(validate_stable_tag ${{ inputs.tag }})
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+  fetch-artifacts-from-s3:
+    runs-on: ubuntu-latest
+    needs: [validate-inputs]
+    env:
+      REPO: ${{ github.repository }}
+      VERSION: ${{ needs.validate-inputs.outputs.release_tag }}
+    outputs:
+      NODE_VERSION: ${{ steps.fetch_artifacts_from_s3.outputs.NODE_VERSION }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Fetch rc artifacts or release artifacts from s3 based on version
+        id: fetch_artifacts_from_s3
+        run: |
+          . ./.github/scripts/common/lib.sh
+          NODE_VERSION="$(get_polkadot_node_version_from_code)"
+          echo "NODE_VERSION=${NODE_VERSION}" >> $GITHUB_OUTPUT
+
+          # Fetch specific package type artifact (deb or rpm)
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            fetch_debian_package_from_s3 polkadot
+          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+            fetch_rpm_package_from_s3 polkadot
+          else
+            echo "Error: Unsupported package_type: ${{ inputs.package_type }}"
+            exit 1
+          fi
+
+      - name: Upload artifacts for later jobs
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: release-artifacts
+          path: release-artifacts/*
+
+  publish-package:
+    runs-on: ubuntu-latest
+    needs: [fetch-artifacts-from-s3]
+    environment: release
+    env:
+      AWS_DEFAULT_REGION: ${{ secrets.aws_default_region }}
+      AWS_REPO_PATH: "${{ inputs.aws_repo_base_path }}/${{ inputs.package_type }}"
+      LOCAL_REPO_PATH: ${{ github.workspace }}/${{ inputs.package_type }}
+      NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
+
+    # We are gonna use the same key both for rpm and deb packages - maybe logic of the key is not ready to be used for RPM at this moment
+    steps:
+      - name: Install pgpkms for artifact signing
+        run: |
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed"
+          echo "PGPKMS_REPREPRO_PATH=$(which pgpkms-reprepro)" >> $GITHUB_ENV
+
+      - name: Install awscli for S3 and CloudFront interaction
+        run: |
+          python3 -m pip install awscli
+          which aws
+
+      - name: Checkout sources
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Import GPG keys using pgpkms
+        shell: bash
+        run: |
+          . ./.github/scripts/common/lib.sh
+          import_gpg_keys
+
+      - name: Download artifacts from previous job
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-artifacts
+          path: release-artifacts
+
+      # For LOCAL_REPO_PATH use "./deb" or "./rpm" depending on package type
+      # FOR AWS_REPO_PATH use "s3://releases-package-repos/deb" or "s3://releases-package-repos/rpm/" depending on package type
+      # ☝️ this is done in env section above
+      # TODO: check if "/" after rpm is problematic - it would be great that our format is the same, found here: https://github.com/paritytech/cleanroom/commit/6fdec6d0ce41121ad67152b7bb6f944bbdae9f03#diff-bf10049fb0c22a74f58b04cf2d2f80010eefbe62828492fff235c667d7275793L19
+      - name: Setup local repo
+        if: ${{ inputs.package_type == 'deb' }}
+        run: |
+          sudo apt-get update
+
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            sudo apt-get install -y reprepro
+            which reprepro
+          fi
+
+          # Configure reprepro to use pgpkms for signing
+          sed -i "s|^SignWith:.*|SignWith: ! ${PGPKMS_REPREPRO_PATH}|" ${{ github.workspace }}/.github/scripts/release/distributions
+
+          # Create and copy distribution configuration for reprepro
+          mkdir -p "$LOCAL_REPO_PATH/conf"
+          cp ${{ github.workspace }}/.github/scripts/release/distributions "$LOCAL_REPO_PATH/conf/distributions"
+          cat "$LOCAL_REPO_PATH/conf/distributions"
+
+      - name: Sync local repo (download from S3)
+        env:
+          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+        run: |
+          mkdir -p "$LOCAL_REPO_PATH"
+          # Sync database and configuration files
+          aws s3 sync "$AWS_REPO_PATH/db" "$LOCAL_REPO_PATH/db" || true # `|| true` to avoid failing if dir doesn't exist yet
+          aws s3 sync "$AWS_REPO_PATH/conf" "$LOCAL_REPO_PATH/conf" || true # conf might not exist for RPM
+
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            aws s3 sync "$AWS_REPO_PATH/pool" "$LOCAL_REPO_PATH/pool" || true
+            aws s3 sync "$AWS_REPO_PATH/dists" "$LOCAL_REPO_PATH/dists" || true
+          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
+          fi
+
+      - name: Add package to local repo
+        env:
+          PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
+          PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+        run: |
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            # Find the downloaded .deb artifact
+            debname=$(find release-artifacts/ -name 'polkadot_*.deb' -print -quit)
+            if [ -z "$debname" ]; then
+              echo "Error: Debian package artifact not found in release-artifacts/"
+              exit 1
+            fi
+            echo "Found DEB package: $debname"
+            # Add the package to the local Debian repository
+            reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
+          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+            # Find the downloaded .rpm artifact
+            rpmname=$(find release-artifacts/ -name 'polkadot_*.rpm' -print -quit)
+            if [ -z "$rpmname" ]; then
+              echo "Error: RPM package artifact not found in release-artifacts/"
+              exit 1
+            fi
+            echo "Found RPM package: $rpmname"
+            
+            # Copy the RPM to the correct directory, create the repo
+            cp "${binpath}/${rpmname}" "$LOCAL_REPO_PATH"
+
+            # Run inside podman to work around outdated rpm installation on host
+            # https://github.com/paritytech/release-engineering/issues/22
+            podman run \
+              -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent" \
+              -v "${HOME}/${LOCAL_REPO_PATH}/${rpmname}:/home/nonroot/${rpmname}" \
+              --rm -it docker.io/paritytech/rpm rpm --addsign "${rpmname}"
+
+            createrepo --update "$LOCAL_REPO_PATH"
+          fi
+
+      - name: Upload updated repo to S3
+        env:
+          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+        run: |
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            # For Debian, pool and dists directories need public-read ACL
+            aws s3 sync "$LOCAL_REPO_PATH/pool" "$AWS_REPO_PATH/pool" --acl public-read
+            aws s3 sync "$LOCAL_REPO_PATH/dists" "$AWS_REPO_PATH/dists" --acl public-read
+
+            aws s3 sync "$LOCAL_REPO_PATH/db" "$AWS_REPO_PATH/db"
+            aws s3 sync "$LOCAL_REPO_PATH/conf" "$AWS_REPO_PATH/conf" || true # conf might not exist for RPM, so allow failure
+
+          elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
+          fi
+
+          # Invalidate CloudFront cache to serve latest files
+          aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
