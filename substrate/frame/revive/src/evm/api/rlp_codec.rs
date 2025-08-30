@@ -96,6 +96,31 @@ impl TransactionSigned {
 		s.out().to_vec()
 	}
 
+	/// Encode the Ethereum transaction type into bytes.
+	///
+	/// This is needed to encode the receipts.
+	pub fn signed_type(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new();
+
+		match &self {
+			TransactionSigned::Transaction4844Signed(tx) => {
+				s.append(&tx.transaction_4844_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction1559Signed(tx) => {
+				s.append(&tx.transaction_1559_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction2930Signed(tx) => {
+				s.append(&tx.transaction_2930_unsigned.r#type.value());
+			},
+			TransactionSigned::Transaction7702Signed(tx) => {
+				s.append(&tx.transaction_7702_unsigned.r#type.value());
+			},
+			TransactionSigned::TransactionLegacySigned(_) => {},
+		};
+
+		s.out().to_vec()
+	}
+
 	/// Decode the Ethereum transaction from bytes.
 	pub fn decode(data: &[u8]) -> Result<Self, rlp::DecoderError> {
 		if data.len() < 1 {
@@ -105,6 +130,7 @@ impl TransactionSigned {
 			TYPE_EIP2930 => rlp::decode::<Transaction2930Signed>(&data[1..]).map(Into::into),
 			TYPE_EIP1559 => rlp::decode::<Transaction1559Signed>(&data[1..]).map(Into::into),
 			TYPE_EIP4844 => rlp::decode::<Transaction4844Signed>(&data[1..]).map(Into::into),
+			TYPE_EIP7702 => rlp::decode::<Transaction7702Signed>(&data[1..]).map(Into::into),
 			_ => rlp::decode::<TransactionLegacySigned>(data).map(Into::into),
 		}
 	}
@@ -392,6 +418,33 @@ impl Encodable for Transaction7702Unsigned {
 		s.append(&self.input.0);
 		s.append_list(&self.access_list);
 		s.append_list(&self.authorization_list);
+	}
+}
+
+impl Decodable for Transaction7702Signed {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		Ok(Transaction7702Signed {
+			transaction_7702_unsigned: {
+				Transaction7702Unsigned {
+					chain_id: rlp.val_at(0)?,
+					nonce: rlp.val_at(1)?,
+					max_priority_fee_per_gas: rlp.val_at(2)?,
+					max_fee_per_gas: rlp.val_at(3)?,
+					gas_price: rlp.val_at(4)?,
+					gas: rlp.val_at(5)?,
+					to: rlp.val_at(6)?,
+					value: rlp.val_at(7)?,
+					input: Bytes(rlp.val_at(8)?),
+					access_list: rlp.list_at(9)?,
+					authorization_list: rlp.list_at(10)?,
+					r#type: Default::default(),
+				}
+			},
+			y_parity: rlp.val_at(11)?,
+			r: rlp.val_at(12)?,
+			s: rlp.val_at(13)?,
+			v: None,
+		})
 	}
 }
 
