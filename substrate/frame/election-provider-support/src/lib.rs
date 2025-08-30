@@ -148,15 +148,20 @@
 //!         type BlockNumber = BlockNumber;
 //!         type Error = &'static str;
 //!         type MaxBackersPerWinner = T::MaxBackersPerWinner;
+//! 		type MaxBackersPerWinnerFinal = T::MaxBackersPerWinner;
 //!         type MaxWinnersPerPage = T::MaxWinnersPerPage;
 //!         type Pages = T::Pages;
 //!         type DataProvider = T::DataProvider;
+//!
+//! 		fn duration() -> <Self as frame_election_provider_support::ElectionProvider>::BlockNumber { todo!() }
+//!
+//! 		fn start() -> Result<(), <Self as frame_election_provider_support::ElectionProvider>::Error> { todo!() }
 //!
 //!         fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 //!             unimplemented!()
 //!         }
 //!
-//!         fn ongoing() -> bool {
+//!         fn status() -> Result<bool, ()> {
 //!             unimplemented!()
 //!         }
 //!     }
@@ -228,7 +233,10 @@ use sp_runtime::TryRuntimeError;
 // re-export for the solution macro, with the dependencies of the macro.
 #[doc(hidden)]
 pub mod private {
-	pub use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+	pub use alloc::{
+		collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+		vec::Vec,
+	};
 	pub use codec;
 	pub use scale_info;
 	pub use sp_arithmetic;
@@ -353,6 +361,8 @@ pub trait ElectionDataProvider {
 	) -> data_provider::Result<Vec<VoterOf<Self>>>;
 
 	/// A state-less version of [`Self::electing_voters`].
+	///
+	/// An election-provider that only uses 1 page should use this.
 	fn electing_voters_stateless(
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
@@ -389,8 +399,11 @@ pub trait ElectionDataProvider {
 	) {
 	}
 
+	/// Instruct the data provider to fetch a page of the solution.
+	///
+	/// This can be useful to measure the export process in benchmarking.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
-	fn set_next_election(_to: u32) {}
+	fn fetch_page(_page: PageIndex) {}
 
 	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
 	/// else a noop.
@@ -415,6 +428,7 @@ pub trait ElectionDataProvider {
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn clear() {}
 
+	/// Force set the desired targets in the snapshot.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn set_desired_targets(_count: u32) {}
 }
@@ -444,6 +458,13 @@ pub trait ElectionProvider {
 	/// election result.
 	type MaxBackersPerWinner: Get<u32>;
 
+	/// Same as [`Self::MaxBackersPerWinner`], but across all pages.
+	///
+	/// If [`Self::Pages`] is set to 0, a reasonable value is [`Self::MaxBackersPerWinner`]. For
+	/// multi-page elections, a reasonable value is the range of [`Self::MaxBackersPerWinner`] to
+	/// [`Self::Pages`] * [`Self::MaxBackersPerWinner`].
+	type MaxBackersPerWinnerFinal: Get<u32>;
+
 	/// The number of pages that this election provider supports.
 	type Pages: Get<PageIndex>;
 
@@ -459,9 +480,6 @@ pub trait ElectionProvider {
 	/// [`ElectionProvider::Pages`] is higher than one.
 	///
 	/// The result is returned in a target major format, namely as vector of supports.
-	///
-	/// This should be implemented as a self-weighing function. The implementor should register its
-	/// appropriate weight at the end of execution with the system pallet directly.
 	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error>;
 
 	/// The index of the *most* significant page that this election provider supports.
@@ -486,8 +504,34 @@ pub trait ElectionProvider {
 		})
 	}
 
+	/// Return the duration of your election.
+	///
+	/// This excludes the duration of the export. For that, use [`Self::duration_with_export`].
+	fn duration() -> Self::BlockNumber;
+
+	/// Return the duration of your election, including the export.
+	fn duration_with_export() -> Self::BlockNumber
+	where
+		Self::BlockNumber: From<PageIndex> + core::ops::Add<Output = Self::BlockNumber>,
+	{
+		let export: Self::BlockNumber = Self::Pages::get().into();
+		Self::duration() + export
+	}
+
+	/// Signal that the election should start
+	fn start() -> Result<(), Self::Error>;
+
 	/// Indicate whether this election provider is currently ongoing an asynchronous election.
-	fn ongoing() -> bool;
+	///
+	/// `Err(())` should signal that we are not doing anything, and `elect` should def. not be
+	/// called. `Ok(false)` means we are doing something, but work is still ongoing. `elect` should
+	/// not be called. `Ok(true)` means we are done and ready for a call to `elect`.
+	fn status() -> Result<bool, ()>;
+
+	/// Signal the election provider that we are about to call `elect` asap, and it should prepare
+	/// itself.
+	#[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+	fn asap() {}
 }
 
 /// A (almost) marker trait that signifies an election provider as working synchronously. i.e. being
@@ -518,6 +562,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	type AccountId = AccountId;
 	type BlockNumber = BlockNumber;
@@ -526,13 +571,22 @@ where
 	type DataProvider = DataProvider;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
 	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinner;
 
 	fn elect(_page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		Err("`NoElection` cannot do anything.")
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn start() -> Result<(), Self::Error> {
+		Err("`NoElection` cannot do anything.")
+	}
+
+	fn duration() -> Self::BlockNumber {
+		Zero::zero()
+	}
+
+	fn status() -> Result<bool, ()> {
+		Err(())
 	}
 }
 
@@ -543,6 +597,7 @@ where
 	DataProvider: ElectionDataProvider<AccountId = AccountId, BlockNumber = BlockNumber>,
 	MaxWinnersPerPage: Get<u32>,
 	MaxBackersPerWinner: Get<u32>,
+	BlockNumber: Zero,
 {
 	fn instant_elect(
 		_: Vec<VoterOf<Self::DataProvider>>,
@@ -571,10 +626,35 @@ pub trait SortedListProvider<AccountId> {
 	type Error: core::fmt::Debug;
 
 	/// The type used by the list to compare nodes for ordering.
-	type Score: Bounded + Saturating + Zero;
+	type Score: Bounded + Saturating + Zero + Default;
+
+	/// A typical range for this list.
+	///
+	/// By default, this would be implemented as `Bounded` impl of `Self::Score`.
+	///
+	/// If this is implemented by a bags-list instance, it will be the smallest and largest bags.
+	///
+	/// This is useful to help another pallet that consumes this trait generate an even distribution
+	/// of nodes for testing/genesis.
+	fn range() -> (Self::Score, Self::Score) {
+		(Self::Score::min_value(), Self::Score::max_value())
+	}
 
 	/// An iterator over the list, which can have `take` called on it.
 	fn iter() -> Box<dyn Iterator<Item = AccountId>>;
+
+	/// Lock the list.
+	///
+	/// This will prevent subsequent calls to
+	/// - [`Self::on_insert`]
+	/// - [`Self::on_update`]
+	/// - [`Self::on_decrease`]
+	/// - [`Self::on_increase`]
+	/// - [`Self::on_remove`]
+	fn lock();
+
+	/// Unlock the list. This will nullify the effects of [`Self::lock`].
+	fn unlock();
 
 	/// Returns an iterator over the list, starting right after from the given voter.
 	///
@@ -637,7 +717,7 @@ pub trait SortedListProvider<AccountId> {
 	/// new list, which can lead to too many storage accesses, exhausting the block weight.
 	fn unsafe_regenerate(
 		all: impl IntoIterator<Item = AccountId>,
-		score_of: Box<dyn Fn(&AccountId) -> Self::Score>,
+		score_of: Box<dyn Fn(&AccountId) -> Option<Self::Score>>,
 	) -> u32;
 
 	/// Remove all items from the list.
@@ -664,8 +744,10 @@ pub trait SortedListProvider<AccountId> {
 pub trait ScoreProvider<AccountId> {
 	type Score;
 
-	/// Get the current `Score` of `who`.
-	fn score(who: &AccountId) -> Self::Score;
+	/// Get the current `Score` of `who`, `None` if `who` is not present.
+	///
+	/// `None` can be interpreted as a signal that the voter should be removed from the list.
+	fn score(who: &AccountId) -> Option<Self::Score>;
 
 	/// For tests, benchmarks and fuzzing, set the `score`.
 	#[cfg(any(feature = "runtime-benchmarks", feature = "fuzz", feature = "std"))]
@@ -877,6 +959,10 @@ impl<AccountId, Bound: Get<u32>> TryFrom<sp_npos_elections::Support<AccountId>>
 }
 
 impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
+	/// Try and construct a `BoundedSupport` from an unbounded version, and reside to sorting and
+	/// truncating if needed.
+	///
+	/// Returns the number of backers removed.
 	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> (Self, u32) {
 		// If bounds meet, then short circuit.
 		if let Ok(bounded) = support.clone().try_into() {
@@ -936,8 +1022,9 @@ impl<
 	fn try_from_other_bounds(
 		other: BoundedSupports<AccountId, BOtherOuter, BOuterInner>,
 	) -> Result<Self, crate::Error> {
-		// TODO: we might as well do this with unsafe rust and do it faster.
-		if BOtherOuter::get() <= BOuter::get() && BInner::get() <= BOuterInner::get() {
+		// NOTE: we might as well do this with unsafe rust and do it faster.
+		if BOtherOuter::get() <= BOuter::get() && BOuterInner::get() <= BInner::get() {
+			// Both ouf our bounds are larger than the input's bound, can convert.
 			let supports = other
 				.into_iter()
 				.map(|(acc, b_support)| {
@@ -958,6 +1045,9 @@ impl<
 impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 	BoundedSupports<AccountId, BOuter, BInner>
 {
+	/// Try and construct a `BoundedSupports` from an unbounded version, and reside to sorting and
+	/// truncating if need ne.
+	///
 	/// Two u32s returned are number of winners and backers removed respectively.
 	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> (Self, u32, u32) {
 		// if bounds, meet, short circuit
@@ -990,6 +1080,8 @@ impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 		(bounded, (pre_winners - post_winners) as u32, backers_removed)
 	}
 }
+
+/// Helper trait for conversion of a vector of unbounded supports into a vector of bounded ones.
 pub trait TryFromUnboundedPagedSupports<AccountId, BOuter: Get<u32>, BInner: Get<u32>> {
 	fn try_from_unbounded_paged(
 		self,
@@ -1049,7 +1141,7 @@ impl<AccountId, BOuter: Get<u32>, BInner: Get<u32>> Into<Supports<AccountId>>
 	for BoundedSupports<AccountId, BOuter, BInner>
 {
 	fn into(self) -> Supports<AccountId> {
-		// TODO: can be done faster with unsafe code.
+		// NOTE: can be done faster with unsafe code.
 		self.0.into_iter().map(|(acc, b_support)| (acc, b_support.into())).collect()
 	}
 }

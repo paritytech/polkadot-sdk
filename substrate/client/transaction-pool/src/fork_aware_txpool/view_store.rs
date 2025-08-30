@@ -19,6 +19,7 @@
 //! Transaction pool view store. Basically block hash to view map with some utility methods.
 
 use super::{
+	import_notification_sink::MultiViewImportNotificationSink,
 	multi_view_listener::{MultiViewListener, TxStatusStream},
 	view::{View, ViewPoolObserver},
 };
@@ -30,15 +31,17 @@ use crate::{
 		BaseSubmitOutcome, BlockHash, ExtrinsicFor, ExtrinsicHash, TransactionFor,
 		ValidatedPoolSubmitOutcome,
 	},
-	ReadyIteratorFor, LOG_TARGET,
+	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{error::Error as PoolError, PoolStatus, TxInvalidityReportMap};
+use sc_transaction_pool_api::{
+	error::Error as PoolError, PoolStatus, TransactionTag as Tag, TxInvalidityReportMap,
+};
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Saturating},
+	traits::{Block as BlockT, Header, One, Saturating},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use std::{
@@ -46,7 +49,7 @@ use std::{
 	sync::Arc,
 	time::Instant,
 };
-use tracing::{trace, warn};
+use tracing::{debug, instrument, trace, warn, Level};
 
 /// Helper struct to maintain the context for pending transaction submission, executed for
 /// newly inserted views.
@@ -164,11 +167,15 @@ where
 	///
 	/// Provides a side-channel allowing to send per-transaction state changes notification.
 	pub(super) listener: Arc<MultiViewListener<ChainApi>>,
-	/// Most recent block processed by tx-pool. Used in the API functions that were not changed to
+	/// Most recent view processed by tx-pool. Used in the API functions that were not changed to
 	/// add `at` parameter.
-	pub(super) most_recent_view: RwLock<Option<Block::Hash>>,
+	pub(super) most_recent_view: RwLock<Option<Arc<View<ChainApi>>>>,
 	/// The controller of multi view dropped stream.
 	pub(super) dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
+	/// Util providing an aggregated stream of transactions that were imported to ready queue in
+	/// any view. Reference kept here for clean up purposes.
+	pub(super) import_notification_sink:
+		MultiViewImportNotificationSink<Block::Hash, ExtrinsicHash<ChainApi>>,
 	/// The map used to synchronize replacement of transactions between maintain and dropped
 	/// notifcication threads. It is meant to assure that replaced transaction is also removed from
 	/// newly built views in maintain process.
@@ -200,6 +207,10 @@ where
 		api: Arc<ChainApi>,
 		listener: Arc<MultiViewListener<ChainApi>>,
 		dropped_stream_controller: MultiViewDroppedWatcherController<ChainApi>,
+		import_notification_sink: MultiViewImportNotificationSink<
+			Block::Hash,
+			ExtrinsicHash<ChainApi>,
+		>,
 	) -> Self {
 		Self {
 			api,
@@ -208,6 +219,7 @@ where
 			listener,
 			most_recent_view: RwLock::from(None),
 			dropped_stream_controller,
+			import_notification_sink,
 			pending_txs_tasks: Default::default(),
 		}
 	}
@@ -220,14 +232,14 @@ where
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					let xts = xts.clone();
 					async move {
 						(
 							view.at.hash,
-							view.submit_many(xts)
+							view.submit_many(xts, ValidateTransactionPriority::Submitted)
 								.await
 								.into_iter()
 								.map(|r| r.map(Into::into))
@@ -247,12 +259,7 @@ where
 		&self,
 		xt: ExtrinsicFor<ChainApi>,
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
-		let active_views = self
-			.active_views
-			.read()
-			.iter()
-			.map(|(_, view)| view.clone())
-			.collect::<Vec<_>>();
+		let active_views = self.active_views.read().values().cloned().collect::<Vec<_>>();
 
 		let tx_hash = self.api.hash_and_length(&xt).0;
 
@@ -283,6 +290,7 @@ where
 	///
 	/// The external stream of aggregated/processed events provided by the `MultiViewListener`
 	/// instance is returned.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::sumbit_and_watch")]
 	pub(super) async fn submit_and_watch(
 		&self,
 		_at: Block::Hash,
@@ -296,12 +304,14 @@ where
 		let submit_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					let xt = xt.clone();
 					let source = source.clone();
-					async move { view.submit_one(source, xt).await }
+					async move {
+						view.submit_one(source, xt, ValidateTransactionPriority::Submitted).await
+					}
 				})
 				.collect::<Vec<_>>()
 		};
@@ -334,6 +344,39 @@ where
 	/// Returns true if there are no active views.
 	pub(super) fn is_empty(&self) -> bool {
 		self.active_views.read().is_empty() && self.inactive_views.read().is_empty()
+	}
+
+	/// Searches in the view store for the first descendant view by iterating through the fork of
+	/// the `at` block, up to the provided `block_number`.
+	///
+	/// Returns with a maybe pair of a view and a set of enacted blocks when the first view is
+	/// found.
+	pub(super) fn find_view_descendent_up_to_number(
+		&self,
+		at: &HashAndNumber<Block>,
+		up_to: <<Block as BlockT>::Header as Header>::Number,
+	) -> Option<(Arc<View<ChainApi>>, Vec<Block::Hash>)> {
+		let mut enacted_blocks = Vec::new();
+		let mut at_hash = at.hash;
+		let mut at_number = at.number;
+
+		// Search for a view that can be used to get and return an approximate ready
+		// transaction set.
+		while at_number >= up_to {
+			// Found a view, stop searching.
+			if let Some((view, _)) = self.get_view_at(at_hash, true) {
+				return Some((view, enacted_blocks));
+			}
+
+			enacted_blocks.push(at_hash);
+
+			// Move up into the fork.
+			let header = self.api.block_header(at_hash).ok().flatten()?;
+			at_hash = *header.parent_hash();
+			at_number = at_number.saturating_sub(One::one());
+		}
+
+		None
 	}
 
 	/// Finds the best existing active view to clone from along the path.
@@ -376,12 +419,8 @@ where
 	/// The iterator for future transactions is returned if the most recently notified best block,
 	/// for which maintain process was accomplished, exists.
 	pub(super) fn ready(&self) -> ReadyIteratorFor<ChainApi> {
-		let ready_iterator = self
-			.most_recent_view
-			.read()
-			.map(|at| self.get_view_at(at, true))
-			.flatten()
-			.map(|(v, _)| v.pool.validated_pool().ready());
+		let ready_iterator =
+			self.most_recent_view.read().as_ref().map(|v| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
 			return Box::new(ready_iterator)
@@ -399,8 +438,8 @@ where
 	) -> Vec<Transaction<ExtrinsicHash<ChainApi>, ExtrinsicFor<ChainApi>>> {
 		self.most_recent_view
 			.read()
-			.map(|at| self.futures_at(at))
-			.flatten()
+			.as_ref()
+			.and_then(|view| self.futures_at(view.at.hash))
 			.unwrap_or_default()
 	}
 
@@ -424,7 +463,7 @@ where
 		finalized_hash: Block::Hash,
 		tree_route: &[Block::Hash],
 	) -> Vec<ExtrinsicHash<ChainApi>> {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			?finalized_hash,
 			?tree_route,
@@ -458,6 +497,10 @@ where
 			finalized_transactions.extend(extrinsics);
 		}
 
+		debug!(
+			target: LOG_TARGET,
+			"finalize_route: done"
+		);
 		finalized_transactions
 	}
 
@@ -478,14 +521,9 @@ where
 
 	/// Inserts new view into the view store.
 	///
-	/// All the views associated with the blocks which are on enacted path (including common
-	/// ancestor) will be:
-	/// - moved to the inactive views set (`inactive_views`),
-	/// - removed from the multi view listeners.
-	///
-	/// The `most_recent_view` is updated with the reference to the newly inserted view.
-	///
+	/// Refer to [`Self::insert_new_view_sync`] more details.
 	/// If there are any pending tx replacments, they are applied to the new view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::insert_new_view")]
 	pub(super) async fn insert_new_view(
 		&self,
 		view: Arc<View<ChainApi>>,
@@ -493,6 +531,30 @@ where
 	) {
 		self.apply_pending_tx_replacements(view.clone()).await;
 
+		let start = Instant::now();
+		self.insert_new_view_sync(view, tree_route);
+
+		debug!(
+			target: LOG_TARGET,
+			inactive_views = ?self.inactive_views.read().keys(),
+			duration = ?start.elapsed(),
+			"insert_new_view"
+		);
+	}
+
+	/// Inserts new view into the view store.
+	///
+	/// All the views associated with the blocks which are on enacted path (including common
+	/// ancestor) will be:
+	/// - moved to the inactive views set (`inactive_views`),
+	/// - removed from the multi view listeners.
+	///
+	/// The `most_recent_view` is updated with the reference to the newly inserted view.
+	pub(super) fn insert_new_view_sync(
+		&self,
+		view: Arc<View<ChainApi>>,
+		tree_route: &TreeRoute<Block>,
+	) {
 		//note: most_recent_view must be synced with changes in in/active_views.
 		{
 			let mut most_recent_view_lock = self.most_recent_view.write();
@@ -508,13 +570,8 @@ where
 					});
 				});
 			active_views.insert(view.at.hash, view.clone());
-			most_recent_view_lock.replace(view.at.hash);
+			most_recent_view_lock.replace(view.clone());
 		};
-		trace!(
-			target: LOG_TARGET,
-			inactive_views = ?self.inactive_views.read().keys(),
-			"insert_new_view"
-		);
 	}
 
 	/// Returns an optional reference to the view at given hash.
@@ -587,18 +644,13 @@ where
 				retain
 			});
 
-			trace!(
+			debug!(
 				target: LOG_TARGET,
 				inactive_views = ?inactive_views.keys(),
+				?dropped_views,
 				"handle_finalized"
 			);
 		}
-
-		trace!(
-			target: LOG_TARGET,
-			?dropped_views,
-			"handle_finalized"
-		);
 
 		self.listener.remove_stale_controllers();
 		self.dropped_stream_controller.remove_transactions(finalized_xts.clone());
@@ -621,18 +673,23 @@ where
 		let finish_revalidation_futures = {
 			let active_views = self.active_views.read();
 			active_views
-				.iter()
-				.map(|(_, view)| {
+				.values()
+				.map(|view| {
 					let view = view.clone();
 					async move { view.finish_revalidation().await }
 				})
 				.collect::<Vec<_>>()
 		};
-		futures::future::join_all(finish_revalidation_futures).await;
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			duration = ?start.elapsed(),
-			"finish_background_revalidations"
+			"finish_background_revalidations before"
+		);
+		futures::future::join_all(finish_revalidation_futures).await;
+		debug!(
+			target: LOG_TARGET,
+			duration = ?start.elapsed(),
+			"finish_background_revalidations after"
 		);
 	}
 
@@ -647,8 +704,7 @@ where
 	///
 	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
 	/// kept in the view_store. Such transaction will not be reported in returned vector. They
-	/// also will not be banned from re-entering the pool (however can be rejected from re-entring
-	/// the view). No event will be triggered.
+	/// also will not be banned from re-entering the pool. No event will be triggered.
 	///
 	/// For other errors, the transaction will be removed from the view_store, and it will be
 	/// included in the returned vector. Additionally, transactions provided as input will be banned
@@ -685,7 +741,7 @@ where
 		// be in the pool.
 		at.map(|at| {
 			self.get_view_at(at, true)
-				.map(|(view, _)| view.remove_subtree(&remove_from_view, |_, _| {}))
+				.map(|(view, _)| view.remove_subtree(&remove_from_view, false, |_, _| {}))
 		});
 
 		let mut removed = vec![];
@@ -743,11 +799,17 @@ where
 	/// Applies pending transaction replacements to the specified view.
 	///
 	/// After application, all already processed replacements are removed.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view_store::apply_pending_tx_replacements")]
 	async fn apply_pending_tx_replacements(&self, view: Arc<View<ChainApi>>) {
+		let start = Instant::now();
 		let mut futures = vec![];
+		let mut replace_count = 0;
+		let mut remove_count = 0;
+
 		for replacement in self.pending_txs_tasks.read().values() {
 			match replacement.action {
 				PreInsertAction::SubmitTx(ref submission) => {
+					replace_count += 1;
 					let xt_hash = self.api.hash_and_length(&submission.xt).0;
 					futures.push(self.replace_transaction_in_view(
 						view.clone(),
@@ -757,12 +819,22 @@ where
 					));
 				},
 				PreInsertAction::RemoveSubtree(ref removal) => {
-					view.remove_subtree(&[removal.xt_hash], &*removal.listener_action);
+					remove_count += 1;
+					view.remove_subtree(&[removal.xt_hash], true, &*removal.listener_action);
 				},
 			}
 		}
-		let _results = futures::future::join_all(futures).await;
-		self.pending_txs_tasks.write().retain(|_, r| r.processed);
+		let _ = futures::future::join_all(futures).await;
+		self.pending_txs_tasks.write().retain(|_, r| !r.processed);
+		debug!(
+			target: LOG_TARGET,
+			at_hash = ?view.at.hash,
+			replace_count,
+			remove_count,
+			duration = ?start.elapsed(),
+			count = ?self.pending_txs_tasks.read().len(),
+			"apply_pending_tx_replacements"
+		);
 	}
 
 	/// Submits `xt` to the given view.
@@ -775,7 +847,9 @@ where
 		xt: ExtrinsicFor<ChainApi>,
 		tx_hash: ExtrinsicHash<ChainApi>,
 	) {
-		if let Err(error) = view.submit_one(source, xt).await {
+		if let Err(error) =
+			view.submit_one(source, xt, ValidateTransactionPriority::Maintained).await
+		{
 			trace!(
 				target: LOG_TARGET,
 				?tx_hash,
@@ -862,7 +936,7 @@ where
 			.iter()
 			.chain(self.inactive_views.read().iter())
 			.filter(|(_, view)| view.is_imported(&xt_hash))
-			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], &listener_action))
+			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();
 
@@ -907,5 +981,35 @@ where
 				self.dropped_stream_controller.remove_view(view);
 			}
 		}
+	}
+
+	/// Returns provides tags of given transactions in the views associated to the given set of
+	/// blocks.
+	pub(crate) fn provides_tags_from_inactive_views(
+		&self,
+		block_hashes: Vec<&HashAndNumber<Block>>,
+		mut xts_hashes: Vec<ExtrinsicHash<ChainApi>>,
+	) -> HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>> {
+		let mut provides_tags_map = HashMap::new();
+
+		block_hashes.into_iter().for_each(|hn| {
+			// Get tx provides tags from given view's pool.
+			if let Some((view, _)) = self.get_view_at(hn.hash, true) {
+				let provides_tags = view.pool.validated_pool().extrinsics_tags(&xts_hashes);
+				let xts_provides_tags = xts_hashes
+					.iter()
+					.zip(provides_tags.into_iter())
+					.filter_map(|(hash, maybe_tags)| maybe_tags.map(|tags| (*hash, tags)))
+					.collect::<HashMap<ExtrinsicHash<ChainApi>, Vec<Tag>>>();
+
+				// Remove txs that have been resolved.
+				xts_hashes.retain(|xth| !xts_provides_tags.contains_key(xth));
+
+				// Collect the (extrinsic hash, tags) pairs in a map.
+				provides_tags_map.extend(xts_provides_tags);
+			}
+		});
+
+		provides_tags_map
 	}
 }

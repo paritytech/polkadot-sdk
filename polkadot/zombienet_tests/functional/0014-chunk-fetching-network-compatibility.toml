@@ -20,6 +20,7 @@ requests = { memory = "2G", cpu = "1" }
   [[relaychain.node_groups]]
   # Use an image that doesn't speak /req_chunk/2 protocol.
   image = "{{POLKADOT_IMAGE}}:master-bde0bbe5"
+  command = "polkadot{{OLD_SUFFIX}}"
   name = "old"
   count = 2
   args = ["-lparachain=debug,parachain::availability-recovery=trace,parachain::availability-distribution=trace"]
@@ -42,6 +43,7 @@ chain = "glutton-westend-local-{{id}}"
 
     [parachains.collator]
     name = "collator"
+    command = "polkadot-parachain{{OLD_SUFFIX}}"
     # Use an old image that does not send out v2 receipts, as the old validators will still check the collator signatures.
     image = "docker.io/paritypr/polkadot-parachain-debug:master-bde0bbe5"
     args = ["-lparachain=debug"]

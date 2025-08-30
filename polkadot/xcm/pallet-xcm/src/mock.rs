@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
 pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
-		Nothing,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
+		Everything, EverythingBut, Footprint, Nothing,
 	},
 	weights::Weight,
 };
@@ -28,7 +27,10 @@ use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use sp_runtime::{
+	traits::{Convert, IdentityLookup},
+	AccountId32, BuildStorage,
+};
 use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -43,8 +45,10 @@ use xcm_executor::{
 	traits::{Identity, JustTry},
 	XcmExecutor,
 };
+use xcm_simulator::helpers::derive_topic_id;
 
-use crate::{self as pallet_xcm, TestWeightInfo};
+use crate::{self as pallet_xcm, precompiles::XcmPrecompile, TestWeightInfo};
+use pallet_timestamp;
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -64,6 +68,7 @@ pub mod pallet_test_notifier {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + crate::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<crate::Origin, <Self as Config>::RuntimeOrigin>>;
@@ -135,6 +140,17 @@ pub mod pallet_test_notifier {
 	}
 }
 
+parameter_types! {
+	pub const MinimumPeriod: u64 = 1;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
 construct_runtime!(
 	pub enum Test
 	{
@@ -144,6 +160,8 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		Revive: pallet_revive,
+		Timestamp: pallet_timestamp,
 	}
 );
 
@@ -186,7 +204,7 @@ impl SendXcm for TestSendXcm {
 		{
 			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
 		}
-		let hash = fake_message_hash(&message);
+		let hash = derive_topic_id(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -207,7 +225,7 @@ impl SendXcm for TestSendXcmErrX8 {
 		}
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -229,17 +247,17 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			}
 		} else {
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Para3000PaymentAssets::get()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -314,6 +332,16 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = XcmBenchmarkHelper;
+}
+
+#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+impl pallet_revive::Config for Test {
+	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
+	type Currency = Balances;
+	type Precompiles = (XcmPrecompile<Self>,);
+	type Time = Timestamp;
+	type UploadOrigin = frame_system::EnsureSigned<AccountId>;
+	type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
 }
 
 // This child parachain is a system parachain trusted to teleport native token.
@@ -484,6 +512,8 @@ pub type Barrier = (
 pub type XcmRouter =
 	EnsureDecodableXcm<(TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm)>;
 
+pub type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -502,7 +532,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+	type Trader = Trader;
 	type ResponseHandler = XcmPallet;
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
@@ -527,10 +557,20 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::XcmPallet(pallet_xcm::HoldReason::AuthorizeAlias);
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u128> for ConvertDeposit {
+	fn convert(a: Footprint) -> u128 {
+		(a.count * 2 + a.size) as u128
+	}
 }
 
 pub struct XcmTeleportFiltered;
@@ -565,6 +605,8 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration =
+		HoldConsideration<AccountId, Balances, AuthorizeAliasHoldReason, ConvertDeposit>;
 }
 
 impl origin::Config for Test {}
@@ -672,12 +714,18 @@ impl super::benchmarking::Config for Test {
 	}
 }
 
-pub(crate) fn last_event() -> RuntimeEvent {
-	System::events().pop().expect("RuntimeEvent expected").event
+pub(crate) fn all_events() -> Vec<RuntimeEvent> {
+	System::events().into_iter().map(|e| e.event).collect()
 }
 
 pub(crate) fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	System::events().into_iter().map(|e| e.event).rev().take(n).rev().collect()
+	let all_events = all_events();
+	let split_idx = all_events.len().saturating_sub(n);
+	all_events.split_at(split_idx).1.to_vec()
+}
+
+pub(crate) fn last_event() -> RuntimeEvent {
+	last_events(1).pop().expect("RuntimeEvent expected")
 }
 
 pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
@@ -693,6 +741,8 @@ pub(crate) fn buy_limited_execution<C>(
 	BuyExecution { fees: fees.into(), weight_limit }
 }
 
+pub const ALICE: AccountId32 = AccountId::new([0u8; 32]);
+
 pub(crate) fn new_test_ext_with_balances(
 	balances: Vec<(AccountId, Balance)>,
 ) -> sp_io::TestExternalities {
@@ -700,12 +750,14 @@ pub(crate) fn new_test_ext_with_balances(
 		balances,
 		// By default set actual latest XCM version
 		Some(XCM_VERSION),
+		vec![],
 	)
 }
 
 pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	balances: Vec<(AccountId, Balance)>,
 	safe_xcm_version: Option<XcmVersion>,
+	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
@@ -713,15 +765,15 @@ pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, supported_version, ..Default::default() }
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	pallet_revive::GenesisConfig::<Test> { mapped_accounts: vec![ALICE] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }

@@ -15,37 +15,38 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lib]
+bench = false
+
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
-bounded-collections = { workspace = true }
+bip39 = { workspace = true, default-features = false, features = ["alloc"] }
+bitflags = { workspace = true }
+bounded-collections = { workspace = true, features = ["scale-codec"] }
 bs58 = { optional = true, workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+futures = { optional = true, workspace = true }
 hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
 impl-serde = { optional = true, workspace = true }
-log = { workspace = true }
-primitive-types = { features = ["codec", "scale-info"], workspace = true }
-rand = { features = [
-	"small_rng",
-], optional = true, workspace = true, default-features = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, features = ["alloc", "derive"], workspace = true }
-substrate-bip39 = { workspace = true }
-# personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
-bip39 = { package = "parity-bip39", version = "2.0.1", default-features = false, features = [
-	"alloc",
-] }
-bitflags = { workspace = true }
-dyn-clonable = { optional = true, workspace = true }
-futures = { optional = true, workspace = true }
 itertools = { optional = true, workspace = true }
+log = { workspace = true }
 parking_lot = { optional = true, workspace = true, default-features = true }
 paste = { workspace = true, default-features = true }
+primitive-types = { features = ["codec", "scale-info"], workspace = true }
+rand = { features = ["small_rng"], optional = true, workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
 secrecy = { features = ["alloc"], workspace = true }
+serde = { optional = true, features = ["alloc", "derive"], workspace = true }
 sp-debug-derive = { workspace = true }
 sp-externalities = { optional = true, workspace = true }
 sp-std = { workspace = true }
 sp-storage = { workspace = true }
 ss58-registry = { workspace = true }
+substrate-bip39 = { workspace = true }
 thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 zeroize = { workspace = true }
@@ -58,49 +59,41 @@ libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
-sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
-secp256k1 = { features = [
-	"alloc",
-	"recovery",
-], optional = true, workspace = true }
+secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
+sha2 = { optional = true, workspace = true }
 w3f-bls = { optional = true, workspace = true }
+
 # bandersnatch crypto
-bandersnatch_vrfs = { git = "https://github.com/davxy/ring-vrf", branch = "locked", default-features = false, features = [
-	"substrate-curves",
-], optional = true }
+ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
+
+[target.'cfg(not(substrate_runtime))'.dependencies]
+sp-externalities = { workspace = true, default-features = false }
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
+dyn-clone = "1.0.17"
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
 regex = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 
-[[bench]]
-name = "bench"
-harness = false
-
-[lib]
-bench = false
-
 [features]
 default = ["std"]
-
 std = [
-	"bandersnatch_vrfs?/std",
+	"ark-vrf?/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
 	"bounded-collections/std",
 	"bs58/std",
 	"codec/std",
-	"dyn-clonable",
 	"ed25519-zebra/std",
 	"full_crypto",
-	"futures",
+	"futures/std",
 	"futures/thread-pool",
 	"hash-db/std",
 	"hash256-std-hasher/std",
@@ -121,10 +114,10 @@ std = [
 	"secp256k1/global-context",
 	"secp256k1/std",
 	"serde/std",
+	"sha2?/std",
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
-	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
@@ -154,15 +147,14 @@ serde = [
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
 	"blake2",
-	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = ["w3f-bls"]
+bls-experimental = ["sha2", "w3f-bls"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bandersnatch-experimental = ["bandersnatch_vrfs"]
+bandersnatch-experimental = ["ark-vrf"]

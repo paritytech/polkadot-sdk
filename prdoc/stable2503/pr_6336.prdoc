@@ -1,0 +1,66 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "pallet-xcm: add support to authorize aliases"
+
+doc:
+  - audience: Runtime User
+    description: |
+      Added new `add_authorized_alias()` and `remove_authorized_alias()` calls to `pallet-xcm`.
+      These can be used by a "caller" to explicitly authorize another location to alias into the "caller" origin.
+      Usually useful to allow one's local account to be aliased into from a remote location also under
+      one's control (one's account on another chain).
+      WARNING: make sure that you as the caller `origin` trust the `aliaser` location to act in your name on this
+      chain. Once authorized using this call, the `aliaser` can freely impersonate `origin` in XCM programs
+      executed on the local chain.
+
+  - audience: Runtime Dev
+    description: |
+      Added `AuthorizedAliasers` type exposed by `pallet-xcm`, that acts as a filter for explicitly authorized
+      aliases using `pallet-xcm::add_authorized_alias()` and `pallet-xcm::remove_authorized_alias()`.
+      Runtime developers can simply plug this `pallet-xcm::AuthorizedAliasers` type in their runtime's `XcmConfig`,
+      specifically in `<XcmConfig as xcm_executor::Config>::Aliasers`.
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: pallet-xcm
+    bump: major
+  - name: staging-xcm
+    bump: patch
+  - name: xcm-runtime-apis
+    bump: minor 
+  - name: staging-xcm-builder
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: bridge-hub-rococo-runtime
+    bump: major
+  - name: bridge-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-rococo-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major
+  - name: penpal-runtime
+    bump: major
+  - name: rococo-parachain-runtime
+    bump: major
+  - name: pallet-contracts-mock-network
+    bump: major
+  - name: pallet-revive-mock-network
+    bump: major
+  - name: xcm-simulator-example
+    bump: major

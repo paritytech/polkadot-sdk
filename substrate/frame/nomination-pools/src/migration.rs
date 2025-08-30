@@ -442,7 +442,7 @@ mod v6 {
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade(_data: Vec<u8>) -> Result<(), TryRuntimeError> {
 			// there should be no ED imbalances anymore..
-			Pallet::<T>::check_ed_imbalance()
+			Pallet::<T>::check_ed_imbalance().map(|_| ())
 		}
 	}
 }

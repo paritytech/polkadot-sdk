@@ -1,0 +1,11 @@
+title: "populate disabled dispute state on startup"
+
+doc:
+  - audience: Node Operator
+    description: |-
+      Populating off-chain disabled state on startup from the disputes database
+      makes the disputes spam handling more resilient wrt. validator restarts.
+
+crates:
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch

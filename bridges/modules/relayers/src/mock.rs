@@ -255,6 +255,7 @@ impl pallet_bridge_parachains::Config for TestRuntime {
 	type HeadsToKeep = ConstU32<8>;
 	type MaxParaHeadDataSize = ConstU32<1024>;
 	type WeightInfo = pallet_bridge_parachains::weights::BridgeWeight<TestRuntime>;
+	type OnNewHead = ();
 }
 
 impl pallet_bridge_messages::Config for TestRuntime {

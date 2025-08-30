@@ -299,19 +299,25 @@ sp_api::decl_runtime_apis! {
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
 
 		/***** Added in v12 *****/
-		/// Returns the constraints on the actions that can be taken by a new parachain
-		/// block.
-		#[api_version(12)]
-		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
-
-		/***** Added in v12 *****/
-		/// Retrieve the scheduling lookahead
-		#[api_version(12)]
-		fn scheduling_lookahead() -> u32;
-
-		/***** Added in v12 *****/
 		/// Retrieve the maximum uncompressed code size.
 		#[api_version(12)]
 		fn validation_code_bomb_limit() -> u32;
+
+		/***** Added in v13 *****/
+		/// Returns the constraints on the actions that can be taken by a new parachain
+		/// block.
+		#[api_version(13)]
+		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
+
+		/***** Added in v13 *****/
+		/// Retrieve the scheduling lookahead
+		#[api_version(13)]
+		fn scheduling_lookahead() -> u32;
+
+		/***** Added in v14 *****/
+		/// Retrieve paraids at relay parent
+		#[api_version(14)]
+		fn para_ids() -> Vec<ppp::Id>;
+
 	}
 }

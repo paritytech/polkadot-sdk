@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod command;
+mod logging;
 mod types;
 mod writer;
 
@@ -27,6 +28,9 @@ use sc_cli::{
 	DEFAULT_WASM_EXECUTION_METHOD,
 };
 use std::{fmt::Debug, path::PathBuf};
+
+/// Logging target
+const LOG_TARGET: &'static str = "frame::benchmark::pallet";
 
 // Add a more relaxed parsing for pallet names by allowing pallet directory names with `-` to be
 // used like crate names with `_`
@@ -46,9 +50,10 @@ pub enum ListOutput {
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
-	/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
-	pub pallet: Option<String>,
+	/// Select a FRAME Pallets to benchmark, or `*` for all (in which case `extrinsic` must be
+	/// `*`).
+	#[arg(short, long, alias = "pallet", num_args = 1.., value_delimiter = ',', value_parser = parse_pallet_name, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
+	pub pallets: Vec<String>,
 
 	/// Select an extrinsic inside the pallet to benchmark, or `*` or 'all' for all.
 	#[arg(short, long, required_unless_present_any = ["list", "json_input", "all"], default_value_if("all", "true", Some("*".into())))]
@@ -57,6 +62,12 @@ pub struct PalletCmd {
 	/// Comma separated list of pallets that should be excluded from the benchmark.
 	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
 	pub exclude_pallets: Vec<String>,
+
+	/// Comma separated list of `pallet::extrinsic` combinations that should not be run.
+	///
+	/// Example: `frame_system::remark,pallet_balances::transfer_keep_alive`
+	#[arg(long, value_parser, num_args = 1.., value_delimiter = ',')]
+	pub exclude_extrinsics: Vec<String>,
 
 	/// Run benchmarks for all pallets and extrinsics.
 	///
@@ -133,6 +144,10 @@ pub struct PalletCmd {
 	#[arg(long, default_value("max-encoded-len"), value_enum)]
 	pub default_pov_mode: command::PovEstimationMode,
 
+	/// Ignore the error when PoV modes reference unknown storage items or pallets.
+	#[arg(long)]
+	pub ignore_unknown_pov_mode: bool,
+
 	/// Set the heap pages while running benchmarks. If not set, the default value from the client
 	/// is used.
 	#[arg(long)]
@@ -175,6 +190,13 @@ pub struct PalletCmd {
 	/// Optional runtime blob to use instead of the one from the genesis config.
 	#[arg(long, conflicts_with = "chain", required_if_eq("genesis_builder", "runtime"))]
 	pub runtime: Option<PathBuf>,
+
+	/// Set the runtime log level.
+	///
+	/// This will overwrite the `RUNTIME_LOG` environment variable. If neither is set, the CLI
+	/// default set by `RUST_LOG` setting is used.
+	#[arg(long)]
+	pub runtime_log: Option<String>,
 
 	/// Do not fail if there are unknown but also unused host functions in the runtime.
 	#[arg(long)]

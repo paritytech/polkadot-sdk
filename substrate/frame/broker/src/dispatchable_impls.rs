@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::cmp;
+
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
@@ -200,7 +202,9 @@ impl<T: Config> Pallet<T> {
 		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
 		let begin = sale.region_end;
-		let price_cap = record.price + config.renewal_bump * record.price;
+		let end_price = sale.end_price;
+		// Renewals should never be priced lower than the current `end_price`:
+		let price_cap = cmp::max(record.price + config.renewal_bump * record.price, end_price);
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		log::debug!(
@@ -250,6 +254,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot_offset: Timeslice,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -262,6 +267,13 @@ impl<T: Config> Pallet<T> {
 		region.paid = None;
 		let new_region_ids = (region_id, RegionId { begin: pivot, ..region_id });
 
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
+
+		// Overwrite the previous region with its new end and create a new region for the second
+		// part of the partition.
 		Regions::<T>::insert(&new_region_ids.0, &RegionRecord { end: pivot, ..region.clone() });
 		Regions::<T>::insert(&new_region_ids.1, &region);
 		Self::deposit_event(Event::Partitioned { old_region_id: region_id, new_region_ids });
@@ -274,6 +286,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot: CoreMask,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -283,6 +296,11 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -304,9 +322,17 @@ impl<T: Config> Pallet<T> {
 		finality: Finality,
 	) -> Result<(), Error<T>> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been assigned provisionally. If we
+			// get this far then it is still in `Regions` and thus could only have been pooled
+			// provisionally.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
 			if workplan

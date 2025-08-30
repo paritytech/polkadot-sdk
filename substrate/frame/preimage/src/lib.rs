@@ -65,7 +65,17 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+	DecodeWithMemTracking,
+)]
 pub enum OldRequestStatus<AccountId, Balance> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -77,7 +87,17 @@ pub enum OldRequestStatus<AccountId, Balance> {
 }
 
 /// A type to note whether a preimage is owned by a user or the system.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	RuntimeDebug,
+	DecodeWithMemTracking,
+)]
 pub enum RequestStatus<AccountId, Ticket> {
 	/// The associated preimage has not yet been requested by the system. The given deposit (if
 	/// some) is being held until either it becomes requested or the user retracts the preimage.
@@ -110,6 +130,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Weight information for this pallet.

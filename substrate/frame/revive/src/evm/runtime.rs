@@ -20,22 +20,22 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf, Pallet,
-	LOG_TARGET,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
-	traits::{ExtrinsicCall, InherentBuilder, SignedTransactionBuilder},
+	traits::{InherentBuilder, IsSubType, SignedTransactionBuilder},
+	MAX_EXTRINSIC_DEPTH,
 };
-use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		self, Checkable, Dispatchable, ExtrinsicLike, ExtrinsicMetadata, IdentifyAccount, Member,
+		Checkable, Dispatchable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -118,9 +118,6 @@ impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
 	}
 }
 
-use sp_runtime::traits::MaybeDisplay;
-type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
-
 impl<LookupSource, Signature, E, Lookup> Checkable<Lookup>
 	for UncheckedExtrinsic<LookupSource, Signature, E>
 where
@@ -131,27 +128,24 @@ where
 	OnChargeTransactionBalanceOf<E::Config>: Into<BalanceOf<E::Config>>,
 	BalanceOf<E::Config>: Into<U256> + TryFrom<U256>,
 	MomentOf<E::Config>: Into<U256>,
-	CallOf<E::Config>: From<crate::Call<E::Config>> + TryInto<crate::Call<E::Config>>,
+	CallOf<E::Config>: From<crate::Call<E::Config>> + IsSubType<crate::Call<E::Config>>,
 	<E::Config as frame_system::Config>::Hash: frame_support::traits::IsType<H256>,
 
 	// required by Checkable for `generic::UncheckedExtrinsic`
-	LookupSource: Member + MaybeDisplay,
-	CallOf<E::Config>: Encode + Member + Dispatchable,
-	Signature: Member + traits::Verify,
-	<Signature as traits::Verify>::Signer: IdentifyAccount<AccountId = AccountIdOf<E::Config>>,
-	E::Extension: Encode + TransactionExtension<CallOf<E::Config>>,
-	Lookup: traits::Lookup<Source = LookupSource, Target = AccountIdOf<E::Config>>,
+	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
+		Checkable<
+			Lookup,
+			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+		>,
 {
 	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
-			if let Ok(call) = self.0.function.clone().try_into() {
-				if let crate::Call::eth_transact { payload } = call {
-					let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
-					return Ok(checked)
-				};
-			}
+			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
+				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
+				return Ok(checked)
+			};
 		}
 		self.0.check(lookup)
 	}
@@ -300,14 +294,31 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		let signer = tx.recover_eth_address().map_err(|err| {
+		// Check transaction type and reject unsupported transaction types
+		match &tx {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
+			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+				// Supported transaction types, continue processing
+			},
+			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
+		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
 		})?;
 
-		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer);
+		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
-			GenericTransaction::from_signed(tx, None);
+			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
 
 		let Some(gas) = gas else {
 			log::debug!(target: LOG_TARGET, "No gas provided");
@@ -319,15 +330,7 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
-			value.unwrap_or_default(),
-			ConversionPrecision::Exact,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-			InvalidTransaction::Call
-		})?;
-
+		let value = value.unwrap_or_default();
 		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =
@@ -337,12 +340,31 @@ pub trait EthExtra {
 			})?;
 
 		let call = if let Some(dest) = to {
-			crate::Call::call::<Self::Config> {
-				dest,
-				value,
-				gas_limit,
-				storage_deposit_limit,
-				data,
+			if dest == RUNTIME_PALLETS_ADDR {
+				let call = CallOf::<Self::Config>::decode_all_with_depth_limit(
+					MAX_EXTRINSIC_DEPTH,
+					&mut &data[..],
+				)
+				.map_err(|_| {
+					log::debug!(target: LOG_TARGET, "Failed to decode data as Call");
+					InvalidTransaction::Call
+				})?;
+
+				if !value.is_zero() {
+					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
+					return Err(InvalidTransaction::Call)
+				}
+
+				call
+			} else {
+				crate::Call::eth_call::<Self::Config> {
+					dest,
+					value,
+					gas_limit,
+					storage_deposit_limit,
+					data,
+				}
+				.into()
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
@@ -356,26 +378,28 @@ pub trait EthExtra {
 				return Err(InvalidTransaction::Call);
 			};
 
-			crate::Call::instantiate_with_code::<Self::Config> {
+			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
 				code: code.to_vec(),
 				data: data.to_vec(),
-				salt: None,
 			}
+			.into()
 		};
 
 		let mut info = call.get_dispatch_info();
-		let function: CallOf<Self::Config> = call.into();
-		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| InvalidTransaction::Call)?;
+		let nonce = nonce.unwrap_or_default().try_into().map_err(|_| {
+			log::debug!(target: LOG_TARGET, "Failed to convert nonce");
+			InvalidTransaction::Call
+		})?;
 		let gas_price = gas_price.unwrap_or_default();
 
 		let eth_fee = Pallet::<Self::Config>::evm_gas_to_fee(gas, gas_price)
 			.map_err(|_| InvalidTransaction::Call)?;
 
 		// Fees calculated from the extrinsic, without the tip.
-		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&function);
+		info.extension_weight = Self::get_eth_extension(nonce, 0u32.into()).weight(&call);
 		let actual_fee: BalanceOf<Self::Config> =
 			pallet_transaction_payment::Pallet::<Self::Config>::compute_fee(
 				encoded_len as u32,
@@ -397,10 +421,15 @@ pub trait EthExtra {
 				.unwrap_or_default()
 				.min(actual_fee);
 
+		crate::tracing::if_tracing(|tracer| {
+			tracer.watch_address(&Pallet::<Self::Config>::block_author().unwrap_or_default());
+			tracer.watch_address(&signer_addr);
+		});
+
 		log::debug!(target: LOG_TARGET, "Created checked Ethereum transaction with nonce: {nonce:?} and tip: {tip:?}");
 		Ok(CheckedExtrinsic {
 			format: ExtrinsicFormat::Signed(signer.into(), Self::get_eth_extension(nonce, tip)),
-			function,
+			function: call,
 		})
 	}
 }
@@ -417,7 +446,7 @@ mod test {
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
 	use sp_runtime::{
-		traits::{Checkable, DispatchTransaction},
+		traits::{self, Checkable, DispatchTransaction},
 		MultiAddress, MultiSignature,
 	};
 	type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -471,14 +500,21 @@ mod test {
 			}
 		}
 
+		fn data(mut self, data: Vec<u8>) -> Self {
+			self.tx.input = Bytes(data).into();
+			self
+		}
+
 		fn estimate_gas(&mut self) {
-			let dry_run = crate::Pallet::<Test>::bare_eth_transact(
+			let dry_run = crate::Pallet::<Test>::dry_run_eth_transact(
 				self.tx.clone(),
 				Weight::MAX,
-				|call, mut info| {
-					let call = RuntimeCall::Contracts(call);
-					info.extension_weight = Extra::get_eth_extension(0, 0u32.into()).weight(&call);
-					let uxt: Ex = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
+				|eth_call, dispatch_call| {
+					let mut info = dispatch_call.get_dispatch_info();
+					info.extension_weight =
+						Extra::get_eth_extension(0, 0u32.into()).weight(&dispatch_call);
+					let uxt: Ex =
+						sp_runtime::generic::UncheckedExtrinsic::new_bare(eth_call).into();
 					pallet_transaction_payment::Pallet::<Test>::compute_fee(
 						uxt.encoded_size() as u32,
 						&info,
@@ -577,9 +613,9 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::call::<Test> {
+			crate::Call::eth_call::<Test> {
 				dest: tx.to.unwrap(),
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
@@ -599,11 +635,10 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::instantiate_with_code::<Test> {
-				value: tx.value.unwrap_or_default().as_u64(),
+			crate::Call::eth_instantiate_with_code::<Test> {
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				code,
 				data,
-				salt: None,
 				gas_limit,
 				storage_deposit_limit
 			}
@@ -695,5 +730,17 @@ mod test {
 		let diff = tx.gas_price.unwrap() - U256::from(GAS_PRICE);
 		let expected_tip = crate::Pallet::<Test>::evm_gas_to_fee(tx.gas.unwrap(), diff).unwrap();
 		assert_eq!(extra.1.tip(), expected_tip);
+	}
+
+	#[test]
+	fn check_runtime_pallets_addr_works() {
+		let remark: CallOf<Test> =
+			frame_system::Call::remark { remark: b"Hello, world!".to_vec() }.into();
+
+		let builder =
+			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
+		let (call, _, _) = builder.check().unwrap();
+
+		assert_eq!(call, remark);
 	}
 }

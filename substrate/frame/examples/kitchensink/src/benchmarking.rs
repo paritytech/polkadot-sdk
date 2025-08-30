@@ -31,6 +31,7 @@ use super::*;
 use crate::Pallet as Kitchensink;
 
 use frame_benchmarking::v2::*;
+use frame_support::pallet_prelude::TransactionSource;
 use frame_system::RawOrigin;
 
 // To actually run this benchmark on pallet-example-kitchensink, we need to put this pallet into the
@@ -60,11 +61,48 @@ mod benchmarks {
 		assert_eq!(Foo::<T>::get(), Some(value))
 	}
 
+	// This will measure the execution time of `set_foo_using_authorize`.
+	#[benchmark]
+	fn set_foo_using_authorize() {
+		// This is the benchmark setup phase.
+
+		// `set_foo_using_authorize` is only authorized when value is 42 so we will use it.
+		let value = 42u32;
+		// We dispatch with authorized origin, it is the origin resulting from authorization.
+		let origin = RawOrigin::Authorized;
+
+		#[extrinsic_call]
+		_(origin, value); // The execution phase is just running `set_foo_using_authorize` extrinsic call
+
+		// This is the optional benchmark verification phase, asserting certain states.
+		assert_eq!(Foo::<T>::get(), Some(42))
+	}
+
+	// This will measure the weight for the closure in `[pallet::authorize(...)]`.
+	#[benchmark]
+	fn authorize_set_foo_using_authorize() {
+		// This is the benchmark setup phase.
+
+		let call = Call::<T>::set_foo_using_authorize { new_foo: 42 };
+		let source = TransactionSource::External;
+		Foo::<T>::kill();
+
+		// We use a block with specific code to benchmark the closure.
+		#[block]
+		{
+			use frame_support::traits::Authorize;
+			call.authorize(source)
+				.expect("Call give some authorization")
+				.expect("Authorization is successful");
+		}
+	}
+
 	// This line generates test cases for benchmarking, and could be run by:
 	//   `cargo test -p pallet-example-kitchensink --all-features`, you will see one line per case:
-	//   `test benchmarking::bench_sort_vector ... ok`
-	//   `test benchmarking::bench_accumulate_dummy ... ok`
-	//   `test benchmarking::bench_set_dummy_benchmark ... ok` in the result.
+	//   `test benchmarking::bench_set_foo_benchmark ... ok`
+	//   `test benchmarking::bench_set_foo_using_authorize_benchmark ... ok` in the result.
+	//   `test benchmarking::bench_authorize_set_foo_using_authorize_benchmark ... ok` in the
+	// result.
 	//
 	// The line generates three steps per benchmark, with repeat=1 and the three steps are
 	//   [low, mid, high] of the range.

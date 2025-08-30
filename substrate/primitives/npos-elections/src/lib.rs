@@ -138,6 +138,10 @@ pub enum Error {
 	TooManyVoters,
 	/// Some bounds were exceeded when converting election types.
 	BoundsExceeded,
+	/// A duplicate voter was detected.
+	DuplicateVoter,
+	/// A duplicate target was detected.
+	DuplicateTarget,
 }
 
 /// A type which is used in the API of this crate as a numeric weight of a vote, most often the
@@ -181,6 +185,27 @@ pub struct ElectionScore {
 	///
 	/// Ths parameter should be minimized.
 	pub sum_stake_squared: ExtendedBalance,
+}
+
+#[cfg(feature = "std")]
+impl ElectionScore {
+	/// format the election score in a pretty way with the given `token` symbol and `decimals`.
+	pub fn pretty(&self, token: &str, decimals: u32) -> String {
+		format!(
+			"ElectionScore (minimal_stake: {}, sum_stake: {}, sum_stake_squared: {})",
+			pretty_balance(self.minimal_stake, token, decimals),
+			pretty_balance(self.sum_stake, token, decimals),
+			pretty_balance(self.sum_stake_squared, token, decimals),
+		)
+	}
+}
+
+/// Format a single [`ExtendedBalance`] into a pretty string with the given `token` symbol and
+/// `decimals`.
+#[cfg(feature = "std")]
+pub fn pretty_balance<B: Into<u128>>(b: B, token: &str, decimals: u32) -> String {
+	let b: u128 = b.into();
+	format!("{} {}", b / 10u128.pow(decimals), token)
 }
 
 impl ElectionScore {
@@ -464,12 +489,6 @@ pub struct Support<AccountId> {
 impl<AccountId> Default for Support<AccountId> {
 	fn default() -> Self {
 		Self { total: Default::default(), voters: vec![] }
-	}
-}
-
-impl<AccountId: Clone> Support<AccountId> {
-	pub fn self_vote_only(who: AccountId, amount: ExtendedBalance) -> (AccountId, Self) {
-		(who.clone(), Self { total: amount, voters: vec![(who, amount)] })
 	}
 }
 

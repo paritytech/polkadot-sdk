@@ -117,10 +117,10 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p rococo-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
 
                 call(get_mock_bench_output(
                     runtime='kitchensink',
@@ -170,7 +170,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
 
                 # Westend runtime calls
                 call(get_mock_bench_output(
@@ -213,7 +213,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
 
                 # Westend runtime calls
                 call(get_mock_bench_output(
@@ -250,8 +250,8 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p westend-runtime --profile production --features=runtime-benchmarks"),
-                call("forklift cargo build -p rococo-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p rococo-runtime --profile production --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     runtime='westend',
@@ -309,7 +309,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p kitchensink-runtime --profile production --features=runtime-benchmarks"),
                 # Westend runtime calls
                 call(get_mock_bench_output(
                     runtime='kitchensink',
@@ -344,7 +344,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     runtime='asset-hub-westend',
@@ -379,7 +379,7 @@ class TestCmd(unittest.TestCase):
 
             expected_calls = [
                 # Build calls
-                call("forklift cargo build -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
+                call("forklift cargo build -q -p asset-hub-westend-runtime --profile production --features=runtime-benchmarks"),
                 # Asset-hub-westend runtime calls
                 call(get_mock_bench_output(
                     runtime='asset-hub-westend',

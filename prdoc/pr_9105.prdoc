@@ -1,0 +1,11 @@
+title: 'feat(binary-merkle-tree): add `merkle_root_raw` and `merkle_proof_raw` methods'
+doc:
+  - audience: Runtime Dev
+    description: |
+      Resolves [#9103](https://github.com/paritytech/polkadot-sdk/issues/9103)
+
+      Added `merkle_root_raw` and `merkle_proof_raw` methods, which allow developers to avoid double hashing when working with sequences like `Vec<H256>`, where `H256` is already hash of some message.
+
+crates:
+- name: binary-merkle-tree
+  bump: minor

@@ -24,6 +24,10 @@ If you want to get an example node running quickly you can execute the following
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/scripts/getting-started.sh | bash
 ```
 
+## 👩🏽‍💻 Building
+
+In order to build this project you need to install some dependencies, follow the instructions in [this guide](https://docs.polkadot.com/develop/parachains/install-polkadot-sdk).
+
 ## 📚 Documentation
 
 * [Polkadot Documentation Portal](https://docs.polkadot.com)
@@ -36,13 +40,19 @@ the API docs of our Rust crates. Includes:
   * [Templates](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/polkadot_sdk/templates/index.html)
     for starting a new project.
   * [External Resources](https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/external_resources/index.html)
+* Have a question? You can ask in the Polkadot SDK Developers Chat.
+Messages from either of these channels are bridged to the other, so you can use whichever one you like.
+  * [Telegram](https://t.me/substratedevs)
+  * [Matrix](https://matrix.to/#/#substratedevs:matrix.org)
+  * [Discord](https://discord.com/channels/722223075629727774/997505821955076196)
+  * [Polkadot and Substrate StackExchange](https://substrate.stackexchange.com/)
 
 ## 🚀 Releases
 
 <!-- markdownlint-disable-next-line MD013 -->
 ![Current Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-latest.svg)&nbsp;&nbsp;![Next Stable Release](https://raw.githubusercontent.com/paritytech/release-registry/main/badges/polkadot-sdk-next.svg)
 
-The Polkadot SDK is released every three months as a `stableYYMM` release. They are supported for
+The Polkadot SDK is released every three months as a `Polkadot stableYYMM` release. Each stable release is supported for
 one year with patches. See the next upcoming versions in the [Release
 Registry](https://github.com/paritytech/release-registry/) and more docs in [RELEASE.md](./docs/RELEASE.md).
 

@@ -32,7 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use frame_system::{
-	offchain::{CreateInherent, SubmitTransaction},
+	offchain::{CreateBare, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use scale_info::TypeInfo;
@@ -192,7 +192,7 @@ fn ocw_solution_exists<T: Config>() -> bool {
 	matches!(StorageValueRef::persistent(OFFCHAIN_CACHED_CALL).get::<Call<T>>(), Ok(Some(_)))
 }
 
-impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
+impl<T: Config + CreateBare<Call<T>>> Pallet<T> {
 	/// Mine a new npos solution.
 	///
 	/// The Npos Solver type, `S`, must have the same AccountId and Error type as the
@@ -292,7 +292,7 @@ impl<T: Config + CreateInherent<Call<T>>> Pallet<T> {
 	fn submit_call(call: Call<T>) -> Result<(), MinerError> {
 		log!(debug, "miner submitting a solution as an unsigned transaction");
 
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map_err(|_| MinerError::PoolSubmissionFailed)
 	}
@@ -618,6 +618,13 @@ impl<T: MinerConfig> Miner<T> {
 		let is_trimmed =
 			TrimmingStatus { weight: weight_trimmed, length: length_trimmed, edges: edges_trimmed };
 
+		log_no_system!(
+			debug,
+			"feasible solution mined: trimmed? {:?}, score: {:?}, encoded size: {:?}",
+			is_trimmed,
+			score,
+			solution.encoded_size()
+		);
 		Ok((solution, score, size, is_trimmed))
 	}
 
@@ -850,7 +857,7 @@ impl<T: MinerConfig> Miner<T> {
 			.map_err::<FeasibilityError, _>(Into::into)?;
 
 		// Ensure that assignments is correct.
-		let _ = assignments.iter().try_for_each(|assignment| {
+		assignments.iter().try_for_each(|assignment| {
 			// Check that assignment.who is actually a voter (defensive-only).
 			// NOTE: while using the index map from `voter_index` is better than a blind linear
 			// search, this *still* has room for optimization. Note that we had the index when
@@ -1975,7 +1982,7 @@ mod tests {
 				vec![
 					(
 						10,
-						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (5, 5), (4, 9)] }
+						BoundedSupport { total: 25, voters: bounded_vec![(1, 11), (4, 9), (5, 5)] }
 					),
 					(20, BoundedSupport { total: 22, voters: bounded_vec![(2, 12), (5, 10)] }),
 					(30, BoundedSupport { total: 18, voters: bounded_vec![(3, 13), (4, 5)] })

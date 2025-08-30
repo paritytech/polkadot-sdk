@@ -5,11 +5,13 @@
 
 use anyhow::anyhow;
 
-use crate::helpers::{assert_finalized_block_height, assert_para_throughput};
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sync_backing_test() -> Result<(), anyhow::Error> {
@@ -40,12 +42,12 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 			(1..5).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
-			p.with_id(2000)
-				.with_default_command("polkadot-parachain")
-				// This must be a very old polkadot-parachain image, pre async backing
+			p.with_id(2500)
+				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
+				.with_chain("sync-backing")
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
-				.with_collator(|n| n.with_name("collator-2000"))
+				.with_collator(|n| n.with_name("collator-2500"))
 		})
 		.build()
 		.map_err(|e| {
@@ -57,16 +59,16 @@ async fn sync_backing_test() -> Result<(), anyhow::Error> {
 	let network = spawn_fn(config).await?;
 
 	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-2000")?;
+	let para_node = network.get_node("collator-2500")?;
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2000), 5..9)].into_iter().collect())
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2500), 5..9)].into_iter().collect())
 		.await?;
 
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
-	assert_finalized_block_height(&para_node.wait_client().await?, 5..9).await?;
+	assert_finality_lag(&para_node.wait_client().await?, 3).await?;
 
 	log::info!("Test finished successfully");
 

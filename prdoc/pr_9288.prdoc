@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `bridge-runtime-common`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `bridge-runtime-common`
+    by providing structured logging.
+crates:
+- name: bridge-runtime-common
+  bump: minor

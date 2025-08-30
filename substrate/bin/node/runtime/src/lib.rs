@@ -40,7 +40,7 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	derive_impl,
-	dispatch::{DispatchClass, DispatchInfo},
+	dispatch::DispatchClass,
 	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	instances::{Instance1, Instance2},
@@ -78,6 +78,7 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
+use pallet_assets::precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -85,10 +86,8 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_nfts::PalletFeatures;
 use pallet_nis::WithMaximumOf;
 use pallet_nomination_pools::PoolId;
-use pallet_revive::{evm::runtime::EthExtra, AddressMapper};
+use pallet_revive::evm::runtime::EthExtra;
 use pallet_session::historical as pallet_session_historical;
-use sp_core::U256;
-use sp_runtime::traits::TransactionExtension;
 // Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // <https://github.com/paritytech/polkadot-sdk/issues/226>
 use pallet_broker::TaskId;
@@ -103,7 +102,7 @@ use sp_consensus_beefy::{
 	mmr::MmrLeafVersion,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
 	curve::PiecewiseLinear,
@@ -678,106 +677,25 @@ impl_opaque_keys! {
 	}
 }
 
-#[cfg(feature = "staking-playground")]
-pub mod staking_playground {
-	use super::*;
-
-	/// An adapter to make the chain work with --dev only, even though it is running a large staking
-	/// election.
-	///
-	/// It will ignore the staking election and just set the validator set to alice.
-	///
-	/// Needs to be fed into `type SessionManager`.
-	pub struct AliceAsOnlyValidator;
-	impl pallet_session::SessionManager<AccountId> for AliceAsOnlyValidator {
-		fn end_session(end_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::SessionManager<AccountId>>::end_session(end_index)
-		}
-
-		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
-			<Staking as pallet_session::SessionManager<AccountId>>::new_session(new_index).map(
-				|_ignored_validators| {
-					vec![sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into()]
-				},
-			)
-		}
-
-		fn new_session_genesis(new_index: sp_staking::SessionIndex) -> Option<Vec<AccountId>> {
-			<Staking as pallet_session::SessionManager<AccountId>>::new_session_genesis(new_index)
-				.map(|_ignored_validators| {
-					vec![sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into()]
-				})
-		}
-
-		fn start_session(start_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::SessionManager<AccountId>>::start_session(start_index)
-		}
-	}
-
-	impl pallet_session::historical::SessionManager<AccountId, ()> for AliceAsOnlyValidator {
-		fn end_session(end_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::end_session(
-				end_index,
-			)
-		}
-
-		fn new_session(new_index: sp_staking::SessionIndex) -> Option<Vec<(AccountId, ())>> {
-			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::new_session(
-				new_index,
-			)
-			.map(|_ignored| {
-				// construct a fake exposure for alice.
-				vec![(sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(), ())]
-			})
-		}
-
-		fn new_session_genesis(
-			new_index: sp_staking::SessionIndex,
-		) -> Option<Vec<(AccountId, ())>> {
-			<Staking as pallet_session::historical::SessionManager<
-				AccountId,
-				(),
-			>>::new_session_genesis(new_index)
-			.map(|_ignored| {
-				// construct a fake exposure for alice.
-				vec![(
-					sp_keyring::Sr25519Keyring::AliceStash.to_account_id().into(),
-					(),
-				)]
-			})
-		}
-
-		fn start_session(start_index: sp_staking::SessionIndex) {
-			<Staking as pallet_session::historical::SessionManager<AccountId, ()>>::start_session(
-				start_index,
-			)
-		}
-	}
-}
-
 impl pallet_session::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_staking::StashOf<Self>;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
 	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
 	type DisablingStrategy = pallet_session::disabling::UpToLimitWithReEnablingDisablingStrategy;
-
 	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
-	#[cfg(not(feature = "staking-playground"))]
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
-	#[cfg(feature = "staking-playground")]
-	type SessionManager = pallet_session::historical::NoteHistoricalRoot<
-		Self,
-		staking_playground::AliceAsOnlyValidator,
-	>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_session::historical::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
 	type FullIdentification = ();
-	type FullIdentificationOf = pallet_staking::NullIdentity;
+	type FullIdentificationOf = pallet_staking::UnitIdentificationOf<Self>;
 }
 
 pallet_staking_reward_curve::build! {
@@ -791,16 +709,8 @@ pallet_staking_reward_curve::build! {
 	);
 }
 
-#[cfg(not(feature = "staking-playground"))]
 parameter_types! {
 	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
-}
-#[cfg(feature = "staking-playground")]
-parameter_types! {
-	pub const SessionsPerEra: sp_staking::SessionIndex = 2;
-}
-
-parameter_types! {
 	pub const BondingDuration: sp_staking::EraIndex = 24 * 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
@@ -817,31 +727,6 @@ pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
 	type MaxNominators = ConstU32<5000>;
 	type MaxValidators = ConstU32<1000>;
-}
-
-use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
-pub struct MultiElectionProvider;
-impl ElectionProvider for MultiElectionProvider {
-	type AccountId = <MultiBlock as ElectionProvider>::AccountId;
-	type BlockNumber = <MultiBlock as ElectionProvider>::BlockNumber;
-	type DataProvider = <MultiBlock as ElectionProvider>::DataProvider;
-	type Error = <MultiBlock as ElectionProvider>::Error;
-	type Pages = <MultiBlock as ElectionProvider>::Pages;
-	type MaxBackersPerWinner = <MultiBlock as ElectionProvider>::MaxBackersPerWinner;
-	type MaxWinnersPerPage = <MultiBlock as ElectionProvider>::MaxWinnersPerPage;
-
-	fn elect(page: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
-		if page == 0 && !cfg!(feature = "runtime-benchmarks") {
-			// TODO: later on, we can even compare the results of the multi-page and multi-block
-			// election in here.
-			let _ = ElectionProviderMultiPhase::elect(page);
-		}
-		MultiBlock::elect(page)
-	}
-
-	fn ongoing() -> bool {
-		MultiBlock::ongoing()
-	}
 }
 
 impl pallet_staking::Config for Runtime {
@@ -866,9 +751,8 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = Session;
-	type MaxExposurePageSize = multi_block_impls::MaxExposurePageSize;
-	type MaxValidatorSet = multi_block_impls::MaxWinnersPerPage;
-	type ElectionProvider = MultiElectionProvider;
+	type MaxExposurePageSize = ConstU32<256>;
+	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type NominationsQuota = pallet_staking::FixedNominationsQuota<MAX_QUOTA_NOMINATIONS>;
@@ -880,9 +764,8 @@ impl pallet_staking::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
-	type MaxInvulnerables = ConstU32<20>;
-	type MaxDisabledValidators = ConstU32<100>;
 	type Filter = Nothing;
+	type MaxValidatorSet = ConstU32<1000>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -895,133 +778,10 @@ impl pallet_fast_unstake::Config for Runtime {
 	type MaxErasToCheckPerBlock = ConstU32<1>;
 	type WeightInfo = ();
 }
-
-frame_election_provider_support::generate_solution_type!(
-	#[compact]
-	pub struct NposSolution16::<
-		VoterIndex = u32,
-		TargetIndex = u16,
-		Accuracy = sp_runtime::PerU16,
-		MaxVoters = ConstU32<22500>,
-	>(16)
-);
-
-pub(crate) mod multi_block_impls {
-	use super::*;
-	use pallet_election_provider_multi_block as multi_block;
-	use pallet_election_provider_multi_phase as multi_phase;
-
-	frame_election_provider_support::generate_solution_type!(
-		#[compact]
-		pub struct MultiBlockSolution::<
-			VoterIndex = u16,
-			TargetIndex = u16,
-			Accuracy = sp_runtime::Percent,
-			MaxVoters = ConstU32<{22500 / Pages::get()}>,
-		>(16)
-	);
-
-	parameter_types! {
-		pub const Pages: u32 = 32;
-		// nominators snapshot size
-		pub VoterSnapshotPerBlock: u32 = 22500 / Pages::get();
-		// validator snapshot size
-		pub TargetSnapshotPerBlock: u32 = 1000;
-		pub SignedPhase: u32 = 3 * EPOCH_DURATION_IN_BLOCKS / 4;
-		// 2 signed solutions to be validate
-		pub SignedValidation: u32 = Pages::get() * 2;
-		pub UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
-		pub MaxWinnersPerPage: u32 = 1000;
-		pub MaxBackersPerWinner: u32 = 128;
-		pub MaxExposurePageSize: u32 = 32;
-	}
-
-	impl multi_block::unsigned::miner::MinerConfig for Runtime {
-		type AccountId = AccountId;
-		type Hash = Hash;
-		type MaxBackersPerWinner = <Self as multi_block::verifier::Config>::MaxBackersPerWinner;
-		type MaxBackersPerWinnerFinal =
-			<Self as multi_block::verifier::Config>::MaxBackersPerWinnerFinal;
-		type MaxWinnersPerPage = <Self as multi_block::verifier::Config>::MaxWinnersPerPage;
-		type MaxVotesPerVoter =
-			<<Self as multi_block::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-		type MaxLength = MinerMaxLength;
-		type Solver = <Runtime as multi_block::unsigned::Config>::OffchainSolver;
-		type Pages = Pages;
-		type Solution = MultiBlockSolution;
-		type VoterSnapshotPerBlock = <Runtime as multi_block::Config>::VoterSnapshotPerBlock;
-		type TargetSnapshotPerBlock = <Runtime as multi_block::Config>::TargetSnapshotPerBlock;
-	}
-
-	impl multi_block::Config for Runtime {
-		type AdminOrigin = EnsureRoot<AccountId>;
-		type RuntimeEvent = RuntimeEvent;
-		type DataProvider = Staking;
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Fallback = multi_block::Continue<Self>;
-		#[cfg(feature = "runtime-benchmarks")]
-		type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
-		// prepare for election 5 blocks ahead of time
-		type Lookahead = ConstU32<5>;
-		// split election into 8 pages.
-		type Pages = Pages;
-		// allow 2 signed solutions to be verified.
-		type SignedValidationPhase = SignedValidation;
-		// TODO: sanity check that the length of all phases is within reason.
-		type SignedPhase = SignedPhase;
-		type UnsignedPhase = UnsignedPhase;
-		type TargetSnapshotPerBlock = TargetSnapshotPerBlock;
-		type VoterSnapshotPerBlock = VoterSnapshotPerBlock;
-		type Verifier = MultiBlockVerifier;
-		type MinerConfig = Self;
-		type WeightInfo = multi_block::weights::AllZeroWeights;
-	}
-
-	impl multi_block::verifier::Config for Runtime {
-		type MaxBackersPerWinner = MaxBackersPerWinner;
-		type MaxWinnersPerPage = MaxWinnersPerPage;
-		type MaxBackersPerWinnerFinal = ConstU32<{ u32::MAX }>;
-		type RuntimeEvent = RuntimeEvent;
-		type SolutionDataProvider = MultiBlockSigned;
-		type SolutionImprovementThreshold = ();
-		type WeightInfo = multi_block::weights::AllZeroWeights;
-	}
-
-	parameter_types! {
-		pub const BailoutGraceRatio: Perbill = Perbill::from_percent(50);
-	}
-
-	impl multi_block::signed::Config for Runtime {
-		type BailoutGraceRatio = BailoutGraceRatio;
-		// TODO: we need an increase factor for this pallet as well.
-		type DepositBase = SignedFixedDeposit;
-		type DepositPerPage = SignedDepositByte;
-		type MaxSubmissions = ConstU32<8>;
-		type RewardBase = SignedRewardBase;
-
-		type EstimateCallFee = TransactionPayment;
-		type Currency = Balances;
-
-		type RuntimeEvent = RuntimeEvent;
-		type RuntimeHoldReason = RuntimeHoldReason;
-		type WeightInfo = multi_block::weights::AllZeroWeights;
-	}
-
-	impl multi_block::unsigned::Config for Runtime {
-		type OffchainSolver = <Runtime as multi_phase::Config>::Solver;
-		// offchain usage of miner configs
-		type MinerTxPriority = <Runtime as multi_phase::Config>::MinerTxPriority;
-		// TODO: this needs to be an educated number: "estimate mining time per page * pages"
-		type OffchainRepeat = ConstU32<5>;
-
-		type WeightInfo = multi_block::weights::AllZeroWeights;
-	}
-}
-
 parameter_types! {
-	// phase durations. 1/2 of the last session for each.
-	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 2;
-	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 2;
+	// phase durations. 1/4 of the last session for each.
+	pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+	pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
 	// signed config
 	pub const SignedRewardBase: Balance = 1 * DOLLARS;
@@ -1042,15 +802,29 @@ parameter_types! {
 		.get(DispatchClass::Normal);
 }
 
+frame_election_provider_support::generate_solution_type!(
+	#[compact]
+	pub struct NposSolution16::<
+		VoterIndex = u32,
+		TargetIndex = u16,
+		Accuracy = sp_runtime::PerU16,
+		MaxVoters = MaxElectingVotersSolution,
+	>(16)
+);
+
 parameter_types! {
-	/// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
-	/// carefully set so that an election round fits in one block.
+	// Note: the EPM in this runtime runs the election on-chain. The election bounds must be
+	// carefully set so that an election round fits in one block.
 	pub ElectionBoundsMultiPhase: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(10_000.into()).targets_count(1_500.into()).build();
 	pub ElectionBoundsOnChain: ElectionBounds = ElectionBoundsBuilder::default()
 		.voters_count(5_000.into()).targets_count(1_250.into()).build();
 
 	pub MaxNominations: u32 = <NposSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
+	pub MaxElectingVotersSolution: u32 = 40_000;
+	// The maximum winners that can be elected by the Election pallet which is equivalent to the
+	// maximum active validators the staking pallet can have.
+	pub MaxActiveValidators: u32 = 1000;
 }
 
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
@@ -1096,16 +870,12 @@ pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type Sort = ConstBool<true>;
 	type System = Runtime;
-	type Solver = SequentialPhragmen<
-		AccountId,
-		pallet_election_provider_multi_phase::SolutionAccuracyOf<Runtime>,
-	>;
-	type DataProvider = <Runtime as pallet_election_provider_multi_phase::Config>::DataProvider;
+	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Runtime>>;
+	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type Bounds = ElectionBoundsOnChain;
-	type MaxBackersPerWinner =
-		<Runtime as pallet_election_provider_multi_phase::Config>::MaxBackersPerWinner;
-	type MaxWinnersPerPage = multi_block_impls::MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
+	type MaxWinnersPerPage = MaxActiveValidators;
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -1115,8 +885,8 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type Solution = NposSolution16;
 	type MaxVotesPerVoter =
 	<<Self as pallet_election_provider_multi_phase::Config>::DataProvider as ElectionDataProvider>::MaxVotesPerVoter;
-	type MaxWinners = multi_block_impls::MaxWinnersPerPage;
-	type MaxBackersPerWinner = multi_block_impls::MaxBackersPerWinner;
+	type MaxWinners = MaxActiveValidators;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
@@ -1150,39 +920,32 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SlashHandler = (); // burn slashes
 	type RewardHandler = (); // rewards are minted from the void
 	type DataProvider = Staking;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Fallback = frame_election_provider_support::NoElection<(
-		AccountId,
-		BlockNumber,
-		Staking,
-		multi_block_impls::MaxWinnersPerPage,
-		multi_block_impls::MaxBackersPerWinner,
-	)>;
-	#[cfg(feature = "runtime-benchmarks")]
 	type Fallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type GovernanceFallback = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type Solver = SequentialPhragmen<AccountId, SolutionAccuracyOf<Self>, OffchainRandomBalancing>;
 	type ForceOrigin = EnsureRootOrHalfCouncil;
-	type MaxWinners = multi_block_impls::MaxWinnersPerPage;
-	type MaxBackersPerWinner = multi_block_impls::MaxBackersPerWinner;
+	type MaxWinners = MaxActiveValidators;
 	type ElectionBounds = ElectionBoundsMultiPhase;
 	type BenchmarkingConfig = ElectionProviderBenchmarkConfig;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
+	type MaxBackersPerWinner = MaxElectingVotersSolution;
 }
 
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &voter_bags::THRESHOLDS;
+	pub const AutoRebagNumber: u32 = 10;
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
 impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 	/// The voter bags-list is loosely kept up to date, and the real source of truth for the score
 	/// of each node is the staking pallet.
 	type ScoreProvider = Staking;
 	type BagThresholds = BagThresholds;
+	type MaxAutoRebagPerBlock = AutoRebagNumber;
 	type Score = VoteWeight;
-	type WeightInfo = pallet_bags_list::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1256,6 +1019,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
 	type BlockNumberProvider = System;
+	type VotingHooks = ();
 }
 
 parameter_types! {
@@ -1708,12 +1472,12 @@ impl pallet_revive::Config for Runtime {
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type CallFilter = Nothing;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightPrice = pallet_transaction_payment::Pallet<Self>;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type ChainExtension = ();
+	type Precompiles =
+		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1722,7 +1486,6 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
-	type Xcm = ();
 	type ChainId = ConstU64<420_420_420>;
 	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
 	type EthGasEncoder = ();
@@ -1778,6 +1541,7 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		let tx_ext: TxExtension = (
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1808,11 +1572,11 @@ where
 	}
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: RuntimeCall) -> UncheckedExtrinsic {
+	fn create_bare(call: RuntimeCall) -> UncheckedExtrinsic {
 		generic::UncheckedExtrinsic::new_bare(call).into()
 	}
 }
@@ -1828,6 +1592,29 @@ where
 {
 	type Extrinsic = UncheckedExtrinsic;
 	type RuntimeCall = RuntimeCall;
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Runtime
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+			frame_system::CheckNonce::<Runtime>::from(0),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			frame_system::WeightReclaim::<Runtime>::new(),
+		)
+	}
 }
 
 impl pallet_im_online::Config for Runtime {
@@ -1899,6 +1686,8 @@ impl pallet_identity::Config for Runtime {
 	type UsernameGracePeriod = ConstU32<{ 30 * DAYS }>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2300,7 +2089,7 @@ impl pallet_core_fellowship::Config for Runtime {
 	type PromoteOrigin = EnsureRootWithSuccess<AccountId, ConstU16<9>>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<16_384>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 parameter_types! {
@@ -3006,30 +2795,10 @@ mod runtime {
 	#[runtime::pallet_index(84)]
 	pub type AssetsFreezer = pallet_assets_freezer::Pallet<Runtime, Instance1>;
 
-	// Order is important!
-	#[runtime::pallet_index(85)]
-	pub type MultiBlock = pallet_election_provider_multi_block::Pallet<Runtime>;
-	#[runtime::pallet_index(86)]
-	pub type MultiBlockVerifier = pallet_election_provider_multi_block::verifier::Pallet<Runtime>;
-	#[runtime::pallet_index(87)]
-	pub type MultiBlockUnsigned = pallet_election_provider_multi_block::unsigned::Pallet<Runtime>;
-	#[runtime::pallet_index(88)]
-	pub type MultiBlockSigned = pallet_election_provider_multi_block::signed::Pallet<Runtime>;
-
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
 }
 
-impl TryFrom<RuntimeCall> for pallet_revive::Call<Runtime> {
-	type Error = ();
-
-	fn try_from(value: RuntimeCall) -> Result<Self, Self::Error> {
-		match value {
-			RuntimeCall::Revive(call) => Ok(call),
-			_ => Err(()),
-		}
-	}
-}
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, AccountIndex>;
 /// Block header type as expected by this runtime.
@@ -3046,6 +2815,7 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Runtime>,
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -3070,6 +2840,7 @@ impl EthExtra for EthExtraImpl {
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
 		(
+			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -3232,10 +3003,6 @@ mod benches {
 		[pallet_asset_conversion_tx_payment, AssetConversionTxPayment]
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block::verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block::unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block::signed, MultiBlockSigned]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_elections_phragmen, Elections]
 		[pallet_fast_unstake, FastUnstake]
@@ -3289,7 +3056,11 @@ mod benches {
 	);
 }
 
-impl_runtime_apis! {
+pallet_revive::impl_runtime_apis_plus_revive!(
+	Runtime,
+	Executive,
+	EthExtraImpl,
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
@@ -3603,171 +3374,6 @@ impl_runtime_apis! {
 				address,
 				key
 			)
-		}
-	}
-
-	impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber> for Runtime
-	{
-		fn balance(address: H160) -> U256 {
-			Revive::evm_balance(&address)
-		}
-
-		fn block_gas_limit() -> U256 {
-			Revive::evm_block_gas_limit()
-		}
-
-		fn gas_price() -> U256 {
-			Revive::evm_gas_price()
-		}
-
-		fn nonce(address: H160) -> Nonce {
-			let account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&address);
-			System::account_nonce(account)
-		}
-
-		fn eth_transact(tx: pallet_revive::evm::GenericTransaction) -> Result<pallet_revive::EthTransactInfo<Balance>, pallet_revive::EthTransactError>
-		{
-			let blockweights: BlockWeights = <Runtime as frame_system::Config>::BlockWeights::get();
-			let tx_fee = |pallet_call, mut dispatch_info: DispatchInfo| {
-				let call = RuntimeCall::Revive(pallet_call);
-				dispatch_info.extension_weight = EthExtraImpl::get_eth_extension(0, 0u32.into()).weight(&call);
-				let uxt: UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic::new_bare(call).into();
-
-				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-					uxt.encoded_size() as u32,
-					&dispatch_info,
-					0u32.into(),
-				)
-			};
-
-			Revive::bare_eth_transact(tx, blockweights.max_block, tx_fee)
-		}
-
-		fn call(
-			origin: AccountId,
-			dest: H160,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			input_data: Vec<u8>,
-		) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, Balance> {
-			Revive::bare_call(
-				RuntimeOrigin::signed(origin),
-				dest,
-				value,
-				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
-				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
-				input_data,
-			)
-		}
-
-		fn instantiate(
-			origin: AccountId,
-			value: Balance,
-			gas_limit: Option<Weight>,
-			storage_deposit_limit: Option<Balance>,
-			code: pallet_revive::Code,
-			data: Vec<u8>,
-			salt: Option<[u8; 32]>,
-		) -> pallet_revive::ContractResult<pallet_revive::InstantiateReturnValue, Balance>
-		{
-			Revive::bare_instantiate(
-				RuntimeOrigin::signed(origin),
-				value,
-				gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block),
-				pallet_revive::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
-				code,
-				data,
-				salt,
-			)
-		}
-
-		fn upload_code(
-			origin: AccountId,
-			code: Vec<u8>,
-			storage_deposit_limit: Option<Balance>,
-		) -> pallet_revive::CodeUploadResult<Balance>
-		{
-			Revive::bare_upload_code(
-				RuntimeOrigin::signed(origin),
-				code,
-				storage_deposit_limit.unwrap_or(u128::MAX),
-			)
-		}
-
-		fn get_storage(
-			address: H160,
-			key: [u8; 32],
-		) -> pallet_revive::GetStorageResult {
-			Revive::get_storage(
-				address,
-				key
-			)
-		}
-
-		fn trace_block(
-			block: Block,
-			config: pallet_revive::evm::TracerConfig
-		) -> Vec<(u32, pallet_revive::evm::CallTrace)> {
-			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			let mut traces = vec![];
-			let (header, extrinsics) = block.deconstruct();
-
-			Executive::initialize_block(&header);
-			for (index, ext) in extrinsics.into_iter().enumerate() {
-				trace(&mut tracer, || {
-					let _ = Executive::apply_extrinsic(ext);
-				});
-
-				if let Some(tx_trace) = tracer.collect_traces().pop() {
-					traces.push((index as u32, tx_trace));
-				}
-			}
-
-			traces
-		}
-
-		fn trace_tx(
-			block: Block,
-			tx_index: u32,
-			config: pallet_revive::evm::TracerConfig
-		) -> Option<pallet_revive::evm::CallTrace> {
-			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			let (header, extrinsics) = block.deconstruct();
-
-			Executive::initialize_block(&header);
-			for (index, ext) in extrinsics.into_iter().enumerate() {
-				if index as u32 == tx_index {
-					trace(&mut tracer, || {
-						let _ = Executive::apply_extrinsic(ext);
-					});
-					break;
-				} else {
-					let _ = Executive::apply_extrinsic(ext);
-				}
-			}
-
-			tracer.collect_traces().pop()
-		}
-
-		fn trace_call(
-			tx: pallet_revive::evm::GenericTransaction,
-			config: pallet_revive::evm::TracerConfig)
-			-> Result<pallet_revive::evm::CallTrace, pallet_revive::EthTransactError>
-		{
-			use pallet_revive::tracing::trace;
-			let mut tracer = config.build(Revive::evm_gas_from_weight);
-			let result = trace(&mut tracer, || Self::eth_transact(tx));
-
-			if let Some(trace) = tracer.collect_traces().pop() {
-				Ok(trace)
-			} else if let Err(err) = result {
-				Err(err)
-			} else {
-				Ok(Default::default())
-			}
 		}
 	}
 
@@ -4131,14 +3737,13 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
-}
+
+);
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use frame_election_provider_support::NposSolution;
 	use frame_system::offchain::CreateSignedTransaction;
-	use sp_runtime::UpperOf;
 
 	#[test]
 	fn validate_transaction_submitter_bounds() {
@@ -4149,17 +3754,6 @@ mod tests {
 		}
 
 		is_submit_signed_transaction::<Runtime>();
-	}
-
-	#[test]
-	fn perbill_as_onchain_accuracy() {
-		type OnChainAccuracy =
-			<<Runtime as pallet_election_provider_multi_phase::MinerConfig>::Solution as NposSolution>::Accuracy;
-		let maximum_chain_accuracy: Vec<UpperOf<OnChainAccuracy>> = (0..MaxNominations::get())
-			.map(|_| <UpperOf<OnChainAccuracy>>::from(OnChainAccuracy::one().deconstruct()))
-			.collect();
-		let _: UpperOf<OnChainAccuracy> =
-			maximum_chain_accuracy.iter().fold(0, |acc, x| acc.checked_add(*x).unwrap());
 	}
 
 	#[test]

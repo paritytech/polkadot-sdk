@@ -43,6 +43,11 @@ mod sys {
 			value_ptr: *const u8,
 			value_len: u32,
 		) -> ReturnCode;
+		pub fn set_storage_or_clear(
+			flags: u32,
+			key_ptr: *const u8,
+			value_ptr: *const u8,
+		) -> ReturnCode;
 		pub fn clear_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn get_storage(
 			flags: u32,
@@ -51,6 +56,7 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
+		pub fn get_storage_or_zero(flags: u32, key_ptr: *const u8, out_ptr: *mut u8);
 		pub fn contains_storage(flags: u32, key_ptr: *const u8, key_len: u32) -> ReturnCode;
 		pub fn take_storage(
 			flags: u32,
@@ -89,8 +95,6 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
-		pub fn is_contract(account_ptr: *const u8) -> ReturnCode;
-		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -122,8 +126,6 @@ mod sys {
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn call_chain_extension(
 			id: u32,
 			input_ptr: *const u8,
@@ -131,7 +133,6 @@ mod sys {
 			out_ptr: *mut u8,
 			out_len_ptr: *mut u32,
 		) -> ReturnCode;
-		pub fn call_runtime(call_ptr: *const u8, call_len: u32) -> ReturnCode;
 		pub fn sr25519_verify(
 			signature_ptr: *const u8,
 			pub_key_ptr: *const u8,
@@ -141,14 +142,6 @@ mod sys {
 		pub fn set_code_hash(code_hash_ptr: *const u8);
 		pub fn ecdsa_to_eth_address(key_ptr: *const u8, out_ptr: *mut u8) -> ReturnCode;
 		pub fn instantiation_nonce() -> u64;
-		pub fn xcm_execute(msg_ptr: *const u8, msg_len: u32) -> ReturnCode;
-		pub fn xcm_send(
-			dest_ptr: *const u8,
-			dest_len: *const u8,
-			msg_ptr: *const u8,
-			msg_len: u32,
-			out_ptr: *mut u8,
-		) -> ReturnCode;
 		pub fn return_data_size() -> u64;
 		pub fn return_data_copy(out_ptr: *mut u8, out_len_ptr: *mut u32, offset: u32);
 	}
@@ -313,6 +306,21 @@ impl HostFn for HostFnImpl {
 		ret_code.into()
 	}
 
+	fn set_storage_or_clear(
+		flags: StorageFlags,
+		key: &[u8; 32],
+		encoded_value: &[u8; 32],
+	) -> Option<u32> {
+		let ret_code = unsafe {
+			sys::set_storage_or_clear(flags.bits(), key.as_ptr(), encoded_value.as_ptr())
+		};
+		ret_code.into()
+	}
+
+	fn get_storage_or_zero(flags: StorageFlags, key: &[u8; 32], output: &mut [u8; 32]) {
+		unsafe { sys::get_storage_or_zero(flags.bits(), key.as_ptr(), output.as_mut_ptr()) };
+	}
+
 	fn get_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result {
 		let mut output_len = output.len() as u32;
 		let ret_code = {
@@ -438,11 +446,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
-		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -474,12 +477,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn call_runtime(call: &[u8]) -> Result {
-		let ret_code = unsafe { sys::call_runtime(call.as_ptr(), call.len() as u32) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
 	fn caller_is_origin() -> bool {
 		let ret_val = unsafe { sys::caller_is_origin() };
 		ret_val.into_bool()
@@ -508,22 +505,6 @@ impl HostFn for HostFnImpl {
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]) {
-		unsafe { sys::hash_blake2_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
-	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]) {
-		unsafe { sys::hash_blake2_128(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
-	fn is_contract(address: &[u8; 20]) -> bool {
-		let ret_val = unsafe { sys::is_contract(address.as_ptr()) };
-		ret_val.into_bool()
 	}
 
 	#[unstable_hostfn]
@@ -583,25 +564,5 @@ impl HostFn for HostFnImpl {
 		let mut output_len = output.len() as u32;
 		unsafe { sys::weight_left(output.as_mut_ptr(), &mut output_len) }
 		extract_from_slice(output, output_len as usize)
-	}
-
-	#[unstable_hostfn]
-	fn xcm_execute(msg: &[u8]) -> Result {
-		let ret_code = unsafe { sys::xcm_execute(msg.as_ptr(), msg.len() as _) };
-		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn xcm_send(dest: &[u8], msg: &[u8], output: &mut [u8; 32]) -> Result {
-		let ret_code = unsafe {
-			sys::xcm_send(
-				dest.as_ptr(),
-				dest.len() as _,
-				msg.as_ptr(),
-				msg.len() as _,
-				output.as_mut_ptr(),
-			)
-		};
-		ret_code.into()
 	}
 }

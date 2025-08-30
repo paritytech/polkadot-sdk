@@ -28,6 +28,7 @@ pub fn expand_outer_dispatch(
 ) -> TokenStream {
 	let mut variant_defs = TokenStream::new();
 	let mut variant_patterns = Vec::new();
+	let mut variant_usages = Vec::new();
 	let mut query_call_part_macros = Vec::new();
 	let mut pallet_names = Vec::new();
 	let mut pallet_attrs = Vec::new();
@@ -46,6 +47,7 @@ pub fn expand_outer_dispatch(
 			#[codec(index = #index)]
 			#name( #scrate::dispatch::CallableCallFor<#name, #runtime> ),
 		});
+		variant_usages.push(quote!( #scrate::dispatch::CallableCallFor<#name, #runtime> ));
 		variant_patterns.push(quote!(RuntimeCall::#name(call)));
 		pallet_names.push(name);
 		pallet_attrs.push(attr);
@@ -212,5 +214,37 @@ pub fn expand_outer_dispatch(
 				}
 			}
 		)*
+
+		impl #scrate::traits::Authorize for RuntimeCall {
+			fn authorize(
+				&self,
+				source: #scrate::pallet_prelude::TransactionSource,
+			) -> ::core::option::Option<
+				::core::result::Result<
+					(
+						#scrate::pallet_prelude::ValidTransaction,
+						#scrate::pallet_prelude::Weight,
+					),
+					#scrate::pallet_prelude::TransactionValidityError
+				>
+			> {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns => #scrate::traits::Authorize::authorize(call, source),
+					)*
+				}
+			}
+
+			fn weight_of_authorize(&self) -> #scrate::pallet_prelude::Weight {
+				match self {
+					#(
+						#pallet_attrs
+						#variant_patterns =>
+							#scrate::traits::Authorize::weight_of_authorize(call),
+					)*
+				}
+			}
+		}
 	}
 }

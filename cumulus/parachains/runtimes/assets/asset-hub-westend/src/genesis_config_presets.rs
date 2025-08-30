@@ -15,7 +15,10 @@
 
 //! # Asset Hub Westend Runtime genesis config presets
 
-use crate::*;
+use crate::{
+	xcm_config::{bridging::to_rococo::RococoNetwork, UniversalLocation},
+	*,
+};
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
@@ -27,6 +30,9 @@ use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
+use xcm::latest::prelude::*;
+use xcm_builder::GlobalConsensusConvertsFor;
+use xcm_executor::traits::ConvertLocation;
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
 
@@ -34,7 +40,10 @@ fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
+	dev_stakers: Option<(u32, u32)>,
 	id: ParaId,
+	foreign_assets: Vec<(Location, AccountId, Balance)>,
+	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
@@ -58,6 +67,33 @@ fn asset_hub_westend_genesis(
 				.collect(),
 		},
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+		staking: StakingConfig {
+			stakers: vec![
+				(
+					Sr25519Keyring::AliceStash.to_account_id(),
+					1000 * ASSET_HUB_WESTEND_ED,
+					pallet_staking_async::StakerStatus::Validator,
+				),
+				(
+					Sr25519Keyring::BobStash.to_account_id(),
+					1000 * ASSET_HUB_WESTEND_ED,
+					pallet_staking_async::StakerStatus::Validator,
+				),
+			],
+			dev_stakers,
+			..Default::default()
+		},
+		foreign_assets: ForeignAssetsConfig {
+			assets: foreign_assets
+				.into_iter()
+				.map(|asset| (asset.0.try_into().unwrap(), asset.1, false, asset.2))
+				.collect(),
+			accounts: foreign_assets_endowed_accounts
+				.into_iter()
+				.map(|asset| (asset.0.try_into().unwrap(), asset.1, asset.2))
+				.collect(),
+			..Default::default()
+		}
 	})
 }
 
@@ -69,6 +105,7 @@ mod preset_names {
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
+	let dev_stakers = Some((0, 25_000));
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.
@@ -96,18 +133,42 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			],
 			Vec::new(),
 			ASSET_HUB_WESTEND_ED * 4096,
+			None,
 			1000.into(),
+			vec![],
+			vec![],
 		),
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => asset_hub_westend_genesis(
-			// initial collators.
-			vec![
-				(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-				(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+			asset_hub_westend_genesis(
+				// initial collators.
+				vec![
+					(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
+					(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+				],
+				Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
+				WND * 1_000_000,
+				dev_stakers,
+				1000.into(),
+				vec![
+			// bridged ROC
+			(
+				Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
+				GlobalConsensusConvertsFor::<UniversalLocation, AccountId>::convert_location(
+					&Location { parents: 2, interior: [GlobalConsensus(RococoNetwork::get())].into() },
+				)
+				.unwrap(),
+				10_000_000,
+			),
 			],
-			Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
-			WND * 1_000_000,
-			1000.into(),
-		),
+				vec![
+					// bridged ROC to Bob
+					(
+						Location::new(2, [GlobalConsensus(RococoNetwork::get())]),
+						Sr25519Keyring::Bob.to_account_id(),
+						10_000_000 * 4096 * 4096,
+					),
+				],
+			),
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
 			// initial collators.
 			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
@@ -118,7 +179,10 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				Sr25519Keyring::BobStash.to_account_id(),
 			],
 			WND * 1_000_000,
+			dev_stakers,
 			1000.into(),
+			vec![],
+			vec![],
 		),
 		_ => return None,
 	};

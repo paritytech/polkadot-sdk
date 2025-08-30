@@ -32,6 +32,7 @@ use sp_runtime::transaction_validity::InvalidTransaction;
 use std::{sync::Arc, time::Duration};
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::debug;
 
 pub mod fatp_common;
 
@@ -218,7 +219,7 @@ fn fatp_one_view_stale_submit_many_fails() {
 
 	//xts2 contains one ready transaction (nonce:200)
 	let mut results = results.into_iter().flat_map(|x| x.unwrap()).collect::<Vec<_>>();
-	log::debug!("{:#?}", results);
+	debug!(?results, "Results debug output");
 	assert!(results.pop().unwrap().is_ok());
 	assert!(results.into_iter().all(|r| {
 		matches!(
@@ -364,7 +365,7 @@ fn fatp_two_views_future_and_ready_submit_many() {
 
 	block_on(futures::future::join_all(submissions));
 
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, status = ?pool.status_all(), "stats");
 
 	assert_pool_status!(header01a.hash(), &pool, 10, 5);
 	assert_pool_status!(header01b.hash(), &pool, 5, 0);
@@ -400,8 +401,8 @@ fn fatp_two_views_submit_many_variations() {
 
 	let results = block_on(pool.submit_at(invalid_hash(), SOURCE, xts.clone())).unwrap();
 
-	log::debug!(target:LOG_TARGET, "res: {:#?}", results);
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, ?results, "res");
+	debug!(target: LOG_TARGET, pool_status = ?pool.status_all(), "stats");
 
 	(0..2).for_each(|i| {
 		assert!(matches!(
@@ -438,7 +439,7 @@ fn fatp_linear_progress() {
 	block_on(futures::future::join_all(submissions));
 
 	let event = new_best_block_event(&pool, Some(f11), f13);
-	log::debug!(target:LOG_TARGET, "event: {:#?}", event);
+	debug!(target: LOG_TARGET, ?event, "event");
 	block_on(pool.maintain(event));
 
 	//note: we only keep tip of the fork
@@ -484,6 +485,51 @@ fn fatp_linear_old_ready_becoming_stale() {
 }
 
 #[test]
+fn fatp_proper_cleanup_after_mortal_tx_becoming_invalid() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let xts = vec![uxt(Alice, 200), uxt(Alice, 201), uxt(Alice, 202)];
+
+	api.set_valid_till(&xts[0], 66);
+	api.set_valid_till(&xts[1], 66);
+	api.set_valid_till(&xts[2], 66);
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	xts.into_iter().for_each(|xt| {
+		block_on(pool.submit_one(invalid_hash(), SOURCE, xt)).unwrap();
+	});
+	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
+	assert_eq!(pool.status_all()[&header01.hash()].future, 0);
+
+	// Import enough blocks to make our transactions stale (longevity is 64)
+	let mut prev_header = header01;
+	for n in 2..67 {
+		let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+		let event = new_best_block_event(&pool, Some(prev_header.hash()), header.hash());
+		block_on(pool.maintain(event));
+
+		if n == 66 {
+			assert_eq!(pool.status_all()[&header.hash()].ready, 0);
+			assert_eq!(pool.status_all()[&header.hash()].future, 0);
+		} else {
+			assert_eq!(pool.status_all()[&header.hash()].ready, 3);
+			assert_eq!(pool.status_all()[&header.hash()].future, 0);
+		}
+		prev_header = header;
+	}
+
+	let header = api.push_block_with_parent(prev_header.hash(), vec![], true);
+	let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+	block_on(pool.maintain(event));
+	assert_eq!(pool.import_notification_sink_len(), 0);
+}
+
+#[test]
 fn fatp_fork_reorg() {
 	sp_tracing::try_init_simple();
 
@@ -508,7 +554,7 @@ fn fatp_fork_reorg() {
 	block_on(futures::future::join_all(submissions));
 
 	let event = new_best_block_event(&pool, Some(f03), f13);
-	log::debug!(target:LOG_TARGET, "event: {:#?}", event);
+	debug!(target: LOG_TARGET, ?event, "event");
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 1, 2);
@@ -606,7 +652,7 @@ fn fatp_fork_stale_rejected() {
 	));
 
 	let event = new_best_block_event(&pool, Some(f03), f13);
-	log::debug!(target:LOG_TARGET, "event: {:#?}", event);
+	debug!(target: LOG_TARGET, ?event, "event");
 	block_on(pool.maintain(event));
 
 	assert_pool_status!(f03, &pool, 0, 2);
@@ -728,7 +774,7 @@ fn fatp_ready_at_triggered_by_maintain() {
 	block_on(futures::future::join_all(submissions));
 
 	let event = new_best_block_event(&pool, Some(f03), f13);
-	log::debug!(target:LOG_TARGET, "event: {:#?}", event);
+	debug!(target: LOG_TARGET, ?event, "event");
 	assert!(pool.ready_at(f13).now_or_never().is_none());
 	block_on(pool.maintain(event));
 	assert!(pool.ready_at(f03).now_or_never().is_some());
@@ -801,12 +847,12 @@ fn fatp_linear_progress_finalization() {
 	assert_pool_status!(f12, &pool, 0, 1);
 	assert_eq!(pool.active_views_count(), 1);
 
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, pool_status = ?pool.status_all(), "stats");
 
 	block_on(pool.maintain(new_best_block_event(&pool, Some(f12), f15)));
 	block_on(pool.maintain(finalized_block_event(&pool, f00, f14)));
 
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, pool_status = ?pool.status_all(), "stats");
 
 	assert_eq!(pool.active_views_count(), 1);
 	assert_pool_status!(f15, &pool, 1, 0);
@@ -840,11 +886,11 @@ fn fatp_fork_finalization_removes_stale_views() {
 	//only views at the tips of the forks are kept
 	assert_eq!(pool.active_views_count(), 2);
 
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, pool_status = ?pool.status_all(), "stats");
 
 	let event = ChainEvent::Finalized { hash: f03, tree_route: Arc::from(vec![]) };
 	block_on(pool.maintain(event));
-	log::debug!(target:LOG_TARGET, "stats: {:#?}", pool.status_all());
+	debug!(target: LOG_TARGET, pool_status = ?pool.status_all(), "stats");
 	// note: currently the pruning views only cleans views with block number less than finalized
 	// block. views with higher number on other forks are not cleaned (will be done in next round).
 	assert_eq!(pool.active_views_count(), 2);
@@ -1071,7 +1117,7 @@ fn fatp_watcher_two_finalized_in_different_block() {
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 
 	assert_eq!(
 		xt0_status,
@@ -1083,7 +1129,7 @@ fn fatp_watcher_two_finalized_in_different_block() {
 	);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
-	log::debug!("xt2_status: {:#?}", xt2_status);
+	debug!(target: LOG_TARGET, ?xt2_status, "xt2_status");
 
 	assert_eq!(
 		xt2_status,
@@ -1134,11 +1180,12 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
 
-	log::debug!("xt1_status: {:#?}", xt1_status);
+	debug!(target: LOG_TARGET, ?xt1_status, "xt1_status");
 
 	assert_eq!(
 		xt1_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header03.hash(), 0)),
 			TransactionStatus::Finalized((header03.hash(), 0))
 		]
@@ -1146,22 +1193,24 @@ fn fatp_no_view_pool_watcher_two_finalized_in_different_block() {
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 2)),
 			TransactionStatus::Finalized((header02.hash(), 2))
 		]
 	);
 
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).collect::<Vec<_>>();
-	log::debug!("xt2_status: {:#?}", xt2_status);
+	debug!(target: LOG_TARGET, ?xt2_status, "xt2_status");
 
 	assert_eq!(
 		xt2_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 1)),
 			TransactionStatus::Finalized((header02.hash(), 1))
 		]
@@ -1194,7 +1243,7 @@ fn fatp_watcher_in_block_across_many_blocks() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
 	assert_eq!(pool.active_views_count(), 1);
-	assert_eq!(pool.inactive_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 2); //gensis + 01
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -1205,7 +1254,7 @@ fn fatp_watcher_in_block_across_many_blocks() {
 
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 	assert_eq!(
 		xt0_status,
 		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header03.hash(), 0)),]
@@ -1238,7 +1287,7 @@ fn fatp_watcher_in_block_across_many_blocks2() {
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	//note 1: transaction is not submitted to views that are not at the tip of the fork
 	assert_eq!(pool.active_views_count(), 1);
-	assert_eq!(pool.inactive_views_count(), 1);
+	assert_eq!(pool.inactive_views_count(), 2); //genesis + 01
 	assert_pool_status!(header02.hash(), &pool, 3, 0);
 
 	let header03 = api.push_block(3, vec![xt0.clone()], true);
@@ -1251,8 +1300,8 @@ fn fatp_watcher_in_block_across_many_blocks2() {
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).take(2).collect::<Vec<_>>();
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
-	log::debug!("xt1_status: {:#?}", xt1_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
+	debug!(target: LOG_TARGET, ?xt1_status, "xt1_status");
 	assert_eq!(
 		xt0_status,
 		vec![TransactionStatus::Ready, TransactionStatus::InBlock((header03.hash(), 0)),]
@@ -1315,7 +1364,7 @@ fn fatp_watcher_fork_retract_and_finalize() {
 	assert_pool_status!(header02b.hash(), &pool, 0, 0);
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
 
 	assert_eq!(
 		xt0_status,
@@ -1411,6 +1460,7 @@ fn fatp_watcher_finalizing_forks() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1505,6 +1555,7 @@ fn fatp_watcher_best_block_after_finalized2() {
 	assert_eq!(
 		xt0_events,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01.hash(), 0)),
 			TransactionStatus::Finalized((header01.hash(), 0)),
 		]
@@ -1542,12 +1593,13 @@ fn fatp_watcher_switching_fork_multiple_times_works() {
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(2).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
-	log::debug!("xt1_status: {:#?}", xt1_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
+	debug!(target: LOG_TARGET, ?xt1_status, "xt1_status");
 
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header01a.hash(), 0)),
 			TransactionStatus::InBlock((header01b.hash(), 0)),
 			TransactionStatus::Finalized((header01b.hash(), 0)),
@@ -1662,6 +1714,7 @@ fn fatp_watcher_delayed_finalization_does_not_retract() {
 	assert_eq!(
 		xt0_status,
 		vec![
+			TransactionStatus::Ready,
 			TransactionStatus::InBlock((header02.hash(), 0)),
 			TransactionStatus::Finalized((header02.hash(), 0)),
 		]
@@ -1703,8 +1756,8 @@ fn fatp_watcher_best_block_after_finalization_does_not_retract() {
 	let xt0_status = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).collect::<Vec<_>>();
 
-	log::debug!("xt0_status: {:#?}", xt0_status);
-	log::debug!("xt1_status: {:#?}", xt1_status);
+	debug!(target: LOG_TARGET, ?xt0_status, "xt0_status");
+	debug!(target: LOG_TARGET, ?xt1_status, "xt1_status");
 
 	assert_eq!(
 		xt0_status,
@@ -1743,14 +1796,14 @@ fn fatp_transactions_purging_stale_on_finalization_works() {
 
 	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
-	assert_eq!(pool.mempool_len(), (1, 2));
+	assert_eq!(block_on(pool.mempool_len()), (1, 2));
 
 	let header02 = api.push_block(2, vec![xt1.clone(), xt2.clone(), xt3.clone()], true);
 	api.set_nonce(header02.hash(), Alice.into(), 203);
 	block_on(pool.maintain(finalized_block_event(&pool, header01.hash(), header02.hash())));
 
 	assert_eq!(pool.status_all()[&header02.hash()].ready, 0);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 
 	let xt1_events = futures::executor::block_on_stream(watcher1).collect::<Vec<_>>();
 	let xt2_events = futures::executor::block_on_stream(watcher2).collect::<Vec<_>>();
@@ -1903,7 +1956,7 @@ fn fatp_avoid_stuck_transaction() {
 	let xt4i_watcher =
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4i.clone())).unwrap();
 
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![xt0], true);
 	api.set_nonce(header01.hash(), Alice.into(), 201);
@@ -1938,9 +1991,9 @@ fn fatp_avoid_stuck_transaction() {
 	block_on(pool.maintain(event));
 
 	let xt4i_events = futures::executor::block_on_stream(xt4i_watcher).collect::<Vec<_>>();
-	log::debug!("xt4i_events: {:#?}", xt4i_events);
+	debug!(target: LOG_TARGET, ?xt4i_events, "xt4i_events");
 	assert_eq!(xt4i_events, vec![TransactionStatus::Future, TransactionStatus::Dropped]);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 
 #[test]
@@ -1953,13 +2006,13 @@ fn fatp_future_is_pruned_by_conflicting_tags() {
 	let xt1 = uxt(Alice, 201);
 	let xt2 = uxt(Alice, 202);
 	let xt2i = uxt(Alice, 202);
-	log::debug!("xt0: {:#?}", api.hash_and_length(&xt0).0);
-	log::debug!("xt1: {:#?}", api.hash_and_length(&xt1).0);
-	log::debug!("xt2: {:#?}", api.hash_and_length(&xt2).0);
-	log::debug!("xt2i: {:#?}", api.hash_and_length(&xt2i).0);
+	debug!(target: LOG_TARGET, xt0 = ?api.hash_and_length(&xt0).0, "xt0");
+	debug!(target: LOG_TARGET, xt1 = ?api.hash_and_length(&xt1).0, "xt1");
+	debug!(target: LOG_TARGET, xt2 = ?api.hash_and_length(&xt2).0, "xt2");
+	debug!(target: LOG_TARGET, xt2i = ?api.hash_and_length(&xt2i).0, "xt2i");
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2i.clone())).unwrap();
 
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, None, header01.hash());
@@ -1976,13 +2029,125 @@ fn fatp_future_is_pruned_by_conflicting_tags() {
 }
 
 #[test]
+fn fatp_prune_based_on_inactive_views_tags() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Alice, 201);
+	let xt2 = uxt(Alice, 202);
+	let xt3 = uxt(Alice, 203);
+	let xt4 = uxt(Alice, 204);
+	let xt5 = uxt(Alice, 205);
+	let xt6 = uxt(Alice, 206);
+	let xt7 = uxt(Alice, 207);
+	let xt8 = uxt(Alice, 208);
+	let xt9 = uxt(Alice, 209);
+	let xt10 = uxt(Alice, 210);
+	let xt11 = uxt(Alice, 211);
+
+	// Push an empty common block.
+	let header01 = api.push_block_with_parent(api.genesis_hash(), vec![], true);
+	let event = new_best_block_event(&pool, Some(api.genesis_hash()), header01.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header01.hash(), &pool, 0, 0);
+	assert_eq!(api.validation_requests().len(), 0);
+
+	// Submit two txs to the txpool.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
+	assert_pool_status!(header01.hash(), &pool, 0, 2);
+	assert_eq!(api.validation_requests().len(), 2);
+
+	// Push the first retracted fork block, with the ready tx.
+	let header02a = api.push_block_with_parent(header01.hash(), vec![xt0.clone()], true);
+	api.set_nonce(header02a.hash(), Alice.into(), 200);
+	let event = new_best_block_event(&pool, Some(header01.hash()), header02a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header02a.hash(), &pool, 2, 0);
+	assert_eq!(api.validation_requests().len(), 5);
+
+	// Submit a second ready tx.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt11.clone())).unwrap();
+	assert_pool_status!(header02a.hash(), &pool, 5, 1);
+	assert_eq!(api.validation_requests().len(), 9);
+
+	// Push the second retracted fork block, containing xt1.
+	let header03a = api.push_block_with_parent(header02a.hash(), vec![xt1.clone()], true);
+	api.set_nonce(header03a.hash(), Alice.into(), 201);
+	let event = new_best_block_event(&pool, Some(header02a.hash()), header03a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header03a.hash(), &pool, 4, 1);
+	assert_eq!(api.validation_requests().len(), 13);
+
+	// Submit another batch of future txs.
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt9.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt8.clone())).unwrap();
+	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt7.clone())).unwrap();
+	assert_pool_status!(header03a.hash(), &pool, 4, 4);
+	assert_eq!(api.validation_requests().len(), 16);
+
+	// Push the third retracted fork block, containing xt2.
+	let header04a = api.push_block_with_parent(header03a.hash(), vec![xt2.clone()], true);
+	api.set_nonce(header04a.hash(), Alice.into(), 202);
+	let event = new_best_block_event(&pool, Some(header03a.hash()), header04a.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header04a.hash(), &pool, 3, 4);
+	assert_eq!(api.validation_requests().len(), 19);
+
+	let header02b = api.push_block_with_parent(
+		header01.hash(),
+		vec![xt0.clone(), xt1.clone(), xt2.clone()],
+		true,
+	);
+	api.set_nonce(header02b.hash(), Alice.into(), 202);
+
+	let header03b = api.push_block_with_parent(
+		header02b.hash(),
+		vec![xt3.clone(), xt4.clone(), xt5.clone()],
+		true,
+	);
+	api.set_nonce(header03b.hash(), Alice.into(), 205);
+
+	let header04b = api.push_block_with_parent(
+		header03b.hash(),
+		vec![xt6.clone(), xt7.clone(), xt8.clone()],
+		true,
+	);
+	api.set_nonce(header04b.hash(), Alice.into(), 208);
+
+	let header05b = api.push_block_with_parent(
+		header04b.hash(),
+		vec![xt9.clone(), xt10.clone(), xt11.clone()],
+		true,
+	);
+	api.set_nonce(header05b.hash(), Alice.into(), 211);
+
+	// Notify a whole new fork.
+	let event = new_best_block_event(&pool, Some(header04b.hash()), header05b.hash());
+	block_on(pool.maintain(event));
+	assert_pool_status!(header05b.hash(), &pool, 0, 0);
+	// There are extra 3 validations for the enacted fork:
+	// 1. xt0 - which is the tx missing from the views, so makes sense to validate it.
+	// 2. xt6 - not submitted to the retracted fork before, so makes sense to validate it.
+	// 3. xt10 - same as for xt6.
+	// The rest of the txs which are not validated anymore to get their 'provides' tags are x1 & x2,
+	// which can be found in the inactive views.
+	assert_eq!(api.validation_requests().len(), 22);
+}
+
+#[test]
 fn fatp_dangling_ready_gets_revalidated() {
 	sp_tracing::try_init_simple();
 
 	let (pool, api, _) = pool();
 
 	let xt2 = uxt(Alice, 202);
-	log::debug!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+	debug!(target: LOG_TARGET, xt2 = ?api.hash_and_length(&xt2).0, "xt2");
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = new_best_block_event(&pool, None, header01.hash());
@@ -1997,7 +2162,7 @@ fn fatp_dangling_ready_gets_revalidated() {
 	// send xt2 - it will become ready on block 02a.
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	assert_pool_status!(header02a.hash(), &pool, 1, 0);
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	//xt2 is still ready: view was just cloned (revalidation executed in background)
 	let header02b = api.push_block_with_parent(header01.hash(), vec![], true);
@@ -2022,9 +2187,9 @@ fn fatp_ready_txs_are_provided_in_valid_order() {
 	let xt0 = uxt(Alice, 200);
 	let xt1 = uxt(Alice, 201);
 	let xt2 = uxt(Alice, 202);
-	log::debug!("xt0: {:#?}", api.hash_and_length(&xt0).0);
-	log::debug!("xt1: {:#?}", api.hash_and_length(&xt1).0);
-	log::debug!("xt2: {:#?}", api.hash_and_length(&xt2).0);
+	debug!(target: LOG_TARGET, xt0 = ?api.hash_and_length(&xt0).0, "xt0");
+	debug!(target: LOG_TARGET, xt1 = ?api.hash_and_length(&xt1).0, "xt1");
+	debug!(target: LOG_TARGET, xt2 = ?api.hash_and_length(&xt2).0, "xt2");
 
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt2.clone())).unwrap();
 	let _ = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
@@ -2182,6 +2347,50 @@ fn fatp_ready_light_long_fork_works() {
 }
 
 #[test]
+fn fatp_ready_light_most_recent_view_long_fork_retracted_works() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
+	let submissions = vec![pool.submit_at(
+		genesis,
+		SOURCE,
+		vec![xt0.clone(), xt1.clone(), xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header03b.
+	let header01a = api.push_block_with_parent(genesis, vec![], true);
+	let event = finalized_block_event(&pool, genesis, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header02a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	// Returns the most recent view (`header02a`) ready transactions set.
+	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 4);
+}
+
+#[test]
 fn fatp_ready_light_long_fork_retracted_works() {
 	sp_tracing::try_init_simple();
 
@@ -2215,8 +2424,9 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
 	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
 
-	let mut ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
-	assert!(ready_iterator.next().is_none());
+	// Returns the genesis view ready transactions set with fork txs removed.
+	let ready_iterator = pool.ready_at_light(header03b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 1);
 
 	let event = new_best_block_event(&pool, Some(header01a.hash()), header01b.hash());
 	block_on(pool.maintain(event));
@@ -2227,6 +2437,119 @@ fn fatp_ready_light_long_fork_retracted_works() {
 	let ready02 = ready_iterator.next();
 	assert_eq!(ready02.unwrap().hash, api.hash_and_length(&xt4).0);
 	assert!(ready_iterator.next().is_none());
+}
+
+#[test]
+fn fatp_ready_light_fallback_for_most_recent_view_gets_triggered() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
+	let submissions = vec![pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone()])];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// dirty hack to remove genesis view, so we can check fallback to most-recent-view at header01b.
+	let header01a = api.push_block_with_parent(genesis, vec![], true);
+	let event = finalized_block_event(&pool, genesis, header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header02a = api.push_block_with_parent(header01a.hash(), vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header02a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	// Call `ready_at_light` at genesis direct descendent, even if not notified as best or
+	// finalized. Should still return ready txs based on the most recent view processed by the
+	// txpool.
+	let ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 2);
+
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	// Submit a few more tx to the pool.
+	let submissions = vec![pool.submit_at(
+		// `at` is ignored.
+		genesis,
+		SOURCE,
+		vec![xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	// Calling `ready_at_light` now on the last block of a fork, with no block notified as best.
+	// We should still get the ready txs from the most recent view processed by the txpool,
+	// but now with a few more txs which were submitted previously.
+	assert_ready_at_light_iterator!(header03b.hash(), pool, [xt0, xt1, xt2, xt3]);
+}
+
+#[test]
+fn fatp_ready_light_fallback_gets_triggered() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	api.set_nonce(api.genesis_hash(), Bob.into(), 200);
+	api.set_nonce(api.genesis_hash(), Charlie.into(), 200);
+	api.set_nonce(api.genesis_hash(), Dave.into(), 200);
+	api.set_nonce(api.genesis_hash(), Eve.into(), 200);
+
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+	let xt1 = uxt(Bob, 200);
+	let xt2 = uxt(Charlie, 200);
+	let xt3 = uxt(Dave, 200);
+	let xt4 = uxt(Eve, 200);
+
+	let submissions = vec![pool.submit_at(genesis, SOURCE, vec![xt0.clone(), xt1.clone()])];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt4.clone()], true);
+	let event = new_best_block_event(&pool, Some(genesis), header01a.hash());
+	block_on(pool.maintain(event));
+
+	let header01b = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	// Call `ready_at_light` at genesis direct descendent, even if not notified as best or
+	// finalized. Should still return ready txs based on the view for genesis, taking into account
+	// transactions from 01b block.
+	let ready_iterator = pool.ready_at_light(header01b.hash()).now_or_never().unwrap();
+	assert_eq!(ready_iterator.count(), 1);
+
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![xt1.clone()], true);
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![xt2.clone()], true);
+
+	// Submit a few more tx to the pool.
+	let submissions = vec![pool.submit_at(
+		// `at` is ignored.
+		genesis,
+		SOURCE,
+		vec![xt2.clone(), xt3.clone()],
+	)];
+	let results = block_on(futures::future::join_all(submissions));
+	assert!(results.iter().all(|r| { r.is_ok() }));
+
+	let event = finalized_block_event(&pool, header01a.hash(), header01b.hash());
+	block_on(pool.maintain(event));
+
+	// Calling `ready_at_light` on the new block (`header03b`) should consider its fork up to
+	// the finalized block for the search of the best view, and coincidentaly, that's the only view
+	// of the tree route, being the view created for NBB `header01b`. The returned ready txs are the
+	// ones left in the best view's pool after prunning the txs.
+	assert_ready_at_light_iterator!(header03b.hash(), pool, [xt3, xt4]);
 }
 
 #[test]
@@ -2274,4 +2597,91 @@ fn fatp_ready_at_with_timeout_works_for_misc_scenarios() {
 	let mut ready_at2 = block_on(pool.ready_at_with_timeout(header02a.hash(), Duration::ZERO));
 	assert_eq!(ready_at2.next().unwrap().hash, api.hash_and_length(&xt2).0);
 	assert!(ready_at2.next().is_none());
+}
+
+#[test]
+fn fatp_tx_is_not_prematurely_revalidated() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let mut hashes = vec![];
+	let mut prev_hash = genesis;
+	hashes.push(genesis);
+	for n in 1..=40 {
+		let header = api.push_block_with_parent(prev_hash, vec![], true);
+		if n <= 21 {
+			api.set_nonce(header.hash(), Alice.into(), 199);
+			block_on(pool.maintain(new_best_block_event(&pool, Some(prev_hash), header.hash())));
+		} else {
+			// not realistic, we only want tx to be invalid, stale is currently the only way in
+			// TestApi
+			api.set_nonce(header.hash(), Alice.into(), 199);
+		}
+		hashes.push(header.hash());
+		prev_hash = header.hash();
+	}
+
+	let xt0 = uxt(Alice, 199);
+
+	//note: tx is validated at block 20 (recent best block):
+	let xt0_watcher = block_on(pool.submit_and_watch(hashes[21], SOURCE, xt0.clone())).unwrap();
+
+	let header41 = api.push_block_with_parent(hashes[40], vec![xt0.clone()], true);
+
+	//note: tx is still valid at block 21
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), hashes[5])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[5], hashes[10])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[10], hashes[19])));
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[19], header41.hash())));
+
+	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
+	assert_eq!(
+		xt0_events,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::InBlock((header41.hash(), 0)),
+			TransactionStatus::Finalized((header41.hash(), 0)),
+		]
+	);
+}
+
+#[test]
+fn fatp_tx_is_revalidated_by_mempool_revalidation() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let mut hashes = vec![];
+	let mut prev_hash = genesis;
+	hashes.push(genesis);
+	for n in 1..=40 {
+		let header = api.push_block_with_parent(prev_hash, vec![], true);
+		if n >= 22 {
+			// not realistic, we only want tx to be invalid, stale is currently the only way in
+			// TestApi
+			api.set_nonce(header.hash(), Alice.into(), 210);
+		} else {
+			api.set_nonce(header.hash(), Alice.into(), 199);
+			let event = new_best_block_event(&pool, Some(prev_hash), header.hash());
+			block_on(pool.maintain(event));
+		}
+		hashes.push(header.hash());
+		prev_hash = header.hash();
+	}
+
+	let xt0 = uxt(Alice, 199);
+
+	//note: tx is validated at block 20 (recent best block):
+	let xt0_watcher = block_on(pool.submit_and_watch(hashes[21], SOURCE, xt0.clone())).unwrap();
+
+	//note: tx is still valid at block 21
+	block_on(pool.maintain(finalized_block_event(&pool, api.genesis_hash(), hashes[21])));
+	//note: TXMEMPOOL_REVALIDATION_PERIOD passed, tx is stale on block 32:
+	block_on(pool.maintain(finalized_block_event(&pool, hashes[21], hashes[32])));
+
+	let xt0_events = block_on(xt0_watcher.collect::<Vec<_>>());
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
 }
