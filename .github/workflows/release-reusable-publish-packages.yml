@@ -209,17 +209,11 @@ jobs:
             chmod 644 "$LOCAL_REPO_PATH"/*.rpm
 
             # Create RPM macros file
-            # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg
-            echo "Creating RPM macros file"
-            cat > ~/.rpmmacros << EOF
-%_signature gpg
-%_gpg_path /home/nonroot/.gnupg
-%_gpg_name security@parity.io
-%_gpgbin /usr/bin/gpg
-%__gpg_sign_cmd %{__gpg} gpg --force-v3-sigs --batch --verbose --no-armor -u "%{_gpg_name}" -sbo %{__signature_filename} --digest-algo sha256 %{__plaintext_filename}
-EOF
+            # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg and not %_gpg_path /home/nonroot/.gnupg
+            echo "Copying RPM macros file"
+            cp "${{ github.workspace }}/.github/workflows/rpmmacros" ~/.rpmmacros
             chmod 600 ~/.rpmmacros
-
+            
             rpm_filename=$(basename "$rpmname")
             echo "Signing RPM package: $rpm_filename"
 
