@@ -204,6 +204,11 @@ jobs:
             fi
             echo "Found RPM package: $rpmname"
             
+            # Debug lines that can we removed later
+            echo "RPM path: $rpmname"
+            echo "Current directory: $(pwd)"
+            ls -la release-artifacts/
+
             # Copy the RPM to the correct directory, create the repo
             cp "$rpmname" "$LOCAL_REPO_PATH/"
 
@@ -214,6 +219,7 @@ jobs:
               -v "${HOME}/${LOCAL_REPO_PATH}/${rpmname}:/home/nonroot/${rpmname}" \
               --rm -it docker.io/paritytech/rpm rpm --addsign "${rpmname}"
 
+            echo "Signed RPM package: ${rpmname} - creating a repo"
             createrepo --update "$LOCAL_REPO_PATH"
           fi
 
