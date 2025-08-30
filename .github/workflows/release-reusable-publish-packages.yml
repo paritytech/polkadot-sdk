@@ -230,19 +230,7 @@ jobs:
                 --user root:root \
                 --rm \
                 docker.io/paritytech/rpm \
-                /bin/bash -c '
-                    echo "=== Debug Info ===";
-                    echo "Current user: $(id)";
-                    echo "Working directory: $(pwd)";
-                    echo "RPM macros file contents:";
-                    cat /etc/rpm/macros.sign;
-                    echo "=== File permissions ===";
-                    ls -la /etc/rpm/macros.sign /rpm/;
-                    echo "=== RPM version ===";
-                    rpm --version;
-                    echo "=== Signing attempt ===";
-                    cd /rpm && rpm --addsign polkadot_*.rpm
-                '
+                /bin/bash -c 'cd /rpm && rpm --addsign polkadot_*.rpm'
 
             # Cleanup
             rm -rf "${TEMP_DIR}"
