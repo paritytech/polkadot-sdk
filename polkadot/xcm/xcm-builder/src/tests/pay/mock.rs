@@ -16,7 +16,7 @@
 
 use super::*;
 
-use frame_support::traits::{AsEnsureOriginWithArg, Nothing};
+use frame_support::traits::{AsEnsureOriginWithArg, Disabled, Nothing};
 
 use frame_support::derive_impl;
 
@@ -30,6 +30,7 @@ use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
 
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Test>,
 	frame_system::CheckNonZeroSender<Test>,
 	frame_system::CheckSpecVersion<Test>,
 	frame_system::CheckTxVersion<Test>,
@@ -162,6 +163,8 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 pub type LocalAssetsTransactor = FungiblesAdapter<
 	Assets,
@@ -279,6 +282,7 @@ impl pallet_xcm::Config for Test {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 pub const UNITS: Balance = 1_000_000_000_000;

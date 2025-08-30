@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix `Configuration:set_max_upward_queue_size`
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the invalid validation that prevented setting `max_upward_queue_size` to values larger than `MAX_UPWARD_MESSAGE_SIZE_BOUND`.
+      The queue is clearly allowed to be bigger than an individual message.
+  - audience: Runtime User
+    description: |
+      The `set_max_upward_queue_size` function now correctly allows setting the maximum upward queue size to values larger than the maximum individual message size.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: patch

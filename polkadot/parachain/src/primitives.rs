@@ -163,7 +163,7 @@ pub struct BlockData(#[cfg_attr(feature = "std", serde(with = "bytes"))] pub Vec
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	serde::Serialize,
 	serde::Deserialize,
 	TypeInfo,
@@ -190,6 +190,7 @@ impl From<u32> for Id {
 	}
 }
 
+#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
 impl From<usize> for Id {
 	fn from(x: usize) -> Self {
 		// can't panic, so need to truncate

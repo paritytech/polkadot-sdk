@@ -19,9 +19,9 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash as RelayHash,
-		Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
-		ValidationCodeHash, ValidatorId,
+		vstaging::{CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt},
+		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
+		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
@@ -286,5 +286,12 @@ impl RelayChainInterface for RelayChainRpcInterface {
 
 	async fn scheduling_lookahead(&self, relay_parent: RelayHash) -> RelayChainResult<u32> {
 		self.rpc_client.parachain_host_scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(
+		&self,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Vec<CandidateEvent>> {
+		self.rpc_client.parachain_host_candidate_events(relay_parent).await
 	}
 }

@@ -1,19 +1,31 @@
-name: Release - Branch off stable branch
+# This workflow has combined functionality of branching-off a new stable release branch and tagging an RC.
+# The options to branch-off and/or tag an RC can be chosen independently by ticking the appropriate checkbox in the launching form,
+# as the branch-off happens only ones per quarter and a tagging activity done more frequently for each new RC during the release process.
+name: Release - Branch off stable branch and/or tag rc
 
 on:
   workflow_dispatch:
     inputs:
       stable_version:
-        description: New stable version in the format stableYYMM
+        description: Stable version in the format stableYYMM that will be used as branch name and rc tag base
         required: true
         type: string
 
       node_version:
-        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0)
-        required: true
+        description: Version of the polkadot node in the format X.XX.X (e.g. 1.15.0). ℹ️ Node version is needed only for the branch-off
+        type: string
+        required: false
+
+      is_new_stable:
+        description: Check this box if this is a new stable release and the stable branch needs to be created
+        type: boolean
+
+      tag_rc:
+        description: Check this box if the rc tag needs to be created
+        type: boolean
 
 jobs:
-  prepare-tooling:
+  validate-inputs:
     runs-on: ubuntu-latest
     outputs:
       node_version: ${{ steps.validate_inputs.outputs.node_version }}
@@ -28,14 +40,17 @@ jobs:
         run: |
           . ./.github/scripts/common/lib.sh
 
-          node_version=$(filter_version_from_input "${{ inputs.node_version }}")
-          echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.node_version }}" ]; then
+            node_version=$(filter_version_from_input "${{ inputs.node_version }}")
+            echo "node_version=${node_version}" >> $GITHUB_OUTPUT
+          fi
 
           stable_version=$(validate_stable_tag ${{ inputs.stable_version }})
           echo "stable_version=${stable_version}" >> $GITHUB_OUTPUT
 
   create-stable-branch:
-    needs: [prepare-tooling]
+    if: ${{ inputs.is_new_stable }}
+    needs: [ validate-inputs ]
     runs-on: ubuntu-latest
     environment: release
     env:
@@ -44,7 +59,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      STABLE_BRANCH_NAME: ${{ needs.prepare-tooling.outputs.stable_version }}
+      STABLE_BRANCH_NAME: ${{ needs.validate-inputs.outputs.stable_version }}
 
     steps:
       - name: Install pgpkkms
@@ -54,7 +69,7 @@ jobs:
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
             app-id: ${{ vars.RELEASE_AUTOMATION_APP_ID }}
             private-key: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
@@ -91,7 +106,7 @@ jobs:
         run: |
           . ./.github/scripts/release/release_lib.sh
 
-          NODE_VERSION="${{ needs.prepare-tooling.outputs.node_version }}"
+          NODE_VERSION="${{ needs.validate-inputs.outputs.node_version }}"
           NODE_VERSION_PATTERN="\(NODE_VERSION[^=]*= \)\".*\""
           set_version "$NODE_VERSION_PATTERN" $NODE_VERSION "polkadot/node/primitives/src/lib.rs"
           commit_with_message "Bump node version to $NODE_VERSION in polkadot-cli"
@@ -102,12 +117,34 @@ jobs:
           runtimes_list=$(get_filtered_runtimes_list)
           set_spec_versions $SPEC_VERSION "${runtimes_list[@]}"
 
-          # TODO: clarify what to do with the polkadot-parachain binary
-          # Set new version for polkadot-parachain binary to match the polkadot node binary
-          # set_polkadot_parachain_binary_version $NODE_VERSION "cumulus/polkadot-parachain/Cargo.toml"
-
           reorder_prdocs $STABLE_BRANCH_NAME
 
           gh auth setup-git
 
           git push origin "$STABLE_BRANCH_NAME"
+
+      - name: Tag RC after branch off
+        if: ${{ inputs.tag_rc }}
+        env:
+          GH_TOKEN: ${{ steps.generate_write_token.outputs.token }} # or use a PAT with workflow scope
+        run: |
+          stable_tag_base=polkadot-${{ needs.validate-inputs.outputs.stable_version }}
+          gh workflow run release-11_rc-automation.yml \
+            --repo ${{ github.repository }} \
+            --ref ${{ needs.validate-inputs.outputs.stable_version }} \
+            --field version=${stable_tag_base}
+
+  tag-rc-without-branchoff:
+    if: ${{ !inputs.is_new_stable && inputs.tag_rc }}
+    needs: [ validate-inputs ]
+    uses: ./.github/workflows/release-11_rc-automation.yml
+    with:
+      version: polkadot-${{ needs.validate-inputs.outputs.stable_version }}
+    secrets:
+      PGP_KMS_SIGN_COMMITS_KEY:  ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
+      PGP_KMS_HASH:  ${{ secrets.PGP_KMS_HASH }}
+      AWS_ACCESS_KEY_ID:  ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:  ${{ secrets.AWS_DEFAULT_REGION }}
+      RELEASE_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.RELEASE_AUTOMATION_APP_PRIVATE_KEY }}
+      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN: ${{ secrets.RELEASENOTES_MATRIX_V2_ACCESS_TOKEN }}

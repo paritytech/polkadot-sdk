@@ -23,17 +23,27 @@
 //! Chaum-Pedersen proof uses the same hash-to-field specified in RFC 9380 for the field of the BLS
 //! curve.
 
-use crate::crypto::{
-	CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
-	SignatureBytes, UncheckedFrom,
+use crate::{
+	crypto::{
+		CryptoType, DeriveError, DeriveJunction, Pair as TraitPair, PublicBytes, SecretStringError,
+		SignatureBytes, UncheckedFrom,
+	},
+	proof_of_possession::{ProofOfPossessionGenerator, ProofOfPossessionVerifier},
 };
 
 use alloc::vec::Vec;
 
 use w3f_bls::{
 	DoublePublicKey, DoublePublicKeyScheme, DoubleSignature, EngineBLS, Keypair, Message,
-	SecretKey, SerializableToBytes, TinyBLS381,
+	NuggetBLSnCPPoP, ProofOfPossession as BlsProofOfPossession, SecretKey, SerializableToBytes,
+	TinyBLS381,
 };
+
+#[cfg(feature = "full_crypto")]
+use w3f_bls::ProofOfPossessionGenerator as BlsProofOfPossessionGenerator;
+
+/// Required to generate Proof Of Possession
+use sha2::Sha256;
 
 /// BLS-377 specialized types
 pub mod bls377 {
@@ -98,6 +108,10 @@ pub const PUBLIC_KEY_SERIALIZED_SIZE: usize =
 /// Signature serialized size
 pub const SIGNATURE_SERIALIZED_SIZE: usize =
 	<DoubleSignature<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+
+/// Signature serialized size
+pub const PROOF_OF_POSSESSION_SERIALIZED_SIZE: usize =
+	<NuggetBLSnCPPoP<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// A secret seed.
 ///
@@ -227,6 +241,49 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
+impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
+	#[cfg(feature = "full_crypto")]
+	fn generate_proof_of_possession(&mut self) -> Self::Signature {
+		let r: [u8; SIGNATURE_SERIALIZED_SIZE] = <Keypair<T> as BlsProofOfPossessionGenerator<
+			T,
+			Sha256,
+			DoublePublicKey<T>,
+			NuggetBLSnCPPoP<T>,
+		>>::generate_pok(&mut self.0)
+		.to_bytes()
+		.try_into()
+		.expect("NuggetBLSnCPPoP serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size");
+		Self::Signature::unchecked_from(r)
+	}
+}
+
+impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T>
+where
+	Pair<T>: TraitPair,
+{
+	fn verify_proof_of_possession(
+		proof_of_possession: &Self::Signature,
+		allegedly_possessed_pubkey: &Self::Public,
+	) -> bool {
+		let Ok(proof_of_possession) =
+			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref())
+		else {
+			return false
+		};
+
+		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
+			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref())
+		else {
+			return false
+		};
+
+		BlsProofOfPossession::<T, Sha256, _>::verify(
+			&proof_of_possession,
+			&allegedly_possessed_pubkey_as_bls_pubkey,
+		)
+	}
+}
+
 impl<T: BlsBound> CryptoType for Pair<T> {
 	type Pair = Pair<T>;
 }
@@ -301,8 +358,6 @@ mod tests {
 		hex_expected_signature: &str,
 	) {
 		let public = pair.public();
-		let public_bytes: &[u8] = public.as_ref();
-		println!("pub key is: {:?}", array_bytes::bytes2hex("", public_bytes));
 		assert_eq!(
 			public,
 			Public::unchecked_from(array_bytes::hex2array_unchecked(hex_expected_pub_key))
@@ -312,6 +367,7 @@ mod tests {
 
 		let expected_signature = Signature::unchecked_from(expected_signature_bytes);
 		let signature = pair.sign(&message[..]);
+
 		assert!(signature == expected_signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
 	}
@@ -323,7 +379,7 @@ mod tests {
 		));
 		test_vector_should_work(pair,
 	    "7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400",
-	    "d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
+	    "124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
 	    )
 	}
 
@@ -334,7 +390,7 @@ mod tests {
 		));
 		test_vector_should_work(pair,
 				    "88ff6c3a32542bc85f2adf1c490a929b7fcee50faeb95af9a036349390e9b3ea7326247c4fc4ebf88050688fd6265de0806284eec09ba0949f5df05dc93a787a14509749f36e4a0981bb748d953435483740907bb5c2fe8ffd97e8509e1a038b05fb08488db628ea0638b8d48c3ddf62ed437edd8b23d5989d6c65820fc70f80fb39b486a3766813e021124aec29a566",
-	    "8c29473f44ac4f0a8ac4dc8c8da09adf9d2faa2dbe0cfdce3ce7c920714196a1b7bf48dc05048e453c161ebc2db9f44fae060b3be77e14e66d1a5262f14d3da0c3a18e650018761a7402b31abc7dd803d466bdcb71bc28c77eb73c610cbff53c00130b79116831e520a04a8ef6630e6f"
+	    "8f4fe16cbb1b7f26ddbfbcde864a3c2f68802fbca5bd59920a135ed7e0f74cd9ba160e61c85e9acee3b4fe277862f226e60ac1958b57ed4487daf4673af420e8bf036ee8169190a927ede2e8eb3d6600633c69b2a84eb017473988fdfde082e150cbef05b77018c1f8ccc06da9e80421"
 	    )
 	}
 
@@ -347,7 +403,7 @@ mod tests {
 		.unwrap();
 		test_vector_should_work(pair,
 	    "7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400",
-	    "d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
+	    "124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
 	    )
 	}
 
@@ -360,7 +416,7 @@ mod tests {
 		.unwrap();
 		test_vector_should_work(pair,
 	    "88ff6c3a32542bc85f2adf1c490a929b7fcee50faeb95af9a036349390e9b3ea7326247c4fc4ebf88050688fd6265de0806284eec09ba0949f5df05dc93a787a14509749f36e4a0981bb748d953435483740907bb5c2fe8ffd97e8509e1a038b05fb08488db628ea0638b8d48c3ddf62ed437edd8b23d5989d6c65820fc70f80fb39b486a3766813e021124aec29a566",
-	    "8c29473f44ac4f0a8ac4dc8c8da09adf9d2faa2dbe0cfdce3ce7c920714196a1b7bf48dc05048e453c161ebc2db9f44fae060b3be77e14e66d1a5262f14d3da0c3a18e650018761a7402b31abc7dd803d466bdcb71bc28c77eb73c610cbff53c00130b79116831e520a04a8ef6630e6f"
+	    "8f4fe16cbb1b7f26ddbfbcde864a3c2f68802fbca5bd59920a135ed7e0f74cd9ba160e61c85e9acee3b4fe277862f226e60ac1958b57ed4487daf4673af420e8bf036ee8169190a927ede2e8eb3d6600633c69b2a84eb017473988fdfde082e150cbef05b77018c1f8ccc06da9e80421"
 	    )
 	}
 
@@ -524,6 +580,7 @@ mod tests {
 	fn signature_serialization_works_for_bls381() {
 		signature_serialization_works::<bls381::BlsEngine>();
 	}
+
 	fn signature_serialization_doesnt_panic<E: BlsBound>() {
 		fn deserialize_signature<E: BlsBound>(
 			text: &str,
@@ -543,5 +600,56 @@ mod tests {
 	#[test]
 	fn signature_serialization_doesnt_panic_for_bls381() {
 		signature_serialization_doesnt_panic::<bls381::BlsEngine>();
+	}
+
+	fn must_generate_proof_of_possession<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		pair.generate_proof_of_possession();
+	}
+
+	#[test]
+	fn must_generate_proof_of_possession_for_bls377() {
+		must_generate_proof_of_possession::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn must_generate_proof_of_possession_for_bls381() {
+		must_generate_proof_of_possession::<bls381::BlsEngine>();
+	}
+
+	fn good_proof_of_possession_must_verify<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert!(Pair::<E>::verify_proof_of_possession(&proof_of_possession, &pair.public()));
+	}
+
+	#[test]
+	fn good_proof_of_possession_must_verify_for_bls377() {
+		good_proof_of_possession_must_verify::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn good_proof_of_possession_must_verify_for_bls381() {
+		good_proof_of_possession_must_verify::<bls381::BlsEngine>();
+	}
+
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key<E: BlsBound>() {
+		let mut pair = Pair::<E>::from_seed(b"12345678901234567890123456789012");
+		let other_pair = Pair::<E>::from_seed(b"23456789012345678901234567890123");
+		let proof_of_possession = pair.generate_proof_of_possession();
+		assert_eq!(
+			Pair::<E>::verify_proof_of_possession(&proof_of_possession, &other_pair.public()),
+			false
+		);
+	}
+
+	#[test]
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls377() {
+		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls377::BlsEngine>();
+	}
+
+	#[test]
+	fn proof_of_possession_must_fail_if_prover_does_not_possess_secret_key_for_bls381() {
+		proof_of_possession_must_fail_if_prover_does_not_possess_secret_key::<bls381::BlsEngine>();
 	}
 }

@@ -27,13 +27,25 @@ maintenance = { status = "actively-developed" }
 is-it-maintained-issue-resolution = { repository = "paritytech/polkadot-sdk" }
 is-it-maintained-open-issues = { repository = "paritytech/polkadot-sdk" }
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [[bin]]
 name = "substrate-node"
 path = "bin/main.rs"
 required-features = ["cli"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[[bench]]
+name = "transaction_pool"
+harness = false
+
+[[bench]]
+name = "block_production"
+harness = false
+
+[[bench]]
+name = "executor"
+harness = false
 
 [dependencies]
 # third-party dependencies
@@ -142,18 +154,15 @@ node-rpc = { workspace = true }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
-futures = { workspace = true }
 nix = { features = ["signal"], workspace = true }
 pretty_assertions.workspace = true
 regex = { workspace = true }
 scale-info = { features = ["derive", "serde"], workspace = true, default-features = true }
-serde_json = { workspace = true, default-features = true }
 soketto = { workspace = true }
 sp-keyring = { workspace = true }
 tempfile = { workspace = true }
 tokio = { features = ["macros", "parking_lot", "time"], workspace = true, default-features = true }
 tokio-util = { features = ["compat"], workspace = true }
-wait-timeout = { workspace = true }
 wat = { workspace = true }
 
 # These testing-only dependencies are not exported by the Polkadot-SDK crate:
@@ -167,7 +176,12 @@ clap_complete = { optional = true, workspace = true }
 
 node-inspect = { optional = true, workspace = true, default-features = true }
 
-polkadot-sdk = { features = ["frame-benchmarking-cli", "sc-cli", "sc-storage-monitor", "substrate-build-script-utils"], optional = true, workspace = true, default-features = true }
+polkadot-sdk = { features = [
+	"frame-benchmarking-cli",
+	"sc-cli",
+	"sc-storage-monitor",
+	"substrate-build-script-utils",
+], optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["cli"]
@@ -182,18 +196,3 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"substrate-cli-test-utils/try-runtime",
 ]
-staking-playground = [
-	"kitchensink-runtime/staking-playground",
-]
-
-[[bench]]
-name = "transaction_pool"
-harness = false
-
-[[bench]]
-name = "block_production"
-harness = false
-
-[[bench]]
-name = "executor"
-harness = false

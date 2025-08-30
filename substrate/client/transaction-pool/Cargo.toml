@@ -15,6 +15,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "basics"
+harness = false
+
 [dependencies]
 async-trait = { workspace = true }
 codec = { workspace = true, default-features = true }
@@ -23,7 +27,6 @@ futures-timer = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 linked-hash-map = { workspace = true }
-log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
@@ -44,21 +47,21 @@ tracing = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+chrono = { workspace = true }
 criterion = { workspace = true, default-features = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
+env_logger = { workspace = true }
+rstest = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-txtesttool = { version = "0.4.0", package = "substrate-txtesttool" }
+txtesttool = { workspace = true }
 zombienet-configuration = { workspace = true }
 zombienet-sdk = { workspace = true }
-
-[[bench]]
-name = "basics"
-harness = false

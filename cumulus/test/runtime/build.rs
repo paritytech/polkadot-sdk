@@ -25,8 +25,7 @@ fn main() {
 		.set_file_name("wasm_binary_spec_version_incremented.rs")
 		.build();
 
-	WasmBuilder::new()
-		.with_current_project()
+	WasmBuilder::init_with_defaults()
 		.enable_feature("elastic-scaling")
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_mvp.rs")
@@ -54,6 +53,21 @@ fn main() {
 		.enable_feature("experimental-ump-signals")
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_multi_block_slot.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("relay-parent-offset")
+		.enable_feature("experimental-ump-signals")
+		.import_memory()
+		.set_file_name("wasm_binary_relay_parent_offset.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
+		.enable_feature("sync-backing")
+		.import_memory()
+		.set_file_name("wasm_binary_sync_backing.rs")
 		.build();
 }
 

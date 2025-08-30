@@ -19,7 +19,6 @@ log = { workspace = true }
 rustc-hex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc"], workspace = true }
-serde_derive = { workspace = true }
 static_assertions = { workspace = true, default-features = true }
 
 sp-api = { workspace = true }
@@ -132,6 +131,7 @@ runtime-benchmarks = [
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",

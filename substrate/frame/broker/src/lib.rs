@@ -75,6 +75,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for all calls of this pallet.
@@ -407,6 +408,14 @@ pub mod pallet {
 		ContributionDropped {
 			/// The Region whose contribution is no longer exists.
 			region_id: RegionId,
+		},
+		/// A region has been force-removed from the pool. This is usually due to a provisionally
+		/// pooled region being redeployed.
+		RegionUnpooled {
+			/// The Region which has been force-removed from the pool.
+			region_id: RegionId,
+			/// The timeslice at which the region was force-removed.
+			when: Timeslice,
 		},
 		/// Some historical Instantaneous Core Pool payment record has been initialized.
 		HistoryInitialized {
@@ -810,7 +819,7 @@ pub mod pallet {
 			region_id: RegionId,
 			max_timeslices: Timeslice,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			Self::do_claim_revenue(region_id, max_timeslices)?;
 			Ok(Pays::No.into())
 		}

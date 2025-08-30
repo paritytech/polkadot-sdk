@@ -26,6 +26,7 @@ const LOG_TARGET: &str = "parachain::pvf-prepare-worker";
 use crate::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
 #[cfg(any(target_os = "linux", feature = "jemalloc-allocator"))]
 use crate::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
+use codec::{Decode, Encode};
 use nix::{
 	errno::Errno,
 	sys::{
@@ -35,22 +36,17 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use polkadot_node_core_pvf_common::{
-	executor_interface::{prepare, prevalidate},
-	worker::{pipe2_cloexec, PipeFd, WorkerInfo},
-};
-
-use codec::{Decode, Encode};
-use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::{PrepareError, PrepareWorkerResult},
-	executor_interface::create_runtime_from_artifact_bytes,
+	executor_interface::{create_runtime_from_artifact_bytes, prepare, prevalidate},
 	framed_recv_blocking, framed_send_blocking,
 	prepare::{MemoryStats, PrepareJobKind, PrepareStats, PrepareWorkerSuccess},
 	pvf::PvfPrepData,
 	worker::{
-		cpu_time_monitor_loop, get_total_cpu_usage, recv_child_response, run_worker, send_result,
-		stringify_errno, stringify_panic_payload,
+		cpu_time_monitor_loop, get_total_cpu_usage, pipe2_cloexec, recv_child_response, run_worker,
+		send_result, stringify_errno, stringify_panic_payload,
 		thread::{self, spawn_worker_thread, WaitOutcome},
-		WorkerKind,
+		PipeFd, WorkerInfo, WorkerKind,
 	},
 	worker_dir, ProcessTime,
 };
@@ -718,7 +714,7 @@ fn handle_parent_process(
 						return Err(PrepareError::IoErr(err.to_string()))
 					};
 
-					let checksum = blake3::hash(&artifact.as_ref()).to_hex().to_string();
+					let checksum = compute_checksum(&artifact.as_ref());
 					Ok(PrepareWorkerSuccess {
 						checksum,
 						stats: PrepareStats {

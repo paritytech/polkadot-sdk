@@ -1636,7 +1636,8 @@ fn on_initialize_weight_is_correct() {
 		));
 
 		// Will include the named periodic only
-		<Test as Config>::BlockNumberProvider::set_block_number(1);
+		let now = 1;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
 			Scheduler::on_initialize(42), // BN unused
 			TestWeightInfo::service_agendas_base() +
@@ -1645,11 +1646,12 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(4, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(logger::log(), vec![(root(), 2600u32)]);
 
 		// Will include anon and anon periodic
-		<Test as Config>::BlockNumberProvider::set_block_number(2);
+		let now = 2;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
 			Scheduler::on_initialize(123), // BN unused
 			TestWeightInfo::service_agendas_base() +
@@ -1661,11 +1663,12 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(2, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(logger::log(), vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32)]);
 
 		// Will include named only
-		<Test as Config>::BlockNumberProvider::set_block_number(3);
+		let now = 3;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		assert_eq!(
 			Scheduler::on_initialize(555), // BN unused
 			TestWeightInfo::service_agendas_base() +
@@ -1674,19 +1677,21 @@ fn on_initialize_weight_is_correct() {
 				TestWeightInfo::execute_dispatch_unsigned() +
 				call_weight + Weight::from_parts(1, 0)
 		);
-		assert_eq!(IncompleteSince::<Test>::get(), None);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 		assert_eq!(
 			logger::log(),
 			vec![(root(), 2600u32), (root(), 69u32), (root(), 42u32), (root(), 3u32)]
 		);
 
 		// Will contain none
-		<Test as Config>::BlockNumberProvider::set_block_number(4);
+		let now = 4;
+		<Test as Config>::BlockNumberProvider::set_block_number(now);
 		let actual_weight = Scheduler::on_initialize(444); // BN unused
 		assert_eq!(
 			actual_weight,
 			TestWeightInfo::service_agendas_base() + TestWeightInfo::service_agenda_base(0)
 		);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
 	});
 }
 
@@ -3074,5 +3079,118 @@ fn postponed_task_is_still_available() {
 		MaximumSchedulerWeight::set(&old_weight);
 		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert!(Agenda::<Test>::get(4).is_empty());
+	});
+}
+
+/// Scheduler does not iterate over some blocks that have agendas (for example when block number
+/// provider is not local), but the tasks from those skipped agendas still processed later.
+#[test]
+fn on_initialize_misses_blocks() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+
+		let schedule_at = now + 1;
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			schedule_at,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+
+		// scheduler `on_initialize` was not triggered at blocks `[now, 5)`.
+		let next_scheduler_run_at = schedule_at + 5;
+		// it runs at `next_scheduler_run_at` but processes all skipped blocks.
+		System::set_block_number(next_scheduler_run_at - 1);
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at);
+
+		// task processed.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 0);
+		System::assert_last_event(
+			crate::Event::Dispatched { task: (schedule_at, 0), id: None, result: Ok(()) }.into(),
+		);
+	});
+}
+
+/// Scheduler runs `on_initialize` twice for the same block.
+#[test]
+fn on_initialize_runs_twice_for_the_same_block() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		let now = 2;
+
+		assert_ok!(Scheduler::schedule(
+			RuntimeOrigin::root(),
+			now,
+			None,
+			128,
+			Box::new(RuntimeCall::from(frame_system::Call::remark {
+				remark: vec![0u8; 3 * 1024 * 1024],
+			}))
+		));
+		assert_eq!(Agenda::<Test>::get(now).len(), 1);
+
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		assert_eq!(Agenda::<Test>::get(now).len(), 0);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+
+		// Run `on_initialize` again at the same block.
+		System::run_to_block::<AllPalletsWithSystem>(now);
+		// IncompleteSince is not updated.
+		assert_eq!(IncompleteSince::<Test>::get(), Some(now + 1));
+	});
+}
+
+/// The task is not considered overweight if the scheduler processes not the first agenda within one
+/// `on_initialize` even if no more tasks were processed since processing empty agenda has a base
+/// weight.
+#[test]
+fn not_permanently_overweight_when_task_from_not_first_agenda() {
+	new_test_ext().execute_with(|| {
+		let now = 1;
+		System::run_to_block::<AllPalletsWithSystem>(now);
+
+		let schedule_at = now + 5;
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		let call = RuntimeCall::Logger(LoggerCall::log { i: 42, weight: max_weight });
+		assert_ok!(Scheduler::do_schedule(
+			DispatchTime::At(schedule_at),
+			None,
+			127,
+			root(),
+			Preimage::bound(call).unwrap(),
+		));
+
+		// scheduler `on_initialize` was not triggered at blocks `[now, schedule_at + 5)`.
+		let next_scheduler_run_at = schedule_at + 5;
+		// it runs at `next_scheduler_run_at - 1` starting from `now + 1` and tries to process
+		// the task after processing agendas `[now + 1, schedule_at)`.
+		System::set_block_number(next_scheduler_run_at - 1);
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at);
+
+		// The task remains in the agenda because it was overweight when processed at `schedule_at`,
+		// causing the agenda to be marked as incomplete. This is not considered permanently
+		// overweight yet.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: schedule_at }.into());
+
+		// Run to the next block and start from `schedule_at`.
+		System::run_to_block::<AllPalletsWithSystem>(next_scheduler_run_at + 1);
+
+		// Now its permanently overweight.
+		assert_eq!(
+			System::events().last().unwrap().event,
+			crate::Event::PermanentlyOverweight { task: (schedule_at, 0), id: None }.into(),
+		);
+		// permanently overweight tasks are not removed from the agenda.
+		assert_eq!(Agenda::<Test>::get(schedule_at).len(), 1);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(System::block_number() + 1));
 	});
 }

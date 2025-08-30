@@ -33,6 +33,7 @@ use sc_transaction_pool_api::{
 use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use substrate_test_runtime_client::Sr25519Keyring::*;
 use substrate_test_runtime_transaction_pool::uxt;
+use tracing::debug;
 
 #[test]
 fn fatp_invalid_three_views_stale_gets_rejected() {
@@ -124,7 +125,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 
 	assert_eq!(api.validation_requests().len(), 3);
 	assert_eq!(pool.status_all()[&header01.hash()].ready, 3);
-	assert_eq!(pool.mempool_len(), (0, 3));
+	assert_eq!(block_on(pool.mempool_len()), (0, 3));
 
 	let header02 = api.push_block(2, vec![], true);
 	api.add_invalid(&xt1);
@@ -141,7 +142,7 @@ fn fatp_transactions_purging_invalid_on_finalization_works() {
 		prev_header = header;
 	}
 
-	assert_eq!(pool.mempool_len(), (0, 0));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 
 	assert_watcher_stream!(watcher1, [TransactionStatus::Ready, TransactionStatus::Invalid]);
 	assert_watcher_stream!(watcher2, [TransactionStatus::Ready, TransactionStatus::Invalid]);
@@ -359,7 +360,7 @@ fn fatp_watcher_invalid_single_revalidation() {
 	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
+	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
 	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
 }
 
@@ -371,34 +372,16 @@ fn fatp_watcher_invalid_single_revalidation2() {
 
 	let xt0 = uxt(Alice, 200);
 	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert_eq!(pool.mempool_len(), (0, 1));
-	api.add_invalid(&xt0);
-
-	let header01 = api.push_block(1, vec![], true);
-	let event = new_best_block_event(&pool, None, header01.hash());
-	block_on(pool.maintain(event));
-
-	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-	assert_eq!(pool.mempool_len(), (0, 0));
-}
-
-#[test]
-fn fatp_watcher_invalid_single_revalidation3() {
-	sp_tracing::try_init_simple();
-
-	let (pool, api, _) = pool();
-
-	let xt0 = uxt(Alice, 150);
-	let xt0_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt0.clone())).unwrap();
-	assert_eq!(pool.mempool_len(), (0, 1));
+	assert_eq!(block_on(pool.mempool_len()), (0, 1));
 
 	let header01 = api.push_block(1, vec![], true);
 	let event = finalized_block_event(&pool, api.genesis_hash(), header01.hash());
 	block_on(pool.maintain(event));
+	api.add_invalid(&xt0);
 
-	// wait 10 blocks for revalidation
+	// note: the tx will be revalidated in view::revalidation, not in mempool revalidation (which
+	// would require waiting 10 blocks).
+	// waiting 10 blocks is excessive, but we may want to keep it.
 	let mut prev_header = header01;
 	for n in 2..=11 {
 		let header = api.push_block(n, vec![], true);
@@ -408,9 +391,9 @@ fn fatp_watcher_invalid_single_revalidation3() {
 	}
 
 	let xt0_events = futures::executor::block_on_stream(xt0_watcher).collect::<Vec<_>>();
-	log::debug!("xt0_events: {:#?}", xt0_events);
-	assert_eq!(xt0_events, vec![TransactionStatus::Invalid]);
-	assert_eq!(pool.mempool_len(), (0, 0));
+	debug!(target: LOG_TARGET, ?xt0_events, "xt0_events");
+	assert_eq!(xt0_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid]);
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
 }
 
 #[test]
@@ -444,7 +427,7 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::Future)),
 	);
 	let invalid_txs = [xt0_report].into();
-	let result = pool.report_invalid(None, invalid_txs);
+	let result = block_on(pool.report_invalid(None, invalid_txs));
 	assert!(result.is_empty());
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1, xt2, xt3]);
 
@@ -458,7 +441,7 @@ fn fatp_invalid_report_stale_or_future_works_as_expected() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::Stale)),
 	);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	// stale/future does not cause tx to be removed from the pool
 	assert!(result.is_empty());
 	// assert_eq!(result[0].hash, pool.api().hash_and_length(&xt0).0);
@@ -520,7 +503,7 @@ fn fatp_invalid_report_future_dont_remove_from_pool() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let invalid_txs = [xt0_report, xt1_report, xt4_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 
 	assert_watcher_stream!(xt4_watcher, [TransactionStatus::Ready, TransactionStatus::Invalid]);
 
@@ -569,7 +552,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool() {
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert!(result.iter().any(|tx| tx.hash == pool.api().hash_and_length(&xt0).0));
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt3]);
@@ -612,7 +595,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool_future_subtree_stays() {
 		Some(TransactionValidityError::Invalid(InvalidTransaction::BadProof)),
 	);
 	let invalid_txs = [xt0_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert_eq!(result[0].hash, pool.api().hash_and_length(&xt0).0);
 	assert_pool_status!(header01.hash(), &pool, 0, 0);
 	assert_ready_iterator!(header01.hash(), pool, []);
@@ -670,7 +653,7 @@ fn fatp_invalid_tx_is_removed_from_the_pool2() {
 	);
 	let xt1_report = (pool.api().hash_and_length(&xt1).0, None);
 	let invalid_txs = [xt0_report, xt1_report].into();
-	let result = pool.report_invalid(Some(header01.hash()), invalid_txs);
+	let result = block_on(pool.report_invalid(Some(header01.hash()), invalid_txs));
 	assert!(result.iter().any(|tx| tx.hash == pool.api().hash_and_length(&xt0).0));
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt3]);
 	assert_pool_status!(header02a.hash(), &pool, 2, 0);

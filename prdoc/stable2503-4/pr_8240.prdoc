@@ -1,0 +1,25 @@
+title: Snowbridge V2 Audit Fixes
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR addresses audit findings from the Snowbridge V2 review. It includes a minor change to when the nonce is set
+    in the Inbound Queue V2. In the Outbound Queue V2 pallet, it fixes an issue where the reward address was not used to
+    accumulate rewards and improves the generation of message IDs. It also resolves non-sequential call indexes in the
+    System V2 pallet and improves documentation across the affected pallets.
+
+crates:
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch
+- name: snowbridge-pallet-system-v2
+  bump: patch
+- name: snowbridge-core
+  bump: patch
+- name: snowbridge-inbound-queue-primitives
+  bump: patch
+- name: snowbridge-pallet-system-frontend
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: minor

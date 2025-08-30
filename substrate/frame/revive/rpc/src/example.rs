@@ -17,9 +17,7 @@
 //! Example utilities
 use crate::{EthRpcClient, ReceiptInfo};
 use anyhow::Context;
-use pallet_revive::evm::{
-	Account, BlockTag, Bytes, GenericTransaction, TransactionLegacyUnsigned, H160, H256, U256,
-};
+use pallet_revive::evm::*;
 use std::sync::Arc;
 
 /// Transaction builder.
@@ -64,7 +62,7 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 					);
 					return Ok(receipt)
 				} else {
-					anyhow::bail!("Transaction failed")
+					anyhow::bail!("Transaction failed receipt: {receipt:?}")
 				}
 			}
 		}
@@ -182,12 +180,26 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		let hash = client
 			.send_raw_transaction(bytes.into())
 			.await
-			.with_context(|| "transaction failed")?;
+			.with_context(|| "send_raw_transaction failed")?;
 
 		Ok(SubmittedTransaction {
-			tx: GenericTransaction::from_signed(signed_tx, Some(from)),
+			tx: GenericTransaction::from_signed(signed_tx, gas_price, Some(from)),
 			hash,
 			client,
 		})
 	}
+}
+
+#[test]
+fn test_dummy_payload_has_correct_len() {
+	let signer = Account::from(subxt_signer::eth::dev::ethan());
+	let unsigned_tx: TransactionUnsigned =
+		TransactionLegacyUnsigned { input: vec![42u8; 100].into(), ..Default::default() }.into();
+
+	let signed_tx = signer.sign_transaction(unsigned_tx.clone());
+	let signed_payload = signed_tx.signed_payload();
+	let unsigned_tx = signed_tx.unsigned();
+
+	let dummy_payload = unsigned_tx.dummy_signed_payload();
+	assert_eq!(dummy_payload.len(), signed_payload.len());
 }

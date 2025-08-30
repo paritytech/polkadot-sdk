@@ -45,13 +45,13 @@ async fn runtime_can_publish_metrics() {
 	builder.init().expect("Failed to set up the logger");
 
 	// Start validator Alice.
-	let alice = run_validator_node(alice_config, None);
+	let alice = run_validator_node(alice_config, None).await;
 
 	let bob_config =
 		node_config(|| {}, tokio::runtime::Handle::current(), Bob, vec![alice.addr.clone()], true);
 
 	// Start validator Bob.
-	let _bob = run_validator_node(bob_config, None);
+	let _bob = run_validator_node(bob_config, None).await;
 
 	// Wait for Alice to see two finalized blocks.
 	alice.wait_for_finalized_blocks(2).await;

@@ -25,7 +25,7 @@ use colored::Colorize;
 use itertools::Itertools;
 use polkadot_node_network_protocol::{
 	request_response::{v2::ChunkFetchingRequest, ReqProtocolNames},
-	Versioned, VersionedValidationProtocol,
+	ValidationProtocols, VersionedValidationProtocol,
 };
 use polkadot_node_primitives::{AvailableData, BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_test_helpers::{
@@ -181,7 +181,7 @@ impl TestState {
 
 		// Generate all candidates
 		let candidates_count = config.n_cores * config.num_blocks;
-		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {} candidates.", candidates_count).bright_blue());
+		gum::info!(target: LOG_TARGET,"{}", format!("Pre-generating {candidates_count} candidates.").bright_blue());
 		test_state.candidates = (0..candidates_count)
 			.map(|index| {
 				let pov_size = test_state.pov_sizes.next().expect("This is a cycle; qed");
@@ -276,7 +276,7 @@ impl TestState {
 						.flatten()
 						.expect("should be signed");
 
-						peer_bitfield_message_v2(block_info.hash, signed_bitfield)
+						peer_bitfield_message_v3(block_info.hash, signed_bitfield)
 					})
 					.collect::<Vec<_>>();
 
@@ -290,16 +290,16 @@ impl TestState {
 	}
 }
 
-fn peer_bitfield_message_v2(
+fn peer_bitfield_message_v3(
 	relay_hash: H256,
 	signed_bitfield: Signed<AvailabilityBitfield>,
 ) -> VersionedValidationProtocol {
-	let bitfield = polkadot_node_network_protocol::v2::BitfieldDistributionMessage::Bitfield(
+	let bitfield = polkadot_node_network_protocol::v3::BitfieldDistributionMessage::Bitfield(
 		relay_hash,
 		signed_bitfield.into(),
 	);
 
-	Versioned::V2(polkadot_node_network_protocol::v2::ValidationProtocol::BitfieldDistribution(
-		bitfield,
-	))
+	ValidationProtocols::V3(
+		polkadot_node_network_protocol::v3::ValidationProtocol::BitfieldDistribution(bitfield),
+	)
 }

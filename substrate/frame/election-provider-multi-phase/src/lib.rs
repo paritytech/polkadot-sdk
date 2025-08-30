@@ -257,7 +257,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::CreateInherent, pallet_prelude::BlockNumberFor};
+use frame_system::{ensure_none, offchain::CreateBare, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -279,6 +279,8 @@ use sp_runtime::TryRuntimeError;
 mod benchmarking;
 #[cfg(test)]
 mod mock;
+#[cfg(all(test, feature = "remote-mining"))]
+mod remote_mining;
 #[macro_use]
 pub mod helpers;
 
@@ -489,9 +491,9 @@ where
 /// These are stored together because they are often accessed together.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub struct RoundSnapshot<AccountId, DataProvider> {
+pub struct RoundSnapshot<AccountId, VoterType> {
 	/// All of the voters.
-	pub voters: Vec<DataProvider>,
+	pub voters: Vec<VoterType>,
 	/// All of the targets.
 	pub targets: Vec<AccountId>,
 }
@@ -548,6 +550,7 @@ where
 			(DataProvider(x), DataProvider(y)) if x == y => true,
 			(Fallback(x), Fallback(y)) if x == y => true,
 			(MultiPageNotSupported, MultiPageNotSupported) => true,
+			(NothingQueued, NothingQueued) => true,
 			_ => false,
 		}
 	}
@@ -612,7 +615,8 @@ pub mod pallet {
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateInherent<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -1237,7 +1241,7 @@ pub mod pallet {
 					_ => return InvalidTransaction::Call.into(),
 				}
 
-				let _ = Self::unsigned_pre_dispatch_checks(raw_solution)
+				Self::unsigned_pre_dispatch_checks(raw_solution)
 					.inspect_err(|err| {
 						log!(debug, "unsigned transaction validation failed due to {:?}", err);
 					})
@@ -1661,6 +1665,10 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ElectionError::<T>::NothingQueued)
 			.or_else(|_| {
 				log!(warn, "No solution queued, falling back to instant fallback.",);
+
+				#[cfg(feature = "runtime-benchmarks")]
+				Self::asap();
+
 				let (voters, targets, desired_targets) = if T::Fallback::bother() {
 					let RoundSnapshot { voters, targets } = Snapshot::<T>::get().ok_or(
 						ElectionError::<T>::Feasibility(FeasibilityError::SnapshotUnavailable),
@@ -1793,6 +1801,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Error = ElectionError<T>;
 	type MaxWinnersPerPage = T::MaxWinners;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = T::MaxBackersPerWinner;
 	type Pages = sp_core::ConstU32<1>;
 	type DataProvider = T::DataProvider;
 
@@ -1818,10 +1827,39 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 		res
 	}
 
-	fn ongoing() -> bool {
-		match CurrentPhase::<T>::get() {
-			Phase::Off => false,
-			_ => true,
+	fn duration() -> Self::BlockNumber {
+		let signed: BlockNumberFor<T> = T::SignedPhase::get().saturated_into();
+		let unsigned: BlockNumberFor<T> = T::UnsignedPhase::get().saturated_into();
+		signed + unsigned
+	}
+
+	fn start() -> Result<(), Self::Error> {
+		log!(
+			warn,
+			"we received signal, but this pallet works in the basis of legacy pull based election"
+		);
+		Ok(())
+	}
+
+	fn status() -> Result<bool, ()> {
+		let has_queued = QueuedSolution::<T>::exists();
+		let phase = CurrentPhase::<T>::get();
+		match (phase, has_queued) {
+			(Phase::Unsigned(_), true) => Ok(true),
+			(Phase::Off, _) => Err(()),
+			_ => Ok(false),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn asap() {
+		// prepare our snapshot so we can "hopefully" run a fallback.
+		if !Snapshot::<T>::exists() {
+			Self::create_snapshot()
+				.inspect_err(|e| {
+					crate::log!(error, "failed to create snapshot while asap-preparing: {:?}", e)
+				})
+				.unwrap()
 		}
 	}
 }
@@ -1841,6 +1879,7 @@ mod feasibility_check {
 	//! All of the tests here should be dedicated to only testing the feasibility check and nothing
 	//! more. The best way to audit and review these tests is to try and come up with a solution
 	//! that is invalid, but gets through the system as valid.
+
 	use super::*;
 	use crate::mock::{
 		raw_solution, roll_to, EpochLength, ExtBuilder, MultiPhase, Runtime, SignedPhase,
@@ -2038,9 +2077,9 @@ mod tests {
 	use super::*;
 	use crate::{
 		mock::{
-			multi_phase_events, raw_solution, roll_to, roll_to_signed, roll_to_unsigned, AccountId,
+			multi_phase_events, raw_solution, roll_to, roll_to_signed, roll_to_unsigned,
 			ElectionsBounds, ExtBuilder, MockWeightInfo, MockedWeightInfo, MultiPhase, Runtime,
-			RuntimeOrigin, SignedMaxSubmissions, System, TargetIndex, Targets, Voters,
+			RuntimeOrigin, SignedMaxSubmissions, System, Voters,
 		},
 		Phase,
 	};
@@ -2237,40 +2276,6 @@ mod tests {
 					Event::PhaseTransitioned { from: Phase::Signed, to: Phase::Off, round: 2 },
 				]
 			)
-		});
-	}
-
-	#[test]
-	fn both_phases_void() {
-		ExtBuilder::default().phases(0, 0).build_and_execute(|| {
-			roll_to(15);
-			assert!(CurrentPhase::<Runtime>::get().is_off());
-
-			roll_to(19);
-			assert!(CurrentPhase::<Runtime>::get().is_off());
-
-			roll_to(20);
-			assert!(CurrentPhase::<Runtime>::get().is_off());
-
-			roll_to(30);
-			assert!(CurrentPhase::<Runtime>::get().is_off());
-
-			// This module is now cannot even do onchain fallback, as no snapshot is there
-			assert_eq!(
-				MultiPhase::elect(SINGLE_PAGE),
-				Err(ElectionError::<Runtime>::Feasibility(FeasibilityError::SnapshotUnavailable))
-			);
-
-			// this puts us in emergency now.
-			assert!(CurrentPhase::<Runtime>::get().is_emergency());
-
-			assert_eq!(
-				multi_phase_events(),
-				vec![
-					Event::ElectionFailed,
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Emergency, round: 1 }
-				]
-			);
 		});
 	}
 
@@ -2526,7 +2531,7 @@ mod tests {
 
 		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
 			prepare_election();
-			// multi page calls will fail with multipage not supported error.
+			// multi page calls will fail with multi-page not supported error.
 			assert_noop!(MultiPhase::elect(SINGLE_PAGE + 1), ElectionError::MultiPageNotSupported);
 		})
 	}
@@ -2671,73 +2676,6 @@ mod tests {
 				]
 			);
 		})
-	}
-
-	#[test]
-	fn snapshot_too_big_failure_onchain_fallback() {
-		// the `MockStaking` is designed such that if it has too many targets, it simply fails.
-		ExtBuilder::default().build_and_execute(|| {
-			// sets bounds on number of targets.
-			let new_bounds = ElectionBoundsBuilder::default().targets_count(1_000.into()).build();
-			ElectionsBounds::set(new_bounds);
-
-			Targets::set((0..(1_000 as AccountId) + 1).collect::<Vec<_>>());
-
-			// Signed phase failed to open.
-			roll_to(15);
-			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
-
-			// Unsigned phase failed to open.
-			roll_to(25);
-			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
-
-			// On-chain backup will fail similarly.
-			assert_eq!(
-				MultiPhase::elect(SINGLE_PAGE).unwrap_err(),
-				ElectionError::<Runtime>::Feasibility(FeasibilityError::SnapshotUnavailable)
-			);
-
-			assert_eq!(
-				multi_phase_events(),
-				vec![
-					Event::ElectionFailed,
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Emergency, round: 1 },
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn snapshot_too_big_failure_no_fallback() {
-		// and if the backup mode is nothing, we go into the emergency mode..
-		ExtBuilder::default().onchain_fallback(false).build_and_execute(|| {
-			// sets bounds on number of targets.
-			let new_bounds = ElectionBoundsBuilder::default().targets_count(1_000.into()).build();
-			ElectionsBounds::set(new_bounds);
-
-			Targets::set((0..(TargetIndex::max_value() as AccountId) + 1).collect::<Vec<_>>());
-
-			// Signed phase failed to open.
-			roll_to(15);
-			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
-
-			// Unsigned phase failed to open.
-			roll_to(25);
-			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Off);
-
-			roll_to(29);
-			let err = MultiPhase::elect(SINGLE_PAGE).unwrap_err();
-			assert_eq!(err, ElectionError::Fallback("NoFallback."));
-			assert_eq!(CurrentPhase::<Runtime>::get(), Phase::Emergency);
-
-			assert_eq!(
-				multi_phase_events(),
-				vec![
-					Event::ElectionFailed,
-					Event::PhaseTransitioned { from: Phase::Off, to: Phase::Emergency, round: 1 }
-				]
-			);
-		});
 	}
 
 	#[test]

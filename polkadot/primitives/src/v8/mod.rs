@@ -241,6 +241,20 @@ pub mod well_known_keys {
 	pub const ACTIVE_CONFIG: &[u8] =
 		&hex!["06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"];
 
+	/// The authorities for the current epoch.
+	///
+	/// The storage entry should be accessed as an `Vec<(AuthorityId, BabeAuthorityWeight)>` encoded
+	/// value.
+	pub const AUTHORITIES: &[u8] =
+		&hex!["1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d"];
+
+	/// The authorities for the next epoch.
+	///
+	/// The storage entry should be accessed as an `Vec<(AuthorityId, BabeAuthorityWeight)>` encoded
+	/// value.
+	pub const NEXT_AUTHORITIES: &[u8] =
+		&hex!["1cb6f36e027abb2091cfb5110ab5087faacf00b9b41fda7a9268821c2a2b3e4c"];
+
 	/// Hash of the committed head data for a given registered para.
 	///
 	/// The storage entry stores wrapped `HeadData(Vec<u8>)`.
@@ -438,7 +452,7 @@ pub const MAX_HEAD_DATA_SIZE: u32 = 1 * 1024 * 1024;
 /// * checking updates to this stored runtime configuration do not exceed this limit
 /// * when detecting a PoV decompression bomb in the client
 // NOTE: This value is used in the runtime so be careful when changing it.
-pub const MAX_POV_SIZE: u32 = 5 * 1024 * 1024;
+pub const MAX_POV_SIZE: u32 = 10 * 1024 * 1024;
 
 /// Default queue size we use for the on-demand order book.
 ///
@@ -752,9 +766,8 @@ pub struct BackedCandidate<H = Hash> {
 	candidate: CommittedCandidateReceipt<H>,
 	/// The validity votes themselves, expressed as signatures.
 	validity_votes: Vec<ValidityAttestation>,
-	/// The indices of the validators within the group, expressed as a bitfield. May be extended
-	/// beyond the backing group size to contain the assigned core index, if ElasticScalingMVP is
-	/// enabled.
+	/// The indices of the validators within the group, expressed as a bitfield. Is extended
+	/// beyond the backing group size to contain the assigned core index.
 	validator_indices: BitVec<u8, bitvec::order::Lsb0>,
 }
 
@@ -764,12 +777,10 @@ impl<H> BackedCandidate<H> {
 		candidate: CommittedCandidateReceipt<H>,
 		validity_votes: Vec<ValidityAttestation>,
 		validator_indices: BitVec<u8, bitvec::order::Lsb0>,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> Self {
 		let mut instance = Self { candidate, validity_votes, validator_indices };
-		if let Some(core_index) = core_index {
-			instance.inject_core_index(core_index);
-		}
+		instance.inject_core_index(core_index);
 		instance
 	}
 
@@ -812,20 +823,13 @@ impl<H> BackedCandidate<H> {
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
-		core_index_enabled: bool,
 	) -> (&BitSlice<u8, bitvec::order::Lsb0>, Option<CoreIndex>) {
-		// This flag tells us if the block producers must enable Elastic Scaling MVP hack.
-		// It extends `BackedCandidate::validity_indices` to store a 8 bit core index.
-		if core_index_enabled {
-			let core_idx_offset = self.validator_indices.len().saturating_sub(8);
-			if core_idx_offset > 0 {
-				let (validator_indices_slice, core_idx_slice) =
-					self.validator_indices.split_at(core_idx_offset);
-				return (
-					validator_indices_slice,
-					Some(CoreIndex(core_idx_slice.load::<u8>() as u32)),
-				);
-			}
+		// `BackedCandidate::validity_indices` are extended to store a 8 bit core index.
+		let core_idx_offset = self.validator_indices.len().saturating_sub(8);
+		if core_idx_offset > 0 {
+			let (validator_indices_slice, core_idx_slice) =
+				self.validator_indices.split_at(core_idx_offset);
+			return (validator_indices_slice, Some(CoreIndex(core_idx_slice.load::<u8>() as u32)));
 		}
 
 		(&self.validator_indices, None)
@@ -1345,7 +1349,7 @@ pub struct AbridgedHostConfiguration {
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
 /// used by a parachain or PDK such as cumulus.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
+#[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct AbridgedHrmpChannel {
 	/// The maximum number of messages that can be pending in the channel at once.
 	pub max_capacity: u32,
@@ -2309,60 +2313,35 @@ pub mod tests {
 			dummy_committed_candidate_receipt(),
 			vec![],
 			initial_validator_indices.clone(),
-			None,
+			CoreIndex(10),
 		);
 
-		// No core index supplied, ElasticScalingMVP is off.
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
+		// No core index supplied.
+		candidate
+			.set_validator_indices_and_core_index(initial_validator_indices.clone().into(), None);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
 		assert!(core_index.is_none());
 
-		// No core index supplied, ElasticScalingMVP is on. Still, decoding will be ok if backing
-		// group size is <= 8, to give a chance to parachains that don't have multiple cores
-		// assigned.
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
-		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
-		assert!(core_index.is_none());
-
-		let encoded_validator_indices = candidate.validator_indices.clone();
-		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
-		assert_eq!(candidate.validator_indices, encoded_validator_indices);
-
-		// No core index supplied, ElasticScalingMVP is on. Decoding is corrupted if backing group
+		// No core index supplied. Decoding is corrupted if backing group
 		// size larger than 8.
-		let candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt(),
-			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0],
+		candidate.set_validator_indices_and_core_index(
+			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0].into(),
 			None,
 		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0].as_bitslice());
 		assert!(core_index.is_some());
 
-		// Core index supplied, ElasticScalingMVP is off. Core index will be treated as normal
-		// validator indices. Runtime will check against this.
-		let candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt(),
-			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
-			Some(CoreIndex(10)),
-		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(false);
-		assert_eq!(
-			validator_indices,
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0]
-		);
-		assert!(core_index.is_none());
-
-		// Core index supplied, ElasticScalingMVP is on.
+		// Core index supplied.
 		let mut candidate = BackedCandidate::new(
 			dummy_committed_candidate_receipt(),
 			vec![],
 			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
-			Some(CoreIndex(10)),
+			CoreIndex(10),
 		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index(true);
+		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
 		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1]);
 		assert_eq!(core_index, Some(CoreIndex(10)));
 

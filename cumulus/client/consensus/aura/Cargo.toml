@@ -64,7 +64,5 @@ cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true }
 rstest = { workspace = true }
 sp-keyring = { workspace = true }
-
-[features]
-# Allows collator to use full PoV size for block building
-full-pov-size = []
+sp-tracing = { workspace = true }
+sp-version = { workspace = true }

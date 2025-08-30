@@ -784,6 +784,14 @@ impl RelayChainRpcClient {
 		))?;
 		Ok(rx)
 	}
+
+	pub async fn parachain_host_para_ids(
+		&self,
+		at: RelayHash,
+	) -> Result<Vec<ParaId>, RelayChainError> {
+		self.call_remote_runtime_function("ParachainHost_para_ids", at, None::<()>)
+			.await
+	}
 }
 
 /// Send `header` through all channels contained in `senders`.

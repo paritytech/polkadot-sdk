@@ -44,6 +44,16 @@ pub(super) async fn update_view(
 	.await;
 
 	for _ in 0..activated {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionIndexForChild(tx),
+			)) => {
+				tx.send(Ok(test_state.current_session_index())).unwrap();
+			}
+		);
+
 		// obtain the claim queue schedule.
 		let (leaf_hash, leaf_number) = assert_matches!(
 			overseer_recv(virtual_overseer).await,
@@ -181,32 +191,46 @@ pub(super) async fn update_view(
 		}
 
 		for _ in ancestry_iter {
-			let Some(msg) =
+			while let Some(msg) =
 				overseer_peek_with_timeout(virtual_overseer, Duration::from_millis(50)).await
-			else {
-				return
-			};
-
-			if !matches!(
-				&msg,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::ClaimQueue(_)
-				))
-			) {
-				// Claim queue has already been fetched for this leaf.
-				break
-			}
-
-			assert_matches!(
-				overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50)).await.unwrap(),
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::ClaimQueue(tx),
-				)) => {
-					tx.send(Ok(test_state.claim_queue.clone())).unwrap();
+			{
+				if !matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::ClaimQueue(_),
+					))
+				) && !matches!(
+					&msg,
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::CandidateEvents(_),
+					))
+				) {
+					break
 				}
-			);
+
+				match overseer_recv_with_timeout(virtual_overseer, Duration::from_millis(50))
+					.await
+					.unwrap()
+				{
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::ClaimQueue(tx),
+					)) => {
+						tx.send(Ok(test_state.claim_queue.clone())).unwrap();
+					},
+					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						..,
+						RuntimeApiRequest::CandidateEvents(tx),
+					)) => {
+						tx.send(Ok(vec![])).unwrap();
+					},
+					_ => {
+						unimplemented!()
+					},
+				}
+			}
 		}
 	}
 }
@@ -221,7 +245,7 @@ pub(super) async fn expect_declare_msg(
 		overseer_recv(virtual_overseer).await,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(
 			to,
-			Versioned::V2(protocol_v2::CollationProtocol::CollatorProtocol(
+			CollationProtocols::V2(protocol_v2::CollationProtocol::CollatorProtocol(
 				wire_message,
 			)),
 		)) => {
@@ -681,6 +705,7 @@ fn advertise_and_send_collation_by_hash() {
 					(candidate, pov)
 				})
 				.collect();
+
 			for (candidate, pov) in &candidates {
 				distribute_collation_with_receipt(
 					&mut virtual_overseer,

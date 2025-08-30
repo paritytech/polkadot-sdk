@@ -21,23 +21,25 @@ use crate::{
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
-use frame_election_provider_support::ElectionDataProvider;
+use frame_election_provider_support::ElectionProvider;
 use frame_support::{assert_ok, pallet_prelude::*};
 use frame_system::RawOrigin;
 use sp_std::boxed::Box;
+
 #[benchmarks(where T: crate::Config + crate::signed::Config + crate::verifier::Config)]
 mod benchmarks {
 	use super::*;
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn validate_unsigned() -> Result<(), BenchmarkError> {
-		// TODO: for now we are not using this, maybe remove?
-		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
-		let call: Call<T> = OffchainWorkerMiner::<T>::mine_solution(1, false)
+		let call: Call<T> = OffchainWorkerMiner::<T>::mine_solution(T::MinerPages::get(), false)
 			.map(|solution| Call::submit_unsigned { paged_solution: Box::new(solution) })
 			.unwrap();
 
@@ -49,15 +51,19 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn submit_unsigned() -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
 		// roll to unsigned phase open
-		T::DataProvider::set_next_election(crate::Pallet::<T>::reasonable_next_election());
 		crate::Pallet::<T>::roll_until_matches(|| {
 			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
 		});
 		// TODO: we need to better ensure that this is actually worst case
-		let solution = OffchainWorkerMiner::<T>::mine_solution(1, false).unwrap();
+		let solution =
+			OffchainWorkerMiner::<T>::mine_solution(T::MinerPages::get(), false).unwrap();
 
 		// nothing is queued
 		assert!(T::Verifier::queued_score().is_none());
@@ -68,6 +74,25 @@ mod benchmarks {
 
 		// something is queued
 		assert!(T::Verifier::queued_score().is_some());
+		Ok(())
+	}
+
+	#[benchmark(extra, pov_mode = Measured)]
+	fn mine_solution(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
+		#[cfg(test)]
+		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
+		crate::Pallet::<T>::start().unwrap();
+
+		// roll to unsigned phase open
+		crate::Pallet::<T>::roll_until_matches(|| {
+			matches!(CurrentPhase::<T>::get(), Phase::Unsigned(_))
+		});
+
+		#[block]
+		{
+			OffchainWorkerMiner::<T>::mine_solution(p, true).unwrap();
+		}
+
 		Ok(())
 	}
 

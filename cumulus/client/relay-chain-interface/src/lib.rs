@@ -31,7 +31,7 @@ use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
-use cumulus_primitives_core::relay_chain::{BlockId, Hash as RelayHash};
+use cumulus_primitives_core::relay_chain::{vstaging::CandidateEvent, BlockId, Hash as RelayHash};
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
@@ -248,6 +248,8 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Fetch the scheduling lookahead value.
 	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
 }
 
 #[async_trait]
@@ -405,6 +407,10 @@ where
 
 	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32> {
 		(**self).scheduling_lookahead(relay_parent).await
+	}
+
+	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		(**self).candidate_events(at).await
 	}
 }
 

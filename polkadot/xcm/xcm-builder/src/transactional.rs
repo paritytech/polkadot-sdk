@@ -35,6 +35,9 @@ impl ProcessTransaction for FrameTransactionalProcessor {
 				_ => TransactionOutcome::Rollback(Ok(output)),
 			}
 		})
-		.map_err(|_| XcmError::ExceedsStackLimit)?
+		.map_err(|error| {
+			tracing::debug!(target: "xcm::transactional", ?error, "Failed to process XCM transaction");
+			XcmError::ExceedsStackLimit
+		})?
 	}
 }

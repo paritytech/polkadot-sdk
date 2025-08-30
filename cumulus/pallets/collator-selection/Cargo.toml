@@ -35,7 +35,6 @@ frame-benchmarking = { optional = true, workspace = true }
 pallet-aura = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
@@ -47,6 +46,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",

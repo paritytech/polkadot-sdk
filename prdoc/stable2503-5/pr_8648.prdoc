@@ -1,0 +1,10 @@
+title: Charge deposit based on key length
+doc:
+- audience: Runtime Dev
+  description: We were only charging storage deposit based on value length but not
+    based on key length. Since we allow for variable length keys this has to be done.
+    Needs to be back ported since changing this in an already deployed system will
+    be nasty.
+crates:
+- name: pallet-revive
+  bump: patch

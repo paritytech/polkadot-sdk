@@ -508,6 +508,7 @@ validate_stable_tag() {
 }
 
 # Prepare docker stable tag form the polkadot stable tag
+#
 # input: tag (polkaodot-stableYYMM(-X) or polkadot-stableYYMM(-X)-rcX)
 # output: stableYYMM(-X) or stableYYMM(-X)-rcX
 prepare_docker_stable_tag() {
@@ -518,4 +519,38 @@ prepare_docker_stable_tag() {
       echo "Tag is invalid: $tag"
       exit 1
   fi
+}
+
+# Parse names of the branches from the github labels based on the pattern
+#
+# input: labels (array of lables like ("A3-backport" "RO-silent" "A4-backport-stable2407" "A4-backport-stable2503"))
+# output: BRANCHES (array of the branch names)
+parse_branch_names_from_backport_labels() {
+  labels="$1"
+  BRANCHES=""
+
+  for label in $labels; do
+    if [[ "$label" =~ ^A4-backport-(stable|unstable)[0-9]{4}$ ]]; then
+      branch_name=$(sed 's/A4-backport-//' <<< "$label")
+      BRANCHES+=" ${branch_name}"
+    fi
+  done
+
+  BRANCHES=$(echo "$BRANCHES" | sed 's/^ *//')
+  echo "$BRANCHES"
+}
+
+# Extract the PR number from the PR title
+#
+# input: PR_TITLE
+# output: PR_NUMBER or exit 1 if the PR title does not contain the PR number
+extract_pr_number_from_pr_title() {
+  PR_TITLE=$1
+  if [[ "$PR_TITLE" =~ \#([0-9]+) ]]; then
+    PR_NUMBER="${BASH_REMATCH[1]}"
+  else
+    echo "⚠️ The PR title does not contain original PR number. PR title should be in form: [stableBranchName] Backport #originalPRNumber"
+    exit 1
+  fi
+  echo $PR_NUMBER
 }

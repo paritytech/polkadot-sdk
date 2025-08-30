@@ -1,0 +1,33 @@
+title: 'pallet_revive: Replace adhoc pre-compiles with pre-compile framework'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PRs adds the ability to define custom pre-compiles from outside the pallet. Before, all pre-compiles were hard coded as part of the pallet.
+
+    ## Design
+    1. Adding a pre-compile is as easy as implementing the new `Precompile` trait on any type. It can be added to the pallet by passing it into `Config::Precompiles`. This config know excepts a tuple of multiple types that each implement `Precompile`.
+    2. Each pre-compile has to implement Solidity ABI. Meaning its inputs and outputs are encoded according to Eth ABI. This makes writing a pre-compile much simpler since it doesn't have to implement its own decoding logic. More importantly: It makes it trivial to consume the API from a Solidity contract.
+    3. We constrain the address space of pre-compiles to a safe range so that they cannot accidentally match a wide range creating a collision with real contracts.
+    4. We check that pre-compile address ranges do not overlap at compile time.
+    5. Pre-compiles behave exactly as a normal contract. They exist as frames on the call stack and the environment they observe is their own (not the one of the calling contract). They can also be delegate called which changes the semantics in the same way as for normal contracts: They observe the environment of the calling contract.
+    6. They can also be called by the origin without any other contract in-between.
+
+    Check the rustdocs of the `precompile` module on how to write a pre-compile.
+
+    ## Changes
+    1. A new module `precompiles` is added that contains the framework to write pre-compiles. It also contains the sub module `builtin` that contains hard coded pre-compiles which exist Ethereum.
+    2. The `pure_precompiles` module was deleted since all its pre-compiles were ported over to the new framework and are now housed in `builtin`.
+    4. The `CallSetup` type is moved outside of the `benchmarking` module because it is also needed for testing code now.  It is intended to be used for implementors outside of the crate to test the pre-compiles (in addition to benchmarking them).
+
+    ## Follow Ups
+    - Enrich the `CallSetup` API with more functions in order to allow testing more complex scenarios. Should probably be done in tandem with writing the ERC20 pre-compile.
+    - The collision checks for pre-compile addresses are done at compile time. They need some `try_build` tests to make sure it works as intended.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major

@@ -68,7 +68,7 @@ impl<
 
 			ProcessMessageError::Unsupported
 		})?;
-		let pre = XcmExecutor::prepare(message).map_err(|_| {
+		let pre = XcmExecutor::prepare(message, Weight::MAX).map_err(|_| {
 			tracing::trace!(
 				target: LOG_TARGET,
 				"Failed to prepare message.",
@@ -97,18 +97,23 @@ impl<
 				);
 				(used, Ok(true))
 			},
-			Outcome::Incomplete { used, error } => {
+			Outcome::Incomplete { used, error: InstructionError { index, error } } => {
 				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution incomplete, used weight: {used}, error: {error:?}",
+					?error,
+					?index,
+					?used,
+					"XCM message execution incomplete",
 				);
 				(used, Ok(false))
 			},
 			// In the error-case we assume the worst case and consume all possible weight.
-			Outcome::Error { error } => {
+			Outcome::Error(InstructionError { error, index }) => {
 				tracing::trace!(
 					target: LOG_TARGET,
-					"XCM message execution error: {error:?}",
+					?error,
+					?index,
+					"XCM message execution error",
 				);
 				let error = match error {
 					xcm::latest::Error::ExceedsStackLimit => ProcessMessageError::StackLimitReached,
@@ -173,7 +178,8 @@ mod tests {
 			type Prepared = xcm_executor::WeighedMessage<()>;
 			fn prepare(
 				message: xcm::latest::Xcm<()>,
-			) -> core::result::Result<Self::Prepared, xcm::latest::Xcm<()>> {
+				_: Weight,
+			) -> core::result::Result<Self::Prepared, InstructionError> {
 				Ok(xcm_executor::WeighedMessage::new(Weight::zero(), message))
 			}
 			fn execute(
@@ -182,7 +188,10 @@ mod tests {
 				_: &mut XcmHash,
 				_: Weight,
 			) -> Outcome {
-				Outcome::Error { error: xcm::latest::Error::ExceedsStackLimit }
+				Outcome::Error(InstructionError {
+					index: 0,
+					error: xcm::latest::Error::ExceedsStackLimit,
+				})
 			}
 			fn charge_fees(_location: impl Into<Location>, _fees: Assets) -> xcm::latest::Result {
 				unreachable!()

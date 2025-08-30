@@ -24,13 +24,15 @@ use cumulus_client_consensus_common::ParachainConsensus;
 use cumulus_client_network::{AssumeSybilResistance, RequireSecondedInBlockAnnounce};
 use cumulus_client_pov_recovery::{PoVRecovery, RecoveryDelayRange, RecoveryHandle};
 use cumulus_primitives_core::{CollectCollationInfo, ParaId};
+pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::{
 	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
 };
 use futures::{channel::mpsc, StreamExt};
-use polkadot_primitives::{CollatorPair, OccupiedCoreAssumption};
+use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
+use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
 };
@@ -38,7 +40,10 @@ use sc_consensus::{
 	import_queue::{ImportQueue, ImportQueueService},
 	BlockImport,
 };
-use sc_network::{config::SyncMode, service::traits::NetworkService, NetworkBackend};
+use sc_network::{
+	config::SyncMode, request_responses::IncomingRequest, service::traits::NetworkService,
+	NetworkBackend,
+};
 use sc_network_sync::SyncingService;
 use sc_network_transactions::TransactionsHandlerController;
 use sc_service::{Configuration, SpawnTaskHandle, TaskManager, WarpSyncConfig};
@@ -47,10 +52,14 @@ use sc_utils::mpsc::TracingUnboundedSender;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{traits::SpawnNamed, Decode};
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, Header};
-use std::{sync::Arc, time::Duration};
-
-pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
+use sp_runtime::{
+	traits::{Block as BlockT, BlockIdTo, Header},
+	SaturatedConversion, Saturating,
+};
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 /// Host functions that should be used in parachain nodes.
 ///
@@ -93,6 +102,7 @@ pub struct StartCollatorParams<'a, Block: BlockT, BS, Client, RCInterface, Spawn
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
 	pub sync_service: Arc<SyncingService<Block>>,
+	pub prometheus_registry: Option<&'a Registry>,
 }
 
 /// Parameters given to [`start_relay_chain_tasks`].
@@ -107,6 +117,7 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub relay_chain_slot_duration: Duration,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
 	pub sync_service: Arc<SyncingService<Block>>,
+	pub prometheus_registry: Option<&'a Registry>,
 }
 
 /// Parameters given to [`start_full_node`].
@@ -120,6 +131,7 @@ pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
 	pub import_queue: Box<dyn ImportQueueService<Block>>,
 	pub recovery_handle: Box<dyn RecoveryHandle>,
 	pub sync_service: Arc<SyncingService<Block>>,
+	pub prometheus_registry: Option<&'a Registry>,
 }
 
 /// Start a collator node for a parachain.
@@ -143,6 +155,7 @@ pub async fn start_collator<'a, Block, BS, Client, Backend, RCInterface, Spawner
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service,
+		prometheus_registry,
 	}: StartCollatorParams<'a, Block, BS, Client, RCInterface, Spawner>,
 ) -> sc_service::error::Result<()>
 where
@@ -178,6 +191,7 @@ where
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service,
+		prometheus_registry,
 	})?;
 
 	#[allow(deprecated)]
@@ -203,6 +217,8 @@ where
 /// arrive via the normal p2p layer (i.e. when authors withhold their blocks deliberately).
 ///
 /// This function spawns work for those side tasks.
+///
+/// It also spawns a parachain informant task that will log the relay chain state and some metrics.
 pub fn start_relay_chain_tasks<Block, Client, Backend, RCInterface>(
 	StartRelayChainTasksParams {
 		client,
@@ -215,12 +231,14 @@ pub fn start_relay_chain_tasks<Block, Client, Backend, RCInterface>(
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service,
+		prometheus_registry,
 	}: StartRelayChainTasksParams<Block, Client, RCInterface>,
 ) -> sc_service::error::Result<()>
 where
 	Block: BlockT,
 	Client: Finalizer<Block, Backend>
 		+ UsageProvider<Block>
+		+ HeaderBackend<Block>
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
@@ -276,12 +294,21 @@ where
 		relay_chain_interface.clone(),
 		para_id,
 		recovery_chan_rx,
-		sync_service,
+		sync_service.clone(),
 	);
 
 	task_manager
 		.spawn_essential_handle()
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
+
+	let parachain_informant = parachain_informant::<Block, _>(
+		relay_chain_interface.clone(),
+		client.clone(),
+		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
+	);
+	task_manager
+		.spawn_handle()
+		.spawn("parachain-informant", None, parachain_informant);
 
 	Ok(())
 }
@@ -302,12 +329,14 @@ pub fn start_full_node<Block, Client, Backend, RCInterface>(
 		import_queue,
 		recovery_handle,
 		sync_service,
+		prometheus_registry,
 	}: StartFullNodeParams<Block, Client, RCInterface>,
 ) -> sc_service::error::Result<()>
 where
 	Block: BlockT,
 	Client: Finalizer<Block, Backend>
 		+ UsageProvider<Block>
+		+ HeaderBackend<Block>
 		+ Send
 		+ Sync
 		+ BlockBackend<Block>
@@ -328,6 +357,7 @@ where
 		recovery_handle,
 		sync_service,
 		da_recovery_profile: DARecoveryProfile::FullNode,
+		prometheus_registry,
 	})
 }
 
@@ -341,10 +371,15 @@ pub mod old_consensus {
 
 /// Prepare the parachain's node configuration
 ///
-/// This function will disable the default announcement of Substrate for the parachain in favor
-/// of the one of Cumulus.
+/// This function will:
+/// * Disable the default announcement of Substrate for the parachain in favor of the one of
+///   Cumulus.
+/// * Set peers needed to start warp sync to 1.
 pub fn prepare_node_config(mut parachain_config: Configuration) -> Configuration {
 	parachain_config.announce_block = false;
+	// Parachains only need 1 peer to start warp sync, because the target block is fetched from the
+	// relay chain.
+	parachain_config.network.min_peers_to_start_warp_sync = Some(1);
 
 	parachain_config
 }
@@ -359,7 +394,12 @@ pub async fn build_relay_chain_interface(
 	task_manager: &mut TaskManager,
 	collator_options: CollatorOptions,
 	hwbench: Option<sc_sysinfo::HwBench>,
-) -> RelayChainResult<(Arc<(dyn RelayChainInterface + 'static)>, Option<CollatorPair>)> {
+) -> RelayChainResult<(
+	Arc<(dyn RelayChainInterface + 'static)>,
+	Option<CollatorPair>,
+	Arc<dyn NetworkService>,
+	async_channel::Receiver<IncomingRequest>,
+)> {
 	match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => build_inprocess_relay_chain(
 			relay_chain_config,
@@ -421,6 +461,7 @@ pub struct BuildNetworkParams<
 	pub spawn_handle: SpawnTaskHandle,
 	pub import_queue: IQ,
 	pub sybil_resistance_level: CollatorSybilResistance,
+	pub metrics: sc_network::NotificationMetrics,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -435,6 +476,7 @@ pub async fn build_network<'a, Block, Client, RCInterface, IQ, Network>(
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
+		metrics,
 	}: BuildNetworkParams<'a, Block, Client, Network, RCInterface, IQ>,
 ) -> sc_service::error::Result<(
 	Arc<dyn NetworkService>,
@@ -493,9 +535,6 @@ where
 			Box::new(block_announce_validator) as Box<_>
 		},
 	};
-	let metrics = Network::register_notification_metrics(
-		parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
-	);
 
 	sc_service::build_network(sc_service::BuildNetworkParams {
 		config: parachain_config,
@@ -566,4 +605,152 @@ where
 	}
 
 	Err("Stopping following imported blocks. Could not determine parachain target block".into())
+}
+
+/// Task for logging candidate events and some related metrics.
+async fn parachain_informant<Block: BlockT, Client>(
+	relay_chain_interface: impl RelayChainInterface + Clone,
+	client: Arc<Client>,
+	metrics: Option<ParachainInformantMetrics>,
+) where
+	Client: HeaderBackend<Block> + Send + Sync + 'static,
+{
+	let mut import_notifications = match relay_chain_interface.import_notification_stream().await {
+		Ok(import_notifications) => import_notifications,
+		Err(e) => {
+			log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
+			return
+		},
+	};
+	let mut last_backed_block_time: Option<Instant> = None;
+	while let Some(n) = import_notifications.next().await {
+		let candidate_events = match relay_chain_interface.candidate_events(n.hash()).await {
+			Ok(candidate_events) => candidate_events,
+			Err(e) => {
+				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
+				continue
+			},
+		};
+		let mut backed_candidates = Vec::new();
+		let mut included_candidates = Vec::new();
+		let mut timed_out_candidates = Vec::new();
+		for event in candidate_events {
+			match event {
+				CandidateEvent::CandidateBacked(_, head, _, _) => {
+					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from backed block: {e:?}"
+							);
+							continue
+						},
+					};
+					let backed_block_time = Instant::now();
+					if let Some(last_backed_block_time) = &last_backed_block_time {
+						let duration = backed_block_time.duration_since(*last_backed_block_time);
+						if let Some(metrics) = &metrics {
+							metrics.parachain_block_backed_duration.observe(duration.as_secs_f64());
+						}
+					}
+					last_backed_block_time = Some(backed_block_time);
+					backed_candidates.push(backed_block);
+				},
+				CandidateEvent::CandidateIncluded(_, head, _, _) => {
+					let included_block = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from included block: {e:?}"
+							);
+							continue
+						},
+					};
+					let unincluded_segment_size =
+						client.info().best_number.saturating_sub(*included_block.number());
+					let unincluded_segment_size: u32 = unincluded_segment_size.saturated_into();
+					if let Some(metrics) = &metrics {
+						metrics.unincluded_segment_size.observe(unincluded_segment_size.into());
+					}
+					included_candidates.push(included_block);
+				},
+				CandidateEvent::CandidateTimedOut(_, head, _) => {
+					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
+						Ok(header) => header,
+						Err(e) => {
+							log::warn!(
+								"Failed to decode parachain header from timed out block: {e:?}"
+							);
+							continue
+						},
+					};
+					timed_out_candidates.push(timed_out_block);
+				},
+			}
+		}
+		let mut log_parts = Vec::new();
+		if !backed_candidates.is_empty() {
+			let backed_candidates = backed_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("backed: {}", backed_candidates));
+		};
+		if !included_candidates.is_empty() {
+			let included_candidates = included_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("included: {}", included_candidates));
+		};
+		if !timed_out_candidates.is_empty() {
+			let timed_out_candidates = timed_out_candidates
+				.into_iter()
+				.map(|c| format!("#{} ({})", c.number(), c.hash()))
+				.collect::<Vec<_>>()
+				.join(", ");
+			log_parts.push(format!("timed out: {}", timed_out_candidates));
+		};
+		if !log_parts.is_empty() {
+			log::info!(
+				"Update at relay chain block #{} ({}) - {}",
+				n.number(),
+				n.hash(),
+				log_parts.join(", ")
+			);
+		}
+	}
+}
+
+struct ParachainInformantMetrics {
+	/// Time between parachain blocks getting backed by the relaychain.
+	parachain_block_backed_duration: Histogram,
+	/// Number of blocks between best block and last included block.
+	unincluded_segment_size: Histogram,
+}
+
+impl ParachainInformantMetrics {
+	fn new(prometheus_registry: &Registry) -> prometheus::Result<Self> {
+		let parachain_block_authorship_duration = Histogram::with_opts(HistogramOpts::new(
+			"parachain_block_backed_duration",
+			"Time between parachain blocks getting backed by the relaychain",
+		))?;
+		prometheus_registry.register(Box::new(parachain_block_authorship_duration.clone()))?;
+
+		let unincluded_segment_size = Histogram::with_opts(
+			HistogramOpts::new(
+				"parachain_unincluded_segment_size",
+				"Number of blocks between best block and last included block",
+			)
+			.buckets((0..=24).into_iter().map(|i| i as f64).collect()),
+		)?;
+		prometheus_registry.register(Box::new(unincluded_segment_size.clone()))?;
+
+		Ok(Self {
+			parachain_block_backed_duration: parachain_block_authorship_duration,
+			unincluded_segment_size,
+		})
+	}
 }

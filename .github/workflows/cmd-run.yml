@@ -176,8 +176,8 @@ jobs:
           # install deps and run a command from master
           python3 -m pip install -r $BOT_PATH/scripts/generate-prdoc.requirements.txt
           python3 $BOT_PATH/scripts/cmd/cmd.py $CMD $PR_ARG
-          git status
-          git diff
+          git status > /tmp/cmd/git_status.log
+          git diff > /tmp/cmd/git_diff.log
 
           if [ -f /tmp/cmd/command_output.log ]; then
             CMD_OUTPUT=$(cat /tmp/cmd/command_output.log)
@@ -207,11 +207,22 @@ jobs:
           name: command-diff
           path: /tmp/cmd/command_diff.patch
 
+      - name: Upload git status
+        uses: actions/upload-artifact@v4
+        with:
+          name: git-status
+          path: /tmp/cmd/git_status.log
+
+      - name: Upload git diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: git-diff
+          path: /tmp/cmd/git_diff.log
+
       - name: Install subweight for bench
         if: startsWith(github.event.inputs.cmd, 'bench')
         run: cargo install subweight
 
-      # TODO: fix for forks, refs/remotes/origin/master should be replaced with master branch from paritytech/polkadot-sdk
       - name: Run Subweight for bench
         id: subweight
         if: startsWith(github.event.inputs.cmd, 'bench')
@@ -230,12 +241,29 @@ jobs:
             --ignore-errors \
             refs/remotes/origin/master $PR_BRANCH)
 
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
+          # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
+            echo "Subweight result is too large, truncating..."
+            echo "Please check subweight.log for the full output"
+            result="Please check subweight.log for the full output"
+          fi
+          echo "Trying to save subweight result to GITHUB_OUTPUT"
           # Save the multiline result to the output
           {
             echo "result<<EOF"
             echo "$result"
             echo "EOF"
           } >> $GITHUB_OUTPUT
+
+      - name: Upload Subweight
+        uses: actions/upload-artifact@v4
+        if: startsWith(github.event.inputs.cmd, 'bench')
+        with:
+          name: subweight
+          path: /tmp/cmd/subweight.log
 
   after-cmd:
     needs: [cmd, before-cmd]
@@ -247,7 +275,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}

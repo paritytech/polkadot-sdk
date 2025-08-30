@@ -17,21 +17,23 @@
 
 //! A crate that hosts a common definitions that are relevant for the pallet-revive.
 
-use crate::{H160, U256};
+use crate::{BalanceOf, Config, Error, H160, U256};
 use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
+use sp_arithmetic::traits::Bounded;
+use sp_core::Get;
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
 
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum DepositLimit<Balance> {
 	/// Allows bypassing all balance transfer checks.
-	Unchecked,
+	UnsafeOnlyForDryRun,
 
 	/// Specifies a maximum allowable balance for a deposit.
 	Balance(Balance),
@@ -40,7 +42,7 @@ pub enum DepositLimit<Balance> {
 impl<T> DepositLimit<T> {
 	pub fn is_unchecked(&self) -> bool {
 		match self {
-			Self::Unchecked => true,
+			Self::UnsafeOnlyForDryRun => true,
 			_ => false,
 		}
 	}
@@ -49,6 +51,15 @@ impl<T> DepositLimit<T> {
 impl<T> From<T> for DepositLimit<T> {
 	fn from(value: T) -> Self {
 		Self::Balance(value)
+	}
+}
+
+impl<T: Bounded + Copy> DepositLimit<T> {
+	pub fn limit(&self) -> T {
+		match self {
+			Self::UnsafeOnlyForDryRun => T::max_value(),
+			Self::Balance(limit) => *limit,
+		}
 	}
 }
 
@@ -84,12 +95,12 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// The execution result of the wasm code.
+	/// The execution result of the vm binary code.
 	pub result: Result<R, DispatchError>,
 }
 
 /// The result of the execution of a `eth_transact` call.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct EthTransactInfo<Balance> {
 	/// The amount of gas that was necessary to execute the transaction.
 	pub gas_required: Weight,
@@ -108,12 +119,66 @@ pub enum EthTransactError {
 	Message(String),
 }
 
-/// Precision used for converting between Native and EVM balances.
-pub enum ConversionPrecision {
-	/// Exact conversion without any rounding.
-	Exact,
-	/// Conversion that rounds up to the nearest whole number.
-	RoundUp,
+/// A Balance amount along with some "dust" to represent the lowest decimals that can't be expressed
+/// in the native currency
+#[derive(Default, Clone, Copy, Eq, PartialEq, Debug)]
+pub struct BalanceWithDust<Balance> {
+	/// The value expressed in the native currency
+	value: Balance,
+	/// The dust, representing up to 1 unit of the native currency.
+	/// The dust is bounded between 0 and `crate::Config::NativeToEthRatio`
+	dust: u32,
+}
+
+impl<Balance> From<Balance> for BalanceWithDust<Balance> {
+	fn from(value: Balance) -> Self {
+		Self { value, dust: 0 }
+	}
+}
+
+impl<Balance> BalanceWithDust<Balance> {
+	/// Deconstructs the `BalanceWithDust` into its components.
+	pub fn deconstruct(self) -> (Balance, u32) {
+		(self.value, self.dust)
+	}
+
+	/// Creates a new `BalanceWithDust` with the given value and dust.
+	pub fn new_unchecked<T: Config>(value: Balance, dust: u32) -> Self {
+		debug_assert!(dust < T::NativeToEthRatio::get());
+		Self { value, dust }
+	}
+
+	/// Creates a new `BalanceWithDust` from the given EVM value.
+	pub fn from_value<T: Config>(value: U256) -> Result<BalanceWithDust<BalanceOf<T>>, Error<T>>
+	where
+		BalanceOf<T>: TryFrom<U256>,
+	{
+		if value.is_zero() {
+			return Ok(Default::default())
+		}
+
+		let (quotient, remainder) = value.div_mod(T::NativeToEthRatio::get().into());
+		let value = quotient.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+		let dust = remainder.try_into().map_err(|_| Error::<T>::BalanceConversionFailed)?;
+
+		Ok(BalanceWithDust { value, dust })
+	}
+}
+
+impl<Balance: Zero + One + Saturating> BalanceWithDust<Balance> {
+	/// Returns true if both the value and dust are zero.
+	pub fn is_zero(&self) -> bool {
+		self.value.is_zero() && self.dust == 0
+	}
+
+	/// Returns the Balance rounded to the nearest whole unit if the dust is non-zero.
+	pub fn into_rounded_balance(self) -> Balance {
+		if self.dust == 0 {
+			self.value
+		} else {
+			self.value.saturating_add(Balance::one())
+		}
+	}
 }
 
 /// Result type of a `bare_code_upload` call.
@@ -165,12 +230,12 @@ pub struct CodeUploadReturnValue<Balance> {
 	pub deposit: Balance,
 }
 
-/// Reference to an existing code hash or a new wasm module.
+/// Reference to an existing code hash or a new vm module.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum Code {
-	/// A wasm module as raw bytes.
+	/// A vm module as raw bytes.
 	Upload(Vec<u8>),
-	/// The code hash of an on-chain wasm blob.
+	/// The code hash of an on-chain vm binary blob.
 	Existing(sp_core::H256),
 }
 
@@ -273,4 +338,22 @@ where
 			Refund(amount) => limit.saturating_add(*amount),
 		}
 	}
+}
+
+/// Indicates whether the account nonce should be incremented after instantiating a new contract.
+///
+/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
+/// each instantiation, ensuring that each instantiation uses a unique nonce.
+///
+/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
+/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
+///
+/// Note:
+/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+/// extension.
+pub enum BumpNonce {
+	/// Do not increment the nonce after contract instantiation
+	No,
+	/// Increment the nonce after contract instantiation
+	Yes,
 }

@@ -1008,7 +1008,8 @@ macro_rules! impl_benchmark {
 					$(
 						(stringify!($pov_name).as_bytes().to_vec(),
 						$crate::__private::vec![
-							$( ( stringify!($storage).as_bytes().to_vec(),
+							// Stringify sometimes includes spaces, depending on the Rust version.
+							$( ( stringify!($storage).replace(" ", "").as_bytes().to_vec(),
 								 stringify!($pov_mode).as_bytes().to_vec() ), )*
 						]),
 					)*
@@ -1039,6 +1040,7 @@ macro_rules! impl_benchmark {
 				internal_repeats: u32,
 			) -> Result<$crate::__private::Vec<$crate::BenchmarkResult>, $crate::BenchmarkError> {
 				// Map the input to the selected benchmark.
+				$crate::benchmarking::wipe_db();
 				let extrinsic = $crate::__private::str::from_utf8(extrinsic)
 					.map_err(|_| "`extrinsic` is not a valid utf8 string!")?;
 				let selected_benchmark = match extrinsic {
@@ -1132,9 +1134,9 @@ macro_rules! impl_benchmark {
 					);
 
 					// Time the storage root recalculation.
-					let start_storage_root = $crate::benchmarking::current_time();
+					let start_storage_root = $crate::current_time();
 					$crate::__private::storage_root($crate::__private::StateVersion::V1);
-					let finish_storage_root = $crate::benchmarking::current_time();
+					let finish_storage_root = $crate::current_time();
 					let elapsed_storage_root = finish_storage_root - start_storage_root;
 
 					let skip_meta = [ $( stringify!($name_skip_meta).as_ref() ),* ];
@@ -1816,8 +1818,8 @@ pub fn show_benchmark_debug_info(
 #[macro_export]
 macro_rules! add_benchmark {
 	( $params:ident, $batches:ident, $name:path, $location:ty ) => {
-		let name_string = stringify!($name).as_bytes();
-		let instance_string = stringify!($location).as_bytes();
+		let pallet_string = stringify!($name).replace(" ", "").into_bytes();
+		let instance_string = stringify!($location).replace(" ", "").into_bytes();
 		let (config, whitelist) = $params;
 		let $crate::BenchmarkConfig {
 			pallet,
@@ -1827,7 +1829,7 @@ macro_rules! add_benchmark {
 			verify,
 			internal_repeats,
 		} = config;
-		if &pallet[..] == &name_string[..] && &instance[..] == &instance_string[..] {
+		if &pallet[..] == &pallet_string[..] && &instance[..] == &instance_string[..] {
 			let benchmark_result = <$location as $crate::Benchmarking>::run_benchmark(
 				&benchmark[..],
 				&selected_components[..],
@@ -1850,7 +1852,7 @@ macro_rules! add_benchmark {
 				},
 				Err($crate::BenchmarkError::Stop(e)) => {
 					$crate::show_benchmark_debug_info(
-						instance_string,
+						&instance_string,
 						benchmark,
 						selected_components,
 						verify,
@@ -1881,8 +1883,8 @@ macro_rules! add_benchmark {
 
 			if let Some(final_results) = final_results {
 				$batches.push($crate::BenchmarkBatch {
-					pallet: name_string.to_vec(),
-					instance: instance_string.to_vec(),
+					pallet: pallet_string,
+					instance: instance_string,
 					benchmark: benchmark.clone(),
 					results: final_results,
 				});
@@ -1913,12 +1915,12 @@ macro_rules! add_benchmark {
 #[macro_export]
 macro_rules! list_benchmark {
 	( $list:ident, $extra:ident, $name:path, $location:ty ) => {
-		let pallet_string = stringify!($name).as_bytes();
-		let instance_string = stringify!($location).as_bytes();
+		let pallet_string = stringify!($name).replace(" ", "").into_bytes();
+		let instance_string = stringify!($location).replace(" ", "").into_bytes();
 		let benchmarks = <$location as $crate::Benchmarking>::benchmarks($extra);
 		let pallet_benchmarks = $crate::BenchmarkList {
-			pallet: pallet_string.to_vec(),
-			instance: instance_string.to_vec(),
+			pallet: pallet_string,
+			instance: instance_string,
 			benchmarks: benchmarks.to_vec(),
 		};
 		$list.push(pallet_benchmarks)
