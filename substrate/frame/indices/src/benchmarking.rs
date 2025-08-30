@@ -23,7 +23,6 @@ use crate::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
-use sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
 
@@ -35,7 +34,7 @@ mod benchmarks {
 	fn claim() {
 		let account_index = T::AccountIndex::from(SEED);
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() + T::Deposit::get());
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), account_index);
@@ -48,10 +47,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() + T::Deposit::get());
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::Currency::set_balance(&recipient, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&recipient, T::Currency::minimum_balance() + T::Deposit::get());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -67,7 +66,7 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() + T::Deposit::get());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -83,10 +82,10 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let original: T::AccountId = account("original", 0, SEED);
-		T::Currency::set_balance(&original, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&original, T::Currency::minimum_balance() + T::Deposit::get());
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let recipient_lookup = T::Lookup::unlookup(recipient.clone());
-		T::Currency::set_balance(&recipient, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&recipient, T::Currency::minimum_balance() + T::Deposit::get());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(original).into(), account_index)?;
 
@@ -102,7 +101,7 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+		T::Currency::set_balance(&caller, T::Currency::minimum_balance() + T::Deposit::get());
 		// Claim the index
 		Pallet::<T>::claim(RawOrigin::Signed(caller.clone()).into(), account_index)?;
 
@@ -118,7 +117,14 @@ mod benchmarks {
 		let account_index = T::AccountIndex::from(SEED);
 		// Setup accounts
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+
+		// The additional amount we'll add to the deposit for the index
+		let additional_amount = 2u32.into();
+
+		T::Currency::set_balance(
+			&caller,
+			T::Currency::minimum_balance() + T::Deposit::get() + additional_amount,
+		);
 
 		let original_deposit = T::Deposit::get();
 
@@ -127,10 +133,10 @@ mod benchmarks {
 
 		// Verify the initial deposit amount in storage and held balance
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
-		assert_eq!(T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller), original_deposit);
-
-		// The additional amount we'll add to the deposit for the index
-		let additional_amount = 2u32.into();
+		assert_eq!(
+			T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller),
+			original_deposit
+		);
 
 		// Hold the additional amount from the caller's balance
 		T::Currency::hold(&HoldReason::DepositForIndex.into(), &caller, additional_amount)?;
@@ -162,7 +168,10 @@ mod benchmarks {
 		assert!(Accounts::<T>::contains_key(account_index));
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().0, caller);
 		assert_eq!(Accounts::<T>::get(account_index).unwrap().1, original_deposit);
-		assert_eq!(T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller), original_deposit);
+		assert_eq!(
+			T::Currency::balance_on_hold(&HoldReason::DepositForIndex.into(), &caller),
+			original_deposit
+		);
 		Ok(())
 	}
 

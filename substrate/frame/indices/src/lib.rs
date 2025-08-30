@@ -30,8 +30,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Codec;
 use frame_support::traits::{
-	fungible::{hold::Balanced, Inspect, InspectHold, Mutate, MutateHold},
-	tokens::{Fortitude, Precision, Preservation},
+	fungible::{Inspect, InspectHold, Mutate, MutateHold},
+	tokens::{Fortitude, Precision},
 };
 use sp_runtime::{
 	traits::{AtLeast32Bit, LookupError, Saturating, StaticLookup, Zero},
@@ -77,7 +77,7 @@ pub mod pallet {
 		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The currency trait.
-		type Currency: Inspect<Self::AccountId> 
+		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
 			+ InspectHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
@@ -152,13 +152,18 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				
+
 				// Release hold from current owner
-				T::Currency::release(&HoldReason::DepositForIndex.into(), &who, amount, Precision::Exact)?;
-				
+				T::Currency::release(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					amount,
+					Precision::Exact,
+				)?;
+
 				// Place hold on new owner
 				T::Currency::hold(&HoldReason::DepositForIndex.into(), &new, amount)?;
-				
+
 				*maybe_value = Some((new.clone(), amount, false));
 				Ok(())
 			})?;
@@ -187,7 +192,12 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				T::Currency::release(&HoldReason::DepositForIndex.into(), &who, amount, Precision::Exact)?;
+				T::Currency::release(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					amount,
+					Precision::Exact,
+				)?;
 				Ok(())
 			})?;
 			Self::deposit_event(Event::IndexFreed { index });
@@ -221,7 +231,12 @@ pub mod pallet {
 			Accounts::<T>::mutate(index, |maybe_value| {
 				if let Some((account, amount, _)) = maybe_value.take() {
 					// Release hold from current owner if any
-					let _ = T::Currency::release(&HoldReason::DepositForIndex.into(), &account, amount, Precision::BestEffort);
+					let _ = T::Currency::release(
+						&HoldReason::DepositForIndex.into(),
+						&account,
+						amount,
+						Precision::BestEffort,
+					);
 				}
 				*maybe_value = Some((new.clone(), Zero::zero(), freeze));
 			});
@@ -250,10 +265,16 @@ pub mod pallet {
 				let (account, amount, perm) = maybe_value.take().ok_or(Error::<T>::NotAssigned)?;
 				ensure!(!perm, Error::<T>::Permanent);
 				ensure!(account == who, Error::<T>::NotOwner);
-				
+
 				// Burn the held amount (consume it permanently)
-				T::Currency::burn_held(&HoldReason::DepositForIndex.into(), &who, amount, Precision::Exact, Fortitude::Force)?;
-				
+				T::Currency::burn_held(
+					&HoldReason::DepositForIndex.into(),
+					&who,
+					amount,
+					Precision::Exact,
+					Fortitude::Force,
+				)?;
+
 				*maybe_value = Some((account, Zero::zero(), true));
 				Ok(())
 			})?;
@@ -297,7 +318,12 @@ pub mod pallet {
 				} else if new_amount < old_amount {
 					// Need to release some
 					let excess = old_amount.saturating_sub(new_amount);
-					let _ = T::Currency::release(&HoldReason::DepositForIndex.into(), &who, excess, Precision::Exact);
+					let _ = T::Currency::release(
+						&HoldReason::DepositForIndex.into(),
+						&who,
+						excess,
+						Precision::Exact,
+					);
 				}
 
 				*maybe_value = Some((account, new_amount, perm));
