@@ -14,15 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::mock_helpers::GenesisConfigBuilder;
-use super::*;
+use super::{mock_helpers::GenesisConfigBuilder, *};
 
 use crate::{
 	initializer::SessionChangeNotification,
-	mock::{
-		new_test_ext, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler,
-		System, Test,
-	},
+	mock::{new_test_ext, OnDemand, Paras, ParasShared, RuntimeOrigin, Scheduler, System, Test},
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
@@ -639,10 +635,7 @@ fn assignment_proportions_in_core_state_work() {
 		}
 
 		// Final check, task 2's turn to be served
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 	});
 }
 
@@ -671,35 +664,17 @@ fn equal_assignments_served_equally() {
 		run_to_block(11, |n| if n == 11 { Some(Default::default()) } else { None });
 
 		// Test that popped assignments alternate between tasks 1 and 2
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 	});
 }
 
@@ -733,30 +708,15 @@ fn assignment_proportions_indivisible_by_step_work() {
 		// Pop 5 assignments. Should Result in the the following work ordering:
 		// 1, 2, 1, 1, 2. The remaining parts for each assignment should be same
 		// at the end as in the beginning.
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_1.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_1.into()));
 
-		assert_eq!(
-			advance_assignments::<Test, _>(|_| false).get(&core_idx),
-			Some(&task_2.into())
-		);
+		assert_eq!(advance_assignments::<Test, _>(|_| false).get(&core_idx), Some(&task_2.into()));
 
 		// Remaining should equal ratio for both assignments.
 		assert_eq!(

@@ -29,8 +29,8 @@ use crate::{
 	configuration::HostConfiguration,
 	initializer::SessionChangeNotification,
 	mock::{
-		new_test_ext, Configuration, MockGenesisConfig, Paras, ParasShared,
-		RuntimeOrigin, Scheduler, System, Test,
+		new_test_ext, Configuration, MockGenesisConfig, Paras, ParasShared, RuntimeOrigin,
+		Scheduler, System, Test,
 	},
 	on_demand,
 	paras::{ParaGenesisArgs, ParaKind},

@@ -44,11 +44,18 @@ fn default_config() -> MockGenesisConfig {
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
-	use polkadot_primitives::vstaging::{ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal};
+	use polkadot_primitives::vstaging::{
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal,
+	};
 	use rstest::rstest;
 
 	use crate::{
-		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier}, disputes::clear_dispute_storage, initializer::BufferedSessionChange, mock::{new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test}, scheduler::{PartsOf57600, CoreAssignment}, session_info
+		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
+		disputes::clear_dispute_storage,
+		initializer::BufferedSessionChange,
+		mock::{new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
+		scheduler::{CoreAssignment, PartsOf57600},
+		session_info,
 	};
 	use alloc::collections::btree_map::BTreeMap;
 	use assert_matches::assert_matches;
@@ -122,7 +129,7 @@ mod enter {
 						vec![(CoreAssignment::Task(para_id as _), PartsOf57600::FULL)],
 						None,
 					)
-						.unwrap();
+					.unwrap();
 				},
 			);
 		});
@@ -2549,7 +2556,10 @@ mod sanitizers {
 
 	mod candidates {
 		use crate::{
-			mock::{set_disabled_validators, RuntimeOrigin}, on_demand, scheduler::PartsOf57600, util::{make_persisted_validation_data, make_persisted_validation_data_with_parent}
+			mock::{set_disabled_validators, RuntimeOrigin},
+			on_demand,
+			scheduler::PartsOf57600,
+			util::{make_persisted_validation_data, make_persisted_validation_data_with_parent},
 		};
 		use alloc::collections::vec_deque::VecDeque;
 		use pallet_broker::CoreAssignment;
@@ -2808,10 +2818,16 @@ mod sanitizers {
 			]);
 
 			// Update scheduler's claimqueue with the parachains
-			for (core_num, para_id) in [(0, 1), (1, 1), (2, 2), (3, 2), (4, 3), (5, 4), (6, 5), (7, 7), (8, 7), (9, 8)] {
-			Scheduler::assign_core(
-				CoreIndex::from(core_num),
-				RELAY_PARENT_NUM, vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)], None).unwrap();
+			for (core_num, para_id) in
+				[(0, 1), (1, 1), (2, 2), (3, 2), (4, 3), (5, 4), (6, 5), (7, 7), (8, 7), (9, 8)]
+			{
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					RELAY_PARENT_NUM,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
 			}
 
 			// Add the relay parent to `shared` pallet. Otherwise some code (e.g. filtering backing
@@ -3254,10 +3270,16 @@ mod sanitizers {
 
 			// Update scheduler's claimqueue with the parachains
 			// Update scheduler's claimqueue with the parachains
-			for (core_num, para_id) in [(0, 1), (1, 1), (2, 2), (3, 2), (4, 2), (5, 3), (6, 3), (7, 4), (8, 4)] {
-			Scheduler::assign_core(
-				CoreIndex::from(core_num),
-				RELAY_PARENT_NUM, vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)], None).unwrap();
+			for (core_num, para_id) in
+				[(0, 1), (1, 1), (2, 2), (3, 2), (4, 2), (5, 3), (6, 3), (7, 4), (8, 4)]
+			{
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					RELAY_PARENT_NUM,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
 			}
 
 			shared::Pallet::<Test>::add_allowed_relay_parent(
@@ -3692,9 +3714,13 @@ mod sanitizers {
 			// Update scheduler's claimqueue with the parachains
 			// Update scheduler's claimqueue with the parachains
 			for (core_num, para_id) in [(0, 1), (1, 1), (2, 1), (3, 2), (4, 2), (5, 2)] {
-			Scheduler::assign_core(
-				CoreIndex::from(core_num),
-				RELAY_PARENT_NUM, vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)], None).unwrap();
+				Scheduler::assign_core(
+					CoreIndex::from(core_num),
+					RELAY_PARENT_NUM,
+					vec![(CoreAssignment::Task(para_id), PartsOf57600::FULL)],
+					None,
+				)
+				.unwrap();
 			}
 
 			// Set the on-chain included head data and current code hash.
