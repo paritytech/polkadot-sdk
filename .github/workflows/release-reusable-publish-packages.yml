@@ -203,23 +203,22 @@ jobs:
               exit 1
             fi
             echo "Found RPM package: $rpmname"
-            
-            # Debug lines that can we removed later
-            echo "RPM path: $rpmname"
-            echo "Current directory: $(pwd)"
-            ls -la release-artifacts/
 
             # Copy the RPM to the correct directory, create the repo
             cp "$rpmname" "$LOCAL_REPO_PATH/"
 
             # Run inside podman to work around outdated rpm installation on host
             # https://github.com/paritytech/release-engineering/issues/22
+            rpm_filename=$(basename "$rpmname")
+            echo "Signing RPM package: $rpm_filename"
+
+            # Run inside podman to work around outdated rpm installation on host
             podman run \
               -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent" \
-              -v "${HOME}/${LOCAL_REPO_PATH}/${rpmname}:/home/nonroot/${rpmname}" \
-              --rm -it docker.io/paritytech/rpm rpm --addsign "${rpmname}"
+              -v "${LOCAL_REPO_PATH}/${rpm_filename}:/home/nonroot/${rpm_filename}" \
+              --rm -it docker.io/paritytech/rpm rpm --addsign "${rpm_filename}"
 
-            echo "Signed RPM package: ${rpmname} - creating a repo"
+            echo "Creating a repo"
             createrepo --update "$LOCAL_REPO_PATH"
           fi
 
