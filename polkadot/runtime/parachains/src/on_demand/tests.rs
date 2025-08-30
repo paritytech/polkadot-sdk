@@ -512,7 +512,6 @@ fn affinity_prohibits_parallel_scheduling() {
 			let mut assignments = OnDemand::pop_assignment_for_cores(block_num, 3);
 			assert_eq!(assignments.next(), None);
 		}
-
 	});
 }
 
