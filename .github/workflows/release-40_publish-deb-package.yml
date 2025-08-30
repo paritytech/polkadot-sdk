@@ -15,11 +15,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  id-token: write
-  attestations: write
-
 jobs:
   call-publish-workflow:
     uses: ./.github/workflows/release-reusable-publish-packages.yml
