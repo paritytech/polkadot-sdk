@@ -233,11 +233,11 @@ jobs:
                     echo "RPM macros file contents:";
                     cat /etc/rpm/macros.sign;
                     echo "=== File permissions ===";
-                    ls -la /etc/rpm/macros.sign;
+                    ls -la /etc/rpm/macros.sign /rpm/;
                     echo "=== RPM version ===";
                     rpm --version;
                     echo "=== Signing attempt ===";
-                    rpm --addsign "/rpm/${rpm_filename}"
+                    cd /rpm && rpm --addsign "${rpm_filename}"
                 '
 
             # Cleanup
