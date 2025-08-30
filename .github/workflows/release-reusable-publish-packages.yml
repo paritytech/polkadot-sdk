@@ -39,6 +39,10 @@ on:
         required: true
       aws_default_region:
         required: true
+
+permissions:
+  contents: read
+  id-token: write
  
 jobs:
   check-synchronization:

@@ -1,5 +1,6 @@
 name: Release - Publish polkadot deb package
 
+# This workflow publishes the polkadot Debian package by calling a reusable workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -8,12 +9,16 @@ on:
         default: polkadot-stable2412
         required: true
         type: string
-
       distribution:
         description: Distribution where to publish deb package (release, staging, stable2407, etc)
         default: staging
         required: true
         type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   call-publish-workflow:
@@ -26,6 +31,6 @@ jobs:
       cloudfront_distribution_id: "E36FKEYWDXAZYJ"
     secrets: inherit
     permissions:
+      contents: read
       id-token: write
       attestations: write
-      contents: read
