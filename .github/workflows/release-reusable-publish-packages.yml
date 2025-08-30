@@ -222,6 +222,7 @@ jobs:
             echo "Signing RPM package: $rpm_filename"
 
             # Run inside podman with corrected permissions
+            # https://github.com/paritytech/cleanroom/issues/35
             # User changed to root:root from originally line like -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent"
             podman run \
                 -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
