@@ -193,6 +193,10 @@ impl generic::Config for Test {
 		let target: Location = AccountId32 { network: None, id: [0; 32] }.into();
 		Ok((origin, target))
 	}
+
+	fn barrier_check() -> Result<<Self as generic::Config>::RuntimeCall, BenchmarkError> {
+		Ok(frame_system::Call::remark_with_event { remark: vec![] }.into())
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]

@@ -2136,6 +2136,10 @@ impl_runtime_apis! {
 						Location::new(1, [Parachain(1001), AccountId32 { id: [111u8; 32], network: None }]),
 					))
 				}
+
+				fn barrier_check() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError> {
+					Err(BenchmarkError::Skip)
+				}
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

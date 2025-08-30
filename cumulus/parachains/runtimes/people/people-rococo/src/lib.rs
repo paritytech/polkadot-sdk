@@ -1082,6 +1082,10 @@ impl_runtime_apis! {
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
 					Err(BenchmarkError::Skip)
 				}
+
+				fn barrier_check() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError> {
+					Err(BenchmarkError::Skip)
+				}
 			}
 
 			type XcmBalances = pallet_xcm_benchmarks::fungible::Pallet::<Runtime>;

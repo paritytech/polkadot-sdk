@@ -2686,6 +2686,10 @@ sp_api::impl_runtime_apis! {
 					// The XCM executor of Rococo doesn't have a configured `Aliasers`
 					Err(BenchmarkError::Skip)
 				}
+
+				fn barrier_check() -> Result<<Self as Config<I>>::RuntimeCall, BenchmarkError> {
+					Err(BenchmarkError::Skip)
+				}
 			}
 
 			let mut whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
