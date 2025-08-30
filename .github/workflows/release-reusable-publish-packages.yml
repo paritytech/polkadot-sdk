@@ -206,6 +206,7 @@ jobs:
 
             # Copy the RPM to the correct directory, create the repo
             cp "$rpmname" "$LOCAL_REPO_PATH/"
+            chmod 644 "$LOCAL_REPO_PATH"/*.rpm
 
             # Run inside podman to work around outdated rpm installation on host
             # https://github.com/paritytech/release-engineering/issues/22
