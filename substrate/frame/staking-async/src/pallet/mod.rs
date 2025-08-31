@@ -23,8 +23,9 @@ use crate::{
 	NegativeImbalanceOf, Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination,
 	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
-use alloc::{format, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 use codec::Codec;
+use core::iter::Sum;
 use frame_election_provider_support::{ElectionProvider, SortedListProvider, VoteWeight};
 use frame_support::{
 	assert_ok,
@@ -38,7 +39,7 @@ use frame_support::{
 		Nothing, OnUnbalanced,
 	},
 	weights::Weight,
-	BoundedBTreeSet, BoundedVec,
+	BoundedVec,
 };
 use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 pub use impls::*;
@@ -62,16 +63,18 @@ mod impls;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use core::ops::Deref;
-
 	use super::*;
-	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
+	use crate::{
+		session_rotation, session_rotation::Eras, PagedExposureMetadata, SnapshotStatus,
+		UnbondingQueueConfig,
+	};
 	use codec::HasCompact;
+	use core::ops::Deref;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::DefaultNoBound;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(18);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -123,6 +126,7 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
+			+ Sum
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
@@ -203,7 +207,7 @@ pub mod pallet {
 
 		/// Number of eras that staked funds must remain bonded for.
 		#[pallet::constant]
-		type BondingDuration: Get<EraIndex>;
+		type MaxUnbondingDuration: Get<EraIndex>;
 
 		/// Number of eras that slashes are deferred by, after computation.
 		///
@@ -356,7 +360,7 @@ pub mod pallet {
 
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
-			pub const BondingDuration: EraIndex = 3;
+			pub const MaxBondingDuration: EraIndex = 3;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -371,7 +375,7 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type SessionsPerEra = SessionsPerEra;
-			type BondingDuration = BondingDuration;
+			type MaxUnbondingDuration = MaxBondingDuration;
 			type PlanningEraOffset = ConstU32<1>;
 			type SlashDeferDuration = ();
 			type MaxExposurePageSize = ConstU32<64>;
@@ -502,11 +506,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveEra<T> = StorageValue<_, ActiveEraInfo>;
 
-	/// Custom bound for [`BondedEras`] which is equal to [`Config::BondingDuration`] + 1.
+	/// Custom bound for [`BondedEras`] which is equal to [`Config::MaxUnbondingDuration`] + 1.
 	pub struct BondedErasBound<T>(core::marker::PhantomData<T>);
 	impl<T: Config> Get<u32> for BondedErasBound<T> {
 		fn get() -> u32 {
-			T::BondingDuration::get().saturating_add(1)
+			T::MaxUnbondingDuration::get().saturating_add(1)
 		}
 	}
 
@@ -733,7 +737,8 @@ pub mod pallet {
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> =
+		StorageValue<_, WeakBoundedVec<u32, T::MaxUnbondingDuration>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///
@@ -815,8 +820,29 @@ pub mod pallet {
 
 	/// A bounded list of the "electable" stashes that resulted from a successful election.
 	#[pallet::storage]
-	pub type ElectableStashes<T: Config> =
-		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+	pub type ElectableStashes<T: Config> = StorageValue<
+		_,
+		BoundedBTreeMap<T::AccountId, BalanceOf<T>, T::MaxValidatorSet>,
+		ValueQuery,
+	>;
+
+	/// The total amount of stake backed by [UnbondingQueueParams.lowest_ratio] of
+	/// validators for the last [Config::MaxUnbondingDuration] eras.
+	///
+	/// This is used to determine the maximum amount of stake that can be unbonded for a period
+	/// potentially lower than [Config::MaxUnbondingDuration].
+	#[pallet::storage]
+	pub type ErasLowestRatioTotalStake<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, OptionQuery>;
+
+	/// The amount of stake that started unbonding in a given era.
+	#[pallet::storage]
+	pub type ErasTotalUnbond<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
+	/// Parameters for the unbonding queue mechanism.
+	#[pallet::storage]
+	pub type UnbondingQueueParams<T: Config> = StorageValue<_, UnbondingQueueConfig, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
@@ -833,13 +859,15 @@ pub mod pallet {
 		pub max_nominator_count: Option<u32>,
 		/// Create the given number of validators and nominators.
 		///
-		/// These account need not be in the endowment list of balances, and are auto-topped up
+		/// These accounts need not be in the endowment list of balances, and are auto-topped up
 		/// here.
 		///
 		/// Useful for testing genesis config.
 		pub dev_stakers: Option<(u32, u32)>,
 		/// initial active era, corresponding session index and start timestamp.
 		pub active_era: (u32, u32, u64),
+		/// initial unbonding queue configuration.
+		pub unbonding_queue_config: Option<UnbondingQueueConfig>,
 	}
 
 	impl<T: Config> GenesisConfig<T> {
@@ -892,6 +920,7 @@ pub mod pallet {
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
 			}
+			UnbondingQueueParams::<T>::set(self.unbonding_queue_config);
 
 			// First pass: set up all validators and idle stakers
 			for &(ref stash, balance, ref status) in &self.stakers {
@@ -1351,10 +1380,10 @@ pub mod pallet {
 			assert!(!MaxNominationsOf::<T>::get().is_zero());
 
 			assert!(
-				T::SlashDeferDuration::get() < T::BondingDuration::get() || T::BondingDuration::get() == 0,
+				T::SlashDeferDuration::get() < T::MaxUnbondingDuration::get() || T::MaxUnbondingDuration::get() == 0,
 				"As per documentation, slash defer duration ({}) should be less than bonding duration ({}).",
 				T::SlashDeferDuration::get(),
-				T::BondingDuration::get(),
+				T::MaxUnbondingDuration::get(),
 			);
 		}
 
@@ -1509,23 +1538,31 @@ pub mod pallet {
 				// Make sure that the user maintains enough active bond for their role.
 				// If a user runs into this error, they should chill first.
 				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
-
 				// Note: we used current era before, but that is meant to be used for only election.
 				// The right value to use here is the active era.
 
-				let era = session_rotation::Rotator::<T>::active_era()
-					.saturating_add(T::BondingDuration::get());
-				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+				let current_era = session_rotation::Rotator::<T>::active_era();
+				let previous_unbonded_stake =
+					session_rotation::Eras::<T>::get_total_unbond_for_era(current_era);
+
+				if let Some(chunk) =
+					ledger.unlocking.last_mut().filter(|chunk| chunk.era == current_era)
+				{
 					// To keep the chunk count down, we only keep one chunk per era. Since
 					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
 					// be the last one.
-					chunk.value = chunk.value.defensive_saturating_add(value)
+					chunk.value = chunk.value.defensive_saturating_add(value);
+					chunk.previous_unbonded_stake = previous_unbonded_stake;
 				} else {
 					ledger
 						.unlocking
-						.try_push(UnlockChunk { value, era })
+						.try_push(UnlockChunk { value, era: current_era, previous_unbonded_stake })
 						.map_err(|_| Error::<T>::NoMoreChunks)?;
 				};
+				let new_total_unbond_in_era =
+					previous_unbonded_stake.defensive_saturating_add(value);
+				Eras::<T>::set_total_unbond_for_era(current_era, new_total_unbond_in_era);
+
 				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 				ledger.update()?;
 
@@ -1548,10 +1585,10 @@ pub mod pallet {
 
 		/// Remove any stake that has been fully unbonded and is ready for withdrawal.
 		///
-		/// Stake is considered fully unbonded once [`Config::BondingDuration`] has elapsed since
-		/// the unbonding was initiated. In rare cases—such as when offences for the unbonded era
-		/// have been reported but not yet processed—withdrawal is restricted to eras for which
-		/// all offences have been processed.
+		/// Stake is considered fully unbonded once [`Config::MaxUnbondingDuration`] has elapsed
+		/// since the unbonding was initiated. In rare cases—such as when offences for the
+		/// unbonded era have been reported but not yet processed—withdrawal is restricted to eras
+		/// for which all offences have been processed.
 		///
 		/// The unlocked stake will be returned as free balance in the stash account.
 		///
@@ -2121,6 +2158,7 @@ pub mod pallet {
 		///   should be filled in order for the `chill_other` transaction to work.
 		/// * `min_commission`: The minimum amount of commission that each validators must maintain.
 		///   This is checked only upon calling `validate`. Existing validators are not affected.
+		/// * `unbonding_queue_params`: The parameters for the unbonding queue.
 		///
 		/// RuntimeOrigin must be Root to call this function.
 		///
@@ -2142,6 +2180,7 @@ pub mod pallet {
 			chill_threshold: ConfigOp<Percent>,
 			min_commission: ConfigOp<Perbill>,
 			max_staked_rewards: ConfigOp<Percent>,
+			unbonding_queue_params: ConfigOp<UnbondingQueueConfig>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -2162,6 +2201,14 @@ pub mod pallet {
 			config_op_exp!(ChillThreshold<T>, chill_threshold);
 			config_op_exp!(MinCommission<T>, min_commission);
 			config_op_exp!(MaxStakedRewards<T>, max_staked_rewards);
+			config_op_exp!(UnbondingQueueParams<T>, unbonding_queue_params);
+
+			if let ConfigOp::Set(params) = unbonding_queue_params {
+				ensure!(
+					params.unbond_period_lower_bound <= T::MaxUnbondingDuration::get(),
+					Error::<T>::BoundNotMet
+				);
+			}
 			Ok(())
 		}
 		/// Declare a `controller` to stop participating as either a validator or nominator.
@@ -2559,6 +2606,68 @@ pub mod pallet {
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns an array of `(era, amount)` that represents:
+		///
+		/// - The era where funds can be withdrawn. If the era is the same as the active one, they
+		///   can be immediately retrieved.
+		/// - The amount of funds that can be withdrawn in a given era.
+		///
+		/// The duration in eras may vary based on the amount being unbonded and current queue
+		/// parameters. For instance, larger amounts may need to wait longer.
+		pub fn unbonding_duration(stash: T::AccountId) -> Vec<(EraIndex, BalanceOf<T>)> {
+			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
+			let earliest_considered_era = Self::calculate_earliest_withdrawal_era(active_era);
+			let ((current_era, free), chunks) =
+				Self::curate_unlocking_chunks(stash, earliest_considered_era);
+			let mut result = Vec::new();
+			if !free.is_zero() {
+				result.push((current_era, free));
+			}
+			let rest = chunks.into_iter().map(|(era, v)| {
+				let sum_stake = v.into_iter().map(|UnlockChunk { value, .. }| value).sum();
+				(era, sum_stake)
+			});
+			result.extend(rest);
+			result
+		}
+
+		/// Returns the estimated duration, in eras, that would be required to unbond the given
+		/// amount of funds.
+		///
+		/// The duration in eras may vary based on the amount being unbonded and current queue
+		/// parameters. For instance, larger amounts may need to wait longer due to the unbonding
+		/// queue mechanism.
+		///
+		/// ## Parameters
+		///
+		/// - `value`: The amount of funds to be unbonded.
+		///
+		/// Returns the estimated number of eras until the funds are fully unbonded and available
+		/// for withdrawal.
+		pub fn estimate_unbonding_duration(value: BalanceOf<T>) -> EraIndex {
+			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
+			let earliest_considered_era = Self::calculate_earliest_withdrawal_era(active_era);
+			let previous_unbonded_stake = Eras::<T>::get_total_unbond_for_era(active_era);
+			let chunks = vec![UnlockChunk { value, era: active_era, previous_unbonded_stake }];
+			let (_, curated_chunks) = Self::curate_unlocking_chunks_inner(
+				active_era,
+				earliest_considered_era,
+				chunks.into_iter(),
+			);
+			if let Some((era, _)) = curated_chunks.into_iter().next() {
+				era.defensive_saturating_sub(active_era)
+			} else {
+				if let Some(config) = UnbondingQueueParams::<T>::get() {
+					config.unbond_period_lower_bound
+				} else {
+					T::MaxUnbondingDuration::get()
+				}
+			}
 		}
 	}
 }

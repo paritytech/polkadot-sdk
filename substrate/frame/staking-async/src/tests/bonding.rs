@@ -317,7 +317,8 @@ fn cannot_bond_extra_to_lower_than_ed() {
 					active: 0,
 					unlocking: bounded_vec![UnlockChunk {
 						value: 11 * 1000,
-						era: active_era() + 3
+						era: active_era(),
+						previous_unbonded_stake: 0
 					}],
 				}
 			);
@@ -358,7 +359,11 @@ fn unbonding_works() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: active_era() + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: active_era(),
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
 
@@ -373,7 +378,11 @@ fn unbonding_works() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: active_era() + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: active_era(),
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
 
@@ -388,7 +397,11 @@ fn unbonding_works() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: 1 + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: 1,
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
 
@@ -405,7 +418,11 @@ fn unbonding_works() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: 1 + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: 1,
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
 
@@ -454,7 +471,11 @@ fn unbonding_multi_chunk() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: active_era() + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: active_era(),
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
 
@@ -475,11 +496,12 @@ fn unbonding_multi_chunk() {
 				total: 1000,
 				active: 250,
 				unlocking: bounded_vec![
-					UnlockChunk { value: 500, era: 1 + 3 },
-					UnlockChunk { value: 250, era: 2 + 3 }
+					UnlockChunk { value: 500, era: 1, previous_unbonded_stake: 0 },
+					UnlockChunk { value: 250, era: 2, previous_unbonded_stake: 0 }
 				],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500), (2 + 3, 250)]);
 
 		// when
 		Session::roll_until_active_era(4);
@@ -497,9 +519,14 @@ fn unbonding_multi_chunk() {
 				stash: 11,
 				total: 500,
 				active: 250,
-				unlocking: bounded_vec![UnlockChunk { value: 250, era: 2 + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 250,
+					era: 2,
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(2 + 3, 250)]);
 
 		// when
 		Session::roll_until_active_era(5);
@@ -515,6 +542,7 @@ fn unbonding_multi_chunk() {
 			Staking::ledger(11.into()).unwrap(),
 			StakingLedgerInspect { stash: 11, total: 250, active: 250, unlocking: bounded_vec![] },
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![]);
 	});
 }
 
@@ -579,9 +607,14 @@ fn unbonding_merges_if_era_exists() {
 				stash: 11,
 				total: 1000,
 				active: 500,
-				unlocking: bounded_vec![UnlockChunk { value: 500, era: 1 + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500,
+					era: active_era(),
+					previous_unbonded_stake: 0
+				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500)]);
 
 		// when
 		Staking::unbond(RuntimeOrigin::signed(11), 250).unwrap();
@@ -593,9 +626,14 @@ fn unbonding_merges_if_era_exists() {
 				stash: 11,
 				total: 1000,
 				active: 250,
-				unlocking: bounded_vec![UnlockChunk { value: 500 + 250, era: 1 + 3 }],
+				unlocking: bounded_vec![UnlockChunk {
+					value: 500 + 250,
+					era: 1,
+					previous_unbonded_stake: 500
+				}],
 			},
 		);
+		assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 500 + 250)]);
 	});
 }
 
@@ -631,11 +669,15 @@ fn unbonding_rejects_if_max_chunks() {
 					total: 1000,
 					active: 250,
 					unlocking: bounded_vec![
-						UnlockChunk { value: 250, era: 1 + 7 },
-						UnlockChunk { value: 250, era: 2 + 7 },
-						UnlockChunk { value: 250, era: 3 + 7 },
+						UnlockChunk { value: 250, era: 1, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 250, era: 2, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 250, era: 3, previous_unbonded_stake: 0 },
 					],
 				},
+			);
+			assert_eq!(
+				Staking::unbonding_duration(11),
+				vec![(1 + 7, 250), (2 + 7, 250), (3 + 7, 250),]
 			);
 
 			// when
@@ -673,11 +715,15 @@ fn unbonding_auto_withdraws_if_any() {
 				total: 1000,
 				active: 250,
 				unlocking: bounded_vec![
-					UnlockChunk { value: 250, era: 1 + 3 },
-					UnlockChunk { value: 250, era: 2 + 3 },
-					UnlockChunk { value: 250, era: 3 + 3 },
+					UnlockChunk { value: 250, era: 1, previous_unbonded_stake: 0 },
+					UnlockChunk { value: 250, era: 2, previous_unbonded_stake: 0 },
+					UnlockChunk { value: 250, era: 3, previous_unbonded_stake: 0 },
 				],
 			},
+		);
+		assert_eq!(
+			Staking::unbonding_duration(11),
+			vec![(1 + 3, 250), (2 + 3, 250), (3 + 3, 250),]
 		);
 
 		// when
@@ -691,11 +737,15 @@ fn unbonding_auto_withdraws_if_any() {
 				total: 750,
 				active: 150,
 				unlocking: bounded_vec![
-					UnlockChunk { value: 250, era: 2 + 3 },
-					UnlockChunk { value: 250, era: 3 + 3 },
-					UnlockChunk { value: 100, era: 4 + 3 },
+					UnlockChunk { value: 250, era: 2, previous_unbonded_stake: 0 },
+					UnlockChunk { value: 250, era: 3, previous_unbonded_stake: 0 },
+					UnlockChunk { value: 100, era: 4, previous_unbonded_stake: 0 },
 				],
 			},
+		);
+		assert_eq!(
+			Staking::unbonding_duration(11),
+			vec![(2 + 3, 250), (3 + 3, 250), (4 + 3, 100),]
 		);
 	});
 }
@@ -727,7 +777,11 @@ fn unbonding_caps_to_ledger_active() {
 					stash: 11,
 					total: 1000,
 					active: 0,
-					unlocking: bounded_vec![UnlockChunk { value: 1000, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 1000,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
 		});
@@ -761,9 +815,14 @@ fn unbond_avoids_dust() {
 					stash: 11,
 					total: 1000,
 					active: 0,
-					unlocking: bounded_vec![UnlockChunk { value: 1000, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 1000,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 1000)]);
 		});
 }
 
@@ -809,15 +868,15 @@ fn reducing_max_unlocking_chunks_abrupt() {
 		// when staker unbonds
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(3), 20));
 
-		// then an unlocking chunk is added at `current_era + bonding_duration`
-		// => 10 + 3 = 13
+		// then an unlocking chunk is added
 		let expected_unlocking: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> =
-			bounded_vec![UnlockChunk { value: 20 as Balance, era: 13 as EraIndex }];
+			bounded_vec![UnlockChunk { value: 20 as Balance, era: 10, previous_unbonded_stake: 0 }];
 		assert!(matches!(Staking::ledger(3.into()),
 			Ok(StakingLedger {
 				unlocking,
 				..
 			}) if unlocking == expected_unlocking));
+		assert_eq!(Staking::unbonding_duration(3), vec![(10 + 3, 20)]);
 
 		// when staker unbonds at next era
 		Session::roll_until_active_era(11);
@@ -825,13 +884,16 @@ fn reducing_max_unlocking_chunks_abrupt() {
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(3), 50));
 
 		// then another unlock chunk is added
-		let expected_unlocking: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> =
-			bounded_vec![UnlockChunk { value: 20, era: 13 }, UnlockChunk { value: 50, era: 14 }];
+		let expected_unlocking: BoundedVec<UnlockChunk<Balance>, MaxUnlockingChunks> = bounded_vec![
+			UnlockChunk { value: 20, era: 10, previous_unbonded_stake: 0 },
+			UnlockChunk { value: 50, era: 11, previous_unbonded_stake: 0 }
+		];
 		assert!(matches!(Staking::ledger(3.into()),
 			Ok(StakingLedger {
 				unlocking,
 				..
 			}) if unlocking == expected_unlocking));
+		assert_eq!(Staking::unbonding_duration(3), vec![(10 + 3, 20), (11 + 3, 50)]);
 
 		// when staker unbonds further
 		Session::roll_until_active_era(12);
@@ -930,9 +992,14 @@ fn bond_with_no_staked_value() {
 					stash: 1,
 					active: 0,
 					total: 5,
-					unlocking: bounded_vec![UnlockChunk { value: 5, era: 4 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 5,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(1), vec![(1 + 3, 5)]);
 
 			Session::roll_until_active_era(2);
 			Session::roll_until_active_era(3);
@@ -948,6 +1015,7 @@ fn bond_with_no_staked_value() {
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(1), 0));
 			assert!(Staking::ledger(1.into()).is_err());
 			assert_eq!(pallet_balances::Holds::<Test>::get(&1).len(), 0);
+			assert_eq!(Staking::unbonding_duration(1), vec![]);
 		});
 }
 
@@ -1105,9 +1173,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 100,
-					unlocking: bounded_vec![UnlockChunk { value: 900, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 900,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// then rebond all the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 900).unwrap();
@@ -1120,6 +1193,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 
 			// Unbond almost all of the funds in stash.
 			Staking::unbond(RuntimeOrigin::signed(11), 900).unwrap();
@@ -1129,9 +1203,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 100,
-					unlocking: bounded_vec![UnlockChunk { value: 900, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 900,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// Re-bond part of the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 500).unwrap();
@@ -1141,7 +1220,11 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 600,
-					unlocking: bounded_vec![UnlockChunk { value: 400, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 400,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
 
@@ -1156,6 +1239,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 
 			// Unbond parts of the funds in stash.
 			Staking::unbond(RuntimeOrigin::signed(11), 300).unwrap();
@@ -1167,9 +1251,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 100,
-					unlocking: bounded_vec![UnlockChunk { value: 900, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 900,
+						era: 1,
+						previous_unbonded_stake: 600,
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 
 			// Re-bond part of the funds unbonded.
 			Staking::rebond(RuntimeOrigin::signed(11), 500).unwrap();
@@ -1179,9 +1268,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 600,
-					unlocking: bounded_vec![UnlockChunk { value: 400, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 400,
+						era: 1,
+						previous_unbonded_stake: 600,
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400)]);
 		})
 	}
 
@@ -1207,9 +1301,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 600,
-					unlocking: bounded_vec![UnlockChunk { value: 400, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 400,
+						era: active_era(),
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400)]);
 
 			Session::roll_until_active_era(2);
 
@@ -1222,11 +1321,12 @@ mod rebond {
 					total: 1000,
 					active: 300,
 					unlocking: bounded_vec![
-						UnlockChunk { value: 400, era: 1 + 3 },
-						UnlockChunk { value: 300, era: 2 + 3 },
+						UnlockChunk { value: 400, era: 1, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 300, era: 2, previous_unbonded_stake: 0 },
 					],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400), (2 + 3, 300)]);
 
 			Session::roll_until_active_era(3);
 
@@ -1239,11 +1339,15 @@ mod rebond {
 					total: 1000,
 					active: 100,
 					unlocking: bounded_vec![
-						UnlockChunk { value: 400, era: 1 + 3 },
-						UnlockChunk { value: 300, era: 2 + 3 },
-						UnlockChunk { value: 200, era: 3 + 3 },
+						UnlockChunk { value: 400, era: 1, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 300, era: 2, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 200, era: 3, previous_unbonded_stake: 0 },
 					],
 				}
+			);
+			assert_eq!(
+				Staking::unbonding_duration(11),
+				vec![(1 + 3, 400), (2 + 3, 300), (3 + 3, 200)]
 			);
 
 			// Re-bond half of the unbonding funds.
@@ -1255,11 +1359,12 @@ mod rebond {
 					total: 1000,
 					active: 500,
 					unlocking: bounded_vec![
-						UnlockChunk { value: 400, era: 1 + 3 },
-						UnlockChunk { value: 100, era: 2 + 3 },
+						UnlockChunk { value: 400, era: 1, previous_unbonded_stake: 0 },
+						UnlockChunk { value: 100, era: 2, previous_unbonded_stake: 0 },
 					],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 400), (2 + 3, 100)]);
 		})
 	}
 
@@ -1279,9 +1384,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 100,
-					unlocking: bounded_vec![UnlockChunk { value: 900, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 900,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 900)]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Unbonded { stash: 11, amount: 900 }]
@@ -1295,9 +1405,14 @@ mod rebond {
 					stash: 11,
 					total: 1000,
 					active: 200,
-					unlocking: bounded_vec![UnlockChunk { value: 800, era: 1 + 3 }],
+					unlocking: bounded_vec![UnlockChunk {
+						value: 800,
+						era: 1,
+						previous_unbonded_stake: 0
+					}],
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![(1 + 3, 800)]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Bonded { stash: 11, amount: 100 }]
@@ -1314,6 +1429,7 @@ mod rebond {
 					unlocking: Default::default(),
 				}
 			);
+			assert_eq!(Staking::unbonding_duration(11), vec![]);
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::Bonded { stash: 11, amount: 800 }]
@@ -1348,9 +1464,14 @@ mod rebond {
 						stash: 21,
 						total: 11 * 1000,
 						active: 0,
-						unlocking: bounded_vec![UnlockChunk { value: 11 * 1000, era: 4 }],
+						unlocking: bounded_vec![UnlockChunk {
+							value: 11 * 1000,
+							era: 1,
+							previous_unbonded_stake: 0
+						}],
 					}
 				);
+				assert_eq!(Staking::unbonding_duration(21), vec![(1 + 3, 11 * 1000)]);
 
 				// now bond a wee bit more
 				assert_noop!(
@@ -1655,6 +1776,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
+					ConfigOp::Remove,
 				));
 
 				// Can't chill these users
@@ -1672,6 +1794,7 @@ mod staking_bounds_chill_other {
 					RuntimeOrigin::root(),
 					ConfigOp::Set(1_500),
 					ConfigOp::Set(2_000),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
@@ -1699,6 +1822,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1721,6 +1845,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1740,6 +1865,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(2_000),
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
+					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
 					ConfigOp::Remove,
@@ -1765,6 +1891,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1787,6 +1914,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(Percent::from_percent(75)),
 					ConfigOp::Noop,
 					ConfigOp::Noop,
+					ConfigOp::Noop,
 				));
 
 				// Still can't chill these users
@@ -1807,6 +1935,7 @@ mod staking_bounds_chill_other {
 					ConfigOp::Set(10),
 					ConfigOp::Set(10),
 					ConfigOp::Set(Percent::from_percent(75)),
+					ConfigOp::Noop,
 					ConfigOp::Noop,
 					ConfigOp::Noop,
 				));
@@ -1856,6 +1985,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Set(max),
 				ConfigOp::Remove,
 				ConfigOp::Remove,
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 			));
 
@@ -1925,6 +2055,7 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Remove,
 				ConfigOp::Remove,
+				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
 				ConfigOp::Noop,
