@@ -25,7 +25,7 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Config, ExecReturnValue, ImmutableData,
+	CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -241,7 +241,7 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> DispatchResult {
+	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}
 
@@ -253,7 +253,7 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::own_code_hash")
 	}
 
-	fn set_code_hash(&mut self, _hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::set_code_hash")
 	}
 

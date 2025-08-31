@@ -34,7 +34,7 @@ use revm::{
 		interpreter_types::InputsTr,
 		CallInput, Gas, Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
-	primitives::{self, hardfork::SpecId, Address},
+	primitives::{self, hardfork::SpecId, Address, Bytes},
 };
 
 impl<T: Config> ContractBlob<T> {
@@ -54,7 +54,14 @@ impl<T: Config> ContractBlob<T> {
 			behaviour_version: Default::default(),
 		};
 
-		Self::from_evm_code(code, code_info)
+		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from init code: {err:?}" );
+			<Error<T>>::CodeRejected
+		})?;
+
+		// Code hash is not relevant for init code, since it is not stored on-chain.
+		let code_hash = H256::default();
+		Ok(ContractBlob { code, code_info, code_hash })
 	}
 
 	/// Create a new contract from EVM runtime code.
@@ -77,12 +84,6 @@ impl<T: Config> ContractBlob<T> {
 			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
 		};
-
-		Self::from_evm_code(code, code_info)
-	}
-
-	fn from_evm_code(code: Vec<u8>, code_info: CodeInfo<T>) -> Result<Self, DispatchError> {
-		use revm::{bytecode::Bytecode, primitives::Bytes};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
@@ -202,7 +203,8 @@ impl InputsTr for EVMInputs {
 }
 
 /// Blanket conversion trait between `sp_core::U256` and `revm::primitives::U256`
-trait U256Converter {
+#[allow(dead_code)]
+pub trait U256Converter {
 	/// Convert `self` into `revm::primitives::U256`
 	fn into_revm_u256(&self) -> revm::primitives::U256;
 

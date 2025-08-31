@@ -25,9 +25,9 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	TrieId, LOG_TARGET,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, CodeRemoved,
+	Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -204,7 +204,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Transfer all funds to `beneficiary`.
 	///
@@ -219,7 +219,8 @@ pub trait Ext: PrecompileWithInfoExt {
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
+	/// Returns whether the old code was removed as a result of this operation.
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 
 	/// Get the length of the immutable data.
 	///
@@ -1674,7 +1675,7 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
@@ -1690,9 +1691,9 @@ where
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
-		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
-		Ok(())
+		Ok(removed)
 	}
 
 	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
@@ -1744,7 +1745,7 @@ where
 	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
 		let frame = top_frame_mut!(self);
 
 		let info = frame.contract_info();
@@ -1762,8 +1763,8 @@ where
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
-		<CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(())
+		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
+		Ok(removed)
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
