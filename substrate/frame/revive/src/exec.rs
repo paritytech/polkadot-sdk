@@ -27,9 +27,9 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
 	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	TrieId, LOG_TARGET,
 };
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
@@ -524,6 +524,8 @@ pub struct Stack<'a, T: Config, E> {
 	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
+	/// The set of contracts that were created during this call stack.
+	contracts_created: BTreeSet<TrieId>,
 }
 
 /// Represents one entry in the call stack.
@@ -992,6 +994,7 @@ where
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
 			_phantom: Default::default(),
+			contracts_created: BTreeSet::new(),
 		};
 
 		Ok(Some((stack, executable)))
@@ -1704,7 +1707,12 @@ where
 
 		// If this is called in the same transaction as the contract was created then the contract
 		// is deleted.
-		if self.top_frame().entry_point == ExportedFunction::Constructor {
+		let current_contract_trie_id = {
+			let contract_info = self.top_frame_mut().contract_info();
+			contract_info.trie_id.clone()
+		};
+		if self.contracts_created.contains(&current_contract_trie_id) {
+			self.contracts_created.remove(&current_contract_trie_id);
 			let frame = self.top_frame_mut();
 			let info = frame.terminate();
 			frame.nested_storage.terminate(&info, to);
@@ -1836,24 +1844,35 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-		let sender = &self.top_frame().account_id;
-		let executable = self.push_frame(
-			FrameArgs::Instantiate {
-				sender: sender.clone(),
-				executable,
-				salt,
-				input_data: input_data.as_ref(),
-			},
-			value,
-			gas_limit,
-			deposit_limit.saturated_into::<BalanceOf<T>>(),
-			self.is_read_only(),
-		)?;
+		let executable = {
+			let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
+			let sender = &self.top_frame().account_id;
+			self.push_frame(
+				FrameArgs::Instantiate {
+					sender: sender.clone(),
+					executable,
+					salt,
+					input_data: input_data.as_ref(),
+				},
+				value,
+				gas_limit,
+				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				self.is_read_only(),
+			)?
+		};
+		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
+		// Mark the contract as created in this transaction
+		// Get the trie_id from the newly created frame's contract info
+		if let ExecutableOrPrecompile::<T, E, Self>::Executable(_) = &executable {
+			let trie_id = {
+				let contract_info = self.top_frame_mut().contract_info();
+				contract_info.trie_id.clone()
+			};
+			self.contracts_created.insert(trie_id);
+		}
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
-			.map(|_| address)
+		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
 	}
 }
 
