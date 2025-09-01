@@ -19,4 +19,36 @@ pub mod aura;
 /// The current node version for cumulus official binaries, which takes the basic
 /// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
 /// `polkadot` version of a stable release.
-pub const NODE_VERSION: &'static str = "1.19.2";
+pub const NODE_VERSION: &'static str = "1.20.0";
+
+/// Trait that extends the `DynNodeSpec` trait with manual seal related logic.
+///
+/// We need it in order to be able to access both the `DynNodeSpec` and the manual seal logic
+/// through dynamic dispatch.
+pub trait DynNodeSpecExt: DynNodeSpec {
+	fn start_manual_seal_node(
+		&self,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager>;
+}
+
+impl<T> DynNodeSpecExt for T
+where
+	T: NodeSpecT + DynNodeSpec,
+{
+	#[sc_tracing::logging::prefix_logs_with("Parachain")]
+	fn start_manual_seal_node(
+		&self,
+		config: Configuration,
+		block_time: u64,
+	) -> sc_service::error::Result<TaskManager> {
+		let node = ManualSealNode::<T>::new();
+		match config.network.network_backend {
+			sc_network::config::NetworkBackendType::Libp2p =>
+				node.start_node::<sc_network::NetworkWorker<_, _>>(config, block_time),
+			sc_network::config::NetworkBackendType::Litep2p =>
+				node.start_node::<sc_network::Litep2pNetworkBackend>(config, block_time),
+		}
+	}
+}
