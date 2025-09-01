@@ -63,7 +63,7 @@ impl RuntimeApi {
 		&self,
 		tx: GenericTransaction,
 	) -> Result<EthTransactInfo<Balance>, ClientError> {
-		let payload = subxt_client::apis().revive_api().eth_transact(tx.into());
+		let payload = subxt_client::apis().revive_api().eth_transact(tx.clone().into());
 		let result = self.0.call(payload).await?;
 		match result {
 			Err(err) => {

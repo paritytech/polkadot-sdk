@@ -504,4 +504,20 @@ impl EthRpcServer for EthRpcServerImpl {
 		let result = self.client.fee_history(block_count, newest_block, reward_percentiles).await?;
 		Ok(result)
 	}
+
+	async fn personal_sign(&self, message: Bytes, address: H160) -> RpcResult<Option<Bytes>> {
+		let impersonated = self.client.is_impersonated_account(address).await.unwrap();
+		
+		let account = match impersonated {
+			Some(true) => &self.accounts[0],
+			_ => self
+				.accounts
+				.iter()
+				.find(|account| account.address() == address)
+				.ok_or(EthRpcError::AccountNotFound(address))?,
+		};
+
+		let signature = account.sign(&message.0).to_vec().into();
+		Ok(Some(signature))
+	}
 }
