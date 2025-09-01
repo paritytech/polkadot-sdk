@@ -176,10 +176,6 @@ impl Executable<Test> for MockExecutable {
 		self.code_hash.as_ref()
 	}
 
-	fn is_pvm(&self) -> bool {
-		true
-	}
-
 	fn code_hash(&self) -> &H256 {
 		&self.code_hash
 	}
@@ -1276,7 +1272,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
 		exec_success()
 	});
 
