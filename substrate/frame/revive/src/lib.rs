@@ -81,7 +81,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -537,27 +537,28 @@ pub mod pallet {
 
 	pub mod genesis {
 		use super::*;
+		use crate::evm::Bytes32;
 
 		/// Genesis configuration for contract-specific data.
-		#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+		#[derive(Clone, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 		pub struct ContractData {
 			/// Contract code.
 			pub code: Vec<u8>,
 			/// Initial storage entries as 32-byte key/value pairs.
-			pub storage: alloc::collections::BTreeMap<[u8; 32], [u8; 32]>,
+			pub storage: alloc::collections::BTreeMap<Bytes32, Bytes32>,
 		}
 
 		/// Genesis configuration for a contract account.
-		#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
-		pub struct Account {
-			/// Contrat address.
+		#[derive(PartialEq, Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+		pub struct Account<T: Config> {
+			/// Contract address.
 			pub address: H160,
 			/// Contract balance.
 			#[serde(default)]
 			pub balance: U256,
 			/// Account nonce
 			#[serde(default)]
-			pub nonce: u32,
+			pub nonce: T::Nonce,
 			/// Contract-specific data (code and storage). None for EOAs.
 			#[serde(flatten, skip_serializing_if = "Option::is_none")]
 			pub contract_data: Option<ContractData>,
@@ -565,32 +566,38 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(Debug, PartialEq, frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Genesis mapped accounts
+		/// List of native Substrate accounts (typically `AccountId32`) to be mapped at genesis
+		/// block, enabling them to interact with smart contracts.
 		pub mapped_accounts: Vec<T::AccountId>,
 		/// Account entries (both EOAs and contracts)
-		pub accounts: Vec<genesis::Account>,
+		pub accounts: Vec<genesis::Account<T>>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		T::Nonce: From<u32>,
 	{
 		fn build(&self) {
 			use crate::{exec::Key, vm::ContractBlob};
-			use frame_support::{traits::fungible::Mutate, PalletId};
-			use sp_runtime::traits::AccountIdConversion;
+			use frame_support::traits::fungible::Mutate;
+
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
+				let _ = T::Currency::mint_into(
+					&Pallet::<T>::account_id(),
+					T::Currency::minimum_balance(),
+				);
+			}
+
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
 
-			// Account owner for all PVM contracts deployed in genesis.
-			let owner: AccountIdOf<T> = PalletId(*b"py/revgn").into_account_truncating();
+			let owner = Pallet::<T>::account_id();
 
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let Ok(balance_with_dust) =
@@ -621,7 +628,7 @@ pub mod pallet {
 								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
 							})
 						} else {
-							ContractBlob::<T>::from_evm_runtime_code(code.clone()).inspect_err(|err| {
+							ContractBlob::<T>::from_evm_runtime_code(code.clone(), account_id).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
 							})
 						};
@@ -647,7 +654,7 @@ pub mod pallet {
 						<PristineCode<T>>::insert(blob.code_hash(), code);
 						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
 						for (k, v) in storage {
-							let _ = info.write(&Key::from_fixed(*k), Some(v.to_vec()), None, false).inspect_err(|err| {
+							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to write genesis storage for {address:?} at key {k:?}: {err:?}");
 							});
 						}
@@ -659,6 +666,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			return T::DbWeight::get().reads(1)
+		}
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
@@ -1027,8 +1039,7 @@ pub mod pallet {
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
-		/// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-		/// depends on the size of the supplied `code`.
+		/// The size of the reserve depends on the size of the supplied `code`.
 		///
 		/// # Note
 		///
@@ -1036,6 +1047,9 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// If the refcount of the code reaches zero after terminating the last contract that
+		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
@@ -1057,7 +1071,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove_pvm_code(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1090,7 +1104,7 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1259,7 +1273,8 @@ where
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
-						let executable = ContractBlob::from_evm_init_code(code)?;
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
@@ -1647,8 +1662,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin.clone())?;
-		let deposit = module.store_code(&origin, skip_transfer)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
@@ -1683,6 +1698,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()
