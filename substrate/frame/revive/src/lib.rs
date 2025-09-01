@@ -569,8 +569,11 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		/// List of native Substrate accounts (typically `AccountId32`) to be mapped at genesis
 		/// block, enabling them to interact with smart contracts.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub mapped_accounts: Vec<T::AccountId>,
+
 		/// Account entries (both EOAs and contracts)
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
 	}
 
