@@ -50,9 +50,7 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
-	storage::{
-		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
-	},
+	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
@@ -91,6 +89,7 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::*,
+	storage::{AccountInfo, ContractInfo},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
