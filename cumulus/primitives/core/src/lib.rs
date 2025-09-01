@@ -385,7 +385,6 @@ impl CumulusDigestItem {
 	}
 }
 
-/// Extract the relay-parent from the provided header digest. Returns `None` if none were found.
 ///
 /// If there are multiple valid digests, this returns the value of the first one, although
 /// well-behaving runtimes should not produce headers with more than one.

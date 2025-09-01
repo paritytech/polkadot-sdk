@@ -806,8 +806,10 @@ mod tests {
 	use async_trait::async_trait;
 	use cumulus_relay_chain_interface::*;
 	use futures::Stream;
-	use polkadot_primitives::vstaging::{CandidateEvent, CommittedCandidateReceiptV2};
-	use sp_runtime::generic::BlockId;
+	use polkadot_primitives::{
+		vstaging::{CandidateEvent, CommittedCandidateReceiptV2},
+		BlockId,
+	};
 	use sp_version::RuntimeVersion;
 	use std::{
 		collections::{BTreeMap, HashMap, VecDeque},

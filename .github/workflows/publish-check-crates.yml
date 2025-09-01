@@ -27,7 +27,7 @@ jobs:
           cache-on-failure: true
 
       - name: install parity-publish
-        run: cargo install parity-publish@0.10.4 --locked -q
+        run: cargo install parity-publish@0.10.6 --locked -q
 
       - name: parity-publish check
         run: parity-publish --color always check --allow-unpublished

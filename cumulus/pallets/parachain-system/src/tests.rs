@@ -595,6 +595,29 @@ fn check_hrmp_message_metadata_works_when_correctly_ordered() {
 		&mut Some((0, 1000.into())),
 		(1, 1000.into()),
 	);
+
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(0, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(2, 1000.into()),
+	);
 }
 
 #[test]
@@ -609,10 +632,44 @@ fn check_hrmp_message_metadata_panics_on_unordered_sent_at() {
 
 #[test]
 #[should_panic(expected = "[HRMP] Messages order violation")]
+fn chained_check_hrmp_message_metadata_panics_on_unordered_sent_at() {
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(1, 1000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
+		(0, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
 fn check_hrmp_message_metadata_panics_on_unordered_para_id() {
 	Pallet::<Test>::check_hrmp_message_metadata(
 		&[(1000.into(), Default::default())],
 		&mut Some((1, 2000.into())),
+		(1, 1000.into()),
+	);
+}
+
+#[test]
+#[should_panic(expected = "[HRMP] Messages order violation")]
+fn chained_check_hrmp_message_metadata_panics_on_unordered_para_id() {
+	// Test chained checks
+	let mut prev = None;
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default()), (2000.into(), Default::default())],
+		&mut prev,
+		(1, 2000.into()),
+	);
+	Pallet::<Test>::check_hrmp_message_metadata(
+		&[(1000.into(), Default::default())],
+		&mut prev,
 		(1, 1000.into()),
 	);
 }
