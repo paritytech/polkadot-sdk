@@ -30,6 +30,11 @@ use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, Fibonacci, FixtureType};
 use pretty_assertions::assert_eq;
 
+mod block_info;
+mod contract;
+mod system;
+mod tx_info;
+
 #[test]
 fn basic_evm_flow_works() {
 	let (code, init_hash) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
