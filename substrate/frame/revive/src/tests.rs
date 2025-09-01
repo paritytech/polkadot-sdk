@@ -403,10 +403,6 @@ impl ExtBuilder {
 		self.code_hashes = code_hashes;
 		self
 	}
-	pub fn with_genesis_config(mut self, genesis_config: GenesisConfig<Test>) -> Self {
-		self.genesis_config = genesis_config;
-		self
-	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
@@ -468,7 +464,7 @@ fn ext_builder_with_genesis_config_works() {
 		nonce: 42,
 		contract_data: Some(ContractData {
 			code: compile_module("dummy").unwrap().0,
-			storage: [([1u8; 32], [2u8; 32])].into_iter().collect(),
+			storage: [([1u8; 32].into(), [2u8; 32].into())].into_iter().collect(),
 		}),
 	};
 
@@ -478,42 +474,46 @@ fn ext_builder_with_genesis_config_works() {
 		nonce: 43,
 		contract_data: Some(ContractData {
 			code: vec![revm::bytecode::opcode::RETURN],
-			storage: [([3u8; 32], [4u8; 32])].into_iter().collect(),
+			storage: [([3u8; 32].into(), [4u8; 32].into())].into_iter().collect(),
 		}),
 	};
 
 	let eoa =
 		Account { address: ALICE_ADDR, balance: U256::from(100), nonce: 44, contract_data: None };
-	ExtBuilder::default()
-		.with_genesis_config(Some(GenesisConfig::<Test> {
-			mapped_accounts: vec![EVE],
-			accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
-		}))
-		.build()
-		.execute_with(|| {
-			// account is mapped
-			assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
 
-			// EOA is created
-			assert_eq!(Pallet::<Test>::evm_balance(&eoa.address), eoa.balance);
+	let config = GenesisConfig::<Test> {
+		mapped_accounts: vec![EVE],
+		accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
+	};
 
-			// Contract is created
-			for contract in [pvm_contract, evm_contract] {
-				let contract_data = contract.contract_data.unwrap();
-				let contract_info = test_utils::get_contract(&contract.address);
+	// Genesis serialization works
+	let json = serde_json::to_string(&config).unwrap();
+	assert_eq!(config, serde_json::from_str::<GenesisConfig<Test>>(&json).unwrap());
+
+	ExtBuilder::default().genesis_config(Some(config)).build().execute_with(|| {
+		// account is mapped
+		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
+
+		// EOA is created
+		assert_eq!(Pallet::<Test>::evm_balance(&eoa.address), eoa.balance);
+
+		// Contract is created
+		for contract in [pvm_contract, evm_contract] {
+			let contract_data = contract.contract_data.unwrap();
+			let contract_info = test_utils::get_contract(&contract.address);
+			assert_eq!(
+				PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
+				contract_data.code
+			);
+			assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
+			assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);
+
+			for (key, value) in contract_data.storage.iter() {
 				assert_eq!(
-					PristineCode::<Test>::get(&contract_info.code_hash).unwrap(),
-					contract_data.code
+					Pallet::<Test>::get_storage(contract.address, key.0),
+					Ok(Some(value.0.to_vec()))
 				);
-				assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
-				assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);
-
-				for (key, value) in contract_data.storage.iter() {
-					assert_eq!(
-						Pallet::<Test>::get_storage(contract.address, *key),
-						Ok(Some(value.to_vec()))
-					);
-				}
 			}
-		});
+		}
+	});
 }

@@ -537,19 +537,20 @@ pub mod pallet {
 
 	pub mod genesis {
 		use super::*;
+		use crate::evm::Bytes32;
 
 		/// Genesis configuration for contract-specific data.
-		#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+		#[derive(Clone, PartialEq, Debug, Default, serde::Serialize, serde::Deserialize)]
 		pub struct ContractData {
 			/// Contract code.
 			pub code: Vec<u8>,
 			/// Initial storage entries as 32-byte key/value pairs.
-			pub storage: alloc::collections::BTreeMap<[u8; 32], [u8; 32]>,
+			pub storage: alloc::collections::BTreeMap<Bytes32, Bytes32>,
 		}
 
 		/// Genesis configuration for a contract account.
-		#[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
-		pub struct Account {
+		#[derive(PartialEq, Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+		pub struct Account<T: Config> {
 			/// Contract address.
 			pub address: H160,
 			/// Contract balance.
@@ -557,7 +558,7 @@ pub mod pallet {
 			pub balance: U256,
 			/// Account nonce
 			#[serde(default)]
-			pub nonce: u32,
+			pub nonce: T::Nonce,
 			/// Contract-specific data (code and storage). None for EOAs.
 			#[serde(flatten, skip_serializing_if = "Option::is_none")]
 			pub contract_data: Option<ContractData>,
@@ -565,24 +566,23 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
+	#[derive(Debug, PartialEq, frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Genesis mapped accounts
+		/// List of native Substrate accounts (typically `AccountId32`) to be mapped at genesis
+		/// block, enabling them to interact with smart contracts.
 		pub mapped_accounts: Vec<T::AccountId>,
 		/// Account entries (both EOAs and contracts)
-		pub accounts: Vec<genesis::Account>,
+		pub accounts: Vec<genesis::Account<T>>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
-		T::Nonce: From<u32>,
 	{
 		fn build(&self) {
 			use crate::{exec::Key, vm::ContractBlob};
-			use frame_support::{traits::fungible::Mutate, PalletId};
-			use sp_runtime::traits::AccountIdConversion;
+			use frame_support::traits::fungible::Mutate;
 
 			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
 				let _ = T::Currency::mint_into(
@@ -628,7 +628,7 @@ pub mod pallet {
 								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
 							})
 						} else {
-							ContractBlob::<T>::from_evm_runtime_code(code.clone()).inspect_err(|err| {
+							ContractBlob::<T>::from_evm_runtime_code(code.clone(), account_id).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
 							})
 						};
@@ -654,7 +654,7 @@ pub mod pallet {
 						<PristineCode<T>>::insert(blob.code_hash(), code);
 						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
 						for (k, v) in storage {
-							let _ = info.write(&Key::from_fixed(*k), Some(v.to_vec()), None, false).inspect_err(|err| {
+							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to write genesis storage for {address:?} at key {k:?}: {err:?}");
 							});
 						}
