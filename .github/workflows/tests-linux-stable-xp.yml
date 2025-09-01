@@ -1,0 +1,93 @@
+# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel with new runners
+name: tests linux stable experimental
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/reusable-preflight.yml
+
+  # No filter for 'all_security_features_work' and 'nonexistent_cache_dir'
+  # run all tests on cattery runners
+  test-linux-stable-no-try-runtime:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: parity-large-test
+    timeout-minutes: 60
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+      options: --privileged
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/2, 2/2]
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        id: required
+        run: |
+          forklift cargo nextest run --workspace \
+                   --locked \
+                   --release \
+                   --no-fail-fast \
+                   --features experimental,ci-only-tests \
+                   --partition count:${{ matrix.partition }}
+      # - name: Stop all workflows if failed
+      #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+      #   uses: ./.github/actions/workflow-stopper
+      #   with:
+      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+  test-linux-stable:
+    needs: [preflight]
+    runs-on: parity-large-test
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1/3, 2/3, 3/3]
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+      # needed for tests that use unshare syscall
+      options: --privileged
+    env:
+      RUST_TOOLCHAIN: stable
+      # Enable debug assertions since we are running optimized builds for testing
+      # but still want to have debug assertions.
+      RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: script
+        id: required
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          forklift cargo nextest run \
+            --workspace \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --cargo-quiet \
+            --features try-runtime,experimental,ci-only-tests \
+            --partition count:${{ matrix.partition }}
+      # run runtime-api tests with `enable-staging-api` feature on the 1st node
+      - name: runtime-api tests
+        if: ${{ matrix.partition == '1/3' }}
+        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet

@@ -374,13 +374,13 @@ jobs:
         run: brew install solidity
       - name: Install resolc
         run: |
-          ASSET_URL="https://github.com/paritytech/revive/releases/download/v${{ inputs.version }}/resolc-universal-apple-darwin"
-          echo "Downloading resolc v${{ inputs.version }} from $ASSET_URL"
-          curl -Lsf --show-error -o /tmp/resolc "$ASSET_URL"
-          sudo cp /tmp/resolc /usr/local/bin/resolc
-          sudo chmod 755 /usr/local/bin/resolc
-        with:
-          version: 0.3.0        
+          VERSION="0.3.0"
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
+          echo "Downloading resolc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/resolc
+          xattr -c $HOME/.cargo/bin/resolc
+          resolc --version
       - name: cargo info
         run: |
           echo "######## rustup show ########"
