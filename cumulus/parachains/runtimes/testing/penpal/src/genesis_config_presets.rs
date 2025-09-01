@@ -106,7 +106,7 @@ fn penpal_parachain_genesis(
 			accounts: vec![(
 				crate::xcm_config::RelayLocation::get(),
 				sudo,
-				crate::EXISTENTIAL_DEPOSIT * 40960,
+				crate::EXISTENTIAL_DEPOSIT * 4096,
 			)]
 		}
 	})
