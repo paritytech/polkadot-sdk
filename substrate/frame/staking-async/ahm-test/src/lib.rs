@@ -874,6 +874,70 @@ mod tests {
 		use super::*;
 		use sp_core::crypto::AccountId32;
 
+		#[test]
+		fn normal_session_report() {
+			assert_eq!(
+				rc_client::SessionReport::<AccountId32> {
+					end_index: 0,
+					activation_timestamp: Some((0, 0)),
+					leftover: false,
+					validator_points: (0..1000)
+						.map(|i| (AccountId32::from([i as u8; 32]), 1000))
+						.collect(),
+				}
+				.encoded_size(),
+				36_020
+			);
+		}
+
+		#[test]
+		fn normal_validator_set() {
+			assert_eq!(
+				rc_client::ValidatorSetReport::<AccountId32> {
+					id: 42,
+					leftover: false,
+					new_validator_set: (0..1000)
+						.map(|i| AccountId32::from([i as u8; 32]))
+						.collect(),
+					prune_up_to: Some(69),
+				}
+				.encoded_size(),
+				32_012
+			);
+		}
+
+		#[test]
+		fn normal_offence_legacy_single() {
+			// when one validator had an offence
+			let offences = (0..1)
+				.map(|i| rc_client::Offence::<AccountId32> {
+					offender: AccountId32::from([i as u8; 32]),
+					reporters: vec![AccountId32::from([42; 32])],
+					slash_fraction: Perbill::from_percent(50),
+				})
+				.collect::<Vec<_>>();
+
+			// offence + session-index
+			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
+			assert_eq!(encoded_size, 74);
+		}
+
+		#[test]
+		fn normal_offence_legacy_third() {
+			// when a third of validators are offending
+			let offences = (0..333)
+				.map(|i| rc_client::Offence::<AccountId32> {
+					offender: AccountId32::from([i as u8; 32]),
+					reporters: vec![AccountId32::from([42; 32])],
+					slash_fraction: Perbill::from_percent(50),
+				})
+				.collect::<Vec<_>>();
+
+			// offence + session-index
+			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
+			assert_eq!(encoded_size, 22_983);
+		}
+
 		// Kusama has the same configurations as of now.
 		const POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE: u32 = 51200; // 50 Kib
 		const POLKADOT_MAX_UPWARD_MESSAGE_SIZE: u32 = 65531; // 64 Kib

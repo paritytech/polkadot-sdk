@@ -882,7 +882,7 @@ pub mod pallet {
 			})
 		}
 
-		fn do_end_session(session_index: u32) {
+		fn do_end_session(end_index: u32) {
 			// take and delete all validator points, limited by `MaximumValidatorsWithPoints`. There
 			// should be none left after this limit.
 			let validator_points = ValidatorPoints::<T>::iter()
@@ -898,13 +898,13 @@ pub mod pallet {
 
 			let activation_timestamp = NextSessionChangesValidators::<T>::take().map(|id| {
 				// keep track of starting session index at which the validator set was applied.
-				ValidatorSetAppliedAt::<T>::put(session_index + 1);
+				ValidatorSetAppliedAt::<T>::put(end_index + 1);
 				// set the timestamp and the identifier of the validator set.
 				(T::UnixTime::now().as_millis().saturated_into::<u64>(), id)
 			});
 
 			let session_report = pallet_staking_async_rc_client::SessionReport {
-				end_index: session_index,
+				end_index,
 				validator_points: validator_points.clone(),
 				activation_timestamp,
 				leftover: false,

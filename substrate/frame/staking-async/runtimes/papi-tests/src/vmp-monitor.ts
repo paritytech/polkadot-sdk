@@ -71,6 +71,66 @@
  * - Fees increase when queues grow large (deterring spam)
  * - Fees decrease when queues are small (encouraging usage)
  * - Bandwidth limits prevent any single parachain from monopolizing message passing
+ *
+ * ## VMP Message Limits and Risk Analysis
+ *
+ * There are 4 key categories of limits in the VMP system:
+ *
+ * ### 1. Single Message Size Limit
+ *
+ * **DMP (Downward):**
+ * - Enforced at: `polkadot/runtime/parachains/src/dmp.rs:189` in `can_queue_downward_message()`
+ * - Configuration: `max_downward_message_size`
+ * - Check: Rejects if `serialized_len > config.max_downward_message_size`
+ *
+ * **UMP (Upward):**
+ * - Parachain enforcement: `cumulus/pallets/parachain-system/src/lib.rs:1665` in `send_upward_message()`
+ * - Relay validation: `polkadot/runtime/parachains/src/inclusion/mod.rs:967` in `check_upward_messages()`
+ * - Configuration: `max_upward_message_size` (hard bound: 128KB defined as MAX_UPWARD_MESSAGE_SIZE_BOUND)
+ *
+ * ### 2. Queue Total Size (Bytes)
+ *
+ * **DMP:**
+ * - Max capacity: `MAX_POSSIBLE_ALLOCATION / max_downward_message_size`
+ * - Calculated in: `polkadot/runtime/parachains/src/dmp.rs:318-319` in `dmq_max_length()`
+ * - Enforced at: `polkadot/runtime/parachains/src/dmp.rs:194` in `can_queue_downward_message()`
+ *
+ * **UMP:**
+ * - Parachain check: `cumulus/pallets/parachain-system/src/lib.rs:369-373` (respects relay's remaining capacity)
+ * - Relay limit: `max_upward_queue_size` enforced at `polkadot/runtime/parachains/src/inclusion/mod.rs:977-980`
+ *
+ * ### 3. Queue Total Count (Messages)
+ *
+ * **DMP:**
+ * - No explicit total message count limit
+ * - Only implicitly limited by total queue size
+ *
+ * **UMP:**
+ * - Relay limit: `max_upward_queue_count` at `polkadot/runtime/parachains/src/inclusion/mod.rs:958-961`
+ * - Parachain respects relay's `remaining_count` from `relay_dispatch_queue_remaining_capacity`
+ *
+ * ### 4. Per-Block Append Limit
+ *
+ * **DMP:**
+ * - No explicit per-block limit for senders
+ * - Receivers process up to `processed_downward_messages` per block
+ *
+ * **UMP:**
+ * - Configuration: `max_upward_message_num_per_candidate`
+ * - Parachain limit: `cumulus/pallets/parachain-system/src/lib.rs:386` in `on_finalize()`
+ * - Relay validation: `polkadot/runtime/parachains/src/inclusion/mod.rs:949-952`
+ * - Max bound: 16,384 messages (MAX_UPWARD_MESSAGE_NUM in `polkadot/parachain/src/primitives.rs:436`)
+ *
+ * ### Receiver-side Risk: Weight Exhaustion
+ *
+ * Both DMP and UMP messages are processed through the message-queue pallet:
+ * - Weight check: substrate/frame/message-queue/src/lib.rs:1591 in `process_message_payload()`
+ * - Messages exceeding `overweight_limit` are marked as overweight
+ * - Configuration: `ServiceWeight` and `IdleMaxServiceWeight`
+ * - Overweight handling: Permanently overweight messages require manual execution via `execute_overweight()`
+ *
+ * **Key Insight**: DMP is less restrictive with only size-based limits, while UMP implements all four types of limits,
+ * providing more granular control over message flow.
  */
 
 import { createClient, type PolkadotClient, type TypedApi } from "polkadot-api";
@@ -328,10 +388,13 @@ async function fetchMessageStats(relayApi: TypedApi<typeof rc>, paraApi: any | n
 		const avgMessageSize = messageCount > 0 ? queueTotalSize / messageCount : 0;
 
 		const feeFactorEntry = deliveryFeeFactors.find(entry => entry.keyArgs[0] === paraId);
-		const feeFactorRaw = feeFactorEntry?.value || 1.0;
-		const feeFactor = typeof feeFactorRaw === 'number' ?
-			feeFactorRaw.toFixed(3) :
-			feeFactorRaw.toString();
+		const feeFactorRaw = feeFactorEntry?.value || 1_000_000_000_000_000_000n;
+		const feeFactorValue = typeof feeFactorRaw === 'bigint' ?
+			Number(feeFactorRaw) / 1_000_000_000_000_000_000 :
+			typeof feeFactorRaw === 'number' ?
+			feeFactorRaw / 1_000_000_000_000_000_000 :
+			1.0;
+		const feeFactor = feeFactorValue.toFixed(6);
 
 		dmpQueues.push({
 			paraId,

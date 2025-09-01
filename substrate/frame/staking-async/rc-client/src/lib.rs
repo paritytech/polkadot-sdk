@@ -151,13 +151,13 @@ pub trait SendToRelayChain {
 	type AccountId;
 
 	/// Send a new validator set report to relay chain.
-	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
+	fn validator_set(report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()>;
 }
 
 #[cfg(feature = "std")]
 impl SendToRelayChain for () {
 	type AccountId = u64;
-	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		unimplemented!();
 	}
 }
@@ -445,12 +445,13 @@ where
 {
 	/// Send the message single-shot; no splitting.
 	///
-	/// Useful for sending messages that are already paged/chunked, so we are sure that they fit in one message.
-	pub fn send(message: Message) -> Result<(), SendError> {
+	/// Useful for sending messages that are already paged/chunked, so we are sure that they fit in
+	/// one message.
+	pub fn send(message: Message) -> Result<(), ()> {
 		let xcm = ToXcm::convert(message);
 		let dest = Destination::get();
 		// send_xcm already calls validate internally
-		send_xcm::<Sender>(dest, xcm).map(|_| ())
+		send_xcm::<Sender>(dest, xcm).map(|_| ()).map_err(|_| ())
 	}
 }
 
@@ -467,13 +468,10 @@ where
 	///
 	/// Returns `Ok()` if the message was sent using `XCM`, potentially with splitting up to
 	/// `maybe_max_step` times, `Err(())` otherwise.
-	pub fn split_then_send(
-		message: Message,
-		maybe_max_steps: Option<u32>,
-	) -> Result<(), SendError> {
+	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) -> Result<(), ()> {
 		let message_type_name = core::any::type_name::<Message>();
 		let dest = Destination::get();
-		let xcms = Self::prepare(message, maybe_max_steps).inspect_err(|e| {
+		let xcms = Self::prepare(message, maybe_max_steps).map_err(|e| {
 			log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
 		})?;
 
@@ -494,9 +492,9 @@ where
 			}
 		}) {
 			// just like https://doc.rust-lang.org/src/core/result.rs.html#1746 which I cannot use yet because not in 1.89
-			Ok(inner) => inner,
+			Ok(inner) => inner.map_err(|_| ()),
 			// unreachable; `with_transaction_opaque_err` always returns `Ok(inner)`
-			Err(_) => Err(SendError::Transport("unreachable")),
+			Err(_) => Err(()),
 		}
 	}
 
@@ -610,7 +608,7 @@ pub struct Offence<AccountId> {
 pub mod pallet {
 	use super::*;
 	use alloc::vec;
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -634,9 +632,47 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
+	/// A validator set that is outgoing, and should be sent.
+	///
+	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
+	/// or the second block number value is reached.
+	#[pallet::storage]
+	// TODO: for now we know this ValidatorSetReport is at most validator-count * 32, and we don't
+	// need its MEL critically.
+	#[pallet::unbounded]
+	pub type OutgoingValidatorSet<T: Config> =
+		StorageValue<_, (ValidatorSetReport<T::AccountId>, u32), OptionQuery>;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
+				match T::SendToRelayChain::validator_set(report.clone()) {
+					Ok(()) => {
+						// report was sent, all good, it is already deleted.
+					},
+					Err(()) => {
+						log!(error, "Failed to send validator set report to relay chain");
+						Self::deposit_event(Event::<T>::Unexpected(
+							UnexpectedKind::ValidatorSetSendFailed,
+						));
+						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
+							OutgoingValidatorSet::<T>::put((report, new_retries_left))
+						} else {
+							Self::deposit_event(Event::<T>::Unexpected(
+								UnexpectedKind::ValidatorSetDropped,
+							));
+						}
+					},
+				}
+			}
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -650,6 +686,9 @@ pub mod pallet {
 
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
+
+		/// Maximum number of times that we retry sending a validator set to RC.
+		type MaxValidatorSetRetries: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -685,6 +724,12 @@ pub mod pallet {
 		/// A session in the past was received. This will not raise any errors, just emit an event
 		/// and stop processing the report.
 		SessionAlreadyProcessed,
+		/// A validator set failed to be sent to RC.
+		///
+		/// We will store, and retry it for [`Config::MaxValidatorSetRetries`] future blocks.
+		ValidatorSetSendFailed,
+		/// A validator set was dropped.
+		ValidatorSetDropped,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -696,7 +741,8 @@ pub mod pallet {
 			prune_up_tp: Option<u32>,
 		) {
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
-			T::SendToRelayChain::validator_set(report);
+			// just store the report to be outgoing, it will be sent in the next on-init.
+			OutgoingValidatorSet::<T>::put((report, T::MaxValidatorSetRetries::get()));
 		}
 	}
 

@@ -271,7 +271,6 @@ parameter_types! {
 	pub static MaxOffenceBatchSize: u32 = 50;
 	pub static LocalQueue: Option<Vec<(BlockNumber, OutgoingMessages)>> = None;
 	pub static LocalQueueLastIndex: usize = 0;
-	pub static NextAhDeliveryFails: bool = false;
 }
 
 impl LocalQueue {
@@ -305,11 +304,15 @@ impl ah_client::Config for Runtime {
 	type Fallback = Staking;
 }
 
+parameter_types! {
+	pub static NextAhDeliveryFails: bool = false;
+}
+
 pub struct DeliverToAH;
 impl DeliverToAH {
 	fn ensure_delivery_guard() -> Result<(), ()> {
-		if NextAhDeliveryFails::get() {
-			NextAhDeliveryFails::set(false);
+		// `::take` will set it back to the default value, `false`.
+		if NextAhDeliveryFails::take() {
 			Err(())
 		} else {
 			Ok(())
