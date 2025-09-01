@@ -239,10 +239,6 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::set_code_hash")
 	}
 
-	fn own_code_hash(&mut self) -> &H256 {
-		panic!("MockExt::own_code_hash")
-	}
-
 	fn immutable_data_len(&mut self) -> u32 {
 		panic!("MockExt::immutable_data_len")
 	}
