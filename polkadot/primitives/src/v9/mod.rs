@@ -1865,6 +1865,7 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	/// The blake2-256 hash of the validation code bytes.
 	validation_code_hash: ValidationCodeHash,
 }
+
 impl<H> CandidateDescriptorV2<H> {
 	/// Returns the candidate descriptor version.
 	///
@@ -1958,7 +1959,7 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 		Some(CoreIndex(self.core_index as u32))
 	}
 
-	/// Returns the `core_index` of `V2` candidate descriptors, `None` otherwise.
+	/// Returns the `session_index` of `V2` candidate descriptors, `None` otherwise.
 	pub fn session_index(&self) -> Option<SessionIndex> {
 		if self.version() == CandidateDescriptorVersion::V1 {
 			return None
@@ -2764,7 +2765,7 @@ impl TryFrom<DisputeOffenceKind> for super::v9::slashing::SlashingOffenceKind {
 }
 
 #[cfg(test)]
-/// Test helpers
+/// Basic tests
 pub mod tests {
 	use super::*;
 

@@ -22,7 +22,7 @@ use core::cmp::{max, min};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use polkadot_primitives::v9::GroupIndex;
+use polkadot_primitives::GroupIndex;
 
 use crate::builder::BenchBuilder;
 

@@ -24,11 +24,10 @@
 //! contain randomness based data.
 use codec::{Decode, Encode};
 use polkadot_primitives::{
-	v9::{AppVerify, MutateDescriptorV2},
-	CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2, CollatorId,
-	CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData, Id,
-	Id as ParaId, PersistedValidationData, SessionIndex, ValidationCode, ValidationCodeHash,
-	ValidatorId,
+	AppVerify, CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2,
+	CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData,
+	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex, ValidationCode,
+	ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use scale_info::TypeInfo;

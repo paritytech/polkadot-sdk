@@ -72,7 +72,7 @@ pub use v9::{
 };
 
 #[cfg(feature = "test")]
-pub use v9::MutateDescriptorV2;
+pub use v9::{AppVerify, MutateDescriptorV2};
 
 #[cfg(feature = "std")]
 pub use v9::{AssignmentPair, CollatorPair, ValidatorPair};
