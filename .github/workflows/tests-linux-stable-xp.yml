@@ -21,7 +21,7 @@ jobs:
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: parity-large-test
+    runs-on: ${{ matrix.runners }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -30,6 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         partition: [1/2, 2/2]
+        runners: [parity-large-test, parity-oldlinux-test]
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
