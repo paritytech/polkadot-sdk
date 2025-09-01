@@ -148,7 +148,10 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
-	fn from_evm_init_code(_code: Vec<u8>, _owner: AccountIdOf<Test>) -> Result<Self, DispatchError> {
+	fn from_evm_init_code(
+		_code: Vec<u8>,
+		_owner: AccountIdOf<Test>,
+	) -> Result<Self, DispatchError> {
 		unimplemented!()
 	}
 
