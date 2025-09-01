@@ -126,7 +126,7 @@ const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 #[cfg(not(test))]
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
-const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(100);
+const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 
 // A default set of invulnerable asset hub collators
 const ASSET_HUB_INVULNERABLES: [&str; 6] = [
@@ -378,6 +378,8 @@ struct HeldOffAdvertisement {
 	relay_parent: Hash,
 	/// The peer id of the collator that has sent the advertisement.
 	peer_id: PeerId,
+	/// The public key which the collator has sent us with the `Declare` message.
+	collator_id: CollatorId,
 	/// The prospective candidate hash and its relay parent, if available. Will be none if collator
 	/// protocol v1 is used.
 	prospective_candidate: Option<(CandidateHash, Hash)>,
@@ -916,10 +918,6 @@ async fn process_incoming_peer_message<Context>(
 			}
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			if hold_off_asset_hub_collation_if_needed(state, origin, relay_parent, None) {
-				return
-			}
-
 			if let Err(err) =
 				handle_advertisement(ctx.sender(), state, relay_parent, origin, None).await
 			{
@@ -941,15 +939,6 @@ async fn process_incoming_peer_message<Context>(
 			candidate_hash,
 			parent_head_data_hash,
 		}) => {
-			if hold_off_asset_hub_collation_if_needed(
-				state,
-				origin,
-				relay_parent,
-				Some((candidate_hash, parent_head_data_hash)),
-			) {
-				return
-			}
-
 			if let Err(err) = handle_advertisement(
 				ctx.sender(),
 				state,
@@ -991,23 +980,25 @@ async fn process_incoming_peer_message<Context>(
 // `true` if the collation was held off and `false` otherwise.
 fn hold_off_asset_hub_collation_if_needed(
 	state: &mut State,
-	origin: PeerId,
+	peer_id: PeerId,
+	collator_id: &CollatorId,
 	relay_parent: Hash,
 	prospective_candidate: Option<(CandidateHash, Hash)>,
 ) -> bool {
 	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
-	let maybe_para_id = state.peer_data.get(&origin).and_then(|pd| pd.collating_para());
-	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&origin) {
+	let maybe_para_id = state.peer_data.get(&peer_id).and_then(|pd| pd.collating_para());
+	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&peer_id) {
 		state.ah_held_off_collations.push_back(HeldOffAdvertisement {
 			received_at: SystemTime::now(),
 			relay_parent,
-			peer_id: origin,
+			peer_id,
+			collator_id: collator_id.clone(),
 			prospective_candidate,
 		});
 		gum::debug!(
 			target: LOG_TARGET,
-			peer_id = ?origin,
+			?peer_id,
 			?relay_parent,
 			?prospective_candidate,
 			"AssetHub collation held off, not from invulnerable collator",
@@ -1243,20 +1234,48 @@ where
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
+	if hold_off_asset_hub_collation_if_needed(
+		state,
+		peer_id,
+		&collator_id,
+		relay_parent,
+		prospective_candidate,
+	) {
+		return Ok(())
+	}
+
+	process_advertisement(
+		sender,
+		state,
+		relay_parent,
+		para_id,
+		peer_id,
+		collator_id,
+		prospective_candidate,
+	)
+	.await
+}
+
+async fn process_advertisement<Sender>(
+	sender: &mut Sender,
+	state: &mut State,
+	relay_parent: Hash,
+	para_id: ParaId,
+	peer_id: PeerId,
+	collator_id: CollatorId,
+	prospective_candidate: Option<(CandidateHash, Hash)>,
+) -> std::result::Result<(), AdvertisementError>
+where
+	Sender: CollatorProtocolSenderTrait,
+{
 	ensure_seconding_limit_is_respected(&relay_parent, para_id, state)?;
 
 	if let Some((candidate_hash, parent_head_data_hash)) = prospective_candidate {
 		// Check if backing subsystem allows to second this candidate.
 		//
 		// This is also only important when async backing or elastic scaling is enabled.
-		let can_second = can_second(
-			sender,
-			collator_para_id,
-			relay_parent,
-			candidate_hash,
-			parent_head_data_hash,
-		)
-		.await;
+		let can_second =
+			can_second(sender, para_id, relay_parent, candidate_hash, parent_head_data_hash).await;
 
 		if !can_second {
 			return Err(AdvertisementError::BlockedByBacking)
@@ -1954,7 +1973,7 @@ async fn run_inner<Context>(
 						break;
 					}
 
-					let HeldOffAdvertisement{received_at: _, relay_parent, peer_id, prospective_candidate} = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
+					let HeldOffAdvertisement{received_at: _, relay_parent, peer_id, collator_id, prospective_candidate} = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
 					gum::debug!(
 						target: LOG_TARGET,
 						?relay_parent,
@@ -1962,13 +1981,16 @@ async fn run_inner<Context>(
 						?prospective_candidate,
 						"Processing held off advertisement for AssetHub",
 					);
-					if let Err(err) = handle_advertisement(
+					if let Err(err) = process_advertisement(
 						ctx.sender(),
 						&mut state,
 						relay_parent,
+						ASSET_HUB_PARA_ID,
 						peer_id,
+						collator_id,
 						prospective_candidate,
-					).await {
+					)
+					.await {
 						gum::debug!(
 								target: LOG_TARGET,
 								?err,
