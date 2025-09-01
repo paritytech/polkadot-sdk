@@ -61,6 +61,10 @@ impl Account {
 		let signature = self.0.sign(&payload).0;
 		tx.with_signature(signature)
 	}
+
+	pub fn sign(&self, message: &[u8] ) -> [u8; 65] {
+		self.0.sign(message).0
+	}
 }
 
 #[test]

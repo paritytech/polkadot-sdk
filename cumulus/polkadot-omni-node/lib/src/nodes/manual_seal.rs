@@ -34,7 +34,7 @@ use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_runtime::traits::Header;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::{Arc,Mutex}};
 
 pub struct ManualSealNode<NodeSpec>(PhantomData<NodeSpec>);
 
@@ -264,7 +264,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					None,
 				)?;
 				module
-					.merge(ManualSeal::new(manual_seal_sink.clone()).into_rpc())
+					.merge(ManualSeal::new(manual_seal_sink.clone(), Arc::new(Mutex::new(None))).into_rpc())
 					.map_err(|e| sc_service::Error::Application(e.into()))?;
 				Ok(module)
 			})

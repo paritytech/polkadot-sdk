@@ -30,7 +30,7 @@ use frame_support::weights::{
 	Weight,
 };
 use frame_system::limits::BlockWeights;
-use pallet_revive::{evm::runtime::EthExtra, AccountId32Mapper};
+use pallet_revive::{evm::runtime::EthExtra, is_eth_derived, AccountId32Mapper};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -57,7 +57,7 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
 		RuntimeGenesisConfig, SudoConfig,
 	};
 
@@ -78,6 +78,78 @@ pub mod genesis_config_presets {
 				array_bytes::hex_n_into_unchecked(
 					"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
 				),
+				// subxt_signer::eth::dev::charleth()
+				array_bytes::hex_n_into_unchecked(
+					"798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFceeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::dorothy()
+				array_bytes::hex_n_into_unchecked(
+					"773539d4Ac0e786233D90A233654ccEE26a613D9eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::ethan()
+				array_bytes::hex_n_into_unchecked(
+					"Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDBeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::faith()
+				array_bytes::hex_n_into_unchecked(
+					"C0F0f4ab324C46e55D02D0033343B4Be8A55532deeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::gareth()
+				array_bytes::hex_n_into_unchecked(
+					"7BF369283338E12C90514468aa3868A551AB2929eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::heather()
+				array_bytes::hex_n_into_unchecked(
+					"931f3600a299fd9B24cEfB3BfF79388D19804BeAeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::ithelia()
+				array_bytes::hex_n_into_unchecked(
+					"C41C5F1123ECCd5ce233578B2e7ebd5693869d73eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::jethro()
+				array_bytes::hex_n_into_unchecked(
+					"2898FE7a42Be376C8BC7AF536A940F7Fd5aDd423eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::keith()
+				array_bytes::hex_n_into_unchecked(
+					"583E6CFb24Ae212A36Db2766597fF8e6AC796751eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::luther()
+				array_bytes::hex_n_into_unchecked(
+					"bb827670B9dCb162Daa8DbF3dFF63a71c844d17deeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::martha()
+				array_bytes::hex_n_into_unchecked(
+					"D9E8D42eDD3Bc20871fA6662E069E71483fC167Aeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::nathan()
+				array_bytes::hex_n_into_unchecked(
+					"9702DF55600140d8E197AAdfffa622F2A80564fdeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::othello()
+				array_bytes::hex_n_into_unchecked(
+					"9FC969aCe16Fe2757E04a8BD32136a9EC258db6Deeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::perth()
+				array_bytes::hex_n_into_unchecked(
+					"Fe25AaD37c57C4b6Bc85d96a4349dac5046A06EEeeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::ruth()
+				array_bytes::hex_n_into_unchecked(
+					"11E8697Ef0f4BF2A4076ff46e42a0FdD8C4d6C41eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::seth()
+				array_bytes::hex_n_into_unchecked(
+					"001eB6957Eae09433A380504b11f807611686669eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::thomas()
+				array_bytes::hex_n_into_unchecked(
+					"0A2e55fd44d1cEe5fD482a2062A11C548C492E25eeeeeeeeeeeeeeeeeeeeeeee",
+				),
+				// subxt_signer::eth::dev::uthman()
+				array_bytes::hex_n_into_unchecked(
+					"1B948eD0bbacC2ca68eEcb5A9FC9Ba2755669faFeeeeeeeeeeeeeeeeeeeeeeee",
+				),
 			])
 			.collect::<Vec<_>>()
 	}
@@ -90,6 +162,14 @@ pub mod genesis_config_presets {
 					.into_iter()
 					.map(|id| (id, ENDOWMENT))
 					.collect::<Vec<_>>(),
+			},
+			revive: ReviveConfig {
+				mapped_accounts: well_known_accounts()
+					.iter()
+					.filter(|x| !is_eth_derived(x))
+					.cloned()
+					.collect(),
+					gas_price: 1_000u64,
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
 		})

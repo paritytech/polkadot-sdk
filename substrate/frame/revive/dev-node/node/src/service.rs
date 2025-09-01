@@ -17,8 +17,11 @@
 
 use crate::cli::Consensus;
 use futures::FutureExt;
+use futures::SinkExt;
 use polkadot_sdk::{
+	parachains_common::Hash,
 	sc_client_api::backend::Backend,
+	sc_consensus_manual_seal::{seal_block, SealBlockParams},
 	sc_executor::WasmExecutor,
 	sc_service::{error::Error as ServiceError, Configuration, TaskManager},
 	sc_telemetry::{Telemetry, TelemetryWorker},
@@ -27,7 +30,6 @@ use polkadot_sdk::{
 	*,
 };
 use revive_dev_runtime::{OpaqueBlock as Block, RuntimeApi};
-use std::sync::Arc;
 
 type HostFunctions = sp_io::SubstrateHostFunctions;
 
@@ -35,8 +37,14 @@ type HostFunctions = sp_io::SubstrateHostFunctions;
 pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, WasmExecutor<HostFunctions>>;
 
-type FullBackend = sc_service::TFullBackend<Block>;
+pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+use std::sync::{
+	atomic::{AtomicU64, Ordering},
+	Arc, Mutex,
+};
+
+pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
 pub type Service = sc_service::PartialComponents<
@@ -106,7 +114,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
+pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	consensus: Consensus,
 ) -> Result<TaskManager, ServiceError> {
@@ -163,12 +171,173 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		);
 	}
 
+	let mut proposer = sc_basic_authorship::ProposerFactory::new(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool.clone(),
+		None,
+		telemetry.as_ref().map(|x| x.handle()),
+	);
+
+	let mut consensus_type: Consensus = Consensus::None;
+
+	let (sink, manual_trigger_stream) =
+		futures::channel::mpsc::channel::<sc_consensus_manual_seal::EngineCommand<Hash>>(1024);
+
+	let timestamp_delta_override: SharedDelta = Arc::new(Mutex::new(None));
+	let delta_for_inherent = timestamp_delta_override.clone();
+
+	match consensus {
+		Consensus::InstantSeal => {
+			consensus_type = Consensus::InstantSeal;
+
+			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
+
+			let create_inherent_data_providers = move |_, ()| {
+				let delta_for_inherent = delta_for_inherent.clone();
+				async move {
+					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
+
+					let next_timestamp =
+						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+				}
+			};
+
+			let mut client_mut = client.clone();
+			let seal_params = SealBlockParams {
+				sender: None,
+				parent_hash: None,
+				finalize: true,
+				create_empty: true,
+				env: &mut proposer,
+				select_chain: &select_chain,
+				block_import: &mut client_mut,
+				consensus_data_provider: None,
+				pool: transaction_pool.clone(),
+				client: client.clone(),
+				create_inherent_data_providers: &create_inherent_data_providers,
+			};
+			seal_block(seal_params).await;
+
+			/// This is needed to finish opening both channels, otherwise block production won't start
+			/// until we send an rpc call to create a block.
+			let command = sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+				sender: None,
+				parent_hash: None,
+				finalize: true,
+				create_empty: true,
+			};
+
+			let mut sink = sink.clone();
+
+			let _ = sink.send(command).await;
+
+			let params = sc_consensus_manual_seal::InstantSealParams {
+				block_import: client.clone(),
+				env: proposer,
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain,
+				consensus_data_provider: None,
+				create_inherent_data_providers,
+				manual_trigger_stream,
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"instant-seal",
+				None,
+				sc_consensus_manual_seal::run_instant_seal(params),
+			);
+		},
+		Consensus::ManualSeal(Some(rate)) => {
+			consensus_type = Consensus::ManualSeal(Some(rate));
+
+			let mut new_sink = sink.clone();
+			task_manager.spawn_handle().spawn("block_authoring", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_millis(rate)).await;
+					let _ =
+						new_sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+							create_empty: true,
+							finalize: true,
+							parent_hash: None,
+							sender: None,
+						});
+				}
+			});
+
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer.clone(),
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: select_chain.clone(),
+				commands_stream: Box::pin(manual_trigger_stream),
+				consensus_data_provider: None,
+				create_inherent_data_providers: move |_, ()| async move {
+					Ok(sp_timestamp::InherentDataProvider::from_system_time())
+				},
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				sc_consensus_manual_seal::run_manual_seal(params),
+			);
+		},
+		Consensus::ManualSeal(None) => {
+			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
+
+			let create_inherent_data_providers = move |_, ()| {
+				let delta_for_inherent = delta_for_inherent.clone();
+				async move {
+					let delta_ms = delta_for_inherent.lock().unwrap().unwrap_or(1000); // Default to 6 seconds
+					let next_timestamp =
+						NEXT_TIMESTAMP.fetch_add(delta_ms, Ordering::SeqCst) + delta_ms;
+					Ok(sp_timestamp::InherentDataProvider::new(next_timestamp.into()))
+				}
+			};
+
+			consensus_type = Consensus::ManualSeal(None);
+
+			let params = sc_consensus_manual_seal::ManualSealParams {
+				block_import: client.clone(),
+				env: proposer.clone(),
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				select_chain: select_chain.clone(),
+				commands_stream: Box::pin(manual_trigger_stream),
+				consensus_data_provider: None,
+				create_inherent_data_providers,
+			};
+
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"manual-seal",
+				None,
+				sc_consensus_manual_seal::run_manual_seal(params),
+			);
+		},
+		_ => {},
+	}
+
+	// Set up RPC
 	let rpc_extensions_builder = {
 		let client = client.clone();
+		let backend = backend.clone();
 		let pool = transaction_pool.clone();
+		let sink = sink.clone();
+		let timestamp_delta = timestamp_delta_override.clone(); // <-- include this
 
 		Box::new(move |_| {
-			let deps = crate::rpc::FullDeps { client: client.clone(), pool: pool.clone() };
+			let deps = crate::rpc::FullDeps {
+				client: client.clone(),
+				backend: backend.clone(),
+				pool: pool.clone(),
+				manual_seal_sink: sink.clone(),
+				consensus_type: consensus_type.clone(),
+				timestamp_delta: timestamp_delta.clone(),
+			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
@@ -187,74 +356,6 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 		config,
 		telemetry: telemetry.as_mut(),
 	})?;
-
-	let proposer = sc_basic_authorship::ProposerFactory::new(
-		task_manager.spawn_handle(),
-		client.clone(),
-		transaction_pool.clone(),
-		None,
-		telemetry.as_ref().map(|x| x.handle()),
-	);
-
-	match consensus {
-		Consensus::InstantSeal => {
-			let params = sc_consensus_manual_seal::InstantSealParams {
-				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
-				select_chain,
-				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-
-			let authorship_future = sc_consensus_manual_seal::run_instant_seal(params);
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"instant-seal",
-				None,
-				authorship_future,
-			);
-		},
-		Consensus::ManualSeal(block_time) => {
-			let (mut sink, commands_stream) = futures::channel::mpsc::channel(1024);
-			task_manager.spawn_handle().spawn("block_authoring", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_millis(block_time)).await;
-					sink.try_send(sc_consensus_manual_seal::EngineCommand::SealNewBlock {
-						create_empty: true,
-						finalize: true,
-						parent_hash: None,
-						sender: None,
-					})
-					.unwrap();
-				}
-			});
-
-			let params = sc_consensus_manual_seal::ManualSealParams {
-				block_import: client.clone(),
-				env: proposer,
-				client,
-				pool: transaction_pool,
-				select_chain,
-				commands_stream: Box::pin(commands_stream),
-				consensus_data_provider: None,
-				create_inherent_data_providers: move |_, ()| async move {
-					Ok(sp_timestamp::InherentDataProvider::from_system_time())
-				},
-			};
-			let authorship_future = sc_consensus_manual_seal::run_manual_seal(params);
-
-			task_manager.spawn_essential_handle().spawn_blocking(
-				"manual-seal",
-				None,
-				authorship_future,
-			);
-		},
-		_ => {},
-	}
 
 	Ok(task_manager)
 }

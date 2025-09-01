@@ -186,4 +186,7 @@ pub trait EthRpc {
 		newest_block: BlockNumberOrTag,
 		reward_percentiles: Option<Vec<f64>>,
 	) -> RpcResult<FeeHistoryResult>;
+
+	#[method(name = "personal_sign")]
+	async fn personal_sign(&self, message: Bytes, address: H160) -> RpcResult<Option<Bytes>>;
 }
