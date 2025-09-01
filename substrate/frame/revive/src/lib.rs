@@ -54,7 +54,7 @@ use crate::{
 		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
 	},
 	tracing::if_tracing,
-	vm::{CodeInfo, ContractBlob, RuntimeCosts},
+	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
@@ -81,7 +81,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -107,7 +107,6 @@ pub use crate::vm::pvm::SyscallDoc;
 pub type BalanceOf<T> =
 	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 type TrieId = BoundedVec<u8, ConstU32<128>>;
-type CodeVec = BoundedVec<u8, ConstU32<{ limits::code::BLOB_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 pub(crate) type OnChargeTransactionBalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
 
@@ -226,6 +225,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsafeUnstableInterface: Get<bool>;
 
+		/// Allow EVM bytecode to be uploaded and instantiated.
+		#[pallet::constant]
+		type AllowEVMBytecode: Get<bool>;
+
 		/// Origin allowed to upload code.
 		///
 		/// By default, it is safe to set this to `EnsureSigned`, allowing anyone to upload contract
@@ -337,6 +340,7 @@ pub mod pallet {
 			type DepositPerItem = DepositPerItem;
 			type Time = Self;
 			type UnsafeUnstableInterface = ConstBool<true>;
+			type AllowEVMBytecode = ConstBool<true>;
 			type UploadOrigin = EnsureSigned<Self::AccountId>;
 			type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 			type WeightInfo = ();
@@ -491,8 +495,11 @@ pub mod pallet {
 	}
 
 	/// A mapping from a contract's code hash to its code.
+	/// The code's size is bounded by [`crate::limits::BLOB_BYTES`] for PVM and
+	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
 	#[pallet::storage]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, CodeVec>;
+	#[pallet::unbounded]
+	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
@@ -538,6 +545,13 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
+				let _ = T::Currency::mint_into(
+					&Pallet::<T>::account_id(),
+					T::Currency::minimum_balance(),
+				);
+			}
+
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
@@ -548,6 +562,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			return T::DbWeight::get().reads(1)
+		}
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
@@ -916,8 +935,7 @@ pub mod pallet {
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
-		/// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-		/// depends on the size of the supplied `code`.
+		/// The size of the reserve depends on the size of the supplied `code`.
 		///
 		/// # Note
 		///
@@ -925,6 +943,9 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// If the refcount of the code reaches zero after terminating the last contract that
+		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
@@ -979,7 +1000,7 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1146,7 +1167,14 @@ where
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
 				},
-				Code::Upload(_code) => return Err(<Error<T>>::CodeRejected.into()),
+				Code::Upload(code) =>
+					if T::AllowEVMBytecode::get() {
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
+						(executable, Default::default())
+					} else {
+						return Err(<Error<T>>::CodeRejected.into())
+					},
 				Code::Existing(code_hash) =>
 					(ContractBlob::from_storage(code_hash, &mut gas_meter)?, Default::default()),
 			};
@@ -1333,19 +1361,9 @@ where
 			None => {
 				// Extract code and data from the input.
 				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-					match polkavm::ProgramBlob::blob_length(&input) {
-						Some(blob_len) => blob_len
-							.try_into()
-							.ok()
-							.and_then(|blob_len| (input.split_at_checked(blob_len)))
-							.unwrap_or_else(|| (&input[..], &[][..])),
-						_ => {
-							log::debug!(target: LOG_TARGET, "Failed to extract polkavm blob length");
-							(&input[..], &[][..])
-						},
-					}
+					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
 				} else {
-					return Err(EthTransactError::Message("Invalid transaction".into()));
+					(input, vec![])
 				};
 
 				// Dry run the call.
@@ -1354,8 +1372,8 @@ where
 					value,
 					gas_limit,
 					storage_deposit_limit,
-					Code::Upload(code.to_vec()),
-					data.to_vec(),
+					Code::Upload(code.clone()),
+					data.clone(),
 					None,
 					BumpNonce::No,
 				);
@@ -1390,8 +1408,8 @@ where
 						value,
 						gas_limit,
 						storage_deposit_limit,
-						code: code.to_vec(),
-						data: data.to_vec(),
+						code,
+						data,
 					}
 					.into();
 				(result, dispatch_call)
@@ -1576,6 +1594,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()

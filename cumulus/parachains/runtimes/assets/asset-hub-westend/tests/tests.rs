@@ -1664,11 +1664,14 @@ fn weight_of_message_increases_when_dealing_with_erc20s() {
 fn withdraw_and_deposit_erc20s() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1729,6 +1732,7 @@ fn withdraw_and_deposit_erc20s() {
 fn non_existent_erc20_will_error() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
@@ -1736,6 +1740,8 @@ fn non_existent_erc20_will_error() {
 	let non_existent_contract_address = [1u8; 20];
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1772,11 +1778,15 @@ fn non_existent_erc20_will_error() {
 fn smart_contract_not_erc20_will_error() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1822,11 +1832,15 @@ fn smart_contract_not_erc20_will_error() {
 fn smart_contract_does_not_return_bool_fails() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
@@ -1875,11 +1889,15 @@ fn smart_contract_does_not_return_bool_fails() {
 fn expensive_erc20_runs_out_of_gas() {
 	let sender: AccountId = ALICE.into();
 	let beneficiary: AccountId = BOB.into();
+	let revive_account = pallet_revive::Pallet::<Runtime>::account_id();
 	let checking_account =
 		asset_hub_westend_runtime::xcm_config::ERC20TransfersCheckingAccount::get();
 	let initial_wnd_amount = 10_000_000_000_000u128;
 
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		// Bring the revive account to life.
+		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
+
 		// We need to give enough funds for every account involved so they
 		// can call `Revive::map_account`.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));

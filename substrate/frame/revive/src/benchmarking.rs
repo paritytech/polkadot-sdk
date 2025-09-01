@@ -84,6 +84,14 @@ macro_rules! build_runtime(
 	};
 );
 
+/// Get the pallet account and whitelist it for benchmarking.
+/// The account is warmed up `on_initialize` so read should not impact the PoV.
+fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
+	let pallet_account = Pallet::<T>::account_id();
+	whitelist_account!(pallet_account);
+	pallet_account
+}
+
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -122,7 +130,7 @@ mod benchmarks {
 	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
 	// the execution engine.
 	//
-	// `call_with_code_per_byte(c) - call_with_code_per_byte(0)`
+	// `call_with_pvm_code_per_byte(c) - call_with_pvm_code_per_byte(0)`
 	//
 	// This does **not** include the actual execution for which the gas meter
 	// is responsible. The code used here will just return on call.
@@ -131,9 +139,32 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_pvm_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
+		let value = Pallet::<T>::min_balance();
+		let storage_deposit = default_deposit_limit::<T>();
+
+		#[extrinsic_call]
+		call(
+			RawOrigin::Signed(instance.caller.clone()),
+			instance.address,
+			value,
+			Weight::MAX,
+			storage_deposit,
+			vec![],
+		);
+
+		Ok(())
+	}
+
+	// This benchmarks the overhead of loading a code of size `c` byte from storage and into
+	// the execution engine.
+	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
+	#[benchmark(pov_mode = Measured)]
+	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 
@@ -159,7 +190,7 @@ mod benchmarks {
 	// we will always charge one max sized block per contract call.
 	//
 	// We ignore the proof size component when using this benchmark as this is already accounted
-	// for in `call_with_code_per_byte`.
+	// for in `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
@@ -192,6 +223,7 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -209,9 +241,11 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		// uploading the code reserves some balance in the pallet's account
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
@@ -234,6 +268,7 @@ mod benchmarks {
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
 	) {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 
 		let value = Pallet::<T>::min_balance();
@@ -259,9 +294,11 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		// uploading the code reserves some balance in the callers account
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		// uploading the code reserves some balance in the pallet account
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
@@ -284,6 +321,7 @@ mod benchmarks {
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -304,8 +342,10 @@ mod benchmarks {
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
-		let code_deposit =
-			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &account_id);
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&pallet_account,
+		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
 		// value was removed from the caller
@@ -328,9 +368,10 @@ mod benchmarks {
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
 	// part of `seal_call_data_copy`. The costs for invoking a contract of a specific size are not
 	// part of this benchmark because we cannot know the size of the contract when issuing a call
-	// transaction. See `call_with_code_per_byte` for this.
+	// transaction. See `call_with_pvm_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -346,7 +387,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -369,6 +410,7 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -390,7 +432,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&instance.caller,
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -420,14 +462,15 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
 		_(origin, code, storage_deposit);
-		// uploading the code reserves some balance in the callers account
-		assert!(T::Currency::total_balance_on_hold(&caller) > 0u32.into());
+		// uploading the code reserves some balance in the pallet's account
+		assert!(T::Currency::total_balance_on_hold(&pallet_account) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
@@ -437,6 +480,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -444,12 +488,12 @@ mod benchmarks {
 		let uploaded =
 			<Contracts<T>>::bare_upload_code(origin.clone().into(), code, storage_deposit)?;
 		assert_eq!(uploaded.code_hash, hash);
-		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&caller));
+		assert_eq!(uploaded.deposit, T::Currency::total_balance_on_hold(&pallet_account));
 		assert!(<Contract<T>>::code_exists(&hash));
 		#[extrinsic_call]
 		_(origin, hash);
 		// removing the code should have unreserved the deposit
-		assert_eq!(T::Currency::total_balance_on_hold(&caller), 0u32.into());
+		assert_eq!(T::Currency::total_balance_on_hold(&pallet_account), 0u32.into());
 		assert!(<Contract<T>>::code_removed(&hash));
 		Ok(())
 	}
@@ -1079,11 +1123,21 @@ mod benchmarks {
 		));
 	}
 
+	/// Benchmark the ocst of terminating a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_terminate() -> Result<(), BenchmarkError> {
+	fn seal_terminate(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_code = r == 1;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 
-		build_runtime!(runtime, memory: [beneficiary.encode(),]);
+		build_runtime!(runtime, instance, memory: [beneficiary.encode(),]);
+		let code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_code {
+			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -1092,6 +1146,7 @@ mod benchmarks {
 		}
 
 		assert!(matches!(result, Err(crate::vm::pvm::TrapReason::Termination)));
+		assert_eq!(PristineCode::<T>::get(code_hash).is_none(), delete_code);
 
 		Ok(())
 	}
@@ -2208,12 +2263,23 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
+	/// Benchmark the cost of setting the code hash of a contract.
+	///
+	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
 	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash() -> Result<(), BenchmarkError> {
-		let code_hash =
-			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let delete_old_code = r == 1;
+		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
+			.info()?
+			.code_hash;
 
-		build_runtime!(runtime, memory: [ code_hash.encode(),]);
+		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
+		let old_code_hash = instance.info()?.code_hash;
+
+		// Increment the refcount of the code hash so that it does not get deleted
+		if !delete_old_code {
+			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
+		}
 
 		let result;
 		#[block]
@@ -2222,6 +2288,30 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
+		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
+		Ok(())
+	}
+
+	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+		use crate::vm::evm;
+		use revm::bytecode::Bytecode;
+
+		let module = VmBinaryModule::evm_noop(r);
+		let inputs = evm::EVMInputs::new(vec![]);
+
+		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
+		let mut setup = CallSetup::<T>::new(module);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert!(result.is_ok());
 		Ok(())
 	}
 
@@ -2328,6 +2418,31 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v2_migration_step() {
+		use crate::migrations::v2;
+		let code_hash = H256::from([0; 32]);
+		let old_code_info = v2::Migration::<T>::create_old_code_info(
+			whitelisted_caller(),
+			1000u32.into(),
+			1,
+			100,
+			0,
+		);
+		v2::Migration::<T>::insert_old_code_info(code_hash, old_code_info.clone());
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v2::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		v2::Migration::<T>::assert_migrated_code_info(code_hash, &old_code_info);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(
