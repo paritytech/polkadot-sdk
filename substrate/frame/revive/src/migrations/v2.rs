@@ -28,7 +28,7 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	traits::{
-		fungible::MutateHold,
+		fungible::{Inspect, Mutate, MutateHold},
 		tokens::{Fortitude, Precision, Restriction},
 	},
 	weights::WeightMeter,
@@ -107,6 +107,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
+		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::account_id()) {
+			let _ =
+				T::Currency::mint_into(&Pallet::<T>::account_id(), T::Currency::minimum_balance());
+		}
+
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;
@@ -122,7 +127,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				if let Err(err) = T::Currency::transfer_on_hold(
 					&crate::HoldReason::CodeUploadDepositReserve.into(),
 					&value.owner,
-					&Pallet::<T>::pallet_account(),
+					&Pallet::<T>::account_id(),
 					value.deposit,
 					Precision::Exact,
 					Restriction::OnHold,
@@ -159,14 +164,6 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
-		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::pallet_account()) {
-			log::error!(
-				target: LOG_TARGET,
-				"Revive account {:?} should be created before running the migration", Pallet::<T>::pallet_account()
-			);
-			return Err(TryRuntimeError::Other("Revive account does not exist"))
-		}
-
 		// Return the state of the storage before the migration.
 		Ok(old::CodeInfoOf::<T>::iter().collect::<BTreeMap<_, _>>().encode())
 	}
@@ -197,7 +194,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		assert_eq!(
 			<T as Config>::Currency::balance_on_hold(
 				&crate::HoldReason::CodeUploadDepositReserve.into(),
-				&Pallet::<T>::pallet_account(),
+				&Pallet::<T>::account_id(),
 			),
 			deposit_sum,
 		);
@@ -266,7 +263,7 @@ fn migrate_to_v2() {
 	};
 	use alloc::collections::BTreeMap;
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		// Store the original values to verify against later
 		let mut original_values = BTreeMap::new();
 

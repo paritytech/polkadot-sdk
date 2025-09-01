@@ -84,6 +84,14 @@ macro_rules! build_runtime(
 	};
 );
 
+/// Get the pallet account and whitelist it for benchmarking.
+/// The account is warmed up `on_initialize` so read should not impact the PoV.
+fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
+	let pallet_account = Pallet::<T>::account_id();
+	whitelist_account!(pallet_account);
+	pallet_account
+}
+
 #[benchmarks(
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
@@ -215,6 +223,7 @@ mod benchmarks {
 		c: Linear<0, { 100 * 1024 }>,
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -235,7 +244,7 @@ mod benchmarks {
 		// uploading the code reserves some balance in the pallet's account
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
@@ -259,6 +268,7 @@ mod benchmarks {
 		i: Linear<0, { limits::CALLDATA_BYTES }>,
 		d: Linear<0, 1>,
 	) {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 
 		let value = Pallet::<T>::min_balance();
@@ -287,7 +297,7 @@ mod benchmarks {
 		// uploading the code reserves some balance in the pallet account
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
@@ -311,6 +321,7 @@ mod benchmarks {
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -333,7 +344,7 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &account_id);
@@ -360,6 +371,7 @@ mod benchmarks {
 	// transaction. See `call_with_pvm_code_per_byte` for this.
 	#[benchmark(pov_mode = Measured)]
 	fn call() -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -375,7 +387,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -398,6 +410,7 @@ mod benchmarks {
 	// `d`: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let pallet_account = whitelisted_pallet_account::<T>();
 		let data = vec![42u8; 1024];
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
@@ -419,7 +432,7 @@ mod benchmarks {
 		);
 		let code_deposit = T::Currency::balance_on_hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
-			&Pallet::<T>::pallet_account(),
+			&pallet_account,
 		);
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
@@ -449,6 +462,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -456,7 +470,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(origin, code, storage_deposit);
 		// uploading the code reserves some balance in the pallet's account
-		assert!(T::Currency::total_balance_on_hold(&Pallet::<T>::pallet_account()) > 0u32.into());
+		assert!(T::Currency::total_balance_on_hold(&pallet_account) > 0u32.into());
 		assert!(<Contract<T>>::code_exists(&hash));
 	}
 
@@ -466,7 +480,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
-		let pallet_account = Pallet::<T>::pallet_account();
+		let pallet_account = whitelisted_pallet_account::<T>();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::dummy();
 		let origin = RawOrigin::Signed(caller.clone());

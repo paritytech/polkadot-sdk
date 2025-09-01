@@ -101,7 +101,7 @@ use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 #[cfg(feature = "runtime-benchmarks")]
 use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
-	NetworkId, NonFungible, Parent, ParentThen, Response, WeightLimit, XCM_VERSION,
+	NetworkId, NonFungible, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 use xcm::{
 	latest::prelude::{AssetId, BodyId},
@@ -1750,12 +1750,27 @@ impl_runtime_apis! {
 				}
 
 				fn reserve_transferable_asset_and_dest() -> Option<(Asset, Location)> {
+					// We get an account to create USDT and give it enough WND to exist.
+					let account = frame_benchmarking::whitelisted_caller();
+					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+						&account,
+						ExistentialDeposit::get() + (1_000 * UNITS)
+					));
+
+					// We then create USDT.
+					let usdt_id = 1984u32;
+					let usdt_location = Location::new(0, [PalletInstance(50), GeneralIndex(usdt_id.into())]);
+					assert_ok!(Assets::force_create(
+						RuntimeOrigin::root(),
+						usdt_id.into(),
+						account.clone().into(),
+						true,
+						1
+					));
+
+					// And return USDT as the reserve transferable asset.
 					Some((
-						Asset {
-							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
-						},
-						// AH can reserve transfer native token to some random parachain.
+						Asset { fun: Fungible(ExistentialDeposit::get()), id: AssetId(usdt_location) },
 						ParentThen(Parachain(RandomParaId::get().into()).into()).into(),
 					))
 				}

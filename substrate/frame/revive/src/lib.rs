@@ -545,9 +545,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			if !System::<T>::account_exists(&Pallet::<T>::pallet_account()) {
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
 				let _ = T::Currency::mint_into(
-					&Pallet::<T>::pallet_account(),
+					&Pallet::<T>::account_id(),
 					T::Currency::minimum_balance(),
 				);
 			}
@@ -562,6 +562,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			return T::DbWeight::get().reads(1)
+		}
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
@@ -939,7 +944,7 @@ pub mod pallet {
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
 		///
-		///If the refcount of the code reaches zero after terminating the last contract that
+		/// If the refcount of the code reaches zero after terminating the last contract that
 		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
@@ -1590,11 +1595,12 @@ where
 
 impl<T: Config> Pallet<T> {
 	/// Pallet account, used to hold funds for contracts upload deposit.
-	pub fn pallet_account() -> AccountIdOf<T> {
+	pub fn account_id() -> T::AccountId {
 		use frame_support::PalletId;
 		use sp_runtime::traits::AccountIdConversion;
-		PalletId(*b"py/rev  ").into_account_truncating()
+		PalletId(*b"py/reviv").into_account_truncating()
 	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()

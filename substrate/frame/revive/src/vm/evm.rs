@@ -79,7 +79,14 @@ impl<T: Config> ContractBlob<T> {
 			behaviour_version: Default::default(),
 		};
 
-		Self::from_evm_code(code, code_info)
+		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from init code: {err:?}" );
+			<Error<T>>::CodeRejected
+		})?;
+
+		// Code hash is not relevant for init code, since it is not stored on-chain.
+		let code_hash = H256::default();
+		Ok(ContractBlob { code, code_info, code_hash })
 	}
 
 	/// Create a new contract from EVM runtime code.
@@ -102,12 +109,6 @@ impl<T: Config> ContractBlob<T> {
 			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
 		};
-
-		Self::from_evm_code(code, code_info)
-	}
-
-	fn from_evm_code(code: Vec<u8>, code_info: CodeInfo<T>) -> Result<Self, DispatchError> {
-		use revm::{bytecode::Bytecode, primitives::Bytes};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "failed to create evm bytecode from code: {err:?}" );
