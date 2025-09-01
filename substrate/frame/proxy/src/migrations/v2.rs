@@ -662,7 +662,7 @@ where
 		// Verify each account
 		let verification_results: Vec<_> = pre_migration_deposits
 			.iter()
-			.map(|(who, (old_proxy_deposit, old_announcement_deposit))| {
+			.filter_map(|(who, (old_proxy_deposit, old_announcement_deposit))| {
 				match Self::verify_account_migration(
 					who,
 					*old_proxy_deposit,
@@ -679,7 +679,6 @@ where
 					},
 				}
 			})
-			.flatten()
 			.collect();
 
 		let results = verification_results;
