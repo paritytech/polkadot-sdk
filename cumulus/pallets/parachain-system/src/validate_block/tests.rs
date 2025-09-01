@@ -29,8 +29,6 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-#[cfg(feature = "experimental-ump-signals")]
-use relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
@@ -102,14 +100,13 @@ fn create_test_client() -> (Client, Header) {
 }
 
 /// Create test client using the runtime with `elastic-scaling` feature enabled.
-fn create_elastic_scaling_test_client(blocks_per_pov: u32) -> (Client, Header) {
+fn create_elastic_scaling_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
-	builder.genesis_init_mut().blocks_per_pov = Some(blocks_per_pov);
 	let client = builder.enable_import_proof_recording().build();
 
 	let genesis_header = client
@@ -218,7 +215,7 @@ fn build_multiple_blocks_with_witness(
 
 			let mut api = client.runtime_api();
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
-			api.set_proof_recorder(proof_recorder.clone());
+			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
 			api.execute_block(parent_hash, built_block.block.clone()).unwrap();
 
@@ -607,7 +604,7 @@ fn validate_block_handles_ump_signal() {
 
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_elastic_scaling_test_client(1);
+	let (client, parent_head) = create_elastic_scaling_test_client();
 	let extra_extrinsics =
 		vec![transfer(&client, Alice, Bob, 69), transfer(&client, Bob, Charlie, 100)];
 

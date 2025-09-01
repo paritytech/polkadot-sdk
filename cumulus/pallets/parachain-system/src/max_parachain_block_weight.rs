@@ -352,6 +352,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate as parachain_system;
 	use codec::Compact;
 	use cumulus_primitives_core::{ClaimQueueOffset, CoreInfo, CoreSelector};
 	use frame_support::{construct_runtime, derive_impl};
@@ -367,11 +368,28 @@ mod tests {
 		type AccountId = u64;
 		type AccountData = ();
 		type Lookup = IdentityLookup<Self::AccountId>;
+		type OnSetCode = crate::ParachainSetCode<Test>;
+	}
+
+	impl crate::Config for Test {
+		type RuntimeEvent = RuntimeEvent;
+		type OnSystemEvent = ();
+		type SelfParaId = ();
+		type OutboundXcmpMessageSource = ();
+		type DmpQueue = ();
+		type ReservedDmpWeight = ();
+		type XcmpMessageHandler = ();
+		type ReservedXcmpWeight = ();
+		type CheckAssociatedRelayNumber = crate::RelayNumberStrictlyIncreases;
+		type WeightInfo = ();
+		type ConsensusHook = crate::ExpectParentIncluded;
+		type RelayParentOffset = ();
 	}
 
 	construct_runtime!(
 		pub enum Test {
 			System: frame_system,
+			ParachainSystem: parachain_system,
 		}
 	);
 

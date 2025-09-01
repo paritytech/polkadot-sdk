@@ -356,6 +356,16 @@ pub trait HandleMessage {
 	fn sweep_queue();
 }
 
+impl HandleMessage for () {
+	type MaxMessageLen = ConstU32<0>;
+
+	fn handle_message(_: BoundedSlice<u8, Self::MaxMessageLen>) {}
+
+	fn handle_messages<'a>(_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>) {}
+
+	fn sweep_queue() {}
+}
+
 /// Adapter type to transform an [`EnqueueMessage`] with an origin into a [`HandleMessage`] impl.
 pub struct EnqueueWithOrigin<E, O>(PhantomData<(E, O)>);
 impl<E: EnqueueMessage<O::Type>, O: TypedGet> HandleMessage for EnqueueWithOrigin<E, O>

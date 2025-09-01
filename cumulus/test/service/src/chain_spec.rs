@@ -30,7 +30,6 @@ pub fn get_chain_spec_with_extra_endowed(
 	id: Option<ParaId>,
 	extra_endowed_accounts: Vec<AccountId>,
 	code: &[u8],
-	blocks_per_pov: Option<u32>,
 ) -> GenericChainSpec {
 	let runtime_caller = GenesisConfigBuilderRuntimeCaller::<ParachainHostFunctions>::new(code);
 	let mut development_preset = runtime_caller
@@ -84,7 +83,6 @@ pub fn get_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 		id,
 		Default::default(),
 		cumulus_test_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -95,7 +93,6 @@ pub fn get_elastic_scaling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -105,7 +102,6 @@ pub fn get_relay_parent_offset_chain_spec(id: Option<ParaId>) -> GenericChainSpe
 		Default::default(),
 		cumulus_test_runtime::relay_parent_offset::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -116,7 +112,6 @@ pub fn get_elastic_scaling_500ms_chain_spec(id: Option<ParaId>) -> GenericChainS
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_500ms::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -127,7 +122,6 @@ pub fn get_elastic_scaling_mvp_chain_spec(id: Option<ParaId>) -> GenericChainSpe
 		Default::default(),
 		cumulus_test_runtime::elastic_scaling_mvp::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -137,7 +131,6 @@ pub fn get_pov_bundling_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 		Default::default(),
 		cumulus_test_runtime::pov_bundling::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
 
@@ -147,6 +140,5 @@ pub fn get_sync_backing_chain_spec(id: Option<ParaId>) -> GenericChainSpec {
 		Default::default(),
 		cumulus_test_runtime::sync_backing::WASM_BINARY
 			.expect("WASM binary was not built, please build it!"),
-		None,
 	)
 }
