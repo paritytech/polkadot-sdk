@@ -19,7 +19,7 @@ use crate::{
 	subxt_client::{self, runtime_types::pallet_revive::storage::ContractInfo, SrcChainConfig},
 	ClientError, H160, LOG_TARGET,
 };
-use sp_core::H256;
+use sp_core::{H256, U256};
 use subxt::{storage::Storage, OnlineClient};
 
 use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
@@ -37,17 +37,24 @@ impl StorageApi {
 	/// Get the contract info for the given contract address.
 	pub async fn get_contract_info(
 		&self,
-		contract_address: &H160,
+		_contract_address: &H160,
 	) -> Result<ContractInfo, ClientError> {
+		return Err(ClientError::ContractNotFound);
+		// TODO: for some reason `contract_info_of` is no longer available after regenerating
+		// metadata
+		// ```
+		// subxt metadata --url ws://localhost:9944 --version 15  > substrate/frame/revive/rpc/revive_chain.metadata
+		// ```
+
 		// TODO: remove once subxt is updated
-		let contract_address: subxt::utils::H160 = contract_address.0.into();
+		// let contract_address: subxt::utils::H160 = contract_address.0.into();
 
-		let query = subxt_client::storage().revive().contract_info_of(contract_address);
-		let Some(info) = self.0.fetch(&query).await? else {
-			return Err(ClientError::ContractNotFound);
-		};
+		// let query = subxt_client::storage().revive().contract_info_of(contract_address);
+		// let Some(info) = self.0.fetch(&query).await? else {
+		// 	return Err(ClientError::ContractNotFound);
+		// };
 
-		Ok(info)
+		// Ok(info)
 	}
 
 	/// Get the contract trie id for the given contract address.
@@ -79,24 +86,15 @@ impl StorageApi {
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
-		// TODO revert BlockHash key type to U256
-		let key = number.into();
-		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
+		// Convert u64 to the wrapped U256 type that subxt expects
+		let number = subxt::utils::Static(U256::from(number));
 
-		let Some(info) = self.0.fetch(&query).await.inspect_err(|e| {
-			log::error!(
-				target: LOG_TARGET,
-				"get_ethereum_block_hash {number} error = {e:?}"
-			)
-		})?
-		else {
-			log::error!(
-				target: LOG_TARGET,
-				"get_ethereum_block_hash {number} ERROR block not found"
-			);
+		let query = subxt_client::storage().revive().block_hash(number);
+
+		let Some(hash) = self.0.fetch(&query).await? else {
 			return Err(ClientError::EthereumBlockNotFound);
 		};
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+
+		Ok(hash)
 	}
 }
