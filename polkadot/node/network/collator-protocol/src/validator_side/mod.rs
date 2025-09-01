@@ -996,6 +996,7 @@ fn hold_off_asset_hub_collation_if_needed(
 			target: LOG_TARGET,
 			peer_id = ?origin,
 			?relay_parent,
+			?prospective_candidate,
 			"AssetHub collation held off, not from invulnerable collator",
 		);
 		return true
@@ -1798,6 +1799,8 @@ async fn run_inner<Context>(
 	gum::trace!(
 		target: LOG_TARGET,
 		?eviction_policy,
+		ah_invulnerables=?state.ah_invulnerables,
+		?hold_off_duration,
 		"starting up"
 	);
 
