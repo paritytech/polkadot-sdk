@@ -162,7 +162,7 @@ impl<H: Hasher> Clone for Recorder<H> {
 }
 
 impl<H: Hasher> Recorder<H> {
-	/// Create a new instance with the given `ingored_nodes`.
+	/// Create a new instance with the given `ignored_nodes`.
 	///
 	/// These ignored nodes are not recorded when accessed.
 	pub fn with_ignored_nodes(ignored_nodes: IgnoredNodes<H::Out>) -> Self {
