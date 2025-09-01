@@ -6,4 +6,4 @@ doc:
 
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: minor
