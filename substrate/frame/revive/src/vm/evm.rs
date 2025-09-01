@@ -156,7 +156,7 @@ fn run<'a, E: Ext>(
 		let action = interpreter.run_plain(table, host);
 		match action {
 			InterpreterAction::Return(result) => {
-				log::debug!(target: LOG_TARGET, "Evm return {:?}", result);
+				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
 				debug_assert!(
 					result.gas.limit() == 0 &&
 						result.gas.remaining() == 0 &&
