@@ -26,9 +26,9 @@ use crate::{
 	shared::AllowedRelayParentsTracker,
 };
 use polkadot_primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptor,
-	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
-	SignedAvailabilityBitfields, UMPSignal, UncheckedSignedAvailabilityBitfields, UMP_SEPARATOR,
+	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptorV2,
+	CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, SignedAvailabilityBitfields,
+	UMPSignal, UncheckedSignedAvailabilityBitfields, UMP_SEPARATOR,
 };
 
 use assert_matches::assert_matches;
@@ -39,7 +39,7 @@ use polkadot_primitives::{
 	CompactStatement as Statement, Hash, MutateDescriptorV2, SignedAvailabilityBitfield,
 	SignedStatement, ValidationCode, ValidatorId, ValidityAttestation, PARACHAIN_KEY_TYPE_ID,
 };
-use polkadot_primitives_test_helpers::dummy_validation_code;
+use polkadot_primitives_test_helpers::{dummy_validation_code, CandidateDescriptor};
 use sc_keystore::LocalKeystore;
 use sp_core::ByteArray;
 use sp_keyring::Sr25519Keyring;

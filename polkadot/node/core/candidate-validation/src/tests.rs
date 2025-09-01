@@ -30,14 +30,14 @@ use polkadot_node_subsystem_test_helpers::{make_subsystem_context, TestSubsystem
 use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
-	CandidateDescriptor, CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
+	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
 	CommittedCandidateReceiptError, CoreIndex, CoreSelector, GroupIndex, HeadData, Id as ParaId,
 	MutateDescriptorV2, OccupiedCoreAssumption, SessionInfo, UMPSignal, UpwardMessage, ValidatorId,
 	DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_collator, dummy_collator_signature, dummy_hash, make_valid_candidate_descriptor,
-	make_valid_candidate_descriptor_v2,
+	make_valid_candidate_descriptor_v2, CandidateDescriptor,
 };
 use rstest::rstest;
 use sp_core::{sr25519::Public, testing::TaskExecutor};

@@ -27,11 +27,12 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, CandidateDescriptorVersion, ClaimQueueOffset, CollatorPair, CoreSelector,
-	NodeFeatures, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
+	node_features, CandidateDescriptorVersion, CandidateReceiptV2, ClaimQueueOffset, CollatorPair,
+	CoreSelector, NodeFeatures, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::dummy_head_data;
 use rstest::rstest;
+use sp_core::Pair;
 use sp_keyring::sr25519::Keyring as Sr25519Keyring;
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -245,7 +246,7 @@ fn submit_collation_leads_to_distribution() {
 				parent_head_data_hash,
 				..
 			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
@@ -509,7 +510,7 @@ fn test_candidate_receipt_versioning(#[case] v2_receipts: bool) {
 				parent_head_data_hash,
 				..
 			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());
@@ -631,7 +632,7 @@ fn approved_peer_signal() {
 				parent_head_data_hash,
 				..
 			}) => {
-				let CandidateReceipt { descriptor, .. } = candidate_receipt;
+				let CandidateReceiptV2 { descriptor, .. } = candidate_receipt;
 				assert_eq!(parent_head_data_hash, parent_head.hash());
 				assert_eq!(descriptor.persisted_validation_data_hash(), expected_pvd.hash());
 				assert_eq!(descriptor.para_head(), dummy_head_data().hash());

@@ -38,7 +38,7 @@ use polkadot_primitives::{
 	ChunkIndex, CoreIndex, Hash, HeadData, Header, PersistedValidationData, Signed, SigningContext,
 	ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
+use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2, dummy_hash};
 use sp_core::H256;
 use std::{collections::HashMap, iter::Cycle, sync::Arc};
 
@@ -131,7 +131,7 @@ impl TestState {
 		for (index, pov_size) in config.pov_sizes().iter().cloned().unique().enumerate() {
 			gum::info!(target: LOG_TARGET, index, pov_size, "{}", "Generating template candidate".bright_blue());
 
-			let mut candidate_receipt = dummy_candidate_receipt(dummy_hash());
+			let mut candidate_receipt = dummy_candidate_receipt_v2(dummy_hash());
 			let pov = PoV { block_data: BlockData(vec![index as u8; pov_size]) };
 
 			let new_available_data = AvailableData {
@@ -145,13 +145,13 @@ impl TestState {
 				|_, _| {},
 			);
 
-			candidate_receipt.descriptor.erasure_root = erasure_root;
+			candidate_receipt.descriptor.set_erasure_root(erasure_root);
 
 			test_state.chunks.push(new_chunks);
 			test_state.available_data.push(new_available_data);
 			test_state.pov_size_to_candidate.insert(pov_size, index);
 			test_state.candidate_receipt_templates.push(CandidateReceipt {
-				descriptor: candidate_receipt.descriptor.into(),
+				descriptor: candidate_receipt.descriptor,
 				commitments_hash: candidate_receipt.commitments_hash,
 			});
 		}

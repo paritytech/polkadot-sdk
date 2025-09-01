@@ -46,9 +46,10 @@ mod enter {
 	use super::{inclusion::tests::TestCandidateBuilder, *};
 	use polkadot_primitives::{ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal};
 	use rstest::rstest;
+	use sp_core::ByteArray;
 
 	use crate::{
-		builder::{junk_collator, junk_collator_signature, Bench, BenchBuilder, CandidateModifier},
+		builder::{Bench, BenchBuilder, CandidateModifier},
 		disputes::clear_dispute_storage,
 		initializer::BufferedSessionChange,
 		mock::{mock_assigner, new_test_ext, BlockLength, BlockWeights, RuntimeOrigin, Test},
@@ -61,9 +62,10 @@ mod enter {
 	use frame_support::assert_ok;
 	use frame_system::limits;
 	use polkadot_primitives::{
-		AvailabilityBitfield, CandidateDescriptor, CandidateDescriptorV2,
+		AvailabilityBitfield, CandidateDescriptorV2, CollatorId, CollatorSignature,
 		CommittedCandidateReceiptV2, InternalVersion, MutateDescriptorV2, UncheckedSigned,
 	};
+	use polkadot_primitives_test_helpers::CandidateDescriptor;
 	use sp_runtime::Perbill;
 
 	struct TestConfig {
@@ -131,6 +133,18 @@ mod enter {
 		} else {
 			builder.build()
 		}
+	}
+
+	/// Create a dummy collator id suitable to be used in a V1 candidate descriptor.
+	fn junk_collator() -> CollatorId {
+		CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("32 bytes; qed")
+	}
+
+	/// Creates a dummy collator signature suitable to be used in a V1 candidate descriptor.
+	fn junk_collator_signature() -> CollatorSignature {
+		CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
+			.expect("64 bytes; qed")
 	}
 
 	#[rstest]

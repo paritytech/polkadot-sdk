@@ -1914,6 +1914,12 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 			.expect("Slice size is exactly 32 bytes; qed")
 	}
 
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn rebuild_collator_field_for_tests(&self) -> CollatorId {
+		self.rebuild_collator_field()
+	}
+
 	/// Returns the collator id if this is a v1 `CandidateDescriptor`
 	pub fn collator(&self) -> Option<CollatorId> {
 		if self.version() == CandidateDescriptorVersion::V1 {
@@ -1926,6 +1932,12 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	fn rebuild_signature_field(&self) -> CollatorSignature {
 		CollatorSignature::from_slice(self.reserved2.as_slice())
 			.expect("Slice size is exactly 64 bytes; qed")
+	}
+
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn rebuild_signature_field_for_tests(&self) -> CollatorSignature {
+		self.rebuild_signature_field()
 	}
 
 	/// Returns the collator signature of `V1` candidate descriptors, `None` otherwise.
@@ -2044,6 +2056,8 @@ pub trait MutateDescriptorV2<H> {
 	fn set_core_index(&mut self, core_index: CoreIndex);
 	/// Set the session index of the descriptor.
 	fn set_session_index(&mut self, session_index: SessionIndex);
+	/// Set the reserved2 field of the descriptor.
+	fn set_reserved2(&mut self, reserved2: [u8; 64]);
 }
 
 #[cfg(feature = "test")]
@@ -2086,6 +2100,10 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 	fn set_para_head(&mut self, para_head: Hash) {
 		self.para_head = para_head;
+	}
+
+	fn set_reserved2(&mut self, reserved2: [u8; 64]) {
+		self.reserved2 = reserved2;
 	}
 }
 
@@ -2259,6 +2277,15 @@ impl CandidateUMPSignals {
 		};
 
 		Ok(())
+	}
+
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn dummy(
+		select_core: Option<(CoreSelector, ClaimQueueOffset)>,
+		approved_peer: Option<ApprovedPeerId>,
+	) -> Self {
+		Self { select_core, approved_peer }
 	}
 }
 
@@ -2534,6 +2561,12 @@ impl<H> BackedCandidate<H> {
 		self.candidate.to_plain()
 	}
 
+	/// Get a copy of the raw validator indices.
+	#[cfg(feature = "test")]
+	pub fn raw_validator_indices(&self) -> BitVec<u8, bitvec::order::Lsb0> {
+		self.validator_indices.clone()
+	}
+
 	/// Get a copy of the validator indices and the assumed core index, if any.
 	pub fn validator_indices_and_core_index(
 		&self,
@@ -2733,38 +2766,7 @@ impl TryFrom<DisputeOffenceKind> for super::v9::slashing::SlashingOffenceKind {
 #[cfg(test)]
 /// Test helpers
 pub mod tests {
-	use crate::v9::candidate_receipt_tests::dummy_committed_candidate_receipt_v2;
-
 	use super::*;
-	use bitvec::bitvec;
-	use sp_core::sr25519;
-
-	/// Create a dummy committed candidate receipt
-	pub fn dummy_committed_candidate_receipt() -> CommittedCandidateReceipt {
-		let zeros = Hash::zero();
-
-		CommittedCandidateReceipt {
-			descriptor: CandidateDescriptor {
-				para_id: 0.into(),
-				relay_parent: zeros,
-				collator: CollatorId::from(sr25519::Public::default()),
-				persisted_validation_data_hash: zeros,
-				pov_hash: zeros,
-				erasure_root: zeros,
-				signature: CollatorSignature::from(sr25519::Signature::default()),
-				para_head: zeros,
-				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
-			},
-			commitments: CandidateCommitments {
-				head_data: HeadData(vec![]),
-				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),
-				new_validation_code: None,
-				horizontal_messages: vec![].try_into().expect("empty vec fits within bounds"),
-				processed_downward_messages: 0,
-				hrmp_watermark: 0_u32,
-			},
-		}
-	}
 
 	#[test]
 	fn group_rotation_info_calculations() {
@@ -2791,21 +2793,6 @@ pub mod tests {
 				}
 			}
 		}
-	}
-
-	#[test]
-	fn collator_signature_payload_is_valid() {
-		// if this fails, collator signature verification code has to be updated.
-		let h = Hash::default();
-		assert_eq!(h.as_ref().len(), 32);
-
-		let _payload = collator_signature_payload(
-			&Hash::repeat_byte(1),
-			&5u32.into(),
-			&Hash::repeat_byte(2),
-			&Hash::repeat_byte(3),
-			&Hash::repeat_byte(4).into(),
-		);
 	}
 
 	#[test]
@@ -2838,521 +2825,5 @@ pub mod tests {
 		let zero_u: usize = 0;
 
 		assert!(zero_b.leading_zeros() >= zero_u.leading_zeros());
-	}
-
-	#[test]
-	fn test_backed_candidate_injected_core_index() {
-		let initial_validator_indices = bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1];
-		let mut candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt_v2(),
-			vec![],
-			initial_validator_indices.clone(),
-			CoreIndex(10),
-		);
-
-		// No core index supplied.
-		candidate
-			.set_validator_indices_and_core_index(initial_validator_indices.clone().into(), None);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
-		assert_eq!(validator_indices, initial_validator_indices.as_bitslice());
-		assert!(core_index.is_none());
-
-		// No core index supplied. Decoding is corrupted if backing group
-		// size larger than 8.
-		candidate.set_validator_indices_and_core_index(
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1, 0, 1, 0, 1, 0].into(),
-			None,
-		);
-
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
-		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0].as_bitslice());
-		assert!(core_index.is_some());
-
-		// Core index supplied.
-		let mut candidate = BackedCandidate::new(
-			dummy_committed_candidate_receipt_v2(),
-			vec![],
-			bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1],
-			CoreIndex(10),
-		);
-		let (validator_indices, core_index) = candidate.validator_indices_and_core_index();
-		assert_eq!(validator_indices, bitvec![u8, bitvec::order::Lsb0; 0, 1, 0, 1]);
-		assert_eq!(core_index, Some(CoreIndex(10)));
-
-		let encoded_validator_indices = candidate.validator_indices.clone();
-		candidate.set_validator_indices_and_core_index(validator_indices.into(), core_index);
-		assert_eq!(candidate.validator_indices, encoded_validator_indices);
-	}
-}
-
-#[cfg(test)]
-mod candidate_receipt_tests {
-	use super::*;
-	use crate::{
-		v9::{
-			tests::dummy_committed_candidate_receipt as dummy_old_committed_candidate_receipt,
-			CommittedCandidateReceipt, CommittedCandidateReceiptV2, Hash, HeadData, ValidationCode,
-		},
-		CandidateDescriptorV2,
-	};
-
-	fn dummy_collator_signature() -> CollatorSignature {
-		CollatorSignature::from_slice(&mut (0..64).into_iter().collect::<Vec<_>>().as_slice())
-			.expect("64 bytes; qed")
-	}
-
-	fn dummy_collator_id() -> CollatorId {
-		CollatorId::from_slice(&mut (0..32).into_iter().collect::<Vec<_>>().as_slice())
-			.expect("32 bytes; qed")
-	}
-
-	pub fn dummy_committed_candidate_receipt_v2() -> CommittedCandidateReceiptV2 {
-		let zeros = Hash::zero();
-		let reserved2 = [0; 64];
-
-		CommittedCandidateReceiptV2 {
-			descriptor: CandidateDescriptorV2 {
-				para_id: 0.into(),
-				relay_parent: zeros,
-				version: InternalVersion(0),
-				core_index: 123,
-				session_index: 1,
-				reserved1: Default::default(),
-				persisted_validation_data_hash: zeros,
-				pov_hash: zeros,
-				erasure_root: zeros,
-				reserved2,
-				para_head: zeros,
-				validation_code_hash: ValidationCode(vec![1, 2, 3, 4, 5, 6, 7, 8, 9]).hash(),
-			},
-			commitments: CandidateCommitments {
-				head_data: HeadData(vec![]),
-				upward_messages: vec![].try_into().expect("empty vec fits within bounds"),
-				new_validation_code: None,
-				horizontal_messages: vec![].try_into().expect("empty vec fits within bounds"),
-				processed_downward_messages: 0,
-				hrmp_watermark: 0_u32,
-			},
-		}
-	}
-
-	#[test]
-	fn is_binary_compatibile() {
-		let old_ccr = dummy_old_committed_candidate_receipt();
-		let new_ccr = dummy_committed_candidate_receipt_v2();
-
-		assert_eq!(old_ccr.encoded_size(), new_ccr.encoded_size());
-
-		let encoded_old = old_ccr.encode();
-
-		// Deserialize from old candidate receipt.
-		let new_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut encoded_old.as_slice()).unwrap();
-
-		// We get same candidate hash.
-		assert_eq!(old_ccr.hash(), new_ccr.hash());
-	}
-
-	#[test]
-	fn test_from_v1_descriptor() {
-		let mut old_ccr = dummy_old_committed_candidate_receipt().to_plain();
-		old_ccr.descriptor.collator = dummy_collator_id();
-		old_ccr.descriptor.signature = dummy_collator_signature();
-
-		let mut new_ccr = dummy_committed_candidate_receipt_v2().to_plain();
-
-		// Override descriptor from old candidate receipt.
-		new_ccr.descriptor = old_ccr.descriptor.clone().into();
-
-		// We get same candidate hash.
-		assert_eq!(old_ccr.hash(), new_ccr.hash());
-
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
-		assert_eq!(old_ccr.descriptor.collator, new_ccr.descriptor.collator().unwrap());
-		assert_eq!(old_ccr.descriptor.signature, new_ccr.descriptor.signature().unwrap());
-	}
-
-	#[test]
-	fn invalid_version_descriptor() {
-		let mut new_ccr = dummy_committed_candidate_receipt_v2();
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::V2);
-		// Put some unknown version.
-		new_ccr.descriptor.version = InternalVersion(100);
-
-		// Deserialize as V1.
-		let new_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut new_ccr.encode().as_slice()).unwrap();
-
-		assert_eq!(new_ccr.descriptor.version(), CandidateDescriptorVersion::Unknown);
-		assert_eq!(
-			new_ccr.parse_ump_signals(&BTreeMap::new()),
-			Err(CommittedCandidateReceiptError::UnknownVersion(InternalVersion(100)))
-		);
-	}
-
-	#[test]
-	// Test valid scenarios for parse_ump_signals():
-	// - no signals
-	// - only selected core signal
-	// - only approved peer signal
-	// - both signals in any order
-	fn test_ump_commitments() {
-		let mut new_ccr = dummy_committed_candidate_receipt_v2();
-		new_ccr.descriptor.core_index = 123;
-		new_ccr.descriptor.para_id = ParaId::new(1000);
-
-		let mut cq = BTreeMap::new();
-		cq.insert(
-			CoreIndex(123),
-			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
-		);
-		let cq = transpose_claim_queue(cq);
-
-		// No commitments
-
-		// dummy XCM messages
-		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
-		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
-
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Ok(CandidateUMPSignals { select_core: None, approved_peer: None })
-		);
-
-		// separator
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Ok(CandidateUMPSignals { select_core: None, approved_peer: None })
-		);
-
-		// CoreIndex commitment
-		{
-			let mut new_ccr = new_ccr.clone();
-			new_ccr
-				.commitments
-				.upward_messages
-				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals {
-					select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
-					approved_peer: None
-				})
-			);
-		}
-
-		{
-			let mut new_ccr = new_ccr.clone();
-
-			// Test having only an approved peer.
-			new_ccr
-				.commitments
-				.upward_messages
-				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals {
-					select_core: None,
-					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
-				})
-			);
-
-			// Test having an approved peer and a core selector.
-
-			new_ccr
-				.commitments
-				.upward_messages
-				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals {
-					select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
-					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
-				})
-			);
-		}
-
-		// Test having a core selector and an approved peer.
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Ok(CandidateUMPSignals {
-				select_core: Some((CoreSelector(0), ClaimQueueOffset(1))),
-				approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
-			})
-		);
-	}
-
-	#[test]
-	fn test_invalid_ump_commitments() {
-		let mut new_ccr = dummy_committed_candidate_receipt_v2();
-		new_ccr.descriptor.core_index = 0;
-		new_ccr.descriptor.para_id = ParaId::new(1000);
-
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
-		let mut cq = BTreeMap::new();
-		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
-		let cq = transpose_claim_queue(cq);
-
-		// Add an approved peer message.
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-		// Garbage message.
-		new_ccr.commitments.upward_messages.force_push(vec![0, 13, 200].encode());
-
-		// No signals can be decoded.
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Err(CommittedCandidateReceiptError::UmpSignalDecode)
-		);
-		assert_eq!(
-			new_ccr.commitments.ump_signals(),
-			Err(CommittedCandidateReceiptError::UmpSignalDecode)
-		);
-
-		// Verify core index checks.
-		{
-			// Has two cores assigned but no core commitment. Will pass the check if the descriptor
-			// core index is indeed assigned to the para.
-			new_ccr.commitments.upward_messages.clear();
-			new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-			new_ccr
-				.commitments
-				.upward_messages
-				.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-			let mut cq = BTreeMap::new();
-			cq.insert(
-				CoreIndex(0),
-				vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
-			);
-			cq.insert(
-				CoreIndex(100),
-				vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
-			);
-			let cq = transpose_claim_queue(cq);
-
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Ok(CandidateUMPSignals {
-					select_core: None,
-					approved_peer: Some(vec![1, 2, 3].try_into().unwrap())
-				})
-			);
-
-			new_ccr.descriptor.set_core_index(CoreIndex(1));
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Err(CommittedCandidateReceiptError::InvalidCoreIndex)
-			);
-			new_ccr.descriptor.set_core_index(CoreIndex(0));
-
-			new_ccr
-				.commitments
-				.upward_messages
-				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-
-			// No assignments.
-			assert_eq!(
-				new_ccr.parse_ump_signals(&transpose_claim_queue(Default::default())),
-				Err(CommittedCandidateReceiptError::NoAssignment)
-			);
-
-			// Mismatch between descriptor index and commitment.
-			new_ccr.descriptor.set_core_index(CoreIndex(1));
-			assert_eq!(
-				new_ccr.parse_ump_signals(&cq),
-				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
-					descriptor: CoreIndex(1),
-					commitments: CoreIndex(0),
-				})
-			);
-		}
-
-		new_ccr.descriptor.set_core_index(CoreIndex(0));
-
-		// Add two ApprovedPeer messages
-		new_ccr.commitments.upward_messages.clear();
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![4, 5].try_into().unwrap()).encode());
-
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
-		);
-
-		// Too many
-		new_ccr.commitments.upward_messages.clear();
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-		assert_eq!(
-			new_ccr.parse_ump_signals(&cq),
-			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
-		);
-	}
-
-	#[test]
-	fn test_version2_receipts_decoded_as_v1() {
-		let mut new_ccr = dummy_committed_candidate_receipt_v2();
-		new_ccr.descriptor.core_index = 123;
-		new_ccr.descriptor.para_id = ParaId::new(1000);
-
-		// dummy XCM messages
-		new_ccr.commitments.upward_messages.force_push(vec![0u8; 256]);
-		new_ccr.commitments.upward_messages.force_push(vec![0xff; 256]);
-
-		// separator
-		new_ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-
-		// CoreIndex commitment
-		new_ccr
-			.commitments
-			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(1)).encode());
-
-		let encoded_ccr = new_ccr.encode();
-		let decoded_ccr: CommittedCandidateReceipt =
-			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
-
-		assert_eq!(decoded_ccr.descriptor.relay_parent, new_ccr.descriptor.relay_parent());
-		assert_eq!(decoded_ccr.descriptor.para_id, new_ccr.descriptor.para_id());
-
-		assert_eq!(new_ccr.hash(), decoded_ccr.hash());
-
-		// Encode v1 and decode as V2
-		let encoded_ccr = new_ccr.encode();
-		let v2_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
-
-		assert_eq!(v2_ccr.descriptor.core_index(), Some(CoreIndex(123)));
-
-		let mut cq = BTreeMap::new();
-		cq.insert(
-			CoreIndex(123),
-			vec![new_ccr.descriptor.para_id(), new_ccr.descriptor.para_id()].into(),
-		);
-
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
-
-		assert_eq!(new_ccr.hash(), v2_ccr.hash());
-	}
-
-	// V1 descriptors are forbidden once the parachain runtime started sending UMP signals.
-	#[test]
-	fn test_v1_descriptors_with_ump_signal() {
-		let mut ccr = dummy_old_committed_candidate_receipt();
-		ccr.descriptor.para_id = ParaId::new(1024);
-		// Adding collator signature should make it decode as v1.
-		ccr.descriptor.signature = dummy_collator_signature();
-		ccr.descriptor.collator = dummy_collator_id();
-
-		ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
-		ccr.commitments
-			.upward_messages
-			.force_push(UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode());
-
-		ccr.commitments
-			.upward_messages
-			.force_push(UMPSignal::ApprovedPeer(vec![1, 2, 3].try_into().unwrap()).encode());
-
-		let encoded_ccr: Vec<u8> = ccr.encode();
-
-		let v1_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
-
-		assert_eq!(v1_ccr.descriptor.version(), CandidateDescriptorVersion::V1);
-		assert!(!v1_ccr.commitments.ump_signals().unwrap().is_empty());
-
-		let mut cq = BTreeMap::new();
-		cq.insert(CoreIndex(0), vec![v1_ccr.descriptor.para_id()].into());
-		cq.insert(CoreIndex(1), vec![v1_ccr.descriptor.para_id()].into());
-
-		assert_eq!(v1_ccr.descriptor.core_index(), None);
-
-		assert_eq!(
-			v1_ccr.parse_ump_signals(&transpose_claim_queue(cq)),
-			Err(CommittedCandidateReceiptError::UMPSignalWithV1Decriptor)
-		);
-	}
-
-	#[test]
-	fn test_core_select_is_optional() {
-		// Testing edge case when collators provide zeroed signature and collator id.
-		let mut old_ccr = dummy_old_committed_candidate_receipt();
-		old_ccr.descriptor.para_id = ParaId::new(1000);
-		let encoded_ccr: Vec<u8> = old_ccr.encode();
-
-		let new_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
-
-		let mut cq = BTreeMap::new();
-		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
-
-		// Since collator sig and id are zeroed, it means that the descriptor uses format
-		// version 2. Should still pass checks without core selector.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
-
-		let mut cq = BTreeMap::new();
-		cq.insert(CoreIndex(0), vec![new_ccr.descriptor.para_id()].into());
-		cq.insert(CoreIndex(1), vec![new_ccr.descriptor.para_id()].into());
-
-		// Passes even if 2 cores are assigned, because elastic scaling MVP could still inject the
-		// core index in the `BackedCandidate`.
-		assert!(new_ccr.parse_ump_signals(&transpose_claim_queue(cq)).is_ok());
-
-		// Adding collator signature should make it decode as v1.
-		old_ccr.descriptor.signature = dummy_collator_signature();
-		old_ccr.descriptor.collator = dummy_collator_id();
-
-		let old_ccr_hash = old_ccr.hash();
-
-		let encoded_ccr: Vec<u8> = old_ccr.encode();
-
-		let new_ccr: CommittedCandidateReceiptV2 =
-			Decode::decode(&mut encoded_ccr.as_slice()).unwrap();
-
-		assert_eq!(new_ccr.descriptor.signature(), Some(old_ccr.descriptor.signature));
-		assert_eq!(new_ccr.descriptor.collator(), Some(old_ccr.descriptor.collator));
-
-		assert_eq!(new_ccr.descriptor.core_index(), None);
-		assert_eq!(new_ccr.descriptor.para_id(), ParaId::new(1000));
-
-		assert_eq!(old_ccr_hash, new_ccr.hash());
 	}
 }
