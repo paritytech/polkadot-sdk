@@ -370,6 +370,19 @@ struct PerRelayParent {
 	session_index: SessionIndex,
 }
 
+/// Information about a held off advertisement
+struct HeldOffAdvertisement {
+	/// Timespamp when the advertisement was received.
+	received_at: SystemTime,
+	/// The relay parent it's based on.
+	relay_parent: Hash,
+	/// The peer id of the collator that has sent the advertisement.
+	peer_id: PeerId,
+	/// The prospective candidate hash and its relay parent, if available. Will be none if collator
+	/// protocol v1 is used.
+	prospective_candidate: Option<(CandidateHash, Hash)>,
+}
+
 /// All state relevant for the validator side of the protocol lives here.
 #[derive(Default)]
 struct State {
@@ -433,7 +446,7 @@ struct State {
 
 	// AssetHub advertisements which were held off because they are not from invulnerable
 	// collators.
-	ah_held_off_collations: VecDeque<(SystemTime, Hash, PeerId, Option<(CandidateHash, Hash)>)>,
+	ah_held_off_collations: VecDeque<HeldOffAdvertisement>,
 }
 
 impl State {
@@ -986,12 +999,12 @@ fn hold_off_asset_hub_collation_if_needed(
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
 	let maybe_para_id = state.peer_data.get(&origin).and_then(|pd| pd.collating_para());
 	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&origin) {
-		state.ah_held_off_collations.push_back((
-			SystemTime::now(),
+		state.ah_held_off_collations.push_back(HeldOffAdvertisement {
+			received_at: SystemTime::now(),
 			relay_parent,
-			origin,
+			peer_id: origin,
 			prospective_candidate,
-		));
+		});
 		gum::debug!(
 			target: LOG_TARGET,
 			peer_id = ?origin,
@@ -1833,7 +1846,7 @@ async fn run_inner<Context>(
 					ctx.sender(),
 					&eviction_policy,
 					&state.peer_data,
-					&HashSet::from_iter(state.ah_held_off_collations .iter().cloned().map(|(_, _, peer_id, _)| peer_id))
+					&HashSet::from_iter(state.ah_held_off_collations .iter().map(|c| c.peer_id))
 				).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
@@ -1924,8 +1937,8 @@ async fn run_inner<Context>(
 				let now = SystemTime::now();
 
 				loop {
-					let should_process = state.ah_held_off_collations.get(0).map(|head| {
-						let was_held_off_for =  now.duration_since(head.0).unwrap_or_else(|_| {
+					let should_process = state.ah_held_off_collations.get(0).map(|c| {
+						let was_held_off_for =  now.duration_since(c.received_at).unwrap_or_else(|_| {
 							gum::warn!(
 								target: LOG_TARGET,
 								"SystemTime went backwards, this should not happen, but we will continue processing",
@@ -1941,7 +1954,7 @@ async fn run_inner<Context>(
 						break;
 					}
 
-					let (_, relay_parent, peer_id, prospective_candidate) = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
+					let HeldOffAdvertisement{received_at: _, relay_parent, peer_id, prospective_candidate} = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
 					gum::debug!(
 						target: LOG_TARGET,
 						?relay_parent,
