@@ -81,7 +81,7 @@ fn create_tokens_with_ed(owner: u128, tokens: Vec<NativeOrWithId<u32>>, ed: u128
 }
 
 fn balance(owner: u128, token_id: NativeOrWithId<u32>) -> u128 {
-	<<Test as Config>::Assets>::balance(token_id, &owner)
+	<<Test as Config>::Assets as Inspect<u128>>::balance(token_id, &owner)
 }
 
 fn pool_balance(owner: u128, token_id: u32) -> u128 {
@@ -89,7 +89,7 @@ fn pool_balance(owner: u128, token_id: u32) -> u128 {
 }
 
 fn get_native_ed() -> u128 {
-	<<Test as Config>::Assets>::minimum_balance(NativeOrWithId::Native)
+	<<Test as Config>::Assets as Inspect<u128>>::minimum_balance(NativeOrWithId::Native)
 }
 
 macro_rules! bvec {
