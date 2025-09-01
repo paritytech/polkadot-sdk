@@ -1420,6 +1420,20 @@ where
 		Self::convert_native_to_evm(balance)
 	}
 
+	/// Set the EVM balance of an account
+	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
+		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
+		let (value, dust) = balance_with_dust.deconstruct();
+		let account_id = T::AddressMapper::to_account_id(&address);
+		T::Currency::set_balance(&account_id, value);
+		AccountInfoOf::<T>::mutate(address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
+
+		Ok(())
+	}
+
 	/// Get the nonce for the given `address`.
 	pub fn evm_nonce(address: &H160) -> u32
 	where
