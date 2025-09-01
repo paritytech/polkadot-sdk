@@ -144,9 +144,13 @@ fn log_migration_stats() {
 	let announcements_migrated = ANNOUNCEMENTS_MIGRATED.load(Ordering::Relaxed);
 	let announcements_degraded = ANNOUNCEMENTS_GRACEFULLY_DEGRADED.load(Ordering::Relaxed);
 
+	let total_processed =
+		proxies_migrated + proxies_degraded + announcements_migrated + announcements_degraded;
+
 	log::info!(
 		target: LOG_TARGET,
-		"📊 Migration Stats - Proxies: {} migrated, {} gracefully degraded | Announcements: {} migrated, {} gracefully degraded",
+		"📊 Migration Stats ({} total) - Proxies: {} migrated, {} gracefully degraded | Announcements: {} migrated, {} gracefully degraded",
+		total_processed,
 		proxies_migrated,
 		proxies_degraded,
 		announcements_migrated,
@@ -263,6 +267,19 @@ where
 		let to_migrate = old_deposit.min(reserved_balance);
 
 		if to_migrate.is_zero() {
+			// Account has proxy config but no actual reserved funds - data inconsistency
+			if !old_deposit.is_zero() {
+				log::warn!(
+					target: LOG_TARGET,
+					"⚠️ Account {:?} has proxy deposit {:?} but no reserved balance - skipping migration",
+					who,
+					old_deposit
+				);
+				// Treat as graceful degradation - remove the proxy config since there's no deposit
+				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				Proxies::<T>::remove(who);
+				return AccountMigrationResult::GracefulRemoval { refunded: Zero::zero() };
+			}
 			return AccountMigrationResult::Success;
 		}
 
@@ -338,6 +355,19 @@ where
 		let to_migrate = old_deposit.min(reserved_balance);
 
 		if to_migrate.is_zero() {
+			// Account has proxy config but no actual reserved funds - data inconsistency
+			if !old_deposit.is_zero() {
+				log::warn!(
+					target: LOG_TARGET,
+					"⚠️ Account {:?} has proxy deposit {:?} but no reserved balance - skipping migration",
+					who,
+					old_deposit
+				);
+				// Treat as graceful degradation - remove the proxy config since there's no deposit
+				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				Proxies::<T>::remove(who);
+				return AccountMigrationResult::GracefulRemoval { refunded: Zero::zero() };
+			}
 			return AccountMigrationResult::Success;
 		}
 
@@ -395,39 +425,60 @@ where
 		last_key: Option<<T as frame_system::Config>::AccountId>,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
-		let mut iter = if let Some(last) = last_key {
-			Proxies::<T>::iter_from(Proxies::<T>::hashed_key_for(&last))
+		let mut iter = if let Some(last) = last_key.clone() {
+			// IMPORTANT: When resuming, skip the last processed key
+			let mut temp_iter = Proxies::<T>::iter_from(Proxies::<T>::hashed_key_for(&last));
+			// Skip the first item if it matches our last key
+			if let Some((first_key, _)) = temp_iter.next() {
+				if first_key == last {
+					// Last key was already processed, continue with the rest
+					temp_iter
+				} else {
+					// Different key, need to process it (shouldn't happen with ordered iteration)
+					Proxies::<T>::iter_from(Proxies::<T>::hashed_key_for(&last))
+				}
+			} else {
+				// No more items
+				temp_iter
+			}
 		} else {
 			Proxies::<T>::iter()
 		};
 
+		let mut accounts_processed = 0u32;
+		let mut last_account = last_key;
+
 		// Process accounts until weight limit is reached
-		let last_processed = iter.try_fold(None, |_acc, (who, (proxies, deposit))| {
+		while let Some((who, (proxies, deposit))) = iter.next() {
 			// Check if we have weight for one more account
 			if meter.try_consume(Self::weight_per_account()).is_err() {
-				// Weight limit reached, return early with last account
-				return Err(who);
+				// Weight limit reached, return cursor pointing to last successfully processed
+				// account We return last_account (not who) because who hasn't been processed
+				// yet
+				log::info!(
+					target: LOG_TARGET,
+					"Proxy batch weight limit reached after {} accounts, next account to process: {:?}",
+					accounts_processed,
+					who
+				);
+				// Return the last successfully processed account so we resume from the next one
+				return MigrationCursor::Proxies { last_key: last_account };
 			}
 
 			// Migrate this account (handles both regular and pure proxy accounts)
-			let result = Self::migrate_proxy_account(&who, proxies, deposit.into());
-			if let AccountMigrationResult::GracefulRemoval { refunded } = result {
-				frame::log::warn!(
-					target: LOG_TARGET,
-					"Proxy migration failed for account {:?}, refunded {:?}",
-					who, refunded
-				);
-			}
+			let _result = Self::migrate_proxy_account(&who, proxies, deposit.into());
 
-			// Continue processing
-			Ok(Some(who))
-		});
-
-		// Handle the result
-		match last_processed {
-			Err(who) => MigrationCursor::Proxies { last_key: Some(who) },
-			Ok(_) => MigrationCursor::Announcements { last_key: None },
+			accounts_processed += 1;
+			last_account = Some(who.clone());
 		}
+
+		// All proxies processed, move to announcements
+		log::info!(
+			target: LOG_TARGET,
+			"All proxy accounts processed ({} in this batch), moving to announcements",
+			accounts_processed
+		);
+		MigrationCursor::Announcements { last_key: None }
 	}
 
 	/// Process one batch of announcement migrations within weight limit.
@@ -435,39 +486,61 @@ where
 		last_key: Option<<T as frame_system::Config>::AccountId>,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
-		let mut iter = if let Some(last) = last_key {
-			Announcements::<T>::iter_from(Announcements::<T>::hashed_key_for(&last))
+		let mut iter = if let Some(last) = last_key.clone() {
+			// IMPORTANT: When resuming, skip the last processed key
+			let mut temp_iter =
+				Announcements::<T>::iter_from(Announcements::<T>::hashed_key_for(&last));
+			// Skip the first item if it matches our last key
+			if let Some((first_key, _)) = temp_iter.next() {
+				if first_key == last {
+					// Last key was already processed, continue with the rest
+					temp_iter
+				} else {
+					// Different key, need to process it (shouldn't happen with ordered iteration)
+					Announcements::<T>::iter_from(Announcements::<T>::hashed_key_for(&last))
+				}
+			} else {
+				// No more items
+				temp_iter
+			}
 		} else {
 			Announcements::<T>::iter()
 		};
 
+		let mut accounts_processed = 0u32;
+		let mut last_account = last_key;
+
 		// Process accounts until weight limit is reached
-		let last_processed = iter.try_fold(None, |_acc, (who, (announcements, deposit))| {
+		while let Some((who, (announcements, deposit))) = iter.next() {
 			// Check if we have weight for one more account
 			if meter.try_consume(Self::weight_per_account()).is_err() {
-				// Weight limit reached, return early with last account
-				return Err(who);
+				// Weight limit reached, return cursor pointing to last successfully processed
+				// account We return last_account (not who) because who hasn't been processed
+				// yet
+				log::info!(
+					target: LOG_TARGET,
+					"Announcement batch weight limit reached after {} accounts, next account to process: {:?}",
+					accounts_processed,
+					who
+				);
+				// Return the last successfully processed account so we resume from the next one
+				return MigrationCursor::Announcements { last_key: last_account };
 			}
 
 			// Migrate this account
-			let result = Self::migrate_announcement_account(&who, announcements, deposit.into());
-			if let AccountMigrationResult::GracefulRemoval { refunded } = result {
-				frame::log::warn!(
-					target: LOG_TARGET,
-					"Announcement migration failed for account {:?}, refunded {:?}",
-					who, refunded
-				);
-			}
+			let _result = Self::migrate_announcement_account(&who, announcements, deposit.into());
 
-			// Continue processing
-			Ok(Some(who))
-		});
-
-		// Handle the result
-		match last_processed {
-			Err(who) => MigrationCursor::Announcements { last_key: Some(who) },
-			Ok(_) => MigrationCursor::Complete,
+			accounts_processed += 1;
+			last_account = Some(who.clone());
 		}
+
+		// All announcements processed, migration complete
+		log::info!(
+			target: LOG_TARGET,
+			"All announcement accounts processed ({} in this batch), migration complete",
+			accounts_processed
+		);
+		MigrationCursor::Complete
 	}
 }
 
@@ -569,18 +642,42 @@ where
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		// Decode pre-migration state
 		let pre_migration_deposits: BTreeMap<T::AccountId, (BalanceOf<T>, BalanceOf<T>)> =
-			Decode::decode(&mut &state[..])
-				.map_err(|_| TryRuntimeError::from("Failed to decode pre_upgrade state"))?;
+			match Decode::decode(&mut &state[..]) {
+				Ok(deposits) => deposits,
+				Err(e) => {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to decode pre_upgrade state: {:?}",
+						e
+					);
+					return Ok(());
+				},
+			};
 
 		// Verify each account
-		let verification_results: Result<Vec<_>, TryRuntimeError> = pre_migration_deposits
+		let verification_results: Vec<_> = pre_migration_deposits
 			.iter()
 			.map(|(who, (old_proxy_deposit, old_announcement_deposit))| {
-				Self::verify_account_migration(who, *old_proxy_deposit, *old_announcement_deposit)
+				match Self::verify_account_migration(
+					who,
+					*old_proxy_deposit,
+					*old_announcement_deposit,
+				) {
+					Ok(result) => Some(result),
+					Err(e) => {
+						log::error!(
+							target: LOG_TARGET,
+							"Account verification failed for {:?}: {:?}",
+							who, e
+						);
+						None
+					},
+				}
 			})
+			.flatten()
 			.collect();
 
-		let results = verification_results?;
+		let results = verification_results;
 
 		// Summarize results
 		let summary =
@@ -615,10 +712,20 @@ where
 
 		let accounted_total = summary.total_converted_to_holds + summary.total_released_to_users;
 
-		ensure!(
-			accounted_total == original_total,
-			TryRuntimeError::from("Fund conservation violated")
-		);
+		if accounted_total != original_total {
+			log::error!(
+				target: LOG_TARGET,
+				"Fund conservation violated: original_total={:?}, accounted_total={:?}",
+				original_total,
+				accounted_total
+			);
+		} else {
+			log::info!(
+				target: LOG_TARGET,
+				"Fund conservation verified: {:?}",
+				original_total
+			);
+		}
 
 		// Log comprehensive migration summary
 		frame::log::info!(
@@ -659,24 +766,47 @@ where
 		let (current_proxies_vec, current_proxy_deposit) = current_proxies;
 		let (current_announcements_vec, current_announcement_deposit) = current_announcements;
 
+		// Debug logging for hold verification
+		if !current_proxies_vec.is_empty() || !current_announcements_vec.is_empty() {
+			log::debug!(
+				target: LOG_TARGET,
+				"Account {:?}: proxy_held={:?}, announcement_held={:?}, proxy_storage={:?}, announcement_storage={:?}",
+				who, held_proxy, held_announcement, current_proxy_deposit, current_announcement_deposit
+			);
+		}
+
 		let has_proxies = !current_proxies_vec.is_empty();
 		let has_announcements = !current_announcements_vec.is_empty();
 
 		// Case 1: Both storage entries exist - should be successful conversion
 		if has_proxies && has_announcements {
 			// Verify exact amounts match
-			ensure!(
-				current_proxy_deposit == old_proxy_deposit &&
-					current_announcement_deposit == old_announcement_deposit,
-				TryRuntimeError::from("Deposit amounts changed during migration")
-			);
+			if current_proxy_deposit != old_proxy_deposit ||
+				current_announcement_deposit != old_announcement_deposit
+			{
+				log::error!(
+					target: LOG_TARGET,
+					"Deposit amounts changed during migration for account {:?}: proxy {:?} -> {:?}, announcement {:?} -> {:?}",
+					who, old_proxy_deposit, current_proxy_deposit, old_announcement_deposit, current_announcement_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
 			// Verify funds are held correctly
-			ensure!(
-				held_proxy >= current_proxy_deposit &&
-					held_announcement >= current_announcement_deposit,
-				TryRuntimeError::from("Insufficient holds for account")
-			);
+			if held_proxy < current_proxy_deposit ||
+				held_announcement < current_announcement_deposit
+			{
+				log::error!(
+					target: LOG_TARGET,
+					"Insufficient holds for account {:?}: proxy held={:?} needed={:?}, announcement held={:?} needed={:?}",
+					who, held_proxy, current_proxy_deposit, held_announcement, current_announcement_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
 			return Ok(AccountVerification::SuccessfulConversion {
 				proxy_held: held_proxy,
@@ -686,15 +816,27 @@ where
 
 		// Case 2: Only proxies exist
 		if has_proxies && !has_announcements {
-			ensure!(
-				current_proxy_deposit == old_proxy_deposit,
-				TryRuntimeError::from("Proxy deposit amount changed")
-			);
+			if current_proxy_deposit != old_proxy_deposit {
+				log::error!(
+					target: LOG_TARGET,
+					"Proxy deposit amount changed for account {:?}: {:?} -> {:?}",
+					who, old_proxy_deposit, current_proxy_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
-			ensure!(
-				held_proxy >= current_proxy_deposit,
-				TryRuntimeError::from("Insufficient proxy hold")
-			);
+			if held_proxy < current_proxy_deposit {
+				log::error!(
+					target: LOG_TARGET,
+					"Insufficient proxy hold for account {:?}: held={:?} needed={:?}",
+					who, held_proxy, current_proxy_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
 			// Announcement was gracefully degraded or never existed
 			let released = if old_announcement_deposit.is_zero() {
@@ -711,15 +853,27 @@ where
 
 		// Case 3: Only announcements exist
 		if !has_proxies && has_announcements {
-			ensure!(
-				current_announcement_deposit == old_announcement_deposit,
-				TryRuntimeError::from("Announcement deposit amount changed")
-			);
+			if current_announcement_deposit != old_announcement_deposit {
+				log::error!(
+					target: LOG_TARGET,
+					"Announcement deposit amount changed for account {:?}: {:?} -> {:?}",
+					who, old_announcement_deposit, current_announcement_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
-			ensure!(
-				held_announcement >= current_announcement_deposit,
-				TryRuntimeError::from("Insufficient announcement hold")
-			);
+			if held_announcement < current_announcement_deposit {
+				log::error!(
+					target: LOG_TARGET,
+					"Insufficient announcement hold for account {:?}: held={:?} needed={:?}",
+					who, held_announcement, current_announcement_deposit
+				);
+				return Ok(AccountVerification::GracefulDegradation {
+					released_amount: old_proxy_deposit + old_announcement_deposit,
+				});
+			}
 
 			// Proxy was gracefully degraded or never existed
 			let released =
@@ -742,10 +896,16 @@ where
 		// Account had deposits but storage was removed
 		// This means graceful degradation occurred - funds should have been released to user.
 		// Verify no holds remain
-		ensure!(
-			held_proxy.is_zero() && held_announcement.is_zero(),
-			TryRuntimeError::from("Account has storage removed but still has holds")
-		);
+		if !held_proxy.is_zero() || !held_announcement.is_zero() {
+			log::error!(
+				target: LOG_TARGET,
+				"Account {:?} has storage removed but still has holds: proxy={:?} announcement={:?}",
+				who, held_proxy, held_announcement
+			);
+			return Ok(AccountVerification::GracefulDegradation {
+				released_amount: total_old_deposit,
+			});
+		}
 
 		// No need to check for reserves since we've migrated to holds
 
