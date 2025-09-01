@@ -470,7 +470,7 @@ fn selfdestruct_works() {
 #[test]
 #[ignore]
 fn selfdestruct_delete_works() {
-	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnlyFactory};
+	use pallet_revive_fixtures::HostEvmOnlyFactory;
 	let fixture_type = FixtureType::Solc;
 	let (code, _) = compile_module_with_type("HostEvmOnlyFactory", fixture_type).unwrap();
 
