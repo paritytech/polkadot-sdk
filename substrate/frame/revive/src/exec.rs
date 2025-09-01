@@ -25,9 +25,9 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, Config,
-	ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts, RuntimeCosts,
-	LOG_TARGET,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, CodeRemoved,
+	Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
+	RuntimeCosts, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -203,13 +203,14 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult;
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult;
+	/// Returns whether the old code was removed as a result of this operation.
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 
 	/// Get the length of the immutable data.
 	///
@@ -477,11 +478,6 @@ pub trait Executable<T: Config>: Sized {
 
 	/// The code hash of the executable.
 	fn code_hash(&self) -> &H256;
-
-	/// Returns true if the executable is a PVM blob.
-	fn is_pvm(&self) -> bool {
-		self.code().starts_with(&polkavm_common::program::BLOB_MAGIC)
-	}
 }
 
 /// The complete call stack of a contract execution.
@@ -577,7 +573,7 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 
 	fn is_pvm(&self) -> bool {
 		match self {
-			Self::Executable(e) => e.is_pvm(),
+			Self::Executable(e) => e.code_info().is_pvm(),
 			_ => false,
 		}
 	}
@@ -1132,6 +1128,7 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
+			let skip_transfer = self.skip_transfer;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1215,12 +1212,12 @@ where
 				}
 			}
 
-			let code_deposit = executable
+			let mut code_deposit = executable
 				.as_executable()
 				.map(|exec| exec.code_info().deposit())
 				.unwrap_or_default();
 
-			let output = match executable {
+			let mut output = match executable {
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
@@ -1248,6 +1245,27 @@ where
 			// Hence we need to delay charging the base deposit after execution.
 			if entry_point == ExportedFunction::Constructor {
 				let contract_info = frame.contract_info();
+				// if we are dealing with EVM bytecode
+				// We upload the new runtime code, and update the code
+				if !is_pvm {
+					// Only keep return data for tracing
+					let data = if crate::tracing::if_tracing(|_| {}).is_none() {
+						core::mem::replace(&mut output.data, Default::default())
+					} else {
+						output.data.clone()
+					};
+
+					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(
+						data,
+						caller.account_id()?.clone(),
+					)?;
+					module.store_code(skip_transfer)?;
+					code_deposit = module.code_info().deposit();
+					contract_info.code_hash = *module.code_hash();
+
+					<CodeInfo<T>>::increment_refcount(contract_info.code_hash)?;
+				}
+
 				let deposit = contract_info.update_base_deposit(code_deposit);
 				frame
 					.nested_storage
@@ -1645,7 +1663,7 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> DispatchResult {
+	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
@@ -1661,9 +1679,9 @@ where
 		let account_address = T::AddressMapper::to_address(&frame.account_id);
 		AccountInfoOf::<T>::remove(&account_address);
 		ImmutableDataOf::<T>::remove(&account_address);
-		<CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
-		Ok(())
+		Ok(removed)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1685,7 +1703,7 @@ where
 	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
 	///
 	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
 		let frame = top_frame_mut!(self);
 
 		let info = frame.contract_info();
@@ -1703,8 +1721,8 @@ where
 		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
 
 		<CodeInfo<T>>::increment_refcount(hash)?;
-		<CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(())
+		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
+		Ok(removed)
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
