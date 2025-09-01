@@ -14,13 +14,13 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem, ExtrinsicParams},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+	OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
