@@ -1,0 +1,16 @@
+title: '[pallet-revive] Add setting evm balance'
+doc:
+- audience: Runtime User
+  description: |-
+    Part of https://github.com/paritytech/polkadot-sdk/issues/9553
+    See https://github.com/paritytech/foundry-polkadot/issues/273
+
+    Adds a balance setter in EVM.
+
+
+    ## Integration
+
+    Should not affect downstream projects.
+crates:
+- name: pallet-revive
+  bump: patch
