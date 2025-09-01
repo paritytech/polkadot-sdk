@@ -567,7 +567,7 @@ where
 	type Identifier = MigrationId<16>;
 
 	fn id() -> Self::Identifier {
-		MigrationId { pallet_id: *PROXY_PALLET_MIGRATION_ID, version_from: 0, version_to: 2 }
+		MigrationId { pallet_id: *PROXY_PALLET_MIGRATION_ID, version_from: 0, version_to: 1 }
 	}
 
 	fn step(
