@@ -460,7 +460,7 @@ pub trait Executable<T: Config>: Sized {
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
-	fn from_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
+	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
