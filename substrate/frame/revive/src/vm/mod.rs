@@ -332,8 +332,8 @@ where
 		Ok(Self { code, code_info, code_hash })
 	}
 
-	fn from_bytecode(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
-		ContractBlob::from_evm_runtime_code(code, owner)
+	fn from_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		ContractBlob::from_evm_init_code(code, owner)
 	}
 
 	fn execute<E: Ext<T = T>>(

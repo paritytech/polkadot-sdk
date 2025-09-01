@@ -427,7 +427,6 @@ fn instruction_result_into_exec_error<E: Ext>(from: InstructionResult) -> Option
 }
 
 /// Blanket conversion trait between `sp_core::U256` and `revm::primitives::U256`
-#[allow(dead_code)]
 pub trait U256Converter {
 	/// Convert `self` into `revm::primitives::U256`
 	fn into_revm_u256(&self) -> revm::primitives::U256;

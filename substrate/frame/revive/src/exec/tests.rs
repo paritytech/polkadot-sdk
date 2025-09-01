@@ -148,7 +148,7 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
-	fn from_bytecode(_code: Vec<u8>, _owner: AccountIdOf<Test>) -> Result<Self, DispatchError> {
+	fn from_init_code(_code: Vec<u8>, _owner: AccountIdOf<Test>) -> Result<Self, DispatchError> {
 		unimplemented!()
 	}
 
