@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migration from v1 to v2: Convert proxy and announcement reserves to holds.
+//! Migration from v0 to v1: Convert proxy and announcement reserves to holds.
 //!
 //! This migration uses multi-block execution with graceful degradation:
 //! - Multi-block: Handles accounts with weight-limited batching without timing out
@@ -602,7 +602,7 @@ where
 						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
 						log_migration_stats();
 						// Update storage version to mark migration as complete
-						StorageVersion::new(2).put::<Pallet<T>>();
+						StorageVersion::new(1).put::<Pallet<T>>();
 						Pallet::<T>::deposit_event(Event::MigrationCompleted);
 						Ok(None)
 					},
@@ -613,7 +613,7 @@ where
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
 				log_migration_stats();
 				// Update storage version to mark migration as complete
-				StorageVersion::new(2).put::<Pallet<T>>();
+				StorageVersion::new(1).put::<Pallet<T>>();
 				// Migration is complete
 				Pallet::<T>::deposit_event(Event::MigrationCompleted);
 				Ok(None)
@@ -1294,7 +1294,7 @@ mod tests {
 			// Verify storage version was updated to version 2
 			assert_eq!(
 				StorageVersion::get::<Pallet<Test>>(),
-				StorageVersion::new(2),
+				StorageVersion::new(1),
 				"Storage version should be updated to 2 after migration"
 			);
 		});
