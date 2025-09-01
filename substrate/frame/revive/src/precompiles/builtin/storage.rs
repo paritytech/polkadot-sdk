@@ -68,7 +68,8 @@ sol! {
 		/// # Errors
 		///
 		/// Returns empty bytes if no value was found under `key`.
-		function takeStorage(uint32 flags, bool isFixedKey, bytes memory key) external returns (bytes memory);
+		function takeStorage(uint32 flags, bool isFixedKey, bytes memory key)
+			external returns (bytes memory);
 	}
 }
 
