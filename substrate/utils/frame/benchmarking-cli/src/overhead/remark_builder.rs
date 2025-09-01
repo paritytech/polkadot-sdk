@@ -23,7 +23,8 @@ use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
 use std::sync::Arc;
 use subxt::{
 	client::RuntimeVersion as SubxtRuntimeVersion,
-	config::substrate::SubstrateExtrinsicParamsBuilder, Config, OfflineClient, SubstrateConfig,
+	config::{substrate::SubstrateExtrinsicParamsBuilder, HashFor, Hasher},
+	Config, OfflineClient, SubstrateConfig,
 };
 
 pub type SubstrateRemarkBuilder = DynamicRemarkBuilder<SubstrateConfig>;
@@ -34,7 +35,11 @@ pub struct DynamicRemarkBuilder<C: Config> {
 	offline_client: OfflineClient<C>,
 }
 
-impl<C: Config<Hash = subxt::utils::H256>> DynamicRemarkBuilder<C> {
+impl<C> DynamicRemarkBuilder<C>
+where
+	C: Config,
+	C::Hasher: Hasher<Output = subxt::utils::H256>,
+{
 	/// Initializes a new remark builder from a client.
 	///
 	/// This will first fetch metadata and runtime version from the runtime and then
@@ -91,7 +96,7 @@ impl<C: Config> DynamicRemarkBuilder<C> {
 	/// Constructs a new remark builder.
 	pub fn new(
 		metadata: subxt::Metadata,
-		genesis_hash: C::Hash,
+		genesis_hash: HashFor<C>,
 		runtime_version: SubxtRuntimeVersion,
 	) -> Self {
 		Self { offline_client: OfflineClient::new(genesis_hash, runtime_version, metadata) }

@@ -68,7 +68,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::Header,
+	config::{Header, HashFor},
 	Config, OnlineClient,
 };
 use subxt_signer::sr25519::dev;
@@ -83,8 +83,8 @@ pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 /// The substrate block number type.
 pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
-/// The substrate block hash type.
-pub type SubstrateBlockHash = <SrcChainConfig as Config>::Hash;
+// /// The substrate block hash type.
+pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;

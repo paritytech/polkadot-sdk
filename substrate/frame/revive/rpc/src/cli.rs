@@ -264,13 +264,22 @@ fn rpc_module(is_dev: bool, client: Client) -> Result<RpcModule<()>, sc_service:
 		dev::dorothy().into(),
 		dev::ethan().into(),
 		dev::faith().into(),
+		dev::gareth().into(),
+		dev::heather().into(),
+		dev::ithelia().into(),
+		dev::jethro().into(),
+		dev::keith().into(),
+		dev::luther().into(),
+		dev::martha().into(),
+		dev::othello().into(),
+		dev::perth().into(),
+		dev::ruth().into(),
+		dev::seth().into(),
+		dev::thomas().into(),
+		dev::uthman().into(),
 	];
 	let eth_api = EthRpcServerImpl::new(client.clone())
-		.with_accounts(if is_dev {
-			accounts
-		} else {
-			vec![]
-		})
+		.with_accounts(if is_dev { accounts } else { vec![] })
 		.into_rpc();
 
 	let health_api = SystemHealthRpcServerImpl::new(client.clone()).into_rpc();
