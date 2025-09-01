@@ -248,11 +248,7 @@ fn run_create<'a, E: Ext>(
 
 	let salt = match create_input.scheme {
 		CreateScheme::Create => None,
-		CreateScheme::Create2 { salt } => {
-			let mut arr = [0u8; 32];
-			arr.copy_from_slice(salt.as_le_slice());
-			Some(arr)
-		},
+		CreateScheme::Create2 { salt } => Some(salt.to_le_bytes()),
 		CreateScheme::Custom { .. } => unreachable!("custom create schemes are not supported"),
 	};
 
