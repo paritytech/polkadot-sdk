@@ -38,8 +38,10 @@ sol! {
 		///
 		/// # Return
 		///
-		/// Returns the size of the pre-existing value at the specified key if any.
-		function clearStorage(uint32 flags, bool isFixedKey, bytes memory key) external returns (bytes32);
+		/// If no entry exists for this key the sentinel value of `u32::MAX`
+		/// is returned.
+		function clearStorage(uint32 flags, bool isFixedKey, bytes memory key)
+			external returns (uint32);
 
 		/// Checks whether there is a value stored under the given key.
 		///
@@ -51,8 +53,11 @@ sol! {
 		///
 		/// # Return
 		///
-		/// Returns the size of the pre-existing value at the specified key if any.
-		function containsStorage(uint32 flags, bool isFixedKey, bytes memory key) external returns (bytes32);
+		/// Returns the size of the pre-existing value at the specified key.
+		/// If no entry exists for this key the sentinel value of `u32::MAX`
+		/// is returned.
+		function containsStorage(uint32 flags, bool isFixedKey, bytes memory key)
+			external returns (uint32);
 
 		/// Retrieve and remove the value under the given key from storage.
 		///
