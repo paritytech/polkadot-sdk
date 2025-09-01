@@ -21,7 +21,7 @@ use crate::{
 		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
 		SrcChainConfig,
 	},
-	ClientError, H160,
+	ClientError, H160, LOG_TARGET,
 };
 use codec::Encode;
 use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
@@ -89,12 +89,18 @@ impl StorageApi {
 		let u256_encoded = U256::from(number).0.encode();
 		let key = subxt::dynamic::Value::from_bytes(u256_encoded);
 		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
+		log::debug!(target: LOG_TARGET, "get_ethereum_block_hash number = {number}");
 
-		let Some(hash) = self.0.fetch(&query).await? else {
+		let Some(hash) = self.0.fetch(&query).await.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "get_ethereum_block_hash number = {number} err = {e:?}");
+		})?
+		else {
+			log::error!(target: LOG_TARGET, "get_ethereum_block_hash number = {number} Ethereum block not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
 
 		let bytes = hash.into_encoded();
+		log::debug!(target: LOG_TARGET, "get_ethereum_block_hash number = {number} bytes = {bytes:?}");
 		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
 }
