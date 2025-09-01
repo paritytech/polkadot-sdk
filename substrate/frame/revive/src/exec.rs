@@ -1816,7 +1816,7 @@ where
 				if !T::AllowEVMBytecode::get() {
 					return Err(<Error<T>>::CodeRejected.into());
 				}
-				E::from_init_code(bytecode.clone(), sender.clone())?
+				E::from_evm_init_code(bytecode.clone(), sender.clone())?
 			},
 			Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
 		};
