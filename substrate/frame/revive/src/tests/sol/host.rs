@@ -468,11 +468,11 @@ fn selfdestruct_works() {
 }
 
 #[test]
-#[ignore]
 fn selfdestruct_delete_works() {
 	use pallet_revive_fixtures::HostEvmOnlyFactory;
 	let fixture_type = FixtureType::Solc;
-	let (code, _) = compile_module_with_type("HostEvmOnlyFactory", fixture_type).unwrap();
+	let (code_caller, _) = compile_module_with_type("HostEvmOnlyFactory", fixture_type).unwrap();
+	let (code_callee, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
 
 	let expected_bobs_balance = 100_000_000_000u64;
 
@@ -480,17 +480,26 @@ fn selfdestruct_delete_works() {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 		<Test as Config>::Currency::set_balance(&BOB, 0);
 
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
-		assert!(test_utils::get_contract_checked(&addr).is_some());
+		let Contract { addr: addr_caller, .. } =
+			builder::bare_instantiate(Code::Upload(code_caller)).build_and_unwrap_contract();
+		assert!(test_utils::get_contract_checked(&addr_caller).is_some());
+
+		let Contract { addr: addr_callee, .. } =
+			builder::bare_instantiate(Code::Upload(code_callee)).build_and_unwrap_contract();
+		assert!(test_utils::get_contract_checked(&addr_callee).is_some());
 		{
-			let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr);
+			let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr_callee);
+
+			<Test as Config>::Currency::set_balance(&account_id32, expected_bobs_balance);
+		}
+		{
+			let account_id32 = <Test as Config>::AddressMapper::to_account_id(&addr_caller);
 
 			<Test as Config>::Currency::set_balance(&account_id32, expected_bobs_balance);
 		}
 
 		{
-			let result = builder::bare_call(addr)
+			let result = builder::bare_call(addr_caller)
 				.data(
 					HostEvmOnlyFactory::HostEvmOnlyFactoryCalls::createAndSelfdestruct(
 						HostEvmOnlyFactory::createAndSelfdestructCall {
@@ -511,7 +520,7 @@ fn selfdestruct_delete_works() {
 				fixture_type
 			);
 		}
-		// the contract should not be deleted so check if it is still there.
-		assert!(test_utils::get_contract_checked(&addr).is_some());
+		// the callee contract should be deleted
+		assert!(test_utils::get_contract_checked(&addr_callee).is_none());
 	});
 }

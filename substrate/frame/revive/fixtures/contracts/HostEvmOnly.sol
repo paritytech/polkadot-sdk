@@ -26,19 +26,8 @@ contract HostEvmOnlyFactory {
         newContract = address(newInstance);
         
         // Call selfdestruct on the newly created contract
-        // newInstance.selfdestructOp(recipient);
+        newInstance.selfdestructOp(recipient);
         
         return newContract;
     }
-    
-    // function createAndSelfdestructWithSalt(address payable recipient, bytes32 salt) public returns (address newContract) {
-    //     // Deploy a new instance of HostEvmOnly with CREATE2
-    //     HostEvmOnly newInstance = new HostEvmOnly{salt: salt}();
-    //     newContract = address(newInstance);
-        
-    //     // Call selfdestruct on the newly created contract
-    //     newInstance.selfdestructOp(recipient);
-        
-    //     return newContract;
-    // }
 }
