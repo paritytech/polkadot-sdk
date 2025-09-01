@@ -127,7 +127,9 @@ fn run<WIRE: InterpreterTypes>(
 	table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
-	let action = interpreter.run_plain(table, host);
+	let action = run_plain(interpreter, table, host);
+	#[cfg(feature = "std")]
+	log::trace!(target: LOG_TARGET, "{:?}", action);
 	match action {
 		InterpreterAction::Return(result) => return result,
 		InterpreterAction::NewFrame(_) => {
@@ -139,6 +141,39 @@ fn run<WIRE: InterpreterTypes>(
 			)
 		},
 	}
+}
+
+/// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
+fn run_plain<WIRE: InterpreterTypes>(
+	interpreter: &mut Interpreter<WIRE>,
+	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
+	host: &mut DummyHost,
+) -> InterpreterAction {
+	#[cfg(feature = "std")]
+	use crate::{alloc::string::ToString, format};
+	#[cfg(feature = "std")]
+	use revm::{
+		bytecode::OpCode,
+		interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+	};
+	while interpreter.bytecode.is_not_end() {
+		#[cfg(feature = "std")]
+		log::trace!(target: LOG_TARGET,
+			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
+			pc = interpreter.bytecode.pc(),
+			opcode = OpCode::new(interpreter.bytecode.opcode())
+				.map_or("INVALID".to_string(), |x| format!("{:?}", x.info())),
+			stacktop = interpreter.stack.top().map_or("None".to_string(), |x| format!("{:#x}", x)),
+			memsize = interpreter.memory.size(),
+			// printing at most the first 32 bytes of memory
+			memory = interpreter
+				.memory
+				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
+				.to_vec(),
+		);
+		interpreter.step(instruction_table, host);
+	}
+	interpreter.take_next_action()
 }
 
 /// EVMInterpreter implements the `InterpreterTypes`.
