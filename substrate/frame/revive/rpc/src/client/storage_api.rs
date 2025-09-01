@@ -16,8 +16,12 @@
 // limitations under the License.
 
 use crate::{
-	subxt_client::{self, runtime_types::pallet_revive::storage::ContractInfo, SrcChainConfig},
-	ClientError, H160, LOG_TARGET,
+	subxt_client::{
+		self,
+		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+		SrcChainConfig,
+	},
+	ClientError, H160,
 };
 use sp_core::{H256, U256};
 use subxt::{storage::Storage, OnlineClient};
@@ -37,24 +41,20 @@ impl StorageApi {
 	/// Get the contract info for the given contract address.
 	pub async fn get_contract_info(
 		&self,
-		_contract_address: &H160,
+		contract_address: &H160,
 	) -> Result<ContractInfo, ClientError> {
-		return Err(ClientError::ContractNotFound);
-		// TODO: for some reason `contract_info_of` is no longer available after regenerating
-		// metadata
-		// ```
-		// subxt metadata --url ws://localhost:9944 --version 15  > substrate/frame/revive/rpc/revive_chain.metadata
-		// ```
-
 		// TODO: remove once subxt is updated
-		// let contract_address: subxt::utils::H160 = contract_address.0.into();
+		let contract_address: subxt::utils::H160 = contract_address.0.into();
 
-		// let query = subxt_client::storage().revive().contract_info_of(contract_address);
-		// let Some(info) = self.0.fetch(&query).await? else {
-		// 	return Err(ClientError::ContractNotFound);
-		// };
-
-		// Ok(info)
+		let query = subxt_client::storage().revive().account_info_of(contract_address);
+		self.0
+			.fetch(&query)
+			.await?
+			.and_then(|info| match info.account_type {
+				AccountType::Contract(contract_info) => Some(contract_info),
+				_ => None,
+			})
+			.ok_or(ClientError::ContractNotFound)
 	}
 
 	/// Get the contract trie id for the given contract address.
