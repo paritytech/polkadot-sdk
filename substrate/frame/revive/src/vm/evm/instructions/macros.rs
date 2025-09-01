@@ -107,9 +107,9 @@ macro_rules! gas {
 
 /// Same as [`gas_legacy!`], but with `gas` as an option.
 #[macro_export]
-macro_rules! gas_or_fail {
+macro_rules! gas_or_fail_legacy {
 	($interpreter:expr, $gas:expr) => {
-		gas_or_fail!($interpreter, $gas, ())
+		gas_or_fail_legacy!($interpreter, $gas, ())
 	};
 	($interpreter:expr, $gas:expr, $ret:expr) => {
 		match $gas {

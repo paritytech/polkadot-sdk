@@ -17,23 +17,24 @@
 
 mod call_helpers;
 
-pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
-
 use super::{utility::IntoAddress, Context};
-use crate::vm::Ext;
+use crate::{
+	vm::{evm::U256Converter, Ext, RuntimeCosts},
+	Pallet,
+};
 use alloc::boxed::Box;
+pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges};
 use revm::{
 	context_interface::CreateScheme,
 	interpreter::{
 		gas as revm_gas,
-		host::Host,
 		interpreter_action::{
 			CallInputs, CallScheme, CallValue, CreateInputs, FrameInput, InterpreterAction,
 		},
-		interpreter_types::{InputsTr, LoopControl, RuntimeFlag, StackTr},
+		interpreter_types::{LoopControl, RuntimeFlag, StackTr},
 		CallInput, InstructionResult,
 	},
-	primitives::{hardfork::SpecId, Address, Bytes, B256, U256},
+	primitives::{Address, Bytes, B256, U256},
 };
 
 /// Implements the CREATE/CREATE2 instruction.
@@ -42,24 +43,28 @@ use revm::{
 pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
 
-	// EIP-1014: Skinny CREATE2
-	if IS_CREATE2 {
-		check!(context.interpreter, PETERSBURG);
-	}
-
 	popn!([value, code_offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
 
+	// TODO: We do not charge for the new code in storage. When implementing the new gas:
+	// Introduce EthInstantiateWithCode, which shall charge gas based on the code length.
+	// See #9577 for more context.
+	let val = crate::U256::from_revm_u256(&value);
+	gas!(
+		context.interpreter,
+		RuntimeCosts::Instantiate {
+			input_data_len: len as u32, // We charge for initcode execution
+			balance_transfer: Pallet::<E::T>::has_balance(val),
+			dust_transfer: Pallet::<E::T>::has_dust(val),
+		}
+	);
+
 	let mut code = Bytes::new();
 	if len != 0 {
-		// EIP-3860: Limit and meter initcode
-		if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::SHANGHAI) {
-			// Limit is set as double of max contract bytecode size
-			if len > context.host.max_initcode_size() {
-				context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
-				return;
-			}
-			gas_legacy!(context.interpreter, revm_gas::initcode_cost(len));
+		// EIP-3860: Limit initcode
+		if len > revm::primitives::eip3860::MAX_INITCODE_SIZE {
+			context.interpreter.halt(InstructionResult::CreateInitCodeSizeLimit);
+			return;
 		}
 
 		let code_offset = as_usize_or_fail!(context.interpreter, code_offset);
@@ -71,33 +76,22 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 	// EIP-1014: Skinny CREATE2
 	let scheme = if IS_CREATE2 {
 		popn!([salt], context.interpreter);
-		// SAFETY: `len` is reasonable in size as gas for it is already deducted.
-		gas_or_fail!(context.interpreter, revm_gas::create2_cost(len));
 		CreateScheme::Create2 { salt }
 	} else {
 		gas_legacy!(context.interpreter, revm_gas::CREATE);
 		CreateScheme::Create
 	};
 
-	let mut gas_limit = context.interpreter.gas.remaining();
-
-	// EIP-150: Gas cost changes for IO-heavy operations
-	if context.interpreter.runtime_flag.spec_id().is_enabled_in(SpecId::TANGERINE) {
-		// Take remaining gas and deduce l64 part of it.
-		gas_limit -= gas_limit / 64
-	}
-	gas_legacy!(context.interpreter, gas_limit);
-
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Create(Box::new(CreateInputs {
-			caller: context.interpreter.input.target_address(),
+			caller: context.interpreter.extend.address().0.into(),
 			scheme,
 			value,
 			init_code: code,
-			gas_limit,
+			gas_limit: u64::MAX, // TODO: set the right limit
 		}))));
 }
 
@@ -107,8 +101,9 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([local_gas_limit, to, value], context.interpreter);
 	let to = to.into_address();
-	// Max gas limit is not possible in real ethereum situation.
-	let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
+	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let has_transfer = !value.is_zero();
 	if context.interpreter.runtime_flag.is_static() && has_transfer {
@@ -121,36 +116,25 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let Some(account_load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
+	let scheme = CallScheme::Call;
+	let input = CallInput::SharedBuffer(input);
+
+	let Some(gas_limit) = calc_call_gas(context.interpreter, to, scheme, input.len(), value) else {
 		return;
 	};
-
-	let Some(mut gas_limit) =
-		calc_call_gas(context.interpreter, account_load, has_transfer, local_gas_limit)
-	else {
-		return;
-	};
-
-	gas_legacy!(context.interpreter, gas_limit);
-
-	// Add call stipend if there is value to be transferred.
-	if has_transfer {
-		gas_limit = gas_limit.saturating_add(revm_gas::CALL_STIPEND);
-	}
 
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
-			input: CallInput::SharedBuffer(input),
+			input,
 			gas_limit,
 			target_address: to,
-			caller: context.interpreter.input.target_address(),
+			caller: Address::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(value),
-			scheme: CallScheme::Call,
+			scheme,
 			is_static: context.interpreter.runtime_flag.is_static(),
 			return_memory_offset,
 		}))));
@@ -159,95 +143,48 @@ pub fn call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Implements the CALLCODE instruction.
 ///
 /// Message call with alternative account's code.
+///
+/// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
+/// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
 pub fn call_code<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	popn!([local_gas_limit, to, value], context.interpreter);
-	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
-	let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
-
-	//pop!(context.interpreter, value);
-	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
-	else {
-		return;
-	};
-
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-
-	// Set `is_empty` to false as we are not creating this account.
-	load.is_empty = false;
-	let Some(mut gas_limit) =
-		calc_call_gas(context.interpreter, load, !value.is_zero(), local_gas_limit)
-	else {
-		return;
-	};
-
-	gas_legacy!(context.interpreter, gas_limit);
-
-	// Add call stipend if there is value to be transferred.
-	if !value.is_zero() {
-		gas_limit = gas_limit.saturating_add(revm_gas::CALL_STIPEND);
-	}
-
-	// Call host to interact with target contract
-	context
-		.interpreter
-		.bytecode
-		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
-			input: CallInput::SharedBuffer(input),
-			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.target_address(),
-			bytecode_address: to,
-			value: CallValue::Transfer(value),
-			scheme: CallScheme::CallCode,
-			is_static: context.interpreter.runtime_flag.is_static(),
-			return_memory_offset,
-		}))));
+	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
 }
 
 /// Implements the DELEGATECALL instruction.
 ///
 /// Message call with alternative account's code but same sender and value.
 pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, HOMESTEAD);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
-	let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
+	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
 	else {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
+	let scheme = CallScheme::DelegateCall;
+	let input = CallInput::SharedBuffer(input);
+
+	let Some(gas_limit) = calc_call_gas(context.interpreter, to, scheme, input.len(), U256::ZERO)
+	else {
 		return;
 	};
-
-	// Set is_empty to false as we are not creating this account.
-	load.is_empty = false;
-	let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
-		return;
-	};
-
-	gas_legacy!(context.interpreter, gas_limit);
 
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
-			input: CallInput::SharedBuffer(input),
+			input,
 			gas_limit,
-			target_address: context.interpreter.input.target_address(),
-			caller: context.interpreter.input.caller_address(),
+			target_address: Default::default(),
+			caller: Default::default(),
 			bytecode_address: to,
-			value: CallValue::Apparent(context.interpreter.input.call_value()),
-			scheme: CallScheme::DelegateCall,
+			value: CallValue::Apparent(Default::default()),
+			scheme,
 			is_static: context.interpreter.runtime_flag.is_static(),
 			return_memory_offset,
 		}))));
@@ -257,40 +194,37 @@ pub fn delegate_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Static message call (cannot modify state).
 pub fn static_call<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	popn!([local_gas_limit, to], context.interpreter);
 	let to = Address::from_word(B256::from(to));
-	// Max gas limit is not possible in real ethereum situation.
-	let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
+	// TODO: Max gas limit is not possible in a real Ethereum situation. This issue will be
+	// addressed in #9577.
+	let _local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
 	let Some((input, return_memory_offset)) = get_memory_input_and_out_ranges(context.interpreter)
 	else {
 		return;
 	};
 
-	let Some(mut load) = context.host.load_account_delegated(to) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
+	let scheme = CallScheme::StaticCall;
+	let input = CallInput::SharedBuffer(input);
+
+	let Some(gas_limit) = calc_call_gas(context.interpreter, to, scheme, input.len(), U256::ZERO)
+	else {
 		return;
 	};
-	// Set `is_empty` to false as we are not creating this account.
-	load.is_empty = false;
-	let Some(gas_limit) = calc_call_gas(context.interpreter, load, false, local_gas_limit) else {
-		return;
-	};
-	gas_legacy!(context.interpreter, gas_limit);
 
 	// Call host to interact with target contract
 	context
 		.interpreter
 		.bytecode
 		.set_action(InterpreterAction::NewFrame(FrameInput::Call(Box::new(CallInputs {
-			input: CallInput::SharedBuffer(input),
+			input,
 			gas_limit,
 			target_address: to,
-			caller: context.interpreter.input.target_address(),
+			caller: Default::default(),
 			bytecode_address: to,
 			value: CallValue::Transfer(U256::ZERO),
-			scheme: CallScheme::StaticCall,
+			scheme,
 			is_static: true,
 			return_memory_offset,
 		}))));

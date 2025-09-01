@@ -30,8 +30,8 @@ use crate::{
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, HoldReason, PristineCode,
-	Weight, LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecError, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -42,6 +42,7 @@ use frame_support::{
 		tokens::{Fortitude, Precision, Preservation},
 	},
 };
+use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -331,6 +332,10 @@ where
 		Ok(Self { code, code_info, code_hash })
 	}
 
+	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		ContractBlob::from_evm_init_code(code, owner)
+	}
+
 	fn execute<E: Ext<T = T>>(
 		self,
 		ext: &mut E,
@@ -362,5 +367,32 @@ where
 
 	fn code_info(&self) -> &CodeInfo<T> {
 		&self.code_info
+	}
+}
+
+/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+///
+/// This is used when converting the error returned from a subcall in order to decide
+/// whether to trap the caller or allow handling of the error.
+pub(crate) fn exec_error_into_return_code<E: Ext>(
+	from: ExecError,
+) -> Result<ReturnErrorCode, DispatchError> {
+	use crate::exec::ErrorOrigin::Callee;
+	use ReturnErrorCode::*;
+
+	let transfer_failed = Error::<E::T>::TransferFailed.into();
+	let out_of_gas = Error::<E::T>::OutOfGas.into();
+	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+	let duplicate_contract = Error::<E::T>::DuplicateContract.into();
+	let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
+
+	// errors in the callee do not trap the caller
+	match (from.error, from.origin) {
+		(err, _) if err == transfer_failed => Ok(TransferFailed),
+		(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
+		(err, _) if err == unsupported_precompile => Err(err),
+		(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
+		(_, Callee) => Ok(CalleeTrapped),
+		(err, _) => Err(err),
 	}
 }
