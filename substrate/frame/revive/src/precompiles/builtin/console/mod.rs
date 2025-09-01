@@ -79,7 +79,7 @@ use crate::{
 	vm::RuntimeCosts,
 	Config,
 };
-use alloc::{format, string::String, vec::Vec};
+use alloc::{format, string::{String, ToString}, vec::Vec};
 use alloy_core::{hex, sol};
 use core::{marker::PhantomData, num::NonZero};
 
