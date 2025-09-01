@@ -1254,6 +1254,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(prev_msg) = maybe_prev_msg_metadata {
 			assert!(&msg_metadata >= prev_msg, "[HRMP] Messages order violation");
 		}
+		*maybe_prev_msg_metadata = Some(msg_metadata);
 
 		// Check that the message is sent from an existing channel. The channel exists
 		// if its MQC head is present in `vfp.hrmp_mqc_heads`.
