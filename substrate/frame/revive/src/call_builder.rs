@@ -485,7 +485,7 @@ impl VmBinaryModule {
 		Self::new(code)
 	}
 
-	/// An evm contract that executes  `size` JUMPDEST instructions.
+	/// An evm contract that executes `size` JUMPDEST instructions.
 	pub fn evm_noop(size: u32) -> Self {
 		use revm::bytecode::opcode::JUMPDEST;
 

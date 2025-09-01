@@ -220,7 +220,7 @@ impl Test {
 	}
 
 	pub fn set_allow_evm_bytecode(allow_evm_bytecode: bool) {
-		ALLOW_E_V_M_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
+		ALLOW_EVM_BYTECODE.with(|v| *v.borrow_mut() = allow_evm_bytecode);
 	}
 }
 
@@ -330,7 +330,7 @@ where
 }
 parameter_types! {
 	pub static UnstableInterface: bool = true;
-	pub static AllowEVMBytecode: bool = true;
+	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
 }
 
@@ -351,7 +351,7 @@ impl Config for Test {
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type UnsafeUnstableInterface = UnstableInterface;
-	type AllowEVMBytecode = AllowEVMBytecode;
+	type AllowEVMBytecode = AllowEvmBytecode;
 	type UploadOrigin = EnsureAccount<Self, UploadAccount>;
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -375,7 +375,7 @@ pub struct ExtBuilder {
 	existential_deposit: u64,
 	storage_version: Option<StorageVersion>,
 	code_hashes: Vec<sp_core::H256>,
-	genesis_config: GenesisConfig<Test>,
+	genesis_config: Option<crate::GenesisConfig<Test>>,
 }
 
 impl Default for ExtBuilder {
@@ -384,12 +384,17 @@ impl Default for ExtBuilder {
 			existential_deposit: ExistentialDeposit::get(),
 			storage_version: None,
 			code_hashes: vec![],
-			genesis_config: GenesisConfig::<Test>::default(),
+			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
 		}
 	}
 }
 
 impl ExtBuilder {
+	/// The pallet genesis config to use, or None if you don't want to include it.
+	pub fn genesis_config(mut self, config: Option<crate::GenesisConfig<Test>>) -> Self {
+		self.genesis_config = config;
+		self
+	}
 	pub fn existential_deposit(mut self, existential_deposit: u64) -> Self {
 		self.existential_deposit = existential_deposit;
 		self
@@ -418,7 +423,9 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		self.genesis_config.assimilate_storage(&mut t).unwrap();
+		if let Some(genesis_config) = self.genesis_config {
+			genesis_config.assimilate_storage(&mut t).unwrap();
+		}
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
 		ext.execute_with(|| {
@@ -478,10 +485,10 @@ fn ext_builder_with_genesis_config_works() {
 	let eoa =
 		Account { address: ALICE_ADDR, balance: U256::from(100), nonce: 44, contract_data: None };
 	ExtBuilder::default()
-		.with_genesis_config(crate::GenesisConfig::<Test> {
+		.with_genesis_config(Some(GenesisConfig::<Test> {
 			mapped_accounts: vec![EVE],
 			accounts: vec![eoa.clone(), pvm_contract.clone(), evm_contract.clone()],
-		})
+		}))
 		.build()
 		.execute_with(|| {
 			// account is mapped

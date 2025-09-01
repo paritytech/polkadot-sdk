@@ -17,24 +17,28 @@
 
 //! # Multi-Block Migration v2
 //!
-//! This migrate the old `CodeInfoOf` storage to the new `CodeInfoOf` which add the new `code_type`
+//! - migrate the old `CodeInfoOf` storage to the new `CodeInfoOf` which add the new `code_type`
 //! field.
+//! - Unhold the deposit on the owner and transfer it to the pallet account.
 
 extern crate alloc;
-
 use super::PALLET_MIGRATIONS_ID;
-use crate::{weights::WeightInfo, Config, H256};
+use crate::{vm::BytecodeType, weights::WeightInfo, Config, Pallet, H256, LOG_TARGET};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
+	traits::{
+		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude, Precision, Restriction},
+	},
 	weights::WeightMeter,
 };
 
 #[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
+use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
+use frame_support::{sp_runtime::TryRuntimeError, traits::fungible::InspectHold};
 
 /// Module containing the old storage items.
 mod old {
@@ -60,27 +64,20 @@ mod old {
 }
 
 mod new {
-	use super::Config;
+	use super::{BytecodeType, Config};
 	use crate::{pallet::Pallet, AccountIdOf, BalanceOf, H256};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, Identity, RuntimeDebugNoBound};
+	use frame_support::{storage_alias, DebugNoBound, Identity};
 
-	#[derive(RuntimeDebugNoBound, Clone, Encode, Decode, PartialEq, Eq)]
-	pub enum BytecodeInfo<T: Config> {
-		Pvm {
-			owner: AccountIdOf<T>,
-			#[codec(compact)]
-			refcount: u64,
-		},
-		Evm,
-	}
-
-	#[derive(RuntimeDebugNoBound, PartialEq, Eq, Encode, Decode)]
+	#[derive(PartialEq, Eq, DebugNoBound, Encode, Decode)]
 	pub struct CodeInfo<T: Config> {
+		pub owner: AccountIdOf<T>,
 		#[codec(compact)]
 		pub deposit: BalanceOf<T>,
+		#[codec(compact)]
+		pub refcount: u64,
 		pub code_len: u32,
-		pub bytecode_info: BytecodeInfo<T>,
+		pub code_type: BytecodeType,
 		pub behaviour_version: u32,
 	}
 
@@ -110,27 +107,47 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
+		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::account_id()) {
+			let _ =
+				T::Currency::mint_into(&Pallet::<T>::account_id(), T::Currency::minimum_balance());
+		}
+
 		loop {
 			if meter.try_consume(required).is_err() {
 				break;
 			}
 
-			let iter = if let Some(last_key) = cursor {
+			let mut iter = if let Some(last_key) = cursor {
 				old::CodeInfoOf::<T>::iter_from(old::CodeInfoOf::<T>::hashed_key_for(last_key))
 			} else {
 				old::CodeInfoOf::<T>::iter()
 			};
 
-			if let Some((last_key, value)) = iter.drain().next() {
+			if let Some((last_key, value)) = iter.next() {
+				if let Err(err) = T::Currency::transfer_on_hold(
+					&crate::HoldReason::CodeUploadDepositReserve.into(),
+					&value.owner,
+					&Pallet::<T>::account_id(),
+					value.deposit,
+					Precision::Exact,
+					Restriction::OnHold,
+					Fortitude::Polite,
+				) {
+					log::error!(
+						target: LOG_TARGET,
+						"Failed to unhold the deposit for code hash {last_key:?} and owner {:?}: {err:?}",
+						value.owner,
+					);
+				}
+
 				new::CodeInfoOf::<T>::insert(
 					last_key,
 					new::CodeInfo {
+						owner: value.owner,
 						deposit: value.deposit,
+						refcount: value.refcount,
 						code_len: value.code_len,
-						bytecode_info: new::BytecodeInfo::Pvm {
-							owner: value.owner,
-							refcount: value.refcount,
-						},
+						code_type: BytecodeType::Pvm,
 						behaviour_version: value.behaviour_version,
 					},
 				);
@@ -144,7 +161,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, frame_support::sp_runtime::TryRuntimeError> {
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
 		use codec::Encode;
 
 		// Return the state of the storage before the migration.
@@ -152,8 +169,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(prev: Vec<u8>) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), TryRuntimeError> {
 		use codec::Decode;
+		use sp_runtime::{traits::Zero, Saturating};
 
 		// Check the state of the storage after the migration.
 		let prev_map = BTreeMap::<H256, old::CodeInfo<T>>::decode(&mut &prev[..])
@@ -166,28 +184,26 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			"Migration failed: the number of items in the storage after the migration is not the same as before"
 		);
 
-		for (key, value) in prev_map {
-			let new_value = new::CodeInfoOf::<T>::get(key)
-				.expect("Failed to get the value after the migration");
+		let deposit_sum: crate::BalanceOf<T> = Zero::zero();
 
-			let expected = new::CodeInfo {
-				deposit: value.deposit,
-				code_len: value.code_len,
-				bytecode_info: new::BytecodeInfo::Pvm {
-					owner: value.owner,
-					refcount: value.refcount,
-				},
-				behaviour_version: value.behaviour_version,
-			};
-
-			assert_eq!(new_value, expected, "Migration failed: CodeInfo mismatch for key {key:?}");
+		for (code_hash, old_code_info) in prev_map {
+			deposit_sum.saturating_add(old_code_info.deposit);
+			Self::assert_migrated_code_info(code_hash, &old_code_info);
 		}
+
+		assert_eq!(
+			<T as Config>::Currency::balance_on_hold(
+				&crate::HoldReason::CodeUploadDepositReserve.into(),
+				&Pallet::<T>::account_id(),
+			),
+			deposit_sum,
+		);
 
 		Ok(())
 	}
 }
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 impl<T: Config> Migration<T> {
 	/// Insert an old CodeInfo for benchmarking purposes.
 	pub fn insert_old_code_info(code_hash: H256, code_info: old::CodeInfo<T>) {
@@ -202,27 +218,40 @@ impl<T: Config> Migration<T> {
 		code_len: u32,
 		behaviour_version: u32,
 	) -> old::CodeInfo<T> {
+		use frame_support::traits::fungible::Mutate;
+		T::Currency::mint_into(&owner, Pallet::<T>::min_balance() + deposit)
+			.expect("Failed to mint into owner account");
+		T::Currency::hold(&crate::HoldReason::CodeUploadDepositReserve.into(), &owner, deposit)
+			.expect("Failed to hold the deposit on the owner account");
+
 		old::CodeInfo { owner, deposit, refcount, code_len, behaviour_version }
 	}
 
 	/// Assert that the migrated CodeInfo matches the expected values from the old CodeInfo.
-	pub fn assert_migrated_code_info_matches(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+	pub fn assert_migrated_code_info(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+		use frame_support::traits::fungible::InspectHold;
+		use sp_runtime::traits::Zero;
 		let migrated =
 			new::CodeInfoOf::<T>::get(code_hash).expect("Failed to get migrated CodeInfo");
 
-		let expected = new::CodeInfo {
-			deposit: old_code_info.deposit,
-			code_len: old_code_info.code_len,
-			bytecode_info: new::BytecodeInfo::Pvm {
-				owner: old_code_info.owner.clone(),
-				refcount: old_code_info.refcount,
-			},
-			behaviour_version: old_code_info.behaviour_version,
-		};
+		assert!(<T as Config>::Currency::balance_on_hold(
+			&crate::HoldReason::CodeUploadDepositReserve.into(),
+			&old_code_info.owner
+		)
+		.is_zero());
 
-		if migrated != expected {
-			panic!("Migration failed: deposit mismatch for key {code_hash:?}",);
-		}
+		assert_eq!(
+			migrated,
+			new::CodeInfo {
+				owner: old_code_info.owner.clone(),
+				deposit: old_code_info.deposit,
+				refcount: old_code_info.refcount,
+				code_len: old_code_info.code_len,
+				behaviour_version: old_code_info.behaviour_version,
+				code_type: BytecodeType::Pvm,
+			},
+			"Migration failed: deposit mismatch for key {code_hash:?}",
+		);
 	}
 }
 
@@ -234,7 +263,7 @@ fn migrate_to_v2() {
 	};
 	use alloc::collections::BTreeMap;
 
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 		// Store the original values to verify against later
 		let mut original_values = BTreeMap::new();
 
@@ -262,7 +291,7 @@ fn migrate_to_v2() {
 
 		// Verify all values match between old and new with code_type set to PVM
 		for (code_hash, old_value) in original_values {
-			Migration::<Test>::assert_migrated_code_info_matches(code_hash, &old_value);
+			Migration::<Test>::assert_migrated_code_info(code_hash, &old_value);
 		}
 	})
 }

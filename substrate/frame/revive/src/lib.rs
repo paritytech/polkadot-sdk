@@ -81,7 +81,7 @@ use frame_system::{
 use pallet_transaction_payment::OnChargeTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Dispatchable, Saturating},
+	traits::{Bounded, Convert, Dispatchable, Saturating},
 	AccountId32, DispatchError,
 };
 
@@ -583,14 +583,21 @@ pub mod pallet {
 			use crate::{exec::Key, vm::ContractBlob};
 			use frame_support::{traits::fungible::Mutate, PalletId};
 			use sp_runtime::traits::AccountIdConversion;
+
+			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
+				let _ = T::Currency::mint_into(
+					&Pallet::<T>::account_id(),
+					T::Currency::minimum_balance(),
+				);
+			}
+
 			for id in &self.mapped_accounts {
 				if let Err(err) = T::AddressMapper::map_no_deposit(id) {
 					log::error!(target: LOG_TARGET, "Failed to map account {id:?}: {err:?}");
 				}
 			}
 
-			// Account owner for all PVM contracts deployed in genesis.
-			let owner: AccountIdOf<T> = PalletId(*b"py/revgn").into_account_truncating();
+			let owner = Pallet::<T>::account_id();
 
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
 				let Ok(balance_with_dust) =
@@ -659,6 +666,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_block: BlockNumberFor<T>) -> Weight {
+			// Warm up the pallet account.
+			System::<T>::account_exists(&Pallet::<T>::account_id());
+			return T::DbWeight::get().reads(1)
+		}
 		fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(limit);
 			ContractInfo::<T>::process_deletion_queue_batch(&mut meter);
@@ -1027,8 +1039,7 @@ pub mod pallet {
 		/// Upload new `code` without instantiating a contract from it.
 		///
 		/// If the code does not already exist a deposit is reserved from the caller
-		/// and unreserved only when [`Self::remove_code`] is called. The size of the reserve
-		/// depends on the size of the supplied `code`.
+		/// The size of the reserve depends on the size of the supplied `code`.
 		///
 		/// # Note
 		///
@@ -1036,6 +1047,9 @@ pub mod pallet {
 		/// To avoid this situation a constructor could employ access control so that it can
 		/// only be instantiated by permissioned entities. The same is true when uploading
 		/// through [`Self::instantiate_with_code`].
+		///
+		/// If the refcount of the code reaches zero after terminating the last contract that
+		/// references this code, the code will be removed automatically.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upload_code(code.len() as u32))]
 		pub fn upload_code(
@@ -1057,7 +1071,7 @@ pub mod pallet {
 			code_hash: sp_core::H256,
 		) -> DispatchResultWithPostInfo {
 			let origin = ensure_signed(origin)?;
-			<ContractBlob<T>>::remove_pvm_code(&origin, code_hash)?;
+			<ContractBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
 		}
@@ -1090,7 +1104,7 @@ pub mod pallet {
 				};
 
 				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				<CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
 				contract.code_hash = code_hash;
 
 				Ok(())
@@ -1259,7 +1273,8 @@ where
 				},
 				Code::Upload(code) =>
 					if T::AllowEVMBytecode::get() {
-						let executable = ContractBlob::from_evm_init_code(code)?;
+						let origin = T::UploadOrigin::ensure_origin(origin)?;
+						let executable = ContractBlob::from_evm_init_code(code, origin)?;
 						(executable, Default::default())
 					} else {
 						return Err(<Error<T>>::CodeRejected.into())
@@ -1647,8 +1662,8 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 		skip_transfer: bool,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
-		let mut module = ContractBlob::from_pvm_code(code, origin.clone())?;
-		let deposit = module.store_code(&origin, skip_transfer)?;
+		let mut module = ContractBlob::from_pvm_code(code, origin)?;
+		let deposit = module.store_code(skip_transfer)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
@@ -1683,6 +1698,13 @@ where
 }
 
 impl<T: Config> Pallet<T> {
+	/// Pallet account, used to hold funds for contracts upload deposit.
+	pub fn account_id() -> T::AccountId {
+		use frame_support::PalletId;
+		use sp_runtime::traits::AccountIdConversion;
+		PalletId(*b"py/reviv").into_account_truncating()
+	}
+
 	/// Returns true if the evm value carries dust.
 	fn has_dust(value: U256) -> bool {
 		value % U256::from(<T>::NativeToEthRatio::get()) != U256::zero()

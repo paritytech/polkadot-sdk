@@ -8,7 +8,7 @@ doc:
     - instructions are copied and adapted from REVM they should be ignored in this PR and reviewed in follow-up PR
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: major
 - name: pallet-revive-fixtures
   bump: patch
 - name: asset-hub-westend-runtime

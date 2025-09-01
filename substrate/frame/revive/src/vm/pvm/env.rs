@@ -22,19 +22,13 @@ use crate::{
 	exec::Ext,
 	limits,
 	primitives::ExecReturnValue,
-	storage::meter::Diff,
-	vm::{BytecodeInfo, ExportedFunction, RuntimeCosts},
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractBlob, Error,
-	HoldReason, PristineCode, Weight, SENTINEL,
+	vm::{calculate_code_deposit, BytecodeType, ExportedFunction, RuntimeCosts},
+	AccountIdOf, BalanceOf, CodeInfo, Config, ContractBlob, Error, Weight, SENTINEL,
 };
 use alloc::vec::Vec;
-use codec::{Encode, MaxEncodedLen};
+use codec::Encode;
 use core::mem;
-use frame_support::{
-	dispatch::DispatchResult,
-	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort, Get},
-};
+use frame_support::traits::Get;
 use pallet_revive_proc_macro::define_env;
 use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags};
 use sp_core::{H160, H256, U256};
@@ -109,35 +103,6 @@ impl<T: Config> ContractBlob<T>
 where
 	BalanceOf<T>: Into<U256> + TryFrom<U256>,
 {
-	/// Remove PVM code from storage and refund the deposit to its owner.
-	///
-	/// Applies all necessary checks before removing the code.
-	pub fn remove_pvm_code(origin: &T::AccountId, code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<T>>::try_mutate_exists(&code_hash, |existing| {
-			if let Some(code_info) = existing {
-				match &code_info.bytecode_info {
-					BytecodeInfo::Pvm { owner, refcount } => {
-						ensure!(*refcount == 0, <Error<T>>::CodeInUse);
-						ensure!(owner == origin, BadOrigin);
-						let _ = T::Currency::release(
-							&HoldReason::CodeUploadDepositReserve.into(),
-							owner,
-							code_info.deposit,
-							BestEffort,
-						);
-
-						*existing = None;
-						<PristineCode<T>>::remove(&code_hash);
-						Ok(())
-					},
-					BytecodeInfo::Evm => Err(<Error<T>>::CodeInUse.into()),
-				}
-			} else {
-				Err(<Error<T>>::CodeNotFound.into())
-			}
-		})
-	}
-
 	/// We only check for size and nothing else when the code is uploaded.
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
@@ -146,15 +111,14 @@ where
 		let code = limits::code::enforce::<T>(code, available_syscalls)?;
 
 		let code_len = code.len() as u32;
-		let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-		let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
-			.update_contract::<T>(None)
-			.charge_or_zero();
+		let deposit = calculate_code_deposit::<T>(code_len);
 
 		let code_info = CodeInfo {
+			owner,
 			deposit,
+			refcount: 0,
 			code_len,
-			bytecode_info: BytecodeInfo::Pvm { owner, refcount: 0 },
+			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
@@ -991,9 +955,11 @@ pub mod env {
 	/// the immutable data of the new code hash.
 	#[mutating]
 	fn set_code_hash(&mut self, memory: &mut M, code_hash_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::SetCodeHash)?;
+		let charged = self.charge_gas(RuntimeCosts::SetCodeHash { old_code_removed: true })?;
 		let code_hash: H256 = memory.read_h256(code_hash_ptr)?;
-		self.ext.set_code_hash(code_hash)?;
+		if matches!(self.ext.set_code_hash(code_hash)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::SetCodeHash { old_code_removed: false });
+		}
 		Ok(())
 	}
 
@@ -1043,9 +1009,11 @@ pub mod env {
 	/// See [`pallet_revive_uapi::HostFn::terminate`].
 	#[mutating]
 	fn terminate(&mut self, memory: &mut M, beneficiary_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::Terminate)?;
+		let charged = self.charge_gas(RuntimeCosts::Terminate { code_removed: true })?;
 		let beneficiary = memory.read_h160(beneficiary_ptr)?;
-		self.ext.terminate(&beneficiary)?;
+		if matches!(self.ext.terminate(&beneficiary)?, crate::CodeRemoved::No) {
+			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
+		}
 		Err(TrapReason::Termination)
 	}
 
