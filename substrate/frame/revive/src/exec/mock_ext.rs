@@ -23,11 +23,11 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	Config, ExecReturnValue, ImmutableData,
+	CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
-use frame_support::{dispatch::DispatchResult, weights::Weight};
+use frame_support::weights::Weight;
 use sp_core::{H160, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -35,6 +35,12 @@ use sp_runtime::DispatchError;
 pub struct MockExt<T: Config> {
 	gas_meter: GasMeter<T>,
 	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> MockExt<T> {
+	pub fn new() -> Self {
+		Self { gas_meter: GasMeter::new(Weight::MAX), _phantom: PhantomData }
+	}
 }
 
 impl<T: Config> PrecompileExt for MockExt<T> {
@@ -225,12 +231,16 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> DispatchResult {
+	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}
 
-	fn set_code_hash(&mut self, _hash: H256) -> DispatchResult {
+	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::set_code_hash")
+	}
+
+	fn own_code_hash(&mut self) -> &H256 {
+		panic!("MockExt::own_code_hash")
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {

@@ -29,11 +29,12 @@ use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
 	BlockImport, BlockImportParams, ForkChoiceStrategy,
 };
-use sc_consensus_aura::standalone as aura_internal;
+use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker, CompatibilityMode};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
 use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
 use sp_core::crypto::Pair;
@@ -73,12 +74,12 @@ impl<N: std::hash::Hash + PartialEq> NaiveEquivocationDefender<N> {
 }
 
 /// A parachain block import verifier that checks for equivocation limits within each slot.
-pub struct Verifier<P, Client, Block: BlockT, CIDP> {
+pub struct Verifier<P: Pair, Client, Block: BlockT, CIDP> {
 	client: Arc<Client>,
 	create_inherent_data_providers: CIDP,
 	defender: Mutex<NaiveEquivocationDefender<NumberFor<Block>>>,
 	telemetry: Option<TelemetryHandle>,
-	_phantom: std::marker::PhantomData<fn() -> (Block, P)>,
+	authorities_tracker: AuthoritiesTracker<P, Block, Client>,
 }
 
 impl<P, Client, Block, CIDP> Verifier<P, Client, Block, CIDP>
@@ -100,11 +101,11 @@ where
 		telemetry: Option<TelemetryHandle>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			_phantom: std::marker::PhantomData,
+			authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
@@ -116,7 +117,11 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
@@ -139,10 +144,10 @@ where
 
 		// check seal and update pre-hash/post-hash
 		{
-			let authorities = aura_internal::fetch_authorities(self.client.as_ref(), parent_hash)
-				.map_err(|e| {
-				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
-			})?;
+			let authorities = self
+				.authorities_tracker
+				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
+				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
 
 			let slot_duration = self
 				.client
@@ -197,6 +202,14 @@ where
 							post_hash,
 						))
 					}
+
+					self.authorities_tracker.import(&block_params.header).map_err(|e| {
+						format!(
+							"Could not import authorities for block {:?} at number {}: {e}",
+							block_params.header.hash(),
+							block_params.header.number(),
+						)
+					})?;
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
 					telemetry!(
@@ -275,16 +288,21 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client: ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 {
 	let verifier = Verifier::<P, _, _, _> {
-		client,
+		client: client.clone(),
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		_phantom: std::marker::PhantomData,
+		authorities_tracker: AuthoritiesTracker::new(client.clone()),
 	};
 
 	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
@@ -319,7 +337,7 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			_phantom: std::marker::PhantomData,
+			authorities_tracker: AuthoritiesTracker::new(client.clone()),
 		};
 
 		let genesis = client.info().best_hash;
