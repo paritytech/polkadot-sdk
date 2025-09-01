@@ -39,6 +39,14 @@ use pallet_revive_uapi::{CallFlags, ReturnErrorCode, ReturnFlags, StorageFlags};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{DispatchError, RuntimeDebug};
 
+/// Extracts the code and data from a given program blob.
+pub fn extract_code_and_data(data: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+	let blob_len = polkavm::ProgramBlob::blob_length(data)?;
+	let blob_len = blob_len.try_into().ok()?;
+	let (code, data) = data.split_at_checked(blob_len)?;
+	Some((code.to_vec(), data.to_vec()))
+}
+
 /// Abstraction over the memory access within syscalls.
 ///
 /// The reason for this abstraction is that we run syscalls on the host machine when
