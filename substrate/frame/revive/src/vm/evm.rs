@@ -417,7 +417,15 @@ fn instruction_result_into_exec_error<E: Ext>(from: InstructionResult) -> Option
 		InstructionResult::OverflowPayment => Some(Error::<E::T>::BalanceConversionFailed),
 		InstructionResult::CreateContractSizeLimit | InstructionResult::CreateInitCodeSizeLimit =>
 			Some(Error::<E::T>::StaticMemoryTooLarge),
-		_ => None,
+		InstructionResult::CallTooDeep => Some(Error::<E::T>::MaxCallDepthReached),
+		InstructionResult::OutOfFunds => Some(Error::<E::T>::TransferFailed),
+		InstructionResult::CreateInitCodeStartingEF00 |
+		InstructionResult::InvalidEOFInitCode |
+		InstructionResult::InvalidExtDelegateCallTarget => Some(Error::<E::T>::ContractTrapped),
+		InstructionResult::Stop |
+		InstructionResult::Return |
+		InstructionResult::Revert |
+		InstructionResult::SelfDestruct => None,
 	}
 	.map(Into::into)
 }
