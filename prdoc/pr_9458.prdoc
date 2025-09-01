@@ -16,4 +16,5 @@ crates:
   bump: minor
 - name: polkadot-collator-protocol
   bump: patch
-
+- name: polkadot-cli
+  bump: minor
