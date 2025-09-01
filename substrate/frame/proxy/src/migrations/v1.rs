@@ -17,80 +17,75 @@
 
 //! Migration from v0 to v1: Convert proxy and announcement reserves to holds.
 //!
-//! This migration uses multi-block execution with graceful degradation:
+//! This migration uses multi-block execution with proxy preservation:
 //! - Multi-block: Handles accounts with weight-limited batching without timing out
-//! - Graceful degradation: Any migration failure results in proxy removal + refund
-//! - No permanent fund loss, governance can recover funds if needed using existing tools
+//! - Proxy preservation: Migration failures preserve proxy relationships with zero deposits
+//! - No permanent fund loss, all funds move to free balance
+//! - Self-recovery: Users can restore deposits when they have sufficient balance
 //!
-//! ## Recovery Process for Failed Migrations
+//! ## Zero-Deposit Preservation Strategy
 //!
-//! When migration fails, the behavior differs based on account type:
+//! When hold creation fails, we preserve proxy relationships to avoid breaking critical access:
 //!
-//! ### Scenario 1: Regular Account with Proxies
+//! ### Scenario 1: Regular Account with Successful Migration
 //! ```text
 //! Before migration:
-//! - Account A (has private key) owns proxies [B, C, D]
-//! - A paid 30 tokens deposit for these proxies
-//! - A has 1000 total tokens (970 free + 30 reserved)
+//! - Account A owns proxies [B, C, D] with 30 tokens reserved
 //!
-//! After failed migration:
-//! - All proxy relationships A→[B,C,D] removed
-//! - 30 tokens unreserved back to A's free balance
-//! - A now has 1000 free tokens, 0 reserved
-//! - A still has full control (private key)
-//!
-//! Recovery process:
-//! - ✅ User self-recovery: A can manually re-add proxies using new hold system
-//! - A calls add_proxy(B, ProxyType::Any, 0)
-//! - A calls add_proxy(C, ProxyType::Transfer, 0)
-//! - A calls add_proxy(D, ProxyType::Staking, 0)
-//! - New deposits are held using fungible traits
-//! - Result: A has restored proxy functionality
+//! After successful migration:
+//! - Proxy relationships A→[B,C,D] preserved
+//! - 30 tokens moved from reserves to holds
+//! - Full functionality maintained seamlessly
 //! ```
 //!
-//! ### Scenario 2: Pure Proxy Account
+//! ### Scenario 2: Regular Account with Failed Migration
+//! ```text
+//! Before migration:
+//! - Account A owns proxies [B, C, D] with 30 tokens reserved
+//! - Hold creation fails (e.g., too many existing holds)
+//!
+//! After failed migration:
+//! - Proxy relationships A→[B,C,D] PRESERVED ✅
+//! - 30 tokens unreserved to free balance
+//! - Deposit field set to 0 (marking failed migration)
+//! - Proxies continue working normally
+//!
+//! Self-recovery:
+//! - When A wants to add new proxy E:
+//!   - System detects zero deposit with existing proxies
+//!   - Requires deposit for all proxies (A,B,C,D,E)
+//!   - A provides full deposit via hold system
+//! - When A removes proxy B:
+//!   - No refund (deposit already in free balance)
+//!   - Proxy B removed normally
+//! ```
+//!
+//! ### Scenario 3: Pure Proxy Account (Critical Case)
 //! ```text
 //! Before migration:
 //! - Pure Proxy P (no private key) created by Spawner S
-//! - S paid 20 tokens deposit to create P
-//! - P accumulated 50 additional tokens from other sources
-//! - P total: 70 tokens, S controls P via proxy
+//! - S controls P via proxy relationship
+//! - P has 20 tokens deposit + 50 additional tokens
 //!
 //! After failed migration:
-//! - Proxy relationship S→P removed
-//! - 20 tokens deposit refunded to S's free balance ✅
-//! - P still has 50 tokens but is now inaccessible ❌
-//! - S can no longer control P (no private key for P)
+//! - Proxy relationship S→P PRESERVED ✅
+//! - 20 tokens unreserved to P's free balance
+//! - P now has 70 free tokens, deposit = 0
+//! - S STILL controls P via proxy ✅
+//! - Pure proxy remains fully accessible!
 //!
-//! Recovery process:
-//! - ⚠️ Governance intervention required: Only Root can recover stranded funds
-//! - Root calls Balances::force_transfer(
-//!     source: P,           // Pure proxy account
-//!     dest: S,            // Original spawner
-//!     value: 50 tokens    // Remaining stranded funds
-//!   )
-//! - P account now empty, can be reaped
-//! - S has recovered all funds (20 from deposit + 50 from transfer)
-//! - If S still needs proxy functionality, S can create new pure proxy
+//! Benefits:
+//! - No governance intervention needed
+//! - No funds become stranded
+//! - Critical access maintained
+//! - S can continue using P normally
 //! ```
-//!
-//! ### Key Differences
-//!
-//! | Aspect | Regular Account | Pure Proxy |
-//! |--------|-----------------|------------|
-//! | **Deposit Recovery** | ✅ Automatic | ✅ Automatic |
-//! | **Account Access** | ✅ Owner has private key | ❌ No private key exists |
-//! | **Proxy Restoration** | ✅ Owner can re-add manually | ❌ Cannot restore (inaccessible) |
-//! | **Stranded Funds** | ❌ No stranded funds | ⚠️ Other funds become inaccessible |
-//! | **Recovery Method** | 🔧 User self-service | 🏛️ Governance intervention |
-//! | **Tool Needed** | Normal proxy extrinsics | `Balances::force_transfer` |
-//!
-//! ### Important Notes
-//!
-//! - **Regular accounts**: Migration failure is an **inconvenience** (user must re-add proxies)
-//! - **Pure proxies**: Migration failure is a **fund loss risk** (requires governance to recover)
-//! - **Governance tool**: Use `Balances::force_transfer` (not custom proxy functions)
-//! - **No fund loss**: Every failure case has a recovery path that preserves funds
+//! ### Implementation Details
+//! 1. Always unreserves funds from the old currency system
+//! 2. Attempts to create holds in the new system
+//! 3. On hold failure: keeps proxy config intact, sets deposit to 0
+//! 4. Zero deposit serves as a permanent marker for failed migration
+//! 5. No additional storage needed - uses existing deposit field
 
 use crate::{
 	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
@@ -170,8 +165,8 @@ use frame::log;
 enum AccountVerification<Balance> {
 	/// Account successfully converted to holds
 	SuccessfulConversion { proxy_held: Balance, announcement_held: Balance },
-	/// Account gracefully degraded - storage removed, funds released to user
-	GracefulDegradation { released_amount: Balance },
+	/// Account preserved with zero deposit - funds released to free balance
+	PreservedWithZeroDeposit { released_amount: Balance },
 	/// Account was cleaned up (had no deposits originally)
 	AccountCleanedup { released_amount: Balance },
 }
@@ -181,7 +176,7 @@ enum AccountVerification<Balance> {
 #[derive(Debug)]
 struct MigrationSummary<Balance> {
 	successful_conversions: u32,
-	graceful_degradations: u32,
+	preserved_with_zero_deposit: u32,
 	accounts_cleaned_up: u32,
 	total_converted_to_holds: Balance,
 	total_released_to_users: Balance,
@@ -192,7 +187,7 @@ impl<Balance: Zero> Default for MigrationSummary<Balance> {
 	fn default() -> Self {
 		Self {
 			successful_conversions: 0,
-			graceful_degradations: 0,
+			preserved_with_zero_deposit: 0,
 			accounts_cleaned_up: 0,
 			total_converted_to_holds: Zero::zero(),
 			total_released_to_users: Zero::zero(),
@@ -215,7 +210,7 @@ pub enum MigrationCursor<AccountId> {
 #[derive(Debug, PartialEq)]
 enum AccountMigrationResult<T: Config> {
 	Success,
-	GracefulRemoval { refunded: BalanceOf<T> },
+	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
 
 /// Migration from reserves to holds with graceful degradation.
@@ -250,8 +245,8 @@ where
 	/// - Whether X is a pure proxy or regular account (no storage marker)
 	/// - Who spawned X as pure proxy (spawner info not stored)
 
-	/// Migrate a single proxy account with graceful degradation.
-	/// Handles both regular accounts and pure proxies.
+	/// Migrate a single proxy account with proxy preservation on failure.
+	/// Preserves proxy relationships even when hold creation fails.
 	fn migrate_proxy_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
 		proxies: BoundedVec<
@@ -272,19 +267,23 @@ where
 			if !old_deposit.is_zero() {
 				log::warn!(
 					target: LOG_TARGET,
-					"⚠️ Account {:?} has proxy deposit {:?} but no reserved balance - skipping migration",
+					"⚠️ Account {:?} has proxy deposit {:?} but no reserved balance - preserving with zero deposit",
 					who,
 					old_deposit
 				);
-				// Treat as graceful degradation - remove the proxy config since there's no deposit
+				// Preserve proxy config with zero deposit
 				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
-				Proxies::<T>::remove(who);
-				return AccountMigrationResult::GracefulRemoval { refunded: Zero::zero() };
+				Proxies::<T>::mutate(who, |(_, deposit)| {
+					*deposit = Zero::zero();
+				});
+				return AccountMigrationResult::PreservedWithZeroDeposit {
+					freed_amount: Zero::zero(),
+				};
 			}
 			return AccountMigrationResult::Success;
 		}
 
-		// Unreserve from old currency system
+		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
@@ -308,38 +307,42 @@ where
 				AccountMigrationResult::Success
 			},
 			Err(_) => {
-				// Migration failed - graceful degradation for ALL accounts
+				// Migration failed - preserve proxy relationships with zero deposit
 				//
-				// For regular accounts:
-				// - Proxy config removed, funds stay in account's free balance
-				// - Owner can re-add proxies later using new hold system
-				//
-				// For pure proxies (keyless accounts):
-				// - Proxy config removed, funds stay in pure proxy's free balance
-				// - Governance can recover funds using Balances::force_transfer
+				// For ALL accounts (regular and pure proxies):
+				// - Proxy config PRESERVED, deposit set to zero
+				// - Funds stay in account's free balance (from unreserve)
+				// - Proxy relationships continue working
+				// - Can restore deposits later via add_proxy
 
 				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
 				log::warn!(
 					target: LOG_TARGET,
-					"⚠️  Proxy gracefully degraded: account {:?}, {} proxies removed, deposit {:?} refunded",
+					"⚠️ Proxy preserved with zero deposit: account {:?}, {} proxies, deposit {:?} freed",
 					who,
 					proxies.len(),
 					actually_unreserved
 				);
-				Proxies::<T>::remove(who);
 
-				Pallet::<T>::deposit_event(Event::ProxyRemovedDuringMigration {
-					delegator: who.clone(),
-					proxy_count: proxies.len() as u32,
-					refunded: actually_unreserved,
+				// Set deposit to zero but keep proxies
+				Proxies::<T>::mutate(who, |(_, deposit)| {
+					*deposit = Zero::zero();
 				});
 
-				AccountMigrationResult::GracefulRemoval { refunded: actually_unreserved }
+				Pallet::<T>::deposit_event(Event::ProxyDepositMigrationFailed {
+					delegator: who.clone(),
+					freed_amount: actually_unreserved,
+				});
+
+				AccountMigrationResult::PreservedWithZeroDeposit {
+					freed_amount: actually_unreserved,
+				}
 			},
 		}
 	}
 
-	/// Migrate a single announcement account with graceful degradation.
+	/// Migrate a single announcement account with announcement preservation on failure.
+	/// Preserves announcements even when hold creation fails.
 	fn migrate_announcement_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
 		announcements: BoundedVec<
@@ -356,23 +359,27 @@ where
 		let to_migrate = old_deposit.min(reserved_balance);
 
 		if to_migrate.is_zero() {
-			// Account has proxy config but no actual reserved funds - data inconsistency
+			// Account has announcement config but no actual reserved funds - data inconsistency
 			if !old_deposit.is_zero() {
 				log::warn!(
 					target: LOG_TARGET,
-					"⚠️ Account {:?} has proxy deposit {:?} but no reserved balance - skipping migration",
+					"⚠️ Account {:?} has announcement deposit {:?} but no reserved balance - preserving with zero deposit",
 					who,
 					old_deposit
 				);
-				// Treat as graceful degradation - remove the proxy config since there's no deposit
-				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
-				Proxies::<T>::remove(who);
-				return AccountMigrationResult::GracefulRemoval { refunded: Zero::zero() };
+				// Preserve announcement config with zero deposit
+				ANNOUNCEMENTS_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				Announcements::<T>::mutate(who, |(_, deposit)| {
+					*deposit = Zero::zero();
+				});
+				return AccountMigrationResult::PreservedWithZeroDeposit {
+					freed_amount: Zero::zero(),
+				};
 			}
 			return AccountMigrationResult::Success;
 		}
 
-		// Unreserve from old currency system
+		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
@@ -396,27 +403,31 @@ where
 				AccountMigrationResult::Success
 			},
 			Err(_) => {
-				// Graceful degradation: remove announcements
+				// Migration failed - preserve announcements with zero deposit
 				// The unreserved funds remain in the account's free balance
-				// Safe for regular accounts (user retains control)
-				// For pure proxies: governance can use Balances::force_transfer if needed
+				// Announcements continue to function normally
 				ANNOUNCEMENTS_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
 				log::warn!(
 					target: LOG_TARGET,
-					"⚠️  Announcement gracefully degraded: account {:?}, {} announcements removed, deposit {:?} refunded",
+					"⚠️ Announcements preserved with zero deposit: account {:?}, {} announcements, deposit {:?} freed",
 					who,
 					announcements.len(),
 					actually_unreserved
 				);
-				Announcements::<T>::remove(who);
 
-				Pallet::<T>::deposit_event(Event::AnnouncementsRemovedDuringMigration {
-					announcer: who.clone(),
-					announcement_count: announcements.len() as u32,
-					refunded: actually_unreserved,
+				// Set deposit to zero but keep announcements
+				Announcements::<T>::mutate(who, |(_, deposit)| {
+					*deposit = Zero::zero();
 				});
 
-				AccountMigrationResult::GracefulRemoval { refunded: actually_unreserved }
+				Pallet::<T>::deposit_event(Event::AnnouncementDepositMigrationFailed {
+					announcer: who.clone(),
+					freed_amount: actually_unreserved,
+				});
+
+				AccountMigrationResult::PreservedWithZeroDeposit {
+					freed_amount: actually_unreserved,
+				}
 			},
 		}
 	}
@@ -696,8 +707,8 @@ where
 							acc.successful_conversions += 1;
 							acc.total_converted_to_holds += *proxy_held + *announcement_held;
 						},
-						AccountVerification::GracefulDegradation { released_amount } => {
-							acc.graceful_degradations += 1;
+						AccountVerification::PreservedWithZeroDeposit { released_amount } => {
+							acc.preserved_with_zero_deposit += 1;
 							acc.total_released_to_users += *released_amount;
 						},
 						AccountVerification::AccountCleanedup { released_amount } => {
@@ -734,9 +745,9 @@ where
 		// Log comprehensive migration summary
 		frame::log::info!(
 			target: LOG_TARGET,
-			"Migration verification completed: {} successful conversions, {} graceful degradations, {} accounts cleaned up",
+			"Migration verification completed: {} successful conversions, {} preserved with zero deposit, {} accounts cleaned up",
 			summary.successful_conversions,
-			summary.graceful_degradations,
+			summary.preserved_with_zero_deposit,
 			summary.accounts_cleaned_up
 		);
 
@@ -793,7 +804,7 @@ where
 					"Deposit amounts changed during migration for account {:?}: proxy {:?} -> {:?}, announcement {:?} -> {:?}",
 					who, old_proxy_deposit, current_proxy_deposit, old_announcement_deposit, current_announcement_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -807,7 +818,7 @@ where
 					"Insufficient holds for account {:?}: proxy held={:?} needed={:?}, announcement held={:?} needed={:?}",
 					who, held_proxy, current_proxy_deposit, held_announcement, current_announcement_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -826,7 +837,7 @@ where
 					"Proxy deposit amount changed for account {:?}: {:?} -> {:?}",
 					who, old_proxy_deposit, current_proxy_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -837,7 +848,7 @@ where
 					"Insufficient proxy hold for account {:?}: held={:?} needed={:?}",
 					who, held_proxy, current_proxy_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -863,7 +874,7 @@ where
 					"Announcement deposit amount changed for account {:?}: {:?} -> {:?}",
 					who, old_announcement_deposit, current_announcement_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -874,7 +885,7 @@ where
 					"Insufficient announcement hold for account {:?}: held={:?} needed={:?}",
 					who, held_announcement, current_announcement_deposit
 				);
-				return Ok(AccountVerification::GracefulDegradation {
+				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
 			}
@@ -906,14 +917,14 @@ where
 				"Account {:?} has storage removed but still has holds: proxy={:?} announcement={:?}",
 				who, held_proxy, held_announcement
 			);
-			return Ok(AccountVerification::GracefulDegradation {
+			return Ok(AccountVerification::PreservedWithZeroDeposit {
 				released_amount: total_old_deposit,
 			});
 		}
 
 		// No need to check for reserves since we've migrated to holds
 
-		Ok(AccountVerification::GracefulDegradation { released_amount: total_old_deposit })
+		Ok(AccountVerification::PreservedWithZeroDeposit { released_amount: total_old_deposit })
 	}
 }
 
@@ -921,12 +932,12 @@ where
 mod tests {
 	use super::*;
 	use crate::{
-		tests::{new_test_ext, Test},
+		tests::{new_test_ext, Balances, Proxy, ProxyType, RuntimeCall, RuntimeOrigin, Test},
 		Announcement, Announcements, Proxies, ProxyDefinition,
 	};
 	use frame::{
 		prelude::{DispatchError, DispatchResult},
-		testing_prelude::assert_ok,
+		testing_prelude::{assert_err, assert_ok},
 		traits::{
 			fungible::{InspectHold, Mutate},
 			BalanceStatus, Currency, ExistenceRequirement, ReservableCurrency, SignedImbalance,
@@ -1300,8 +1311,15 @@ mod tests {
 		});
 	}
 
+	/// Tests zero-deposit preservation strategy when hold creation fails during migration.
+	///
+	/// When migration fails (e.g., due to too many holds, ED violations, etc.):
+	/// - Proxy relationships are PRESERVED (not removed)
+	/// - Funds are unreserved and moved to free balance
+	/// - Deposit field is set to 0 as permanent marker
+	/// - Proxies continue to function normally
 	#[test]
-	fn migrate_proxy_graceful_degradation_on_hold_failure() {
+	fn migrate_proxy_preservation_on_hold_failure() {
 		new_test_ext().execute_with(|| {
 			setup_test_with_clean_stats();
 			let who = 1;
@@ -1329,15 +1347,304 @@ mod tests {
 				let deposit = reserved;
 				Proxies::<Test>::insert(&who, (proxies.clone(), deposit));
 
-				// Simulate a scenario where hold would fail.
-				// (In real scenario, this could be due to ED violation, too many holds, etc.)
-				// For test purposes, we'll simulate by making the account have insufficient balance
+				// Simulate hold creation failure by making the account have insufficient balance
+				// In real scenarios, this could be due to:
+				// - Too many existing holds (MaxHolds limit reached)
+				// - Existential deposit violations
+				// - Account frozen/restricted
 				let _ = <Test as Config>::Currency::slash(&who, 1050);
 			});
 
-			// Verify migration results - should result in graceful removal
-			// Proxies should be removed due to graceful degradation
-			assert!(!Proxies::<Test>::contains_key(&who));
+			// Verify zero-deposit preservation strategy worked:
+			// 1. Proxy relationships are preserved (not removed)
+			assert!(Proxies::<Test>::contains_key(&who), "Proxies should be preserved");
+			let (proxies, deposit) = Proxies::<Test>::get(&who);
+			assert_eq!(proxies.len(), 2, "All proxies should be preserved");
+			assert_eq!(deposit, 0, "Deposit should be zero after failed migration");
+
+			// 2. Funds were unreserved from old system (moved to free balance)
+			assert_eq!(
+				MockOldCurrency::reserved_balance(&who),
+				0,
+				"Reserved balance should be zero"
+			);
+
+			// Note: Proxies continue to work normally even with zero deposit
+			// Users can later restore deposits via add_proxy when they have sufficient funds
+		});
+	}
+
+	/// Tests that proxies continue to function normally after failed migration (zero deposit).
+	///
+	/// Verifies that:
+	/// - Proxy calls work even when deposit=0
+	/// - No deposits are required for proxy execution
+	/// - Failed migration accounts maintain full proxy functionality
+	#[test]
+	fn zero_deposit_proxy_execution_works() {
+		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
+			let delegator = 1;
+			let delegate = 2;
+			let target = 3;
+			let reserved = 1000;
+
+			// Set up a failed migration scenario (zero deposit with existing proxies)
+			run_migration(|| {
+				MockOldCurrency::clear_reserves();
+				setup_account_with_reserve(delegator, reserved);
+
+				let proxies = BoundedVec::try_from(vec![ProxyDefinition {
+					delegate,
+					proxy_type: crate::tests::ProxyType::Any,
+					delay: 0,
+				}])
+				.unwrap();
+				Proxies::<Test>::insert(&delegator, (proxies, reserved));
+
+				// Force hold failure by insufficient balance
+				let _ = <Test as Config>::Currency::slash(&delegator, 1050);
+			});
+
+			// Verify proxies were preserved with zero deposit
+			let (proxies, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(deposit, 0, "Deposit should be zero after failed migration");
+			assert_eq!(proxies.len(), 1, "Proxy should be preserved");
+
+			// Test that proxy execution still works with zero deposit
+			let call = RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death {
+				dest: target,
+				value: 100,
+			});
+
+			// Give delegator some balance for the transfer
+			let _ = Balances::mint_into(&delegator, 200).unwrap();
+
+			// Check target's initial balance
+			let target_initial_balance = Balances::free_balance(&target);
+
+			// Execute proxy call - should work even with zero deposit
+			assert_ok!(Proxy::proxy(
+				RuntimeOrigin::signed(delegate),
+				delegator,
+				Some(crate::tests::ProxyType::Any),
+				Box::new(call)
+			));
+
+			// Verify the transfer worked (target should have initial + 100)
+			assert_eq!(Balances::free_balance(&target), target_initial_balance + 100);
+		});
+	}
+
+	/// Tests self-recovery mechanism: adding proxy to zero-deposit account restores full deposit.
+	///
+	/// Verifies that:
+	/// - Zero-deposit accounts can add new proxies when they have sufficient funds
+	/// - Adding proxy requires deposit for ALL proxies (existing + new)
+	/// - System correctly transitions from zero-deposit to full-deposit state
+	#[test]
+	fn zero_deposit_add_proxy_requires_full_deposit() {
+		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
+			let delegator = 1;
+			let existing_delegate = 2;
+			let new_delegate = 3;
+			let reserved = 500;
+
+			// Set up a failed migration scenario
+			run_migration(|| {
+				MockOldCurrency::clear_reserves();
+				setup_account_with_reserve(delegator, reserved);
+
+				let proxies = BoundedVec::try_from(vec![ProxyDefinition {
+					delegate: existing_delegate,
+					proxy_type: crate::tests::ProxyType::Any,
+					delay: 0,
+				}])
+				.unwrap();
+				Proxies::<Test>::insert(&delegator, (proxies, reserved));
+
+				// Force migration failure
+				let _ = <Test as Config>::Currency::slash(&delegator, 600);
+			});
+
+			// Verify zero deposit state
+			let (_, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(deposit, 0, "Should have zero deposit after failed migration");
+
+			// Give delegator exactly enough for full deposit (2 proxies)
+			let full_deposit = Proxy::deposit(2);
+			let _ = Balances::mint_into(&delegator, full_deposit).unwrap();
+
+			// Adding new proxy should succeed and restore full deposit
+			assert_ok!(Proxy::add_proxy(
+				RuntimeOrigin::signed(delegator),
+				new_delegate,
+				ProxyType::JustTransfer,
+				0
+			));
+
+			// Verify deposit was restored for all proxies
+			let (proxies, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(proxies.len(), 2, "Should have 2 proxies");
+			assert_eq!(deposit, full_deposit, "Should have full deposit for both proxies");
+
+			// Verify funds were held
+			let held = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ProxyDeposit.into(),
+				&delegator,
+			);
+			assert_eq!(held, full_deposit, "Full deposit should be held");
+		});
+	}
+
+	/// Tests that adding proxy fails when zero-deposit account has insufficient funds.
+	///
+	/// Verifies that:
+	/// - Zero-deposit accounts cannot add proxies without sufficient funds
+	/// - Account remains in zero-deposit state when add_proxy fails
+	/// - No partial state transitions occur
+	#[test]
+	fn zero_deposit_add_proxy_fails_with_insufficient_funds() {
+		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
+			let delegator = 1;
+			let existing_delegate = 2;
+			let new_delegate = 3;
+			let reserved = 500;
+
+			// Set up a failed migration scenario
+			run_migration(|| {
+				MockOldCurrency::clear_reserves();
+				setup_account_with_reserve(delegator, reserved);
+
+				let proxies = BoundedVec::try_from(vec![ProxyDefinition {
+					delegate: existing_delegate,
+					proxy_type: crate::tests::ProxyType::Any,
+					delay: 0,
+				}])
+				.unwrap();
+				Proxies::<Test>::insert(&delegator, (proxies, reserved));
+
+				// Force migration failure
+				let _ = <Test as Config>::Currency::slash(&delegator, 600);
+			});
+
+			// Verify account has minimal balance after migration (due to ED)
+			let remaining_balance = Balances::free_balance(&delegator);
+			assert!(
+				remaining_balance <= 10,
+				"Account should have minimal balance after slashing, got: {}",
+				remaining_balance
+			);
+
+			// Give delegator insufficient funds for full deposit
+			let full_deposit = Proxy::deposit(2);
+
+			// Ensure we have insufficient funds by slashing to below the required deposit
+			// but keep above ED to maintain the account
+			let target_balance = full_deposit - 1;
+			let current_balance = Balances::free_balance(&delegator);
+			if current_balance > target_balance {
+				let to_slash = current_balance - target_balance;
+				let _ = <Test as Config>::Currency::slash(&delegator, to_slash);
+			}
+
+			let final_balance = Balances::free_balance(&delegator);
+			assert!(
+				final_balance < full_deposit,
+				"Account should have insufficient funds: balance={}, required={}",
+				final_balance,
+				full_deposit
+			);
+
+			// Adding new proxy should fail due to insufficient funds
+			assert_err!(
+				Proxy::add_proxy(
+					RuntimeOrigin::signed(delegator),
+					new_delegate,
+					ProxyType::JustTransfer,
+					0
+				),
+				TokenError::FundsUnavailable
+			);
+
+			// Verify original state unchanged
+			let (proxies, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(proxies.len(), 1, "Should still have 1 proxy");
+			assert_eq!(deposit, 0, "Deposit should still be zero");
+		});
+	}
+
+	/// Tests that removing proxy from zero-deposit account provides no refund.
+	///
+	/// Verifies that:
+	/// - Zero-deposit accounts can remove proxies normally
+	/// - No refund is given (deposit was already released during migration)
+	/// - Account remains in zero-deposit state after proxy removal
+	#[test]
+	fn zero_deposit_remove_proxy_no_refund() {
+		new_test_ext().execute_with(|| {
+			setup_test_with_clean_stats();
+			let delegator = 1;
+			let delegate_to_remove = 2;
+			let delegate_to_keep = 3;
+			let reserved = 1000;
+
+			// Set up a failed migration scenario with 2 proxies
+			run_migration(|| {
+				MockOldCurrency::clear_reserves();
+				setup_account_with_reserve(delegator, reserved);
+
+				let proxies = BoundedVec::try_from(vec![
+					ProxyDefinition {
+						delegate: delegate_to_remove,
+						proxy_type: crate::tests::ProxyType::Any,
+						delay: 0,
+					},
+					ProxyDefinition {
+						delegate: delegate_to_keep,
+						proxy_type: ProxyType::JustTransfer,
+						delay: 0,
+					},
+				])
+				.unwrap();
+				Proxies::<Test>::insert(&delegator, (proxies, reserved));
+
+				// Force migration failure
+				let _ = <Test as Config>::Currency::slash(&delegator, 1100);
+			});
+
+			// Verify zero deposit state
+			let (proxies, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(deposit, 0, "Should have zero deposit");
+			assert_eq!(proxies.len(), 2, "Should have 2 proxies");
+
+			let initial_balance = Balances::free_balance(&delegator);
+
+			// Remove one proxy
+			assert_ok!(Proxy::remove_proxy(
+				RuntimeOrigin::signed(delegator),
+				delegate_to_remove,
+				crate::tests::ProxyType::Any,
+				0
+			));
+
+			// Verify proxy was removed but no refund given
+			let (proxies, deposit) = Proxies::<Test>::get(&delegator);
+			assert_eq!(proxies.len(), 1, "Should have 1 proxy remaining");
+			assert_eq!(deposit, 0, "Deposit should still be zero");
+
+			// Verify no refund was given (balance unchanged)
+			let final_balance = Balances::free_balance(&delegator);
+			assert_eq!(final_balance, initial_balance, "Balance should be unchanged (no refund)");
+
+			// Verify no holds were changed
+			let held = <Test as Config>::Currency::balance_on_hold(
+				&HoldReason::ProxyDeposit.into(),
+				&delegator,
+			);
+			assert_eq!(held, 0, "No holds should exist");
 		});
 	}
 }

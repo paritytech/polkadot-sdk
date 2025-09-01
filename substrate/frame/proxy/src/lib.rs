@@ -776,22 +776,15 @@ pub mod pallet {
 		MigrationStarted,
 		/// Proxy deposit successfully migrated from reserve to hold.
 		ProxyDepositMigrated { delegator: T::AccountId, amount: BalanceOf<T> },
-		/// Proxy configuration removed during migration due to hold failure.
-		/// Funds are left in the account's free balance.
-		/// For pure proxies, spawners can recover funds using proxy calls.
-		ProxyRemovedDuringMigration {
-			delegator: T::AccountId,
-			proxy_count: u32,
-			refunded: BalanceOf<T>,
-		},
+		/// Proxy preserved with zero deposit due to hold failure during migration.
+		/// Funds have been freed to the account's balance.
+		/// Proxy relationships continue working normally.
+		ProxyDepositMigrationFailed { delegator: T::AccountId, freed_amount: BalanceOf<T> },
 		/// Announcement deposit successfully migrated from reserve to hold.
 		AnnouncementDepositMigrated { announcer: T::AccountId, amount: BalanceOf<T> },
-		/// Announcements removed during migration due to hold failure.
-		AnnouncementsRemovedDuringMigration {
-			announcer: T::AccountId,
-			announcement_count: u32,
-			refunded: BalanceOf<T>,
-		},
+		/// Announcements preserved with zero deposit due to hold failure during migration.
+		/// Funds have been freed to the account's balance.
+		AnnouncementDepositMigrationFailed { announcer: T::AccountId, freed_amount: BalanceOf<T> },
 		/// Migration completed successfully.
 		MigrationCompleted,
 	}
@@ -938,7 +931,13 @@ impl<T: Config> Pallet<T> {
 			let i = proxies.binary_search(&proxy_def).err().ok_or(Error::<T>::Duplicate)?;
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
 			let new_deposit = Self::deposit(proxies.len() as u32);
-			if new_deposit > *deposit {
+
+			// Special handling for zero-deposit accounts (failed migration)
+			// If deposit is zero but proxies existed before, we need to hold the full new deposit
+			if *deposit == Zero::zero() && proxies.len() > 1 {
+				// This is a failed migration account - need to restore full deposit
+				T::Currency::hold(&HoldReason::ProxyDeposit.into(), delegator, new_deposit)?;
+			} else if new_deposit > *deposit {
 				T::Currency::hold(
 					&HoldReason::ProxyDeposit.into(),
 					delegator,
@@ -987,12 +986,18 @@ impl<T: Config> Pallet<T> {
 			let i = proxies.binary_search(&proxy_def).ok().ok_or(Error::<T>::NotFound)?;
 			proxies.remove(i);
 			let new_deposit = Self::deposit(proxies.len() as u32);
-			if new_deposit > old_deposit {
+
+			let final_deposit = if old_deposit == Zero::zero() {
+				// Special handling for zero-deposit accounts (failed migration)
+				// Keep deposit as zero - no refund needed (funds already in free balance)
+				Zero::zero()
+			} else if new_deposit > old_deposit {
 				T::Currency::hold(
 					&HoldReason::ProxyDeposit.into(),
 					delegator,
 					new_deposit - old_deposit,
 				)?;
+				new_deposit
 			} else if new_deposit < old_deposit {
 				let _ = T::Currency::release(
 					&HoldReason::ProxyDeposit.into(),
@@ -1000,9 +1005,13 @@ impl<T: Config> Pallet<T> {
 					old_deposit - new_deposit,
 					Precision::BestEffort,
 				);
-			}
+				new_deposit
+			} else {
+				new_deposit
+			};
+
 			if !proxies.is_empty() {
-				*x = Some((proxies, new_deposit))
+				*x = Some((proxies, final_deposit))
 			}
 			Self::deposit_event(Event::<T>::ProxyRemoved {
 				delegator: delegator.clone(),
