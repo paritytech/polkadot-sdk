@@ -17,8 +17,9 @@
 
 use crate::{
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, ExtWithInfo},
+	storage::WriteOutcome,
 	vm::RuntimeCosts,
-	Config, Key, SENTINEL,
+	Config, Key,
 };
 use alloc::vec::Vec;
 use alloy_core::{sol, sol_types::SolValue};
@@ -38,10 +39,10 @@ sol! {
 		///
 		/// # Return
 		///
-		/// If no entry exists for this key the sentinel value of `u32::MAX`
-		/// is returned.
+		/// If no entry existed for this key, `containedKey` is `false` and
+		/// `valueLen` is `0`.
 		function clearStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (uint32);
+			external returns (bool containedKey, uint valueLen);
 
 		/// Checks whether there is a value stored under the given key.
 		///
@@ -54,10 +55,10 @@ sol! {
 		/// # Return
 		///
 		/// Returns the size of the pre-existing value at the specified key.
-		/// If no entry exists for this key the sentinel value of `u32::MAX`
-		/// is returned.
+		/// If no entry exists for this key `containedKey` is `false` and
+		/// `valueLen` is `0`.
 		function containsStorage(uint32 flags, bool isFixedKey, bytes memory key)
-			external returns (uint32);
+			external returns (bool containedKey, uint valueLen);
 
 		/// Retrieve and remove the value under the given key from storage.
 		///
@@ -108,8 +109,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 					env.set_storage(&key, None, false)
 						.map_err(|_| Error::Revert("failed setting storage".into()))?
 				};
+				let contained_key = outcome != WriteOutcome::New;
+				let ret = (contained_key, outcome.old_len());
 				env.gas_meter_mut().adjust_gas(charged, costs(outcome.old_len()));
-				Ok(outcome.old_len_with_sentinel().abi_encode())
+				Ok(ret.abi_encode())
 			},
 			IStorageCalls::containsStorage(IStorage::containsStorageCall {
 				flags,
@@ -133,8 +136,10 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				} else {
 					env.get_storage_size(&key)
 				};
-				env.gas_meter_mut().adjust_gas(charged, costs(outcome.unwrap_or(0)));
-				Ok(outcome.unwrap_or(SENTINEL).abi_encode())
+				let value_len = outcome.unwrap_or(0);
+				let ret = (outcome.is_some(), value_len);
+				env.gas_meter_mut().adjust_gas(charged, costs(value_len));
+				Ok(ret.abi_encode())
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)

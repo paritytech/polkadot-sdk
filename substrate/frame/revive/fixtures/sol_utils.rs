@@ -168,7 +168,7 @@ fn contains_storage<A: HostFn>(flags: StorageFlags, key: &[u8]) -> Option<u32> {
 	encode_bool(false, &mut buffer[36..68]); // `is_fixed_key`
 	let n = encode_bytes(key, &mut buffer[68..]);
 
-	let mut output = [0u8; 32];
+	let mut output = [0u8; 64]; /* function returns (bool, uint) */
 	let _ = A::delegate_call(
 		CallFlags::empty(),
 		&STORAGE_PRECOMPILE_ADDR,
@@ -179,14 +179,13 @@ fn contains_storage<A: HostFn>(flags: StorageFlags, key: &[u8]) -> Option<u32> {
 		Some(&mut &mut output[..]),
 	).expect("delegate call to `Storage::contains_storage` failed");
 
-	let mut outcome_buf = [0u8; 4];
-	outcome_buf[..4].copy_from_slice(&output[28..]);
-	let ret = u32::from_be_bytes(outcome_buf);
-
-	match ret {
-		u32::MAX => None,
-		_ => Some(ret),
+	if output[31] == 0 {
+		return None;
 	}
+
+	let mut value_len_buf = [0u8; 4];
+	value_len_buf[..4].copy_from_slice(&output[60..]);
+	Some(u32::from_be_bytes(value_len_buf))
 }
 
 /// Executes a delegate-call to the `clearStorage` function of the `Storage`
@@ -203,7 +202,7 @@ pub fn clear_storage<A: HostFn>(flags: StorageFlags, key: &[u8]) -> Option<u32> 
 	encode_bool(false, &mut buffer[36..68]); // `is_fixed_key`
 	let n = encode_bytes(key, &mut buffer[68..]);
 
-	let mut output = [0u8; 32];
+	let mut output = [0u8; 64]; /* function returns (bool, uint) */
 	let ret = A::delegate_call(
 		CallFlags::empty(),
 		&STORAGE_PRECOMPILE_ADDR,
@@ -219,14 +218,14 @@ pub fn clear_storage<A: HostFn>(flags: StorageFlags, key: &[u8]) -> Option<u32> 
 		A::return_value(ReturnFlags::REVERT, &(code as u32).to_le_bytes());
 	};
 
-	let mut outcome_buf = [0u8; 4];
-	outcome_buf[..4].copy_from_slice(&output[28..]);
-	let ret = u32::from_be_bytes(outcome_buf);
-
-	match ret {
-		u32::MAX => None,
-		_ => Some(ret),
+	// check the returned `containedKey` boolean
+	if output[31] == 0 {
+		return None;
 	}
+
+	let mut value_len_buf = [0u8; 4];
+	value_len_buf[..4].copy_from_slice(&output[60..]);
+	Some(u32::from_be_bytes(value_len_buf))
 }
 
 /// Executes a delegate-call to the `takeStorage` function of the `Storage`
