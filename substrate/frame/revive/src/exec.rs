@@ -2080,7 +2080,6 @@ where
 	}
 
 	/// Convert a native balance to EVM balance.
-	//fn convert_native_to_evm(value: impl Into<BalanceWithDust<BalanceOf<T>>>) -> U256 {
 	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256 {
 		crate::Pallet::<T>::convert_native_to_evm(value)
 	}
