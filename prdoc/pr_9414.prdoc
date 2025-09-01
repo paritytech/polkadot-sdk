@@ -10,18 +10,4 @@ crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: major
-- name: assets-common
-  bump: major
-- name: asset-hub-westend-runtime
-  bump: major
-- name: pallet-xcm
-  bump: major
-- name: pallet-assets
-  bump: major
-- name: pallet-contracts
-  bump: major
-- name: penpal-runtime
-  bump: major
-- name: sp-runtime
-  bump: major
+  bump: minor
