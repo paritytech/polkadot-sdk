@@ -1205,9 +1205,9 @@ impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type Migrations = (
+		pallet_proxy::migrations::v1::MigrateReservesToHolds<Runtime, Balances>,
 		pallet_revive::migrations::v1::Migration<Runtime>,
 		pallet_revive::migrations::v2::Migration<Runtime>,
-		pallet_proxy::migrations::v1::MigrateReservesToHolds<Runtime, Balances>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
