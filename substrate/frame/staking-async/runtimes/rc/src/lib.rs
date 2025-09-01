@@ -1799,9 +1799,7 @@ impl OnSwap for SwapLeases {
 
 impl pallet_staking_async_preset_store::Config for Runtime {}
 
-construct_runtime!{
-
-}
+construct_runtime! {}
 
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {

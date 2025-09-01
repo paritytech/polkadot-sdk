@@ -401,8 +401,8 @@ pub mod pallet {
 	///   closure, it may also delete that page. The returned value is indeed
 	///   [`Config::MaxOffenceBatchSize`] or less items.
 	///
-	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of which should NEVER
-	/// be used manually.
+	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of
+	/// which should NEVER be used manually.
 	///
 	/// It uses [`Config::MaxOffeenceBatchSize`] as the page size.
 	pub struct OffenceSendQueue<T: Config>(core::marker::PhantomData<T>);
@@ -985,13 +985,10 @@ pub mod pallet {
 
 				// process_migration_buffered_offences will be removed post AHM
 				#[allow(deprecated)]
-				let _no_retry =
-					T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send)
-						.inspect_err(|_| {
-							Self::deposit_event(Event::Unexpected(
-								UnexpectedKind::OffenceSendFailed,
-							));
-						});
+				let _no_retry = T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send)
+					.inspect_err(|_| {
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
+					});
 
 				T::WeightInfo::process_migration_buffered_offences(batch_size as u32)
 			} else {
@@ -1101,7 +1098,10 @@ mod send_queue_tests {
 	fn status() -> (u32, Vec<u32>) {
 		let mut sorted = OffenceSendQueueOffences::<Test>::iter().collect::<Vec<_>>();
 		sorted.sort_by(|x, y| x.0.cmp(&y.0));
-		(OffenceSendQueueCursor::<Test>::get(), sorted.into_iter().map(|(_, v)| v.len() as u32).collect())
+		(
+			OffenceSendQueueCursor::<Test>::get(),
+			sorted.into_iter().map(|(_, v)| v.len() as u32).collect(),
+		)
 	}
 
 	#[test]

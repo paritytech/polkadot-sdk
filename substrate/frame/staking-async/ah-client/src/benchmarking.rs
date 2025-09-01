@@ -86,8 +86,10 @@ mod benchmarks {
 
 		// Verify some offences were processed
 		// In a real scenario, either the session is gone or has fewer offences
-		let remaining_offences =
-			MigrationBufferedOffences::<T>::get().get(&session).map(|m| m.len()).unwrap_or(0);
+		let remaining_offences = MigrationBufferedOffences::<T>::get()
+			.get(&session)
+			.map(|m| m.len())
+			.unwrap_or(0);
 		let expected_remaining = if n > T::MaxOffenceBatchSize::get() {
 			(n - T::MaxOffenceBatchSize::get()) as usize
 		} else {

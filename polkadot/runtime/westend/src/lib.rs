@@ -848,7 +848,9 @@ pub struct StakingXcmToAssetHub;
 impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 	type AccountId = AccountId;
 
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) -> Result<(), ()> {
+	fn relay_session_report(
+		session_report: rc_client::SessionReport<Self::AccountId>,
+	) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			AssetHubLocation,
