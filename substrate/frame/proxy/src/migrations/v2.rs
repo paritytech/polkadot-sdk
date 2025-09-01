@@ -107,6 +107,7 @@ use frame::{
 	arithmetic::Zero,
 	deps::frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+		traits::StorageVersion,
 		weights::WeightMeter,
 	},
 	prelude::*,
@@ -600,6 +601,8 @@ where
 					MigrationCursor::Complete => {
 						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
 						log_migration_stats();
+						// Update storage version to mark migration as complete
+						StorageVersion::new(2).put::<Pallet<T>>();
 						Pallet::<T>::deposit_event(Event::MigrationCompleted);
 						Ok(None)
 					},
@@ -609,6 +612,8 @@ where
 			MigrationCursor::Complete => {
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
 				log_migration_stats();
+				// Update storage version to mark migration as complete
+				StorageVersion::new(2).put::<Pallet<T>>();
 				// Migration is complete
 				Pallet::<T>::deposit_event(Event::MigrationCompleted);
 				Ok(None)
@@ -1286,6 +1291,13 @@ mod tests {
 				assert!(proxies.is_empty(), "Proxies should be empty");
 				assert_eq!(deposit, 0, "Deposit should remain zero");
 			});
+
+			// Verify storage version was updated to version 2
+			assert_eq!(
+				StorageVersion::get::<Pallet<Test>>(),
+				StorageVersion::new(2),
+				"Storage version should be updated to 2 after migration"
+			);
 		});
 	}
 
