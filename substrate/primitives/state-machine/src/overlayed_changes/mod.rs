@@ -110,13 +110,10 @@ pub struct OverlayedChanges<H: Hasher> {
 	/// This transaction can be applied to the backend to persist the state changes.
 	storage_transaction_cache: Option<StorageTransactionCache<H>>,
 
-	/// Caches the "storage transaction" that is created while calling `storage_root`.
-	///
-	/// This transaction can be applied to the backend to persist the state changes.
-	storage_transaction_cache2_flag: Option<()>,
-
 	// todo: better name
-	storage_transaction_cache2: xxx::BackendSnapshots<StorageTransactionCache<H>>,
+	storage_transaction_cache2_flag: Option<()>,
+	storage_transaction_cache2:
+		xxx::BackendSnapshots<StorageTransactionCache<hash_db::FoldHasher<H>>>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {

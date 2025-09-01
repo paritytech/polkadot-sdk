@@ -661,9 +661,10 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, PrefixedMemoryDB<H>) {
-		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, PrefixedMemoryDB<hash_db::FoldHasher<H>>) {
+		let mut write_overlay =
+			PrefixedMemoryDB::<hash_db::FoldHasher<H>>::with_hasher(RandomState::default());
 
 		let root = self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
 			let res = if let Some(xxx) = xxx {
@@ -671,7 +672,7 @@ where
 				let mut tmp_eph =
 					TrieBackendStorageWithReadOnlyOverlay::new(self.backend_storage(), xxx.0);
 
-				let mut tmp_eph2 = Ephemeral::new(&tmp_eph, &mut write_overlay);
+				let mut tmp_eph2 = Ephemeral2::new(&tmp_eph, &mut write_overlay);
 				#[cfg(feature = "std")]
 				{
 					debug!(target: "trie", "using read-only overlay for: {:?} snapshots len:{}", xxx.1, ll);
@@ -693,7 +694,7 @@ where
 					),
 				}
 			} else {
-				let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+				let mut eph = Ephemeral2::new(self.backend_storage(), &mut write_overlay);
 				match state_version {
 					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
 						&mut eph, self.root, delta, recorder, cache,
@@ -781,7 +782,7 @@ pub(crate) struct TrieBackendStorageWithReadOnlyOverlay<
 	H: 'b + Hasher,
 > {
 	storage: &'a S,
-	overlay: Vec<Option<&'b PrefixedMemoryDB<H>>>,
+	overlay: Vec<Option<&'b PrefixedMemoryDB<hash_db::FoldHasher<H>>>>,
 }
 
 // impl<'a, S: 'a + HashDBRef<H>, H: 'a + Hasher> TrieBackendStorage<H>
@@ -822,10 +823,15 @@ impl<'a, 'b, S: 'a + TrieBackendStorage<H>, H: 'b + Hasher> TrieBackendStorage<H
 impl<'a, 'b, S: TrieBackendStorage<H>, H: Hasher>
 	TrieBackendStorageWithReadOnlyOverlay<'a, 'b, S, H>
 {
-	pub fn new(storage: &'a S, overlay: Vec<Option<&'b PrefixedMemoryDB<H>>>) -> Self {
+	pub fn new(
+		storage: &'a S,
+		overlay: Vec<Option<&'b PrefixedMemoryDB<hash_db::FoldHasher<H>>>>,
+	) -> Self {
 		TrieBackendStorageWithReadOnlyOverlay { storage, overlay }
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub(crate) struct Ephemeral<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
 	storage: &'a S,
@@ -887,6 +893,71 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue> for Eph
 		HashDB::contains(self, key, prefix)
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub(crate) struct Ephemeral2<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
+	storage: &'a S,
+	overlay: &'a mut PrefixedMemoryDB<hash_db::FoldHasher<H>>,
+}
+
+impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> AsHashDB<H, DBValue>
+	for Ephemeral2<'a, S, H>
+{
+	fn as_hash_db<'b>(&'b self) -> &'b (dyn HashDB<H, DBValue> + 'b) {
+		self
+	}
+	fn as_hash_db_mut<'b>(&'b mut self) -> &'b mut (dyn HashDB<H, DBValue> + 'b) {
+		self
+	}
+}
+
+impl<'a, S: TrieBackendStorage<H>, H: Hasher> Ephemeral2<'a, S, H> {
+	pub fn new(storage: &'a S, overlay: &'a mut PrefixedMemoryDB<hash_db::FoldHasher<H>>) -> Self {
+		Ephemeral2 { storage, overlay }
+	}
+}
+
+impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
+	for Ephemeral2<'a, S, H>
+{
+	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
+		HashDB::get(self.overlay, key, prefix).or_else(|| {
+			self.storage.get(key, prefix).unwrap_or_else(|e| {
+				warn!(target: "trie", "Failed to read from DB: {}", e);
+				None
+			})
+		})
+	}
+
+	fn contains(&self, key: &H::Out, prefix: Prefix) -> bool {
+		HashDB::get(self, key, prefix).is_some()
+	}
+
+	fn insert(&mut self, prefix: Prefix, value: &[u8]) -> H::Out {
+		HashDB::insert(self.overlay, prefix, value)
+	}
+
+	fn emplace(&mut self, key: H::Out, prefix: Prefix, value: DBValue) {
+		HashDB::emplace(self.overlay, key, prefix, value)
+	}
+
+	fn remove(&mut self, key: &H::Out, prefix: Prefix) {
+		HashDB::remove(self.overlay, key, prefix)
+	}
+}
+
+impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue> for Ephemeral2<'a, S, H> {
+	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
+		HashDB::get(self, key, prefix)
+	}
+
+	fn contains(&self, key: &H::Out, prefix: Prefix) -> bool {
+		HashDB::contains(self, key, prefix)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /// Key-value pairs storage that is used by trie backend essence.
 pub trait TrieBackendStorage<H: Hasher>: Send + Sync {

@@ -276,8 +276,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, BackendTransaction<H>)
+		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, BackendTransaction<hash_db::FoldHasher<H>>)
 	where
 		H::Out: Ord;
 
@@ -289,8 +289,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, bool, BackendTransaction<H>)
+		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, bool, BackendTransaction<hash_db::FoldHasher<H>>)
 	where
 		H::Out: Ord;
 
@@ -364,8 +364,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
 		>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, BackendTransaction<H>)
+		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, BackendTransaction<hash_db::FoldHasher<H>>)
 	where
 		H::Out: Ord + Encode,
 	{

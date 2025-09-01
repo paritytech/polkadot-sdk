@@ -534,8 +534,8 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, PrefixedMemoryDB<H>)
+		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, PrefixedMemoryDB<hash_db::FoldHasher<H>>)
 	where
 		H::Out: Ord,
 	{
@@ -547,8 +547,8 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, H>>,
-	) -> (H::Out, bool, PrefixedMemoryDB<H>)
+		_xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
+	) -> (H::Out, bool, PrefixedMemoryDB<hash_db::FoldHasher<H>>)
 	where
 		H::Out: Ord,
 	{
