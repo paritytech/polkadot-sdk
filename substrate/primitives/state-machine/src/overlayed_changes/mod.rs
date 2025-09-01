@@ -712,7 +712,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 		crate::debug!(target: "overlayed_changes", "storage_root (non-cache)");
 
-		let snapshot = self.top.storage_root_snaphost_delta_keys();
+		let snapshot = self.top.storage_root_snaphost_delta_keys2();
 		crate::debug!(target: "overlayed_changes", "storage_root snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
 		let mut transcation_nodes = 0;
@@ -1123,7 +1123,7 @@ mod tests {
 
 	#[test]
 	fn overlayed_storage_root_works() {
-		sp_tracing::try_init_simple();
+		// tracing::try_init_simple();
 		let state_version = StateVersion::default();
 		let initial: BTreeMap<_, _> = vec![
 			(b"doe".to_vec(), b"reindeer".to_vec()),
