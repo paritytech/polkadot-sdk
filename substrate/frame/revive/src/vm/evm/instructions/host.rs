@@ -124,7 +124,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 
 	let len = as_usize_or_fail!(context.interpreter, len_u256);
-	gas_or_fail!(
+	gas_or_fail_legacy!(
 		context.interpreter,
 		gas::extcodecopy_cost(context.interpreter.runtime_flag.spec_id(), len, code.is_cold)
 	);
@@ -259,7 +259,7 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	popn!([offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
-	gas_or_fail!(context.interpreter, gas::log_cost(N as u8, len as u64));
+	gas_or_fail_legacy!(context.interpreter, gas::log_cost(N as u8, len as u64));
 	let data = if len == 0 {
 		Bytes::new()
 	} else {
