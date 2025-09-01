@@ -101,8 +101,8 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use frame::{
 	arithmetic::Zero,
 	deps::frame_support::{
-		migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
-		traits::StorageVersion,
+		migrations::{MigrationId, SteppedMigration, SteppedMigrationError, VersionedMigration},
+		traits::{StorageVersion, UncheckedOnRuntimeUpgrade},
 		weights::WeightMeter,
 	},
 	prelude::*,
@@ -115,7 +115,7 @@ use alloc::vec::Vec;
 
 const LOG_TARGET: &str = "runtime::proxy";
 
-/// A unique identifier for the proxy pallet v2 migration.
+/// A unique identifier for the proxy pallet v1 migration.
 const PROXY_PALLET_MIGRATION_ID: &[u8; 16] = b"pallet-proxy-mbm";
 
 /// Migration statistics counters
@@ -927,6 +927,87 @@ where
 		Ok(AccountVerification::PreservedWithZeroDeposit { released_amount: total_old_deposit })
 	}
 }
+
+/// Wrapper to execute the stepped migration all at once for single-block runtime upgrades.
+///
+/// This implementation runs the complete stepped migration in a single block by repeatedly
+/// calling `step()` until completion. This is necessary for runtime systems that expect
+/// OnRuntimeUpgrade trait instead of SteppedMigration.
+pub struct InnerMigrateReservesToHolds<T, OldCurrency>(core::marker::PhantomData<(T, OldCurrency)>);
+
+impl<T, OldCurrency> UncheckedOnRuntimeUpgrade for InnerMigrateReservesToHolds<T, OldCurrency>
+where
+	T: Config,
+	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
+	BalanceOf<T>: From<OldCurrency::Balance>,
+	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
+{
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		MigrateReservesToHolds::<T, OldCurrency>::pre_upgrade()
+	}
+
+	fn on_runtime_upgrade() -> Weight {
+		let mut weight_used = Weight::zero();
+		let mut meter = WeightMeter::new();
+		meter.consume(Weight::MAX); // Start with max weight available
+
+		// Initialize stepped migration
+		let mut cursor: Option<MigrationCursor<<T as frame_system::Config>::AccountId>> = None;
+
+		// Run steps until completion
+		loop {
+			// Reset meter for each step
+			meter = WeightMeter::new();
+			meter.consume(Weight::MAX);
+
+			match MigrateReservesToHolds::<T, OldCurrency>::step(cursor, &mut meter) {
+				Ok(Some(next_cursor)) => {
+					// Continue with next step
+					cursor = Some(next_cursor);
+					weight_used = weight_used
+						.saturating_add(
+							MigrateReservesToHolds::<T, OldCurrency>::weight_per_account(),
+						);
+				},
+				Ok(None) => {
+					// Migration complete
+					log::info!(target: LOG_TARGET, "Single-block migration completed successfully");
+					break;
+				},
+				Err(SteppedMigrationError::InsufficientWeight { .. }) => {
+					// In single-block mode, we should have unlimited weight
+					log::error!(target: LOG_TARGET, "Unexpected weight limit in single-block migration");
+					break;
+				},
+				Err(_) => {
+					log::error!(target: LOG_TARGET, "Migration failed with error");
+					break;
+				},
+			}
+		}
+
+		weight_used
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		MigrateReservesToHolds::<T, OldCurrency>::post_upgrade(state)
+	}
+}
+
+/// OnRuntimeUpgrade implementation that wraps the stepped migration with version control.
+///
+/// This provides the OnRuntimeUpgrade trait expected by runtime systems that don't use
+/// the newer SteppedMigration system. It ensures the migration only runs once when the
+/// on-chain storage version is 0, and updates it to 1 after completion.
+pub type MigrateReservesToHoldsVersioned<T, OldCurrency> = VersionedMigration<
+	0, // Only execute when storage version is 0
+	1, // Set storage version to 1 after completion
+	InnerMigrateReservesToHolds<T, OldCurrency>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 #[cfg(test)]
 mod tests {

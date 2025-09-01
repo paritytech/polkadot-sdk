@@ -797,6 +797,8 @@ type Migrations = (
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// Proxy pallet migration from reserves to holds
+	pallet_proxy::migrations::v1::MigrateReservesToHolds<Runtime, Balances>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,

@@ -2076,6 +2076,8 @@ pub mod migrations {
 			Runtime,
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
 		>,
+		// Proxy pallet migration from reserves to holds
+		pallet_proxy::migrations::v1::MigrateReservesToHoldsVersioned<Runtime, Balances>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);

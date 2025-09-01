@@ -123,6 +123,8 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// Proxy pallet migration from reserves to holds
+	pallet_proxy::migrations::v1::MigrateReservesToHolds<Runtime, Balances>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,

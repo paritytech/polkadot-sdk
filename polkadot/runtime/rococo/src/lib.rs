@@ -1796,6 +1796,9 @@ pub mod migrations {
 		// migrates session storage item
 		pallet_session::migrations::v1::MigrateV0ToV1<Runtime, pallet_session::migrations::v1::InitOffenceSeverity<Runtime>>,
 
+		// Proxy pallet migration from reserves to holds
+		pallet_proxy::migrations::v1::MigrateReservesToHoldsVersioned<Runtime, Balances>,
+
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
