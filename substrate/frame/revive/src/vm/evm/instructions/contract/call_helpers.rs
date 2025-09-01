@@ -15,17 +15,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::vm::Ext;
-use core::{cmp::min, ops::Range};
+use crate::{
+	precompiles::{All as AllPrecompiles, Precompiles},
+	vm::{evm::U256Converter, Ext},
+	Pallet, RuntimeCosts,
+};
+use core::ops::Range;
 use revm::{
-	context_interface::{context::StateLoad, journaled_state::AccountLoad},
 	interpreter::{
-		gas as revm_gas,
-		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
+		interpreter_action::CallScheme,
+		interpreter_types::{MemoryTr, StackTr},
 		Interpreter,
 	},
-	primitives::{hardfork::SpecId::*, U256},
+	primitives::{Address, U256},
 };
+use sp_core::H160;
 
 /// Gets memory input and output ranges for call instructions.
 #[inline]
@@ -68,21 +72,47 @@ pub fn resize_memory<'a, E: Ext>(
 #[inline]
 pub fn calc_call_gas<'a, E: Ext>(
 	interpreter: &mut Interpreter<crate::vm::evm::EVMInterpreter<'a, E>>,
-	account_load: StateLoad<AccountLoad>,
-	has_transfer: bool,
-	local_gas_limit: u64,
+	callee: Address,
+	scheme: CallScheme,
+	input_len: usize,
+	value: U256,
 ) -> Option<u64> {
-	let call_cost =
-		revm_gas::call_cost(interpreter.runtime_flag.spec_id(), has_transfer, account_load);
-	gas_legacy!(interpreter, call_cost, None);
+	let callee: H160 = callee.0 .0.into();
+	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
-	// EIP-150: Gas cost changes for IO-heavy operations
-	let gas_limit = if interpreter.runtime_flag.spec_id().is_enabled_in(TANGERINE) {
-		// Take l64 part of gas_limit
-		min(interpreter.gas.remaining_63_of_64_parts(), local_gas_limit)
-	} else {
-		local_gas_limit
+	match precompile {
+		Some(precompile) => {
+			// Base cost depending on contract info
+			let base_cost = if precompile.has_contract_info() {
+				RuntimeCosts::PrecompileWithInfoBase
+			} else {
+				RuntimeCosts::PrecompileBase
+			};
+			gas!(interpreter, base_cost, None);
+
+			// Cost for decoding input
+			gas!(interpreter, RuntimeCosts::PrecompileDecode(input_len as u32), None);
+		},
+		None => {
+			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
+			let base_cost = if scheme.is_delegate_call() {
+				RuntimeCosts::DelegateCallBase
+			} else {
+				RuntimeCosts::CallBase
+			};
+			gas!(interpreter, base_cost, None);
+
+			gas!(interpreter, RuntimeCosts::CopyFromContract(input_len as u32), None);
+		},
 	};
-
-	Some(gas_limit)
+	if !value.is_zero() {
+		gas!(
+			interpreter,
+			RuntimeCosts::CallTransferSurcharge {
+				dust_transfer: Pallet::<E::T>::has_dust(crate::U256::from_revm_u256(&value)),
+			},
+			None
+		);
+	}
+	Some(u64::MAX) // TODO: Set the right gas limit
 }

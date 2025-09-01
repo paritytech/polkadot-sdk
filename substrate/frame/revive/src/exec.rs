@@ -25,9 +25,9 @@ use crate::{
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, CodeInfo, CodeInfoOf, CodeRemoved,
-	Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, Pallet as Contracts,
-	RuntimeCosts, TrieId, LOG_TARGET,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
+	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -183,7 +183,6 @@ impl<T: Config> Origin<T> {
 		}
 	}
 }
-
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -276,7 +275,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -393,6 +392,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the author of the current block.
 	fn block_author(&self) -> Option<H160>;
 
+	/// Returns the block gas limit.
+	fn gas_limit(&self) -> u64;
+
+	/// Returns the chain id.
+	fn chain_id(&self) -> u64;
+
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
@@ -463,6 +468,9 @@ pub trait Executable<T: Config>: Sized {
 	/// # Note
 	/// Charges size base load weight from the gas meter.
 	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+
+	/// Load the executable from EVM bytecode
+	fn from_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
 
 	/// Execute the specified exported function and return the result.
 	///
@@ -1836,7 +1844,7 @@ where
 		&mut self,
 		gas_limit: Weight,
 		deposit_limit: U256,
-		code_hash: H256,
+		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -1845,12 +1853,20 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
+		let sender = self.top_frame().account_id.clone();
 		let executable = {
-			let executable = E::from_storage(code_hash, self.gas_meter_mut())?;
-			let sender = &self.top_frame().account_id;
+			let executable = match &code {
+				Code::Upload(bytecode) => {
+					if !T::AllowEVMBytecode::get() {
+						return Err(<Error<T>>::CodeRejected.into());
+					}
+					E::from_init_code(bytecode.clone(), sender.clone())?
+				},
+				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+			};
 			self.push_frame(
 				FrameArgs::Instantiate {
-					sender: sender.clone(),
+					sender,
 					executable,
 					salt,
 					input_data: input_data.as_ref(),
@@ -1872,7 +1888,7 @@ where
 			self.contracts_created.insert(trie_id);
 		}
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
-		if_tracing(|t| t.instantiate_code(&crate::Code::Existing(code_hash), salt));
+		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
 	}
 }
@@ -2103,7 +2119,15 @@ where
 	}
 
 	fn block_author(&self) -> Option<H160> {
-		crate::Pallet::<T>::block_author()
+		Contracts::<Self::T>::block_author()
+	}
+
+	fn gas_limit(&self) -> u64 {
+		<T as frame_system::Config>::BlockWeights::get().max_block.ref_time()
+	}
+
+	fn chain_id(&self) -> u64 {
+		<T as Config>::ChainId::get()
 	}
 
 	fn max_value_size(&self) -> u32 {

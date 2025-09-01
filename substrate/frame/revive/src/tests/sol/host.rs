@@ -470,8 +470,7 @@ fn selfdestruct_works() {
 #[test]
 #[ignore]
 fn selfdestruct_delete_works() {
-	use pallet_revive_fixtures::HostEvmOnly;
-	use pallet_revive_fixtures::HostEvmOnlyFactory;
+	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnlyFactory};
 	let fixture_type = FixtureType::Solc;
 	let (code, _) = compile_module_with_type("HostEvmOnlyFactory", fixture_type).unwrap();
 
@@ -494,7 +493,9 @@ fn selfdestruct_delete_works() {
 			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyFactory::HostEvmOnlyFactoryCalls::createAndSelfdestruct(
-						HostEvmOnlyFactory::createAndSelfdestructCall { recipient: BOB_ADDR.0.into() },
+						HostEvmOnlyFactory::createAndSelfdestructCall {
+							recipient: BOB_ADDR.0.into(),
+						},
 					)
 					.abi_encode(),
 				)

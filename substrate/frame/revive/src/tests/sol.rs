@@ -17,10 +17,14 @@
 
 mod arithmetic;
 mod bitwise;
+mod block_info;
+mod contract;
 mod control;
 mod host;
 mod memory;
 mod stack;
+mod system;
+mod tx_info;
 
 use crate::{
 	assert_refcount,

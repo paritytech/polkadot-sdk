@@ -101,7 +101,7 @@ fn jumpdest_works() {
 		if let Err(err) = result.result {
 			if let sp_runtime::DispatchError::Module(module_error) = err {
 				let message = module_error.message.as_ref().unwrap();
-				assert_eq!(*message, "ContractTrapped");
+				assert_eq!(*message, "InvalidInstruction");
 			} else {
 				assert!(false, "unexpected error: {err:?}");
 			}
@@ -276,8 +276,8 @@ fn invalid_works() {
 			assert!(module_error.message.is_some(), "no message in module error");
 			assert_eq!(
 				module_error.message.unwrap(),
-				"ContractTrapped",
-				"Expected ContractTrapped error"
+				"InvalidInstruction",
+				"Expected InvalidInstruction error"
 			);
 			assert_eq!(
 				output.gas_consumed.ref_time(),
