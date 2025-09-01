@@ -23,10 +23,10 @@ use crate::{
 	},
 	ClientError, H160,
 };
+use codec::Encode;
+use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
 use sp_core::{H256, U256};
 use subxt::{storage::Storage, OnlineClient};
-
-use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -86,15 +86,15 @@ impl StorageApi {
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
-		// Convert u64 to the wrapped U256 type that subxt expects
-		let number = subxt::utils::Static(U256::from(number));
-
-		let query = subxt_client::storage().revive().block_hash(number);
+		let u256_encoded = U256::from(number).0.encode();
+		let key = subxt::dynamic::Value::from_bytes(u256_encoded);
+		let query = subxt::dynamic::storage("Revive", "BlockHash", vec![key]);
 
 		let Some(hash) = self.0.fetch(&query).await? else {
 			return Err(ClientError::EthereumBlockNotFound);
 		};
 
-		Ok(hash)
+		let bytes = hash.into_encoded();
+		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
 }
