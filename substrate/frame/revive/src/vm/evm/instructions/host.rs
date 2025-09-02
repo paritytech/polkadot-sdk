@@ -318,7 +318,6 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	match dispatch_result {
 		Ok(_) => {
-			log::info!("selfdestruct returned ok");
 			context.interpreter.halt(InstructionResult::SelfDestruct);
 			return;
 		},

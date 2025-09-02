@@ -535,6 +535,8 @@ pub struct Stack<'a, T: Config, E> {
 	_phantom: PhantomData<E>,
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<TrieId>,
+	/// The set of contracts that were created during this call stack.
+	contracts_to_be_destroyed: BTreeSet<(TrieId, H160)>,
 }
 
 /// Represents one entry in the call stack.
@@ -1004,6 +1006,7 @@ where
 			skip_transfer,
 			_phantom: Default::default(),
 			contracts_created: BTreeSet::new(),
+			contracts_to_be_destroyed: BTreeSet::new(),
 		};
 
 		Ok(Some((stack, executable)))
@@ -1490,6 +1493,7 @@ where
 				}
 			}
 		} else {
+			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1711,31 +1715,15 @@ where
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 
 		if !value.is_zero() {
-			log::info!("transfer to beneficiary {value:?}");
 			transfer_with_dust::<T>(&from, &to, value)?;
-		} else {
-			log::info!("NO VALUE TRANSFERRED TO BENEFICIARY {value:?}");
 		}
 
 		// If this is called in the same transaction as the contract was created then the contract
 		// is deleted.
 		let current_contract_trie_id = self.top_frame_mut().contract_info().trie_id.clone();
 		if self.contracts_created.contains(&current_contract_trie_id) {
-			self.contracts_created.remove(&current_contract_trie_id);
-			let frame = self.top_frame_mut();
-			let info = frame.terminate();
-			log::info!("frame.nested_storage.terminate(&info, to);");
-			frame.nested_storage.terminate(&info, to);
-			log::info!("info.queue_trie_for_deletion();");
-			info.queue_trie_for_deletion();
-			log::info!("T::AddressMapper::to_address(&frame.account_id);");
-			let account_address = T::AddressMapper::to_address(&frame.account_id);
-			log::info!("AccountInfoOf::<T>::remove(&account_address);");
-			AccountInfoOf::<T>::remove(&account_address);
-			ImmutableDataOf::<T>::remove(&account_address);
-			let _ = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
+			self.contracts_to_be_destroyed.insert((current_contract_trie_id, beneficiary.clone()));
 		}
-		log::info!("selfdestruct done");
 		Ok(())
 	}
 
