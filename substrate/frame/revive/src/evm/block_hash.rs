@@ -190,10 +190,6 @@ pub struct IncrementalHashBuilder {
 	index: u64,
 	/// RLP encoded value.
 	first_value: Option<Vec<u8>>,
-
-	__metrics_min: usize,
-	__metrics_max: usize,
-	__metrics_total_values: usize,
 }
 
 /// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the
@@ -231,15 +227,7 @@ pub struct IncrementalHashBuilderIR {
 impl IncrementalHashBuilder {
 	/// Construct the hash builder from the first value.
 	pub fn new(first_value: Vec<u8>) -> Self {
-		Self {
-			hash_builder: HashBuilder::default(),
-			index: 1,
-			first_value: Some(first_value),
-
-			__metrics_min: usize::MAX,
-			__metrics_max: 0,
-			__metrics_total_values: 0,
-		}
+		Self { hash_builder: HashBuilder::default(), index: 1, first_value: Some(first_value) }
 	}
 
 	/// Converts the intermediate representation back into a builder.
@@ -296,10 +284,6 @@ impl IncrementalHashBuilder {
 			hash_builder,
 			index: serialized.index,
 			first_value: serialized.first_value,
-
-			__metrics_min: 0,
-			__metrics_max: 0,
-			__metrics_total_values: 0,
 		}
 	}
 
@@ -344,12 +328,6 @@ impl IncrementalHashBuilder {
 		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		self.index += 1;
-
-		// Update metrics.
-		let used_mem = self.__hash_size();
-		self.__metrics_min = self.__metrics_min.min(used_mem);
-		self.__metrics_max = self.__metrics_max.max(used_mem);
-		self.__metrics_total_values += value.len();
 	}
 
 	/// Build the trie root hash.
@@ -363,58 +341,7 @@ impl IncrementalHashBuilder {
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
-		println!(" hash max {}", self.__metrics_max);
-		println!(" hash min {}", self.__metrics_min);
-		println!(" hash total {}", self.__metrics_total_values);
-		println!(
-			" hash saved worst case {}",
-			self.__metrics_max as f64 / self.__metrics_total_values as f64
-		);
-		println!(
-			" hash saved best case {}",
-			self.__metrics_min as f64 / self.__metrics_total_values as f64
-		);
-
 		self.hash_builder.root().0.into()
-	}
-
-	fn __hash_size(&self) -> usize {
-		// Masks store u16 (2 bytes):
-		let masks_len = (self.hash_builder.state_masks.len() +
-			self.hash_builder.tree_masks.len() +
-			self.hash_builder.hash_masks.len()) *
-			2;
-
-		// Nibble key is:
-		// pub struct Nibbles {
-		//     /// Nibbles length.
-		//     // This field goes first, because the derived implementation of `PartialEq` compares
-		// the fields     // in order, so we can short-circuit the comparison if the `length`
-		// field differs.     pub(crate) length: usize,
-		//     /// The nibbles themselves, stored as a 256-bit unsigned integer with most
-		// significant bits set     /// first.
-		//     pub(crate) nibbles: U256,
-		// }
-		// This could be reduced to 40 bytes.
-		40 +
-
-			//	Value is of form:
-			// pub struct HashBuilderValue {
-			// 	/// Stores the bytes of either the leaf node value or the hash of adjacent nodes.
-			// 	#[cfg_attr(feature = "serde", serde(with = "hex"))]
-			// 	buf: Vec<u8>,
-			// 	/// The kind of value that is stored in `buf`.
-			// 	kind: HashBuilderValueKind,
-			// }
-			self.hash_builder.value.as_slice().len() +
-
-			// RLP nodes in stack are represented by:
-			// const MAX: usize = 33;
-			// pub struct RlpNode(ArrayVec<u8, MAX>);
-			self.hash_builder.stack.len() * 33 +
-
-			// pub rlp_buf: Vec<u8>,
-			masks_len + self.hash_builder.rlp_buf.len()
 	}
 }
 
@@ -547,10 +474,6 @@ pub struct EthereumBlockBuilder {
 
 	logs_bloom: Bloom,
 	gas_info: Vec<ReceiptGasInfo>,
-
-	// Added to capture the gains of receipts encoding.
-	__metrics_receipts: f64,
-	__metrics_receipts_len: usize,
 }
 
 impl EthereumBlockBuilder {
@@ -563,9 +486,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: Vec::new(),
 			logs_bloom: Bloom(FixedBytes::ZERO),
 			gas_info: Vec::new(),
-
-			__metrics_receipts: 0.0,
-			__metrics_receipts_len: 0,
 		}
 	}
 
@@ -594,9 +514,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: Bloom(FixedBytes::from_slice(&ir.logs_bloom)),
 			gas_info: ir.gas_info,
-
-			__metrics_receipts: 0.0,
-			__metrics_receipts_len: 0,
 		}
 	}
 
@@ -647,11 +564,6 @@ impl EthereumBlockBuilder {
 		block_author: H160,
 		gas_limit: U256,
 	) -> (H256, Block, Vec<ReceiptGasInfo>) {
-		println!(
-			" EncodedReceipt Space optimization (on average): {:?}",
-			self.__metrics_receipts / self.__metrics_receipts_len as f64
-		);
-
 		let transactions_root = Self::compute_trie_root(&mut self.transaction_root_builder);
 		let receipts_root = Self::compute_trie_root(&mut self.receipts_root_builder);
 
