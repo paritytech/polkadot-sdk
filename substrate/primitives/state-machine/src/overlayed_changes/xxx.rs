@@ -6,12 +6,12 @@ use alloc::collections::btree_set::BTreeSet as Set;
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
-type InternalSet<K> = Set<K, foldhash::fast::RandomState>;
+type InternalSet<K> = Set<K, rapidhash::fast::RandomState>;
 
 #[derive(Debug, Clone)]
 enum TransactionKeys<K> {
-    Dirty(InternalSet<K>),
-    Snapshot(InternalSet<K>),
+	Dirty(InternalSet<K>),
+	Snapshot(InternalSet<K>),
 }
 
 impl<K> TransactionKeys<K> {
@@ -20,7 +20,7 @@ impl<K> TransactionKeys<K> {
 			TransactionKeys::Dirty(k) | TransactionKeys::Snapshot(k) => k.is_empty(),
 		}
 	}
-    fn keys(&self) -> &InternalSet<K> {
+	fn keys(&self) -> &InternalSet<K> {
 		match self {
 			TransactionKeys::Dirty(k) | TransactionKeys::Snapshot(k) => k,
 		}
@@ -60,17 +60,18 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 					dirty_set.insert(key);
 				},
 				Some(TransactionKeys::Snapshot(_)) | None => {
-                    let mut set = InternalSet::with_hasher(foldhash::fast::RandomState::default());
-                    set.insert(key);
-                    transaction.push(TransactionKeys::Dirty(set));
-                }
+					let mut set = InternalSet::with_hasher(rapidhash::fast::RandomState::default());
+					set.insert(key);
+					transaction.push(TransactionKeys::Dirty(set));
+				},
 			}
 		}
 	}
 
 	pub fn start_transaction(&mut self) {
-        self.transactions
-            .push(vec![TransactionKeys::Dirty(InternalSet::with_hasher(foldhash::fast::RandomState::default()))]);
+		self.transactions.push(vec![TransactionKeys::Dirty(InternalSet::with_hasher(
+			rapidhash::fast::RandomState::default(),
+		))]);
 	}
 
 	pub fn commit_transaction(&mut self) {
@@ -97,6 +98,23 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 						.contains(k)));
 				}
 				top_transaction.extend(commited);
+
+                if top_transaction.len() > 1 {
+                    //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
+                    let dirty = top_transaction
+                        .pop()
+                        .expect("there is always dirty at the end");
+
+                    if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
+                        //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
+                        while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
+                            base.extend(keys);
+                        }
+                        *top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
+                    } else {
+                        unreachable!("xxx");
+                    }
+                }
 			} else if commited.len() == 1 {
 				// commited transaction does not contain any snapshots. We need to merge keys with
 				// preivous trasnsaction.
@@ -114,7 +132,24 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 					},
 					snapshot => top_transaction.push(snapshot),
 				}
+                if top_transaction.len() > 1 {
+                    //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
+                    let dirty = top_transaction
+                        .pop()
+                        .expect("there is always dirty at the end");
+
+                    if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
+                        //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
+                        while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
+                            base.extend(keys);
+                        }
+                        *top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
 			} else {
+                        unreachable!("xxx");
+                    }
+                }
+            } else {
+                //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
 				top_transaction.extend(commited);
 			}
 		}
@@ -159,61 +194,63 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 
 		// Append snapshot keys and new dirty keys to the most recent transaction:
 		if let Some(top_transaction) = self.transactions.last_mut() {
-			top_transaction
-				.last_mut()
-                .map(|stage| {
-                    let mut internal_set = InternalSet::with_hasher(foldhash::fast::RandomState::default());
-                    internal_set.extend(delta.iter().cloned());
-                    *stage = TransactionKeys::Snapshot(internal_set);
-                });
-            top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(foldhash::fast::RandomState::default())));
+			top_transaction.last_mut().map(|stage| {
+				let mut internal_set =
+					InternalSet::with_hasher(rapidhash::fast::RandomState::default());
+				internal_set.extend(delta.iter().cloned());
+				*stage = TransactionKeys::Snapshot(internal_set);
+			});
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(
+				rapidhash::fast::RandomState::default(),
+			)));
 		}
 		delta
 	}
 
 	pub fn create_snapshot_and_get_delta2(&mut self) -> Set<K> {
-        let mut snapshot_keys = Vec::new();
-        for transaction in self.transactions.iter() {
-            for keys in transaction.iter() {
-                if let TransactionKeys::Snapshot(set) = keys {
-                    snapshot_keys.push(set);
-                }
-            }
-        }
+		let mut snapshot_keys = Vec::new();
+		for transaction in self.transactions.iter() {
+			for keys in transaction.iter() {
+				if let TransactionKeys::Snapshot(set) = keys {
+					snapshot_keys.push(set);
+				}
+			}
+		}
 
-        // Second pass: collect filtered dirty keys using single contains() check
-        let mut delta = Set::with_capacity(16);
-        for transaction in self.transactions.iter().rev() {
-            for keys in transaction.iter().rev() {
-                if let TransactionKeys::Dirty(set) = keys {
-                    for key in set {
-                        if !snapshot_keys.iter().any(|snapshot| snapshot.contains(key)) {
-                            delta.insert(key.clone());
-                        }
-                    }
-                }
-            }
-        }
+		// Second pass: collect filtered dirty keys using single contains() check
+		let mut delta = Set::with_capacity(16);
+		for transaction in self.transactions.iter().rev() {
+			for keys in transaction.iter().rev() {
+				if let TransactionKeys::Dirty(set) = keys {
+					for key in set {
+						if !snapshot_keys.iter().any(|snapshot| snapshot.contains(key)) {
+							delta.insert(key.clone());
+						}
+					}
+				}
+			}
+		}
 
-        // Drop all_snapshot_keys here to release immutable borrows
-        drop(snapshot_keys);
+		// Drop all_snapshot_keys here to release immutable borrows
+		drop(snapshot_keys);
 
-        if delta.is_empty() {
-            return delta;
-        }
+		if delta.is_empty() {
+			return delta;
+		}
 
-        // Now we can safely modify self
-        if let Some(top_transaction) = self.transactions.last_mut() {
-            top_transaction
-                .last_mut()
-                .map(|stage| {
-                    let mut internal_set = InternalSet::with_hasher(foldhash::fast::RandomState::default());
-                    internal_set.extend(delta.iter().cloned());
-                    *stage = TransactionKeys::Snapshot(internal_set);
-                });
-            top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(foldhash::fast::RandomState::default())));
-        }
-        delta
+		// Now we can safely modify self
+		if let Some(top_transaction) = self.transactions.last_mut() {
+			top_transaction.last_mut().map(|stage| {
+				let mut internal_set =
+					InternalSet::with_hasher(rapidhash::fast::RandomState::default());
+				internal_set.extend(delta.iter().cloned());
+				*stage = TransactionKeys::Snapshot(internal_set);
+			});
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(
+				rapidhash::fast::RandomState::default(),
+			)));
+		}
+		delta
 	}
 }
 
@@ -540,86 +577,86 @@ mod tests {
 		changeset.add_key("a".to_string());
 		changeset.add_key("b".to_string());
 		changeset.add_key("c".to_string());
-        let delta2 = changeset.create_snapshot_and_get_delta2();
-        delta_assert_eq!(delta2, ["c"]);
-    }
-
-    #[test]
-    fn test_simple_snapshot_uniq2() {
-        let mut changeset = Changeset::new();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        let delta = changeset.create_snapshot_and_get_delta();
-        delta_assert_eq!(delta, ["a", "b"]);
-        changeset.commit_transaction();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        changeset.add_key("c".to_string());
-		// let delta2 = changeset.create_snapshot_and_get_delta();
-		// delta_assert_eq!(delta2, ["a", "b", "c"]);
-        changeset.commit_transaction();
 		let delta2 = changeset.create_snapshot_and_get_delta2();
 		delta_assert_eq!(delta2, ["c"]);
-    }
+	}
 
-    #[test]
-    fn test_simple_snapshot_uniq3() {
-        let mut changeset = Changeset::new();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        let delta = changeset.create_snapshot_and_get_delta();
-        delta_assert_eq!(delta, ["a", "b"]);
-        changeset.rollback_transaction();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        changeset.add_key("c".to_string());
-        changeset.commit_transaction();
-        let delta2 = changeset.create_snapshot_and_get_delta2();
-        delta_assert_eq!(delta2, ["a", "b", "c"]);
-    }
+	#[test]
+	fn test_simple_snapshot_uniq2() {
+		let mut changeset = Changeset::new();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		let delta = changeset.create_snapshot_and_get_delta();
+		delta_assert_eq!(delta, ["a", "b"]);
+		changeset.commit_transaction();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.add_key("c".to_string());
+		// let delta2 = changeset.create_snapshot_and_get_delta();
+		// delta_assert_eq!(delta2, ["a", "b", "c"]);
+		changeset.commit_transaction();
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		delta_assert_eq!(delta2, ["c"]);
+	}
 
-    #[test]
-    fn test_simple_snapshot_uniq4() {
-        let mut changeset = Changeset::new();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        changeset.add_key("c".to_string());
-        let delta = changeset.create_snapshot_and_get_delta();
-        delta_assert_eq!(delta, ["a", "b", "c"]);
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        changeset.add_key("c".to_string());
-        changeset.commit_transaction();
-        changeset.commit_transaction();
-        let delta2 = changeset.create_snapshot_and_get_delta2();
-        assert!(delta2.is_empty());
-    }
+	#[test]
+	fn test_simple_snapshot_uniq3() {
+		let mut changeset = Changeset::new();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		let delta = changeset.create_snapshot_and_get_delta();
+		delta_assert_eq!(delta, ["a", "b"]);
+		changeset.rollback_transaction();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.add_key("c".to_string());
+		changeset.commit_transaction();
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		delta_assert_eq!(delta2, ["a", "b", "c"]);
+	}
 
-    #[test]
-    fn test_simple_snapshot_uniq5() {
-        let mut changeset = Changeset::new();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        changeset.add_key("c".to_string());
-        let delta = changeset.create_snapshot_and_get_delta();
-        delta_assert_eq!(delta, ["a", "b", "c"]);
-        changeset.start_transaction();
-        changeset.add_key("d".to_string());
-        changeset.add_key("e".to_string());
-        changeset.add_key("f".to_string());
-        let delta = changeset.create_snapshot_and_get_delta();
-        changeset.start_transaction();
-        changeset.add_key("a".to_string());
-        changeset.add_key("b".to_string());
-        let delta2 = changeset.create_snapshot_and_get_delta2();
-        assert!(delta2.is_empty());
+	#[test]
+	fn test_simple_snapshot_uniq4() {
+		let mut changeset = Changeset::new();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.add_key("c".to_string());
+		let delta = changeset.create_snapshot_and_get_delta();
+		delta_assert_eq!(delta, ["a", "b", "c"]);
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.add_key("c".to_string());
+		changeset.commit_transaction();
+		changeset.commit_transaction();
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		assert!(delta2.is_empty());
+	}
+
+	#[test]
+	fn test_simple_snapshot_uniq5() {
+		let mut changeset = Changeset::new();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.add_key("c".to_string());
+		let delta = changeset.create_snapshot_and_get_delta();
+		delta_assert_eq!(delta, ["a", "b", "c"]);
+		changeset.start_transaction();
+		changeset.add_key("d".to_string());
+		changeset.add_key("e".to_string());
+		changeset.add_key("f".to_string());
+		let delta = changeset.create_snapshot_and_get_delta();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		assert!(delta2.is_empty());
 	}
 }
 

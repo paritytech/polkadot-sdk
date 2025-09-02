@@ -32,6 +32,7 @@ thiserror = { optional = true, workspace = true }
 tracing = { optional = true, workspace = true, default-features = true }
 trie-db = { workspace = true }
 foldhash = { workspace = true }
+rapidhash = "4.0.0"
 
 [dev-dependencies]
 arbitrary = { features = ["derive"], workspace = true }
