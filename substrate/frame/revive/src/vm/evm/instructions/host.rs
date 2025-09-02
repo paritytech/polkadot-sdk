@@ -18,9 +18,10 @@
 use super::Context;
 
 use crate::{
+	storage::WriteOutcome,
 	vec,
 	vm::{evm::U256Converter, Ext},
-	Key, RuntimeCosts, LOG_TARGET,
+	DispatchError, Key, RuntimeCosts,
 };
 use revm::{
 	interpreter::{
@@ -177,28 +178,26 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 }
 
-/// Implements the SSTORE instruction.
-///
-/// Stores a word to storage.
-pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+fn store_helper<'ext, E: Ext>(
+	context: Context<'_, 'ext, E>,
+	cost_before: RuntimeCosts,
+	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
+	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+) {
 	require_non_staticcall!(context.interpreter);
 
 	popn!([index, value], context.interpreter);
 
 	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let Ok(charged_amount) = context
-		.interpreter
-		.extend
-		.gas_meter_mut()
-		.charge(RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 })
-	else {
+	let Ok(charged_amount) = context.interpreter.extend.gas_meter_mut().charge(cost_before) else {
 		context.interpreter.halt(InstructionResult::OutOfGas);
 		return;
 	};
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-	let Ok(write_outcome) = context.interpreter.extend.set_storage(
+	let Ok(write_outcome) = set_function(
+		context.interpreter.extend,
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old,
@@ -206,43 +205,34 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	context.interpreter.extend.gas_meter_mut().adjust_gas(
-		charged_amount,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
+
+	context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+}
+
+/// Implements the SSTORE instruction.
+///
+/// Stores a word to storage.
+pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	store_helper(
+		context,
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 },
+		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
+		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
 	);
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
-
-	popn!([index, value], context.interpreter);
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let Ok(charged_amount) = context
-		.interpreter
-		.extend
-		.gas_meter_mut()
-		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
-	else {
-		context.interpreter.halt(InstructionResult::OutOfGas);
-		return;
-	};
-
-	let key = Key::Fix(index.to_be_bytes());
-	let take_old = false;
-	let Ok(write_outcome) = context.interpreter.extend.set_transient_storage(
-		&key,
-		Some(value.to_be_bytes::<32>().to_vec()),
-		take_old,
-	) else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
-		return;
-	};
-	context.interpreter.extend.gas_meter_mut().adjust_gas(
-		charged_amount,
-		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
+	store_helper(
+		context,
+		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 },
+		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
+		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
 	);
 }
 
