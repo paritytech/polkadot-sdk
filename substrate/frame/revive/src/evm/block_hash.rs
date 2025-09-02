@@ -26,7 +26,7 @@ use alloy_consensus::{
 	private::alloy_trie::{HashBuilder, Nibbles},
 	RlpEncodableReceipt,
 };
-use alloy_core::primitives::{bytes::BufMut, Bloom as AlloyBloom, FixedBytes, Log, B256};
+use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use alloy_rlp::Encodable;
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
@@ -123,7 +123,7 @@ impl Block {
 		// Transaction hashes are placed in the ETH block.
 		let mut tx_hashes = Vec::new();
 		// Bloom filter for the logs emitted by the transactions.
-		let mut logs_bloom = AlloyBloom::default();
+		let mut logs_bloom = Bloom::default();
 
 		for detail in transaction_details {
 			let processed = block.process_transaction_details(detail);
@@ -132,7 +132,7 @@ impl Block {
 			tx_hashes.push(processed.tx_hash);
 			gas_infos.push(processed.gas_info);
 			receipts.push(processed.encoded_receipt);
-			logs_bloom.accrue_bloom(&processed.receipt_bloom.0);
+			logs_bloom.accrue_bloom(&processed.receipt_bloom);
 		}
 
 		// Compute expensive trie roots.
@@ -208,7 +208,7 @@ impl Block {
 			tx_hash,
 			gas_info: ReceiptGasInfo { gas_used: gas_used.ref_time().into() },
 			encoded_receipt,
-			receipt_bloom: Bloom(receipt_bloom),
+			receipt_bloom,
 		}
 	}
 
@@ -553,32 +553,6 @@ impl IncrementalHashBuilder {
 	}
 }
 
-/// The Ethereum 256 byte bloom filter that is scale encodable.
-#[derive(Clone)]
-struct Bloom(AlloyBloom);
-
-const BLOOM_SIZE_BYTES: usize = 256;
-impl codec::Encode for Bloom {
-	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
-		self.0.data().encode_to(dest);
-	}
-}
-
-impl codec::Decode for Bloom {
-	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		let data = <[u8; BLOOM_SIZE_BYTES]>::decode(input)?;
-		Ok(Bloom(data.into()))
-	}
-}
-
-impl TypeInfo for Bloom {
-	type Identity = [u8; BLOOM_SIZE_BYTES];
-
-	fn type_info() -> scale_info::Type {
-		<[u8; BLOOM_SIZE_BYTES]>::type_info()
-	}
-}
-
 /// Accumulate receipts into a stream of RLP encoded bytes.
 /// This is a very straight forward implementation that RLP encodes logs as they are added.
 ///
@@ -609,7 +583,6 @@ impl TypeInfo for Bloom {
 ///
 /// On average, from the real ethereum block, this implementation reduces the memory usage by 30%.
 ///  `EncodedReceipt Space optimization (on average): 0.6995642434146292`
-#[derive(Encode, Decode, TypeInfo)]
 pub struct AccumulateReceipt {
 	/// The RLP bytes where the logs are accumulated.
 	encoding: Vec<u8>,
@@ -620,12 +593,7 @@ pub struct AccumulateReceipt {
 impl AccumulateReceipt {
 	/// Constructs a new [`AccumulateReceipt`].
 	pub const fn new() -> Self {
-		Self { encoding: Vec::new(), bloom: Bloom(AlloyBloom(FixedBytes::ZERO)) }
-	}
-
-	/// Reset the state of the receipt accumulator.
-	pub fn reset(&mut self) {
-		*self = Self::new();
+		Self { encoding: Vec::new(), bloom: Bloom(FixedBytes::ZERO) }
 	}
 
 	/// Add the log into the accumulated receipt.
@@ -637,7 +605,7 @@ impl AccumulateReceipt {
 			log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
 			log.data.into(),
 		);
-		self.bloom.0.accrue_log(&log);
+		self.bloom.accrue_log(&log);
 		log.encode(&mut self.encoding);
 	}
 
@@ -668,6 +636,9 @@ impl AccumulateReceipt {
 		encoded
 	}
 }
+
+/// Number of bytes that a bloom stores.
+const BLOOM_SIZE_BYTES: usize = 256;
 
 /// The intermediate representation of the Ethereum block builder.
 #[derive(Encode, Decode, TypeInfo)]
@@ -706,7 +677,7 @@ impl EthereumBlockBuilder {
 			receipts_root_builder: None,
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
-			logs_bloom: Bloom(AlloyBloom(FixedBytes::ZERO)),
+			logs_bloom: Bloom(FixedBytes::ZERO),
 			gas_info: Vec::new(),
 
 			__metrics_receipts: 0.0,
@@ -721,7 +692,7 @@ impl EthereumBlockBuilder {
 			receipts_root_builder: self.receipts_root_builder.map(|b| b.to_ir()),
 			gas_used: self.gas_used,
 			tx_hashes: self.tx_hashes,
-			logs_bloom: (*self.logs_bloom.0.data()).into(),
+			logs_bloom: (*self.logs_bloom.data()).into(),
 			gas_info: self.gas_info,
 		}
 	}
@@ -737,7 +708,7 @@ impl EthereumBlockBuilder {
 				.map(|b| IncrementalHashBuilder::from_ir(b)),
 			gas_used: ir.gas_used,
 			tx_hashes: ir.tx_hashes,
-			logs_bloom: Bloom(AlloyBloom(FixedBytes::from_slice(&ir.logs_bloom))),
+			logs_bloom: Bloom(FixedBytes::from_slice(&ir.logs_bloom)),
 			gas_info: ir.gas_info,
 
 			__metrics_receipts: 0.0,
@@ -755,7 +726,7 @@ impl EthereumBlockBuilder {
 		&mut self,
 		detail: TransactionDetails,
 		accumulate_receipt: AccumulateReceipt,
-	) {
+	) -> ReceiptGasInfo {
 		let TransactionDetails { transaction_encoded, success, gas_used, logs } = detail;
 
 		let tx_hash = H256(keccak_256(&transaction_encoded));
@@ -795,7 +766,7 @@ impl EthereumBlockBuilder {
 			};
 
 			let receipt_bloom = receipt.bloom_slow();
-			self.logs_bloom.0.accrue_bloom(&receipt_bloom);
+			self.logs_bloom.accrue_bloom(&receipt_bloom);
 
 			// Receipt encoding must be prefixed with the rlp(transaction type).
 			let mut encoded_receipt = transaction_type.clone();
@@ -818,13 +789,14 @@ impl EthereumBlockBuilder {
 		}
 
 		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
-		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 
 		let encoded_receipt =
 			accumulate_receipt.finish(success, self.gas_used.as_u64(), transaction_type);
-		self.logs_bloom.0.accrue_bloom(&accumulate_receipt.bloom.0);
+		self.logs_bloom.accrue_bloom(&accumulate_receipt.bloom);
 
 		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
+
+		ReceiptGasInfo { gas_used: gas_used.ref_time().into() }
 	}
 
 	/// Build the ethereum block from provided data.
@@ -860,7 +832,7 @@ impl EthereumBlockBuilder {
 
 			gas_used: self.gas_used,
 
-			logs_bloom: (*self.logs_bloom.0.data()).into(),
+			logs_bloom: (*self.logs_bloom.data()).into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
 			..Default::default()
