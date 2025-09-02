@@ -1817,9 +1817,9 @@ impl<T: Config> Pallet<T> {
 		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.borrow_mut();
 		let logs = core::mem::replace(&mut *inflight_events, Vec::new());
 
-		eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
-			TransactionDetails { transaction_encoded, logs, success, gas_used },
-		);
+		// eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
+		// 	TransactionDetails { transaction_encoded, logs, success, gas_used },
+		// );
 	}
 
 	/// The address of the validator that produced the current block.

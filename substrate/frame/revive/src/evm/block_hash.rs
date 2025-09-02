@@ -642,7 +642,7 @@ impl AccumulateReceipt {
 	}
 
 	/// Finalize the accumulated receipt and return the RLP encoded bytes.
-	pub fn finish(&mut self, status: bool, gas: u64, transaction_type: Vec<u8>) -> Vec<u8> {
+	pub fn finish(&self, status: bool, gas: u64, transaction_type: Vec<u8>) -> Vec<u8> {
 		let logs_length = self.encoding.len();
 		let list_header_length = logs_length + alloy_rlp::length_of_length(logs_length);
 
@@ -680,8 +680,6 @@ pub struct EthereumBlockBuilderIR {
 
 	logs_bloom: [u8; BLOOM_SIZE_BYTES],
 	gas_info: Vec<ReceiptGasInfo>,
-
-	receipt: AccumulateReceipt,
 }
 
 /// Ethereum block builder.
@@ -694,8 +692,6 @@ pub struct EthereumBlockBuilder {
 
 	logs_bloom: Bloom,
 	gas_info: Vec<ReceiptGasInfo>,
-
-	receipt: AccumulateReceipt,
 
 	// Added to capture the gains of receipts encoding.
 	__metrics_receipts: f64,
@@ -712,7 +708,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: Vec::new(),
 			logs_bloom: Bloom(AlloyBloom(FixedBytes::ZERO)),
 			gas_info: Vec::new(),
-			receipt: AccumulateReceipt::new(),
 
 			__metrics_receipts: 0.0,
 			__metrics_receipts_len: 0,
@@ -728,7 +723,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: self.tx_hashes,
 			logs_bloom: (*self.logs_bloom.0.data()).into(),
 			gas_info: self.gas_info,
-			receipt: self.receipt,
 		}
 	}
 
@@ -745,7 +739,6 @@ impl EthereumBlockBuilder {
 			tx_hashes: ir.tx_hashes,
 			logs_bloom: Bloom(AlloyBloom(FixedBytes::from_slice(&ir.logs_bloom))),
 			gas_info: ir.gas_info,
-			receipt: ir.receipt,
 
 			__metrics_receipts: 0.0,
 			__metrics_receipts_len: 0,
@@ -757,13 +750,12 @@ impl EthereumBlockBuilder {
 		*self = Self::new();
 	}
 
-	/// Adds a log to the current receipt object.
-	pub fn add_log(&mut self, log: EventLog) {
-		self.receipt.add_log(log);
-	}
-
 	/// Process a single transaction at a time.
-	pub fn process_transaction(&mut self, detail: TransactionDetails) {
+	pub fn process_transaction(
+		&mut self,
+		detail: TransactionDetails,
+		accumulate_receipt: AccumulateReceipt,
+	) {
 		let TransactionDetails { transaction_encoded, success, gas_used, logs } = detail;
 
 		let tx_hash = H256(keccak_256(&transaction_encoded));
@@ -828,11 +820,9 @@ impl EthereumBlockBuilder {
 		self.gas_used = self.gas_used.saturating_add(gas_used.ref_time().into());
 		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 
-		let receipt_bloom = self.receipt.bloom.clone();
-		self.logs_bloom.0.accrue_bloom(&receipt_bloom.0);
 		let encoded_receipt =
-			self.receipt.finish(success, self.gas_used.as_u64(), transaction_type);
-		self.receipt.reset();
+			accumulate_receipt.finish(success, self.gas_used.as_u64(), transaction_type);
+		self.logs_bloom.0.accrue_bloom(&accumulate_receipt.bloom.0);
 
 		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
 	}
@@ -1006,14 +996,14 @@ mod test {
 		for details in &transaction_details {
 			let mut log_size = 0;
 
+			let mut accumulate_receipt = AccumulateReceipt::new();
 			for log in &details.logs {
 				let current_size = log.data.len() + log.topics.len() * 32 + 20;
-
 				log_size += current_size;
-				incremental_block.add_log(log.clone());
+				accumulate_receipt.add_log(log.clone());
 			}
 
-			incremental_block.process_transaction(details.clone());
+			incremental_block.process_transaction(details.clone(), accumulate_receipt);
 
 			let ir = incremental_block.to_ir();
 			incremental_block = EthereumBlockBuilder::from_ir(ir);
