@@ -1800,20 +1800,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
-		if let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() {
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+		let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() else {
+			return;
+		};
 
-			block_builder.process_transaction(
-				transaction_encoded,
-				success,
-				gas_used,
-				encoded_logs,
-				bloom,
-			);
+		let block_builder_ir = EthBlockBuilderIR::<T>::get();
+		let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
 
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		}
+		block_builder.process_transaction(
+			transaction_encoded,
+			success,
+			gas_used,
+			encoded_logs,
+			bloom,
+		);
+
+		EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 	}
 
 	/// The address of the validator that produced the current block.
