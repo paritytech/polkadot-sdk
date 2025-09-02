@@ -1816,12 +1816,10 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 #[derive(
 	PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, RuntimeDebug, Copy,
 )]
-#[cfg_attr(feature = "std", derive(Hash))]
 pub struct InternalVersion(pub u8);
 
 /// A type representing the version of the candidate descriptor.
 #[derive(PartialEq, Eq, Clone, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Hash))]
 pub enum CandidateDescriptorVersion {
 	/// The old candidate descriptor version.
 	V1,
@@ -1833,7 +1831,6 @@ pub enum CandidateDescriptorVersion {
 
 /// A unique descriptor of the candidate receipt.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
 	pub(super) para_id: ParaId,
@@ -2032,6 +2029,38 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			validation_code_hash,
 		}
 	}
+
+	#[cfg(feature = "test")]
+	#[doc(hidden)]
+	pub fn new_from_raw(
+		para_id: Id,
+		relay_parent: H,
+		version: InternalVersion,
+		core_index: u16,
+		session_index: SessionIndex,
+		reserved1: [u8; 25],
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		reserved2: [u8; 64],
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+	) -> Self {
+		Self {
+			para_id,
+			relay_parent,
+			version,
+			core_index,
+			session_index,
+			reserved1,
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			reserved2,
+			para_head,
+			validation_code_hash,
+		}
+	}
 }
 
 /// A trait to allow changing the descriptor field values in tests.
@@ -2110,7 +2139,6 @@ impl<H> MutateDescriptorV2<H> for CandidateDescriptorV2<H> {
 
 /// A candidate-receipt at version 2.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
 	pub descriptor: CandidateDescriptorV2<H>,
@@ -2120,7 +2148,6 @@ pub struct CandidateReceiptV2<H = Hash> {
 
 /// A candidate-receipt with commitments directly included.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = "std", derive(Hash))]
 pub struct CommittedCandidateReceiptV2<H = Hash> {
 	/// The descriptor of the candidate.
 	pub descriptor: CandidateDescriptorV2<H>,

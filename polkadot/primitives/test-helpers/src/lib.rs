@@ -26,8 +26,8 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{
 	AppVerify, CandidateCommitments, CandidateDescriptorV2, CandidateHash, CandidateReceiptV2,
 	CollatorId, CollatorSignature, CommittedCandidateReceiptV2, CoreIndex, Hash, HashT, HeadData,
-	Id, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex, ValidationCode,
-	ValidationCodeHash, ValidatorId,
+	Id, Id as ParaId, InternalVersion, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	ValidationCode, ValidationCodeHash, ValidatorId,
 };
 pub use rand;
 use scale_info::TypeInfo;
@@ -212,14 +212,17 @@ impl<H: Copy + AsRef<[u8]>> From<CandidateDescriptor<H>> for CandidateDescriptor
 	fn from(value: CandidateDescriptor<H>) -> Self {
 		let collator = value.collator.as_slice();
 
-		CandidateDescriptorV2::new(
+		CandidateDescriptorV2::new_from_raw(
 			value.para_id,
 			value.relay_parent,
-			CoreIndex(u16::from_ne_bytes(clone_into_array(&collator[1..=2])) as u32),
+			InternalVersion(collator[0]),
+			u16::from_ne_bytes(clone_into_array(&collator[1..=2])),
 			SessionIndex::from_ne_bytes(clone_into_array(&collator[3..=6])),
+			clone_into_array(&collator[7..]),
 			value.persisted_validation_data_hash,
 			value.pov_hash,
 			value.erasure_root,
+			value.signature.into_inner().0,
 			value.para_head,
 			value.validation_code_hash,
 		)
