@@ -45,7 +45,9 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{AccumulateReceipt, EventLog, ReceiptGasInfo, TransactionDetails},
+		block_hash::{
+			AccumulateReceipt, EthereumBlockBuilderIR, EventLog, ReceiptGasInfo, TransactionDetails,
+		},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
 		TransactionSigned, TYPE_EIP1559,
@@ -632,6 +634,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+
+	/// Incremental ethereum block builder.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub(crate) type EthereumBlockBuilder<T: Config> =
+		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

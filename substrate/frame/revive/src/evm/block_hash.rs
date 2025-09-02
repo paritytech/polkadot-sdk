@@ -524,6 +524,19 @@ pub struct EthereumBlockBuilderIR {
 	gas_info: Vec<ReceiptGasInfo>,
 }
 
+impl Default for EthereumBlockBuilderIR {
+	fn default() -> Self {
+		Self {
+			transaction_root_builder: None,
+			receipts_root_builder: None,
+			gas_used: U256::zero(),
+			tx_hashes: Vec::new(),
+			logs_bloom: [0; BLOOM_SIZE_BYTES],
+			gas_info: Vec::new(),
+		}
+	}
+}
+
 /// Ethereum block builder.
 pub struct EthereumBlockBuilder {
 	transaction_root_builder: Option<IncrementalHashBuilder>,
