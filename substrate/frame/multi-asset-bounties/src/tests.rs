@@ -55,7 +55,7 @@ fn fund_bounty_works() {
 		assert_eq!(paid(bounty_account, asset_kind), value);
 		expect_events(vec![
 			BountiesEvent::Paid { index: parent_bounty_id, child_index: None, payment_id },
-			BountiesEvent::BountyFunded { index: parent_bounty_id },
+			BountiesEvent::BountyCreated { index: parent_bounty_id },
 		]);
 		assert_eq!(
 			pallet_bounties::Bounties::<Test>::get(parent_bounty_id).unwrap(),
@@ -265,7 +265,7 @@ fn fund_child_bounty_works() {
 				child_index: Some(s.child_bounty_id),
 				payment_id,
 			},
-			BountiesEvent::ChildBountyFunded {
+			BountiesEvent::ChildBountyCreated {
 				index: s.parent_bounty_id,
 				child_index: s.child_bounty_id,
 			},
@@ -321,7 +321,7 @@ fn fund_child_bounty_works() {
 				child_index: Some(s.child_bounty_id),
 				payment_id,
 			},
-			BountiesEvent::ChildBountyFunded {
+			BountiesEvent::ChildBountyCreated {
 				index: s.parent_bounty_id,
 				child_index: s.child_bounty_id,
 			},

@@ -388,7 +388,7 @@ mod benchmarks {
 		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.description);
 
 		let parent_bounty_id = BountyCount::<T, I>::get() - 1;
-		assert_last_event::<T, I>(Event::BountyFunded { index: parent_bounty_id }.into());
+		assert_last_event::<T, I>(Event::BountyCreated { index: parent_bounty_id }.into());
 		let payment_id =
 			get_payment_id::<T, I>(parent_bounty_id, None).expect("no payment attempt");
 		assert_has_event::<T, I>(
@@ -437,7 +437,7 @@ mod benchmarks {
 			let child_bounty_id =
 				pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
 			assert_last_event::<T, I>(
-				Event::ChildBountyFunded {
+				Event::ChildBountyCreated {
 					index: s.parent_bounty_id,
 					child_index: child_bounty_id,
 				}

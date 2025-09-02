@@ -391,17 +391,17 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
-		/// New bounty created and funding initiated.
-		BountyFunded { index: BountyIndex },
-		/// New child-bounty created and funding initiated.
-		ChildBountyFunded { index: BountyIndex, child_index: BountyIndex },
-		/// Curator acccepts role and child-/bounty becomes active.
+		/// A new bounty was created and funding has been initiated.
+		BountyCreated { index: BountyIndex },
+		/// A new child-bounty was created and funding has been initiated.
+		ChildBountyCreated { index: BountyIndex, child_index: BountyIndex },
+		/// The curator accepted role and child-/bounty became active.
 		BountyBecameActive {
 			index: BountyIndex,
 			child_index: Option<BountyIndex>,
 			curator: T::AccountId,
 		},
-		/// A child-/bounty is awarded to a beneficiary.
+		/// A child-/bounty was awarded to a beneficiary.
 		BountyAwarded {
 			index: BountyIndex,
 			child_index: Option<BountyIndex>,
@@ -419,11 +419,11 @@ pub mod pallet {
 		BountyFundingProcessed { index: BountyIndex, child_index: Option<BountyIndex> },
 		/// Refund payment has concluded successfully.
 		BountyRefundProcessed { index: BountyIndex, child_index: Option<BountyIndex> },
-		/// A bounty is cancelled.
+		/// A child-/bounty was cancelled.
 		BountyCanceled { index: BountyIndex, child_index: Option<BountyIndex> },
-		/// A child-/bounty curator is unassigned.
+		/// A child-/bounty curator was unassigned.
 		CuratorUnassigned { index: BountyIndex, child_index: Option<BountyIndex> },
-		/// A child-/bounty curator is proposed.
+		/// A child-/bounty curator was proposed.
 		CuratorProposed {
 			index: BountyIndex,
 			child_index: Option<BountyIndex>,
@@ -531,7 +531,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::BountyFunded`] and [`Event::Paid`] if successful.
+		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty(description.len() as u32))]
 		pub fn fund_bounty(
@@ -583,7 +583,7 @@ pub mod pallet {
 			BountyCount::<T, I>::put(index + 1);
 			BountyDescriptions::<T, I>::insert(index, bounded_description);
 
-			Self::deposit_event(Event::<T, I>::BountyFunded { index });
+			Self::deposit_event(Event::<T, I>::BountyCreated { index });
 
 			Ok(())
 		}
@@ -611,7 +611,7 @@ pub mod pallet {
 		///
 		/// ## Events
 		///
-		/// Emits [`Event::ChildBountyFunded`] and [`Event::Paid`] if successful.
+		/// Emits [`Event::ChildBountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty(description.len() as u32))]
 		pub fn fund_child_bounty(
@@ -703,7 +703,7 @@ pub mod pallet {
 				child_bounty_id.saturating_add(1),
 			);
 
-			Self::deposit_event(Event::<T, I>::ChildBountyFunded {
+			Self::deposit_event(Event::<T, I>::ChildBountyCreated {
 				index: parent_bounty_id,
 				child_index: child_bounty_id,
 			});
@@ -742,7 +742,7 @@ pub mod pallet {
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
 			curator: AccountIdLookupOf<T>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
 				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
