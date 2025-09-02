@@ -148,6 +148,13 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
+	fn from_evm_init_code(
+		_code: Vec<u8>,
+		_owner: AccountIdOf<Test>,
+	) -> Result<Self, DispatchError> {
+		unimplemented!()
+	}
+
 	fn execute<E: Ext<T = Test>>(
 		self,
 		ext: &mut E,
@@ -174,10 +181,6 @@ impl Executable<Test> for MockExecutable {
 	fn code(&self) -> &[u8] {
 		// The mock executable doesn't have code", so we return the code hash.
 		self.code_hash.as_ref()
-	}
-
-	fn is_pvm(&self) -> bool {
-		true
 	}
 
 	fn code_hash(&self) -> &H256 {
@@ -1165,7 +1168,7 @@ fn instantiation_from_contract() {
 				.instantiate(
 					Weight::MAX,
 					U256::MAX,
-					dummy_ch,
+					Code::Existing(dummy_ch),
 					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[48; 32]),
@@ -1232,7 +1235,7 @@ fn instantiation_traps() {
 				ctx.ext.instantiate(
 					Weight::zero(),
 					U256::zero(),
-					dummy_ch,
+					Code::Existing(dummy_ch),
 					value,
 					vec![],
 					Some(&[0; 32]),
@@ -1276,7 +1279,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
 		exec_success()
 	});
 
@@ -1584,7 +1587,7 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				fail_code,
+				Code::Existing(fail_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
@@ -1601,7 +1604,7 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				success_code,
+				Code::Existing(success_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
@@ -2329,8 +2332,10 @@ fn last_frame_output_works_on_instantiate() {
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			// Successful instantiation should set the output
-			let address =
-				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None).unwrap();
+			let address = ctx
+				.ext
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(ok_ch), value, vec![], None)
+				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
 				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
@@ -2352,7 +2357,14 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Reverted instantiation should set the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(revert_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2361,7 +2373,14 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Trapped instantiation should clear the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(trap_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap_err();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2502,7 +2521,7 @@ fn last_frame_output_is_always_reset() {
 			ctx.ext.instantiate(
 				Weight::zero(),
 				U256::zero(),
-				invalid_code_hash,
+				Code::Existing(invalid_code_hash),
 				U256::zero(),
 				vec![],
 				None,
@@ -2551,7 +2570,7 @@ fn immutable_data_access_checks_work() {
 
 			// Constructors can not access the immutable data
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
@@ -2718,7 +2737,7 @@ fn immutable_data_set_errors_with_empty_data() {
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
