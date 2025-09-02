@@ -212,21 +212,6 @@ fn create_active_parent_bounty<T: Config<I>, I: 'static>(
 	Ok(s)
 }
 
-fn create_parent_bounty_with_unassigned_curator<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_funded_bounty::<T, I>(origin)?;
-	let curator = s.curator.clone();
-
-	Bounties::<T, I>::unassign_curator(
-		RawOrigin::Signed(curator).into(),
-		s.parent_bounty_id,
-		None,
-	)?;
-
-	Ok(s)
-}
-
 fn create_child_bounty<T: Config<I>, I: 'static>(
 	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
@@ -271,36 +256,6 @@ fn create_active_child_bounty<T: Config<I>, I: 'static>(
 	let caller = s.child_curator.clone();
 
 	Bounties::<T, I>::accept_curator(
-		RawOrigin::Signed(caller).into(),
-		s.parent_bounty_id,
-		Some(s.child_bounty_id),
-	)?;
-
-	Ok(s)
-}
-
-fn create_child_bounty_with_unassigned_curator<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_funded_child_bounty::<T, I>(origin)?;
-	let curator = s.curator.clone();
-
-	Bounties::<T, I>::unassign_curator(
-		RawOrigin::Signed(curator).into(),
-		s.parent_bounty_id,
-		Some(s.child_bounty_id),
-	)?;
-
-	Ok(s)
-}
-
-fn create_canceled_child_bounty<T: Config<I>, I: 'static>(
-	origin: T::RuntimeOrigin,
-) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let s = create_active_child_bounty::<T, I>(origin)?;
-	let caller = s.curator.clone();
-
-	Bounties::<T, I>::close_bounty(
 		RawOrigin::Signed(caller).into(),
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
@@ -468,7 +423,13 @@ mod benchmarks {
 	fn propose_curator_parent_bounty() -> Result<(), BenchmarkError> {
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let s = create_parent_bounty_with_unassigned_curator::<T, I>(approve_origin.clone())?;
+		let s = create_funded_bounty::<T, I>(approve_origin.clone())?;
+
+		Bounties::<T, I>::unassign_curator(
+			RawOrigin::Signed(s.curator.clone()).into(),
+			s.parent_bounty_id,
+			None,
+		)?;
 		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
 
 		#[block]
@@ -499,7 +460,12 @@ mod benchmarks {
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_child_bounty_with_unassigned_curator::<T, I>(origin)?;
+			create_funded_child_bounty::<T, I>(origin)?;
+			Bounties::<T, I>::unassign_curator(
+				RawOrigin::Signed(s.curator.clone()).into(),
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+			)?;
 			true
 		} else {
 			false
@@ -821,7 +787,12 @@ mod benchmarks {
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
-			create_canceled_child_bounty::<T, I>(origin)?;
+			create_active_child_bounty::<T, I>(origin)?;
+			Bounties::<T, I>::close_bounty(
+				RawOrigin::Signed(caller.clone()).into(),
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+			)?;
 			let payment_id = get_payment_id::<T, I>(s.parent_bounty_id, Some(s.child_bounty_id))
 				.expect("no payment attempt");
 			<T as pallet_bounties::Config<I>>::Paymaster::ensure_concluded(payment_id);
