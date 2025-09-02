@@ -74,11 +74,8 @@ fn jumpdest_works() {
 	// Test invalid jumpdest
 	let runtime_code: Vec<u8> = vec![
 		// This will jump to the MSTORE instruction, should give an error
-		vec![PUSH1, 0x09_u8],
+		vec![PUSH1, 0x00_u8],
 		vec![JUMP],
-		vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
-		vec![PUSH0],
-		vec![MSTORE],
 		// return whatever is in memory at location 0
 		vec![JUMPDEST],
 		vec![PUSH1, 0x20_u8],

@@ -209,8 +209,10 @@ fn call_revert() {
 	}
 }
 
+// This test has a `caller` contract calling into a `callee` contract which then executes the
+// INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
 #[test]
-#[ignore] // TODO: ignore until we decide what is the correct way to handle this
+#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 fn call_invalid_opcode() {
 	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
