@@ -18,7 +18,6 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	eth_block_storage,
 	evm::block_hash::EventLog,
 	test_utils::{builder::Contract, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, Test},
