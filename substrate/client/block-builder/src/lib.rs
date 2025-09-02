@@ -320,7 +320,9 @@ where
 	/// supplied by `self.api`, combined as [`BuiltBlock`].
 	/// The storage proof will be `Some(_)` when proof recording was enabled.
 	pub fn build(mut self) -> Result<BuiltBlock<Block>, Error> {
+		let start = std::time::Instant::now();
 		let header = self.api.finalize_block(self.parent_hash)?;
+		let finalized_duration = start.elapsed();
 
 		debug_assert_eq!(
 			header.extrinsics_root().clone(),
@@ -338,6 +340,8 @@ where
 			.api
 			.into_storage_changes(&state, self.parent_hash)
 			.map_err(sp_blockchain::Error::StorageChanges)?;
+
+		tracing::debug!(target: "durations", "block_builder::build: duration: {:?}, finalized_duration:{finalized_duration:?}", start.elapsed());
 
 		Ok(BuiltBlock {
 			block: <Block as BlockT>::new(header, self.extrinsics),
