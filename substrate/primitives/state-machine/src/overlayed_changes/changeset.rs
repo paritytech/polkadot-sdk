@@ -527,7 +527,7 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Inserts a key into the dirty set.
 	///
 	/// Returns true if we are currently have at least one open transaction and if this
@@ -538,7 +538,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	}
 }
 
-impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V> OverlayedMap<K, V> {
 	/// Create a new changeset at the same transaction state but without any contents.
 	///
 	/// This changeset might be created when there are already open transactions.
@@ -725,11 +725,11 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 		self.transaction_depth() > self.num_client_transactions
 	}
 
-	pub fn storage_root_snaphost_delta_keys(&mut self) -> Set<K> {
+	pub fn storage_root_snaphost_delta_keys(&mut self) -> xxx::DeltaKeys<K> {
 		self.storage_root_dirty_keys.create_snapshot_and_get_delta()
 	}
 
-	pub fn storage_root_snaphost_delta_keys2(&mut self) -> Set<K> {
+	pub fn storage_root_snaphost_delta_keys2(&mut self) -> xxx::DeltaKeys<K> {
 		self.storage_root_dirty_keys.create_snapshot_and_get_delta2()
 	}
 }
@@ -737,10 +737,10 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 impl OverlayedChangeSet {
 	pub fn changes_mut2(
 		&mut self,
-		keys: &Set<StorageKey>,
+		keys: &xxx::DeltaKeys<StorageKey>,
 	) -> Vec<(&StorageKey, Option<&StorageValue>)> {
 		for key in keys {
-			if let Some(entry) = self.changes.get_mut(key) {
+			if let Some(entry) = self.changes.get_mut(key.1) {
 				// materialize...
 				let _trigger = entry.value();
 			}
@@ -749,7 +749,7 @@ impl OverlayedChangeSet {
 		keys.iter()
 			.filter_map(|key| {
 				self.changes
-					.get_key_value(key)
+					.get_key_value(key.1)
 					.and_then(|(map_key, entry)| Some((map_key, entry.value_ref().as_option_xxx())))
 			})
 			.collect()

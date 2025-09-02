@@ -1,12 +1,102 @@
 use alloc::{vec, vec::Vec};
-use core::{cmp::Eq, hash::Hash};
+use core::{
+	cmp::Eq,
+	hash::{BuildHasher, Hash},
+};
+use nohash_hasher::BuildNoHashHasher;
 
-#[cfg(not(feature = "std"))]
-use alloc::collections::btree_set::BTreeSet as Set;
-#[cfg(feature = "std")]
-use std::collections::HashSet as Set;
+// #[cfg(not(feature = "std"))]
+// use alloc::collections::btree_map::BTreeMap as Map;
+// use alloc::collections::HashMap as Map;
+use indexmap::{map as hash_map, IndexMap as Map};
 
-type InternalSet<K> = Set<K, rapidhash::fast::RandomState>;
+pub type XxxKey = u64;
+const LOG_TARGET: &str = "xxx";
+
+fn xxx_key<K: Hash>(key: &K) -> XxxKey {
+	use core::hash::Hasher;
+	let mut hasher = foldhash::fast::FixedState::default().build_hasher();
+	key.hash(&mut hasher);
+	hasher.finish()
+}
+
+#[derive(Debug, Clone)]
+pub struct InternalSet<K> {
+	inner: Map<XxxKey, K, BuildNoHashHasher<XxxKey>>,
+}
+
+pub type DeltaKeys<K> = Map<XxxKey, K, foldhash::fast::FixedState>;
+
+impl<K> InternalSet<K> {
+	pub fn new() -> Self {
+		Self { inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()) }
+	}
+}
+impl<K: Hash + Eq> InternalSet<K> {
+	pub fn with_capacity(capacity: usize) -> Self {
+		Self {
+			inner: Map::with_capacity_and_hasher(capacity, BuildNoHashHasher::<XxxKey>::default()),
+		}
+	}
+
+	pub fn insert(&mut self, value: K) -> bool {
+		let key = xxx_key(&value);
+		self.inner.insert(key, value).is_none()
+	}
+
+	pub fn contains(&self, value: &K) -> bool {
+		let key = xxx_key(value);
+		self.inner.contains_key(&key)
+	}
+
+	pub fn contains_hash(&self, hash_key: &XxxKey) -> bool {
+		self.inner.contains_key(hash_key)
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.inner.is_empty()
+	}
+
+	pub fn extend(&mut self, other: InternalSet<K>) {
+		self.inner.extend(other.inner);
+	}
+
+	pub fn iter(&self) -> hash_map::Values<'_, XxxKey, K> {
+		self.inner.values()
+	}
+}
+
+impl<K> Default for InternalSet<K> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+// impl<K: Hash + Eq + AsRef<[u8]>> std::fmt::Debug for InternalSet<K> {
+// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// 		f.debug_set()
+// 			.entries(self.inner.values().map(|k| hex::encode(k.as_ref())))
+// 			.finish()
+// 	}
+// }
+
+impl<K: Hash + Eq> IntoIterator for InternalSet<K> {
+	type Item = K;
+	type IntoIter = hash_map::IntoValues<XxxKey, K>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.inner.into_values()
+	}
+}
+
+impl<'a, K: Hash + Eq> IntoIterator for &'a InternalSet<K> {
+	type Item = &'a K;
+	type IntoIter = hash_map::Values<'a, XxxKey, K>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.inner.values()
+	}
+}
 
 #[derive(Debug, Clone)]
 enum TransactionKeys<K> {
@@ -14,7 +104,16 @@ enum TransactionKeys<K> {
 	Snapshot(InternalSet<K>),
 }
 
-impl<K> TransactionKeys<K> {
+// impl<K: Hash + Eq + AsRef<[u8]>> std::fmt::Debug for TransactionKeys<K> {
+// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// 		match self {
+// 			TransactionKeys::Dirty(set) => f.debug_tuple("Dirty").field(set).finish(),
+// 			TransactionKeys::Snapshot(set) => f.debug_tuple("Snapshot").field(set).finish(),
+// 		}
+// 	}
+// }
+
+impl<K: Hash + Eq> TransactionKeys<K> {
 	fn is_empty(&self) -> bool {
 		match self {
 			TransactionKeys::Dirty(k) | TransactionKeys::Snapshot(k) => k.is_empty(),
@@ -41,18 +140,27 @@ pub struct Changeset<K> {
 	transactions: Vec<Transaction<K>>,
 }
 
+// impl<K: Hash + Eq + AsRef<[u8]>> std::fmt::Debug for Changeset<K> {
+// 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// 		f.debug_struct("Changeset").field("transactions", &self.transactions).finish()
+// 	}
+// }
+
 impl<K> Default for Changeset<K> {
 	fn default() -> Self {
 		Changeset { transactions: vec![vec![Default::default()]] }
 	}
 }
 
-impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
+impl<K> Changeset<K> {
 	pub fn new() -> Self {
 		// Initialize with one transaction having a single empty dirty set
 		Changeset { transactions: vec![vec![Default::default()]] }
 	}
+}
 
+// impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
+impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 	pub fn add_key(&mut self, key: K) {
 		if let Some(transaction) = self.transactions.last_mut() {
 			match transaction.last_mut() {
@@ -60,7 +168,7 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 					dirty_set.insert(key);
 				},
 				Some(TransactionKeys::Snapshot(_)) | None => {
-					let mut set = InternalSet::with_hasher(rapidhash::fast::RandomState::default());
+					let mut set = InternalSet::new();
 					set.insert(key);
 					transaction.push(TransactionKeys::Dirty(set));
 				},
@@ -69,9 +177,7 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 	}
 
 	pub fn start_transaction(&mut self) {
-		self.transactions.push(vec![TransactionKeys::Dirty(InternalSet::with_hasher(
-			rapidhash::fast::RandomState::default(),
-		))]);
+		self.transactions.push(vec![TransactionKeys::Dirty(InternalSet::new())]);
 	}
 
 	pub fn commit_transaction(&mut self) {
@@ -84,6 +190,17 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 			commited.iter().filter(|k| matches!(k, TransactionKeys::Dirty(_))).count() <= 1
 		);
 
+		// commited: |Snapshot| |Dirty|
+		//      tx5: |Snapshot| |Dirty|
+		//      tx4: |Snapshot| |Dirty|
+		//      tx3: |Snapshot| |Dirty|
+		//      tx2: |Snapshot| |Dirty|
+
+		// add key: a
+		// add key: b
+		//   snapshot
+		// add key: c
+		//
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			if matches!(commited.first(), Some(TransactionKeys::Snapshot(_))) {
 				if matches!(top_transaction.last(), Some(TransactionKeys::Dirty(_))) {
@@ -99,22 +216,18 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 				}
 				top_transaction.extend(commited);
 
-                if top_transaction.len() > 1 {
-                    //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
-                    let dirty = top_transaction
-                        .pop()
-                        .expect("there is always dirty at the end");
+				if top_transaction.len() > 1 {
+					let dirty = top_transaction.pop().expect("there is always dirty at the end");
 
-                    if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
-                        //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
-                        while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
-                            base.extend(keys);
-                        }
-                        *top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
-                    } else {
-                        unreachable!("xxx");
-                    }
-                }
+					if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
+						while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
+							base.extend(keys);
+						}
+						*top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
+					} else {
+						unreachable!("xxx");
+					}
+				}
 			} else if commited.len() == 1 {
 				// commited transaction does not contain any snapshots. We need to merge keys with
 				// preivous trasnsaction.
@@ -132,24 +245,19 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 					},
 					snapshot => top_transaction.push(snapshot),
 				}
-                if top_transaction.len() > 1 {
-                    //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
-                    let dirty = top_transaction
-                        .pop()
-                        .expect("there is always dirty at the end");
+				if top_transaction.len() > 1 {
+					let dirty = top_transaction.pop().expect("there is always dirty at the end");
 
-                    if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
-                        //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
-                        while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
-                            base.extend(keys);
-                        }
-                        *top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
+					if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
+						while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
+							base.extend(keys);
+						}
+						*top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
+					} else {
+						unreachable!("xxx");
+					}
+				}
 			} else {
-                        unreachable!("xxx");
-                    }
-                }
-            } else {
-                //debug!(target:LOG_TARGET,"commit_transaction:{}", line!());
 				top_transaction.extend(commited);
 			}
 		}
@@ -165,10 +273,10 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 		);
 	}
 
-	pub fn create_snapshot_and_get_delta(&mut self) -> Set<K> {
+	pub fn create_snapshot_and_get_delta(&mut self) -> DeltaKeys<K> {
 		// Gather dirty keys from all transactions from newest to oldest, stopping at last snapshot
 		// found
-		let mut delta = Set::new();
+		let mut delta = DeltaKeys::<K>::default();
 
 		'outer: for transaction in self.transactions.iter().rev() {
 			// Process keys in reverse to find last snapshot and collect dirty keys
@@ -176,7 +284,9 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 				match keys {
 					TransactionKeys::Dirty(set) => {
 						// Accumulate live dirty keys
-						delta.extend(set.clone());
+						for (hash_key, key) in &set.inner {
+							delta.insert(*hash_key, key.clone());
+						}
 					},
 					TransactionKeys::Snapshot(_) => {
 						// Found snapshot: stop collecting keys from older transactions / snapshots
@@ -195,19 +305,16 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 		// Append snapshot keys and new dirty keys to the most recent transaction:
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
-				let mut internal_set =
-					InternalSet::with_hasher(rapidhash::fast::RandomState::default());
-				internal_set.extend(delta.iter().cloned());
+				let mut internal_set = InternalSet::new();
+				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
-			top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(
-				rapidhash::fast::RandomState::default(),
-			)));
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
 		}
 		delta
 	}
 
-	pub fn create_snapshot_and_get_delta2(&mut self) -> Set<K> {
+	pub fn create_snapshot_and_get_delta2(&mut self) -> DeltaKeys<K> {
 		let mut snapshot_keys = Vec::new();
 		for transaction in self.transactions.iter() {
 			for keys in transaction.iter() {
@@ -218,13 +325,13 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 		}
 
 		// Second pass: collect filtered dirty keys using single contains() check
-		let mut delta = Set::with_capacity(16);
+		let mut delta = DeltaKeys::<K>::default();
 		for transaction in self.transactions.iter().rev() {
 			for keys in transaction.iter().rev() {
 				if let TransactionKeys::Dirty(set) = keys {
-					for key in set {
-						if !snapshot_keys.iter().any(|snapshot| snapshot.contains(key)) {
-							delta.insert(key.clone());
+					for (hash_key, key) in &set.inner {
+						if !snapshot_keys.iter().any(|snapshot| snapshot.contains_hash(hash_key)) {
+							delta.insert(*hash_key, key.clone());
 						}
 					}
 				}
@@ -241,14 +348,11 @@ impl<K: Clone + Hash + Eq + Ord> Changeset<K> {
 		// Now we can safely modify self
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			top_transaction.last_mut().map(|stage| {
-				let mut internal_set =
-					InternalSet::with_hasher(rapidhash::fast::RandomState::default());
-				internal_set.extend(delta.iter().cloned());
+				let mut internal_set = InternalSet::new();
+				internal_set.inner.extend(delta.iter().map(|(k, v)| (*k, v.clone())));
 				*stage = TransactionKeys::Snapshot(internal_set);
 			});
-			top_transaction.push(TransactionKeys::Dirty(InternalSet::with_hasher(
-				rapidhash::fast::RandomState::default(),
-			)));
+			top_transaction.push(TransactionKeys::Dirty(InternalSet::new()));
 		}
 		delta
 	}
@@ -370,14 +474,17 @@ impl<T: BackendTransaction + Clone> BackendSnapshots<T> {
 
 #[cfg(test)]
 mod tests {
-	use super::BackendTransaction;
+	use super::{BackendTransaction, LOG_TARGET};
+	use tracing::debug;
 
 	macro_rules! delta_assert_eq {
         ($delta:expr, [$($val:expr),* $(,)?]) => {
             {
                 let expected: ::std::collections::HashSet<String> =
                     [$($val),*].iter().cloned().map(String::from).collect();
-                assert_eq!($delta, expected);
+                let actual: ::std::collections::HashSet<String> =
+                    $delta.values().cloned().collect();
+                assert_eq!(actual, expected);
             }
         };
     }
@@ -569,6 +676,11 @@ mod tests {
 
 	#[test]
 	fn test_simple_snapshot_uniq() {
+		// Initialize tracing with RUST_LOG support
+		// tracing_subscriber::fmt()
+		// 	.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+		// 	.try_init()
+		// 	.ok(); // Ignore error if already initialized
 		let mut changeset = Changeset::new();
 		changeset.add_key("a".to_string());
 		changeset.add_key("b".to_string());
@@ -657,6 +769,43 @@ mod tests {
 		changeset.add_key("b".to_string());
 		let delta2 = changeset.create_snapshot_and_get_delta2();
 		assert!(delta2.is_empty());
+	}
+
+	#[test]
+	fn xxxx() {
+		// use tracing_subscriber::EnvFilter;
+		// // Initialize tracing with RUST_LOG support
+		// tracing_subscriber::fmt()
+		// 	.with_env_filter(EnvFilter::from_default_env())
+		// 	.try_init()
+		// 	.ok(); // Ignore error if already initialized
+		//
+		let mut changeset = Changeset::new();
+		changeset.start_transaction();
+		changeset.add_key("a".to_string());
+		changeset.add_key("b".to_string());
+		changeset.commit_transaction();
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		delta_assert_eq!(delta2, ["a", "b"]);
+
+		changeset.start_transaction();
+		changeset.add_key("c".to_string());
+		changeset.add_key("d".to_string());
+		changeset.commit_transaction();
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+
+		changeset.start_transaction();
+		changeset.add_key("e".to_string());
+		changeset.add_key("f".to_string());
+		debug!(target:LOG_TARGET, ">> before commit {:?}", changeset);
+		changeset.commit_transaction();
+		debug!(target:LOG_TARGET, ">> after commit {:?}", changeset);
+		let delta2 = changeset.create_snapshot_and_get_delta2();
+		debug!(target:LOG_TARGET, ">> after snap {:?}", changeset);
+
+		// debug!(target:LOG_TARGET, "pre {:?}", changeset);
+		//
+		// debug!(target:LOG_TARGET, "final {:?}", changeset);
 	}
 }
 
