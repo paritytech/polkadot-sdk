@@ -142,7 +142,11 @@ pub(crate) mod eth_block_storage {
 	/// The maximum number of block hashes to keep in the history.
 	pub const BLOCK_HASH_COUNT: u32 = 256;
 
-	// Indicates whether an Ethereum call is currently being executed.
+	// The events emitted by this pallet while executing the current inflight transaction.
+	//
+	// The events are needed to reconstruct the receipt root hash, as they represent the
+	// logs emitted by the contract. The events are consumed when the transaction is
+	// completed. To minimize the amount of used memory, the events are RLP encoded directly.
 	environmental!(receipt: AccumulateReceipt);
 
 	pub fn capture_ethereum_log(contract: H160, data: &[u8], topics: &[H256]) {
@@ -187,13 +191,6 @@ pub(crate) mod eth_block_storage {
 	/// on the go with optimal storage.
 	pub static INCREMENTAL_BUILDER: SafeGlobal<EthereumBlockBuilder> =
 		SafeGlobal::new(EthereumBlockBuilder::new());
-
-	/// The events emitted by this pallet while executing the current inflight transaction.
-	///
-	/// The events are needed to reconstruct the receipt root hash, as they represent the
-	/// logs emitted by the contract. The events are consumed when the transaction is
-	/// completed.
-	pub static INFLIGHT_EVENTS: SafeGlobal<Vec<EventLog>> = SafeGlobal::new(Vec::new());
 }
 
 #[frame_support::pallet]
@@ -1827,10 +1824,6 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
-		// Collect inflight events emitted by this EVM transaction.
-		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.borrow_mut();
-		let logs = core::mem::replace(&mut *inflight_events, Vec::new());
-
 		if let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() {
 			eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
 				transaction_encoded,
