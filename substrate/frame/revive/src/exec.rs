@@ -27,7 +27,7 @@ use crate::{
 	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
 use alloc::{collections::BTreeSet, vec::Vec};
 use core::{fmt::Debug, marker::PhantomData, mem};
@@ -1837,14 +1837,6 @@ where
 			)?
 		};
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
-		// Mark the contract as created in this transaction
-		// Get the trie_id from the newly created frame's contract info
-		if let ExecutableOrPrecompile::<T, E, Self>::Executable(_) = &executable {
-			let trie_id = {
-				let contract_info = self.top_frame_mut().contract_info();
-				contract_info.trie_id.clone()
-			};
-		}
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
 		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
