@@ -52,7 +52,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::Header,
+	config::{HashFor, Header},
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -67,7 +67,7 @@ pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
 /// The substrate block hash type.
-pub type SubstrateBlockHash = <SrcChainConfig as Config>::Hash;
+pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;
