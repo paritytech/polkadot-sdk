@@ -79,30 +79,28 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
 	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
 		return;
 	};
 	let Ok(memory_offset) = memory_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
 		return;
 	};
 
-	let Some(code) =
-		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.to_vec())
-	else {
+	let Some(code) = crate::PristineCode::<E::T>::get(&code_hash) else {
 		let zeros = vec![0u8; memory_len];
 		context.interpreter.memory.set_data(memory_offset, 0, memory_len, &zeros);
 		return;
 	};
 	let Ok(code_offset) = code_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
 		return;
 	};
 	if code_offset >= code.len() {
-		context.interpreter.halt(InstructionResult::Revert);
+		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
 		return;
 	};
-	// TODO: IDK which RuntimeCost to use here
+	// TODO: this needs a new benchmark since we read from DB and copy to memory
 	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
 	context

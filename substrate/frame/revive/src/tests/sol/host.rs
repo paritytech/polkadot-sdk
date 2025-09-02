@@ -415,15 +415,6 @@ fn transient_storage_works() {
 
 #[test]
 #[ignore]
-fn log_works() {
-	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
-		let (_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
-		todo!("implement this test");
-	}
-}
-
-#[test]
-#[ignore]
 fn selfdestruct_works() {
 	use pallet_revive_fixtures::HostEvmOnly;
 	let fixture_type = FixtureType::Solc;
