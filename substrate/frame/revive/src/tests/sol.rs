@@ -15,17 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod arithmetic;
-mod bitwise;
-mod block_info;
-mod contract;
-mod control;
-mod host;
-mod memory;
-mod stack;
-mod system;
-mod tx_info;
-
 use crate::{
 	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
@@ -67,6 +56,17 @@ pub fn make_evm_bytecode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	init_code.extend(runtime_code);
 	init_code
 }
+
+mod arithmetic;
+mod bitwise;
+mod block_info;
+mod contract;
+mod control;
+mod host;
+mod memory;
+mod stack;
+mod system;
+mod tx_info;
 
 #[test]
 fn basic_evm_flow_works() {

@@ -36,7 +36,9 @@ contract Caller {
             addr := create(0, add(initcode, 0x20), mload(initcode))
             if iszero(addr) {
                 // bubble failure
-                revert(0, 0)
+				let returnDataSize := returndatasize()
+				returndatacopy(0, 0, returnDataSize)
+                revert(0, returnDataSize)
             }
         }
     }
@@ -50,7 +52,9 @@ contract Caller {
             addr := create2(0, add(initcode, 0x20), mload(initcode), salt)
             if iszero(addr) {
                 // bubble failure
-                revert(0, 0)
+				let returnDataSize := returndatasize()
+				returndatacopy(0, 0, returnDataSize)
+                revert(0, returnDataSize)
             }
         }
     }
