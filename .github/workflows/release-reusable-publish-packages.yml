@@ -194,21 +194,13 @@ jobs:
             fi
             echo "Found DEB package: $debname"
 
-            # Debug: Inspect the DEB file
-            echo "=== File size and permissions ==="
-            ls -la "$debname"
-            
-            echo "=== File type ==="
-            file "$debname"
-            
-            echo "=== First 100 bytes (hex dump) ==="
-            head -c 100 "$debname" | hexdump -C
-            
-            echo "=== File content (base64) ==="
-            base64 "$debname"
-            
-            echo "=== Attempting to list contents ==="
-            ar t "$debname" || echo "Failed to list contents with ar"
+            # Debug: List S3 bucket contents
+            echo "=== S3 Bucket Structure ==="
+            aws s3 ls "${AWS_REPO_PATH}/" || echo "Failed to list root"
+            echo "=== S3 Pool Directory ==="
+            aws s3 ls "${AWS_REPO_PATH}/pool/" || echo "Failed to list pool"
+            echo "=== S3 Recursive Search for .deb files ==="
+            aws s3 ls --recursive "${AWS_REPO_PATH}" | grep ".deb" || echo "No .deb files found"
 
 
             # Add the package to the local Debian repository
