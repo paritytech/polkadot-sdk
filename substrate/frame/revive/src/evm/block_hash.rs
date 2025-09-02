@@ -293,8 +293,7 @@ impl IncrementalHashBuilder {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
 			if let Some(encoded_value) = self.first_value.take() {
-				let zero: usize = 0;
-				let rlp_index = alloy_rlp::encode_fixed_size(&zero);
+				let rlp_index = alloy_rlp::encode_fixed_size(&0usize);
 
 				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 			}
@@ -312,8 +311,7 @@ impl IncrementalHashBuilder {
 		// first value index is the last one in the sorted vector
 		// by rlp encoding of the index.
 		if let Some(encoded_value) = self.first_value.take() {
-			let zero: usize = 0;
-			let rlp_index = alloy_rlp::encode_fixed_size(&zero);
+			let rlp_index = alloy_rlp::encode_fixed_size(&0usize);
 			self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 		}
 
