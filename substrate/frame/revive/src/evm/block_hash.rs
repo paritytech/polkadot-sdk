@@ -22,10 +22,7 @@ use crate::evm::{
 };
 
 use alloc::{vec, vec::Vec};
-use alloy_consensus::{
-	private::alloy_trie::{HashBuilder, Nibbles},
-	RlpEncodableReceipt,
-};
+use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
 use alloy_rlp::Encodable;
 use codec::{Decode, Encode};
@@ -47,33 +44,12 @@ pub struct EventLog {
 	pub topics: Vec<H256>,
 }
 
-/// The transaction details needed to build the ethereum block hash.
-pub struct TransactionDetails {
-	/// The RLP encoding of the signed transaction.
-	pub transaction_encoded: Vec<u8>,
-	/// Whether the transaction was successful.
-	pub success: bool,
-	/// The accurate gas used by the transaction.
-	pub gas_used: Weight,
-	/// The RLP encoded receipt with logs bloom.
-	pub receipt: AccumulateReceipt,
-}
-
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
-}
-
-/// A processed transaction by `Block::process_transaction_details`.
-struct TransactionProcessed {
-	transaction_encoded: Vec<u8>,
-	tx_hash: H256,
-	gas_info: ReceiptGasInfo,
-	encoded_receipt: Vec<u8>,
-	receipt_bloom: Bloom,
 }
 
 impl Block {
