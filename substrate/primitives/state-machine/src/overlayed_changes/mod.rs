@@ -676,6 +676,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 		if let Some(cache) = &self.storage_transaction_cache {
 			return (cache.transaction_storage_root, true)
 		}
+		#[cfg(feature = "std")]
+		let start = std::time::Instant::now();
 
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
 
@@ -688,6 +690,11 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 		self.storage_transaction_cache =
 			Some(StorageTransactionCache { transaction, transaction_storage_root: root });
+
+		#[cfg(feature = "std")]
+		{
+			crate::debug!(target: "durations", "storage_root: duration={:?}", start.elapsed());
+		}
 
 		(root, false)
 	}
@@ -703,17 +710,17 @@ impl<H: Hasher> OverlayedChanges<H> {
 	{
 		if self.storage_transaction_cache2_flag.is_some() {
 			if let Some(cache) = self.storage_transaction_cache2.recent_item() {
-				crate::debug!(target: "overlayed_changes", "storage_root (cache)");
+				crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
 				return (cache.transaction_storage_root, true)
 			}
 		}
 		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
 
-		crate::debug!(target: "overlayed_changes", "storage_root (non-cache)");
+		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (non-cache)");
 
 		let snapshot = self.top.storage_root_snaphost_delta_keys2();
-		crate::debug!(target: "overlayed_changes", "storage_root snapshot: {:?}", snapshot);
+		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
 		let mut transcation_nodes = 0;
 
@@ -802,7 +809,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		};
 		#[cfg(feature = "std")]
 		{
-			crate::debug!(target: "durations", "storage_root: duration={:?} snapshot_len={} transcation_nodes={}", start.elapsed(), snapshot_len, transcation_nodes);
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} transcation_nodes={}", start.elapsed(), snapshot_len, transcation_nodes);
 		}
 
 		(root, false)
