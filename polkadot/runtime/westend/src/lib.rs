@@ -796,6 +796,8 @@ enum RcClientCalls<AccountId> {
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
 	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+	#[codec(index = 2)]
+	RelayNewOffenceQueued(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 pub struct AssetHubLocation;
@@ -844,6 +846,29 @@ impl sp_runtime::traits::Convert<rc_client::SessionReport<AccountId>, Xcm<()>>
 	}
 }
 
+pub struct QueuedOffenceToXcm;
+impl sp_runtime::traits::Convert<Vec<ah_client::QueuedOffenceOf<Runtime>>, Xcm<()>>
+	for QueuedOffenceToXcm
+{
+	fn convert(offences: Vec<ah_client::QueuedOffenceOf<Runtime>>) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffenceQueued(
+					offences,
+				))
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
 pub struct StakingXcmToAssetHub;
 impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 	type AccountId = AccountId;
@@ -856,9 +881,21 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			AssetHubLocation,
 			rc_client::SessionReport<AccountId>,
 			SessionReportToXcm,
-		>::split_then_send(session_report, Some(8))
+		>::send(session_report)
 	}
 
+	fn relay_new_offence_paged(
+		offences: Vec<ah_client::QueuedOffenceOf<Runtime>>,
+	) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			Vec<ah_client::QueuedOffenceOf<Runtime>>,
+			QueuedOffenceToXcm,
+		>::send(offences)
+	}
+
+	#[allow(deprecated)]
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<rc_client::Offence<Self::AccountId>>,
@@ -879,9 +916,9 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 				.into(),
 			},
 		]);
-		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
-		}
+		send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message)
+			.map_err(|_| ())
+			.map(|_| ())
 	}
 }
 
@@ -897,6 +934,8 @@ impl ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = ConstU32<50>;
 	type Fallback = Staking;
+	// Maximum validator set size * 4
+	type MaximumValidatorsWithPoints = ConstU32<{ MaxActiveValidators::get() * 4 }>;
 	type WeightInfo = ah_client::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1310,8 +1349,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) |
-						RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)

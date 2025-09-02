@@ -734,8 +734,7 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			AssetHubLocation,
 			rc_client::SessionReport<AccountId>,
 			SessionReportToXcm,
-		>::split_then_send(session_report, Some(8))
-		.map_err(|_send_err| ())
+		>::send(session_report)
 	}
 
 	fn relay_new_offence(
@@ -757,7 +756,6 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			Vec<ah_client::QueuedOffenceOf<Runtime>>,
 			QueuedOffenceToXcm,
 		>::send(offences)
-		.map_err(|_send_err| ())
 	}
 }
 
@@ -1798,8 +1796,6 @@ impl OnSwap for SwapLeases {
 }
 
 impl pallet_staking_async_preset_store::Config for Runtime {}
-
-construct_runtime! {}
 
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {

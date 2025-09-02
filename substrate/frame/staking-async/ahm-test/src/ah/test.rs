@@ -17,7 +17,7 @@
 
 use crate::ah::mock::*;
 use frame::prelude::Perbill;
-use frame_support::{assert_ok, hypothetically};
+use frame_support::assert_ok;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
@@ -369,6 +369,9 @@ fn validator_set_send_fail_retries() {
 				})
 			)]
 		);
+
+		// buffer is clear
+		assert!(OutgoingValidatorSet::<T>::get().is_none());
 	});
 }
 

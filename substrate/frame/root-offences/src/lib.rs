@@ -188,7 +188,7 @@ pub mod pallet {
 			for (offender, session_index, time_slot, slash_ppm) in offences {
 				let slash_fraction = Perbill::from_parts(slash_ppm);
 				Self::deposit_event(Event::OffenceCreated {
-					offenders: vec![(offender.0.clone(), slash_fraction.clone())],
+					offenders: vec![(offender.0.clone(), slash_fraction)],
 				});
 				let offence =
 					TestSpamOffence { offender, session_index, time_slot, slash_fraction };

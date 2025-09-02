@@ -166,6 +166,5 @@ function cmd(cmd: string, args: string[], stdio: string = "ignore"): void {
 	if (result.error || result.status !== 0) {
 		logger.error(`Error running command: ${cmd} ${args.join(" ")}`);
 		logger.error(`Status: ${result.status}`);
-		throw result.error;
 	}
 }

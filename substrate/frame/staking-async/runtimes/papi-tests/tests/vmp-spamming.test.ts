@@ -9,8 +9,6 @@ import { parachain, rc } from "@polkadot-api/descriptors";
 
 const PRESET: Presets = Presets.FakeDev;
 
-// 0x6e002802080a08001c90e3dabd3fd0f6bc648045018f78fcee8fe24122c22d8d2a14e9905073d10f0f0080c6a47e8d03280300011c90e3dabd3fd0f6bc648045018f78fcee8fe24122c22d8d2a14e9905073d10f1f0105010005000101001c90e3dabd3fd0f6bc648045018f78fcee8fe24122c22d8d2a14e9905073d10f05040000000b00a0724e180900000000
-
 async function sendUp(api: TypedApi<typeof parachain>, count: number) {
 	const calls: TxCallData[] = [];
 	const ed = await api.constants.Balances.ExistentialDeposit();

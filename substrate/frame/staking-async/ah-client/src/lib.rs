@@ -891,7 +891,7 @@ pub mod pallet {
 				.collect::<Vec<_>>();
 
 			// If there were more validators than `MaximumValidatorsWithPoints`..
-			if let Some(_) = ValidatorPoints::<T>::iter().next() {
+			if ValidatorPoints::<T>::iter().next().is_some() {
 				// ..not much more we can do about it other than an event.
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::ValidatorPointDropped))
 			}

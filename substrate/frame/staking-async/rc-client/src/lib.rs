@@ -151,6 +151,7 @@ pub trait SendToRelayChain {
 	type AccountId;
 
 	/// Send a new validator set report to relay chain.
+	#[allow(clippy::result_unit_err)]
 	fn validator_set(report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()>;
 }
 
@@ -176,6 +177,7 @@ pub trait SendToAssetHub {
 	/// Report a session change to AssetHub.
 	///
 	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
+	#[allow(clippy::result_unit_err)]
 	fn relay_session_report(session_report: SessionReport<Self::AccountId>) -> Result<(), ()>;
 
 	/// Report new offences to AssetHub.
@@ -186,11 +188,13 @@ pub trait SendToAssetHub {
 	#[deprecated(
 		note = "use `relay_new_offence_paged` instead. This old API should only be used for the migration"
 	)]
+	#[allow(clippy::result_unit_err)]
 	fn relay_new_offence(
 		session_index: SessionIndex,
 		offences: Vec<Offence<Self::AccountId>>,
 	) -> Result<(), ()>;
 
+	#[allow(clippy::result_unit_err)]
 	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()>;
@@ -210,7 +214,11 @@ impl SendToAssetHub for () {
 		_session_index: SessionIndex,
 		_offences: Vec<Offence<Self::AccountId>>,
 	) -> Result<(), ()> {
-		unimplemented!();
+		if cfg!(feature = "runtime-benchmarks") {
+			Err(())
+		} else {
+			unimplemented!()
+		}
 	}
 
 	fn relay_new_offence_paged(
@@ -447,6 +455,7 @@ where
 	///
 	/// Useful for sending messages that are already paged/chunked, so we are sure that they fit in
 	/// one message.
+	#[allow(clippy::result_unit_err)]
 	pub fn send(message: Message) -> Result<(), ()> {
 		let xcm = ToXcm::convert(message);
 		let dest = Destination::get();
@@ -468,6 +477,10 @@ where
 	///
 	/// Returns `Ok()` if the message was sent using `XCM`, potentially with splitting up to
 	/// `maybe_max_step` times, `Err(())` otherwise.
+	#[deprecated(
+		note = "all staking related VMP messages should fit the single message limits. Should not be used."
+	)]
+	#[allow(clippy::result_unit_err)]
 	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) -> Result<(), ()> {
 		let message_type_name = core::any::type_name::<Message>();
 		let dest = Destination::get();
@@ -480,7 +493,6 @@ where
 				log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
 				send_xcm::<Sender>(dest.clone(), xcm).map(|_| {
 					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx);
-					()
 				}).inspect_err(|e| {
 					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e);
 				})
