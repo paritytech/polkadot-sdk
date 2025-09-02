@@ -247,9 +247,9 @@ impl Config for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
-	type TreasurySource = TreasurySource<Test, ()>;
-	type BountySource = BountySource<Test, ()>;
-	type ChildBountySource = ChildBountySource<Test, ()>;
+	type TreasurySource = TreasuryAccountSource<Test, ()>;
+	type BountySource = BountyAccountSource<Test, ()>;
+	type ChildBountySource = ChildBountyAccountSource<Test, ()>;
 	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -265,9 +265,9 @@ impl Config<Instance1> for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
-	type TreasurySource = TreasurySource<Test, Instance1>;
-	type BountySource = BountySource<Test, Instance1>;
-	type ChildBountySource = ChildBountySource<Test, Instance1>;
+	type TreasurySource = TreasuryAccountSource<Test, Instance1>;
+	type BountySource = BountyAccountSource<Test, Instance1>;
+	type ChildBountySource = ChildBountyAccountSource<Test, Instance1>;
 	type Paymaster = TestBountiesPay;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

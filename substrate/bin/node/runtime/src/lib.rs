@@ -1444,9 +1444,9 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
-	type TreasurySource = pallet_multi_asset_bounties::TreasurySource<Runtime>;
-	type BountySource = pallet_multi_asset_bounties::BountySource<Runtime>;
-	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySource<Runtime>;
+	type TreasurySource = pallet_multi_asset_bounties::TreasuryAccountSource<Runtime>;
+	type BountySource = pallet_multi_asset_bounties::BountyAccountSource<Runtime>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountyAccountSource<Runtime>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type OnSlash = Treasury;
 	#[cfg(feature = "runtime-benchmarks")]

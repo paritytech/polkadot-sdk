@@ -1792,11 +1792,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 }
 
-/// Derives the treasury pot account/location from an `AssetKind`.
-pub struct TreasurySource<T, I = ()>(PhantomData<(T, I)>);
-impl<T, I> TryConvert<T::AssetKind, T::Beneficiary> for TreasurySource<T, I>
+/// Derives the treasury pot account from an `AssetKind`.
+pub struct TreasuryAccountSource<T, I = ()>(PhantomData<(T, I)>);
+impl<T, I> TryConvert<T::AssetKind, T::Beneficiary> for TreasuryAccountSource<T, I>
 where
 	T: crate::Config<I>,
+	T::Beneficiary: From<T::AccountId>,
 {
 	fn try_convert(_asset_kind: T::AssetKind) -> Result<T::Beneficiary, T::AssetKind> {
 		let account = T::PalletId::get().into_account_truncating();
@@ -1804,11 +1805,12 @@ where
 	}
 }
 
-/// Derives a parent bounty account/location from its index and an `AssetKind`.
-pub struct BountySource<T, I = ()>(PhantomData<(T, I)>);
-impl<T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary> for BountySource<T, I>
+/// Derives the bounty account from its index and an `AssetKind`.
+pub struct BountyAccountSource<T, I = ()>(PhantomData<(T, I)>);
+impl<T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary> for BountyAccountSource<T, I>
 where
 	T: crate::Config<I>,
+	T::Beneficiary: From<T::AccountId>,
 {
 	fn try_convert(
 		(parent_bounty_id, _asset_kind): (BountyIndex, T::AssetKind),
@@ -1818,13 +1820,14 @@ where
 	}
 }
 
-/// Derives a child-bounty account/location from its index, the parent bounty index and an
+/// Derives the child-bounty account from its index, the parent bounty index and an
 /// `AssetKind`.
-pub struct ChildBountySource<T, I = ()>(PhantomData<(T, I)>);
+pub struct ChildBountyAccountSource<T, I = ()>(PhantomData<(T, I)>);
 impl<T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
-	for ChildBountySource<T, I>
+	for ChildBountyAccountSource<T, I>
 where
 	T: crate::Config<I>,
+	T::Beneficiary: From<T::AccountId>,
 {
 	fn try_convert(
 		(parent_bounty_id, child_bounty_id, _asset_kind): (BountyIndex, BountyIndex, T::AssetKind),
