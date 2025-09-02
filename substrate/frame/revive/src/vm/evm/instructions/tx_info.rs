@@ -15,41 +15,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use revm::{
-	interpreter::{
-		gas as revm_gas,
-		host::Host,
-		interpreter_types::{RuntimeFlag, StackTr},
-	},
-	primitives::U256,
-};
+use crate::{address::AddressMapper, evm::runtime::GAS_PRICE, vm::RuntimeCosts};
+use revm::primitives::{Address, U256};
 
 use super::Context;
-use crate::vm::Ext;
+use crate::{vm::Ext, Config};
 
 /// Implements the GASPRICE instruction.
 ///
 /// Gets the gas price of the originating transaction.
 pub fn gasprice<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, U256::from(context.host.effective_gas_price()));
+	gas!(context.interpreter, RuntimeCosts::GasPrice);
+	push!(context.interpreter, U256::from(GAS_PRICE));
 }
 
 /// Implements the ORIGIN instruction.
 ///
 /// Gets the execution origination address.
 pub fn origin<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	gas_legacy!(context.interpreter, revm_gas::BASE);
-	push!(context.interpreter, context.host.caller().into_word().into());
+	gas!(context.interpreter, RuntimeCosts::Origin);
+	match context.interpreter.extend.origin().account_id() {
+		Ok(account_id) => {
+			let address: Address = <E::T as Config>::AddressMapper::to_address(account_id).0.into();
+			push!(context.interpreter, address.into_word().into());
+		},
+		Err(_) => {
+			context
+				.interpreter
+				.halt(revm::interpreter::InstructionResult::FatalExternalError);
+		},
+	}
 }
 
 /// Implements the BLOBHASH instruction.
 ///
 /// EIP-4844: Shard Blob Transactions - gets the hash of a transaction blob.
 pub fn blob_hash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
-	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
-	popn_top!([], index, context.interpreter);
-	let i = as_usize_saturated!(index);
-	*index = context.host.blob_hash(i).unwrap_or_default();
+	context.interpreter.halt(revm::interpreter::InstructionResult::NotActivated);
 }

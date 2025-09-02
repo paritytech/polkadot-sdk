@@ -220,7 +220,7 @@ pub mod code {
 				Error::<T>::CodeRejected
 			})?;
 
-		log::debug!(
+		log::trace!(
 			target: LOG_TARGET, "Contract memory usage: purgable={}/{} KB baseline={}/{}",
 			program_info.purgeable_ram_consumption, PURGABLE_MEMORY_LIMIT,
 			program_info.baseline_ram_consumption, BASELINE_MEMORY_LIMIT,
