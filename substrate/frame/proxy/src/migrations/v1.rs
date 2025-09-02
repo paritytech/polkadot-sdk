@@ -94,6 +94,9 @@ use crate::{
 extern crate alloc;
 
 #[cfg(feature = "try-runtime")]
+use alloc::format;
+
+#[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -647,41 +650,34 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let mut errors = Vec::new();
+
 		// Decode pre-migration state
 		let pre_migration_deposits: BTreeMap<T::AccountId, (BalanceOf<T>, BalanceOf<T>)> =
 			match Decode::decode(&mut &state[..]) {
 				Ok(deposits) => deposits,
 				Err(e) => {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to decode pre_upgrade state: {:?}",
-						e
-					);
-					return Ok(());
+					log::error!(target: LOG_TARGET, "Failed to decode pre_upgrade state: {:?}", e);
+					return Err("Failed to decode pre_upgrade state".into());
 				},
 			};
 
-		// Verify each account
-		let verification_results: Vec<_> = pre_migration_deposits
-			.iter()
-			.filter_map(|(who, (old_proxy_deposit, old_announcement_deposit))| {
-				match Self::verify_account_migration(
-					who,
-					*old_proxy_deposit,
-					*old_announcement_deposit,
-				) {
-					Ok(result) => Some(result),
-					Err(e) => {
-						log::error!(
-							target: LOG_TARGET,
-							"Account verification failed for {:?}: {:?}",
-							who, e
-						);
-						None
-					},
-				}
-			})
-			.collect();
+		// Verify each account and collect both results and errors
+		let mut verification_results = Vec::new();
+		let mut failed_verifications = 0u32;
+
+		for (who, (old_proxy_deposit, old_announcement_deposit)) in pre_migration_deposits.iter() {
+			match Self::verify_account_migration(who, *old_proxy_deposit, *old_announcement_deposit)
+			{
+				Ok(result) => verification_results.push(result),
+				Err(e) => {
+					failed_verifications += 1;
+					let error_msg = format!("Account verification failed for {:?}: {:?}", who, e);
+					log::error!(target: LOG_TARGET, "{}", error_msg);
+					errors.push(error_msg);
+				},
+			}
+		}
 
 		let results = verification_results;
 
@@ -718,30 +714,80 @@ where
 
 		let accounted_total = summary.total_converted_to_holds + summary.total_released_to_users;
 
-		if accounted_total != original_total {
-			log::error!(
-				target: LOG_TARGET,
-				"Fund conservation violated: original_total={:?}, accounted_total={:?}",
+		// Check fund conservation
+		let _funds_conservation_error = if accounted_total != original_total {
+			let difference = if original_total > accounted_total {
+				original_total - accounted_total
+			} else {
+				accounted_total - original_total
+			};
+			let error_msg = format!(
+				"Fund conservation violated: original_total={:?}, accounted_total={:?}, difference={:?}",
 				original_total,
-				accounted_total
+				accounted_total,
+				difference
 			);
+			log::error!(target: LOG_TARGET, "{}", error_msg);
+			errors.push(error_msg.clone());
+			Some(error_msg)
 		} else {
 			log::info!(
 				target: LOG_TARGET,
-				"Fund conservation verified: {:?}",
+				"✅ Fund conservation verified: {:?}",
 				original_total
 			);
-		}
+			None
+		};
 
 		// Log comprehensive migration summary
+		let total_accounts = pre_migration_deposits.len();
+		let successful_accounts = results.len();
+
 		frame::log::info!(
 			target: LOG_TARGET,
-			"Migration verification completed: {} successful conversions, {} preserved with zero deposit, {} accounts cleaned up",
-			summary.successful_conversions,
-			summary.preserved_with_zero_deposit,
+			"📊 Migration verification completed: {}/{} accounts verified successfully",
+			successful_accounts,
+			total_accounts
+		);
+
+		frame::log::info!(
+			target: LOG_TARGET,
+			"   - {} successful conversions to holds",
+			summary.successful_conversions
+		);
+
+		frame::log::info!(
+			target: LOG_TARGET,
+			"   - {} preserved with zero deposit",
+			summary.preserved_with_zero_deposit
+		);
+
+		frame::log::info!(
+			target: LOG_TARGET,
+			"   - {} accounts cleaned up",
 			summary.accounts_cleaned_up
 		);
 
+		if failed_verifications > 0 {
+			frame::log::error!(
+				target: LOG_TARGET,
+				"   - {} accounts FAILED verification ❌",
+				failed_verifications
+			);
+		}
+
+		// Return error if any critical issues found
+		if !errors.is_empty() {
+			log::error!(
+				target: LOG_TARGET,
+				"❌ Migration verification failed with {} errors: {}",
+				errors.len(),
+				errors.join("; ")
+			);
+			return Err("Migration verification failed - fund conservation violated or account verification failed".into());
+		}
+
+		log::info!(target: LOG_TARGET, "✅ Migration verification passed - all checks successful");
 		Ok(())
 	}
 }
@@ -790,11 +836,20 @@ where
 			if current_proxy_deposit != old_proxy_deposit ||
 				current_announcement_deposit != old_announcement_deposit
 			{
-				log::error!(
-					target: LOG_TARGET,
-					"Deposit amounts changed during migration for account {:?}: proxy {:?} -> {:?}, announcement {:?} -> {:?}",
-					who, old_proxy_deposit, current_proxy_deposit, old_announcement_deposit, current_announcement_deposit
-				);
+				// Zero deposits are expected for preserved accounts (failed migration)
+				if current_proxy_deposit.is_zero() || current_announcement_deposit.is_zero() {
+					log::warn!(
+						target: LOG_TARGET,
+						"Account preserved with zero deposits for account {:?}: proxy {:?} -> {:?}, announcement {:?} -> {:?} (expected for failed migration)",
+						who, old_proxy_deposit, current_proxy_deposit, old_announcement_deposit, current_announcement_deposit
+					);
+				} else {
+					log::error!(
+						target: LOG_TARGET,
+						"Deposit amounts changed unexpectedly during migration for account {:?}: proxy {:?} -> {:?}, announcement {:?} -> {:?}",
+						who, old_proxy_deposit, current_proxy_deposit, old_announcement_deposit, current_announcement_deposit
+					);
+				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
@@ -823,11 +878,20 @@ where
 		// Case 2: Only proxies exist
 		if has_proxies && !has_announcements {
 			if current_proxy_deposit != old_proxy_deposit {
-				log::error!(
-					target: LOG_TARGET,
-					"Proxy deposit amount changed for account {:?}: {:?} -> {:?}",
-					who, old_proxy_deposit, current_proxy_deposit
-				);
+				// Zero deposit is expected for preserved accounts (failed migration)
+				if current_proxy_deposit.is_zero() {
+					log::warn!(
+						target: LOG_TARGET,
+						"Proxy preserved with zero deposit for account {:?}: {:?} -> {:?} (expected for failed migration)",
+						who, old_proxy_deposit, current_proxy_deposit
+					);
+				} else {
+					log::error!(
+						target: LOG_TARGET,
+						"Proxy deposit amount changed unexpectedly for account {:?}: {:?} -> {:?}",
+						who, old_proxy_deposit, current_proxy_deposit
+					);
+				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
@@ -860,11 +924,20 @@ where
 		// Case 3: Only announcements exist
 		if !has_proxies && has_announcements {
 			if current_announcement_deposit != old_announcement_deposit {
-				log::error!(
-					target: LOG_TARGET,
-					"Announcement deposit amount changed for account {:?}: {:?} -> {:?}",
-					who, old_announcement_deposit, current_announcement_deposit
-				);
+				// Zero deposit is expected for preserved accounts (failed migration)
+				if current_announcement_deposit.is_zero() {
+					log::warn!(
+						target: LOG_TARGET,
+						"Announcement preserved with zero deposit for account {:?}: {:?} -> {:?} (expected for failed migration)",
+						who, old_announcement_deposit, current_announcement_deposit
+					);
+				} else {
+					log::error!(
+						target: LOG_TARGET,
+						"Announcement deposit amount changed unexpectedly for account {:?}: {:?} -> {:?}",
+						who, old_announcement_deposit, current_announcement_deposit
+					);
+				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
 					released_amount: old_proxy_deposit + old_announcement_deposit,
 				});
