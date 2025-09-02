@@ -34,7 +34,22 @@ fn execute_state_test_with_revm() {
 
 #[test]
 fn execute_state_test_with_revive() {
-	env_logger::init();
+	use env_logger::Env;
+	use std::io::Write;
+	env_logger::Builder::from_env(Env::default())
+		.format(|buf, record| {
+			writeln!(
+				buf,
+				"[{} {}:{}] {} - {}",
+				record.level(),
+				record.file().unwrap_or("unknown"),
+				record.line().unwrap_or(0),
+				record.target(),
+				record.args()
+			)
+		})
+		.init();
+	// env_logger::init();
 	let json = include_str!("test.json");
 	let test_suite: TestSuite = serde_json::from_str(json).expect("Failed to parse test JSON");
 	let (test_name, test_case) = test_suite.0.iter().next().expect("No test case found");

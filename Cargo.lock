@@ -18499,6 +18499,7 @@ dependencies = [
  "revm-statetest-types",
  "serde",
  "serde_json",
+ "sp-api",
  "sp-core 28.0.0",
  "sp-io",
  "sp-runtime",

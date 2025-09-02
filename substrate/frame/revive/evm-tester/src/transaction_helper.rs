@@ -25,7 +25,12 @@ pub fn create_generic_transaction(
 	let data = test.transaction.data.get(indices.data).context("Invalid data index")?;
 
 	// Convert revm types to pallet-revive types
-	let chain_id = test.env.current_chain_id.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
+	let chain_id = test
+		.env
+		.current_chain_id
+		.map(|v| pallet_revive::evm::U256::from_revm_u256(&v))
+		.unwrap_or(1u32.into());
+
 	let gas = Some(pallet_revive::evm::U256::from_revm_u256(gas_limit));
 	let gas_price =
 		test.transaction.gas_price.map(|v| pallet_revive::evm::U256::from_revm_u256(&v));
@@ -86,7 +91,7 @@ pub fn create_generic_transaction(
 		access_list,
 		blob_versioned_hashes,
 		blobs: Vec::new(), // State tests don't typically include raw blob data
-		chain_id,
+		chain_id: Some(chain_id),
 		from,
 		gas,
 		gas_price,

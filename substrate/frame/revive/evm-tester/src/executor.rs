@@ -257,7 +257,7 @@ impl ExtBuilder {
 	}
 }
 
-pub fn execute_revive_statetest(
+pub fn execute_revive_statetest_old(
 	test_case: &TestUnit,
 	expected_post_state: &PostState,
 ) -> Result<
@@ -301,6 +301,34 @@ pub fn execute_revive_statetest(
 				0,
 			)
 			.unwrap()
+			.unwrap();
+	});
+
+	let result: ExecutionResult<HaltReason> = ExecutionResult::Success {
+		reason: revm::context::result::SuccessReason::Return,
+		gas_used: 0,
+		gas_refunded: 0,
+		logs: vec![],
+		output: revm::context::result::Output::Call(Default::default()),
+	};
+	Ok(Ok(result))
+}
+
+pub fn execute_revive_statetest(
+	test_case: &TestUnit,
+	expected_post_state: &PostState,
+) -> Result<
+	Result<ExecutionResult<HaltReason>, EVMError<std::convert::Infallible, InvalidTransaction>>,
+> {
+	use crate::transaction_helper::create_generic_transaction;
+	use revive_dev_runtime::Runtime;
+	use sp_runtime::Weight;
+
+	let tx = create_generic_transaction(test_case, &expected_post_state.indexes)?;
+	let mut ext = ExtBuilder::default().build(test_case);
+
+	ext.execute_with(|| {
+		pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128)
 			.unwrap();
 	});
 
