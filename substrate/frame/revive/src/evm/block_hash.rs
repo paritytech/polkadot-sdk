@@ -322,13 +322,45 @@ pub struct IncrementalHashBuilder {
 	/// Hash builder.
 	hash_builder: HashBuilder,
 	/// The index of the current value.
-	index: usize,
+	index: u64,
 	/// RLP encoded value.
 	first_value: Option<Vec<u8>>,
 
 	__metrics_min: usize,
 	__metrics_max: usize,
 	__metrics_total_values: usize,
+}
+
+/// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the
+/// pallets storage. This contains the minimum amount of data that is needed to serialize
+/// and deserialize the incremental hash builder.
+#[derive(codec::Encode, codec::Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
+pub struct IncrementalHashBuilderIR {
+	/// The nibbles of the builder.
+	pub key: Vec<u8>,
+	/// The type of the builder value.
+	/// 0 represents plain bytes.
+	/// 1 represents the hash of the bytes.
+	pub value_type: u8,
+	/// The current value stored by the builder.
+	pub builder_value: Vec<u8>,
+	/// The stack of RLP nodes.
+	pub stack: Vec<Vec<u8>>,
+	/// State mask.
+	pub state_masks: Vec<u16>,
+	/// Tree mask.
+	pub tree_masks: Vec<u16>,
+	/// Hash mask.
+	pub hash_masks: Vec<u16>,
+	/// True if the buider should be stored in database.
+	pub stored_in_database: bool,
+	/// Current RLP buffer.
+	pub rlp_buf: Vec<u8>,
+
+	/// The index of the current value.
+	pub index: u64,
+	/// RLP encoded value.
+	pub first_value: Option<Vec<u8>>,
 }
 
 impl IncrementalHashBuilder {
@@ -342,6 +374,92 @@ impl IncrementalHashBuilder {
 			__metrics_min: usize::MAX,
 			__metrics_max: 0,
 			__metrics_total_values: 0,
+		}
+	}
+
+	/// Constructs a new hash builder from the intermediate representation.
+	pub fn from_ir(serialized: IncrementalHashBuilderIR) -> Self {
+		use alloy_consensus::private::alloy_trie::{
+			hash_builder::{HashBuilderValue, HashBuilderValueRef},
+			nodes::RlpNode,
+			TrieMask,
+		};
+
+		let value = match serialized.value_type {
+			0 => {
+				let mut value = HashBuilderValue::new();
+				value.set_bytes_owned(serialized.builder_value);
+				value
+			},
+			1 => {
+				use alloy_core::primitives::B256;
+
+				let buffer: B256 = serialized.builder_value[..]
+					.try_into()
+					.expect("The buffer was serialized properly; qed");
+				let value_ref = HashBuilderValueRef::Hash(&buffer);
+
+				let mut value = HashBuilderValue::new();
+				value.set_from_ref(value_ref);
+				value
+			},
+			_ => panic!("Value type was serialized properly; qed"),
+		};
+
+		let hash_builder = HashBuilder {
+			key: Nibbles::from_nibbles(serialized.key),
+			value,
+			stack: serialized
+				.stack
+				.into_iter()
+				.map(|raw| RlpNode::from_raw(&raw).expect("RlpNode was encoded properly; qed"))
+				.collect(),
+			state_masks: serialized
+				.state_masks
+				.into_iter()
+				.map(|mask| TrieMask::new(mask))
+				.collect(),
+			tree_masks: serialized.tree_masks.into_iter().map(|mask| TrieMask::new(mask)).collect(),
+			hash_masks: serialized.hash_masks.into_iter().map(|mask| TrieMask::new(mask)).collect(),
+			stored_in_database: serialized.stored_in_database,
+			updated_branch_nodes: None,
+			proof_retainer: None,
+			rlp_buf: serialized.rlp_buf,
+		};
+
+		IncrementalHashBuilder {
+			hash_builder,
+			index: serialized.index,
+			first_value: serialized.first_value,
+
+			__metrics_min: 0,
+			__metrics_max: 0,
+			__metrics_total_values: 0,
+		}
+	}
+
+	/// Constructs a new intermediate representation from the hash builder.
+
+	pub fn to_ir(self) -> IncrementalHashBuilderIR {
+		use alloy_consensus::private::alloy_trie::hash_builder::HashBuilderValueRef;
+
+		IncrementalHashBuilderIR {
+			key: self.hash_builder.key.to_vec(),
+			value_type: match self.hash_builder.value.as_ref() {
+				HashBuilderValueRef::Bytes(_) => 0,
+				HashBuilderValueRef::Hash(_) => 1,
+			},
+			builder_value: self.hash_builder.value.as_slice().to_vec(),
+			stack: self.hash_builder.stack.into_iter().map(|n| n.as_slice().to_vec()).collect(),
+
+			state_masks: self.hash_builder.state_masks.into_iter().map(|mask| mask.get()).collect(),
+			tree_masks: self.hash_builder.tree_masks.into_iter().map(|mask| mask.get()).collect(),
+			hash_masks: self.hash_builder.hash_masks.into_iter().map(|mask| mask.get()).collect(),
+
+			stored_in_database: self.hash_builder.stored_in_database,
+			rlp_buf: self.hash_builder.rlp_buf,
+			index: self.index,
+			first_value: self.first_value,
 		}
 	}
 
