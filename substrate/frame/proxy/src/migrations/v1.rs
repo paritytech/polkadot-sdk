@@ -120,37 +120,37 @@ const PROXY_PALLET_MIGRATION_ID: &[u8; 16] = b"pallet-proxy-mbm";
 
 /// Migration statistics counters
 static PROXIES_MIGRATED: AtomicU32 = AtomicU32::new(0);
-static PROXIES_GRACEFULLY_DEGRADED: AtomicU32 = AtomicU32::new(0);
+static PROXIES_PRESERVED_ZERO_DEPOSIT: AtomicU32 = AtomicU32::new(0);
 static ANNOUNCEMENTS_MIGRATED: AtomicU32 = AtomicU32::new(0);
-static ANNOUNCEMENTS_GRACEFULLY_DEGRADED: AtomicU32 = AtomicU32::new(0);
+static ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT: AtomicU32 = AtomicU32::new(0);
 
 /// Reset migration statistics (for testing)
 #[cfg(test)]
 fn reset_migration_stats() {
 	PROXIES_MIGRATED.store(0, Ordering::Relaxed);
-	PROXIES_GRACEFULLY_DEGRADED.store(0, Ordering::Relaxed);
+	PROXIES_PRESERVED_ZERO_DEPOSIT.store(0, Ordering::Relaxed);
 	ANNOUNCEMENTS_MIGRATED.store(0, Ordering::Relaxed);
-	ANNOUNCEMENTS_GRACEFULLY_DEGRADED.store(0, Ordering::Relaxed);
+	ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.store(0, Ordering::Relaxed);
 }
 
 /// Log current migration statistics
 fn log_migration_stats() {
 	let proxies_migrated = PROXIES_MIGRATED.load(Ordering::Relaxed);
-	let proxies_degraded = PROXIES_GRACEFULLY_DEGRADED.load(Ordering::Relaxed);
+	let proxies_preserved = PROXIES_PRESERVED_ZERO_DEPOSIT.load(Ordering::Relaxed);
 	let announcements_migrated = ANNOUNCEMENTS_MIGRATED.load(Ordering::Relaxed);
-	let announcements_degraded = ANNOUNCEMENTS_GRACEFULLY_DEGRADED.load(Ordering::Relaxed);
+	let announcements_preserved = ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.load(Ordering::Relaxed);
 
 	let total_processed =
-		proxies_migrated + proxies_degraded + announcements_migrated + announcements_degraded;
+		proxies_migrated + proxies_preserved + announcements_migrated + announcements_preserved;
 
 	log::info!(
 		target: LOG_TARGET,
-		"📊 Migration Stats ({} total) - Proxies: {} migrated, {} gracefully degraded | Announcements: {} migrated, {} gracefully degraded",
+		"📊 Migration Stats ({} total) - Proxies: {} migrated, {} preserved zero deposit | Announcements: {} migrated, {} preserved zero deposit",
 		total_processed,
 		proxies_migrated,
-		proxies_degraded,
+		proxies_preserved,
 		announcements_migrated,
-		announcements_degraded
+		announcements_preserved
 	);
 }
 
@@ -263,7 +263,7 @@ where
 					old_deposit
 				);
 				// Preserve proxy config with zero deposit
-				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				PROXIES_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
@@ -306,7 +306,7 @@ where
 				// - Proxy relationships continue working
 				// - Can restore deposits later via add_proxy
 
-				PROXIES_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				PROXIES_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
 				log::warn!(
 					target: LOG_TARGET,
 					"⚠️ Proxy preserved with zero deposit: account {:?}, {} proxies, deposit {:?} freed",
@@ -359,7 +359,7 @@ where
 					old_deposit
 				);
 				// Preserve announcement config with zero deposit
-				ANNOUNCEMENTS_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
@@ -397,7 +397,7 @@ where
 				// Migration failed - preserve announcements with zero deposit
 				// The unreserved funds remain in the account's free balance
 				// Announcements continue to function normally
-				ANNOUNCEMENTS_GRACEFULLY_DEGRADED.fetch_add(1, Ordering::Relaxed);
+				ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
 				log::warn!(
 					target: LOG_TARGET,
 					"⚠️ Announcements preserved with zero deposit: account {:?}, {} announcements, deposit {:?} freed",
@@ -844,7 +844,7 @@ where
 				});
 			}
 
-			// Announcement was gracefully degraded or never existed
+			// Announcement was preserved with zero deposit or never existed
 			let released = if old_announcement_deposit.is_zero() {
 				Zero::zero()
 			} else {
@@ -881,7 +881,7 @@ where
 				});
 			}
 
-			// Proxy was gracefully degraded or never existed
+			// Proxy was preserved with zero deposit or never existed
 			let released =
 				if old_proxy_deposit.is_zero() { Zero::zero() } else { old_proxy_deposit };
 
@@ -891,7 +891,7 @@ where
 			});
 		}
 
-		// Case 4: No storage entries - either graceful degradation or cleanup
+		// Case 4: No storage entries - either preservation with zero deposit or cleanup
 		let total_old_deposit = old_proxy_deposit + old_announcement_deposit;
 
 		if total_old_deposit.is_zero() {
@@ -900,8 +900,8 @@ where
 		}
 
 		// Account had deposits but storage was removed
-		// This means graceful degradation occurred - funds should have been released to user.
-		// Verify no holds remain
+		// This means preservation with zero deposit occurred - funds should have been released to
+		// user. Verify no holds remain
 		if !held_proxy.is_zero() || !held_announcement.is_zero() {
 			log::error!(
 				target: LOG_TARGET,
