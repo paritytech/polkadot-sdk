@@ -232,27 +232,18 @@ pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-	let write_outcome = context.interpreter.extend.set_transient_storage(
+	let Ok(write_outcome) = context.interpreter.extend.set_transient_storage(
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old,
+	) else {
+		context.interpreter.halt(InstructionResult::FatalExternalError);
+		return;
+	};
+	context.interpreter.extend.gas_meter_mut().adjust_gas(
+		charged_amount,
+		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
 	);
-
-	match write_outcome {
-		Ok(write_outcome) => {
-			context.interpreter.extend.gas_meter_mut().adjust_gas(
-				charged_amount,
-				RuntimeCosts::SetTransientStorage {
-					new_bytes: 32,
-					old_bytes: write_outcome.old_len(),
-				},
-			);
-		},
-		Err(err) => {
-			log::debug!(target: LOG_TARGET, "Transient storage write failed: {:?}", err);
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-		},
-	}
 }
 
 /// EIP-1153: Transient storage opcodes
