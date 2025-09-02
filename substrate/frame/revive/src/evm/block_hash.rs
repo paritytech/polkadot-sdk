@@ -551,7 +551,7 @@ impl EthereumBlockBuilder {
 			miner: block_author,
 			gas_limit,
 
-			state_root: transactions_root.clone(),
+			state_root: transactions_root,
 			transactions_root,
 			receipts_root,
 
