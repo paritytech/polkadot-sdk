@@ -25,12 +25,15 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use currency::*;
-use frame_support::weights::{
-	constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
-	Weight,
+use frame_support::{
+	traits::FindAuthor,
+	weights::{
+		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
+	},
 };
 use frame_system::limits::BlockWeights;
-use pallet_revive::{evm::runtime::EthExtra, AccountId32Mapper};
+use pallet_revive::{evm::runtime::EthExtra, AccountId32Mapper, AddressMapper};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use polkadot_sdk::{
 	polkadot_sdk_frame::{
@@ -315,14 +318,45 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 }
 
+#[cfg(feature = "std")]
 parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub static ChainId: u64 = 420_420_420;
+	pub static Coinbase: H160 = H160::from([0u8; 20]);
+}
+#[cfg(not(feature = "std"))]
+parameter_types! {
+	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub ChainId: u64 = 420_420_420;
+	pub Coinbase: H160 = H160::from([0u8; 20]);
+}
+
+#[cfg(feature = "std")]
+/// Set the chain ID for EVM transactions.
+pub fn set_chain_id(new: u64) {
+	CHAIN_ID.with(|c| *c.borrow_mut() = new);
+}
+
+#[cfg(feature = "std")]
+/// Set the coinbase address
+pub fn set_coinbase(new: H160) {
+	COINBASE.with(|c| *c.borrow_mut() = new);
+}
+
+impl FindAuthor<<Runtime as frame_system::Config>::AccountId> for Runtime {
+	fn find_author<'a, I>(_digests: I) -> Option<<Runtime as frame_system::Config>::AccountId>
+	where
+		I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+	{
+		let addr = Coinbase::get();
+		Some(<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&addr))
+	}
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
 impl pallet_revive::Config for Runtime {
 	type AddressMapper = AccountId32Mapper<Self>;
-	type ChainId = ConstU64<420_420_420>;
+	type ChainId = ChainId;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Currency = Balances;
 	type NativeToEthRatio = ConstU32<1_000_000>;

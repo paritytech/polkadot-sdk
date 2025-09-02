@@ -1,9 +1,10 @@
+#![allow(dead_code)]
 //! State test execution logic
 
 use anyhow::Result;
 use frame_support::sp_runtime::BuildStorage;
 use revive_dev_runtime::Runtime;
-use revm_statetest_types::{Test as PostState, TestUnit as StateTest};
+use revm_statetest_types::{Test as PostState, TestUnit};
 use serde::{Deserialize, Serialize};
 use sp_core::H160;
 use std::collections::BTreeMap;
@@ -15,7 +16,7 @@ use revm::{
 	Context, ExecuteCommitEvm, MainBuilder, MainContext,
 };
 
-use crate::cli::Args;
+use crate::{cli::Args, transaction_helper::create_signed_transaction};
 
 /// Test execution result for go-ethereum evm statetest compatibility
 ///
@@ -36,11 +37,35 @@ pub struct TestResult {
 }
 
 /// Execute a single state test variant
-pub fn execute_state_test(
+pub fn execute_revm_state_test(
 	test_name: &str,
-	test_case: &StateTest,
+	test_case: &TestUnit,
 	fork: &str,
 	index: usize,
+	expected_post_state: &PostState,
+	args: &Args,
+) -> Result<TestResult> {
+	let state_result = execute_revm_statetest(test_case, fork, index, expected_post_state);
+	process_results(state_result, test_name, fork, expected_post_state, args)
+}
+
+pub fn execute_revive_state_test(
+	test_name: &str,
+	test_case: &TestUnit,
+	expected_post_state: &PostState,
+	args: &Args,
+) -> Result<TestResult> {
+	let state_result = execute_revive_statetest(test_case, expected_post_state);
+	process_results(state_result, test_name, "Prague", expected_post_state, args)
+}
+
+fn process_results(
+	state_result: Result<
+		Result<ExecutionResult<HaltReason>, EVMError<std::convert::Infallible, InvalidTransaction>>,
+		anyhow::Error,
+	>,
+	test_name: &str,
+	fork: &str,
 	expected_post_state: &PostState,
 	args: &Args,
 ) -> Result<TestResult> {
@@ -53,14 +78,7 @@ pub fn execute_state_test(
 		state: None,
 	};
 
-	// Parse transaction variant for this index
-	let tx = &test_case.transaction;
-	let _gas_limit_idx = index.min(tx.gas_limit.len() - 1);
-	let _value_idx = index.min(tx.value.len() - 1);
-	let _data_idx = index.min(tx.data.len() - 1);
-
-	// Execute the state test using REVM
-	match execute_revm_statetest(test_case, fork, index, expected_post_state) {
+	match state_result {
 		Ok(execution_result) => match &execution_result {
 			Ok(ExecutionResult::Success { .. }) => {
 				if let Some(exception) = &expected_post_state.expect_exception {
@@ -146,6 +164,7 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
+	#[allow(dead_code)]
 	pub fn with_genesis_config(
 		mut self,
 		genesis_config: pallet_revive::GenesisConfig<Runtime>,
@@ -154,7 +173,7 @@ impl ExtBuilder {
 		self
 	}
 
-	fn build(self, test_case: &StateTest) -> sp_io::TestExternalities {
+	fn build(self, test_case: &TestUnit) -> sp_io::TestExternalities {
 		// Create proper runtime storage
 		let mut storage = frame_system::GenesisConfig::<Runtime>::default()
 			.build_storage()
@@ -175,11 +194,11 @@ impl ExtBuilder {
 				// Convert storage from HashMap to BTreeMap with proper key format
 				let mut storage = BTreeMap::new();
 				for (key, value) in &account_info.storage {
-					storage.insert(key.to_be_bytes(), value.to_be_bytes());
+					storage.insert(key.to_be_bytes().into(), value.to_be_bytes().into());
 				}
 
 				Some(pallet_revive::genesis::ContractData {
-					code: account_info.code.to_vec(),
+					code: account_info.code.to_vec().into(),
 					storage,
 				})
 			};
@@ -202,48 +221,102 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::new(storage);
 
 		ext.execute_with(|| {
-			// Set up block environment from test_case.env
-			// TODO: Set block number from env.current_number
-			// TODO: Set block timestamp from env.current_timestamp
-			// TODO: Set coinbase/author from env.current_coinbase
+			revive_dev_runtime::set_coinbase(test_case.env.current_coinbase.0 .0.into());
+
+			revive_dev_runtime::set_chain_id(
+				test_case
+					.env
+					.current_chain_id
+					.unwrap_or(U256::from(1))
+					.try_into()
+					.expect("chain id should fit into u64"),
+			);
+
+			frame_system::Pallet::<Runtime>::set_block_number(
+				test_case
+					.env
+					.current_number
+					.try_into()
+					.expect("block number should fit into u32"),
+			);
+
+			pallet_timestamp::Pallet::<Runtime>::set_timestamp(
+				test_case
+					.env
+					.current_timestamp
+					.try_into()
+					.expect("timestamp should fit into u64"),
+			);
+
 			// TODO: Set difficulty from env.current_difficulty
 			// TODO: Set gas limit from env.current_gas_limit
 			// TODO: Set base fee from env.current_base_fee
-
-			// For now, just ensure the system is initialized
-			frame_system::Pallet::<Runtime>::set_block_number(1u32.into());
 		});
 
 		ext
 	}
 }
 
-/// 3. Add a function to create a Signed Transaction from the test_case
-/// 4. like in ../src/evm/runtime.rs let's create a eth_transact call from the eth_transact
-/// 5. then we will create a CheckedExtrinsic and check the call to get a dispatchable
-/// 6. TODO execute the call and process the outcome
-#[allow(dead_code)]
-fn execute_revive_statetest(
-	test_case: &StateTest,
-	_index: usize,
-	_expected_post_state: &PostState,
+pub fn execute_revive_statetest(
+	test_case: &TestUnit,
+	expected_post_state: &PostState,
 ) -> Result<
 	Result<ExecutionResult<HaltReason>, EVMError<std::convert::Infallible, InvalidTransaction>>,
 > {
-	let _ext_builder = ExtBuilder::default().build(test_case);
+	use revive_dev_runtime::{Runtime, RuntimeCall};
 
-	// TODO: Steps 3-6
-	// - Extract transaction from test_case at the given index
-	// - Create eth_transact call
-	// - Create CheckedExtrinsic
-	// - Execute and process outcome
+	let signed_tx = create_signed_transaction(test_case, &expected_post_state.indexes)?;
+	let mut ext = ExtBuilder::default().build(test_case);
 
-	todo!("Complete implementation of steps 3-6")
+	// Create eth_transact call
+	let payload = signed_tx.signed_payload();
+	let call = RuntimeCall::Revive(pallet_revive::Call::eth_transact { payload });
+	use sp_core::Encode;
+	let encoded_len = call.encoded_size();
+
+	ext.execute_with(|| {
+		use frame_support::dispatch::GetDispatchInfo;
+		use revive_dev_runtime::{RuntimeOrigin, UncheckedExtrinsic};
+		use sp_runtime::{
+			generic,
+			generic::ExtrinsicFormat,
+			traits::{Checkable, DispatchTransaction},
+		};
+		let uxt: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(call).into();
+		let context = frame_system::ChainContext::<Runtime>::default();
+		let result: generic::CheckedExtrinsic<_, _, _> = uxt.check(&context).unwrap();
+
+		let (account_id, extra) = match result.format {
+			ExtrinsicFormat::Signed(signer, extra) => (signer, extra),
+			_ => unreachable!(),
+		};
+
+		let dispatch_info = result.function.get_dispatch_info();
+		extra
+			.dispatch_transaction(
+				RuntimeOrigin::signed(account_id),
+				result.function,
+				&dispatch_info,
+				encoded_len,
+				0,
+			)
+			.unwrap()
+			.unwrap();
+	});
+
+	let result: ExecutionResult<HaltReason> = ExecutionResult::Success {
+		reason: revm::context::result::SuccessReason::Return,
+		gas_used: 0,
+		gas_refunded: 0,
+		logs: vec![],
+		output: revm::context::result::Output::Call(Default::default()),
+	};
+	Ok(Ok(result))
 }
 
 /// Execute a state test using REVM, following the pattern from revm/bins/revme
 fn execute_revm_statetest(
-	test_case: &StateTest,
+	test_case: &TestUnit,
 	fork: &str,
 	_index: usize,
 	expected_post_state: &PostState,
@@ -266,7 +339,7 @@ fn execute_revm_statetest(
 		"Shanghai" => SpecId::SHANGHAI,
 		"Cancun" => SpecId::CANCUN,
 		"Prague" => SpecId::PRAGUE,
-		_ => SpecId::CANCUN, // Default to Cancun (latest stable)
+		_ => SpecId::PRAGUE,
 	};
 
 	// Prepare initial state from test pre-state

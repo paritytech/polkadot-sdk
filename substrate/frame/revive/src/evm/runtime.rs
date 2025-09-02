@@ -327,7 +327,7 @@ pub trait EthExtra {
 		};
 
 		if chain_id.unwrap_or_default() != <Self::Config as Config>::ChainId::get().into() {
-			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}");
+			log::debug!(target: LOG_TARGET, "Invalid chain_id {chain_id:?}, expect {:?}", <Self::Config as Config>::ChainId::get());
 			return Err(InvalidTransaction::Call);
 		}
 

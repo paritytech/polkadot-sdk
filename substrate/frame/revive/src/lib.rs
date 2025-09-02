@@ -91,6 +91,7 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::{genesis, *},
+	vm::U256Converter,
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};

@@ -1,5 +1,5 @@
 //! State test runner for Revive EVM compatibility testing
-//! 
+//!
 //! This binary replicates the functionality of go-ethereum's `evm statetest` command
 //! for validating EVM implementations against the official Ethereum test suite.
 
@@ -12,10 +12,7 @@ use std::{
 	path::PathBuf,
 };
 
-use revm_statetest_types::{
-    TestSuite as StateTestSuite,
-    SpecName,
-};
+use revm_statetest_types::{SpecName, TestSuite as TestSuite};
 
 mod cli;
 mod executor;
@@ -25,7 +22,7 @@ pub mod transaction_helper;
 mod tests;
 
 use cli::Args;
-use executor::{execute_state_test, report, TestResult};
+use executor::{execute_revm_state_test, report, TestResult};
 
 fn main() -> Result<()> {
 	let args = Args::parse();
@@ -80,7 +77,7 @@ fn run_state_test(args: &Args, file_path: &PathBuf) -> Result<Vec<TestResult>> {
 	let content = fs::read_to_string(file_path)
 		.with_context(|| format!("Failed to read test file: {:?}", file_path))?;
 
-	let test_suite: StateTestSuite = serde_json::from_str(&content)
+	let test_suite: TestSuite = serde_json::from_str(&content)
 		.with_context(|| format!("Failed to parse test file: {:?}", file_path))?;
 
 	let regex =
@@ -109,7 +106,14 @@ fn run_state_test(args: &Args, file_path: &PathBuf) -> Result<Vec<TestResult>> {
 					continue;
 				}
 
-				let result = execute_state_test(&test_name, &test_case, &format!("{:?}", fork), i, post_state, args)?;
+				let result = execute_revm_state_test(
+					&test_name,
+					&test_case,
+					&format!("{:?}", fork),
+					i,
+					post_state,
+					args,
+				)?;
 				results.push(result);
 			}
 		}
@@ -117,7 +121,6 @@ fn run_state_test(args: &Args, file_path: &PathBuf) -> Result<Vec<TestResult>> {
 
 	Ok(results)
 }
-
 
 /// Check if a SpecName fork matches a target fork string
 fn fork_matches(spec_fork: &SpecName, target_fork: &str) -> bool {
