@@ -18,6 +18,7 @@
 use super::Context;
 
 use crate::{
+	vec,
 	vm::{evm::U256Converter, Ext},
 	Key, RuntimeCosts, LOG_TARGET,
 };
