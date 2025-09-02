@@ -1550,6 +1550,29 @@ where
 		Ok(maybe_value)
 	}
 
+	/// Get all storage keys for a specified contract.
+	pub fn get_storage_keys(address: H160) -> Result<Vec<Vec<u8>>, ContractAccessError> {
+		let contract_info =
+			AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
+
+		let child_info = contract_info.child_trie_info();
+		let mut keys = Vec::new();
+		let mut previous_key = Vec::new();
+
+		loop {
+			let next_key =
+				sp_io::default_child_storage::next_key(child_info.storage_key(), &previous_key);
+
+			let Some(key) = next_key else {
+				break;
+			};
+			keys.push(key.clone());
+			previous_key = key;
+		}
+
+		Ok(keys)
+	}
+
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
 	fn try_upload_pvm_code(
 		origin: T::AccountId,
@@ -1736,6 +1759,12 @@ sp_api::decl_runtime_apis! {
 			address: H160,
 			key: Vec<u8>,
 		) -> GetStorageResult;
+
+		/// Get all storage keys for a specified contract.
+		///
+		/// Returns `Ok(Vec<Vec<u8>>)` if the contract exists, containing all storage keys
+		/// associated with the contract. Otherwise returns `Err(ContractAccessError)`
+		fn get_storage_keys(address: H160) -> Result<Vec<Vec<u8>>, ContractAccessError>;
 
 		/// Traces the execution of an entire block and returns call traces.
 		///
@@ -1927,6 +1956,10 @@ macro_rules! impl_runtime_apis_plus_revive {
 
 				fn get_storage(address: $crate::H160, key: [u8; 32]) -> $crate::GetStorageResult {
 					$crate::Pallet::<Self>::get_storage(address, key)
+				}
+
+				fn get_storage_keys(address: $crate::H160) -> Result<Vec<Vec<u8>>, $crate::ContractAccessError> {
+					$crate::Pallet::<Self>::get_storage_keys(address)
 				}
 
 				fn trace_block(

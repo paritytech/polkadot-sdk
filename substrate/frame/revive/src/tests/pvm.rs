@@ -4898,3 +4898,34 @@ fn return_data_limit_is_enforced() {
 		}
 	});
 }
+
+#[test]
+fn get_storage_keys_works() {
+	let (code, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let keys = Pallet::<Test>::get_storage_keys(ALICE_ADDR);
+		assert_err!(keys, crate::ContractAccessError::DoesntExist);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let keys = Pallet::<Test>::get_storage_keys(addr).unwrap();
+		assert!(keys.is_empty());
+
+		let contract = AccountInfo::<Test>::load_contract(&addr).unwrap();
+		let child_info = contract.child_trie_info();
+		let storage_key = child_info.storage_key();
+		let key1 = b"key_1";
+		let key2 = b"key_2";
+		sp_io::default_child_storage::set(storage_key, key1, &[]);
+		sp_io::default_child_storage::set(storage_key, key2, &[]);
+
+		let keys = Pallet::<Test>::get_storage_keys(addr).unwrap();
+		assert_eq!(keys.len(), 2);
+		assert!(keys.contains(&key1.to_vec()));
+		assert!(keys.contains(&key2.to_vec()));
+	});
+}
