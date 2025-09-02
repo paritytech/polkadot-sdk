@@ -232,7 +232,7 @@ where
 				asset.clone(),
 				source.clone(),
 				true,
-				amount / 100u32.into(),
+				1u32.into(),
 			);
 		}
 		<F as fungibles::Mutate<_>>::mint_into(asset, &source, amount).unwrap();
