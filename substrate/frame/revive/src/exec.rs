@@ -1723,7 +1723,7 @@ where
 		let current_contract_trie_id = self.top_frame_mut().contract_info().trie_id.clone();
 		if self.contracts_created.contains(&current_contract_trie_id) {
 			self.contracts_to_be_destroyed
-				.insert((current_contract_trie_id, beneficiary.clone()));
+				.insert((current_contract_trie_id, *beneficiary));
 		}
 		Ok(())
 	}
