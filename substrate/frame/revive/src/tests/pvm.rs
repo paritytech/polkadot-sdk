@@ -194,6 +194,22 @@ fn eth_call_transfer_with_dust_works() {
 }
 
 #[test]
+fn set_evm_balance_works() {
+	let (binary, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		let native_with_dust = BalanceWithDust::new_unchecked::<Test>(100, 10);
+		let evm_value = Pallet::<Test>::convert_native_to_evm(native_with_dust);
+
+		assert_ok!(Pallet::<Test>::set_evm_balance(&addr, evm_value));
+
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value);
+	});
+}
+
+#[test]
 fn contract_call_transfer_with_dust_works() {
 	let (binary_caller, _code_hash_caller) = compile_module("call_with_value").unwrap();
 	let (binary_callee, _code_hash_callee) = compile_module("dummy").unwrap();

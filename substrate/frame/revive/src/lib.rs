@@ -1415,18 +1415,24 @@ where
 	}
 
 	/// Get the balance with EVM decimals of the given `address`.
+	///
+	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
 		let balance = AccountInfo::<T>::balance((*address).into());
 		Self::convert_native_to_evm(balance)
 	}
 
-	/// Set the EVM balance of an account
+	/// Set the EVM balance of an account.
+	///
+	/// The account's total balance becomes the EVM value plus the existential deposit,
+	/// consistent with `evm_balance` which returns the spendable balance excluding the existential deposit.
 	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
+		let ed = T::Currency::minimum_balance();
 		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		let (value, dust) = balance_with_dust.deconstruct();
 		let account_id = T::AddressMapper::to_account_id(&address);
-		T::Currency::set_balance(&account_id, value);
+		T::Currency::set_balance(&account_id, ed + value);
 		AccountInfoOf::<T>::mutate(address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
