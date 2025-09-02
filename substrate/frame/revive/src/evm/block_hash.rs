@@ -377,7 +377,7 @@ impl IncrementalHashBuilder {
 		}
 	}
 
-	/// Constructs a new hash builder from the intermediate representation.
+	/// Converts the intermediate representation back into a builder.
 	pub fn from_ir(serialized: IncrementalHashBuilderIR) -> Self {
 		use alloy_consensus::private::alloy_trie::{
 			hash_builder::{HashBuilderValue, HashBuilderValueRef},
@@ -438,8 +438,7 @@ impl IncrementalHashBuilder {
 		}
 	}
 
-	/// Constructs a new intermediate representation from the hash builder.
-
+	/// Converts the builder into an intermediate representation.
 	pub fn to_ir(self) -> IncrementalHashBuilderIR {
 		use alloy_consensus::private::alloy_trie::hash_builder::HashBuilderValueRef;
 
@@ -670,6 +669,21 @@ impl AccumulateReceipt {
 	}
 }
 
+/// The intermediate representation of the Ethereum block builder.
+#[derive(Encode, Decode, TypeInfo)]
+pub struct EthereumBlockBuilderIR {
+	transaction_root_builder: Option<IncrementalHashBuilderIR>,
+	receipts_root_builder: Option<IncrementalHashBuilderIR>,
+
+	gas_used: U256,
+	pub(crate) tx_hashes: Vec<H256>,
+
+	logs_bloom: [u8; BLOOM_SIZE_BYTES],
+	gas_info: Vec<ReceiptGasInfo>,
+
+	receipt: AccumulateReceipt,
+}
+
 /// Ethereum block builder.
 pub struct EthereumBlockBuilder {
 	transaction_root_builder: Option<IncrementalHashBuilder>,
@@ -699,6 +713,39 @@ impl EthereumBlockBuilder {
 			logs_bloom: Bloom(AlloyBloom(FixedBytes::ZERO)),
 			gas_info: Vec::new(),
 			receipt: AccumulateReceipt::new(),
+
+			__metrics_receipts: 0.0,
+			__metrics_receipts_len: 0,
+		}
+	}
+
+	/// Converts the builder into an intermediate representation.
+	pub fn to_ir(self) -> EthereumBlockBuilderIR {
+		EthereumBlockBuilderIR {
+			transaction_root_builder: self.transaction_root_builder.map(|b| b.to_ir()),
+			receipts_root_builder: self.receipts_root_builder.map(|b| b.to_ir()),
+			gas_used: self.gas_used,
+			tx_hashes: self.tx_hashes,
+			logs_bloom: (*self.logs_bloom.0.data()).into(),
+			gas_info: self.gas_info,
+			receipt: self.receipt,
+		}
+	}
+
+	/// Converts the intermediate representation back into a builder.
+	pub fn from_ir(ir: EthereumBlockBuilderIR) -> Self {
+		Self {
+			transaction_root_builder: ir
+				.transaction_root_builder
+				.map(|b| IncrementalHashBuilder::from_ir(b)),
+			receipts_root_builder: ir
+				.receipts_root_builder
+				.map(|b| IncrementalHashBuilder::from_ir(b)),
+			gas_used: ir.gas_used,
+			tx_hashes: ir.tx_hashes,
+			logs_bloom: Bloom(AlloyBloom(FixedBytes::from_slice(&ir.logs_bloom))),
+			gas_info: ir.gas_info,
+			receipt: ir.receipt,
 
 			__metrics_receipts: 0.0,
 			__metrics_receipts_len: 0,
@@ -967,6 +1014,10 @@ mod test {
 			}
 
 			incremental_block.process_transaction(details.clone());
+
+			let ir = incremental_block.to_ir();
+			incremental_block = EthereumBlockBuilder::from_ir(ir);
+
 			println!(" Otherwise size {:?}", log_size);
 		}
 
