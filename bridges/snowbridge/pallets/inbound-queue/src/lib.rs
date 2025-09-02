@@ -87,12 +87,15 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_core::H256;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	use snowbridge_inbound_queue_primitives::EventFixture;
+
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<T> {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256);
+		fn initialize_storage() -> EventFixture;
 	}
 
 	#[pallet::config]
