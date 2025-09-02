@@ -19,11 +19,11 @@
 
 use crate::{
 	eth_block_storage,
-	evm::block_hash::{EventLog, TransactionDetails},
-	test_utils::{builder::Contract, deposit_limit, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, InflightEthTxEvents, Pallet,
-	ReceiptGasInfo, ReceiptInfoData, TransactionSigned, Weight, H256,
+	evm::block_hash::EventLog,
+	test_utils::{builder::Contract, ALICE},
+	tests::{assert_ok, builder, Contracts, ExtBuilder, Test},
+	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Pallet, ReceiptGasInfo,
+	ReceiptInfoData,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -33,15 +33,6 @@ impl PartialEq for EventLog {
 	// Dont care about the contract address, since eth instantiate cannot expose it.
 	fn eq(&self, other: &Self) -> bool {
 		self.data == other.data && self.topics == other.topics
-	}
-}
-
-impl PartialEq for TransactionDetails {
-	// Ignore the weight since its subject to change.
-	fn eq(&self, other: &Self) -> bool {
-		self.transaction_encoded == other.transaction_encoded &&
-			self.logs == other.logs &&
-			self.success == other.success
 	}
 }
 

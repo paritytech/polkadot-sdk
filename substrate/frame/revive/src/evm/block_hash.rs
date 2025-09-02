@@ -674,35 +674,44 @@ mod test {
 					panic!("Transaction and receipt index do not match");
 				}
 
-				TransactionDetails {
-					transaction_encoded: tx_info.transaction_signed.signed_payload(),
-					logs: receipt_info
-						.logs
-						.into_iter()
-						.map(|log| EventLog {
-							contract: log.address.into(),
-							data: log.data.unwrap_or_default().0,
-							topics: log.topics,
-						})
-						.collect(),
-					success: receipt_info.status.unwrap_or_default() == 1.into(),
-					gas_used: receipt_info.gas_used.as_u64().into(),
-				}
+				let logs: Vec<EventLog> = receipt_info
+					.logs
+					.into_iter()
+					.map(|log| EventLog {
+						contract: log.address.into(),
+						data: log.data.unwrap_or_default().0,
+						topics: log.topics,
+					})
+					.collect();
+
+				(
+					tx_info.transaction_signed.signed_payload(),
+					logs,
+					receipt_info.status.unwrap_or_default() == 1.into(),
+					receipt_info.gas_used.as_u64(),
+				)
 			})
 			.collect();
 
+		// Build the ethereum block incrementally.
 		let mut incremental_block = EthereumBlockBuilder::new();
-		for details in &transaction_details {
+		for (signed, logs, success, gas_used) in transaction_details {
 			let mut log_size = 0;
 
 			let mut accumulate_receipt = AccumulateReceipt::new();
-			for log in &details.logs {
+			for log in &logs {
 				let current_size = log.data.len() + log.topics.len() * 32 + 20;
 				log_size += current_size;
 				accumulate_receipt.add_log(log.clone());
 			}
 
-			incremental_block.process_transaction(details.clone(), accumulate_receipt);
+			incremental_block.process_transaction(
+				signed,
+				success,
+				gas_used.into(),
+				accumulate_receipt.encoding,
+				accumulate_receipt.bloom,
+			);
 
 			let ir = incremental_block.to_ir();
 			incremental_block = EthereumBlockBuilder::from_ir(ir);
@@ -713,29 +722,15 @@ mod test {
 		// The block hash would differ here because we don't take into account
 		// the ommers and other fields from the substrate perspective.
 		// However, the state roots must be identical.
-		let built_incremental = incremental_block.build(
-			block.number,
-			block.parent_hash,
-			block.timestamp,
-			block.miner,
-			Default::default(),
-		);
-
-		// The block hash would differ here because we don't take into account
-		// the ommers and other fields from the substrate perspective.
-		// However, the state roots must be identical.
-		let old_built_block = Block::build(
-			transaction_details,
-			block.number.into(),
-			block.parent_hash.into(),
-			block.timestamp.into(),
-			block.miner.into(),
-			Default::default(),
-		)
-		.1;
-
-		assert_eq!(old_built_block, built_incremental.1);
-		let built_block = built_incremental.1;
+		let built_block = incremental_block
+			.build(
+				block.number,
+				block.parent_hash,
+				block.timestamp,
+				block.miner,
+				Default::default(),
+			)
+			.1;
 
 		assert_eq!(built_block.gas_used, block.gas_used);
 		assert_eq!(built_block.logs_bloom, block.logs_bloom);
