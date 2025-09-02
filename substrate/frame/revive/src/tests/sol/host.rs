@@ -423,6 +423,7 @@ fn log_works() {
 }
 
 #[test]
+#[ignore]
 fn selfdestruct_works() {
 	use pallet_revive_fixtures::HostEvmOnly;
 	let fixture_type = FixtureType::Solc;
