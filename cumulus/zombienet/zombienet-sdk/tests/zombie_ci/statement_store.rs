@@ -8,7 +8,8 @@ use anyhow::anyhow;
 use sp_core::{Bytes, Encode};
 use zombienet_sdk::{
 	subxt::{
-		backend::rpc::RpcClient, rpc_params, utils::url_is_secure, OnlineClient, PolkadotConfig,
+		backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, utils::url_is_secure, OnlineClient,
+		PolkadotConfig,
 	},
 	NetworkConfigBuilder,
 };
