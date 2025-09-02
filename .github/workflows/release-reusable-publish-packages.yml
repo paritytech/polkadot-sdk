@@ -190,19 +190,6 @@ jobs:
             fi
             echo "Found DEB package: $debname"
 
-            # Debug: Inspect the DEB file
-            echo "=== File size and permissions ==="
-            ls -la "$debname"
-            
-            echo "=== File type ==="
-            file "$debname"
-            
-            echo "=== First 100 bytes (hex dump) ==="
-            head -c 100 "$debname" | hexdump -C
-            
-            echo "=== File content (base64) ==="
-            base64 "$debname"
-
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
