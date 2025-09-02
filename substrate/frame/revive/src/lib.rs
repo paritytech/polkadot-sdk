@@ -566,15 +566,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
-	/// The events emitted by this pallet while executing the current inflight transaction.
-	///
-	/// The events are needed to reconstruct the ReceiptInfo, as they represent the
-	/// logs emitted by the contract. The events are consumed when the transaction is
-	/// completed and moved to the `InflightEthTransactions` storage object.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub(crate) type InflightEthTxEvents<T: Config> = StorageValue<_, Vec<EventLog>, ValueQuery>;
-
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
 	/// # Note
