@@ -205,16 +205,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
-	/// Transfer all funds to `beneficiary`.
-	///
-	/// The contract is *NOT* deleted *unless* this function is called in the same transaction
-	/// as the contract was created.
-	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
-	#[allow(unused)]
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult;
-
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -534,10 +524,6 @@ pub struct Stack<'a, T: Config, E> {
 	skip_transfer: bool,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
-	/// The set of contracts that were created during this call stack.
-	contracts_created: BTreeSet<TrieId>,
-	/// The set of contracts that were created during this call stack.
-	contracts_to_be_destroyed: BTreeSet<(TrieId, H160)>,
 }
 
 /// Represents one entry in the call stack.
@@ -1707,26 +1693,6 @@ where
 		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
 		Ok(removed)
-	}
-
-	#[allow(unused)]
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
-		let from = self.account_id();
-		let to = T::AddressMapper::to_account_id(beneficiary);
-		let value: U256 = self.balance();
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
-
-		if !value.is_zero() {
-			transfer_with_dust::<T>(&from, &to, value)?;
-		}
-
-		// If this is called in the same transaction as the contract was created then the contract
-		// is deleted.
-		let current_contract_trie_id = self.top_frame_mut().contract_info().trie_id.clone();
-		if self.contracts_created.contains(&current_contract_trie_id) {
-			self.contracts_to_be_destroyed.insert((current_contract_trie_id, *beneficiary));
-		}
-		Ok(())
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
