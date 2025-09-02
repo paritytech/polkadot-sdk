@@ -166,7 +166,6 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH"
           # Sync database and configuration files
           aws s3 sync "$AWS_REPO_PATH/db" "$LOCAL_REPO_PATH/db" || true # `|| true` to avoid failing if dir doesn't exist yet
-          aws s3 sync "$AWS_REPO_PATH/conf" "$LOCAL_REPO_PATH/conf" || true # conf might not exist for RPM
 
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             aws s3 sync "$AWS_REPO_PATH/pool" "$LOCAL_REPO_PATH/pool" || true
