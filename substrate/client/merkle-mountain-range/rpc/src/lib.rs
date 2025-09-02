@@ -129,7 +129,6 @@ pub trait MmrApi<BlockHash, BlockNumber, MmrHash> {
 		&self,
 		prev_block_number: BlockNumber,
 		best_known_block_number: Option<BlockNumber>,
-		// TODO: remove because this is irrelevant to the proof
 		at: Option<BlockHash>,
 	) -> RpcResult<MmrAncestryProof<MmrHash>>;
 
