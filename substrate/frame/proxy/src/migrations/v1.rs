@@ -898,7 +898,7 @@ where
 			}
 
 			if held_proxy < current_proxy_deposit {
-				log::error!(
+				log::warn!(
 					target: LOG_TARGET,
 					"Insufficient proxy hold for account {:?}: held={:?} needed={:?}",
 					who, held_proxy, current_proxy_deposit
