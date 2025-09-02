@@ -992,8 +992,6 @@ where
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
 			skip_transfer,
 			_phantom: Default::default(),
-			contracts_created: BTreeSet::new(),
-			contracts_to_be_destroyed: BTreeSet::new(),
 		};
 
 		Ok(Some((stack, executable)))
@@ -1846,7 +1844,6 @@ where
 				let contract_info = self.top_frame_mut().contract_info();
 				contract_info.trie_id.clone()
 			};
-			self.contracts_created.insert(trie_id);
 		}
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
