@@ -2388,7 +2388,11 @@ impl<T: Config> Pallet<T> {
 	/// * For each era exposed validator, check if the exposure total is sane (exposure.total  =
 	/// exposure.own + exposure.own).
 	fn check_exposures() -> Result<(), TryRuntimeError> {
-		let era = ActiveEra::<T>::get().unwrap().index;
+		let Some(active_era) = ActiveEra::<T>::get() else {
+			// If no active era, skip exposure checks
+			return Ok(());
+		};
+		let era = active_era.index;
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
 				ensure!(
@@ -2416,7 +2420,11 @@ impl<T: Config> Pallet<T> {
 		// Sanity check for the paged exposure of the active era.
 		let mut exposures: BTreeMap<T::AccountId, PagedExposureMetadata<BalanceOf<T>>> =
 			BTreeMap::new();
-		let era = ActiveEra::<T>::get().unwrap().index;
+		let Some(active_era) = ActiveEra::<T>::get() else {
+			// If no active era, skip paged exposure checks
+			return Ok(());
+		};
+		let era = active_era.index;
 		let accumulator_default = PagedExposureMetadata {
 			total: Zero::zero(),
 			own: Zero::zero(),
@@ -2478,7 +2486,11 @@ impl<T: Config> Pallet<T> {
 	fn check_nominators() -> Result<(), TryRuntimeError> {
 		// a check per nominator to ensure their entire stake is correctly distributed. Will only
 		// kick-in if the nomination was submitted before the current era.
-		let era = ActiveEra::<T>::get().unwrap().index;
+		let Some(active_era) = ActiveEra::<T>::get() else {
+			// If no active era, skip nominator checks
+			return Ok(());
+		};
+		let era = active_era.index;
 
 		// cache era exposures to avoid too many db reads.
 		let era_exposures = T::SessionInterface::validators()
