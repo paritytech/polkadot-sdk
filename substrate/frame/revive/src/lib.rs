@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EventLog, ReceiptGasInfo, TransactionDetails},
+		block_hash::{AccumulateReceipt, EventLog, ReceiptGasInfo, TransactionDetails},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
 		TransactionSigned, TYPE_EIP1559,
@@ -130,8 +130,12 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
-	use crate::{evm::block_hash::EthereumBlockBuilder, EventLog};
+	use crate::{
+		evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder},
+		EventLog, H160, H256,
+	};
 	use alloc::vec::Vec;
+	use alloy_core::primitives::Bloom;
 	use core::cell::{RefCell, RefMut};
 	use environmental::environmental;
 
@@ -139,14 +143,24 @@ pub(crate) mod eth_block_storage {
 	pub const BLOCK_HASH_COUNT: u32 = 256;
 
 	// Indicates whether an Ethereum call is currently being executed.
-	environmental!(executing_call: bool);
+	environmental!(receipt: AccumulateReceipt);
 
-	pub fn is_executing_ethereum_call() -> bool {
-		executing_call::with(|ctx| *ctx).unwrap_or(false)
+	pub fn capture_ethereum_log(contract: H160, data: &[u8], topics: &[H256]) {
+		receipt::with(|receipt| {
+			receipt.add_log(EventLog { contract, data: data.to_vec(), topics: topics.to_vec() });
+		});
+	}
+
+	pub fn get_receipt_details() -> Option<(Vec<u8>, Bloom)> {
+		receipt::with(|receipt| {
+			let encoding = core::mem::take(&mut receipt.encoding);
+			let bloom = core::mem::take(&mut receipt.bloom);
+			(encoding, bloom)
+		})
 	}
 
 	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
-		executing_call::using(&mut true, f)
+		receipt::using(&mut AccumulateReceipt::new(), f)
 	}
 
 	/// A safe global value in the WASM environment.
@@ -1817,9 +1831,15 @@ impl<T: Config> Pallet<T> {
 		let mut inflight_events = eth_block_storage::INFLIGHT_EVENTS.borrow_mut();
 		let logs = core::mem::replace(&mut *inflight_events, Vec::new());
 
-		// eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
-		// 	TransactionDetails { transaction_encoded, logs, success, gas_used },
-		// );
+		if let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() {
+			eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
+				transaction_encoded,
+				success,
+				gas_used,
+				encoded_logs,
+				bloom,
+			);
+		}
 	}
 
 	/// The address of the validator that produced the current block.
