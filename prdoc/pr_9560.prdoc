@@ -37,5 +37,3 @@ crates:
   bump: patch
 - name: pallet-tx-pause
   bump: patch
-- name: pallet-staking
-  bump: patch

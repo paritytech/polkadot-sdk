@@ -2819,9 +2819,39 @@ sp_api::impl_runtime_apis! {
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,
 		) -> Weight {
+			use frame_try_runtime::TryStateSelect;
+			// Exclude Staking pallet from try_state checks on Westend. This is a temporary
+			// workaround to give us time to complete the post-AHM staking migration cleanup and
+			// allow us to re-enable check-runtime-migration. We need to eliminate any dependency on
+			// the old staking pallet from the runtime. However, this is a significant task that
+			// requires related pallets, such as nominated pools and delegated staking, to be
+			// updated as well, so they no longer depend on the old staking pallet.
+			let modified_select = match select {
+				TryStateSelect::All => {
+					// Get all pallet names and exclude Staking
+					let all_pallet_names_except_staking = <AllPalletsWithSystem as frame_support::traits::PalletsInfoAccess>::infos()
+						.iter()
+						.filter_map(|info| {
+							if info.name == "Staking" {
+								None
+							} else {
+								Some(info.name.as_bytes().to_vec())
+							}
+						})
+						.collect::<Vec<_>>();
+					TryStateSelect::Only(all_pallet_names_except_staking)
+				},
+				TryStateSelect::Only(mut pallets) => {
+					// Remove Staking if it's in the list
+					pallets.retain(|pallet| pallet != b"Staking");
+					TryStateSelect::Only(pallets)
+				},
+				other => other, // None, RoundRobin - pass through unchanged
+			};
+
 			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
-			Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
+			Executive::try_execute_block(block, state_root_check, signature_check, modified_select).unwrap()
 		}
 	}
 
