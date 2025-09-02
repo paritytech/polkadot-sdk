@@ -291,9 +291,9 @@ fn max_era_duration_safety_guard() {
 }
 
 #[test]
-fn era_cleanup_history_depth_works() {
+fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 	ExtBuilder::default().build_and_execute(|| {
-		// when we go forward to `HistoryDepth - 1`
+		// Test that era pruning does not happen automatically
 		assert_eq!(active_era(), 1);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);
@@ -306,48 +306,178 @@ fn era_cleanup_history_depth_works() {
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
 		));
-		assert_ok!(Eras::<T>::era_present(1));
-		assert_ok!(Eras::<T>::era_present(2));
+		// All eras from 1 to current still present
+		assert_ok!(Eras::<T>::era_fully_present(1));
+		assert_ok!(Eras::<T>::era_fully_present(2));
 		// ..
-		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() - 1));
+		assert_ok!(Eras::<T>::era_fully_present(HistoryDepth::get() - 1));
 
 		Session::roll_until_active_era(HistoryDepth::get());
-		assert_ok!(Eras::<T>::era_present(1));
-		assert_ok!(Eras::<T>::era_present(2));
+		assert_ok!(Eras::<T>::era_fully_present(1));
+		assert_ok!(Eras::<T>::era_fully_present(2));
 		// ..
-		assert_ok!(Eras::<T>::era_present(HistoryDepth::get()));
+		assert_ok!(Eras::<T>::era_fully_present(HistoryDepth::get()));
 
-		// then first era info should have been deleted
+		// Eras should NOT be automatically pruned
 		Session::roll_until_active_era(HistoryDepth::get() + 1);
-		assert_ok!(Eras::<T>::era_present(1));
-		assert_ok!(Eras::<T>::era_present(2));
+		assert_ok!(Eras::<T>::era_fully_present(1));
+		assert_ok!(Eras::<T>::era_fully_present(2));
 		// ..
-		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 1));
+		assert_ok!(Eras::<T>::era_fully_present(HistoryDepth::get() + 1));
 		assert!(matches!(
 			&staking_events_since_last_call()[..],
 			&[
 				..,
 				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 7500 },
-				Event::EraPruned { index: 0 },
+				// NO EraPruned event - pruning is now manual
 				Event::SessionRotated { starting_session: 243, active_era: 81, planned_era: 81 }
 			]
 		));
 
+		// Roll forward more, era 1 is now prunable
 		Session::roll_until_active_era(HistoryDepth::get() + 2);
-		assert_ok!(Eras::<T>::era_absent(1));
-		assert_ok!(Eras::<T>::era_present(2));
-		assert_ok!(Eras::<T>::era_present(3));
+		assert_ok!(Eras::<T>::era_fully_present(1)); // Era 1 still exists!
+		assert_ok!(Eras::<T>::era_fully_present(2));
+		assert_ok!(Eras::<T>::era_fully_present(3));
 		// ..
-		assert_ok!(Eras::<T>::era_present(HistoryDepth::get() + 2));
+		assert_ok!(Eras::<T>::era_fully_present(HistoryDepth::get() + 2));
 		assert!(matches!(
 			&staking_events_since_last_call()[..],
 			&[
 				..,
 				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 7500 },
-				Event::EraPruned { index: 1 },
+				// NO EraPruned event - pruning is now manual
 				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
 			]
 		));
+
+		// Only old eras (outside pruning window) can be pruned
+		// Try to prune era 2 (should fail as it's within the history window)
+		assert_noop!(
+			Staking::prune_era_step(RuntimeOrigin::signed(99), 2),
+			Error::<T>::EraNotPrunable
+		);
+		// Try to prune the current era
+		assert_noop!(
+			Staking::prune_era_step(RuntimeOrigin::signed(99), HistoryDepth::get() + 2),
+			Error::<T>::EraNotPrunable
+		);
+
+		// Verify that we can manually prune era 1 (which is outside history window) and check that
+		// we progress through all PruningStep states in the exact order, with storage cleanup
+		// verification
+		use crate::PruningStep::*;
+
+		// Process each pruning step in the exact order defined by the implementation
+		// Each step should clean its specific storage and transition to the next step
+		[
+			ErasStakersPaged,
+			ErasStakersOverview,
+			ErasValidatorPrefs,
+			ClaimedRewards,
+			ErasValidatorReward,
+			ErasRewardPoints,
+			ErasTotalStake,
+		]
+		.iter()
+		.for_each(|expected_step| {
+			// For the first step, the state starts as None and defaults to ErasStakersPaged
+			let current_state = EraPruningState::<T>::get(1).unwrap_or(ErasStakersPaged);
+			assert_eq!(
+				current_state, *expected_step,
+				"Expected to be in step {:?} but was in {:?}",
+				expected_step, current_state
+			);
+
+			// Execute the pruning step and verify fee payment logic
+			let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+			assert_ok!(&result);
+			let post_info = result.unwrap();
+
+			// When work is actually done (pruning storage), should return Pays::No
+			assert_eq!(
+				post_info.pays_fee,
+				frame_support::dispatch::Pays::No,
+				"Should return Pays::No when work is done for step {:?}",
+				expected_step
+			);
+
+			// Verify the specific storage is cleaned after this step
+			match expected_step {
+				ErasStakersPaged => assert_eq!(
+					crate::ErasStakersPaged::<T>::iter_prefix_values((1,)).count(),
+					0,
+					"{expected_step:?} should be empty after step"
+				),
+				ErasStakersOverview => assert_eq!(
+					crate::ErasStakersOverview::<T>::iter_prefix_values(1).count(),
+					0,
+					"{expected_step:?} should be empty after step"
+				),
+				ErasValidatorPrefs => assert_eq!(
+					crate::ErasValidatorPrefs::<T>::iter_prefix_values(1).count(),
+					0,
+					"{expected_step:?} should be empty after step"
+				),
+				ClaimedRewards => assert_eq!(
+					crate::ClaimedRewards::<T>::iter_prefix_values(1).count(),
+					0,
+					"{expected_step:?} should be empty after step"
+				),
+				ErasValidatorReward => assert!(
+					!crate::ErasValidatorReward::<T>::contains_key(1),
+					"{expected_step:?} should be empty after step"
+				),
+				ErasRewardPoints => assert!(
+					!crate::ErasRewardPoints::<T>::contains_key(1),
+					"{expected_step:?} should be empty after step"
+				),
+				ErasTotalStake => assert!(
+					!crate::ErasTotalStake::<T>::contains_key(1),
+					"{expected_step:?} should be empty after step"
+				),
+				Complete => unreachable!("Complete should not be in the processing list"),
+			}
+		});
+
+		// Should now be in Complete state
+		assert_eq!(EraPruningState::<T>::get(1), Some(Complete), "Should be in Complete state");
+
+		// Final step to emit event and cleanup pruning state
+		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+		assert_ok!(&result);
+		let post_info = result.unwrap();
+
+		// Final step returns Pays::No because completing the pruning process is useful work
+		assert_eq!(
+			post_info.pays_fee,
+			frame_support::dispatch::Pays::No,
+			"Should return Pays::No when completing pruning (cleanup state + emit event)"
+		);
+
+		// Pruning state should be completely removed
+		assert_eq!(EraPruningState::<T>::get(1), None, "Pruning state should be removed");
+
+		// Should emit EraPruned event when manual pruning completes
+		assert!(matches!(
+			&staking_events_since_last_call()[..],
+			&[.., Event::EraPruned { index: 1 }]
+		));
+
+		// Now era 1 should be absent
+		assert_ok!(Eras::<T>::era_absent(1));
+		// But era 2 should still be present (not automatically pruned)
+		assert_ok!(Eras::<T>::era_fully_present(2));
+
+		// Call the extrinsic on an already pruned era (no work done, should charge fees)
+		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+		assert_ok!(&result);
+		let post_info = result.unwrap();
+		assert_eq!(
+			post_info.pays_fee,
+			frame_support::dispatch::Pays::Yes,
+			"Should return Pays::Yes when no work is done (era already pruned)"
+		);
 	});
 }
 

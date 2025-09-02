@@ -21,7 +21,7 @@ use super::*;
 use crate::{
 	asset,
 	session_rotation::{Eras, Rotator},
-	ConfigOp, Pallet as Staking,
+	Pallet as Staking,
 };
 use alloc::collections::BTreeMap;
 pub use frame_benchmarking::{
@@ -29,10 +29,7 @@ pub use frame_benchmarking::{
 };
 use frame_election_provider_support::SortedListProvider;
 use frame_support::{
-	assert_ok,
-	pallet_prelude::*,
-	storage::bounded_vec::BoundedVec,
-	traits::{Get, TryCollect},
+	assert_ok, pallet_prelude::*, storage::bounded_vec::BoundedVec, traits::TryCollect,
 };
 use frame_system::RawOrigin;
 use pallet_staking_async_rc_client as rc_client;
@@ -1189,14 +1186,16 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark(pov_mode = Measured)]
-	// `v`: validators, e.g. 600 in Polkadot and 1000 in Kusama.
-	//
-	// this benchmark populates all storage items that get removed in `fn prune_era` manually,
-	// and attempts to then remove them.
-	fn prune_era(v: Linear<1, { T::MaxValidatorSet::get() }>) -> Result<(), BenchmarkError> {
+	// Helper function to set up era data for pruning benchmarks
+	fn setup_era_for_pruning<T: Config>(v: u32) -> EraIndex {
 		let validators = v;
 		let era = 7;
+
+		// Set current era to make era 7 prunable
+		// Era is prunable if: era + history_depth < current_era
+		let history_depth = T::HistoryDepth::get();
+		let current_era = era + history_depth + 1;
+		crate::CurrentEra::<T>::put(current_era);
 
 		// Note: the number we are looking for here is not `MaxElectableVoters`, as these are unique
 		// nominators. One unique nominator can be exposed behind multiple validators. The right
@@ -1259,11 +1258,117 @@ mod benchmarks {
 		// `ErasTotalStake`
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 
-		#[block]
-		{
-			Eras::<T>::prune_era(era);
-		}
-		Eras::<T>::era_absent(era)?;
+		era
+	}
+
+	// Benchmark pruning ErasStakersPaged (first step)
+	#[benchmark]
+	fn prune_era_stakers_paged(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasStakersPaged);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasStakersOverview (second step)
+	#[benchmark]
+	fn prune_era_stakers_overview(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasValidatorPrefs (third step)
+	#[benchmark]
+	fn prune_era_validator_prefs(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ClaimedRewards (fourth step)
+	#[benchmark]
+	fn prune_era_claimed_rewards(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasValidatorReward (fifth step)
+	#[benchmark]
+	fn prune_era_validator_reward(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasRewardPoints (sixth step)
+	#[benchmark]
+	fn prune_era_reward_points(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ErasTotalStake (final step)
+	#[benchmark]
+	fn prune_era_total_stake(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		#[extrinsic_call]
+		prune_era_step(RawOrigin::Signed(caller), era);
 
 		Ok(())
 	}

@@ -70,6 +70,27 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::DefaultNoBound;
 
+	/// Represents the current step in the era pruning process
+	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	pub enum PruningStep {
+		/// Pruning ErasStakersPaged storage
+		ErasStakersPaged,
+		/// Pruning ErasStakersOverview storage
+		ErasStakersOverview,
+		/// Pruning ErasValidatorPrefs storage
+		ErasValidatorPrefs,
+		/// Pruning ClaimedRewards storage
+		ClaimedRewards,
+		/// Pruning ErasValidatorReward storage
+		ErasValidatorReward,
+		/// Pruning ErasRewardPoints storage
+		ErasRewardPoints,
+		/// Pruning ErasTotalStake storage
+		ErasTotalStake,
+		/// All storage items for this era have been pruned
+		Complete,
+	}
+
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(17);
 
@@ -818,6 +839,10 @@ pub mod pallet {
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
 
+	/// Tracks the current step of era pruning process for each era being lazily pruned.
+	#[pallet::storage]
+	pub type EraPruningState<T: Config> = StorageMap<_, Blake2_128Concat, EraIndex, PruningStep>;
+
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -1272,6 +1297,8 @@ pub mod pallet {
 		/// Unapplied slashes in the recently concluded era is blocking this operation.
 		/// See `Call::apply_slash` to apply them.
 		UnappliedSlashesInPreviousEra,
+		/// The era is not eligible for pruning.
+		EraNotPrunable,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1317,6 +1344,139 @@ pub mod pallet {
 			} else {
 				// No slashes found for this era
 				T::DbWeight::get().reads(1)
+			}
+		}
+
+		/// Helper to handle storage prefix clearing
+		fn handle_prefix_clearing(
+			era: EraIndex,
+			result: sp_io::MultiRemovalResults,
+			next_step: PruningStep,
+		) -> Weight {
+			let db_weight = T::DbWeight::get();
+			let items_removed = result.backend as u64;
+			let mut step_weight = db_weight.reads_writes(items_removed, items_removed);
+			if result.maybe_cursor.is_none() {
+				// All items removed, move to next step
+				EraPruningState::<T>::insert(era, next_step);
+				step_weight = step_weight.saturating_add(db_weight.writes(1));
+			}
+			step_weight
+		}
+
+		/// Helper to handle single storage item removal
+		fn handle_single_removal(
+			era: EraIndex,
+			storage_exists: bool,
+			next_step: PruningStep,
+		) -> Weight {
+			let db_weight = T::DbWeight::get();
+			let mut step_weight = Weight::zero();
+			if storage_exists {
+				step_weight = step_weight.saturating_add(db_weight.reads_writes(1, 1));
+			}
+			EraPruningState::<T>::insert(era, next_step);
+			step_weight.saturating_add(db_weight.writes(1))
+		}
+
+		/// Execute one step of era pruning and get actual weight used
+		fn do_prune_era_step(era: EraIndex) -> Result<(bool, Weight), DispatchError> {
+			let db_weight = T::DbWeight::get();
+
+			// Check if era is already fully pruned - if so, no work to do
+			// Exception: Complete state still needs to clean up pruning state and emit event
+			if EraPruningState::<T>::get(era) != Some(PruningStep::Complete) &&
+				crate::session_rotation::Eras::<T>::era_absent(era).is_ok()
+			{
+				// Era already fully pruned, just validation work
+				return Ok((false, db_weight.reads(8))); // Cost of checking pruning state + all storage types
+			}
+
+			// TODO: This should be configurable via runtime parameter in the future
+			const PRUNING_WEIGHT_PERCENTAGE: u32 = 10;
+			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
+			let max_pruning_weight = max_block_weight / PRUNING_WEIGHT_PERCENTAGE as u64;
+
+			// Get current pruning state or start pruning if not set
+			let current_step =
+				EraPruningState::<T>::get(era).unwrap_or(PruningStep::ErasStakersPaged);
+
+			// Calculate weight per item based on database operations
+			let weight_per_item = db_weight.reads_writes(1, 1);
+
+			// Calculate items limit based on available weight budget
+			let items_limit =
+				(max_pruning_weight / weight_per_item.ref_time()).try_into().unwrap_or(0); // Fallback to 0 if conversion fails
+
+			let mut weight_used = Weight::zero();
+
+			match current_step {
+				PruningStep::ErasStakersPaged => {
+					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
+					let step_weight =
+						Self::handle_prefix_clearing(era, result, PruningStep::ErasStakersOverview);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ErasStakersOverview => {
+					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
+					let step_weight =
+						Self::handle_prefix_clearing(era, result, PruningStep::ErasValidatorPrefs);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ErasValidatorPrefs => {
+					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
+					let step_weight =
+						Self::handle_prefix_clearing(era, result, PruningStep::ClaimedRewards);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ClaimedRewards => {
+					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
+					let step_weight =
+						Self::handle_prefix_clearing(era, result, PruningStep::ErasValidatorReward);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ErasValidatorReward => {
+					let storage_exists = ErasValidatorReward::<T>::contains_key(era);
+					ErasValidatorReward::<T>::remove(era);
+					let step_weight = Self::handle_single_removal(
+						era,
+						storage_exists,
+						PruningStep::ErasRewardPoints,
+					);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ErasRewardPoints => {
+					let storage_exists = ErasRewardPoints::<T>::contains_key(era);
+					ErasRewardPoints::<T>::remove(era);
+					let step_weight = Self::handle_single_removal(
+						era,
+						storage_exists,
+						PruningStep::ErasTotalStake,
+					);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::ErasTotalStake => {
+					let storage_exists = ErasTotalStake::<T>::contains_key(era);
+					ErasTotalStake::<T>::remove(era);
+					let step_weight =
+						Self::handle_single_removal(era, storage_exists, PruningStep::Complete);
+					weight_used = weight_used.saturating_add(step_weight);
+					Ok((true, weight_used))
+				},
+				PruningStep::Complete => {
+					// Era storage fully pruned, clean up pruning state and emit completion event
+					EraPruningState::<T>::remove(era);
+					weight_used = weight_used.saturating_add(db_weight.writes(1));
+					Self::deposit_event(Event::<T>::EraPruned { index: era });
+					// Return did_work = true because we're doing useful work (cleanup + event)
+					Ok((true, weight_used))
+				},
 			}
 		}
 	}
@@ -2559,6 +2719,38 @@ pub mod pallet {
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);
 
 			Ok(Pays::No.into())
+		}
+
+		/// Perform one step of era pruning to prevent DoS from unbounded deletions.
+		///
+		/// This extrinsic enables permissionless lazy pruning of era data by performing
+		/// incremental deletion of storage items. Each call processes a limited number
+		/// of items based on available block weight to avoid DoS attacks.
+		///
+		/// Returns `Pays::No` when work is performed to incentivize regular maintenance.
+		/// Anyone can call this to help maintain the chain's storage health.
+		///
+		/// The era must be eligible for pruning (older than HistoryDepth + 1).
+		#[pallet::call_index(32)]
+		#[pallet::weight(T::WeightInfo::prune_era(T::MaxValidatorSet::get()))]
+		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+
+			// Verify era is eligible for pruning
+			let current_era = Self::current_era();
+			let history_depth = T::HistoryDepth::get();
+			ensure!(era + history_depth < current_era, Error::<T>::EraNotPrunable);
+
+			let (did_work, actual_weight) = Self::do_prune_era_step(era)?;
+
+			Ok(frame_support::dispatch::PostDispatchInfo {
+				actual_weight: Some(actual_weight),
+				pays_fee: if did_work {
+					frame_support::dispatch::Pays::No
+				} else {
+					frame_support::dispatch::Pays::Yes
+				},
+			})
 		}
 	}
 }
