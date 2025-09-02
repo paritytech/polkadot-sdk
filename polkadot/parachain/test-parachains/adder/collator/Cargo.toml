@@ -37,7 +37,6 @@ polkadot-node-core-pvf = { features = ["test-utils"], workspace = true, default-
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 polkadot-test-service = { workspace = true }
 
-sc-service = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 
 tokio = { features = ["macros"], workspace = true, default-features = true }

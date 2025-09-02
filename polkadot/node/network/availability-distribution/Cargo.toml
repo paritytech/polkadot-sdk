@@ -42,8 +42,6 @@ polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 polkadot-subsystem-bench = { workspace = true }
 rstest = { workspace = true }
-sc-network = { workspace = true, default-features = true }
-sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 

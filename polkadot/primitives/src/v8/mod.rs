@@ -1351,7 +1351,7 @@ pub struct AbridgedHostConfiguration {
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
 /// used by a parachain or PDK such as cumulus.
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(PartialEq))]
+#[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct AbridgedHrmpChannel {
 	/// The maximum number of messages that can be pending in the channel at once.
 	pub max_capacity: u32,

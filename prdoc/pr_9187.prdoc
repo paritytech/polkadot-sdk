@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Staking Async: Improve slash cancellation to handle multiple slash fractions and pages"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR fixes an issue where governance could not effectively cancel deferred slashes when subsequent offence
+      reports increased the slash fraction. The solution introduces a new `CancelledSlashes` storage item that tracks
+      cancelled slashes by era and validator with their maximum slash fractions to cancel.
+      
+      Key changes:
+      - Added `CancelledSlashes` storage map to track cancelled slashes by era
+      - Updated `cancel_deferred_slash` to accept `Vec<(AccountId, Perbill)>` allowing governance to specify the slash
+      fraction to cancel for each validator
+      - Modified slash application logic to check `CancelledSlashes` before applying any slash
+      - Automatic cleanup of `CancelledSlashes` after all slashes for an era are processed
+      
+      This ensures governance can cancel slashes even when the slash fraction changes due to additional offence reports,
+      addressing a critical limitation in the previous implementation.
+
+crates:
+  - name: pallet-staking-async
+    bump: major
