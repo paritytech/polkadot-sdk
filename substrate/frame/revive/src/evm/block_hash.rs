@@ -334,7 +334,7 @@ pub struct IncrementalHashBuilder {
 /// The intermediate representation of the [`IncrementalHashBuilder`] that can be placed into the
 /// pallets storage. This contains the minimum amount of data that is needed to serialize
 /// and deserialize the incremental hash builder.
-#[derive(codec::Encode, codec::Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct IncrementalHashBuilderIR {
 	/// The nibbles of the builder.
 	pub key: Vec<u8>,
@@ -558,6 +558,7 @@ impl IncrementalHashBuilder {
 #[derive(Clone)]
 struct Bloom(AlloyBloom);
 
+const BLOOM_SIZE_BYTES: usize = 256;
 impl codec::Encode for Bloom {
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		self.0.data().encode_to(dest);
@@ -566,9 +567,16 @@ impl codec::Encode for Bloom {
 
 impl codec::Decode for Bloom {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-		const BLOOM_SIZE_BYTES: usize = 256;
 		let data = <[u8; BLOOM_SIZE_BYTES]>::decode(input)?;
 		Ok(Bloom(data.into()))
+	}
+}
+
+impl TypeInfo for Bloom {
+	type Identity = [u8; BLOOM_SIZE_BYTES];
+
+	fn type_info() -> scale_info::Type {
+		<[u8; BLOOM_SIZE_BYTES]>::type_info()
 	}
 }
 
@@ -602,6 +610,7 @@ impl codec::Decode for Bloom {
 ///
 /// On average, from the real ethereum block, this implementation reduces the memory usage by 30%.
 ///  `EncodedReceipt Space optimization (on average): 0.6995642434146292`
+#[derive(Encode, Decode, TypeInfo)]
 pub struct AccumulateReceipt {
 	/// The RLP bytes where the logs are accumulated.
 	encoding: Vec<u8>,
