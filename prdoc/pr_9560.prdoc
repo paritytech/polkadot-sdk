@@ -4,10 +4,9 @@ doc:
     description: |
       - Migrate pallet-proxy from using Currency trait to using fungible traits, addressing the balance overlap issue where proxy reserves couldn't overlap with staking holds.
       - Implements multi-block migration (`SteppedMigration`) with proxy preservation: migration failures preserve proxy relationships with zero deposits.
-        - Pure proxy accounts can become permanently inaccessible when they lose their proxy configuration but retain funds in a keyless account. The existing Balances::force_transfer functions ensures no funds become permanently locked
-        - For a regular account with proxies if the migration fails, the user retain control of their funds and can reconfigure proxies,
       - Implements also single-block migration (`OnRuntimeUpgrade`) for runtimes not supporting multi-block migrations.
       - Fix benchmarks and update weights.
+      - Update relevant runtimes to include the migration.
 crates: 
 - name: pallet-proxy
   bump: major
