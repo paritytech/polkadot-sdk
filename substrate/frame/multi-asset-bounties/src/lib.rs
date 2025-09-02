@@ -44,10 +44,10 @@
 //!
 //! ### Terminology
 //!
-//! - **Bounty:** A reward for a predefined body of work upon completion.
+//! - **Bounty:** A reward for a predefined body of work upon completion. A bounty defines the total
+//!   reward and can be subdivided into multiple child bounties. When referenced in the context of
+//!   child bounties, it is referred to as *parent bounty*.
 //! - **Curator:** An account managing the bounty and assigning a payout address.
-//! - **Parent Bounty:** A Treasury-funded bounty that defines the total reward and may be
-//!   subdivided into multiple child bounties.
 //! - **Child Bounty:** A subtask or milestone funded by a parent bounty. It may carry its own
 //!   curator, and reward similar to the parent bounty.
 //! - **Curator deposit:** The payment in native asset from a candidate willing to curate a funded
@@ -58,7 +58,7 @@
 //!
 //! ### Example
 //!
-//! 1. Fund a parent bounty approved by spend origin of some asset kind with a proposed curator.
+//! 1. Fund a bounty approved by spend origin of some asset kind with a proposed curator.
 #![doc = docify::embed!("src/tests.rs", fund_bounty_works)]
 //!
 //! 2. Award a bounty to a beneficiary.
@@ -124,13 +124,13 @@ type ChildBountyOf<T, I> = ChildBounty<
 	<T as pallet_treasury::Config<I>>::Beneficiary,
 >;
 
-/// A parent bounty funded.
+/// A funded bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bounty<AccountId, Balance, AssetBalance, AssetKind, PaymentId, Beneficiary> {
-	/// The kind of asset this parent bounty is rewarded in.
+	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
-	/// The amount that should be paid if the parent bounty is rewarded, including
-	/// beneficiary payout and child-bounty payouts.
+	/// The amount that should be paid if the bounty is rewarded, including
+	/// beneficiary payout and possible child bounties.
 	///
 	/// The asset class determined by [`asset_kind`].
 	pub value: AssetBalance,
@@ -138,11 +138,11 @@ pub struct Bounty<AccountId, Balance, AssetBalance, AssetKind, PaymentId, Benefi
 	///
 	/// The asset class determined by the [`pallet_treasury::Config::Currency`].
 	pub curator_deposit: Balance,
-	/// The status of this parent bounty.
+	/// The status of this bounty.
 	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
 }
 
-/// A child-bounty funded.
+/// A funded child-bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct ChildBounty<AccountId, Balance, AssetBalance, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
@@ -218,7 +218,7 @@ pub enum BountyStatus<AccountId, PaymentId, Beneficiary> {
 	},
 }
 
-/// The state of payments associated with each child-/bounty status.
+/// The state of a single payment.
 ///
 /// When a payment is initiated via `Paymaster::pay`, it begins in the `Pending` state. The
 /// `check_status` call updates the payment state and advances the child-/bounty status. The
@@ -277,7 +277,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
 
-		/// Minimum value for a parent bounty.
+		/// Minimum value for a bounty.
 		#[pallet::constant]
 		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
 
@@ -304,16 +304,15 @@ pub mod pallet {
 
 		/// Converts an `AssetKind` into the treasury account/location.
 		///
-		/// Used when initiating funding and refund payments to and from a parent bounty.
+		/// Used when initiating funding and refund payments to and from a bounty.
 		type TreasurySource: TryConvert<
 			Self::AssetKind,
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
 		>;
 
-		/// Converts a parent bounty index and `AssetKind` into its account/location.
+		/// Converts a bounty index and `AssetKind` into its account/location.
 		///
-		/// Used when initiating the funding, refund, and payout payments to and from a parent
-		/// bounty.
+		/// Used when initiating the funding, refund, and payout payments to and from a bounty.
 		type BountySource: TryConvert<
 			(BountyIndex, Self::AssetKind),
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
@@ -509,7 +508,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
-		/// Fund a new parent bounty with a proposed curator, initiating the payment from the
+		/// Fund a new bounty with a proposed curator, initiating the payment from the
 		/// treasury to the bounty account/location.
 		///
 		/// ## Dispatch Origin
@@ -526,7 +525,7 @@ pub mod pallet {
 		///
 		/// ### Parameters
 		/// - `asset_kind`: An indicator of the specific asset class to be funded.
-		/// - `value`: The total payment amount of this parent bounty.
+		/// - `value`: The total payment amount of this bounty.
 		/// - `curator`: Address of bounty curator.
 		/// - `description`: Description of this bounty.
 		///
@@ -716,17 +715,17 @@ pub mod pallet {
 		///
 		/// ## Dispatch Origin
 		///
-		/// Must be signed by `T::SpendOrigin` for a parent bounty, or by the parent bounty curator
+		/// Must be signed by `T::SpendOrigin` for a bounty, or by the parent bounty curator
 		/// for a child-bounty.
 		///
 		/// ## Details
 		///
 		/// - The child-/bounty must be in the `CuratorUnassigned` state.
-		/// - For a parent bounty, the `SpendOrigin` must have sufficient permissions to propose the
+		/// - For a bounty, the `SpendOrigin` must have sufficient permissions to propose the
 		///   curator.
 		///
 		/// ### Parameters
-		/// - `parent_bounty_id`: Index of parent bounty.
+		/// - `parent_bounty_id`: Index of bounty.
 		/// - `child_bounty_id`: Index of child-bounty.
 		/// - `curator`: Account to be proposed as the curator.
 		///
@@ -753,8 +752,8 @@ pub mod pallet {
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 
-			let weight = match child_bounty_id {
-				// Only `SpendOrigin` can propose curator for parent bounty
+			match child_bounty_id {
+				// Only `SpendOrigin` can propose curator for bounty
 				None => {
 					ensure!(maybe_sender.is_none(), BadOrigin);
 					let max_amount = T::SpendOrigin::ensure_origin(origin)?;
@@ -764,16 +763,12 @@ pub mod pallet {
 						)
 						.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
 					ensure!(native_amount <= max_amount, Error::<T, I>::InsufficientPermission);
-
-					<T as Config<I>>::WeightInfo::propose_curator_parent_bounty()
 				},
-				// Only `SpendOrigin` can propose curator for parent bounty
+				// Only parent curator can propose curator for child-bounty
 				Some(_) => {
 					let parent_curator = parent_curator.ok_or(Error::<T, I>::UnexpectedStatus)?;
 					let sender = maybe_sender.ok_or(BadOrigin)?;
 					ensure!(sender == parent_curator, BadOrigin);
-
-					<T as Config<I>>::WeightInfo::propose_curator_child_bounty()
 				},
 			};
 
@@ -786,7 +781,7 @@ pub mod pallet {
 				curator,
 			});
 
-			Ok(Some(weight).into())
+			Ok(())
 		}
 
 		/// Accept the curator role for a child-/bounty.
@@ -1081,7 +1076,7 @@ pub mod pallet {
 						ChildBountiesPerParent::<T, I>::get(parent_bounty_id) == 0,
 						Error::<T, I>::HasActiveChildBounty
 					);
-					// Parent bounty can be closed by `RejectOrigin` or the curator.
+					// Bounty can be closed by `RejectOrigin` or the curator.
 					if let Some(sender) = maybe_sender.as_ref() {
 						let is_curator =
 							maybe_curator.as_ref().map_or(false, |curator| curator == sender);
@@ -1416,7 +1411,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Calculate the deposit required for a curator.
+	/// Calculates the deposit required for a curator.
 	pub fn calculate_curator_deposit(
 		value: &AssetBalanceOf<T, I>,
 		asset_kind: T::AssetKind,
@@ -1446,7 +1441,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			.map_err(|_| Error::<T, I>::FailedToConvertSource.into())
 	}
 
-	/// The account/location of a parent bounty.
+	/// The account/location of a bounty.
 	pub fn bounty_account(
 		bounty_id: BountyIndex,
 		asset_kind: T::AssetKind,
@@ -1485,7 +1480,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let parent_bounty =
 			Bounties::<T, I>::get(parent_bounty_id).ok_or(Error::<T, I>::InvalidIndex)?;
 
-		// Parent curator is used by child-bounty exists, while the parent bounty is active.
+		// Ensures child-bounty uses parent curator only when parent bounty is active.
 		let parent_curator = if let BountyStatus::Active { curator } = &parent_bounty.status {
 			Some(curator.clone())
 		} else {
