@@ -315,6 +315,7 @@ pub mod benchmark_helpers {
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
@@ -331,8 +332,11 @@ pub mod benchmark_helpers {
 	}
 
 	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
-		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
-			EthereumBeaconClient::store_finalized_header(beacon_header, block_roots_root).unwrap();
+		fn initialize_storage() {
+			let message = make_register_token_message();
+			EthereumBeaconClient::store_finalized_header(message.beacon_header, message.block_roots_root).unwrap();
+
+			message
 		}
 	}
 
