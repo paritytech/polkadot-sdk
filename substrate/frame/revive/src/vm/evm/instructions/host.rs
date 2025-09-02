@@ -164,13 +164,11 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let value = context.interpreter.extend.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
-		if storage_value.len() != 32 {
-			// sload always reads a word
+		// sload always reads a word
+		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		}
-		let mut bytes = [0u8; 32];
-		bytes.copy_from_slice(&storage_value);
+			return
+		};
 		U256::from_be_bytes(bytes)
 	} else {
 		// the key was never written before
