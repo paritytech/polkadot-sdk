@@ -1708,6 +1708,7 @@ where
 		Ok(removed)
 	}
 
+	#[allow(unused)]
 	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
 		let from = self.account_id();
 		let to = T::AddressMapper::to_account_id(beneficiary);
