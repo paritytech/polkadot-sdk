@@ -77,10 +77,20 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 	let code_hash = context.interpreter.extend.code_hash(&h160);
 
+	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+	let Ok(memory_offset) = memory_offset.try_into() else {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	};
+
 	let Some(code) =
 		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.to_vec())
 	else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
+		let zeros = vec![0u8; memory_len];
+		context.interpreter.memory.set_data(memory_offset, 0, memory_len, &zeros);
 		return;
 	};
 	let Ok(code_offset) = code_offset.try_into() else {
@@ -91,18 +101,6 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
 	};
-	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	if memory_len > code.len().saturating_sub(code_offset) {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	let Ok(memory_offset) = memory_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
 	// TODO: IDK which RuntimeCost to use here
 	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
@@ -110,6 +108,15 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.interpreter
 		.memory
 		.set_data(memory_offset, code_offset, memory_len, &code);
+	// Zero remaining bytes if any
+	let available_bytes = if code_offset >= code.len() { 0 } else { code.len() - code_offset };
+	let copy_len = memory_len.min(available_bytes);
+	if memory_len > copy_len {
+		let zero_start = memory_offset + copy_len;
+		let zero_len = memory_len - copy_len;
+		let zeros = vec![0u8; zero_len];
+		context.interpreter.memory.set_data(zero_start, 0, zero_len, &zeros);
+	}
 }
 
 /// Implements the BLOCKHASH instruction.
@@ -184,7 +191,7 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		.interpreter
 		.extend
 		.gas_meter_mut()
-		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
+		.charge(RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 })
 	else {
 		context.interpreter.halt(InstructionResult::OutOfGas);
 		return;

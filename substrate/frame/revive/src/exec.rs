@@ -212,6 +212,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
+	#[allow(unused)]
 	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Returns the code hash of the contract being executed.
