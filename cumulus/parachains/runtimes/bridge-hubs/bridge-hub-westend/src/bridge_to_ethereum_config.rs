@@ -310,13 +310,13 @@ pub mod benchmark_helpers {
 	use codec::Encode;
 	use hex_literal::hex;
 	use snowbridge_beacon_primitives::BeaconHeader;
+	use snowbridge_inbound_queue_primitives::EventFixture;
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_outbound_queue_v2::BenchmarkHelper as OutboundQueueBenchmarkHelperV2;
 	use sp_core::H256;
 	use xcm::latest::{Assets, Location, SendError, SendResult, SendXcm, Xcm, XcmHash};
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
-	use snowbridge_inbound_queue_primitives::EventFixture;
 
 	impl<T: snowbridge_pallet_ethereum_client::Config> BenchmarkHelper<T> for Runtime {
 		fn initialize_storage(beacon_header: BeaconHeader, block_roots_root: H256) {
@@ -335,7 +335,11 @@ pub mod benchmark_helpers {
 	impl<T: snowbridge_pallet_inbound_queue_v2::Config> InboundQueueBenchmarkHelperV2<T> for Runtime {
 		fn initialize_storage() -> EventFixture {
 			let message = make_register_token_message();
-			EthereumBeaconClient::store_finalized_header(message.beacon_header, message.block_roots_root).unwrap();
+			EthereumBeaconClient::store_finalized_header(
+				message.beacon_header,
+				message.block_roots_root,
+			)
+			.unwrap();
 
 			message
 		}
