@@ -605,7 +605,7 @@ mod test {
 	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
 		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 
-		pub const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
+		const fn adjust_index_for_rlp(i: usize, len: usize) -> usize {
 			if i > 0x7f {
 				i
 			} else if i == 0x7f || i + 1 == len {
