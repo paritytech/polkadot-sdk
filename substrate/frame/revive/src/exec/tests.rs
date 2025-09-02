@@ -1658,7 +1658,7 @@ fn nonce() {
 				Weight::MAX,
 				U256::MAX,
 				Code::Existing(fail_code),
-				ctx.ext.minimum_balance() * 100,
+				(minimum_balance * 100).into(),
 				vec![],
 				Some(&[0; 32]),
 			)
@@ -1675,7 +1675,7 @@ fn nonce() {
 				Weight::MAX,
 				U256::MAX,
 				Code::Existing(success_code),
-				ctx.ext.minimum_balance() * 100,
+				(minimum_balance * 100).into(),
 				vec![],
 				Some(&[0; 32]),
 			)
