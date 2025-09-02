@@ -23,7 +23,7 @@ use crate::{
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
 	transient_storage::TransientStorage,
-	CodeRemoved, Config, ExecReturnValue, ImmutableData,
+	Code, CodeRemoved, Config, ExecReturnValue, ImmutableData,
 };
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -140,6 +140,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::block_author")
 	}
 
+	fn gas_limit(&self) -> u64 {
+		panic!("MockExt::gas_limit")
+	}
+
+	fn chain_id(&self) -> u64 {
+		panic!("MockExt::chain_id")
+	}
+
 	fn max_value_size(&self) -> u32 {
 		panic!("MockExt::max_value_size")
 	}
@@ -219,7 +227,7 @@ impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
 		&mut self,
 		_gas_limit: Weight,
 		_deposit_limit: U256,
-		_code: H256,
+		_code: Code,
 		_value: U256,
 		_input_data: Vec<u8>,
 		_salt: Option<&[u8; 32]>,

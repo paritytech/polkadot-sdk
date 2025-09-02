@@ -50,9 +50,7 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, Executable, Stack as ExecStack},
 	gas::GasMeter,
-	storage::{
-		meter::Meter as StorageMeter, AccountInfo, AccountType, ContractInfo, DeletionQueueManager,
-	},
+	storage::{meter::Meter as StorageMeter, AccountType, DeletionQueueManager},
 	tracing::if_tracing,
 	vm::{pvm::extract_code_and_data, CodeInfo, ContractBlob, RuntimeCosts},
 };
@@ -91,7 +89,7 @@ pub use crate::{
 	},
 	exec::{Key, MomentOf, Origin},
 	pallet::{genesis, *},
-	vm::U256Converter,
+	storage::{AccountInfo, ContractInfo},
 };
 pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, weights::Weight};
@@ -571,8 +569,11 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		/// List of native Substrate accounts (typically `AccountId32`) to be mapped at genesis
 		/// block, enabling them to interact with smart contracts.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub mapped_accounts: Vec<T::AccountId>,
+
 		/// Account entries (both EOAs and contracts)
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
 		pub accounts: Vec<genesis::Account<T>>,
 	}
 
