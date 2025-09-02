@@ -7,6 +7,7 @@ doc:
       - Implements also single-block migration (`OnRuntimeUpgrade`) for runtimes not supporting multi-block migrations.
       - Fix benchmarks and update weights.
       - Update relevant runtimes to include the migration.
+      - Re-enable checks in CI for runtime migration verification (disabled in PR #8547 due to Westend state issues)
 crates: 
 - name: pallet-proxy
   bump: major
