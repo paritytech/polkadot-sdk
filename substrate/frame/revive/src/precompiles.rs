@@ -107,6 +107,7 @@ pub enum AddressMatcher {
 pub(crate) enum BuiltinAddressMatcher {
 	Fixed(NonZero<u32>),
 	Prefix(NonZero<u32>),
+	Custom([u8; 20]),
 }
 
 /// A pre-compile can error in the same way that a real contract can.
@@ -299,8 +300,9 @@ impl<E> Instance<E> {
 		let result = (self.function)(&self.address, input, env);
 		match result {
 			Ok(data) => Ok(ExecReturnValue { flags: ReturnFlags::empty(), data }),
-			Err(Error::Revert(msg)) =>
-				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() }),
+			Err(Error::Revert(msg)) => {
+				Ok(ExecReturnValue { flags: ReturnFlags::REVERT, data: msg.abi_encode() })
+			},
 			Err(Error::Panic(kind)) => Ok(ExecReturnValue {
 				flags: ReturnFlags::REVERT,
 				data: Panic::from(kind).abi_encode(),
@@ -502,20 +504,25 @@ impl AddressMatcher {
 
 impl BuiltinAddressMatcher {
 	pub const fn base_address(&self) -> [u8; 20] {
-		let suffix = self.suffix().to_be_bytes();
-		let mut address = [0u8; 20];
-		let mut i = 16;
-		while i < address.len() {
-			address[i] = suffix[i - 16];
-			i = i + 1;
+		match self {
+			Self::Custom(addr) => *addr,
+			_ => {
+				let suffix = self.suffix().to_be_bytes();
+				let mut address = [0u8; 20];
+				let mut i = 16;
+				while i < address.len() {
+					address[i] = suffix[i - 16];
+					i = i + 1;
+				}
+				address
+			},
 		}
-		address
 	}
 
 	pub const fn highest_address(&self) -> [u8; 20] {
 		let mut address = self.base_address();
 		match self {
-			Self::Fixed(_) => (),
+			Self::Fixed(_) | Self::Custom(_) => (),
 			Self::Prefix(_) => {
 				address[0] = 0xFF;
 				address[1] = 0xFF;
@@ -529,12 +536,12 @@ impl BuiltinAddressMatcher {
 	pub const fn matches(&self, address: &[u8; 20]) -> bool {
 		let base_address = self.base_address();
 		let mut i = match self {
-			Self::Fixed(_) => 0,
+			Self::Fixed(_) | Self::Custom(_) => 0,
 			Self::Prefix(_) => 4,
 		};
 		while i < base_address.len() {
 			if address[i] != base_address[i] {
-				return false
+				return false;
 			}
 			i = i + 1;
 		}
@@ -545,6 +552,7 @@ impl BuiltinAddressMatcher {
 		match self {
 			Self::Fixed(i) => i.get(),
 			Self::Prefix(i) => i.get(),
+			Self::Custom(_) => 0,
 		}
 	}
 
@@ -555,7 +563,25 @@ impl BuiltinAddressMatcher {
 			let mut j = i + 1;
 			while j < len {
 				if nums[i].suffix() == nums[j].suffix() {
-					return true;
+					let duplicate = match (&nums[i], &nums[j]) {
+						(Self::Custom(a), Self::Custom(b)) => {
+							let mut k = 0;
+							let mut same = true;
+							while k < 20 {
+								if a[k] != b[k] {
+									same = false;
+									break;
+								}
+								k += 1;
+							}
+							same
+						},
+						(Self::Custom(_), _) | (_, Self::Custom(_)) => false,
+						_ => nums[i].suffix() == nums[j].suffix(),
+					};
+					if duplicate {
+						return true;
+					}
 				}
 				j += 1;
 			}
@@ -565,7 +591,7 @@ impl BuiltinAddressMatcher {
 	}
 
 	const fn is_fixed(&self) -> bool {
-		matches!(self, Self::Fixed(_))
+		matches!(self, Self::Fixed(_) | Self::Custom(_))
 	}
 }
 
