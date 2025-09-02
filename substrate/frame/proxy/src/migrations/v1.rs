@@ -213,7 +213,6 @@ enum AccountMigrationResult<T: Config> {
 	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
 
-/// Migration from reserves to holds with graceful degradation.
 pub struct MigrateReservesToHolds<T, OldCurrency>(PhantomData<(T, OldCurrency)>);
 
 impl<T, OldCurrency> MigrateReservesToHolds<T, OldCurrency>
@@ -226,24 +225,16 @@ where
 	/// Weight required per account migration.
 	fn weight_per_account() -> Weight {
 		// Operations per account:
-		// - Read storage item (proxies or announcements)
-		// - Read reserved balance from old currency system
-		// - Unreserve from old system (balance update)
-		// - Try hold (balance + holds update)  or remove storage on failure (graceful degradation)
-		T::DbWeight::get().reads_writes(3, 3)
+		// - Read storage item (proxies or announcements) - 1 read
+		// - Read reserved balance from old currency system - 1 read
+		// - Read account data for hold operation - 1 read
+		// - Read holds storage for validation - 1 read
+		// - Read system account for existential deposit checks - 1 read
+		// - Unreserve from old system (account update) - 1 write
+		// - Hold in new system OR mutate deposit to zero - 1-2 writes
+		// - Update storage deposit field - 1 write
+		T::DbWeight::get().reads_writes(5, 4)
 	}
-
-	/// NOTE: Pure proxy detection is not implemented during migration.
-	///
-	/// **Why we can't detect pure proxies reliably:**
-	/// During migration, we only have access to:
-	/// - Account X being migrated (with its proxy deposits)
-	/// - Who X delegates to (X's proxy list)
-	///
-	/// We do NOT have:
-	/// - Who delegates to X (requires scanning all proxy relationships)
-	/// - Whether X is a pure proxy or regular account (no storage marker)
-	/// - Who spawned X as pure proxy (spawner info not stored)
 
 	/// Migrate a single proxy account with proxy preservation on failure.
 	/// Preserves proxy relationships even when hold creation fails.
