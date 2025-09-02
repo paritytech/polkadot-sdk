@@ -1425,7 +1425,8 @@ where
 	/// Set the EVM balance of an account.
 	///
 	/// The account's total balance becomes the EVM value plus the existential deposit,
-	/// consistent with `evm_balance` which returns the spendable balance excluding the existential deposit.
+	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
+	/// deposit.
 	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
 		let ed = T::Currency::minimum_balance();
 		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
