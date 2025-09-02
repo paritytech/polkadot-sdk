@@ -131,7 +131,8 @@ fn send_roc_from_asset_hub_rococo_to_asset_hub_westend() {
 		let destination = asset_hub_westend_location();
 		let assets: Assets = (roc_at_asset_hub_rococo.clone(), amount).into();
 		let fee_idx = 0;
-		assert_ok!(send_assets_from_asset_hub_rococo(destination, assets, fee_idx));
+		let transfer_type = TransferType::LocalReserve;
+		assert_ok!(send_assets_from_asset_hub_rococo(destination, assets, fee_idx, transfer_type));
 	});
 
 	// verify expected events on final destination
@@ -210,7 +211,8 @@ fn send_back_wnds_usdt_and_weth_from_asset_hub_rococo_to_asset_hub_westend() {
 		let destination = asset_hub_westend_location();
 		let assets: Assets = (wnd_at_asset_hub_rococo.clone(), amount_to_send).into();
 		let fee_idx = 0;
-		assert_ok!(send_assets_from_asset_hub_rococo(destination, assets, fee_idx));
+		let transfer_type = TransferType::DestinationReserve;
+		assert_ok!(send_assets_from_asset_hub_rococo(destination, assets, fee_idx, transfer_type));
 	});
 
 	AssetHubWestend::execute_with(|| {
