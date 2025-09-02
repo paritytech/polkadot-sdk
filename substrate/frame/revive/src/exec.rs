@@ -29,7 +29,7 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
 	Pallet as Contracts, RuntimeCosts, LOG_TARGET,
 };
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData, mem};
 use frame_support::{
 	crypto::ecdsa::ECDSAExt,
