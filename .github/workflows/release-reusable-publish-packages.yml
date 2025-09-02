@@ -191,15 +191,6 @@ jobs:
             fi
             echo "Found DEB package: $debname"
 
-            # Debug: List S3 bucket contents
-            echo "=== S3 Bucket Structure ==="
-            aws s3 ls "${AWS_REPO_PATH}/" || echo "Failed to list root"
-            echo "=== S3 Pool Directory ==="
-            aws s3 ls "${AWS_REPO_PATH}/pool/" || echo "Failed to list pool"
-            echo "=== S3 Recursive Search for .deb files ==="
-            aws s3 ls --recursive "${AWS_REPO_PATH}" | grep ".deb" || echo "No .deb files found"
-
-
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
