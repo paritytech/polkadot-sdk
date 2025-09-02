@@ -1054,7 +1054,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
 			child_bounty_id: Option<BountyIndex>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let maybe_sender = ensure_signed(origin.clone())
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
@@ -1069,7 +1069,7 @@ pub mod pallet {
 				_ => return Err(Error::<T, I>::UnexpectedStatus.into()),
 			};
 
-			let weight = match child_bounty_id {
+			match child_bounty_id {
 				None => {
 					// Parent bounty can only be closed if it has no active child bounties.
 					ensure!(
@@ -1082,8 +1082,6 @@ pub mod pallet {
 							maybe_curator.as_ref().map_or(false, |curator| curator == sender);
 						ensure!(is_curator, BadOrigin);
 					}
-
-					<T as Config<I>>::WeightInfo::close_parent_bounty()
 				},
 				Some(_) => {
 					// Child-bounty can be closed by `RejectOrigin`, the curator or parent curator.
@@ -1095,8 +1093,6 @@ pub mod pallet {
 							.map_or(false, |parent_curator| parent_curator == sender);
 						ensure!(is_curator || is_parent_curator, BadOrigin);
 					}
-
-					<T as Config<I>>::WeightInfo::close_child_bounty()
 				},
 			};
 
@@ -1119,7 +1115,7 @@ pub mod pallet {
 				child_index: child_bounty_id,
 			});
 
-			Ok(Some(weight).into())
+			Ok(())
 		}
 
 		/// Check and update the payment status of a child-/bounty.
@@ -1176,7 +1172,9 @@ pub mod pallet {
 								BountyStatus::Active { curator },
 							_ => BountyStatus::Funded { curator },
 						},
-						_ => BountyStatus::FundingAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::FundingAttempted {
 							payment_status: new_payment_status,
 							curator,
 						},
@@ -1213,7 +1211,9 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
 							return Ok(Pays::No.into())
 						},
-						_ => BountyStatus::RefundAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::RefundAttempted {
 							payment_status: new_payment_status,
 							curator: curator.clone(),
 						},
@@ -1244,7 +1244,9 @@ pub mod pallet {
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
 							return Ok(Pays::No.into())
 						},
-						_ => BountyStatus::PayoutAttempted {
+						PaymentState::Pending |
+						PaymentState::Failed |
+						PaymentState::Attempted { .. } => BountyStatus::PayoutAttempted {
 							curator: curator.clone(),
 							beneficiary: beneficiary.clone(),
 							payment_status: new_payment_status.clone(),
