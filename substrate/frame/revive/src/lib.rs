@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthereumBlockBuilderIR, EventLog, ReceiptGasInfo},
+		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR, EventLog, ReceiptGasInfo},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
 		TransactionSigned, TYPE_EIP1559,
@@ -130,13 +130,9 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
-	use crate::{
-		evm::block_hash::{AccumulateReceipt, EthereumBlockBuilder},
-		EventLog, H160, H256,
-	};
+	use crate::{evm::block_hash::AccumulateReceipt, EventLog, H160, H256};
 	use alloc::vec::Vec;
 	use alloy_core::primitives::Bloom;
-	use core::cell::{RefCell, RefMut};
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -166,31 +162,6 @@ pub(crate) mod eth_block_storage {
 	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 		receipt::using(&mut AccumulateReceipt::new(), f)
 	}
-
-	/// A safe global value in the WASM environment.
-	pub struct SafeGlobal<T> {
-		inner: RefCell<T>,
-	}
-
-	// This is safe as long there is no threads in wasm32.
-	unsafe impl<T> ::core::marker::Sync for SafeGlobal<T> {}
-
-	impl<T> SafeGlobal<T> {
-		/// Construct a new [`SafeGlobal`].
-		pub const fn new(value: T) -> Self {
-			Self { inner: RefCell::new(value) }
-		}
-
-		/// Mutably borrows the wrapped value.
-		pub fn borrow_mut(&self) -> RefMut<'_, T> {
-			self.inner.borrow_mut()
-		}
-	}
-
-	/// The incremental block builder that builds the trie root hashes
-	/// on the go with optimal storage.
-	pub static INCREMENTAL_BUILDER: SafeGlobal<EthereumBlockBuilder> =
-		SafeGlobal::new(EthereumBlockBuilder::new());
 }
 
 #[frame_support::pallet]
@@ -636,7 +607,7 @@ pub mod pallet {
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthereumBlockBuilder<T: Config> =
+	pub(crate) type EthBlockBuilderIR<T: Config> =
 		StorageValue<_, EthereumBlockBuilderIR, ValueQuery>;
 
 	#[pallet::genesis_config]
@@ -678,9 +649,6 @@ pub mod pallet {
 			ReceiptInfoData::<T>::kill();
 			EthereumBlock::<T>::kill();
 
-			// Reset the block builder for the next block.
-			eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().reset();
-
 			Weight::zero()
 		}
 
@@ -700,8 +668,10 @@ pub mod pallet {
 			};
 			let gas_limit = Self::evm_block_gas_limit();
 
-			let (block_hash, block, receipt_data) = eth_block_storage::INCREMENTAL_BUILDER
-				.borrow_mut()
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			EthBlockBuilderIR::<T>::kill();
+
+			let (block_hash, block, receipt_data) = EthereumBlockBuilder::from_ir(block_builder_ir)
 				.build(eth_block_num, parent_hash, T::Time::now().into(), block_author, gas_limit);
 
 			// Put the block hash into storage.
@@ -1831,13 +1801,18 @@ impl<T: Config> Pallet<T> {
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
 		if let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() {
-			eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().process_transaction(
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
 				transaction_encoded,
 				success,
 				gas_used,
 				encoded_logs,
 				bloom,
 			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 		}
 	}
 
