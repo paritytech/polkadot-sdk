@@ -16,7 +16,6 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
 	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
 	gas::GasMeter,
