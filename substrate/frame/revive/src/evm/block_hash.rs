@@ -126,7 +126,7 @@ impl Block {
 /// rlp(1) < rlp(2) < ... < rlp(127) < RLP (0) < rlp(128) < ... < rlp(n)
 /// ```
 /// For more details see:
-/// https://github.com/alloy-rs/trie/blob/3e762bcb65f25710c309e7d8cb6c9ed7e3fdada1/src/root.rs#L7-L16
+/// <https://github.com/alloy-rs/trie/blob/3e762bcb65f25710c309e7d8cb6c9ed7e3fdada1/src/root.rs#L7-L16>
 ///
 /// This property allows the builder to add items in the order of indices 1, 2, ..., 127, followed
 /// by index 0, and then index 128 onward. In this implementation, the focus is on placing the first
