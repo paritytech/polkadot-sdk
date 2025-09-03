@@ -289,6 +289,9 @@ impl IncrementalHashBuilder {
 
 	/// Add a new value to the hash builder.
 	pub fn add_value(&mut self, value: Vec<u8>) {
+		let rlp_index = alloy_rlp::encode_fixed_size(&self.index);
+		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
+
 		if self.index == 0x7f {
 			// Pushing the previous item since we are expecting the index
 			// to be index + 1 in the sorted order.
@@ -298,9 +301,6 @@ impl IncrementalHashBuilder {
 				self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &encoded_value);
 			}
 		}
-
-		let rlp_index = alloy_rlp::encode_fixed_size(&self.index);
-		self.hash_builder.add_leaf(Nibbles::unpack(&rlp_index), &value);
 
 		self.index += 1;
 	}
