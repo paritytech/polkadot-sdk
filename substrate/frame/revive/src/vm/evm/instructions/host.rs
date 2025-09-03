@@ -25,12 +25,10 @@ use crate::{
 };
 use revm::{
 	interpreter::{
-		gas::{self},
-		host::Host,
-		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
+		interpreter_types::{RuntimeFlag, StackTr},
 		InstructionResult,
 	},
-	primitives::{Bytes, Log, LogData, B256, U256},
+	primitives::{Bytes, U256},
 };
 
 /// Implements the BALANCE instruction.
@@ -223,10 +221,14 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Appends log record with N topics.
 pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 	require_non_staticcall!(context.interpreter);
-
 	popn!([offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
-	gas_or_fail_legacy!(context.interpreter, gas::log_cost(N as u8, len as u64));
+	if len as u32 > context.interpreter.extend.max_value_size() {
+		context.interpreter.halt(revm::interpreter::InstructionResult::InvalidFEOpcode);
+		return;
+	}
+
+	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
 	let data = if len == 0 {
 		Bytes::new()
 	} else {
@@ -243,13 +245,9 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let log = Log {
-		address: context.interpreter.input.target_address(),
-		data: LogData::new(topics.into_iter().map(B256::from).collect(), data)
-			.expect("LogData should have <=4 topics"),
-	};
+	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_be_bytes())).collect();
 
-	context.host.log(log);
+	context.interpreter.extend.deposit_event(topics, data.to_vec());
 }
 
 /// Implements the SELFDESTRUCT instruction.
