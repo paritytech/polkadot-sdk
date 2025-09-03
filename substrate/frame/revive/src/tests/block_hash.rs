@@ -18,11 +18,11 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::block_hash::EventLog,
+	evm::{block_hash::EventLog, Block},
 	test_utils::{builder::Contract, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, Pallet, ReceiptGasInfo,
-	ReceiptInfoData,
+	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
+	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -76,30 +76,28 @@ fn transactions_are_captured() {
 		// Instantiate with code is not captured.
 		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
 
-		// assert_eq!(eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().tx_hashes.len(), 2);
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		// Only 2 transactions were captured.
+		assert_eq!(block_builder.gas_info.len(), 2);
 
-		// let transactions = InflightEthTransactions::<Test>::get();
-		// let expected = vec![
-		// 	TransactionDetails {
-		// 		transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
-		// 			.signed_payload(),
-		// 		logs: vec![],
-		// 		success: true,
-		// 		gas_used: Weight::zero(),
-		// 	},
-		// 	TransactionDetails {
-		// 		transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
-		// 			.signed_payload(),
-		// 		logs: vec![],
-		// 		success: true,
-		// 		gas_used: Weight::zero(),
-		// 	},
-		// ];
-		// assert_eq!(transactions, expected);
+		let expected_payloads = vec![
+			// Signed payload of eth_call.
+			TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+			// Signed payload of eth_instantiate_with_code.
+			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
+		];
+		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
+
+		// Double check the trie root hash.
+		let builder = EthereumBlockBuilder::from_ir(block_builder);
+		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
 
-		// assert_eq!(eth_block_storage::INCREMENTAL_BUILDER.borrow_mut().tx_hashes.len(), 0);
+		// Builder is killed on finalize.
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		assert_eq!(block_builder.gas_info.len(), 0);
 	});
 }
 

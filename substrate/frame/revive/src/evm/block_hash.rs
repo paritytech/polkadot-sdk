@@ -422,7 +422,7 @@ pub struct EthereumBlockBuilderIR {
 	pub(crate) tx_hashes: Vec<H256>,
 
 	logs_bloom: [u8; BLOOM_SIZE_BYTES],
-	gas_info: Vec<ReceiptGasInfo>,
+	pub(crate) gas_info: Vec<ReceiptGasInfo>,
 }
 
 impl Default for EthereumBlockBuilderIR {
@@ -440,7 +440,7 @@ impl Default for EthereumBlockBuilderIR {
 
 /// Ethereum block builder.
 pub struct EthereumBlockBuilder {
-	transaction_root_builder: Option<IncrementalHashBuilder>,
+	pub(crate) transaction_root_builder: Option<IncrementalHashBuilder>,
 	receipts_root_builder: Option<IncrementalHashBuilder>,
 
 	gas_used: U256,
