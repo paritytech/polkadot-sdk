@@ -370,7 +370,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 
 		// Process each pruning step in the exact order defined by the implementation
 		// Each step should clean its specific storage and transition to the next step
-		[
+		// Calculate weight limits for verification
+		// TODO: remove the hard-coded value!!!
+		let expected_max_pruning_weight: u64 = 1_000_000_000; // 1 billion ref_time units
+
+		// Process each pruning step, potentially with multiple calls due to weight limits
+		let steps_order = [
 			ErasStakersPaged,
 			ErasStakersOverview,
 			ErasValidatorPrefs,
@@ -378,67 +383,91 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ErasValidatorReward,
 			ErasRewardPoints,
 			ErasTotalStake,
-		]
-		.iter()
-		.for_each(|expected_step| {
-			// For the first step, the state starts as None and defaults to ErasStakersPaged
-			let current_state = EraPruningState::<T>::get(1).unwrap_or(ErasStakersPaged);
-			assert_eq!(
-				current_state, *expected_step,
-				"Expected to be in step {:?} but was in {:?}",
-				expected_step, current_state
-			);
+		];
 
-			// Execute the pruning step and verify fee payment logic
-			let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
-			assert_ok!(&result);
-			let post_info = result.unwrap();
+		for expected_step in steps_order.iter() {
+			// May need multiple calls for steps with lots of data due to weight limits
+			loop {
+				let current_state = EraPruningState::<T>::get(1).unwrap_or(ErasStakersPaged);
+				assert_eq!(
+					current_state, *expected_step,
+					"Expected to be in step {:?} but was in {:?}",
+					expected_step, current_state
+				);
 
-			// When work is actually done (pruning storage), should return Pays::No
-			assert_eq!(
-				post_info.pays_fee,
-				frame_support::dispatch::Pays::No,
-				"Should return Pays::No when work is done for step {:?}",
-				expected_step
-			);
+				let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+				assert_ok!(&result);
+				let post_info = result.unwrap();
 
-			// Verify the specific storage is cleaned after this step
+				// When work is actually done (pruning storage), should return Pays::No
+				assert_eq!(
+					post_info.pays_fee,
+					frame_support::dispatch::Pays::No,
+					"Should return Pays::No when work is done for step {:?}",
+					expected_step
+				);
+
+				// Verify weight tracking and limits
+				assert!(
+					post_info.actual_weight.is_some(),
+					"Should report actual weight for {:?}",
+					expected_step
+				);
+				let actual_weight = post_info.actual_weight.unwrap().ref_time();
+				assert!(actual_weight > 0, "Should report non-zero weight for {:?}", expected_step);
+				assert!(
+					actual_weight <= expected_max_pruning_weight,
+					"Weight {} should not exceed limit {} for step {:?}",
+					actual_weight,
+					expected_max_pruning_weight,
+					expected_step
+				);
+
+				// Check if we've moved to the next step (step completed)
+				let new_state = EraPruningState::<T>::get(1).unwrap_or(ErasStakersPaged);
+				if new_state != current_state {
+					break; // Step completed, move to next
+				}
+				// Otherwise continue with same step (partial completion due to weight limits)
+			}
+
+			// Verify the specific storage is cleaned after completing this step
 			match expected_step {
 				ErasStakersPaged => assert_eq!(
 					crate::ErasStakersPaged::<T>::iter_prefix_values((1,)).count(),
 					0,
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ErasStakersOverview => assert_eq!(
 					crate::ErasStakersOverview::<T>::iter_prefix_values(1).count(),
 					0,
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ErasValidatorPrefs => assert_eq!(
 					crate::ErasValidatorPrefs::<T>::iter_prefix_values(1).count(),
 					0,
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ClaimedRewards => assert_eq!(
 					crate::ClaimedRewards::<T>::iter_prefix_values(1).count(),
 					0,
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ErasValidatorReward => assert!(
 					!crate::ErasValidatorReward::<T>::contains_key(1),
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ErasRewardPoints => assert!(
 					!crate::ErasRewardPoints::<T>::contains_key(1),
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				ErasTotalStake => assert!(
 					!crate::ErasTotalStake::<T>::contains_key(1),
-					"{expected_step:?} should be empty after step"
+					"{expected_step:?} should be empty after completing step"
 				),
 				Complete => unreachable!("Complete should not be in the processing list"),
 			}
-		});
+		}
 
 		// Should now be in Complete state
 		assert_eq!(EraPruningState::<T>::get(1), Some(Complete), "Should be in Complete state");
