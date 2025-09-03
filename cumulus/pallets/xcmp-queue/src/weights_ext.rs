@@ -63,7 +63,7 @@ pub trait WeightInfoExt: WeightInfo {
 		let pos_overhead = {
 			Self::enqueue_empty_xcmp_message_at(first_page_pos)
 				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0))
-				.set_proof_size(first_page_pos as u64)
+				.saturating_add(Weight::from_parts(0, first_page_pos as u64))
 		};
 
 		pages_overhead
