@@ -467,6 +467,7 @@ where
 			now + time::Duration::from_micros(self.soft_deadline_percent.mul_floor(left_micros));
 		let mut skipped = 0;
 		let mut unqueue_invalid = TxInvalidityReportMap::new();
+		let mut limit_hit_reason: Option<EndProposingReason> = None;
 
 		let delay = deadline.saturating_duration_since((self.now)()) / 8;
 		let mut pending_iterator =
@@ -486,7 +487,7 @@ where
 					"No more transactions, proceeding with proposing."
 				);
 
-				break EndProposingReason::NoMoreTransactions
+				break limit_hit_reason.unwrap_or(EndProposingReason::NoMoreTransactions)
 			};
 
 			let now = (self.now)();
@@ -496,7 +497,7 @@ where
 					"Consensus deadline reached when pushing block transactions, \
 				proceeding with proposing."
 				);
-				break EndProposingReason::HitDeadline
+				break limit_hit_reason.unwrap_or(EndProposingReason::HitDeadline)
 			}
 
 			let pending_tx_data = (**pending_tx.data()).clone();
@@ -506,6 +507,7 @@ where
 				block_builder.estimate_block_size(self.include_proof_in_block_size_estimation);
 			if block_size + pending_tx_data.encoded_size() > block_size_limit {
 				pending_iterator.report_invalid(&pending_tx);
+				limit_hit_reason = Some(EndProposingReason::HitBlockSizeLimit);
 				if skipped < MAX_SKIPPED_TRANSACTIONS {
 					skipped += 1;
 					debug!(
@@ -536,10 +538,12 @@ where
 			match sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				Ok(()) => {
 					transaction_pushed = true;
+					limit_hit_reason = None;
 					trace!(target: LOG_TARGET, "[{:?}] Pushed to the block.", pending_tx_hash);
 				},
 				Err(ApplyExtrinsicFailed(Validity(e))) if e.exhausted_resources() => {
 					pending_iterator.report_invalid(&pending_tx);
+					limit_hit_reason = Some(EndProposingReason::HitBlockWeightLimit);
 					if skipped < MAX_SKIPPED_TRANSACTIONS {
 						skipped += 1;
 						debug!(target: LOG_TARGET,
