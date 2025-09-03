@@ -4477,6 +4477,7 @@ dependencies = [
  "polkadot-node-subsystem",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-test-client",
  "rstest",
  "sc-client-api",
@@ -16015,8 +16016,11 @@ dependencies = [
 name = "polkadot-primitives-test-helpers"
 version = "1.0.0"
 dependencies = [
+ "bitvec",
+ "parity-scale-codec",
  "polkadot-primitives",
  "rand 0.8.5",
+ "scale-info",
  "sp-application-crypto",
  "sp-core 28.0.0",
  "sp-keyring",
@@ -16417,6 +16421,7 @@ dependencies = [
  "polkadot-overseer",
  "polkadot-parachain-primitives",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-rpc",
  "polkadot-runtime-common",
  "polkadot-runtime-metrics",
