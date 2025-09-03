@@ -14,13 +14,13 @@ use tokio::{
 use zombienet_sdk::subxt::{
 	self,
 	blocks::Block,
-	config::{signed_extensions::CheckMortalityParams, substrate::DigestItem, ExtrinsicParams},
+	config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
-	Config, OnlineClient, PolkadotConfig,
+	OnlineClient, PolkadotConfig,
 };
 
 // Maximum number of blocks to wait for a session change.
@@ -303,11 +303,7 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<(), anyhow::Error> {
-	let mut extensions: <<PolkadotConfig as Config>::ExtrinsicParams as ExtrinsicParams<
-		PolkadotConfig,
-	>>::Params = Default::default();
-
-	extensions.4 = CheckMortalityParams::<PolkadotConfig>::immortal();
+	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
 
 	let mut tx = client
 		.tx()
