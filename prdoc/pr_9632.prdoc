@@ -1,0 +1,28 @@
+title: 'staking-async: implement lazy era pruning extrinsic'
+doc:
+- audience: Runtime User
+  description: |-
+    Move era pruning from automatic unbounded deletions to a permissionless lazy pruning system.
+
+    Fix https://github.com/paritytech-secops/srlabs_findings/issues/528.
+
+
+    ## Changes:
+    - Add prune_era_step extrinsic for permissionless era maintenance
+    - Add PruningStep enum and EraPruningState storage for tracking progress
+    - Implement do_prune_era_step() with weight-based deletion limits
+    - Remove automatic pruning to prevent DoS from unbounded operations
+    - Use 10% of block weight budget for safe incremental deletions
+    - Return Pays::No when work is done to incentivize regular maintenance
+    - Add EraNotPrunable error for proper validation
+    - Update benchmarking to test new extrinsic-based approach
+    - Update tests to account for manual pruning instead of automatic cleanup
+
+    The new system processes era pruning across multiple blocks using a state machine pattern, ensuring storage operations remain bounded and preventing potential DoS attacks from large era cleanup operations.
+
+    ## TODO
+
+    - [ ] More tests
+crates:
+- name: pallet-staking-async
+  bump: major
