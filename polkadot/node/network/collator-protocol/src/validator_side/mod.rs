@@ -15,17 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::{
-	channel::{mpsc, oneshot},
-	future::BoxFuture,
-	select,
-	stream::FuturesUnordered,
-	FutureExt, StreamExt,
+	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	future::Future,
-	time::{Duration, Instant, SystemTime},
+	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -372,8 +368,6 @@ struct PerRelayParent {
 
 /// Information about a held off advertisement
 struct HeldOffAdvertisement {
-	/// Timespamp when the advertisement was received.
-	received_at: SystemTime,
 	/// The relay parent it's based on.
 	relay_parent: Hash,
 	/// The peer id of the collator that has sent the advertisement.
@@ -446,9 +440,15 @@ struct State {
 	/// List of invulnerable AssetHub collators. They are handled with a priority.
 	ah_invulnerables: HashSet<PeerId>,
 
-	// AssetHub advertisements which were held off because they are not from invulnerable
-	// collators.
+	/// AssetHub advertisements which were held off because they are not from invulnerable
+	/// collators.
 	ah_held_off_collations: VecDeque<HeldOffAdvertisement>,
+
+	/// Timers for held off advertisements
+	held_off_timers: FuturesUnordered<BoxFuture<'static, ()>>,
+
+	/// For how long to hold off AssetHub collations from non-invulnerable collators
+	hold_off_duration: Duration,
 }
 
 impl State {
@@ -988,14 +988,18 @@ fn hold_off_asset_hub_collation_if_needed(
 	// If we don't know the peer we should reject the advertisement but to avoid verbosity and
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
 	let maybe_para_id = state.peer_data.get(&peer_id).and_then(|pd| pd.collating_para());
+	let hold_off_duration = state.hold_off_duration;
 	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&peer_id) {
 		state.ah_held_off_collations.push_back(HeldOffAdvertisement {
-			received_at: SystemTime::now(),
 			relay_parent,
 			peer_id,
 			collator_id: collator_id.clone(),
 			prospective_candidate,
 		});
+		state.held_off_timers.push(Box::pin(async move {
+			Delay::new(hold_off_duration).await;
+		}));
+
 		gum::debug!(
 			target: LOG_TARGET,
 			?peer_id,
@@ -1794,33 +1798,8 @@ async fn run_inner<Context>(
 	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	// A ticker which checks if any of the held off AssetHub advertisements should be processed.
-	let (mut ah_held_off_ticker_tx, mut ah_held_off_ticker_rx) = mpsc::channel::<()>(1);
-	let (ah_held_off_ticker_shutdown_tx, mut ah_held_off_ticker_shutdown_rx) = oneshot::channel();
-	ctx.spawn(
-		"ah-held-off-ticker",
-		Box::pin(async move {
-			loop {
-				select! {
-					_ = ah_held_off_ticker_shutdown_rx => {
-						gum::trace!(target: LOG_TARGET, "AssetHub held off ticker shutdown");
-						return;
-					},
-					_ = futures_timer::Delay::new(hold_off_duration / 3).fuse() => {
-						if let Err(err) = ah_held_off_ticker_tx.try_send(()) {
-							gum::warn!(
-								target: LOG_TARGET,
-								?err,
-								"Failed to send a tick for held off AssetHub advertisements",
-							);
-						}
-					}
-				}
-			}
-		}),
-	)?;
-
-	let mut state = State { metrics, reputation, ah_invulnerables, ..Default::default() };
+	let mut state =
+		State { metrics, reputation, ah_invulnerables, hold_off_duration, ..Default::default() };
 
 	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);
@@ -1854,7 +1833,6 @@ async fn run_inner<Context>(
 						).await;
 					}
 					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
-						let _ = ah_held_off_ticker_shutdown_tx.send(());
 						break
 					},
 					Ok(FromOrchestra::Signal(_)) => continue,
@@ -1952,59 +1930,42 @@ async fn run_inner<Context>(
 				)
 				.await;
 			},
-			_ = ah_held_off_ticker_rx.select_next_some() => {
-				let now = SystemTime::now();
+			_ = state.held_off_timers.select_next_some() => {
+				let Some(HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate}) =  state.ah_held_off_collations.pop_front() else {
+					gum::warn!(target: LOG_TARGET, "Held off timer fired but no held off advertisements");
+					continue
+				};
 
-				loop {
-					let should_process = state.ah_held_off_collations.get(0).map(|c| {
-						let was_held_off_for =  now.duration_since(c.received_at).unwrap_or_else(|_| {
-							gum::warn!(
-								target: LOG_TARGET,
-								"SystemTime went backwards, this should not happen, but we will continue processing",
-							);
-							// In case of an error better make sure the request is processed.
-							hold_off_duration * 2
-						});
+				gum::debug!(
+					target: LOG_TARGET,
+					?relay_parent,
+					?peer_id,
+					?prospective_candidate,
+					"Processing held off advertisement for AssetHub",
+				);
 
-						was_held_off_for > hold_off_duration
-					}).unwrap_or(false);
-
-					if !should_process {
-						break;
-					}
-
-					let HeldOffAdvertisement{received_at: _, relay_parent, peer_id, collator_id, prospective_candidate} = state.ah_held_off_collations.pop_front().expect("Just checked the queue is not empty; qed");
+				if let Err(err) = process_advertisement(
+					ctx.sender(),
+					&mut state,
+					relay_parent,
+					ASSET_HUB_PARA_ID,
+					peer_id,
+					collator_id,
+					prospective_candidate,
+				)
+				.await {
 					gum::debug!(
-						target: LOG_TARGET,
-						?relay_parent,
-						?peer_id,
-						?prospective_candidate,
-						"Processing held off advertisement for AssetHub",
-					);
-					if let Err(err) = process_advertisement(
-						ctx.sender(),
-						&mut state,
-						relay_parent,
-						ASSET_HUB_PARA_ID,
-						peer_id,
-						collator_id,
-						prospective_candidate,
-					)
-					.await {
-						gum::debug!(
-								target: LOG_TARGET,
-								?err,
-								?relay_parent,
-								?peer_id,
-								?prospective_candidate,
-								"Failed to handle held off advertisement",
-							);
-						if let Some(rep) = err.reputation_changes() {
-							modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
-						}
+							target: LOG_TARGET,
+							?err,
+							?relay_parent,
+							?peer_id,
+							?prospective_candidate,
+							"Failed to handle held off advertisement",
+						);
+					if let Some(rep) = err.reputation_changes() {
+						modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
 					}
 				}
-
 			},
 		}
 	}
