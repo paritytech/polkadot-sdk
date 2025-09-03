@@ -341,6 +341,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
+	type PruningWeightPercentage = ConstU32<10>;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();

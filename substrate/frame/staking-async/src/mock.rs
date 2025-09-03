@@ -401,6 +401,7 @@ ord_parameter_types! {
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = time_per_era() * 7;
+	pub const PruningWeightPercentage: u32 = 10;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -439,6 +440,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
+	type PruningWeightPercentage = PruningWeightPercentage;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;

@@ -23,3 +23,5 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: major
+- name: asset-hub-westend-runtime
+  bump: major

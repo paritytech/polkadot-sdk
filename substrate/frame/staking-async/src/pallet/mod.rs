@@ -340,6 +340,18 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxEraDuration: Get<u64>;
 
+		/// Percentage of max block weight allocated for era pruning operations.
+		///
+		/// This controls how much computational weight is available for pruning era storage
+		/// in each call to `prune_era_step`. Higher percentages allow more storage to be
+		/// pruned per call, while lower percentages spread the work across more calls.
+		///
+		/// The weight limit is calculated as: `max_block_weight * percentage / 100`
+		///
+		/// Default: 10 (meaning 10% of max block weight)
+		#[pallet::constant]
+		type PruningWeightPercentage: Get<u32>;
+
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
 		#[pallet::no_default]
@@ -401,6 +413,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxEraDuration = ();
+			type PruningWeightPercentage = ConstU32<10>;
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -1305,10 +1318,9 @@ pub mod pallet {
 		/// Calculate the maximum weight available for era pruning operations.
 		/// This uses the configurable percentage of max block weight.
 		pub(crate) fn max_pruning_weight() -> u64 {
-			// TODO: This should be configurable via runtime parameter in the future
-			const PRUNING_WEIGHT_PERCENTAGE: u32 = 10;
+			let percentage = T::PruningWeightPercentage::get();
 			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
-			max_block_weight / PRUNING_WEIGHT_PERCENTAGE as u64
+			max_block_weight * percentage as u64 / 100
 		}
 
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.

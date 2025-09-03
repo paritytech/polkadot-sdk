@@ -296,6 +296,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::PlanningEraOffsetOf<Runtime, RelaySessionDuration, ConstU32<5>>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type PruningWeightPercentage = frame_support::traits::ConstU32<10>;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
