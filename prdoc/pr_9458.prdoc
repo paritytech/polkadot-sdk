@@ -18,3 +18,7 @@ crates:
   bump: major
 - name: polkadot-cli
   bump: major
+- name: polkadot-service
+  bump: major
+- name: cumulus-relay-chain-inprocess-interface
+  bump: minor
