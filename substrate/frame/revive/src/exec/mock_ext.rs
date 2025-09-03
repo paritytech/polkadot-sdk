@@ -201,6 +201,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		panic!("MockExt::last_frame_output_mut")
 	}
+
+	fn get_code_slice(&mut self, _address: &H160, _code_offset: usize, _len: usize) -> Vec<u8> {
+		panic!("MockExt::get_code_slice")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {

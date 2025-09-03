@@ -460,7 +460,7 @@ impl Default for Origin<Test> {
 fn ext_builder_with_genesis_config_works() {
 	let pvm_contract = Account {
 		address: BOB_ADDR,
-		balance: U256::from(100),
+		balance: U256::from(100_000_100),
 		nonce: 42,
 		contract_data: Some(ContractData {
 			code: compile_module("dummy").unwrap().0,
@@ -470,7 +470,7 @@ fn ext_builder_with_genesis_config_works() {
 
 	let evm_contract = Account {
 		address: CHARLIE_ADDR,
-		balance: U256::from(100),
+		balance: U256::from(1_000_00_100),
 		nonce: 43,
 		contract_data: Some(ContractData {
 			code: vec![revm::bytecode::opcode::RETURN],

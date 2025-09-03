@@ -30,7 +30,7 @@ use revm::{
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
 	},
-	primitives::{Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
+	primitives::{Bytes, Log, LogData, B256, U256},
 };
 
 /// Implements the BALANCE instruction.
@@ -76,22 +76,21 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
 	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
-	let code_hash = context.interpreter.extend.code_hash(&address);
-	let code = crate::PristineCode::<E::T>::get(&code_hash).unwrap_or_default();
 
 	let len = as_usize_or_fail!(context.interpreter, len_u256);
-	// // TODO: this needs a new benchmark since we read from DB and copy to memory
-	// // gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
-
 	if len == 0 {
 		return;
 	}
 	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
-	let code_offset = crate::vm::evm::min(as_usize_saturated!(code_offset), code.len());
+	let code_offset = as_usize_saturated!(code_offset);
 	check_memory_bounds!(context.interpreter, memory_offset, len);
 
-	// Note: This can't panic because we resized memory to fit.
-	context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
+	let code_slice = context.interpreter.extend.get_code_slice(&address, code_offset, len);
+
+	context.interpreter.memory.set_data(memory_offset, 0, len, &code_slice);
+
+	// TODO: this needs a new benchmark since we read from DB and copy to memory
+	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 }
 
 /// Implements the BLOCKHASH instruction.
@@ -102,30 +101,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], number, context.interpreter);
 	let requested_number = <sp_core::U256 as U256Converter>::from_revm_u256(&number);
 
-	let block_number = context.interpreter.extend.block_number();
-
-	let Some(diff) = block_number.checked_sub(requested_number) else {
-		*number = U256::ZERO;
-		return;
-	};
-
-	let diff = if diff > sp_core::U256::from(u64::MAX) { u64::MAX } else { diff.low_u64() };
-
-	// blockhash should push zero if number is same as current block number.
-	if diff == 0 {
-		*number = U256::ZERO;
-		return;
-	}
-
-	*number = if diff <= BLOCK_HASH_HISTORY {
-		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		};
-		U256::from_be_bytes(hash.0)
+	// blockhash should push zero if number is not within valid range.
+	if let Some(hash) = context.interpreter.extend.block_hash(requested_number) {
+		*number = U256::from_be_bytes(hash.0)
 	} else {
-		U256::ZERO
-	}
+		*number = U256::ZERO
+	};
 }
 
 /// Implements the SLOAD instruction.
