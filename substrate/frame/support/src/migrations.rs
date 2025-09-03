@@ -300,7 +300,7 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// );
 ///
 /// impl frame_system::Config for Runtime {
-/// 	type SingleBlockMigrations = CustomOnRuntimeUpgrade;
+/// 	type SingleBlockMigrations = Migrations;
 /// }
 /// ```
 ///
