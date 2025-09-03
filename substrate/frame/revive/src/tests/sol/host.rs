@@ -385,7 +385,6 @@ fn logs_work() {
 		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
-
 			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 			let Contract { addr, .. } =
@@ -435,7 +434,11 @@ fn logs_work() {
 						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
 							contract: addr,
 							data: vec![0u8; 32],
-							topics: vec![H256::from_low_u64_be(0x44), H256::from_low_u64_be(0x55), H256::from_low_u64_be(0x66)],
+							topics: vec![
+								H256::from_low_u64_be(0x44),
+								H256::from_low_u64_be(0x55),
+								H256::from_low_u64_be(0x66)
+							],
 						}),
 						topics: vec![],
 					},
@@ -444,7 +447,12 @@ fn logs_work() {
 						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
 							contract: addr,
 							data: vec![0u8; 32],
-							topics: vec![H256::from_low_u64_be(0x77), H256::from_low_u64_be(0x88), H256::from_low_u64_be(0x99), H256::from_low_u64_be(0xaa)],
+							topics: vec![
+								H256::from_low_u64_be(0x77),
+								H256::from_low_u64_be(0x88),
+								H256::from_low_u64_be(0x99),
+								H256::from_low_u64_be(0xaa)
+							],
 						}),
 						topics: vec![],
 					},
