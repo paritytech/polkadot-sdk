@@ -1182,6 +1182,10 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 	type UnsafeUnstableInterface = ConstBool<false>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AllowEVMBytecode = ConstBool<true>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type AllowEVMBytecode = ConstBool<false>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -1199,7 +1203,10 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_revive::migrations::v1::Migration<Runtime>;
+	type Migrations = (
+		pallet_revive::migrations::v1::Migration<Runtime>,
+		pallet_revive::migrations::v2::Migration<Runtime>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
