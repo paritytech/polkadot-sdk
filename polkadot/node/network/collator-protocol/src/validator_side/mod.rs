@@ -440,12 +440,8 @@ struct State {
 	/// List of invulnerable AssetHub collators. They are handled with a priority.
 	ah_invulnerables: HashSet<PeerId>,
 
-	/// AssetHub advertisements which were held off because they are not from invulnerable
-	/// collators.
-	ah_held_off_collations: VecDeque<HeldOffAdvertisement>,
-
 	/// Timers for held off advertisements
-	held_off_timers: FuturesUnordered<BoxFuture<'static, ()>>,
+	ah_held_off_collations: FuturesUnordered<BoxFuture<'static, HeldOffAdvertisement>>,
 
 	/// For how long to hold off AssetHub collations from non-invulnerable collators
 	hold_off_duration: Duration,
@@ -989,15 +985,11 @@ fn hold_off_asset_hub_collation_if_needed(
 	// copy-pasted logic we'll just return `false` and let the caller handle it.
 	let maybe_para_id = state.peer_data.get(&peer_id).and_then(|pd| pd.collating_para());
 	let hold_off_duration = state.hold_off_duration;
+	let collator_id = collator_id.clone();
 	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&peer_id) {
-		state.ah_held_off_collations.push_back(HeldOffAdvertisement {
-			relay_parent,
-			peer_id,
-			collator_id: collator_id.clone(),
-			prospective_candidate,
-		});
-		state.held_off_timers.push(Box::pin(async move {
+		state.ah_held_off_collations.push(Box::pin(async move {
 			Delay::new(hold_off_duration).await;
+			HeldOffAdvertisement { relay_parent, peer_id, collator_id, prospective_candidate }
 		}));
 
 		gum::debug!(
@@ -1929,12 +1921,8 @@ async fn run_inner<Context>(
 				)
 				.await;
 			},
-			_ = state.held_off_timers.select_next_some() => {
-				let Some(HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate}) =  state.ah_held_off_collations.pop_front() else {
-					gum::warn!(target: LOG_TARGET, "Held off timer fired but no held off advertisements");
-					continue
-				};
-
+			held_off_advertisement = state.ah_held_off_collations.select_next_some() => {
+				let HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate} = held_off_advertisement;
 				gum::debug!(
 					target: LOG_TARGET,
 					?relay_parent,
