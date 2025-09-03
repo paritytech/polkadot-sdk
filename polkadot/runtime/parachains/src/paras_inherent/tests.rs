@@ -157,11 +157,11 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -253,11 +253,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -355,11 +355,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
@@ -1097,6 +1097,14 @@ mod enter {
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
 			use crate::inclusion::WeightInfo as _;
 
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
+
 			let mut backed_and_concluding = BTreeMap::new();
 			// The number of candidates is chosen to go over the weight limit
 			// of the mock runtime together with the `enact_candidate`s weight.
@@ -1203,6 +1211,13 @@ mod enter {
 		let config = MockGenesisConfig::default();
 
 		new_test_ext(config).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			// Create the inherent data for this block
 			let mut dispute_statements = BTreeMap::new();
 			// Control the number of statements per dispute to ensure we have enough space
@@ -1385,7 +1400,14 @@ mod enter {
 			u64::MAX,
 			u64::MAX,
 		)));
-		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+		new_test_ext(default_config()).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			// Create the inherent data for this block
 			let dispute_statements = BTreeMap::new();
 
@@ -1457,6 +1479,13 @@ mod enter {
 			u64::MAX,
 		)));
 		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			// V2 receipts are always enabled.
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV2 as u8,
+				true,
+			)
+			.unwrap();
 			let mut backed_and_concluding = BTreeMap::new();
 			// 2 backed candidates shall be scheduled
 			backed_and_concluding.insert(0, 2);
@@ -1470,7 +1499,7 @@ mod enter {
 				code_upgrade: None,
 				elastic_paras: BTreeMap::new(),
 				unavailable_cores: vec![],
-				v2_descriptor: false,
+				v2_descriptor: true,
 				approved_peer_signal: None,
 				candidate_modifier: None,
 			});
@@ -2248,11 +2277,11 @@ mod enter {
 		let config = default_config();
 
 		new_test_ext(config).execute_with(|| {
-			// Enable the v2 receipts.
+			// V2 receipts are always enabled.
 			configuration::Pallet::<Test>::set_node_feature(
 				RuntimeOrigin::root(),
 				FeatureIndex::CandidateReceiptV2 as u8,
-				v2_descriptor,
+				true,
 			)
 			.unwrap();
 
