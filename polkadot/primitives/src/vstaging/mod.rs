@@ -15,7 +15,9 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Staging Primitives.
-use crate::{ValidatorIndex, ValidityAttestation};
+use core::fmt::Formatter;
+
+use crate::{slashing::DisputesTimeSlot, ValidatorId, ValidatorIndex, ValidityAttestation};
 
 // Put any primitives used by staging APIs functions here
 use super::{
@@ -66,7 +68,7 @@ pub enum CandidateDescriptorVersion {
 }
 
 /// A unique descriptor of the candidate receipt.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct CandidateDescriptorV2<H = Hash> {
 	/// The ID of the para this is a candidate for.
@@ -98,6 +100,57 @@ pub struct CandidateDescriptorV2<H = Hash> {
 	para_head: Hash,
 	/// The blake2-256 hash of the validation code bytes.
 	validation_code_hash: ValidationCodeHash,
+}
+impl<H> CandidateDescriptorV2<H> {
+	/// Returns the candidate descriptor version.
+	///
+	/// The candidate is at version 2 if the reserved fields are zeroed out
+	/// and the internal `version` field is 0.
+	pub fn version(&self) -> CandidateDescriptorVersion {
+		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
+			return CandidateDescriptorVersion::V1
+		}
+
+		match self.version.0 {
+			0 => CandidateDescriptorVersion::V2,
+			_ => CandidateDescriptorVersion::Unknown,
+		}
+	}
+}
+
+impl<H> core::fmt::Debug for CandidateDescriptorV2<H>
+where
+	H: core::fmt::Debug,
+{
+	fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		match self.version() {
+			CandidateDescriptorVersion::V1 => f
+				.debug_struct("CandidateDescriptorV1")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("persisted_validation_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.erasure_root)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::V2 => f
+				.debug_struct("CandidateDescriptorV2")
+				.field("para_id", &self.para_id)
+				.field("relay_parent", &self.relay_parent)
+				.field("core_index", &self.core_index)
+				.field("session_index", &self.session_index)
+				.field("persisted_validation_data_hash", &self.persisted_validation_data_hash)
+				.field("pov_hash", &self.pov_hash)
+				.field("erasure_root", &self.pov_hash)
+				.field("para_head", &self.para_head)
+				.field("validation_code_hash", &self.validation_code_hash)
+				.finish(),
+			CandidateDescriptorVersion::Unknown => {
+				write!(f, "Invalid CandidateDescriptorVersion")
+			},
+		}
+	}
 }
 
 impl<H: Copy> From<CandidateDescriptorV2<H>> for CandidateDescriptor<H> {
@@ -434,7 +487,7 @@ pub struct ClaimQueueOffset(pub u8);
 pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 
 /// Signals that a parachain can send to the relay chain via the UMP queue.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Debug)]
 pub enum UMPSignal {
 	/// A message sent by a parachain to select the core the candidate is committed to.
 	/// Relay chain validators, in particular backers, use the `CoreSelector` and
@@ -541,9 +594,14 @@ pub enum CommittedCandidateReceiptError {
 	/// The core index in commitments doesn't match the one in descriptor
 	#[cfg_attr(
 		feature = "std",
-		error("The core index in commitments doesn't match the one in descriptor")
+		error("The core index in commitments ({commitments:?}) doesn't match the one in descriptor ({descriptor:?})")
 	)]
-	CoreIndexMismatch,
+	CoreIndexMismatch {
+		/// The core index as found in the descriptor.
+		descriptor: CoreIndex,
+		/// The core index as found in the commitments.
+		commitments: CoreIndex,
+	},
 	/// The core selector or claim queue offset is invalid.
 	#[cfg_attr(feature = "std", error("The core selector or claim queue offset is invalid"))]
 	InvalidSelectedCore,
@@ -588,20 +646,6 @@ impl<H: Copy> CandidateDescriptorV2<H> {
 	impl_getter!(persisted_validation_data_hash, Hash);
 	impl_getter!(pov_hash, Hash);
 	impl_getter!(validation_code_hash, ValidationCodeHash);
-
-	/// Returns the candidate descriptor version.
-	/// The candidate is at version 2 if the reserved fields are zeroed out
-	/// and the internal `version` field is 0.
-	pub fn version(&self) -> CandidateDescriptorVersion {
-		if self.reserved2 != [0u8; 64] || self.reserved1 != [0u8; 25] {
-			return CandidateDescriptorVersion::V1
-		}
-
-		match self.version.0 {
-			0 => CandidateDescriptorVersion::V2,
-			_ => CandidateDescriptorVersion::Unknown,
-		}
-	}
 
 	fn rebuild_collator_field(&self) -> CollatorId {
 		let mut collator_id = Vec::with_capacity(32);
@@ -748,7 +792,10 @@ impl<H: Copy> CommittedCandidateReceiptV2<H> {
 			.copied()?;
 
 		if core_index != descriptor_core_index {
-			return Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+			return Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+				descriptor: descriptor_core_index,
+				commitments: core_index,
+			})
 		}
 
 		Ok(())
@@ -1036,7 +1083,7 @@ pub fn transpose_claim_queue(
 }
 
 #[cfg(test)]
-mod tests {
+mod candidate_receipt_tests {
 	use super::*;
 	use crate::{
 		v8::{
@@ -1329,7 +1376,10 @@ mod tests {
 			new_ccr.descriptor.set_core_index(CoreIndex(1));
 			assert_eq!(
 				new_ccr.parse_ump_signals(&cq),
-				Err(CommittedCandidateReceiptError::CoreIndexMismatch)
+				Err(CommittedCandidateReceiptError::CoreIndexMismatch {
+					descriptor: CoreIndex(1),
+					commitments: CoreIndex(0),
+				})
 			);
 		}
 
@@ -1501,5 +1551,112 @@ mod tests {
 		assert_eq!(new_ccr.descriptor.para_id(), ParaId::new(1000));
 
 		assert_eq!(old_ccr_hash, new_ccr.hash());
+	}
+}
+
+// Approval Slashes primitives
+/// Supercedes the old 'SlashingOffenceKind' enum.
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub enum DisputeOffenceKind {
+	/// A severe offence when a validator backed an invalid block
+	/// (backing only)
+	#[codec(index = 0)]
+	ForInvalidBacked,
+	/// A minor offence when a validator disputed a valid block.
+	/// (approval checking and dispute vote only)
+	#[codec(index = 1)]
+	AgainstValid,
+	/// A medium offence when a validator approved an invalid block
+	/// (approval checking and dispute vote only)
+	#[codec(index = 2)]
+	ForInvalidApproved,
+}
+
+/// impl for a conversion from SlashingOffenceKind to DisputeOffenceKind
+/// This creates DisputeOffenceKind that never contains ForInvalidApproved since it was not
+/// supported in the past
+impl From<super::v8::slashing::SlashingOffenceKind> for DisputeOffenceKind {
+	fn from(value: super::v8::slashing::SlashingOffenceKind) -> Self {
+		match value {
+			super::v8::slashing::SlashingOffenceKind::ForInvalid => Self::ForInvalidBacked,
+			super::v8::slashing::SlashingOffenceKind::AgainstValid => Self::AgainstValid,
+		}
+	}
+}
+
+/// impl for a tryFrom conversion from DisputeOffenceKind to SlashingOffenceKind
+impl TryFrom<DisputeOffenceKind> for super::v8::slashing::SlashingOffenceKind {
+	type Error = ();
+
+	fn try_from(value: DisputeOffenceKind) -> Result<Self, Self::Error> {
+		match value {
+			DisputeOffenceKind::ForInvalidBacked => Ok(Self::ForInvalid),
+			DisputeOffenceKind::AgainstValid => Ok(Self::AgainstValid),
+			DisputeOffenceKind::ForInvalidApproved => Err(()),
+		}
+	}
+}
+
+/// Slashes that are waiting to be applied once we have validator key
+/// identification.
+#[derive(Encode, Decode, TypeInfo, Debug, Clone)]
+pub struct PendingSlashes {
+	/// Indices and keys of the validators who lost a dispute and are pending
+	/// slashes.
+	pub keys: BTreeMap<ValidatorIndex, ValidatorId>,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+}
+
+impl From<super::v8::slashing::PendingSlashes> for PendingSlashes {
+	fn from(old: super::v8::slashing::PendingSlashes) -> Self {
+		let keys = old.keys;
+		let kind = old.kind.into();
+		Self { keys, kind }
+	}
+}
+
+impl TryFrom<PendingSlashes> for super::v8::slashing::PendingSlashes {
+	type Error = ();
+
+	fn try_from(value: PendingSlashes) -> Result<Self, Self::Error> {
+		Ok(Self { keys: value.keys, kind: value.kind.try_into()? })
+	}
+}
+
+/// We store most of the information about a lost dispute on chain. This struct
+/// is required to identify and verify it.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug)]
+pub struct DisputeProof {
+	/// Time slot when the dispute occurred.
+	pub time_slot: DisputesTimeSlot,
+	/// The dispute outcome.
+	pub kind: DisputeOffenceKind,
+	/// The index of the validator who lost a dispute.
+	pub validator_index: ValidatorIndex,
+	/// The parachain session key of the validator.
+	pub validator_id: ValidatorId,
+}
+
+impl From<super::v8::slashing::DisputeProof> for DisputeProof {
+	fn from(old: super::v8::slashing::DisputeProof) -> Self {
+		let time_slot = old.time_slot;
+		let kind = old.kind.into(); // infallible conversion
+		let validator_index = old.validator_index;
+		let validator_id = old.validator_id;
+		Self { time_slot, kind, validator_index, validator_id }
+	}
+}
+
+impl TryFrom<DisputeProof> for super::v8::slashing::DisputeProof {
+	type Error = ();
+
+	fn try_from(value: DisputeProof) -> Result<Self, Self::Error> {
+		Ok(Self {
+			time_slot: value.time_slot,
+			kind: value.kind.try_into()?,
+			validator_index: value.validator_index,
+			validator_id: value.validator_id,
+		})
 	}
 }

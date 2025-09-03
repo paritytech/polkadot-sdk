@@ -22,7 +22,8 @@ use XcmpMessageFormat::*;
 use codec::Input;
 use cumulus_primitives_core::{ParaId, XcmpMessageHandler};
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically, traits::Hooks,
+	assert_err, assert_noop, assert_ok, assert_storage_noop, hypothetically,
+	traits::{BatchFootprint, Hooks},
 	StorageNoopGuard,
 };
 use mock::{new_test_ext, ParachainSystem, RuntimeOrigin as Origin, Test, XcmpQueue};
@@ -210,13 +211,20 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 
 			total_size += xcm.len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
-				idx as u32 + 1,
-				idx + 1,
-				total_size,
+				0,
+				&BatchFootprint {
+					msgs_count: idx + 1,
+					size_in_bytes: total_size,
+					new_pages_count: idx as u32 + 1,
+				},
 			);
 
 			let mut weight_meter = WeightMeter::with_limit(required_weight);
-			let res = XcmpQueue::enqueue_xcmp_messages(1000.into(), &xcms, &mut weight_meter);
+			let res = XcmpQueue::enqueue_xcmp_messages(
+				1000.into(),
+				&xcms.iter().map(|xcm| xcm.as_bounded_slice()).collect::<Vec<_>>(),
+				&mut weight_meter,
+			);
 			if idx < xcms.len() - 1 {
 				assert!(res.is_err());
 			} else {
@@ -705,10 +713,10 @@ fn take_first_concatenated_xcm_works() {
 			.unwrap();
 		match i % 2 {
 			0 => {
-				assert_eq!(xcm, versioned_xcm(older_xcm_version).encode());
+				assert_eq!(xcm.to_vec(), versioned_xcm(older_xcm_version).encode());
 			},
 			1 => {
-				assert_eq!(xcm, versioned_xcm(newer_xcm_version).encode());
+				assert_eq!(xcm.to_vec(), versioned_xcm(newer_xcm_version).encode());
 			},
 			unexpected => unreachable!("{:?}", unexpected),
 		}
@@ -752,11 +760,11 @@ fn take_first_concatenated_xcms_works() {
 	let data = &mut &page[1..];
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(0, 5))
+		Ok(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(5, 4))
+		Ok(generate_mock_xcm_batch(5, 4).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 
 	// Should return partial batch on error
@@ -766,7 +774,7 @@ fn take_first_concatenated_xcms_works() {
 	page.extend(generate_mock_xcm(5).encode());
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(&mut &page[1..], 10, &mut WeightMeter::new()),
-		Err(generate_mock_xcm_batch(0, 5))
+		Err(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 }
 
@@ -939,8 +947,8 @@ fn verify_fee_factor_increase_and_decrease() {
 	xcmp_message.extend(versioned_xcm.encode());
 
 	new_test_ext().execute_with(|| {
-		let initial = InitialFactor::get();
-		assert_eq!(DeliveryFeeFactor::<Test>::get(sibling_para_id), initial);
+		let initial = Pallet::<Test>::MIN_FEE_FACTOR;
+		assert_eq!(Pallet::<Test>::get_fee_factor(sibling_para_id), initial);
 
 		// Open channel so messages can actually be sent
 		ParachainSystem::open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(

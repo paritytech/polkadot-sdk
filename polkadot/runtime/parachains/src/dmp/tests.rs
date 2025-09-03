@@ -281,7 +281,7 @@ fn verify_fee_increase_and_decrease() {
 	new_test_ext(genesis).execute_with(|| {
 		register_paras(&[a]);
 
-		let initial = InitialFactor::get();
+		let initial = Pallet::<Test>::MIN_FEE_FACTOR;
 		assert_eq!(DeliveryFeeFactor::<Test>::get(a), initial);
 
 		// Under fee limit
@@ -290,7 +290,7 @@ fn verify_fee_increase_and_decrease() {
 
 		// Limit reached so fee is increased
 		queue_downward_message(a, vec![1]).unwrap();
-		let result = InitialFactor::get().saturating_mul(Dmp::EXPONENTIAL_FEE_BASE);
+		let result = Pallet::<Test>::MIN_FEE_FACTOR.saturating_mul(Dmp::EXPONENTIAL_FEE_BASE);
 		assert_eq!(DeliveryFeeFactor::<Test>::get(a), result);
 
 		Dmp::prune_dmq(a, 1);

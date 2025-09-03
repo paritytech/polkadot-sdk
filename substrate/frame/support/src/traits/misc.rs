@@ -31,7 +31,10 @@ pub use sp_runtime::traits::{
 	ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt, ConstU128, ConstU16,
 	ConstU32, ConstU64, ConstU8, ConstUint, Get, GetDefault, TryCollect, TypedGet,
 };
-use sp_runtime::{traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+	traits::{Block as BlockT, ExtrinsicCall},
+	DispatchError,
+};
 
 #[doc(hidden)]
 pub const DEFENSIVE_OP_PUBLIC_ERROR: &str = "a defensive failure has been triggered; please report the block number at https://github.com/paritytech/polkadot-sdk/issues";
@@ -472,6 +475,17 @@ where
 	}
 }
 
+/// Defensively truncate a value and convert it into its bounded form.
+pub trait DefensiveTruncateInto<T> {
+	/// Defensively truncate a value and convert it into its bounded form.
+	fn defensive_truncate_into(self) -> T;
+}
+
+impl<T, U: DefensiveTruncateFrom<T>> DefensiveTruncateInto<U> for T {
+	fn defensive_truncate_into(self) -> U {
+		U::defensive_truncate_from(self)
+	}
+}
 /// Defensively calculates the minimum of two values.
 ///
 /// Can be used in contexts where we assume the receiver value to be (strictly) smaller.
@@ -898,47 +912,10 @@ pub trait GetBacking {
 	fn get_backing(&self) -> Option<Backing>;
 }
 
-/// A trait to ensure the inherent are before non-inherent in a block.
-///
-/// This is typically implemented on runtime, through `construct_runtime!`.
-pub trait EnsureInherentsAreFirst<Block: sp_runtime::traits::Block>:
-	IsInherent<<Block as sp_runtime::traits::Block>::Extrinsic>
-{
-	/// Ensure the position of inherent is correct, i.e. they are before non-inherents.
-	///
-	/// On error return the index of the inherent with invalid position (counting from 0). On
-	/// success it returns the index of the last inherent. `0` therefore means that there are no
-	/// inherents.
-	fn ensure_inherents_are_first(block: &Block) -> Result<u32, u32>;
-}
-
 /// A trait to check if an extrinsic is an inherent.
 pub trait IsInherent<Extrinsic> {
 	/// Whether this extrinsic is an inherent.
 	fn is_inherent(ext: &Extrinsic) -> bool;
-}
-
-/// An extrinsic on which we can get access to call.
-pub trait ExtrinsicCall: sp_runtime::traits::ExtrinsicLike {
-	type Call;
-
-	/// Get the call of the extrinsic.
-	fn call(&self) -> &Self::Call;
-}
-
-impl<Address, Call, Signature, Extra> ExtrinsicCall
-	for sp_runtime::generic::UncheckedExtrinsic<Address, Call, Signature, Extra>
-where
-	Address: TypeInfo,
-	Call: TypeInfo,
-	Signature: TypeInfo,
-	Extra: TypeInfo,
-{
-	type Call = Call;
-
-	fn call(&self) -> &Call {
-		&self.function
-	}
 }
 
 /// Interface for types capable of constructing an inherent extrinsic.
@@ -1056,7 +1033,7 @@ impl<T: Encode> Encode for WrapperOpaque<T> {
 impl<T: Decode> Decode for WrapperOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		Ok(Self(T::decode_all_with_depth_limit(
-			sp_api::MAX_EXTRINSIC_DEPTH,
+			crate::MAX_EXTRINSIC_DEPTH,
 			&mut &<Vec<u8>>::decode(input)?[..],
 		)?))
 	}
@@ -1120,7 +1097,7 @@ impl<T: Decode> WrapperKeepOpaque<T> {
 	///
 	/// Returns `None` if the decoding failed.
 	pub fn try_decode(&self) -> Option<T> {
-		T::decode_all_with_depth_limit(sp_api::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
+		T::decode_all_with_depth_limit(crate::MAX_EXTRINSIC_DEPTH, &mut &self.data[..]).ok()
 	}
 
 	/// Returns the length of the encoded `T`.
@@ -1449,7 +1426,7 @@ mod test {
 
 	#[test]
 	fn test_opaque_wrapper_decode_limit() {
-		let limit = sp_api::MAX_EXTRINSIC_DEPTH as usize;
+		let limit = crate::MAX_EXTRINSIC_DEPTH as usize;
 		let mut ok_bytes = vec![0u8; limit];
 		ok_bytes.push(1u8);
 		let mut err_bytes = vec![0u8; limit + 1];

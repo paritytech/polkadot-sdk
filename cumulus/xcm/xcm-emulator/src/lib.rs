@@ -18,7 +18,6 @@ extern crate alloc;
 
 pub use array_bytes;
 pub use codec::{Decode, Encode, EncodeLike, MaxEncodedLen};
-pub use log;
 pub use paste;
 pub use std::{
 	any::type_name,
@@ -27,8 +26,9 @@ pub use std::{
 	fmt,
 	marker::PhantomData,
 	ops::Deref,
-	sync::{LazyLock, Mutex},
+	sync::{Arc, LazyLock, Mutex},
 };
+pub use tracing;
 
 // Substrate
 pub use alloc::collections::vec_deque::VecDeque;
@@ -64,6 +64,7 @@ pub use sp_tracing;
 
 // Cumulus
 pub use cumulus_pallet_parachain_system::{
+	parachain_inherent::{deconstruct_parachain_inherent_data, InboundMessagesData},
 	Call as ParachainSystemCall, Pallet as ParachainSystemPallet,
 };
 pub use cumulus_primitives_core::{
@@ -79,12 +80,13 @@ pub use polkadot_runtime_parachains::inclusion::{AggregateMessageOrigin, UmpQueu
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, H256};
 pub use xcm::latest::prelude::{
 	AccountId32 as AccountId32Junction, Ancestor, Assets, Here, Location,
 	Parachain as ParachainJunction, Parent, WeightLimit, XcmHash,
 };
 pub use xcm_executor::traits::ConvertLocation;
+use xcm_simulator::helpers::TopicIdTracker;
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -140,6 +142,16 @@ where
 		)* );
 	}
 }
+
+// Implement optional inherent code to be executed
+// This will be executed after on-initialize and before on-finalize
+pub trait AdditionalInherentCode {
+	fn on_new_block() -> DispatchResult {
+		Ok(())
+	}
+}
+
+impl AdditionalInherentCode for () {}
 
 pub trait TestExt {
 	fn build_new_ext(storage: Storage) -> TestExternalities;
@@ -268,6 +280,7 @@ pub trait Parachain: Chain {
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
 	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
+	type AdditionalInherentCode: AdditionalInherentCode;
 
 	fn init();
 
@@ -539,7 +552,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 				// Execute
 				let r = $local_ext.with(|v| {
-					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
 					v.borrow_mut().execute_with(execute)
 				});
 
@@ -565,7 +578,7 @@ macro_rules! __impl_test_ext_for_relay_chain {
 
 						// log events
 						Self::events().iter().for_each(|event| {
-							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -603,7 +616,8 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
-					$( DigestProvider: $digest_provider:ty, )?
+					$( DigestProvider: $digest_provider:ty,)?
+					$( AdditionalInherentCode: $additional_inherent_code:ty,)?
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -645,6 +659,7 @@ macro_rules! decl_test_parachains {
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
 				$crate::decl_test_parachains!(@inner_digest_provider $($digest_provider)?);
+				$crate::decl_test_parachains!(@inner_additional_inherent_code $($additional_inherent_code)?);
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -665,7 +680,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero, AdditionalInherentCode
 					};
 
 					let para_id = Self::para_id().into();
@@ -697,8 +712,16 @@ macro_rules! decl_test_parachains {
 						// Process parachain inherents:
 
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let data = N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data);
+						let (data, mut downward_messages, mut horizontal_messages) =
+							$crate::deconstruct_parachain_inherent_data(data);
+						let inbound_messages_data = $crate::InboundMessagesData::new(
+							downward_messages.into_abridged(&mut usize::MAX.clone()),
+							horizontal_messages.into_abridged(&mut usize::MAX.clone()),
+						);
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
-							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							data,
+							inbound_messages_data
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
@@ -711,6 +734,9 @@ macro_rules! decl_test_parachains {
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+						$crate::assert_ok!(
+							<Self as Parachain>::AdditionalInherentCode::on_new_block()
 						);
 					});
 				}
@@ -774,6 +800,8 @@ macro_rules! decl_test_parachains {
 	};
 	( @inner_digest_provider $digest_provider:ty ) => { type DigestProvider = $digest_provider; };
 	( @inner_digest_provider /* none */ ) => { type DigestProvider = (); };
+	( @inner_additional_inherent_code $additional_inherent_code:ty ) => { type AdditionalInherentCode = $additional_inherent_code; };
+	( @inner_additional_inherent_code /* none */ ) => { type AdditionalInherentCode = (); };
 }
 
 #[macro_export]
@@ -876,7 +904,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 				// Execute
 				let r = $local_ext.with(|v| {
-					$crate::log::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
+					$crate::tracing::info!(target: "xcm::emulator::execute_with", "Executing as {}", stringify!($name));
 					v.borrow_mut().execute_with(execute)
 				});
 
@@ -924,7 +952,7 @@ macro_rules! __impl_test_ext_for_parachain {
 
 						// log events
 						<Self as $crate::Chain>::events().iter().for_each(|event| {
-							$crate::log::info!(target: concat!("events::", stringify!($name)), "{:?}", event);
+							$crate::tracing::info!(target: concat!("events::", stringify!($name)), ?event, "Event emitted");
 						});
 
 						// clean events
@@ -1079,7 +1107,7 @@ macro_rules! decl_test_networks {
 									let messages = msgs.clone().iter().map(|(block, message)| {
 										(*block, $crate::array_bytes::bytes2hex("0x", message))
 									}).collect::<Vec<_>>();
-									$crate::log::info!(target: concat!("xcm::dmp::", stringify!($name)) , "Downward messages processed by para_id {:?}: {:?}", &to_para_id, messages);
+									$crate::tracing::info!(target: concat!("xcm::dmp::", stringify!($name)), ?to_para_id, ?messages, "Downward messages processed");
 									$crate::DMP_DONE.with(|b| b.borrow_mut().get_mut(Self::name()).unwrap().push_back((to_para_id, block, msg)));
 								}
 							}
@@ -1105,7 +1133,7 @@ macro_rules! decl_test_networks {
 								let messages = messages.clone().iter().map(|(para_id, relay_block_number, message)| {
 									(*para_id, *relay_block_number, $crate::array_bytes::bytes2hex("0x", message))
 								}).collect::<Vec<_>>();
-								$crate::log::info!(target: concat!("xcm::hrmp::", stringify!($name)), "Horizontal messages processed by para_id {:?}: {:?}", &to_para_id, &messages);
+								$crate::tracing::info!(target: concat!("xcm::hrmp::", stringify!($name)), ?to_para_id, ?messages, "Horizontal messages processed");
 							}
 						)*
 					}
@@ -1125,7 +1153,7 @@ macro_rules! decl_test_networks {
 							);
 						});
 						let message = $crate::array_bytes::bytes2hex("0x", msg.clone());
-						$crate::log::info!(target: concat!("xcm::ump::", stringify!($name)) , "Upward message processed from para_id {:?}: {:?}", &from_para_id, &message);
+						$crate::tracing::info!(target: concat!("xcm::ump::", stringify!($name)), ?from_para_id, ?message, "Upward message processed");
 					}
 				}
 
@@ -1145,7 +1173,7 @@ macro_rules! decl_test_networks {
 								<<Self::Bridge as Bridge>::Source as TestExt>::ext_wrapper(|| {
 									<<Self::Bridge as Bridge>::Handler as BridgeMessageHandler>::notify_source_message_delivery(msg.lane_id.clone());
 								});
-								$crate::log::info!(target: concat!("bridge::", stringify!($name)) , "Bridged message processed {:?}", msg);
+								$crate::tracing::info!(target: concat!("bridge::", stringify!($name)), ?msg, "Bridged message processed");
 							}
 						}
 					}
@@ -1198,6 +1226,8 @@ macro_rules! decl_test_networks {
 						relay_chain_state: proof,
 						downward_messages: Default::default(),
 						horizontal_messages: Default::default(),
+						relay_parent_descendants: Default::default(),
+						collator_peer_id: None,
 					}
 				}
 			}
@@ -1364,7 +1394,7 @@ macro_rules! assert_expected_events {
 		if !messages.is_empty() {
 			// Log all events (since they won't be logged after the panic).
 			<$chain as $crate::Chain>::events().iter().for_each(|event| {
-				$crate::log::info!(target: concat!("events::", stringify!($chain)), "{:?}", event);
+				$crate::tracing::info!(target: concat!("events::", stringify!($chain)), ?event, "Event emitted");
 			});
 			panic!("{}", messages.concat())
 		}
@@ -1583,10 +1613,29 @@ where
 	pub hops_dispatchable: HashMap<String, fn(Self) -> DispatchResult>,
 	pub hops_calls: HashMap<String, Origin::RuntimeCall>,
 	pub args: Args,
+	pub topic_id_tracker: Arc<Mutex<TopicIdTracker>>,
 	_marker: PhantomData<(Destination, Hops)>,
 }
 
 /// `Test` implementation.
+impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
+where
+	Args: Clone,
+	Origin: Chain + Clone,
+	Destination: Chain + Clone,
+	Origin::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Origin::Runtime>> + Clone,
+	Destination::RuntimeOrigin: OriginTrait<AccountId = AccountIdOf<Destination::Runtime>> + Clone,
+	Hops: Clone,
+{
+	/// Asserts that a single unique topic ID exists across all chains.
+	pub fn assert_unique_topic_id(&self) {
+		self.topic_id_tracker.lock().unwrap().assert_unique();
+	}
+	/// Inserts a topic ID for a specific chain and asserts it remains globally unique.
+	pub fn insert_unique_topic_id(&mut self, chain: &str, id: H256) {
+		self.topic_id_tracker.lock().unwrap().insert_and_assert_unique(chain, id);
+	}
+}
 impl<Origin, Destination, Hops, Args> Test<Origin, Destination, Hops, Args>
 where
 	Args: Clone,
@@ -1613,6 +1662,7 @@ where
 			hops_dispatchable: Default::default(),
 			hops_calls: Default::default(),
 			args: test_args.args,
+			topic_id_tracker: Arc::new(Mutex::new(TopicIdTracker::new())),
 			_marker: Default::default(),
 		}
 	}

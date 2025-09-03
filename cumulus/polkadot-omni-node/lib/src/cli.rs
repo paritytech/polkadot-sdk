@@ -198,6 +198,13 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
 
+	/// Enable the statement store.
+	///
+	/// The statement store is a store for statements validated using the runtime API
+	/// `validate_statement`. It should be enabled for chains that provide this runtime API.
+	#[arg(long)]
+	pub enable_statement_store: bool,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -232,6 +239,7 @@ impl<Config: CliConfig> Cli<Config> {
 				.unwrap_or(self.authoring),
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
+			enable_statement_store: self.enable_statement_store,
 		}
 	}
 }
@@ -308,7 +316,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
 		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }

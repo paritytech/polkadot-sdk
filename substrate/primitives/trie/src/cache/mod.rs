@@ -403,14 +403,24 @@ impl LocalNodeCacheConfig {
 	/// Creates a configuration that can be called from a trusted path and allows the local_cache
 	/// to grow to fit the needs, also everything is promoted to the shared cache.
 	///
-	/// This configuration is safe only for trusted paths because it removes all limits on cache
-	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
-	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
-	/// where the operations are bounded already and there are no risks of unbounded memory usage.
-	fn trusted() -> Self {
+	/// This configuration is safe only for trusted paths because it allows the local cache
+	/// to grow up to the shared cache limits and it promotes all items into the shared cache.
+	/// This could lead to excessive memory usage if used in untrusted or uncontrolled environments.
+	/// It is intended for scenarios like block authoring or importing, where the operations
+	/// are bounded already and there are no risks of unbounded memory usage.
+	fn trusted(
+		local_node_cache_max_heap_size: usize,
+		local_node_cache_max_inline_size: usize,
+	) -> Self {
 		LocalNodeCacheConfig {
-			local_node_cache_max_heap_size: usize::MAX,
-			local_node_cache_max_inline_size: usize::MAX,
+			local_node_cache_max_heap_size: std::cmp::max(
+				local_node_cache_max_heap_size,
+				LOCAL_NODE_CACHE_MAX_HEAP_SIZE,
+			),
+			local_node_cache_max_inline_size: std::cmp::max(
+				local_node_cache_max_inline_size,
+				LOCAL_NODE_CACHE_MAX_INLINE_SIZE,
+			),
 			shared_node_cache_max_promoted_keys: u32::MAX,
 			shared_node_cache_max_replace_percent: 100,
 		}
@@ -434,16 +444,26 @@ impl LocalValueCacheConfig {
 	/// Creates a configuration that can be called from a trusted path and allows the local_cache
 	/// to grow to fit the needs, also everything is promoted to the shared cache.
 	///
-	/// This configuration is safe only for trusted paths because it removes all limits on cache
-	/// growth and promotion, which could lead to excessive memory usage if used in untrusted or
-	/// uncontrolled environments. It is intended for scenarios like block authoring or importing,
-	/// where the operations are bounded already and there are no risks of unbounded memory usage.
-	fn trusted() -> Self {
+	/// This configuration is safe only for trusted paths because it allows the local cache
+	/// to grow up to the shared cache limits and it promotes all items into the shared cache.
+	/// This could lead to excessive memory usage if used in untrusted or uncontrolled environments.
+	/// It is intended for scenarios like block authoring or importing, where the operations
+	/// are bounded already and there are no risks of unbounded memory usage.
+	fn trusted(
+		local_value_cache_max_heap_size: usize,
+		local_value_cache_max_inline_size: usize,
+	) -> Self {
 		LocalValueCacheConfig {
 			shared_value_cache_max_promoted_keys: u32::MAX,
 			shared_value_cache_max_replace_percent: 100,
-			local_value_cache_max_inline_size: usize::MAX,
-			local_value_cache_max_heap_size: usize::MAX,
+			local_value_cache_max_inline_size: std::cmp::max(
+				local_value_cache_max_inline_size,
+				LOCAL_VALUE_CACHE_MAX_INLINE_SIZE,
+			),
+			local_value_cache_max_heap_size: std::cmp::max(
+				local_value_cache_max_heap_size,
+				LOCAL_VALUE_CACHE_MAX_HEAP_SIZE,
+			),
 		}
 	}
 

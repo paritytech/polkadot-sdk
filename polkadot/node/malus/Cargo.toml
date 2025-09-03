@@ -54,7 +54,6 @@ polkadot-node-core-pvf-prepare-worker = { workspace = true, default-features = t
 [dev-dependencies]
 futures = { features = ["thread-pool"], workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-sp-core = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }

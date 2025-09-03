@@ -53,7 +53,7 @@ fn fatp_prio_ready_higher_evicts_lower() {
 
 	info!(target: LOG_TARGET, ?result0, "r0");
 	info!(target: LOG_TARGET, ?result1, "r1");
-	info!(target: LOG_TARGET, len = ?pool.mempool_len(), "len");
+	info!(target: LOG_TARGET, len = ?block_on(pool.mempool_len()), "len");
 	info!(target: LOG_TARGET, status = ?pool.status_all()[&header01.hash()], "len");
 	assert_ready_iterator!(header01.hash(), pool, [xt1]);
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
@@ -90,7 +90,7 @@ fn fatp_prio_watcher_ready_higher_evicts_lower() {
 	let xt1_status = futures::executor::block_on_stream(xt1_watcher).take(1).collect::<Vec<_>>();
 	assert_eq!(xt1_status, vec![TransactionStatus::Ready]);
 
-	info!(target: LOG_TARGET, len = ?pool.mempool_len(), "len");
+	info!(target: LOG_TARGET, len = ?block_on(pool.mempool_len()), "len");
 	info!(target: LOG_TARGET, pool_status = ?pool.status_all()[&header01.hash()], "len");
 	assert_ready_iterator!(header01.hash(), pool, [xt1]);
 	assert_pool_status!(header01.hash(), &pool, 1, 0);
@@ -133,7 +133,7 @@ fn fatp_prio_watcher_future_higher_evicts_lower() {
 	let xt2_status = futures::executor::block_on_stream(xt2_watcher).take(1).collect::<Vec<_>>();
 	assert_eq!(xt2_status, vec![TransactionStatus::Ready]);
 
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 	assert_ready_iterator!(header01.hash(), pool, [xt2, xt1]);
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
 }
@@ -288,7 +288,7 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 	let xt1_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
@@ -299,7 +299,7 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt3.clone())).unwrap();
 
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
@@ -310,7 +310,7 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted() {
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt5.clone())).unwrap();
 
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	assert_watcher_stream!(xt0_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
 	assert_watcher_stream!(xt1_watcher, [TransactionStatus::Ready, TransactionStatus::Dropped]);
@@ -352,7 +352,7 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted_with_subtree() {
 
 	assert_ready_iterator!(header01.hash(), pool, [xt3, xt0, xt1, xt2]);
 	assert_pool_status!(header01.hash(), &pool, 4, 0);
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let xt4_watcher = block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt4.clone())).unwrap();
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
@@ -397,7 +397,7 @@ fn fatp_prios_watcher_full_mempool_higher_prio_is_accepted_with_subtree2() {
 
 	assert_ready_iterator!(header01.hash(), pool, [xt3, xt0, xt1, xt2]);
 	assert_pool_status!(header01.hash(), &pool, 4, 0);
-	assert_eq!(pool.mempool_len().1, 4);
+	assert_eq!(block_on(pool.mempool_len()).1, 4);
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
@@ -444,13 +444,13 @@ fn fatp_prios_watcher_full_mempool_lower_prio_gets_rejected() {
 		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt1.clone())).unwrap();
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
 
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().1, 2);
+	assert_eq!(block_on(pool.mempool_len()).1, 2);
 
 	assert_ready_iterator!(header01.hash(), pool, [xt0, xt1]);
 	assert_ready_iterator!(header02.hash(), pool, [xt0, xt1]);
@@ -535,7 +535,7 @@ fn fatp_prios_submit_local_full_mempool_higher_prio_is_accepted() {
 	pool.submit_local(invalid_hash(), xt1.clone()).unwrap();
 
 	assert_pool_status!(header01.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().0, 2);
+	assert_eq!(block_on(pool.mempool_len()).0, 2);
 
 	let header02 = api.push_block_with_parent(header01.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header01.hash()), header02.hash())));
@@ -544,7 +544,7 @@ fn fatp_prios_submit_local_full_mempool_higher_prio_is_accepted() {
 	pool.submit_local(invalid_hash(), xt3.clone()).unwrap();
 
 	assert_pool_status!(header02.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().0, 4);
+	assert_eq!(block_on(pool.mempool_len()).0, 4);
 
 	let header03 = api.push_block_with_parent(header02.hash(), vec![], true);
 	block_on(pool.maintain(new_best_block_event(&pool, Some(header02.hash()), header03.hash())));
@@ -553,7 +553,7 @@ fn fatp_prios_submit_local_full_mempool_higher_prio_is_accepted() {
 	pool.submit_local(invalid_hash(), xt5.clone()).unwrap();
 
 	assert_pool_status!(header03.hash(), &pool, 2, 0);
-	assert_eq!(pool.mempool_len().0, 4);
+	assert_eq!(block_on(pool.mempool_len()).0, 4);
 
 	assert_ready_iterator!(header01.hash(), pool, []);
 	assert_ready_iterator!(header02.hash(), pool, [xt3, xt2]);

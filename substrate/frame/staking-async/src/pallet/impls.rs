@@ -42,6 +42,7 @@ use frame_support::{
 		OnUnbalanced,
 	},
 	weights::Weight,
+	StorageDoubleMap,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -72,6 +73,28 @@ use sp_runtime::TryRuntimeError;
 const NPOS_MAX_ITERATIONS_COEFFICIENT: u32 = 2;
 
 impl<T: Config> Pallet<T> {
+	/// Returns the minimum required bond for participation, considering nominators,
+	/// and the chain’s existential deposit.
+	///
+	/// This function computes the smallest allowed bond among `MinValidatorBond` and
+	/// `MinNominatorBond`, but ensures it is not below the existential deposit required to keep an
+	/// account alive.
+	pub(crate) fn min_chilled_bond() -> BalanceOf<T> {
+		MinValidatorBond::<T>::get()
+			.min(MinNominatorBond::<T>::get())
+			.max(asset::existential_deposit::<T>())
+	}
+
+	/// Returns the minimum required bond for participation in staking as a validator account.
+	pub(crate) fn min_validator_bond() -> BalanceOf<T> {
+		MinValidatorBond::<T>::get().max(asset::existential_deposit::<T>())
+	}
+
+	/// Returns the minimum required bond for participation in staking as a nominator account.
+	pub(crate) fn min_nominator_bond() -> BalanceOf<T> {
+		MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>())
+	}
+
 	/// Fetches the ledger associated with a controller or stash account, if any.
 	pub fn ledger(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		StakingLedger::<T>::get(account)
@@ -169,8 +192,8 @@ impl<T: Config> Pallet<T> {
 
 		ledger.total = ledger.total.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
 		ledger.active = ledger.active.checked_add(&extra).ok_or(ArithmeticError::Overflow)?;
-		// last check: the new active amount of ledger must be more than ED.
-		ensure!(ledger.active >= asset::existential_deposit::<T>(), Error::<T>::InsufficientBond);
+		// last check: the new active amount of ledger must be more than min bond.
+		ensure!(ledger.active >= Self::min_chilled_bond(), Error::<T>::InsufficientBond);
 
 		// NOTE: ledger must be updated prior to calling `Self::weight_of`.
 		ledger.update()?;
@@ -185,30 +208,77 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Calculate the earliest era that withdrawals are allowed for, considering:
+	/// - The current active era
+	/// - Any unprocessed offences in the queue
+	fn calculate_earliest_withdrawal_era(active_era: EraIndex) -> EraIndex {
+		// get lowest era for which all offences are processed and withdrawals can be allowed.
+		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
+			.as_ref()
+			.and_then(|eras| eras.first())
+			.copied()
+			// if nothing in queue, use the active era.
+			.unwrap_or(active_era)
+			// above returns earliest era for which offences are NOT processed yet, so we subtract
+			// one from it which gives us the oldest era for which all offences are processed.
+			.saturating_sub(1)
+			// Unlock chunks are keyed by the era they were initiated plus Bonding Duration.
+			// We do the same to processed offence era so they can be compared.
+			.saturating_add(T::BondingDuration::get());
+
+		// If there are unprocessed offences older than the active era, withdrawals are only
+		// allowed up to the last era for which offences have been processed.
+		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
+		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
+		// struggling to keep up with processing.
+		active_era.min(earliest_unlock_era_by_offence_queue)
+	}
+
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
 		let mut ledger = Self::ledger(Controller(controller.clone()))?;
 		let (stash, old_total) = (ledger.stash.clone(), ledger.total);
-		if let Some(current_era) = CurrentEra::<T>::get() {
-			ledger = ledger.consolidate_unlocked(current_era)
+		let active_era = Rotator::<T>::active_era();
+
+		// Ensure last era slashes are applied. Else we block the withdrawals.
+		if active_era > 1 {
+			Self::ensure_era_slashes_applied(active_era.saturating_sub(1))?;
 		}
+
+		let earliest_era_to_withdraw = Self::calculate_earliest_withdrawal_era(active_era);
+
+		log!(
+			debug,
+			"Withdrawing unbonded stake. Active_era is: {:?} | \
+			Earliest era we can allow withdrawing: {:?}",
+			active_era,
+			earliest_era_to_withdraw
+		);
+
+		// withdraw unbonded balance from the ledger until earliest_era_to_withdraw.
+		ledger = ledger.consolidate_unlocked(earliest_era_to_withdraw);
+
 		let new_total = ledger.total;
+		debug_assert!(
+			new_total <= old_total,
+			"consolidate_unlocked should never increase the total balance of the ledger"
+		);
 
-		let ed = asset::existential_deposit::<T>();
-		let used_weight =
-			if ledger.unlocking.is_empty() && (ledger.active < ed || ledger.active.is_zero()) {
-				// This account must have called `unbond()` with some value that caused the active
-				// portion to fall below existential deposit + will have no more unlocking chunks
-				// left. We can now safely remove all staking-related information.
-				Self::kill_stash(&ledger.stash)?;
+		let used_weight = if ledger.unlocking.is_empty() &&
+			(ledger.active < Self::min_chilled_bond() || ledger.active.is_zero())
+		{
+			// This account must have called `unbond()` with some value that caused the active
+			// portion to fall below existential deposit + will have no more unlocking chunks
+			// left. We can now safely remove all staking-related information.
+			Self::kill_stash(&ledger.stash)?;
 
-				T::WeightInfo::withdraw_unbonded_kill()
-			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
-				ledger.update()?;
+			T::WeightInfo::withdraw_unbonded_kill()
+		} else {
+			// This was the consequence of a partial unbond. just update the ledger and move on.
+			ledger.update()?;
 
-				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update()
-			};
+			// This is only an update, so we use less overall weight.
+			T::WeightInfo::withdraw_unbonded_update()
+		};
 
 		// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
@@ -222,6 +292,14 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(used_weight)
+	}
+
+	fn ensure_era_slashes_applied(era: EraIndex) -> Result<(), DispatchError> {
+		ensure!(
+			!UnappliedSlashes::<T>::contains_prefix(era),
+			Error::<T>::UnappliedSlashesInPreviousEra
+		);
+		Ok(())
 	}
 
 	pub(super) fn do_payout_stakers(
@@ -639,7 +717,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		log!(info, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
+		log!(debug, "[bounds {:?}] generated {} npos targets", bounds, all_targets.len());
 
 		all_targets
 	}
@@ -659,11 +737,6 @@ impl<T: Config> Pallet<T> {
 				.defensive_unwrap_or_default();
 		}
 		Nominators::<T>::insert(who, nominations);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a nominator from the `Nominators` storage map,
@@ -683,11 +756,6 @@ impl<T: Config> Pallet<T> {
 			false
 		};
 
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
-
 		outcome
 	}
 
@@ -704,11 +772,6 @@ impl<T: Config> Pallet<T> {
 			let _ = T::VoterList::on_insert(who.clone(), Self::weight_of(who));
 		}
 		Validators::<T>::insert(who, prefs);
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 	}
 
 	/// This function will remove a validator from the `Validators` storage map.
@@ -726,11 +789,6 @@ impl<T: Config> Pallet<T> {
 		} else {
 			false
 		};
-
-		debug_assert_eq!(
-			Nominators::<T>::count() + Validators::<T>::count(),
-			T::VoterList::count()
-		);
 
 		outcome
 	}
@@ -899,16 +957,13 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 		log!(
 			debug,
-			"[page {}, status {:?} (stake?: {:?}), bounds {:?}] generated {} npos voters",
+			"[page {}, (next) status {:?}, bounds {:?}] generated {} npos voters [first: {:?}, last: {:?}]",
 			page,
-			VoterSnapshotStatus::<T>::get(),
-			if let SnapshotStatus::Ongoing(x) = VoterSnapshotStatus::<T>::get() {
-				Self::weight_of(&x)
-			} else {
-				Zero::zero()
-			},
+			status,
 			bounds,
 			voters.len(),
+			voters.first().map(|(x, y, _)| (x, y)),
+			voters.last().map(|(x, y, _)| (x, y)),
 		);
 
 		match status {
@@ -917,7 +972,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		VoterSnapshotStatus::<T>::put(status);
-
 		debug_assert!(!bounds.slice_exhausted(&voters));
 
 		Ok(voters)
@@ -927,13 +981,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		bounds: DataProviderBounds,
 	) -> data_provider::Result<Vec<VoterOf<Self>>> {
 		let voters = Self::get_npos_voters(bounds, &SnapshotStatus::Waiting);
-		log!(
-			debug,
-			"[stateless, status {:?}, bounds {:?}] generated {} npos voters",
-			VoterSnapshotStatus::<T>::get(),
-			bounds,
-			voters.len(),
-		);
+		log!(debug, "[stateless, bounds {:?}] generated {} npos voters", bounds, voters.len(),);
 		Ok(voters)
 	}
 
@@ -946,8 +994,6 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		}
 
 		let targets = Self::get_npos_targets(bounds);
-		// We can't handle this case yet -- return an error. WIP to improve handling this case in
-		// <https://github.com/paritytech/substrate/pull/13195>.
 		if bounds.exhausted(None, CountBound(targets.len() as u32).into()) {
 			return Err("Target snapshot too big")
 		}
@@ -984,7 +1030,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn add_target(target: T::AccountId) {
-		let stake = (MinValidatorBond::<T>::get() + 1u32.into()) * 100u32.into();
+		let stake = (Self::min_validator_bond() + 1u32.into()) * 100u32.into();
 		<Bonded<T>>::insert(target.clone(), target.clone());
 		<Ledger<T>>::insert(target.clone(), StakingLedger::<T>::new(target.clone(), stake));
 		Self::do_add_validator(
@@ -1016,7 +1062,7 @@ impl<T: Config> ElectionDataProvider for Pallet<T> {
 		targets.into_iter().for_each(|v| {
 			let stake: BalanceOf<T> = target_stake
 				.and_then(|w| <BalanceOf<T>>::try_from(w).ok())
-				.unwrap_or_else(|| MinNominatorBond::<T>::get() * 100u32.into());
+				.unwrap_or_else(|| Self::min_nominator_bond() * 100u32.into());
 			<Bonded<T>>::insert(v.clone(), v.clone());
 			<Ledger<T>>::insert(v.clone(), StakingLedger::<T>::new(v.clone(), stake));
 			Self::do_add_validator(
@@ -1056,9 +1102,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	/// 3. Activate Next Era: When we receive an activation timestamp in the session report, it
 	/// implies a new validator set has been applied, and we must increment the active era to keep
 	/// the systems in sync.
-	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) {
-		log!(debug, "session report received\n{:?}", report,);
-		let consumed_weight = T::WeightInfo::rc_on_session_report();
+	fn on_relay_session_report(report: rc_client::SessionReport<Self::AccountId>) -> Weight {
+		log!(debug, "Received session report: {}", report,);
 
 		let rc_client::SessionReport {
 			end_index,
@@ -1068,26 +1113,40 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		} = report;
 		debug_assert!(!leftover);
 
+		// note: weight for `reward_active_era` is taken care of inside `end_session`
 		Eras::<T>::reward_active_era(validator_points.into_iter());
-		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp);
-		// NOTE: we might want to either return these weights so that they are registered in the
-		// rc-client pallet, or directly benchmarked there, such that we can use them in the
-		// "pre-dispatch" fashion. That said, since these are all `Mandatory` weights, it doesn't
-		// make that big of a difference.
-		Self::register_weight(consumed_weight);
+		session_rotation::Rotator::<T>::end_session(end_index, activation_timestamp)
 	}
 
+	fn weigh_on_relay_session_report(
+		_report: &rc_client::SessionReport<Self::AccountId>,
+	) -> Weight {
+		// worst case weight of this is always
+		T::WeightInfo::rc_on_session_report()
+			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
+	}
+
+	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
+	///
+	/// Slashes for offences are applied `SlashDeferDuration` eras after the offence occurred.
+	/// Accepting offences older than this range would not leave enough time for slashes to be
+	/// applied.
+	///
+	/// Note: The validator set report that we send to the relay chain contains the pruning
+	/// information for a relay chain, but we conservatively keep some extra sessions, so it is
+	/// possible that an offence report is created for a session between SlashDeferDuration and
+	/// BondingDuration eras before the active era. But they will be dropped here.
 	fn on_new_offences(
 		slash_session: SessionIndex,
 		offences: Vec<rc_client::Offence<T::AccountId>>,
-	) {
+	) -> Weight {
 		log!(debug, "🦹 on_new_offences: {:?}", offences);
-		let consumed_weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
+		let weight = T::WeightInfo::rc_on_offence(offences.len() as u32);
 
 		// Find the era to which offence belongs.
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			log!(warn, "🦹 on_new_offences: no active era; ignoring offence");
-			return
+			return T::WeightInfo::rc_on_offence(0);
 		};
 
 		let active_era_start_session = Rotator::<T>::active_era_start_session_index();
@@ -1108,9 +1167,19 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 					// defensive: this implies offence is for a discarded era, and should already be
 					// filtered out.
 					log!(warn, "🦹 on_offence: no era found for slash_session; ignoring offence");
-					return
+					return T::WeightInfo::rc_on_offence(0);
 				},
 			}
+		};
+
+		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
+			// this implies that slashes are applied immediately, so we can accept any offence up to
+			// bonding duration old.
+			active_era.index.saturating_sub(T::BondingDuration::get())
+		} else {
+			// slashes are deffered, so we only accept offences that are not older than the
+			// defferal duration.
+			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1))
 		};
 
 		let invulnerables = Invulnerables::<T>::get();
@@ -1124,6 +1193,17 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 				continue
 			}
 
+			// ignore offence if too old to report.
+			if offence_era < oldest_reportable_offence_era {
+				log!(warn, "🦹 on_new_offences: offence era {:?} too old; Can only accept offences from era {:?} or newer", offence_era, oldest_reportable_offence_era);
+				Self::deposit_event(Event::<T>::OffenceTooOld {
+					validator: validator.clone(),
+					fraction: slash_fraction,
+					offence_era,
+				});
+				// will emit an event for each validator in the report.
+				continue;
+			}
 			let Some(exposure_overview) = <ErasStakersOverview<T>>::get(&offence_era, &validator)
 			else {
 				// defensive: this implies offence is for a discarded era, and should already be
@@ -1212,7 +1292,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 							)
 						});
 					} else {
-						let mut eras = BoundedVec::default();
+						let mut eras = WeakBoundedVec::default();
 						log!(debug, "🦹 inserting offence era {} into empty queue", offence_era);
 						let _ = eras
 							.try_push(offence_era)
@@ -1239,7 +1319,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			}
 		}
 
-		Self::register_weight(consumed_weight);
+		weight
+	}
+
+	fn weigh_on_new_offences(
+		_slash_session: SessionIndex,
+		offences: &[pallet_staking_async_rc_client::Offence<Self::AccountId>],
+	) -> Weight {
+		T::WeightInfo::rc_on_offence(offences.len() as u32)
 	}
 }
 
@@ -1437,11 +1524,11 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	type CurrencyToVote = T::CurrencyToVote;
 
 	fn minimum_nominator_bond() -> Self::Balance {
-		MinNominatorBond::<T>::get()
+		Self::min_nominator_bond()
 	}
 
 	fn minimum_validator_bond() -> Self::Balance {
-		MinValidatorBond::<T>::get()
+		Self::min_validator_bond()
 	}
 
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError> {
@@ -1670,6 +1757,7 @@ impl<T: Config> Pallet<T> {
 		Self::check_payees()?;
 		Self::check_paged_exposures()?;
 		Self::check_count()?;
+		Self::check_slash_health()?;
 
 		Ok(())
 	}
@@ -1815,14 +1903,21 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				} else {
-					ensure!(
-						Self::inspect_bond_state(&stash) == Ok(LedgerIntegrityState::Ok),
-						"bond, ledger and/or staking hold inconsistent for a bonded stash."
-					);
+					let integrity = Self::inspect_bond_state(&stash);
+					if integrity != Ok(LedgerIntegrityState::Ok) {
+						// NOTE: not using defensive! since we test these cases and it panics them
+						log!(
+							error,
+							"defensive: bonded stash {:?} has inconsistent ledger state: {:?}",
+							stash,
+							integrity
+						);
+					}
 				}
 
-				// ensure ledger consistency.
-				Self::ensure_ledger_consistent(ctrl)
+				Self::ensure_ledger_consistent(&ctrl)?;
+				Self::ensure_ledger_role_and_min_bond(&ctrl)?;
+				Ok(())
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(())
@@ -1896,7 +1991,123 @@ impl<T: Config> Pallet<T> {
 			.collect::<Result<(), TryRuntimeError>>()
 	}
 
-	fn ensure_ledger_consistent(ctrl: T::AccountId) -> Result<(), TryRuntimeError> {
+	/// Ensures offence pipeline and slashing is in a healthy state.
+	fn check_slash_health() -> Result<(), TryRuntimeError> {
+		// (1) Ensure offence queue is sorted
+		let offence_queue_eras = OffenceQueueEras::<T>::get().unwrap_or_default().into_inner();
+		let mut sorted_offence_queue_eras = offence_queue_eras.clone();
+		sorted_offence_queue_eras.sort();
+		ensure!(
+			sorted_offence_queue_eras == offence_queue_eras,
+			"Offence queue eras are not sorted"
+		);
+		drop(sorted_offence_queue_eras);
+
+		// (2) Ensure oldest offence queue era is old enough.
+		let active_era = Rotator::<T>::active_era();
+		let oldest_unprocessed_offence_era =
+			offence_queue_eras.first().cloned().unwrap_or(active_era);
+
+		// how old is the oldest unprocessed offence era?
+		// given bonding duration = 28, the ideal value is between 0 and 2 eras.
+		// anything close to bonding duration is terrible.
+		let oldest_unprocessed_offence_age =
+			active_era.saturating_sub(oldest_unprocessed_offence_era);
+
+		// warn if less than 26 eras old.
+		if oldest_unprocessed_offence_age > 2.min(T::BondingDuration::get()) {
+			log!(
+				warn,
+				"Offence queue has unprocessed offences from older than 2 eras: oldest offence era in queue {:?} (active era: {:?})",
+				oldest_unprocessed_offence_era,
+				active_era
+			);
+		}
+
+		// error if the oldest unprocessed offence era closer to bonding duration.
+		ensure!(
+			oldest_unprocessed_offence_age < T::BondingDuration::get() - 1,
+			"offences from era less than 3 eras old from active era not processed yet"
+		);
+
+		// (3) Report count of offences in the queue.
+		for e in offence_queue_eras {
+			let count = OffenceQueue::<T>::iter_prefix(e).count();
+			ensure!(count > 0, "Offence queue is empty for era listed in offence queue eras");
+			log!(info, "Offence queue for era {:?} has {:?} offences queued", e, count);
+		}
+
+		// (4) Ensure all slashes older than (active era - 1) are applied.
+		// We will look at all eras before the active era as it can take 1 era for slashes
+		// to be applied.
+		for era in (active_era.saturating_sub(T::BondingDuration::get()))..(active_era) {
+			// all unapplied slashes are expected to be applied until the active era. If this is not
+			// the case, then we need to use a permissionless call to apply all of them.
+			// See `Call::apply_slash` for more details.
+			Self::ensure_era_slashes_applied(era)?;
+		}
+
+		// (5) Ensure no canceled slashes exist in the past eras.
+		for (era, _) in CancelledSlashes::<T>::iter() {
+			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
+		}
+
+		Ok(())
+	}
+
+	fn ensure_ledger_role_and_min_bond(ctrl: &T::AccountId) -> Result<(), TryRuntimeError> {
+		let ledger = Self::ledger(StakingAccount::Controller(ctrl.clone()))?;
+		let stash = ledger.stash;
+
+		let is_nominator = Nominators::<T>::contains_key(&stash);
+		let is_validator = Validators::<T>::contains_key(&stash);
+
+		match (is_nominator, is_validator) {
+			(false, false) => {
+				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					log!(
+						warn,
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
+				}
+				// is chilled
+			},
+			(true, false) => {
+				// Nominators must have a minimum bond.
+				if ledger.active < Self::min_nominator_bond() {
+					log!(
+						warn,
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
+				}
+			},
+			(false, true) => {
+				// Validators must have a minimum bond.
+				if ledger.active < Self::min_validator_bond() {
+					log!(
+						warn,
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
+				}
+			},
+			(true, true) => {
+				ensure!(false, "Stash cannot be both nominator and validator");
+			},
+		}
+		Ok(())
+	}
+
+	fn ensure_ledger_consistent(ctrl: &T::AccountId) -> Result<(), TryRuntimeError> {
 		// ensures ledger.total == ledger.active + sum(ledger.unlocking).
 		let ledger = Self::ledger(StakingAccount::Controller(ctrl.clone()))?;
 

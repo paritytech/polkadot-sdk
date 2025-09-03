@@ -15,6 +15,13 @@ chmod +x polkadot-omni-node
 export PATH="$PATH:`pwd`"
 ```
 
+> Replace `<stable_release_tag>` with the latest stable tag from the [Polkadot SDK releases](https://github.com/paritytech/polkadot-sdk/releases)
+>
+> For example:
+> ```bash
+> wget https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2506-1/polkadot-omni-node
+> ```
+
 Compile & install via `cargo`:
 
 ```bash
@@ -39,9 +46,20 @@ cargo install staging-chain-spec-builder --locked
 
 ### 2. Generate a chain spec
 
-Omni Node expects for the chain spec to contain parachains related fields like `relay_chain` and `para_id`.
-These fields can be introduced by running [`staging-chain-spec-builder`](https://crates.io/crates/staging-chain-spec-builder)
-with additional flags:
+Omni Node requires the chain spec to include a JSON key named `relay_chain`. It is set to a chain id,
+representing the chain name, e.g. `westend`, `paseo`, `rococo`, `polkadot`, or `kusama`, but
+there are also local variants that can be used for testing, like `rococo-local` or `westend-local`. The
+local variants are available only for a build of `polkadot-omni-node` with
+`westend-native` and `rococo-native` features respectively.
+
+<!-- TODO: https://github.com/paritytech/polkadot-sdk/issues/8747 -->
+Additionaly, the `--para-id` flag can be used to set the JSON key named `para_id`. This flag is used
+by nodes to determine the parachain id, and it is especially useful when the parachain id can not be
+fetched from the runtime, when the state points to a runtime that does not implement the
+`cumulus_primitives_core::GetParachainInfo` runtime API. It is recommended for runtimes to implement
+the runtime API and be upgraded on chain.
+
+Example command bellow:
 
 ```bash
 chain-spec-builder create --relay-chain <relay_chain_id> --para-id <id> -r <runtime.wasm> named-preset <preset_name>

@@ -416,19 +416,17 @@ fn build_polkadot_full_node(
 		execute_workers_max_num: None,
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
-		enable_approval_voting_parallel: false,
 		keep_finalized_for: None,
 	};
 
-	let (relay_chain_full_node, paranode_req_receiver) =
-		match config.network.network_backend.unwrap_or_default() {
-			NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
-				sc_network::NetworkWorker<_, _>,
-			>(config, new_full_params)?,
-			NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
-				sc_network::Litep2pNetworkBackend,
-			>(config, new_full_params)?,
-		};
+	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
+		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
+			sc_network::NetworkWorker<_, _>,
+		>(config, new_full_params)?,
+		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
+			sc_network::Litep2pNetworkBackend,
+		>(config, new_full_params)?,
+	};
 
 	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
 }

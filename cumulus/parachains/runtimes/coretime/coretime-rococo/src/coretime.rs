@@ -113,6 +113,7 @@ parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
 	pub const MinimumCreditPurchase: Balance =  UNITS / 10;
 	pub RevenueAccumulationAccount: AccountId = BrokerPalletId::get().into_sub_account_truncating(b"burnstash");
+	pub const MinimumEndPrice: Balance = UNITS;
 }
 
 /// Type that implements the `CoretimeInterface` for the allocation of Coretime. Meant to operate
@@ -141,14 +142,13 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => tracing::info!(
 				target: "runtime::coretime",
 				"Request to update schedulable cores sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Failed to send request to update schedulable cores: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Failed to send request to update schedulable cores",
 			),
 		}
 	}
@@ -171,14 +171,13 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => tracing::info!(
 				target: "runtime::coretime",
 				"Request for revenue information sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Request for revenue information failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Request for revenue information failed to send"
 			),
 		}
 	}
@@ -200,14 +199,13 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => tracing::info!(
 				target: "runtime::coretime",
 				"Instruction to credit account sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Instruction to credit account failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Instruction to credit account failed to send"
 			),
 		}
 	}
@@ -265,14 +263,13 @@ impl CoretimeInterface for CoretimeAllocator {
 		]);
 
 		match PolkadotXcm::send_xcm(Here, Location::parent(), message.clone()) {
-			Ok(_) => log::info!(
+			Ok(_) => tracing::info!(
 				target: "runtime::coretime",
 				"Core assignment sent successfully."
 			),
-			Err(e) => log::error!(
-				target: "runtime::coretime",
-				"Core assignment failed to send: {:?}",
-				e
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Core assignment failed to send"
 			),
 		}
 	}
@@ -283,13 +280,13 @@ impl CoretimeInterface for CoretimeAllocator {
 			Balances::reducible_balance(&stash, Preservation::Expendable, Fortitude::Polite);
 
 		if value > 0 {
-			log::debug!(target: "runtime::coretime", "Going to burn {value} stashed tokens at RC");
+			tracing::debug!(target: "runtime::coretime", %value, "Going to burn stashed tokens at RC");
 			match burn_at_relay(&stash, value) {
 				Ok(()) => {
-					log::debug!(target: "runtime::coretime", "Succesfully burnt {value} tokens");
+					tracing::debug!(target: "runtime::coretime", %value, "Successfully burnt tokens");
 				},
 				Err(err) => {
-					log::error!(target: "runtime::coretime", "burn_at_relay failed: {err:?}");
+					tracing::error!(target: "runtime::coretime", error=?err, "burn_at_relay failed");
 				},
 			}
 		}
@@ -319,6 +316,6 @@ impl pallet_broker::Config for Runtime {
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxAutoRenewals = ConstU32<100>;
-	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
+	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }

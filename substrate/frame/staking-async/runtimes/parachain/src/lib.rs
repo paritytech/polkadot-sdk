@@ -38,7 +38,9 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use assets_common::{
+	foreign_creators::ForeignCreators,
 	local_and_foreign_assets::{LocalFromLeft, TargetFromLeft},
+	matching::{FromNetwork, FromSiblingParachain},
 	AssetIdForPoolAssets, AssetIdForPoolAssetsConvert, AssetIdForTrustBackedAssetsConvert,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -74,8 +76,11 @@ use parachains_common::{
 	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	NORMAL_DISPATCH_RATIO,
 };
+use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+#[cfg(any(feature = "std", test))]
+pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Verify},
@@ -88,24 +93,15 @@ use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
 };
-use xcm_config::{
-	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
-	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
-	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
-};
-
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-
-use assets_common::{
-	foreign_creators::ForeignCreators,
-	matching::{FromNetwork, FromSiblingParachain},
-};
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
 	latest::prelude::AssetId,
 	prelude::{VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm},
+};
+use xcm_config::{
+	ForeignAssetsConvertedConcreteId, LocationToAccountId, PoolAssetsConvertedConcreteId,
+	PoolAssetsPalletLocation, TrustBackedAssetsConvertedConcreteId,
+	TrustBackedAssetsPalletLocation, WestendLocation, XcmOriginToTransactDispatchOrigin,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -130,14 +126,10 @@ impl_opaque_keys! {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	// Note: "westmint" is the legacy name for this chain. It has been renamed to
-	// "asset-hub-next-westend". Many wallets/tools depend on the `spec_name`, so it remains
-	// "westmint" for the time being. Wallets/tools should update to treat "asset-hub-next-westend"
-	// equally.
-	spec_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
-	impl_name: alloc::borrow::Cow::Borrowed("asset-hub-next"),
+	spec_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("staking-async-parachain"),
 	authoring_version: 1,
-	spec_version: 1_017_007,
+	spec_version: 1_000_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -817,6 +809,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -915,6 +908,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -1112,9 +1107,7 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-// impl pallet_root_offences::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// }
+impl pallet_staking_async_preset_store::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1178,13 +1171,13 @@ construct_runtime!(
 		FastUnstake: pallet_fast_unstake = 82,
 		VoterList: pallet_bags_list::<Instance1> = 83,
 		DelegatedStaking: pallet_delegated_staking = 84,
-		StakingNextRcClient: pallet_staking_async_rc_client = 89,
+		StakingRcClient: pallet_staking_async_rc_client = 89,
 
 		// Election apparatus.
-		MultiBlock: pallet_election_provider_multi_block = 85,
-		MultiBlockVerifier: pallet_election_provider_multi_block::verifier = 86,
-		MultiBlockUnsigned: pallet_election_provider_multi_block::unsigned = 87,
-		MultiBlockSigned: pallet_election_provider_multi_block::signed = 88,
+		MultiBlockElection: pallet_election_provider_multi_block = 85,
+		MultiBlockElectionVerifier: pallet_election_provider_multi_block::verifier = 86,
+		MultiBlockElectionUnsigned: pallet_election_provider_multi_block::unsigned = 87,
+		MultiBlockElectionSigned: pallet_election_provider_multi_block::signed = 88,
 
 		// Governance.
 		Preimage: pallet_preimage = 90,
@@ -1201,7 +1194,7 @@ construct_runtime!(
 
 		// AHN specific.
 		Sudo: pallet_sudo = 110,
-		// RootOffences: pallet_root_offences = 111,
+		PresetStore: pallet_staking_async_preset_store = 111,
 
 		// TODO: the pallet instance should be removed once all pools have migrated
 		// to the new account IDs.
@@ -1339,10 +1332,10 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
-		[pallet_election_provider_multi_block, MultiBlock]
-		[pallet_election_provider_multi_block_verifier, MultiBlockVerifier]
-		[pallet_election_provider_multi_block_unsigned, MultiBlockUnsigned]
-		[pallet_election_provider_multi_block_signed, MultiBlockSigned]
+		[pallet_election_provider_multi_block, MultiBlockElection]
+		[pallet_election_provider_multi_block_verifier, MultiBlockElectionVerifier]
+		[pallet_election_provider_multi_block_unsigned, MultiBlockElectionUnsigned]
+		[pallet_election_provider_multi_block_signed, MultiBlockElectionSigned]
 		[pallet_fast_unstake, FastUnstake]
 		[pallet_message_queue, MessageQueue]
 		[pallet_migrations, MultiBlockMigrations]
@@ -1381,6 +1374,12 @@ impl_runtime_apis! {
 
 		fn authorities() -> Vec<AuraId> {
 			pallet_aura::Authorities::<Runtime>::get().into_inner()
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
 		}
 	}
 
@@ -1849,9 +1848,6 @@ impl_runtime_apis! {
 				crate::staking::Pages::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::staking::SolutionImprovementThreshold::key().to_vec().into()
-			);
-			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::SignedPhase::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
@@ -2165,26 +2161,32 @@ impl_runtime_apis! {
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			let res = build_state::<RuntimeGenesisConfig>(config);
-			// tweak some of our parameter-types as well..
-			match pallet_staking_async::ValidatorCount::<Runtime>::get() {
-				500 => {
-					log::info!(target: "runtime", "detected a polkadot-like chain during `build_state`");
-					// this is a polkadot-like chain
-					crate::staking::MaxElectingVoters::set(&22_500);
-					crate::staking::Pages::set(&32);
+			match PresetStore::preset().unwrap().as_str() {
+				"real-s" => {
+					log::info!(target: "runtime", "detected a real-s preset");
+					// used for slashing, better make it faster.
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				},
-				1000 => {
-					log::info!(target: "runtime", "detected a kusama-like chain during `build_state`");
-					// this is a kusama-like chain
-					crate::staking::MaxElectingVoters::set(&12_500);
-					crate::staking::Pages::set(&16);
+				"real-m" => {
+					log::info!(target: "runtime", "detected a real-m preset");
+					crate::staking::SignedPhase::set(&0);
+					crate::staking::SignedValidationPhase::set(&0);
 				}
-				10 => {
-					log::info!(target: "runtime", "detected a dev chain during `build_state`");
-					// this is a dev-chain -- no change needed
+				"fake-dev" => {
+					log::info!(target: "runtime", "detected a fake-dev preset");
+					// noop, default values are for dev.
+				},
+				"fake-ksm" => {
+					log::info!(target: "runtime", "detected fake-ksm preset");
+					crate::staking::enable_ksm_preset(true);
+				},
+				"fake-dot" => {
+					log::info!(target: "runtime", "detected fake-dot preset");
+					crate::staking::enable_dot_preset(true);
 				},
 				_ => {
-					panic!("Unrecognized validator count -- genesis-config and this block should match");
+					panic!("Unrecognized preset to build");
 				}
 			}
 
@@ -2206,6 +2208,12 @@ impl_runtime_apis! {
 		}
 		fn is_trusted_teleporter(asset: VersionedAsset, location: VersionedLocation) -> xcm_runtime_apis::trusted_query::XcmTrustedQueryResult {
 			PolkadotXcm::is_trusted_teleporter(asset, location)
+		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
 		}
 	}
 }

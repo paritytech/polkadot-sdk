@@ -50,7 +50,7 @@ fn set_minimum_active_stake_lower_bond_works() {
 		assert_eq!(<Test as Config>::VoterList::count(), 4);
 
 		assert_ok!(Staking::bond(RuntimeOrigin::signed(4), 5, RewardDestination::Staked,));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![1]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(4), vec![11]));
 		assert_eq!(<Test as Config>::VoterList::count(), 5);
 
 		let voters_before =
@@ -279,11 +279,11 @@ fn nomination_quota_checks_at_nominate_works() {
 
 		// nominating with targets below the nomination quota works.
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11]));
-		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12]));
+		assert_ok!(Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21]));
 
 		// nominating with targets above the nomination quota returns error.
 		assert_noop!(
-			Staking::nominate(RuntimeOrigin::signed(61), vec![11, 12, 13]),
+			Staking::nominate(RuntimeOrigin::signed(61), vec![11, 21, 31]),
 			Error::<Test>::TooManyTargets
 		);
 	});
@@ -426,26 +426,28 @@ fn change_of_absolute_max_nominations() {
 fn nomination_quota_max_changes_decoding() {
 	use frame_election_provider_support::ElectionDataProvider;
 	ExtBuilder::default()
-		.add_staker(60, 10, StakerStatus::Nominator(vec![1]))
-		.add_staker(70, 10, StakerStatus::Nominator(vec![1, 2, 3]))
-		.add_staker(30, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
-		.add_staker(50, 10, StakerStatus::Nominator(vec![1, 2, 3, 4]))
+		.nominate(false)
+		.set_status(41, StakerStatus::Validator)
+		.add_staker(60, 10, StakerStatus::Nominator(vec![11]))
+		.add_staker(70, 10, StakerStatus::Nominator(vec![11, 21, 31]))
+		.add_staker(30, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
+		.add_staker(50, 10, StakerStatus::Nominator(vec![11, 21, 31, 41]))
 		.balance_factor(11)
 		.build_and_execute(|| {
 			// pre-condition.
 			assert_eq!(MaxNominationsOf::<Test>::get(), 16);
 
-			let unbonded_election = DataProviderBounds::default();
+			let unbounded_election = DataProviderBounds::default();
 
 			assert_eq!(
 				Nominators::<Test>::iter()
 					.map(|(k, n)| (k, n.targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(70, 3), (101, 2), (50, 4), (30, 4), (60, 1)]
+				vec![(70, 3), (50, 4), (30, 4), (60, 1)]
 			);
 
 			// 4 validators and 4 nominators
-			assert_eq!(Staking::electing_voters(unbonded_election, 0).unwrap().len(), 4 + 4);
+			assert_eq!(Staking::electing_voters(unbounded_election, 0).unwrap().len(), 4 + 4);
 		});
 }
 
@@ -463,6 +465,11 @@ fn api_nominations_quota_works() {
 fn lazy_quota_npos_voters_works_above_quota() {
 	ExtBuilder::default()
 		.nominate(false)
+		// need to make 22, 23, 24 and 25 validators
+		.add_staker(22, 1000, StakerStatus::Validator)
+		.add_staker(23, 1000, StakerStatus::Validator)
+		.add_staker(24, 1000, StakerStatus::Validator)
+		.add_staker(25, 1000, StakerStatus::Validator)
 		.add_staker(
 			61,
 			300, // 300 bond has 16 nomination quota.
@@ -482,7 +489,7 @@ fn lazy_quota_npos_voters_works_above_quota() {
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1), (61, 5)],
+				vec![(11, 1), (21, 1), (31, 1), (22, 1), (23, 1), (24, 1), (25, 1), (61, 5)],
 			);
 		});
 }
@@ -491,22 +498,23 @@ fn lazy_quota_npos_voters_works_above_quota() {
 fn nominations_quota_limits_size_work() {
 	ExtBuilder::default()
 		.nominate(false)
-		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![16, 15, 14, 13, 12, 11, 10]))
+		.set_status(41, StakerStatus::Validator)
+		.add_staker(71, 333, StakerStatus::<AccountId>::Nominator(vec![11, 21, 31, 41]))
 		.build_and_execute(|| {
-			// nominations of controller 70 won't be added due to voter size limit exceeded.
-			let bounds = ElectionBoundsBuilder::default().voters_size(100.into()).build();
+			// nominations of 71 won't be added due to voter size limit exceeded.
+			let bounds = ElectionBoundsBuilder::default().voters_size(101.into()).build();
 			assert_eq!(
 				Staking::electing_voters(bounds.voters, 0)
 					.unwrap()
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1)],
+				vec![(41, 1), (11, 1), (21, 1), (31, 1)],
 			);
 
 			assert_eq!(
 				*staking_events().last().unwrap(),
-				Event::SnapshotVotersSizeExceeded { size: 75 }
+				Event::SnapshotVotersSizeExceeded { size: 100 }
 			);
 
 			// however, if the election voter size bounds were larger, the snapshot would
@@ -518,7 +526,7 @@ fn nominations_quota_limits_size_work() {
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1), (71, 7)],
+				vec![(41, 1), (11, 1), (21, 1), (31, 1), (71, 4)],
 			);
 		});
 }
@@ -541,7 +549,7 @@ mod sorted_list_provider {
 			);
 
 			// when account 101 renominates
-			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![41]));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![31]));
 
 			// then counts don't change
 			assert_eq!(<Test as Config>::VoterList::count(), pre_insert_voter_count);
@@ -650,7 +658,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				let mut all_voters = vec![];
@@ -662,7 +670,7 @@ mod paged_snapshot {
 					.collect::<Vec<_>>();
 				all_voters.extend(voters_page_3.clone());
 
-				assert_eq!(voters_page_3, vec![41, 51, 11]);
+				assert_eq!(voters_page_3, vec![51, 41, 11]);
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(11));
 
 				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
@@ -723,7 +731,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				// initially not locked
@@ -735,8 +743,8 @@ mod paged_snapshot {
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
 
-				assert_eq!(voters_page_3, vec![41, 51]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(voters_page_3, vec![51, 41]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
 				hypothetically!({});
@@ -759,7 +767,7 @@ mod paged_snapshot {
 					.collect::<Vec<_>>();
 
 				// consumed, and we already unlock
-				assert_eq!(voters_page_1, vec![31, 101]);
+				assert_eq_uvec!(voters_page_1, vec![31, 101]);
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
@@ -788,7 +796,7 @@ mod paged_snapshot {
 						.into_iter()
 						.map(|v| (v, <Test as Config>::VoterList::get_score(&v).unwrap()))
 						.collect::<Vec<_>>(),
-					vec![(41, 4000), (51, 5000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
+					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
 				// initial bag of 51
@@ -816,8 +824,8 @@ mod paged_snapshot {
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
 
-				assert_eq!(voters_page_3, vec![41, 51]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(51));
+				assert_eq!(voters_page_3, vec![51, 41]);
+				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
 				// 51 who is already part of the list might want to unbond. They are already in the

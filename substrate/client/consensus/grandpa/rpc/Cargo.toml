@@ -31,7 +31,6 @@ thiserror = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-rpc = { features = ["test-helpers"], workspace = true, default-features = true }
 sp-consensus-grandpa = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }

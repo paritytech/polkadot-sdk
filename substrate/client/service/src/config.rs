@@ -70,6 +70,8 @@ pub struct Configuration {
 	///
 	/// If `None` is given the cache is disabled.
 	pub trie_cache_maximum_size: Option<usize>,
+	/// Force the trie cache to be in memory.
+	pub warm_up_trie_cache: Option<TrieCacheWarmUpStrategy>,
 	/// State pruning settings.
 	pub state_pruning: Option<PruningMode>,
 	/// Number of blocks to keep in the db.
@@ -113,6 +115,22 @@ pub struct Configuration {
 	pub data_path: PathBuf,
 	/// Base path of the configuration. This is shared between chains.
 	pub base_path: BasePath,
+}
+
+/// Warmup strategy for the trie cache.
+#[derive(Debug, Clone, Copy)]
+pub enum TrieCacheWarmUpStrategy {
+	/// Warm up the cache in a non-blocking way.
+	NonBlocking,
+	/// Warm up the cache in a blocking way.
+	Blocking,
+}
+
+impl TrieCacheWarmUpStrategy {
+	/// Returns true if the warmup strategy is blocking.
+	pub(crate) fn is_blocking(&self) -> bool {
+		matches!(self, Self::Blocking)
+	}
 }
 
 /// Type for tasks spawned by the executor.

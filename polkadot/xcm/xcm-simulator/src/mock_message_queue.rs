@@ -107,14 +107,15 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } =>
+						Outcome::Error(InstructionError { error, .. }) =>
 							(Err(error), Event::Fail { message_id: Some(hash), error }),
 						Outcome::Complete { used } =>
 							(Ok(used), Event::Success { message_id: Some(hash) }),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail { message_id: Some(hash), error }),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail { message_id: Some(hash), error }),
 					}
 				},
 				Err(()) => (

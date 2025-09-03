@@ -43,9 +43,136 @@
 //!
 //! TODO
 //!
-//! ## Slashing of Validators and Exposures
+//! ## Slashing Pipeline and Withdrawal Restrictions
 //!
-//! TODO
+//! This pallet implements a robust slashing mechanism that ensures the integrity of the staking
+//! system while preventing stakers from withdrawing funds that might still be subject to slashing.
+//!
+//! ### Overview of the Slashing Pipeline
+//!
+//! The slashing process consists of multiple phases:
+//!
+//! 1. **Offence Reporting**: Offences are reported from the relay chain through `on_new_offences`
+//! 2. **Queuing**: Valid offences are added to the `OffenceQueue` for processing
+//! 3. **Processing**: Offences are processed incrementally over multiple blocks
+//! 4. **Application**: Slashes are either applied immediately or deferred based on configuration
+//!
+//! ### Phase 1: Offence Reporting
+//!
+//! Offences are reported from the relay chain (e.g., from BABE, GRANDPA, BEEFY, or parachain
+//! modules) through the `on_new_offences` function:
+//!
+//! ```text
+//! struct Offence {
+//!     offender: AccountId,        // The validator being slashed
+//!     reporters: Vec<AccountId>,  // Who reported the offence (may be empty)
+//!     slash_fraction: Perbill,    // Percentage of stake to slash
+//! }
+//! ```
+//!
+//! **Reporting Deadlines**:
+//! - With deferred slashing: Offences must be reported within `SlashDeferDuration - 1` eras
+//! - With immediate slashing: Offences can be reported up to `BondingDuration` eras old
+//!
+//! Example: If `SlashDeferDuration = 27` and current era is 100:
+//! - Oldest reportable offence: Era 74 (100 - 26)
+//! - Offences from era 73 or earlier are rejected
+//!
+//! ### Phase 2: Queuing
+//!
+//! When an offence passes validation, it's added to the queue:
+//!
+//! 1. **Storage**: Added to `OffenceQueue`: `(EraIndex, AccountId) -> OffenceRecord`
+//! 2. **Era Tracking**: Era added to `OffenceQueueEras` (sorted vector of eras with offences)
+//! 3. **Duplicate Handling**: If an offence already exists for the same validator in the same era,
+//!    only the higher slash fraction is kept
+//!
+//! ### Phase 3: Processing
+//!
+//! Offences are processed incrementally in `on_initialize` each block:
+//!
+//! ```text
+//! 1. Load oldest offence from queue
+//! 2. Move to `ProcessingOffence` storage
+//! 3. For each exposure page (from last to first):
+//!    - Calculate slash for validator's own stake
+//!    - Calculate slash for each nominator (pro-rata based on exposure)
+//!    - Track total slash and reward amounts
+//! 4. Once all pages processed, create `UnappliedSlash`
+//! ```
+//!
+//! **Key Features**:
+//! - **Page-by-page processing**: Large validator sets don't overwhelm a single block
+//! - **Pro-rata slashing**: Nominators slashed proportionally to their stake
+//! - **Reward calculation**: A portion goes to reporters (if any)
+//!
+//! ### Phase 4: Application
+//!
+//! Based on `SlashDeferDuration`, slashes are either:
+//!
+//! **Immediate (SlashDeferDuration = 0)**:
+//! - Applied right away in the same block
+//! - Funds deducted from staking ledger immediately
+//!
+//! **Deferred (SlashDeferDuration > 0)**:
+//! - Stored in `UnappliedSlashes` for future application
+//! - Applied at era: `offence_era + SlashDeferDuration`
+//! - Can be cancelled by governance before application
+//!
+//! ### Storage Items Involved
+//!
+//! - `OffenceQueue`: Pending offences to process
+//! - `OffenceQueueEras`: Sorted list of eras with offences
+//! - `ProcessingOffence`: Currently processing offence
+//! - `ValidatorSlashInEra`: Tracks highest slash per validator per era
+//! - `UnappliedSlashes`: Deferred slashes waiting for application
+//!
+//! ### Withdrawal Restrictions
+//!
+//! To maintain slashing guarantees, withdrawals are restricted:
+//!
+//! **Withdrawal Era Calculation**:
+//! ```text
+//! earliest_era_to_withdraw = min(
+//!     active_era,
+//!     last_fully_processed_offence_era + BondingDuration
+//! )
+//! ```
+//!
+//! **Example**:
+//! - Active era: 100
+//! - Oldest unprocessed offence: Era 70
+//! - BondingDuration: 28
+//! - Withdrawal allowed only for chunks with era ≤ 97 (70 - 1 + 28)
+//!
+//! **Withdrawal Timeline Example with an Offence**:
+//! ```text
+//! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
+//!             |     |     |     |     |     |     |     |     |     |     |          |     |
+//! Unbond:     U
+//! Offence:    X
+//! Reported:               R
+//! Processed:              P (within next few blocks)
+//! Slash Applied:                                                                       S
+//! Withdraw:                                                                            ❌    ✓
+//!
+//! With BondingDuration = 28 and SlashDeferDuration = 27:
+//! - User unbonds in era 90
+//! - Offence occurs in era 90
+//! - Reported in era 92 (typically within 2 days, but reportable until Era 116)
+//! - Processed in era 92 (within next few blocks after reporting)
+//! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
+//! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
+//!
+//! The 28-era bonding duration ensures that any offences committed before or during
+//! unbonding have time to be reported, processed, and applied before funds can be
+//! withdrawn. This provides a window for governance to cancel slashes that may have
+//! resulted from software bugs.
+//! ```
+//!
+//! **Key Restrictions**:
+//! 1. Cannot withdraw if previous era has unapplied slashes
+//! 2. Cannot withdraw funds from eras with unprocessed offences
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
@@ -80,13 +207,14 @@ use frame_support::{
 	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 	WeakBoundedVec,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, StaticLookup},
-	BoundedBTreeMap, Perbill, RuntimeDebug,
+	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
+	BoundedBTreeMap, Perbill, RuntimeDebug, Saturating,
 };
-use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata};
+use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
@@ -221,7 +349,7 @@ pub struct ValidatorPrefs {
 }
 
 /// Status of a paged snapshot progress.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen, Default)]
 pub enum SnapshotStatus<AccountId> {
 	/// Paged snapshot is in progress, the `AccountId` was the last staker iterated in the list.
 	Ongoing(AccountId),
@@ -301,19 +429,19 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
 /// rather deferred for several eras.
-#[derive(Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound)]
+#[derive(Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen, PartialEqNoBound, EqNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct UnappliedSlash<T: Config> {
 	/// The stash ID of the offending validator.
-	validator: T::AccountId,
+	pub validator: T::AccountId,
 	/// The validator's own slash.
-	own: BalanceOf<T>,
+	pub own: BalanceOf<T>,
 	/// All other slashed stakers and amounts.
-	others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
+	pub others: WeakBoundedVec<(T::AccountId, BalanceOf<T>), T::MaxExposurePageSize>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporter: Option<T::AccountId>,
+	pub reporter: Option<T::AccountId>,
 	/// The amount of payout.
-	payout: BalanceOf<T>,
+	pub payout: BalanceOf<T>,
 }
 
 /// Something that defines the maximum number of nominations per nominator based on a curve.
@@ -420,5 +548,29 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	/// - `false` otherwise.
 	fn contains(account: &T::AccountId) -> bool {
 		Ledger::<T>::contains_key(account)
+	}
+}
+
+/// A smart type to determine the [`Config::PlanningEraOffset`], given:
+///
+/// * Expected relay session duration, `RS`
+/// * Time taking into consideration for XCM sending, `S`
+///
+/// It will use the estimated election duration, the relay session duration, and add one as it knows
+/// the relay chain will want to buffer validators for one session. This is needed because we use
+/// this in our calculation based on the "active era".
+pub struct PlanningEraOffsetOf<T, RS, S>(core::marker::PhantomData<(T, RS, S)>);
+impl<T: Config, RS: Get<BlockNumberFor<T>>, S: Get<BlockNumberFor<T>>> Get<SessionIndex>
+	for PlanningEraOffsetOf<T, RS, S>
+{
+	fn get() -> SessionIndex {
+		let election_duration = <T::ElectionProvider as ElectionProvider>::duration_with_export();
+		let sessions_needed = (election_duration + S::get()) / RS::get();
+		// add one, because we know the RC session pallet wants to buffer for one session, and
+		// another one cause we will receive activation report one session after that.
+		sessions_needed
+			.saturating_add(One::one())
+			.saturating_add(One::one())
+			.unique_saturated_into()
 	}
 }

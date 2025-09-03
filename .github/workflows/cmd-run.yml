@@ -223,7 +223,6 @@ jobs:
         if: startsWith(github.event.inputs.cmd, 'bench')
         run: cargo install subweight
 
-      # TODO: fix for forks, refs/remotes/origin/master should be replaced with master branch from paritytech/polkadot-sdk
       - name: Run Subweight for bench
         id: subweight
         if: startsWith(github.event.inputs.cmd, 'bench')
@@ -242,12 +241,29 @@ jobs:
             --ignore-errors \
             refs/remotes/origin/master $PR_BRANCH)
 
+          echo $result
+
+          echo $result > /tmp/cmd/subweight.log
+          # Though github claims that it supports 1048576 bytes in GITHUB_OUTPUT in fact it only supports ~200000 bytes of a multiline string
+          if [ $(wc -c < "/tmp/cmd/subweight.log") -gt 200000 ]; then
+            echo "Subweight result is too large, truncating..."
+            echo "Please check subweight.log for the full output"
+            result="Please check subweight.log for the full output"
+          fi
+          echo "Trying to save subweight result to GITHUB_OUTPUT"
           # Save the multiline result to the output
           {
             echo "result<<EOF"
             echo "$result"
             echo "EOF"
           } >> $GITHUB_OUTPUT
+
+      - name: Upload Subweight
+        uses: actions/upload-artifact@v4
+        if: startsWith(github.event.inputs.cmd, 'bench')
+        with:
+          name: subweight
+          path: /tmp/cmd/subweight.log
 
   after-cmd:
     needs: [cmd, before-cmd]
@@ -259,7 +275,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # needs to be able to trigger CI, as default token does not retrigger
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}

@@ -145,12 +145,13 @@ parameter_types! {
 	pub static Pages: PageIndex = 3;
 	pub static UnsignedPhase: BlockNumber = 5;
 	pub static SignedPhase: BlockNumber = 5;
-	pub static SignedValidationPhase: BlockNumber = 5;
+	pub static SignedValidationPhase: BlockNumber = 6;
 
 	pub static FallbackMode: FallbackModes = FallbackModes::Emergency;
 	pub static MinerTxPriority: u64 = 100;
 	pub static SolutionImprovementThreshold: Perbill = Perbill::zero();
 	pub static OffchainRepeat: BlockNumber = 5;
+	pub static OffchainStorage: bool = true;
 	pub static MinerMaxLength: u32 = 256;
 	pub static MinerPages: u32 = 1;
 	pub static MaxVotesPerVoter: u32 = <TestNposSolution as NposSolution>::LIMIT as u32;
@@ -193,6 +194,7 @@ impl crate::verifier::Config for Runtime {
 impl crate::unsigned::Config for Runtime {
 	type MinerPages = MinerPages;
 	type OffchainRepeat = OffchainRepeat;
+	type OffchainStorage = OffchainStorage;
 	type MinerTxPriority = MinerTxPriority;
 	type OffchainSolver = SequentialPhragmen<Self::AccountId, Perbill>;
 	type WeightInfo = ();
@@ -252,8 +254,9 @@ impl ElectionProvider for MockFallback {
 	type Error = String;
 	type DataProvider = staking::MockStaking;
 	type Pages = ConstU32<1>;
-	type MaxBackersPerWinner = MaxBackersPerWinner;
 	type MaxWinnersPerPage = MaxWinnersPerPage;
+	type MaxBackersPerWinner = MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = MaxBackersPerWinnerFinal;
 
 	fn elect(_remaining: PageIndex) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		unreachable!()
@@ -309,11 +312,11 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
 		Extrinsic::new_bare(call)
 	}
 }
@@ -352,6 +355,10 @@ impl ExtBuilder {
 	}
 	pub(crate) fn max_backers_per_winner_final(self, c: u32) -> Self {
 		MaxBackersPerWinnerFinal::set(c);
+		self
+	}
+	pub(crate) fn offchain_storage(self, s: bool) -> Self {
+		OffchainStorage::set(s);
 		self
 	}
 	pub(crate) fn miner_tx_priority(self, p: u64) -> Self {
@@ -399,6 +406,16 @@ impl ExtBuilder {
 		MinerPages::set(p);
 		self
 	}
+	pub(crate) fn max_signed_submissions(self, s: u32) -> Self {
+		SignedMaxSubmissions::set(s);
+		self
+	}
+
+	pub(crate) fn max_winners_per_page(self, w: u32) -> Self {
+		MaxWinnersPerPage::set(w);
+		self
+	}
+
 	#[allow(unused)]
 	pub(crate) fn add_voter(self, who: AccountId, stake: Balance, targets: Vec<AccountId>) -> Self {
 		staking::VOTERS.with(|v| v.borrow_mut().push((who, stake, targets.try_into().unwrap())));
@@ -427,6 +444,7 @@ impl ExtBuilder {
 				(95, 100),
 				(96, 100),
 				(97, 100),
+				(98, 100),
 				(99, 100),
 				(999, 100),
 				(9999, 100),
@@ -464,9 +482,18 @@ pub trait ExecuteWithSanityChecks {
 
 impl ExecuteWithSanityChecks for sp_io::TestExternalities {
 	fn execute_with_sanity_checks(&mut self, test: impl FnOnce() -> ()) {
+		self.execute_with(all_pallets_integrity_test);
 		self.execute_with(test);
-		self.execute_with(all_pallets_sanity_checks)
+		self.execute_with(all_pallets_sanity_checks);
 	}
+}
+
+fn all_pallets_integrity_test() {
+	// ensure that all pallets are sane.
+	VerifierPallet::integrity_test();
+	UnsignedPallet::integrity_test();
+	MultiBlock::integrity_test();
+	SignedPallet::integrity_test();
 }
 
 fn all_pallets_sanity_checks() {
@@ -593,6 +620,7 @@ pub fn multi_block_events() -> Vec<crate::Event<Runtime>> {
 
 parameter_types! {
 	static MultiBlockEvents: u32 = 0;
+	static VerifierEvents: u32 = 0;
 }
 
 pub fn multi_block_events_since_last_call() -> Vec<crate::Event<Runtime>> {
@@ -611,6 +639,14 @@ pub fn verifier_events() -> Vec<crate::verifier::Event<Runtime>> {
 			|e| if let RuntimeEvent::VerifierPallet(inner) = e { Some(inner) } else { None },
 		)
 		.collect::<Vec<_>>()
+}
+
+/// get the events of the verifier pallet since last call.
+pub fn verifier_events_since_last_call() -> Vec<crate::verifier::Event<Runtime>> {
+	let events = verifier_events();
+	let already_seen = VerifierEvents::get();
+	VerifierEvents::set(events.len() as u32);
+	events.into_iter().skip(already_seen as usize).collect()
 }
 
 /// proceed block number to `n`.
@@ -656,6 +692,13 @@ pub fn roll_to_signed_open() {
 /// (`Phase::SignedValidation(_)`).
 pub fn roll_to_signed_validation_open() {
 	while !matches!(MultiBlock::current_phase(), Phase::SignedValidation(_)) {
+		roll_next()
+	}
+}
+
+/// proceed block number until we reach the done phase (`Phase::Done`).
+pub fn roll_to_done() {
+	while !MultiBlock::current_phase().is_done() {
 		roll_next()
 	}
 }

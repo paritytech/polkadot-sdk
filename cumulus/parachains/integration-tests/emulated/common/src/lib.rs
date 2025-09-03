@@ -18,6 +18,7 @@ pub mod macros;
 pub mod xcm_helpers;
 
 pub use xcm_emulator;
+pub use xcm_simulator;
 
 // Substrate
 use frame_support::parameter_types;

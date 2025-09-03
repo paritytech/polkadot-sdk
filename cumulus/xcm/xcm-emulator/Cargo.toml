@@ -15,8 +15,8 @@ workspace = true
 array-bytes = { workspace = true }
 codec = { workspace = true, default-features = true }
 impl-trait-for-tuples = { workspace = true }
-log = { workspace = true }
 paste = { workspace = true, default-features = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-support = { workspace = true, default-features = true }
@@ -44,3 +44,4 @@ polkadot-primitives = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
 xcm-executor = { workspace = true, default-features = true }
+xcm-simulator = { workspace = true, default-features = true }

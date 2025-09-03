@@ -1,0 +1,62 @@
+title: pallet-assets ERC20 precompile
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add ERC20 precompile for pallet-asset.
+
+    Since there can be multiple instances of `pallet-assets`,  the Precompile is implemented for an `AssetPrecompileConfig` that defines both the address range to match and how to extract the asset_id from the address.
+
+    For now I have only created one `AssetIdExtractor` that pulls an u32 asset id encoded in the address.
+
+    Follow up PR will define stateful extractor to extract the id from storage for foreign assets.
+
+    Other solidity traits will be added in follow up PRs
+crates:
+- name: pallet-assets
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: minor
+- name: snowbridge-inbound-queue-primitives
+  bump: minor
+- name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: pallet-revive-mock-network
+  bump: minor
+- name: parachains-common
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-rococo-runtime
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: glutton-westend-runtime
+  bump: minor
+- name: people-rococo-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: penpal-runtime
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-parachain-bin
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: polkadot-sdk
+  bump: minor
+- name: yet-another-parachain-runtime
+  bump: minor
+- name: ethereum-standards
+  bump: minor

@@ -139,7 +139,7 @@ impl From<Direction> for traits::Direction {
 }
 
 /// Open result for a fully-opened connection.
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum OpenResult {
 	/// Accept the connection.
 	Accept {
@@ -416,6 +416,15 @@ impl Peerset {
 		// if some connected peer gets banned.
 		peerstore_handle.register_protocol(Arc::new(PeersetHandle { tx: cmd_tx.clone() }));
 
+		log::debug!(
+			target: LOG_TARGET,
+			"{}: creating new peerset with max_outbound {} and max_inbound {} and reserved_only {}",
+			protocol,
+			max_out,
+			max_in,
+			reserved_only,
+		);
+
 		(
 			Self {
 				protocol,
@@ -485,8 +494,25 @@ impl Peerset {
 
 				return OpenResult::Reject
 			},
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
+			PeerState::Disconnected => {
+				log::debug!(
+					target: LOG_TARGET,
+					"{}: substream opened for a peer that was previously rejected {peer:?}",
+					self.protocol,
+				);
+				return OpenResult::Reject
+			},
 			state => {
-				panic!("{}: invalid state for open substream {peer:?} {state:?}", self.protocol);
+				log::error!(
+					target: LOG_TARGET,
+					"{}: substream opened for a peer in invalid state {peer:?}: {state:?}",
+					self.protocol,
+				);
+
+				debug_assert!(false);
+				return OpenResult::Reject;
 			},
 		}
 	}
@@ -545,14 +571,27 @@ impl Peerset {
 			PeerState::Closing { .. } | PeerState::Connected { .. } => {
 				log::debug!(target: LOG_TARGET, "{}: reserved peer {peer:?} disconnected", self.protocol);
 			},
+			// The peer was already rejected by the `report_inbound_substream` call and this
+			// should never happen. However, this code path is exercised by our fuzzer.
+			PeerState::Disconnected => {
+				log::debug!(
+					target: LOG_TARGET,
+					"{}: substream closed for a peer that was previously rejected {peer:?}",
+					self.protocol,
+				);
+			},
 			state => {
 				log::warn!(target: LOG_TARGET, "{}: invalid state for disconnected peer {peer:?}: {state:?}", self.protocol);
 				debug_assert!(false);
 			},
 		}
-		*state = PeerState::Backoff;
 
-		self.connected_peers.fetch_sub(1usize, Ordering::Relaxed);
+		// Rejected peers do not count towards slot allocation.
+		if !matches!(state, PeerState::Disconnected) {
+			self.connected_peers.fetch_sub(1usize, Ordering::Relaxed);
+		}
+
+		*state = PeerState::Backoff;
 		self.pending_backoffs.push(Box::pin(async move {
 			Delay::new(DEFAULT_BACKOFF).await;
 			(peer, DISCONNECT_ADJUSTMENT)
@@ -576,12 +615,25 @@ impl Peerset {
 		let state = self.peers.entry(peer).or_insert(PeerState::Disconnected);
 		let is_reserved_peer = self.reserved_peers.contains(&peer);
 
+		// Check if this is a non-reserved peer and if the protocol is in reserved-only mode.
+		let should_reject = self.reserved_only && !is_reserved_peer;
+
 		match state {
+			// disconnected peers that are reserved-only peers are rejected
+			PeerState::Disconnected if should_reject => {
+				log::trace!(
+					target: LOG_TARGET,
+					"{}: rejecting non-reserved peer {peer:?} in reserved-only mode (prev state: {state:?})",
+					self.protocol,
+				);
+
+				return ValidationResult::Reject
+			},
 			// disconnected peers proceed directly to inbound slot allocation
 			PeerState::Disconnected => {},
 			// peer is backed off but if it can be accepted (either a reserved peer or inbound slot
 			// available), accept the peer and then just ignore the back-off timer when it expires
-			PeerState::Backoff =>
+			PeerState::Backoff => {
 				if !is_reserved_peer && self.num_in == self.max_in {
 					log::trace!(
 						target: LOG_TARGET,
@@ -590,7 +642,16 @@ impl Peerset {
 					);
 
 					return ValidationResult::Reject
-				},
+				}
+
+				// The peer remains in the `PeerState::Backoff` state until the current timer
+				// expires. Then, the peer will be in the disconnected state, subject to further
+				// rejection if the peer is not reserved by then.
+				if should_reject {
+					return ValidationResult::Reject
+				}
+			},
+
 			// `Peerset` had initiated an outbound substream but litep2p had received an inbound
 			// substream before the command to open the substream was received, meaning local and
 			// remote desired to open a connection at the same time. Since outbound substreams
@@ -605,6 +666,17 @@ impl Peerset {
 			// inbound substreams, that system has to be kept working for the time being. Once that
 			// issue is fixed, this approach can be re-evaluated if need be.
 			PeerState::Opening { direction: Direction::Outbound(reserved) } => {
+				if should_reject {
+					log::trace!(
+						target: LOG_TARGET,
+						"{}: rejecting inbound substream from {peer:?} ({reserved:?}) in reserved-only mode that was marked outbound",
+						self.protocol,
+					);
+
+					*state = PeerState::Canceled { direction: Direction::Outbound(*reserved) };
+					return ValidationResult::Reject
+				}
+
 				log::trace!(
 					target: LOG_TARGET,
 					"{}: inbound substream received for {peer:?} ({reserved:?}) that was marked outbound",
@@ -616,7 +688,7 @@ impl Peerset {
 			PeerState::Canceled { direction } => {
 				log::trace!(
 					target: LOG_TARGET,
-					"{}: {peer:?} is canceled, rejecting substream",
+					"{}: {peer:?} is canceled, rejecting substream should_reject={should_reject}",
 					self.protocol,
 				);
 
@@ -870,6 +942,12 @@ impl Peerset {
 		&self.peers
 	}
 
+	/// Get reference to known peers.
+	#[cfg(test)]
+	pub fn peers_mut(&mut self) -> &mut HashMap<PeerId, PeerState> {
+		&mut self.peers
+	}
+
 	/// Get reference to reserved peers.
 	#[cfg(test)]
 	pub fn reserved_peers(&self) -> &HashSet<PeerId> {
@@ -893,6 +971,8 @@ impl Stream for Peerset {
 		}
 
 		if let Poll::Ready(Some(action)) = Pin::new(&mut self.cmd_rx).poll_next(cx) {
+			log::trace!(target: LOG_TARGET, "{}: received command {action:?}", self.protocol);
+
 			match action {
 				PeersetCommand::DisconnectPeer { peer } if !self.reserved_peers.contains(&peer) =>
 					match self.peers.remove(&peer) {

@@ -34,14 +34,14 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, ApprovalVotingParallelMessage, BlockDescription,
-		ChainSelectionMessage, DisputeCoordinatorMessage, DisputeDistributionMessage,
-		ImportStatementsResult,
+		ApprovalVotingParallelMessage, BlockDescription, ChainSelectionMessage,
+		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_util::runtime::{
-	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
+use polkadot_node_subsystem_util::{
+	runtime::{self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
 	slashing,
@@ -98,6 +98,8 @@ pub(crate) struct Initialized {
 	/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	offchain_disabled_validators: OffchainDisabledValidators,
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: ControlledValidatorIndices,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
@@ -119,7 +121,6 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
-	approval_voting_parallel_enabled: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -133,14 +134,9 @@ impl Initialized {
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
 		offchain_disabled_validators: OffchainDisabledValidators,
+		controlled_validator_indices: ControlledValidatorIndices,
 	) -> Self {
-		let DisputeCoordinatorSubsystem {
-			config: _,
-			store: _,
-			keystore,
-			metrics,
-			approval_voting_parallel_enabled,
-		} = subsystem;
+		let DisputeCoordinatorSubsystem { config: _, store: _, keystore, metrics } = subsystem;
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
@@ -149,6 +145,7 @@ impl Initialized {
 			keystore,
 			runtime_info,
 			offchain_disabled_validators,
+			controlled_validator_indices,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -157,7 +154,6 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
-			approval_voting_parallel_enabled,
 		}
 	}
 
@@ -856,9 +852,7 @@ impl Initialized {
 				};
 				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
-				let _ = tx.send(
-					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
-				);
+				let _ = tx.send(recent_disputes);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
@@ -870,10 +864,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {
@@ -975,12 +966,12 @@ impl Initialized {
 		};
 
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			relay_parent,
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1069,21 +1060,13 @@ impl Initialized {
 				// 4. We are waiting (and blocking the whole subsystem) on a response right after -
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
-				if self.approval_voting_parallel_enabled {
-					ctx.send_unbounded_message(
-						ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				} else {
-					ctx.send_unbounded_message(
-						ApprovalVotingMessage::GetApprovalSignaturesForCandidate(
-							candidate_hash,
-							tx,
-						),
-					);
-				}
+				ctx.send_unbounded_message(
+					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+						candidate_hash,
+						tx,
+					),
+				);
+
 				match rx.await {
 					Err(_) => {
 						gum::warn!(
@@ -1421,6 +1404,13 @@ impl Initialized {
 			self.metrics.on_concluded_invalid();
 		}
 
+		// After validators are disabled, revisit active disputes to unactivate those where all
+		// raising parties are now disabled
+		if import_result.is_freshly_concluded_for() || import_result.is_freshly_concluded_against()
+		{
+			self.revisit_active_disputes_after_disabling(overlay_db, session)?;
+		}
+
 		// Only write when votes have changed.
 		if let Some(votes) = import_result.into_updated_votes() {
 			overlay_db.write_candidate_votes(session, candidate_hash, votes.into());
@@ -1450,12 +1440,12 @@ impl Initialized {
 
 		// Load environment:
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
 			candidate_receipt.descriptor.relay_parent(),
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1569,6 +1559,61 @@ impl Initialized {
 
 	fn session_is_ancient(&self, session_idx: SessionIndex) -> bool {
 		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1)
+	}
+
+	/// Revisit active non-confirmed disputes after validators have been disabled.
+	/// Unactivates disputes where all raising parties (invalid voters) are now disabled.
+	fn revisit_active_disputes_after_disabling(
+		&mut self,
+		overlay_db: &mut OverlayedBackend<'_, impl Backend>,
+		session: SessionIndex,
+	) -> FatalResult<()> {
+		let mut recent_disputes = overlay_db.load_recent_disputes()?.unwrap_or_default();
+		let mut disputes_to_remove = Vec::new();
+
+		// Create session bounds for efficient iteration
+		let session_start = (session, CandidateHash(Hash::zero()));
+		let session_end = (session + 1, CandidateHash(Hash::zero()));
+
+		for ((dispute_session, candidate_hash), status) in
+			recent_disputes.range(&session_start..&session_end)
+		{
+			debug_assert_eq!(session, *dispute_session);
+			// Only check unconfirmed
+			if status.is_confirmed_concluded() {
+				continue
+			}
+			let Some(votes) = overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
+			else {
+				continue
+			};
+			// Check if all invalid voters (raising parties) are disabled
+			if !votes.invalid.is_empty() &&
+				votes.invalid.iter().all(|(_, validator_index, _)| {
+					self.offchain_disabled_validators.is_disabled(session, *validator_index)
+				}) {
+				disputes_to_remove.push((*dispute_session, *candidate_hash));
+
+				gum::info!(
+					target: LOG_TARGET,
+					session = dispute_session,
+					?candidate_hash,
+					invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
+					"Unactivating dispute where all raising parties are now disabled"
+				);
+			}
+		}
+
+		// Remove them from RecentDisputes (setting status to inactive)
+		if !disputes_to_remove.is_empty() {
+			for key in disputes_to_remove {
+				recent_disputes.remove(&key);
+				self.metrics.on_unactivated_dispute();
+			}
+			overlay_db.write_recent_disputes(recent_disputes);
+		}
+
+		Ok(())
 	}
 }
 
@@ -1778,5 +1823,21 @@ impl OffchainDisabledValidators {
 				.chain(e.against_valid.iter())
 				.map(|(i, _)| *i)
 		})
+	}
+
+	/// Check if a validator is disabled for a given session.
+	pub fn is_disabled(
+		&self,
+		session_index: SessionIndex,
+		validator_index: ValidatorIndex,
+	) -> bool {
+		self.per_session
+			.get(&session_index)
+			.map(|session_disputes| {
+				session_disputes.backers_for_invalid.peek(&validator_index).is_some() ||
+					session_disputes.for_invalid.peek(&validator_index).is_some() ||
+					session_disputes.against_valid.peek(&validator_index).is_some()
+			})
+			.unwrap_or(false)
 	}
 }

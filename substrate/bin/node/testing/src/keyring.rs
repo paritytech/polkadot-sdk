@@ -24,7 +24,7 @@ use node_primitives::{AccountId, Balance, Nonce};
 use sp_core::{crypto::get_public_from_string_or_panic, ecdsa, ed25519, sr25519};
 use sp_crypto_hashing::blake2_256;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::generic::{self, Era, ExtrinsicFormat, EXTRINSIC_FORMAT_VERSION};
+use sp_runtime::generic::{self, Era, ExtrinsicFormat};
 
 /// Alice's account id.
 pub fn alice() -> AccountId {
@@ -121,25 +121,19 @@ pub fn sign(
 						}
 					})
 					.into();
-			generic::UncheckedExtrinsic {
-				preamble: sp_runtime::generic::Preamble::Signed(
-					sp_runtime::MultiAddress::Id(signed),
-					signature,
-					tx_ext,
-				),
-				function: payload.0,
-			}
+			generic::UncheckedExtrinsic::new_signed(
+				payload.0,
+				sp_runtime::MultiAddress::Id(signed),
+				signature,
+				tx_ext,
+			)
 			.into()
 		},
-		ExtrinsicFormat::Bare => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::Bare(EXTRINSIC_FORMAT_VERSION),
-			function: xt.function,
-		}
-		.into(),
-		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic {
-			preamble: sp_runtime::generic::Preamble::General(ext_version, tx_ext),
-			function: xt.function,
-		}
+		ExtrinsicFormat::Bare => generic::UncheckedExtrinsic::new_bare(xt.function).into(),
+		ExtrinsicFormat::General(ext_version, tx_ext) => generic::UncheckedExtrinsic::from_parts(
+			xt.function,
+			generic::Preamble::General(ext_version, tx_ext),
+		)
 		.into(),
 	}
 }

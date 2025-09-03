@@ -70,7 +70,7 @@
 //! the signed process is bullet-proof, we can be okay with the status quo.
 
 /// Export weights
-pub use crate::weights::measured::pallet_election_provider_multi_block_unsigned::*;
+pub use crate::weights::traits::pallet_election_provider_multi_block_unsigned::*;
 /// Exports of this pallet
 pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
@@ -89,7 +89,7 @@ mod pallet {
 		CommonError,
 	};
 	use frame_support::pallet_prelude::*;
-	use frame_system::{offchain::CreateInherent, pallet_prelude::*};
+	use frame_system::{offchain::CreateBare, pallet_prelude::*};
 	use sp_runtime::traits::SaturatedConversion;
 	use sp_std::prelude::*;
 
@@ -104,17 +104,22 @@ mod pallet {
 
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: crate::Config + CreateInherent<Call<Self>> {
+	pub trait Config: crate::Config + CreateBare<Call<Self>> {
 		/// The repeat threshold of the offchain worker.
 		///
-		/// For example, if it is 5, that means that at least 5 blocks will elapse between attempts
-		/// to submit the worker's solution.
+		/// For example, if it is `5`, that means that at least 5 blocks will elapse between
+		/// attempts to submit the worker's solution.
 		type OffchainRepeat: Get<BlockNumberFor<Self>>;
 
 		/// The solver used in hte offchain worker miner
 		type OffchainSolver: frame_election_provider_support::NposSolver<
 			AccountId = Self::AccountId,
 		>;
+
+		/// Whether the offchain worker miner would attempt to store the solutions in a local
+		/// database and reuse then. If set to `false`, it will try and re-mine solutions every
+		/// time.
+		type OffchainStorage: Get<bool>;
 
 		/// The priority of the unsigned transaction submitted in the unsigned-phase
 		type MinerTxPriority: Get<TransactionPriority>;
@@ -165,13 +170,11 @@ mod pallet {
 			// we select the most significant pages, based on `T::MinerPages`.
 			let page_indices = crate::Pallet::<T>::msp_range_for(T::MinerPages::get() as usize);
 			<T::Verifier as Verifier>::verify_synchronous_multi(
-				paged_solution.solution_pages.into_inner(),
+				paged_solution.solution_pages,
 				page_indices,
 				claimed_score,
 			)
 			.expect(error_message);
-
-			sublog!(info, "unsigned", "queued an unsigned solution with score {:?}", claimed_score);
 
 			Ok(None.into())
 		}
@@ -235,7 +238,12 @@ mod pallet {
 			assert!(
 				UnsignedWeightsOf::<T>::submit_unsigned().all_lte(T::BlockWeights::get().max_block),
 				"weight of `submit_unsigned` is too high"
-			)
+			);
+			assert!(
+				<T as Config>::MinerPages::get() as usize <=
+					<T as crate::Config>::Pages::get() as usize,
+				"number of pages in the unsigned phase is too high"
+			);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -261,7 +269,7 @@ mod pallet {
 				},
 				Err(deadline) => {
 					sublog!(
-						debug,
+						trace,
 						"unsigned",
 						"offchain worker lock not released, deadline is {:?}",
 						deadline
@@ -276,7 +284,6 @@ mod pallet {
 		/// acquired with success.
 		fn do_synchronized_offchain_worker(now: BlockNumberFor<T>) {
 			use miner::OffchainWorkerMiner;
-
 			let current_phase = crate::Pallet::<T>::current_phase();
 			sublog!(
 				trace,
@@ -284,25 +291,37 @@ mod pallet {
 				"lock for offchain worker acquired. Phase = {:?}",
 				current_phase
 			);
+
+			// do the repeat frequency check just one, if we are in unsigned phase.
+			if current_phase.is_unsigned() {
+				if let Err(reason) = OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
+				{
+					sublog!(
+						debug,
+						"unsigned",
+						"offchain worker repeat frequency check failed: {:?}",
+						reason
+					);
+					return;
+				}
+			}
+
 			if current_phase.is_unsigned_opened_now() {
-				// Mine a new solution, cache it, and attempt to submit it
-				let initial_output =
-					OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(now)
-						.and_then(|_| OffchainWorkerMiner::<T>::mine_check_save_submit());
+				// Mine a new solution, (maybe) cache it, and attempt to submit it
+				let initial_output = if T::OffchainStorage::get() {
+					OffchainWorkerMiner::<T>::mine_check_maybe_save_submit(true)
+				} else {
+					OffchainWorkerMiner::<T>::mine_check_maybe_save_submit(false)
+				};
 				sublog!(debug, "unsigned", "initial offchain worker output: {:?}", initial_output);
 			} else if current_phase.is_unsigned() {
-				// Try and resubmit the cached solution, and recompute ONLY if it is not
-				// feasible.
-				let resubmit_output = OffchainWorkerMiner::<T>::ensure_offchain_repeat_frequency(
-					now,
-				)
-				.and_then(|_| OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit());
-				sublog!(
-					debug,
-					"unsigned",
-					"resubmit offchain worker output: {:?}",
-					resubmit_output
-				);
+				// Maybe resubmit the cached solution, else re-compute.
+				let resubmit_output = if T::OffchainStorage::get() {
+					OffchainWorkerMiner::<T>::restore_or_compute_then_maybe_submit()
+				} else {
+					OffchainWorkerMiner::<T>::mine_check_maybe_save_submit(false)
+				};
+				sublog!(debug, "unsigned", "later offchain worker output: {:?}", resubmit_output);
 			};
 		}
 
@@ -331,6 +350,10 @@ mod pallet {
 			);
 			ensure!(
 				paged_solution.solution_pages.len() == T::MinerPages::get() as usize,
+				CommonError::WrongPageCount
+			);
+			ensure!(
+				paged_solution.solution_pages.len() <= <T as crate::Config>::Pages::get() as usize,
 				CommonError::WrongPageCount
 			);
 
@@ -488,7 +511,7 @@ mod validate_unsigned {
 
 	#[test]
 	fn retracts_wrong_phase() {
-		ExtBuilder::unsigned().signed_phase(5, 0).build_and_execute(|| {
+		ExtBuilder::unsigned().signed_phase(5, 6).build_and_execute(|| {
 			let solution = raw_paged_solution_low_score();
 			let call = Call::submit_unsigned { paged_solution: Box::new(solution.clone()) };
 
@@ -525,7 +548,7 @@ mod validate_unsigned {
 			));
 
 			// unsigned
-			roll_to(25);
+			roll_to_unsigned_open();
 			assert!(MultiBlock::current_phase().is_unsigned());
 
 			assert_ok!(<UnsignedPallet as ValidateUnsigned>::validate_unsigned(

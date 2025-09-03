@@ -17,8 +17,12 @@
 
 use crate::weights::WeightInfo;
 
-use frame_support::weights::Weight;
+use frame_support::{traits::BatchFootprint, weights::Weight};
 use sp_runtime::SaturatedConversion;
+
+pub(crate) fn get_average_page_pos(max_message_len: u32) -> u32 {
+	max_message_len / 2
+}
 
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
@@ -26,22 +30,18 @@ pub trait WeightInfoExt: WeightInfo {
 		Self::enqueue_n_full_pages(0)
 	}
 
-	fn enqueue_xcmp_messages(
-		new_pages_count: u32,
-		message_count: usize,
-		size_in_bytes: usize,
-	) -> Weight {
-		let message_count = message_count.saturated_into();
-		let size_in_bytes = size_in_bytes.saturated_into();
+	fn enqueue_xcmp_messages(first_page_pos: u32, batch_footprint: &BatchFootprint) -> Weight {
+		let message_count = batch_footprint.msgs_count.saturated_into();
+		let size_in_bytes = batch_footprint.size_in_bytes.saturated_into();
 
 		// The cost of adding `n` empty pages on the message queue.
 		let pages_overhead = {
 			let full_message_overhead = Self::enqueue_n_full_pages(1)
 				.saturating_sub(Self::enqueue_n_empty_xcmp_messages(1));
 			let n_full_messages_overhead =
-				full_message_overhead.saturating_mul(new_pages_count as u64);
+				full_message_overhead.saturating_mul(batch_footprint.new_pages_count as u64);
 
-			Self::enqueue_n_full_pages(new_pages_count)
+			Self::enqueue_n_full_pages(batch_footprint.new_pages_count)
 				.saturating_sub(Self::enqueue_n_full_pages(0))
 				.saturating_sub(n_full_messages_overhead)
 		};
@@ -58,36 +58,36 @@ pub trait WeightInfoExt: WeightInfo {
 				.saturating_sub(Self::enqueue_n_bytes_xcmp_message(0))
 		};
 
-		pages_overhead.saturating_add(messages_overhead).saturating_add(bytes_overhead)
+		// If the messages are not added to the beginning of the first page, the page will be
+		// decoded and re-encoded once. Let's account for this.
+		let pos_overhead = {
+			Self::enqueue_empty_xcmp_message_at(first_page_pos)
+				.saturating_sub(Self::enqueue_empty_xcmp_message_at(0))
+		};
+
+		pages_overhead
+			.saturating_add(messages_overhead)
+			.saturating_add(bytes_overhead)
+			.saturating_add(pos_overhead)
+	}
+
+	fn check_accuracy<MaxMessageLen: bounded_collections::Get<u32>>(err_margin: f64) {
+		assert!(err_margin < 1f64);
+
+		let estimated_weight =
+			Self::uncached_enqueue_xcmp_messages().saturating_add(Self::enqueue_xcmp_messages(
+				get_average_page_pos(MaxMessageLen::get()),
+				&BatchFootprint { msgs_count: 1000, size_in_bytes: 3000, new_pages_count: 0 },
+			));
+		let actual_weight = Self::enqueue_1000_small_xcmp_messages();
+
+		// Check that the ref_time diff is less than err_margin
+		approx::assert_relative_eq!(
+			estimated_weight.ref_time() as f64,
+			actual_weight.ref_time() as f64,
+			max_relative = err_margin
+		);
 	}
 }
 
 impl<T: WeightInfo> WeightInfoExt for T {}
-
-#[cfg(feature = "std")]
-pub fn check_weight_info_ext_accuracy<T: WeightInfoExt>(err_margin: u8) {
-	assert!(err_margin < 100);
-	let err_margin = err_margin as u64;
-
-	let estimated_weight =
-		T::uncached_enqueue_xcmp_messages().saturating_add(T::enqueue_xcmp_messages(1, 1000, 3000));
-	let actual_weight = T::enqueue_1000_small_xcmp_messages();
-
-	// Check that the ref_time diff is less than {err_margin}%
-	let diff_ref_time = estimated_weight.ref_time().abs_diff(actual_weight.ref_time());
-	assert!(diff_ref_time < estimated_weight.ref_time() * err_margin / 100);
-	assert!(diff_ref_time < actual_weight.ref_time() * err_margin / 100);
-
-	// The proof sizes should be the same
-	assert_eq!(estimated_weight.proof_size(), actual_weight.proof_size());
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn weight_info_ext_accuracy_is_high() {
-		check_weight_info_ext_accuracy::<()>(5);
-	}
-}

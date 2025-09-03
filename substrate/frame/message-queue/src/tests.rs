@@ -21,7 +21,9 @@
 
 use crate::{mock::*, *};
 
-use frame_support::{assert_noop, assert_ok, assert_storage_noop, StorageNoopGuard};
+use frame_support::{
+	assert_noop, assert_ok, assert_storage_noop, traits::BatchFootprint, StorageNoopGuard,
+};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use sp_crypto_hashing::blake2_256;
 
@@ -2144,6 +2146,7 @@ fn check_get_batches_footprints(
 	origin: MessageOrigin,
 	sizes: &[u32],
 	total_pages_limit: u32,
+	expected_first_page_pos: usize,
 	expected_new_pages_counts: Vec<u32>,
 ) {
 	let mut msgs = vec![];
@@ -2158,7 +2161,8 @@ fn check_get_batches_footprints(
 		msgs.iter().map(|msg| msg.as_bounded_slice()),
 		total_pages_limit,
 	);
-	assert_eq!(batches_footprints.len(), expected_new_pages_counts.len());
+	assert_eq!(batches_footprints.first_page_pos, expected_first_page_pos);
+	assert_eq!(batches_footprints.footprints.len(), expected_new_pages_counts.len());
 
 	let mut total_size = 0;
 	let mut expected_batches_footprint = vec![];
@@ -2170,7 +2174,7 @@ fn check_get_batches_footprints(
 			new_pages_count: *expected_new_pages_count,
 		});
 	}
-	assert_eq!(batches_footprints, expected_batches_footprint);
+	assert_eq!(batches_footprints.footprints, expected_batches_footprint);
 }
 
 #[test]
@@ -2182,15 +2186,16 @@ fn get_batches_footprints_works() {
 
 	build_and_execute::<Test>(|| {
 		// Perform some checks with an empty queue
-		check_get_batches_footprints(Here, &[max_message_len], 0, vec![]);
-		check_get_batches_footprints(Here, &[max_message_len], 1, vec![1]);
+		check_get_batches_footprints(Here, &[max_message_len], 0, 0, vec![]);
+		check_get_batches_footprints(Here, &[max_message_len], 1, 0, vec![1]);
 
-		check_get_batches_footprints(Here, &[max_message_len, 1], 1, vec![1]);
-		check_get_batches_footprints(Here, &[max_message_len, 1], 2, vec![1, 2]);
+		check_get_batches_footprints(Here, &[max_message_len, 1], 1, 0, vec![1]);
+		check_get_batches_footprints(Here, &[max_message_len, 1], 2, 0, vec![1, 2]);
 		check_get_batches_footprints(
 			Here,
 			&[max_message_len - 2 * header_size, 1, 1],
 			1,
+			0,
 			vec![1, 1],
 		);
 
@@ -2198,19 +2203,20 @@ fn get_batches_footprints_works() {
 		MessageQueue::enqueue_message(msg("A".repeat(max_message_len as usize).as_str()), Here);
 		MessageQueue::enqueue_message(msg(""), Here);
 		// Now, let's perform some more checks
-		check_get_batches_footprints(Here, &[max_message_len - header_size], 1, vec![]);
-		check_get_batches_footprints(Here, &[max_message_len - header_size], 2, vec![0]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size], 1, 5, vec![]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size], 2, 5, vec![0]);
 
-		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 2, vec![0]);
-		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 3, vec![0, 1]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 2, 5, vec![0]);
+		check_get_batches_footprints(Here, &[max_message_len - header_size, 1], 3, 5, vec![0, 1]);
 		check_get_batches_footprints(
 			Here,
 			&[max_message_len - header_size, max_message_len - 2 * header_size, 1, 1],
 			3,
+			5,
 			vec![0, 1, 1],
 		);
 
 		// Check that we can append messages to a different origin
-		check_get_batches_footprints(There, &[max_message_len], 1, vec![1]);
+		check_get_batches_footprints(There, &[max_message_len], 1, 0, vec![1]);
 	});
 }

@@ -50,6 +50,3 @@ tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Cumulus
 cumulus-test-client = { workspace = true }
-
-# Substrate
-sc-client-api = { workspace = true, default-features = true }

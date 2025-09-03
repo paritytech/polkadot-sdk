@@ -9,7 +9,7 @@ use frame_support::{traits::tokens::Balance as BalanceT, PalletError};
 use scale_info::TypeInfo;
 use snowbridge_core::TokenId;
 use sp_core::{Get, RuntimeDebug, H160, H256};
-use sp_runtime::{traits::MaybeEquivalence, MultiAddress};
+use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
 
@@ -104,7 +104,7 @@ pub struct MessageToXcm<
 	CreateAssetCall: Get<CallIndex>,
 	CreateAssetDeposit: Get<u128>,
 	Balance: BalanceT,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
@@ -171,7 +171,7 @@ where
 	InboundQueuePalletInstance: Get<u8>,
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
@@ -230,7 +230,7 @@ where
 	InboundQueuePalletInstance: Get<u8>,
 	Balance: BalanceT + From<u128>,
 	AccountId: Into<[u8; 32]>,
-	ConvertAssetId: MaybeEquivalence<TokenId, Location>,
+	ConvertAssetId: MaybeConvert<TokenId, Location>,
 	EthereumUniversalLocation: Get<InteriorLocation>,
 	GlobalAssetHubLocation: Get<Location>,
 {
@@ -426,7 +426,7 @@ where
 		let total_fee_asset: Asset = (Location::parent(), asset_hub_fee).into();
 
 		let asset_loc =
-			ConvertAssetId::convert(&token_id).ok_or(ConvertMessageError::InvalidToken)?;
+			ConvertAssetId::maybe_convert(token_id).ok_or(ConvertMessageError::InvalidToken)?;
 
 		let mut reanchored_asset_loc = asset_loc.clone();
 		reanchored_asset_loc
