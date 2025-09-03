@@ -102,30 +102,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], number, context.interpreter);
 	let requested_number = <sp_core::U256 as U256Converter>::from_revm_u256(&number);
 
-	let block_number = context.interpreter.extend.block_number();
-
-	let Some(diff) = block_number.checked_sub(requested_number) else {
-		*number = U256::ZERO;
-		return;
-	};
-
-	let diff = if diff > sp_core::U256::from(u64::MAX) { u64::MAX } else { diff.low_u64() };
-
-	// blockhash should push zero if number is same as current block number.
-	if diff == 0 {
-		*number = U256::ZERO;
-		return;
-	}
-
-	*number = if diff <= BLOCK_HASH_HISTORY {
-		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		};
-		U256::from_be_bytes(hash.0)
+	// blockhash should push zero if number is not within valid range.
+	if let Some(hash) = context.interpreter.extend.block_hash(requested_number) {
+		*number = U256::from_be_bytes(hash.0)
 	} else {
-		U256::ZERO
-	}
+		*number = U256::ZERO
+	};
 }
 
 /// Implements the SLOAD instruction.
