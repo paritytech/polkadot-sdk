@@ -145,12 +145,19 @@ pub(crate) mod eth_block_storage {
 	// completed. To minimize the amount of used memory, the events are RLP encoded directly.
 	environmental!(receipt: AccumulateReceipt);
 
+	/// Capture the Ethereum log for the current transaction.
+	///
+	/// This method does nothing if called from outside of the ethereum context.
 	pub fn capture_ethereum_log(contract: H160, data: &[u8], topics: &[H256]) {
 		receipt::with(|receipt| {
 			receipt.add_log(EventLog { contract, data: data.to_vec(), topics: topics.to_vec() });
 		});
 	}
 
+	/// Get the receipt details of the current transaction.
+	///
+	/// This method returns `None` if and only if the function is called
+	/// from outside of the ethereum context.
 	pub fn get_receipt_details() -> Option<(Vec<u8>, Bloom)> {
 		receipt::with(|receipt| {
 			let encoding = core::mem::take(&mut receipt.encoding);
@@ -159,6 +166,9 @@ pub(crate) mod eth_block_storage {
 		})
 	}
 
+	/// Capture the receipt events emitted from the current ethereum
+	/// transaction. The transaction must be signed by an eth-compatible
+	/// wallet.
 	pub fn with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 		receipt::using(&mut AccumulateReceipt::new(), f)
 	}
