@@ -501,6 +501,7 @@ impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	}
 }
 
+#[allow(deprecated)]
 type Executive = super::Executive<
 	Runtime,
 	Block<UncheckedXt>,
