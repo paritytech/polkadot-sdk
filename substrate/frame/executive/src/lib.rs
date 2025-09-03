@@ -194,6 +194,7 @@ impl core::fmt::Debug for ExecutiveError {
 ///   used to call hooks e.g. `on_initialize`.
 /// - [**DEPRECATED** `OnRuntimeUpgrade`]: This parameter is deprecated and will be removed after
 ///   September 2026. Use type `SingleBlockMigrations` in frame_system::Config instead.
+#[allow(deprecated)]
 pub struct Executive<
 	System,
 	Block,
@@ -215,6 +216,10 @@ pub struct Executive<
 	)>,
 );
 
+// Allow deprecated `OnRuntimeUpgrade` trait usage.
+// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
+// Can be removed after September 2026.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
@@ -253,6 +258,10 @@ where
 	}
 }
 
+// Allow deprecated `OnRuntimeUpgrade` trait usage.
+// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
+// Can be removed after September 2026.
+#[allow(deprecated)]
 #[cfg(feature = "try-runtime")]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
@@ -458,6 +467,10 @@ where
 	}
 }
 
+// Allow deprecated `OnRuntimeUpgrade` trait usage.
+// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
+// Can be removed after September 2026.
+#[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
 		Block: traits::Block<
