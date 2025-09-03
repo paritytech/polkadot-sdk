@@ -26,10 +26,7 @@ use alloc::collections::btree_map::BTreeMap;
 use core::cell::RefCell;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{
-		tokens::{Pay, UnityAssetBalanceConversion},
-		ConstU32, ConstU64, Currency,
-	},
+	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, Currency},
 	weights::constants::ParityDbWeight,
 	PalletId,
 };

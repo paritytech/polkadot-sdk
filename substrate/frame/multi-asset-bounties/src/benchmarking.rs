@@ -30,24 +30,25 @@ use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
 
 /// Trait describing factory functions for dispatchables' parameters.
-pub trait ArgumentsFactory<AssetKind, Beneficiary, InBalance, AssetBalance> {
+pub trait ArgumentsFactory<AssetKind, Beneficiary, Balance> {
 	/// Factory function for an asset kind.
 	fn create_asset_kind(seed: u32) -> AssetKind;
 
 	/// Factory function for a beneficiary.
 	fn create_beneficiary(seed: [u8; 32]) -> Beneficiary;
 
-	/// Conversion function for an asset kind.
-	fn to_asset_balance(balance: InBalance, asset_id: AssetKind) -> AssetBalance;
+	/// Conversion function from a native asset to an asset kind.
+	///
+	/// Used to convert `pallet::Config::BountyValueMinimum` amount to the asset kind amount, since
+	/// `pallet::Config::BalanceConverter` does not implement `ConversionToAssetBalance` trait.
+	fn to_asset_balance(balance: Balance, asset_id: AssetKind) -> Balance;
 }
 
 /// Implementation that expects the parameters implement the [`FromEntropy`] trait.
-impl<AssetKind, Beneficiary, InBalance, AssetBalance>
-	ArgumentsFactory<AssetKind, Beneficiary, InBalance, AssetBalance> for ()
+impl<AssetKind, Beneficiary, Balance> ArgumentsFactory<AssetKind, Beneficiary, Balance> for ()
 where
 	AssetKind: FromEntropy,
 	Beneficiary: FromEntropy,
-	InBalance: Into<AssetBalance>,
 {
 	fn create_asset_kind(seed: u32) -> AssetKind {
 		AssetKind::from_entropy(&mut seed.encode().as_slice()).unwrap()
@@ -57,7 +58,7 @@ where
 		Beneficiary::from_entropy(&mut seed.as_slice()).unwrap()
 	}
 
-	fn to_asset_balance(balance: InBalance, _asset_id: AssetKind) -> AssetBalance {
+	fn to_asset_balance(balance: Balance, _asset_id: AssetKind) -> Balance {
 		balance.into()
 	}
 }
@@ -327,8 +328,8 @@ mod benchmarks {
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
-		let funding_source_account =
-			Bounties::<T, I>::funding_source_account(s.asset_kind.clone()).expect("conversion failed");
+		let funding_source_account = Bounties::<T, I>::funding_source_account(s.asset_kind.clone())
+			.expect("conversion failed");
 		let parent_bounty_account =
 			Bounties::<T, I>::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
 				.expect("conversion failed");

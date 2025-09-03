@@ -937,7 +937,8 @@ fn retry_payment_works() {
 
 		// Given: parent bounty status `RefundAttempted`
 		let s = create_canceled_parent_bounty();
-		let funding_source_account = Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		let funding_source_account =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
 		reject_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// When
@@ -2197,7 +2198,8 @@ fn close_parent_with_child_bounty() {
 
 		// When
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None));
-		let funding_source_account = Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		let funding_source_account =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
 		approve_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// Then

@@ -378,7 +378,6 @@ pub mod pallet {
 			Self::AssetKind,
 			Self::Beneficiary,
 			BalanceOf<Self, I>,
-			BalanceOf<Self, I>,
 		>;
 	}
 
@@ -412,8 +411,8 @@ pub mod pallet {
 		RefundInconclusive,
 		/// Child-/bounty payout has not concluded yet.
 		PayoutInconclusive,
-		/// The child-/bounty or funding source account could not be derived from the indexes and asset
-		/// kind.
+		/// The child-/bounty or funding source account could not be derived from the indexes and
+		/// asset kind.
 		FailedToConvertSource,
 		/// The parent bounty cannot be closed because it has active child bounties.
 		HasActiveChildBounty,
@@ -1463,7 +1462,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// The account/location of the funding source.
-	pub fn funding_source_account(asset_kind: T::AssetKind) -> Result<T::Beneficiary, DispatchError> {
+	pub fn funding_source_account(
+		asset_kind: T::AssetKind,
+	) -> Result<T::Beneficiary, DispatchError> {
 		T::FundingSource::try_convert(asset_kind)
 			.map_err(|_| Error::<T, I>::FailedToConvertSource.into())
 	}
@@ -1815,7 +1816,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 /// Derives the funding account used as the source of funds for bounties.
-/// 
+///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
 pub struct FundingSourceAccount<T, I = ()>(PhantomData<(T, I)>);
 impl<T, I> TryConvert<T::AssetKind, T::Beneficiary> for FundingSourceAccount<T, I>
@@ -1830,7 +1831,7 @@ where
 }
 
 /// Derives the bounty account from its index.
-/// 
+///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
 pub struct BountySourceAccount<T, I = ()>(PhantomData<(T, I)>);
 impl<T, I> TryConvert<(BountyIndex, T::AssetKind), T::Beneficiary> for BountySourceAccount<T, I>
@@ -1847,7 +1848,7 @@ where
 }
 
 /// Derives the child-bounty account from its index and the parent bounty index.
-/// 
+///
 /// Used when the [`PalletId`] itself owns the funds (i.e. pallet-treasury id).
 pub struct ChildBountySourceAccount<T, I = ()>(PhantomData<(T, I)>);
 impl<T, I> TryConvert<(BountyIndex, BountyIndex, T::AssetKind), T::Beneficiary>
