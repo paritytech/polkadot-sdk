@@ -602,6 +602,10 @@ mod test {
 	use super::*;
 	use crate::evm::{Block, ReceiptInfo};
 
+	/// Manual implementation of the Ethereum trie root computation.
+	///
+	/// Given the RLP encoded values, the implementation adjusts the
+	/// index to account for RLP encoding rules.
 	fn manual_trie_root_compute(encoded: Vec<Vec<u8>>) -> H256 {
 		use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
 
@@ -620,7 +624,6 @@ mod test {
 		let items_len = encoded.len();
 		for i in 0..items_len {
 			let index = adjust_index_for_rlp(i, items_len);
-			// println!("For tx={} using index={}", i, index);
 
 			let index_buffer = alloy_rlp::encode_fixed_size(&index);
 			hb.add_leaf(Nibbles::unpack(&index_buffer), &encoded[index]);
@@ -631,11 +634,46 @@ mod test {
 				hb.value.as_slice().len() +
 				hb.stack.len() * 33 +
 				masks_len + hb.rlp_buf.len();
-
-			// println!(" HB size is: {size}");
 		}
 
 		hb.root().0.into()
+	}
+
+	/// The test compares three hashing options:
+	/// - Block::compute_trie_root: this uses the consensus proofs crate
+	/// - manual_trie_root_compute: this ensures the keys are added in the correct order
+	/// - IncrementalHashBuilder: this offers the most compact storage option
+	///
+	/// The above hashes must be identical. While at it, the incremental hash
+	/// builder is serialized and deserialized to ensure consistency.
+	#[test]
+	fn incremental_hasher() {
+		const UPPER_BOUND: usize = 256;
+		const RLP_VALUE_SIZE: usize = 128;
+
+		let mut rlp_values = Vec::with_capacity(UPPER_BOUND);
+
+		for i in 0..UPPER_BOUND {
+			// Simulate an RLP value repeated for `i`.
+			let rlp_value = vec![i as u8; RLP_VALUE_SIZE];
+
+			rlp_values.push(rlp_value);
+
+			let block_hash: H256 = Block::compute_trie_root(&rlp_values).0.into();
+			let manual_hash = manual_trie_root_compute(rlp_values.clone());
+
+			let mut builder = IncrementalHashBuilder::new(rlp_values[0].clone());
+			for rlp_value in rlp_values.iter().skip(1) {
+				builder.add_value(rlp_value.clone());
+
+				let ir_builder = builder.to_ir();
+				builder = IncrementalHashBuilder::from_ir(ir_builder);
+			}
+			let incremental_hash = builder.finish();
+
+			assert_eq!(block_hash, manual_hash);
+			assert_eq!(block_hash, incremental_hash);
+		}
 	}
 
 	#[test]
