@@ -470,7 +470,7 @@ fn ext_builder_with_genesis_config_works() {
 
 	let evm_contract = Account {
 		address: CHARLIE_ADDR,
-		balance: U256::from(100000000),
+		balance: U256::from(1_000_00_100),
 		nonce: 43,
 		contract_data: Some(ContractData {
 			code: vec![revm::bytecode::opcode::RETURN],
