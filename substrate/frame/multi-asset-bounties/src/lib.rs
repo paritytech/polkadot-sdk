@@ -570,7 +570,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::BountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty(1))]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_bounty())]
 		pub fn fund_bounty(
 			origin: OriginFor<T>,
 			asset_kind: Box<T::AssetKind>,
@@ -648,7 +648,7 @@ pub mod pallet {
 		///
 		/// Emits [`Event::ChildBountyCreated`] and [`Event::Paid`] if successful.
 		#[pallet::call_index(1)]
-		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty(1))]
+		#[pallet::weight(<T as Config<I>>::WeightInfo::fund_child_bounty())]
 		pub fn fund_child_bounty(
 			origin: OriginFor<T>,
 			#[pallet::compact] parent_bounty_id: BountyIndex,
