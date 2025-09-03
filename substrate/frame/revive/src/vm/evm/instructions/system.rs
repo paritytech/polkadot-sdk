@@ -45,7 +45,7 @@ pub fn keccak256<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		KECCAK_EMPTY
 	} else {
 		let from = as_usize_or_fail!(context.interpreter, offset);
-		resize_memory!(context.interpreter, from, len);
+		check_memory_bounds!(context.interpreter, from, len);
 		keccak_256(context.interpreter.memory.slice_len(from, len).as_ref()).into()
 	};
 	*top = hash.into();
@@ -248,7 +248,7 @@ pub fn memory_resize<'a, E: Ext>(
 		return None;
 	}
 	let memory_offset = as_usize_or_fail_ret!(interpreter, memory_offset, None);
-	resize_memory!(interpreter, memory_offset, len, None);
+	check_memory_bounds!(interpreter, memory_offset, len, None);
 
 	Some(memory_offset)
 }

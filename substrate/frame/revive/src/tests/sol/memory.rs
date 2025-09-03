@@ -22,12 +22,48 @@ use crate::{
 	Code, Config,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Memory};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 
+#[test]
+fn memory_limit_works() {
+	for fixture_type in [FixtureType::Solc] {
+		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			let test_cases = [
+				(
+					Memory::expandMemoryCall {
+						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
+					},
+					false,
+				),
+				(
+					Memory::expandMemoryCall {
+						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
+					},
+					true,
+				),
+			];
+
+			for (data, should_revert) in test_cases {
+				let result =
+					builder::bare_call(addr).data(data.abi_encode()).build_and_unwrap_result();
+				assert_eq!(result.did_revert(), should_revert);
+			}
+		});
+	}
+}
 #[test]
 fn memory_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {

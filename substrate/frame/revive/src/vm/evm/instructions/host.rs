@@ -88,7 +88,7 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	}
 	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
 	let code_offset = crate::vm::evm::min(as_usize_saturated!(code_offset), code.len());
-	resize_memory!(context.interpreter, memory_offset, len);
+	check_memory_bounds!(context.interpreter, memory_offset, len);
 
 	// Note: This can't panic because we resized memory to fit.
 	context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
@@ -249,7 +249,7 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 		Bytes::new()
 	} else {
 		let offset = as_usize_or_fail!(context.interpreter, offset);
-		resize_memory!(context.interpreter, offset, len);
+		check_memory_bounds!(context.interpreter, offset, len);
 		Bytes::copy_from_slice(context.interpreter.memory.slice_len(offset, len).as_ref())
 	};
 	if context.interpreter.stack.len() < N {

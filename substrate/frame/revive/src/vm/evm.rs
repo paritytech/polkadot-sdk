@@ -22,7 +22,7 @@ use crate::{
 	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
 	LOG_TARGET, U256,
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use core::cmp::min;
 use instructions::instruction_table;
 use pallet_revive_uapi::ReturnFlags;
@@ -122,12 +122,16 @@ impl<T: Config> ContractBlob<T> {
 
 /// Calls the EVM interpreter with the provided bytecode and inputs.
 pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -> ExecResult {
+	let memory = SharedMemory::new_with_buffer(Rc::new(
+		vec![0u8; crate::limits::code::BASELINE_MEMORY_LIMIT as usize].into(),
+	));
+
 	let mut interpreter: Interpreter<EVMInterpreter<'a, E>> = Interpreter {
 		gas: Gas::default(),
 		bytecode: ExtBytecode::new(bytecode),
 		stack: Stack::new(),
 		return_data: Default::default(),
-		memory: SharedMemory::new(),
+		memory,
 		input: inputs,
 		runtime_flag: RuntimeFlags { is_static: false, spec_id: SpecId::default() },
 		extend: ext,

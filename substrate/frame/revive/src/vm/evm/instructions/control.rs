@@ -106,7 +106,7 @@ fn return_inner<'a, E: Ext>(
 	let mut output = Bytes::default();
 	if len != 0 {
 		let offset = as_usize_or_fail!(interpreter, offset);
-		resize_memory!(interpreter, offset, len);
+		check_memory_bounds!(interpreter, offset, len);
 		output = interpreter.memory.slice_len(offset, len).to_vec().into()
 	}
 

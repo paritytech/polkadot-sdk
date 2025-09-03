@@ -68,7 +68,7 @@ pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E
 		}
 
 		let code_offset = as_usize_or_fail!(context.interpreter, code_offset);
-		resize_memory!(context.interpreter, code_offset, len);
+		check_memory_bounds!(context.interpreter, code_offset, len);
 		code =
 			Bytes::copy_from_slice(context.interpreter.memory.slice_len(code_offset, len).as_ref());
 	}
