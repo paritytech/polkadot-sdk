@@ -30,7 +30,7 @@ use revm::{
 		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
 		InstructionResult,
 	},
-	primitives::{Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
+	primitives::{Bytes, Log, LogData, B256, U256},
 };
 
 /// Implements the BALANCE instruction.
@@ -74,7 +74,6 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	// EVM-specific: Stack manipulation and address conversion
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
 	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 
