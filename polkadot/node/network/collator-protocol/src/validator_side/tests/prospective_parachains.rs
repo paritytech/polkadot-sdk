@@ -2574,7 +2574,6 @@ mod ah_stop_gap {
 			|test_harness| async move {
 				let TestHarness { mut virtual_overseer, keystore } = test_harness;
 
-				// let head = Hash::from_low_u64_be(test_state.relay_parent.to_low_u64_be() - 1);
 				let head = test_state.relay_parent;
 
 				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 1)]).await;
@@ -2641,7 +2640,7 @@ mod ah_stop_gap {
 				.await;
 
 				// sleep 1 sec, to kick off held off processing
-				std::thread::sleep(std::time::Duration::from_secs(1));
+				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE * 2);
 
 				// the one from the permissionless is also fetched
 				assert_matches!(
@@ -2777,7 +2776,7 @@ mod ah_stop_gap {
 				.await;
 
 				// sleep to kick off held off processing
-				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE);
+				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE * 2);
 
 				let mut can_second_count = 0;
 				let mut collation_fetching_count = 0;
