@@ -1261,8 +1261,49 @@ mod benchmarks {
 		era
 	}
 
+	/// Validates that the weight consumption of a pruning operation stays within expected limits.
+	fn validate_pruning_weight<T: Config>(
+		result: &Result<
+			frame_support::dispatch::PostDispatchInfo,
+			frame_support::dispatch::DispatchErrorWithPostInfo,
+		>,
+		step_name: &str,
+		validator_count: u32,
+	) {
+		let max_weight = Pallet::<T>::max_pruning_weight();
+
+		assert!(
+			result.is_ok(),
+			"Benchmark {} should succeed with v={}",
+			step_name,
+			validator_count
+		);
+
+		if let Ok(post_info) = result {
+			if let Some(actual_weight) = post_info.actual_weight {
+				let actual_ref_time = actual_weight.ref_time();
+				assert!(
+					actual_ref_time > 0,
+					"Should report non-zero weight for {} with v={}",
+					step_name,
+					validator_count
+				);
+				assert!(
+					actual_ref_time <= max_weight,
+					"Weight {} exceeds max {} for {} with v={}",
+					actual_ref_time,
+					max_weight,
+					step_name,
+					validator_count
+				);
+			} else {
+				panic!("Should report actual weight for {} with v={}", step_name, validator_count);
+			}
+		}
+	}
+
 	// Benchmark pruning ErasStakersPaged (first step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_stakers_paged(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1271,14 +1312,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasStakersPaged", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasStakersOverview (second step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_stakers_overview(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1287,14 +1333,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasStakersOverview", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasValidatorPrefs (third step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_validator_prefs(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1303,14 +1354,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasValidatorPrefs", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ClaimedRewards (fourth step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_claimed_rewards(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1319,14 +1375,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ClaimedRewards", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasValidatorReward (fifth step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_validator_reward(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1335,14 +1396,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasValidatorReward", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasRewardPoints (sixth step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_reward_points(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1351,14 +1417,19 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasRewardPoints", v);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasTotalStake (final step)
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_total_stake(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
@@ -1367,8 +1438,13 @@ mod benchmarks {
 
 		let caller: T::AccountId = whitelisted_caller();
 
-		#[extrinsic_call]
-		prune_era_step(RawOrigin::Signed(caller), era);
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ErasTotalStake", v);
 
 		Ok(())
 	}
