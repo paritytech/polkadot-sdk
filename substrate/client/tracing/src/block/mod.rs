@@ -238,7 +238,6 @@ where
 					.expect("Proof recording is enabled in the line above; qed.");
 				runtime_api.register_extension(ProofSizeExt::new(recorder));
 
-
 				// Replay block
 				runtime_api.execute_block(parent_hash, block)
 			}) {
