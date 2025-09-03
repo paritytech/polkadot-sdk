@@ -176,11 +176,11 @@ pub fn generate_decl_runtime_metadata<'a>(
 			#[inline(always)]
 			pub fn runtime_metadata #impl_generics (
 				impl_version: u32,
-				mut impl_deprecations: #crate_::scale_info::prelude::collections::BTreeMap<&str, #crate_::metadata_ir::ItemDeprecationInfoIR>
+				mut impl_deprecations: #crate_::__private::BTreeMap<&str, #crate_::metadata_ir::ItemDeprecationInfoIR>
 			) -> #crate_::metadata_ir::RuntimeApiMetadataIR
 				#where_clause
 			{
-				let deprecation = if let Some(deprecation) = impl_deprecations.remove(&#trait_name) { deprecation } else { #deprecation };
+				let deprecation = impl_deprecations.remove(&#method_name).unwrap_or(#deprecation);
 				#crate_::metadata_ir::RuntimeApiMetadataIR {
 					name: #trait_name,
 					methods: [ #( #methods, )* ]
@@ -232,16 +232,15 @@ pub fn generate_impl_runtime_metadata(impls: &[ItemImpl]) -> Result<TokenStream2
 
 		if impl_.attrs.iter().any(|x| x.path().is_ident("deprecated")) {
 			let deprecation = crate::utils::get_deprecation(&crate_, &impl_.attrs)?;
-			deprecations.push(quote! {(stringify!(#trait_name_ident), #deprecation)});
+			deprecations.push(quote! {(#trait_name, #deprecation)});
 		};
 
 		for method in &impl_.items {
 			if let ImplItem::Fn(method) = method {
 				if method.attrs.iter().any(|x| x.path().is_ident("deprecated")) {
-					let name = &method.sig.ident;
-					dbg!(name);
+					let name = &method.sig.ident.to_string();
 					let deprecation = crate::utils::get_deprecation(&crate_, &method.attrs)?;
-					deprecations.push(quote! {(stringify!(#name), #deprecation)});
+					deprecations.push(quote! {(#name, #deprecation)});
 				};
 			}
 		}
