@@ -4907,7 +4907,7 @@ fn get_storage_keys_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
 		let keys = Pallet::<Test>::get_storage_keys(ALICE_ADDR);
-		assert_err!(keys, crate::ContractAccessError::DoesntExist);
+		assert_eq!(keys, None);
 
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
