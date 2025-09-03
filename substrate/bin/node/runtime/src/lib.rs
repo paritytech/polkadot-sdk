@@ -1436,6 +1436,16 @@ parameter_types! {
 }
 
 impl pallet_multi_asset_bounties::Config for Runtime {
+	type PalletId = TreasuryPalletId;
+	type Currency = Balances;
+	type RejectOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+	>;
+	type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
+	type AssetKind = NativeOrWithId<u32>;
+	type Beneficiary = AccountId;
+	type BeneficiaryLookup = Indices;
 	type CuratorDepositMultiplier = CuratorDepositFromValueMultiplier;
 	type CuratorDepositMin = CuratorDepositMin;
 	type CuratorDepositMax = CuratorDepositMax;
@@ -1444,10 +1454,11 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
-	type TreasurySource = pallet_multi_asset_bounties::TreasuryAccountSource<Runtime>;
-	type BountySource = pallet_multi_asset_bounties::BountyAccountSource<Runtime>;
-	type ChildBountySource = pallet_multi_asset_bounties::ChildBountyAccountSource<Runtime>;
+	type FundingSource = pallet_multi_asset_bounties::FundingSourceAccount<Runtime>;
+	type BountySource = pallet_multi_asset_bounties::BountySourceAccount<Runtime>;
+	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceAccount<Runtime>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
+	type BalanceConverter = AssetRate;
 	type OnSlash = Treasury;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;

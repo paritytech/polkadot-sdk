@@ -12724,7 +12724,6 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
- "pallet-treasury",
  "pallet-utility",
  "parity-scale-codec",
  "scale-info",

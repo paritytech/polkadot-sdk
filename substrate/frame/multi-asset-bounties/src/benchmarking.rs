@@ -75,9 +75,9 @@ struct BenchmarkBounty<T: Config<I>, I: 'static> {
 	/// The kind of asset the child-/bounty is rewarded in.
 	asset_kind: T::AssetKind,
 	/// The amount that should be paid if the bounty is rewarded.
-	value: AssetBalanceOf<T, I>,
+	value: BalanceOf<T, I>,
 	/// The amount that should be paid if the child-bounty is rewarded.
-	child_value: AssetBalanceOf<T, I>,
+	child_value: BalanceOf<T, I>,
 	/// The child-/bounty beneficiary account.
 	beneficiary: T::Beneficiary,
 	/// Bounty description.
@@ -124,9 +124,9 @@ fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
 	T::BalanceConverter::ensure_successful(asset_kind.clone());
 	let min_native_value = T::BountyValueMinimum::get().saturating_mul(100u32.into());
-	let value: AssetBalanceOf<T, I> =
+	let value =
 		<T as Config<I>>::BenchmarkHelper::to_asset_balance(min_native_value, asset_kind.clone());
-	let child_value: AssetBalanceOf<T, I> = value / 4u32.into();
+	let child_value = value / 4u32.into();
 	let curator = account("curator", 0, SEED);
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
@@ -161,14 +161,14 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let mut s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
 
-	let treasury_account =
-		Bounties::<T, I>::treasury_account(s.asset_kind.clone()).expect("conversion failed");
+	let funding_source_account =
+		Bounties::<T, I>::funding_source_account(s.asset_kind.clone()).expect("conversion failed");
 	let parent_bounty_account =
 		Bounties::<T, I>::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
 			.expect("conversion failed");
 	let curator_lookup = T::Lookup::unlookup(s.curator.clone());
 	<T as pallet_bounties::Config<I>>::Paymaster::ensure_successful(
-		&treasury_account,
+		&funding_source_account,
 		&parent_bounty_account,
 		s.asset_kind.clone(),
 		s.value,
@@ -327,13 +327,13 @@ mod benchmarks {
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let curator_lookup = T::Lookup::unlookup(s.curator.clone());
-		let treasury_account =
-			Bounties::<T, I>::treasury_account(s.asset_kind.clone()).expect("conversion failed");
+		let funding_source_account =
+			Bounties::<T, I>::funding_source_account(s.asset_kind.clone()).expect("conversion failed");
 		let parent_bounty_account =
 			Bounties::<T, I>::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
 				.expect("conversion failed");
 		<T as pallet_bounties::Config<I>>::Paymaster::ensure_successful(
-			&treasury_account,
+			&funding_source_account,
 			&parent_bounty_account,
 			s.asset_kind.clone(),
 			s.value,

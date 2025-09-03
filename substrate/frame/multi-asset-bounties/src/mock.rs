@@ -46,30 +46,6 @@ thread_local! {
 	pub static TEST_SPEND_ORIGIN_TRY_SUCCESSFUL_ORIGIN_ERR: RefCell<bool> = RefCell::new(false);
 }
 
-pub struct TestTreasuryPay;
-impl Pay for TestTreasuryPay {
-	type Beneficiary = u128;
-	type Balance = u64;
-	type Id = u64;
-	type AssetKind = u32;
-	type Error = ();
-
-	fn pay(
-		_: &Self::Beneficiary,
-		_: Self::AssetKind,
-		_: Self::Balance,
-	) -> Result<Self::Id, Self::Error> {
-		Ok(0)
-	}
-	fn check_payment(_: Self::Id) -> PaymentStatus {
-		PaymentStatus::InProgress
-	}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, _: Self::AssetKind, _: Self::Balance) {}
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(_: Self::Id) {}
-}
-
 pub struct TestBountiesPay;
 impl PayWithSource for TestBountiesPay {
 	type Source = u128;
@@ -117,8 +93,6 @@ frame_support::construct_runtime!(
 		Utility: pallet_utility,
 		Bounties: pallet_bounties,
 		Bounties1: pallet_bounties::<Instance1>,
-		Treasury: pallet_treasury,
-		Treasury1: pallet_treasury::<Instance1>,
 	}
 );
 
@@ -151,12 +125,10 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
 	pub static Burn: Permill = Permill::from_percent(50);
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-	pub const TreasuryPalletId2: PalletId = PalletId(*b"py/trsr2");
+	pub const BountyPalletId: PalletId = PalletId(*b"py/mbnty");
+	pub const BountyPalletId2: PalletId = PalletId(*b"py/mbnt2");
 	pub static SpendLimit: Balance = u64::MAX;
 	pub static SpendLimit1: Balance = u64::MAX;
-	pub TreasuryAccount: u128 = Treasury::account_id();
-	pub TreasuryInstance1Account: u128 = Treasury1::account_id();
 }
 
 pub struct TestSpendOrigin;
@@ -183,52 +155,6 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 	}
 }
 
-impl pallet_treasury::Config for Test {
-	type PalletId = TreasuryPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
-	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
-	type SpendPeriod = ConstU64<2>;
-	type Burn = Burn;
-	type BurnDestination = (); // Just gets burned.
-	type WeightInfo = ();
-	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = TestSpendOrigin;
-	type AssetKind = u32;
-	type Beneficiary = Self::AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestTreasuryPay;
-	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
-	type BlockNumberProvider = System;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
-impl pallet_treasury::Config<Instance1> for Test {
-	type PalletId = TreasuryPalletId2;
-	type Currency = pallet_balances::Pallet<Test>;
-	type RejectOrigin = frame_system::EnsureRoot<u128>;
-	type RuntimeEvent = RuntimeEvent;
-	type SpendPeriod = ConstU64<2>;
-	type Burn = Burn;
-	type BurnDestination = (); // Just gets burned.
-	type WeightInfo = ();
-	type SpendFunds = ();
-	type MaxApprovals = ConstU32<100>;
-	type SpendOrigin = frame_system::EnsureRootWithSuccess<Self::AccountId, SpendLimit1>;
-	type AssetKind = u32;
-	type Beneficiary = Self::AccountId;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = TestTreasuryPay;
-	type BalanceConverter = UnityAssetBalanceConversion;
-	type PayoutPeriod = ConstU64<10>;
-	type BlockNumberProvider = System;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
-}
-
 parameter_types! {
 	// This will be 50% of the bounty value.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
@@ -238,6 +164,13 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type PalletId = BountyPalletId;
+	type Currency = pallet_balances::Pallet<Test>;
+	type RejectOrigin = frame_system::EnsureRoot<u128>;
+	type SpendOrigin = TestSpendOrigin;
+	type AssetKind = u32;
+	type Beneficiary = u128;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -247,15 +180,23 @@ impl Config for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
-	type TreasurySource = TreasuryAccountSource<Test, ()>;
-	type BountySource = BountyAccountSource<Test, ()>;
-	type ChildBountySource = ChildBountyAccountSource<Test, ()>;
+	type FundingSource = FundingSourceAccount<Test, ()>;
+	type BountySource = BountySourceAccount<Test, ()>;
+	type ChildBountySource = ChildBountySourceAccount<Test, ()>;
 	type Paymaster = TestBountiesPay;
+	type BalanceConverter = UnityAssetBalanceConversion;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
 
 impl Config<Instance1> for Test {
+	type PalletId = BountyPalletId2;
+	type Currency = pallet_balances::Pallet<Test>;
+	type RejectOrigin = frame_system::EnsureRoot<u128>;
+	type SpendOrigin = TestSpendOrigin;
+	type AssetKind = u32;
+	type Beneficiary = u128;
+	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
 	type CuratorDepositMultiplier = CuratorDepositMultiplier;
 	type CuratorDepositMax = CuratorDepositMax;
 	type CuratorDepositMin = CuratorDepositMin;
@@ -265,10 +206,11 @@ impl Config<Instance1> for Test {
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
 	type OnSlash = ();
-	type TreasurySource = TreasuryAccountSource<Test, Instance1>;
-	type BountySource = BountyAccountSource<Test, Instance1>;
-	type ChildBountySource = ChildBountyAccountSource<Test, Instance1>;
+	type FundingSource = FundingSourceAccount<Test, Instance1>;
+	type BountySource = BountySourceAccount<Test, Instance1>;
+	type ChildBountySource = ChildBountySourceAccount<Test, Instance1>;
 	type Paymaster = TestBountiesPay;
+	type BalanceConverter = UnityAssetBalanceConversion;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -297,14 +239,12 @@ impl ExtBuilder {
 				balances: vec![(0, 100), (1, 98), (2, 1)],
 				..Default::default()
 			},
-			treasury: Default::default(),
-			treasury_1: Default::default(),
 		}
 		.build_storage()
 		.unwrap()
 		.into();
 		ext.execute_with(|| {
-			<Test as pallet_treasury::Config>::BlockNumberProvider::set_block_number(1);
+			frame_system::Pallet::<Test>::set_block_number(1);
 		});
 		ext
 	}

@@ -937,15 +937,15 @@ fn retry_payment_works() {
 
 		// Given: parent bounty status `RefundAttempted`
 		let s = create_canceled_parent_bounty();
-		let treasury_account = Bounties::treasury_account(s.asset_kind).expect("conversion failed");
-		reject_payment(treasury_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+		let funding_source_account = Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		reject_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// When
 		assert_ok!(Bounties::retry_payment(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
 
 		// Then
 		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
-		assert_eq!(paid(treasury_account, s.asset_kind), s.value);
+		assert_eq!(paid(funding_source_account, s.asset_kind), s.value);
 		assert_eq!(
 			last_event(),
 			BountiesEvent::Paid { index: s.parent_bounty_id, child_index: None, payment_id }
@@ -2197,8 +2197,8 @@ fn close_parent_with_child_bounty() {
 
 		// When
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None));
-		let treasury_account = Bounties::treasury_account(s.asset_kind).expect("conversion failed");
-		approve_payment(treasury_account, s.parent_bounty_id, None, s.asset_kind, s.value);
+		let funding_source_account = Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		approve_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 		// Then
 		assert_eq!(
