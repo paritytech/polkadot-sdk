@@ -428,6 +428,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Returns a slice of the contract's code as `address`
+	fn get_code_slice(&mut self, address: &H160, code_offset: usize, len: usize) -> Vec<u8>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2133,6 +2136,26 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	fn get_code_slice(&mut self, address: &H160, code_offset: usize, len: usize) -> Vec<u8> {
+		let code_hash = self.code_hash(address);
+		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+
+		let available_len = if code_offset >= code.len() { 0 } else { code.len() - code_offset };
+
+		let copy_len = len.min(available_len);
+		let mut result = Vec::with_capacity(len);
+
+		if copy_len > 0 {
+			result.extend_from_slice(&code[code_offset..code_offset + copy_len]);
+		}
+
+		if len > copy_len {
+			result.resize(len, 0u8);
+		}
+
+		result
 	}
 }
 

@@ -74,24 +74,25 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	// EVM-specific: Stack manipulation and address conversion
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
 	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
-	let code_hash = context.interpreter.extend.code_hash(&address);
-	let code = crate::PristineCode::<E::T>::get(&code_hash).unwrap_or_default();
 
 	let len = as_usize_or_fail!(context.interpreter, len_u256);
-	// // TODO: this needs a new benchmark since we read from DB and copy to memory
-	// // gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
-
 	if len == 0 {
 		return;
 	}
 	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
-	let code_offset = crate::vm::evm::min(as_usize_saturated!(code_offset), code.len());
+	let code_offset = as_usize_saturated!(code_offset);
+
 	resize_memory!(context.interpreter, memory_offset, len);
 
-	// Note: This can't panic because we resized memory to fit.
-	context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
+	let code_slice = context.interpreter.extend.get_code_slice(&address, code_offset, len);
+
+	context.interpreter.memory.set_data(memory_offset, 0, len, &code_slice);
+
+	// TODO: this needs a new benchmark since we read from DB and copy to memory
+	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 }
 
 /// Implements the BLOCKHASH instruction.
