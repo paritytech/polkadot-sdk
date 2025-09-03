@@ -613,7 +613,9 @@ pub mod pallet {
 				let account_id = T::AddressMapper::to_account_id(address);
 				let (value, dust) = balance_with_dust.deconstruct();
 
-				let _ = T::Currency::set_balance(&account_id, value);
+				log::debug!(target: LOG_TARGET, "Genesis account {address:?} with balance {value:?} and dust {dust:?}");
+				let _ =
+					T::Currency::set_balance(&account_id, value + T::Currency::minimum_balance());
 				frame_system::Account::<T>::mutate(&account_id, |info| {
 					info.nonce = (*nonce).into();
 				});
@@ -1381,6 +1383,7 @@ where
 				err == Error::<T>::StorageDepositLimitExhausted.into()
 			{
 				let balance = Self::evm_balance(&from);
+				log::debug!(target: LOG_TARGET, "insufficient funds: have {balance}, need at least {value} + gas * price (supplied gas {:?}) - {err:?}", tx.gas);
 				return Err(EthTransactError::Message(format!(
 					"insufficient funds for gas * price + value: address {from:?} have {balance} (supplied gas {})",
 					tx.gas.unwrap_or_default()

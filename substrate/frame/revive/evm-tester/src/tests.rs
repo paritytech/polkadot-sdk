@@ -26,6 +26,8 @@ fn execute_state_test_with_revm() {
 	let result = execute_revm_state_test(test_name, test_case, "Prague", 0, post_state, &args)
 		.expect("Failed to execute state test");
 
+	dbg!(&result);
+
 	assert!(result.pass, "State test should pass, got: {:?}", result.error);
 	assert_eq!(result.name, "tests/prague/eip2537_bls_12_381_precompiles/test_bls12_g1mul.py::test_valid[fork_Prague-state_test-bls_g1mul_(0*g1=inf)-]");
 	assert_eq!(result.fork, "Prague");

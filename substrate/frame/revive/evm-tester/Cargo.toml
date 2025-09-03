@@ -20,6 +20,7 @@ hex = { workspace = true }
 regex = { workspace = true }
 revm-statetest-types = "8.0"
 revm = { workspace = true }
+alloy-rlp = "0.3"
 revive-dev-runtime = { workspace  = true }
 pallet-revive = { workspace = true }
 pallet-timestamp = { workspace = true }

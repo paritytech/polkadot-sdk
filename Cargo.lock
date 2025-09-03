@@ -18508,6 +18508,7 @@ dependencies = [
 name = "revive-evm-tester"
 version = "0.1.0"
 dependencies = [
+ "alloy-rlp",
  "anyhow",
  "clap",
  "env_logger 0.11.3",
