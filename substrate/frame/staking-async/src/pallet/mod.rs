@@ -348,6 +348,8 @@ pub mod pallet {
 		///
 		/// The weight limit is calculated as: `max_block_weight * percentage / 100`
 		///
+		/// Must be > 0 and <= 100.
+		///
 		/// Default: 10 (meaning 10% of max block weight)
 		#[pallet::constant]
 		type PruningWeightPercentage: Get<u32>;
@@ -1319,6 +1321,12 @@ pub mod pallet {
 		/// This uses the configurable percentage of max block weight.
 		pub(crate) fn max_pruning_weight() -> u64 {
 			let percentage = T::PruningWeightPercentage::get();
+			assert!(
+				percentage > 0 && percentage <= 100,
+				"PruningWeightPercentage must be > 0 and <= 100, got {}",
+				percentage
+			);
+
 			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
 			max_block_weight * percentage as u64 / 100
 		}
