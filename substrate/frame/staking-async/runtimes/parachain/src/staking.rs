@@ -666,7 +666,7 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use pallet_staking_async::weights::WeightInfo;
+	use pallet_staking_async::WeightInfo;
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
@@ -688,19 +688,21 @@ mod tests {
 	}
 
 	#[test]
-	fn polkadot_prune_era() {
+	fn polkadot_prune_era_step() {
 		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
+		let prune_era_step =
+			<Runtime as pallet_staking_async::Config>::WeightInfo::prune_era_stakers_paged(600);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
+		weight_diff(block_weight, prune_era_step);
 	}
 
 	#[test]
-	fn kusama_prune_era() {
+	fn kusama_prune_era_step() {
 		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
+		let prune_era_step =
+			<Runtime as pallet_staking_async::Config>::WeightInfo::prune_era_stakers_paged(1000);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
+		weight_diff(block_weight, prune_era_step);
 	}
 
 	#[test]
