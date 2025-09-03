@@ -189,6 +189,7 @@ jobs:
               exit 1
             fi
             echo "Found DEB package: $debname"
+            echo "Local repo path $LOCAL_REPO_PATH"
 
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
