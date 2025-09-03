@@ -1302,6 +1302,15 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Calculate the maximum weight available for era pruning operations.
+		/// This uses the configurable percentage of max block weight.
+		pub(crate) fn max_pruning_weight() -> u64 {
+			// TODO: This should be configurable via runtime parameter in the future
+			const PRUNING_WEIGHT_PERCENTAGE: u32 = 10;
+			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
+			max_block_weight / PRUNING_WEIGHT_PERCENTAGE as u64
+		}
+
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
 		pub fn apply_unapplied_slashes(active_era: EraIndex) -> Weight {
 			let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
@@ -1392,10 +1401,7 @@ pub mod pallet {
 				return Ok((false, db_weight.reads(8))); // Cost of checking pruning state + all storage types
 			}
 
-			// TODO: This should be configurable via runtime parameter in the future
-			const PRUNING_WEIGHT_PERCENTAGE: u32 = 10;
-			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
-			let max_pruning_weight = max_block_weight / PRUNING_WEIGHT_PERCENTAGE as u64;
+			let max_pruning_weight = Self::max_pruning_weight();
 
 			// Get current pruning state or start pruning if not set
 			let current_step =

@@ -370,9 +370,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 
 		// Process each pruning step in the exact order defined by the implementation
 		// Each step should clean its specific storage and transition to the next step
-		// Calculate weight limits for verification
-		// TODO: remove the hard-coded value!!!
-		let expected_max_pruning_weight: u64 = 1_000_000_000; // 1 billion ref_time units
+		let expected_max_pruning_weight: u64 = Staking::max_pruning_weight();
 
 		// Process each pruning step, potentially with multiple calls due to weight limits
 		let steps_order = [
