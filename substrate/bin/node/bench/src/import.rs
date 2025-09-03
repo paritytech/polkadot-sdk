@@ -135,10 +135,9 @@ impl core::Benchmark for ImportBenchmark {
 						//    - 2x deposit (Balances::Deposit and Treasury::Deposit) for depositing
 						//      the transaction fee into the treasury
 						//    - extrinsic success
-						// +3 Bags List events from on_idle hook
 						assert_eq!(
 							kitchensink_runtime::System::events().len(),
-							(self.block.extrinsics.len() - 2) * 9 + 2 + 3,
+							(self.block.extrinsics.len() - 2) * 9 + 2,
 						);
 					},
 					BlockType::Noop => {

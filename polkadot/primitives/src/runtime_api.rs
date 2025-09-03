@@ -314,6 +314,10 @@ sp_api::decl_runtime_apis! {
 		#[api_version(13)]
 		fn scheduling_lookahead() -> u32;
 
+		/***** Added in v14 *****/
+		/// Retrieve paraids at relay parent
+		#[api_version(14)]
+		fn para_ids() -> Vec<ppp::Id>;
 
 	}
 }

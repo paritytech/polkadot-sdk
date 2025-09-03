@@ -44,9 +44,6 @@ rstest = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 # Substrate
-sc-client-api = { workspace = true, default-features = true }
-sp-consensus = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 

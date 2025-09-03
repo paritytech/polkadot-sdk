@@ -16,7 +16,9 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, initializer};
+use crate::{configuration, initializer, paras};
+use alloc::vec::Vec;
+
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{vstaging::async_backing::Constraints, Id as ParaId};
 
@@ -55,4 +57,8 @@ pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
 pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
 	configuration::ActiveConfig::<T>::get().max_code_size *
 		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+}
+
+pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
+	paras::Heads::<T>::iter_keys().collect()
 }

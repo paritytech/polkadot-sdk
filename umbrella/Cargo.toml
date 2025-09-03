@@ -86,6 +86,7 @@ std = [
 	"pallet-core-fellowship?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
+	"pallet-derivatives?/std",
 	"pallet-dev-mode?/std",
 	"pallet-dummy-dim?/std",
 	"pallet-election-provider-multi-block?/std",
@@ -277,6 +278,7 @@ runtime-benchmarks = [
 	"pallet-core-fellowship?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
+	"pallet-derivatives?/runtime-benchmarks",
 	"pallet-dummy-dim?/runtime-benchmarks",
 	"pallet-election-provider-multi-block?/runtime-benchmarks",
 	"pallet-election-provider-multi-phase?/runtime-benchmarks",
@@ -319,6 +321,7 @@ runtime-benchmarks = [
 	"pallet-salary?/runtime-benchmarks",
 	"pallet-scheduler?/runtime-benchmarks",
 	"pallet-session-benchmarking?/runtime-benchmarks",
+	"pallet-session?/runtime-benchmarks",
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
@@ -412,6 +415,7 @@ try-runtime = [
 	"pallet-core-fellowship?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
+	"pallet-derivatives?/try-runtime",
 	"pallet-dev-mode?/try-runtime",
 	"pallet-dummy-dim?/try-runtime",
 	"pallet-election-provider-multi-block?/try-runtime",
@@ -621,6 +625,7 @@ runtime-full = [
 	"pallet-core-fellowship",
 	"pallet-delegated-staking",
 	"pallet-democracy",
+	"pallet-derivatives",
 	"pallet-dev-mode",
 	"pallet-dummy-dim",
 	"pallet-election-provider-multi-block",
@@ -1400,6 +1405,11 @@ path = "../substrate/frame/delegated-staking"
 default-features = false
 optional = true
 path = "../substrate/frame/democracy"
+
+[dependencies.pallet-derivatives]
+default-features = false
+optional = true
+path = "../substrate/frame/derivatives"
 
 [dependencies.pallet-dev-mode]
 default-features = false

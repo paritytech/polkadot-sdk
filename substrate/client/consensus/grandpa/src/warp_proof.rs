@@ -30,6 +30,7 @@ use sp_consensus_grandpa::{AuthorityList, SetId, GRANDPA_ENGINE_ID};
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, One},
+	Justifications,
 };
 
 use std::{collections::HashMap, sync::Arc};
@@ -311,13 +312,28 @@ where
 			.ok_or_else(|| "Empty proof".to_string())?;
 		let (next_set_id, next_authorities) =
 			proof.verify(set_id, authorities, &self.hard_forks).map_err(Box::new)?;
+		let justifications = proof
+			.proofs
+			.into_iter()
+			.map(|p| {
+				let justifications =
+					Justifications::new(vec![(GRANDPA_ENGINE_ID, p.justification.encode())]);
+				(p.header, justifications)
+			})
+			.collect::<Vec<_>>();
 		if proof.is_finished {
-			Ok(VerificationResult::<Block>::Complete(next_set_id, next_authorities, last_header))
+			Ok(VerificationResult::<Block>::Complete(
+				next_set_id,
+				next_authorities,
+				last_header,
+				justifications,
+			))
 		} else {
 			Ok(VerificationResult::<Block>::Partial(
 				next_set_id,
 				next_authorities,
 				last_header.hash(),
+				justifications,
 			))
 		}
 	}

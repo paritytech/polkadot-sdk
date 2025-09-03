@@ -52,7 +52,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::Header,
+	config::{HashFor, Header},
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -67,7 +67,7 @@ pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
 /// The substrate block hash type.
-pub type SubstrateBlockHash = <SrcChainConfig as Config>::Hash;
+pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;
@@ -665,8 +665,7 @@ impl Client {
 			transactions_root: extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),
-			difficulty: Some(0u32.into()),
-			base_fee_per_gas: runtime_api.gas_price().await.ok(),
+			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,

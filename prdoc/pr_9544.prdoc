@@ -1,0 +1,35 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Disable reserve_transfer_assets for DOT|KSM|WND|PAS
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The reserve_transfer_assets extrinsic on pallet-xcm is also affected by the same issue as transfer_assets.
+      These extrinsics have been updated to return an error when dealing with DOT|KSM|WND|PAS, effectively disabling them.
+      We can't afford these extrinsics to be enabled after the Asset Hub Migration (AHM) and risk trapping assets due
+      to chain misconfigurations.
+      All chains need to update and coordinate with their dapps to move to the alternatives, like `transfer_assets_using_type_and_then`
+      or `execute`.
+  - audience: Runtime User
+    description: |
+      The reserve_transfer_assets extrinsic on pallet-xcm is also affected by the same issue as transfer_assets.
+      These extrinsics have been updated to return an error when dealing with DOT|KSM|WND|PAS, effectively disabling them.
+      We can't afford these extrinsics to be enabled after the Asset Hub Migration (AHM) and risk trapping assets due
+      to chain misconfigurations.
+      All apps should switch to `transfer_assets_using_type_and_then` or `execute`.
+
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: asset-test-utils
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

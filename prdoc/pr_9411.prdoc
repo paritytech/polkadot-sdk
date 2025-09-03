@@ -1,0 +1,7 @@
+title: 'staking-async/papi-tests: fix justfile to run in CI'
+doc:
+- audience: Runtime Dev
+  description: "Running the just step within a bash shell, ensures that the error is properly handled and propagated without terminating the just script."
+crates:
+- name: pallet-staking-async
+  bump: none

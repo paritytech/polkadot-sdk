@@ -92,12 +92,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 futures = { workspace = true }
 
-# Polkadot dependencies
-polkadot-test-service = { workspace = true }
-
-# Substrate dependencies
-sc-cli = { workspace = true, default-features = true }
-
 [features]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
