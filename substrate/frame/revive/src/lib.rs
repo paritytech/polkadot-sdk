@@ -1801,9 +1801,10 @@ impl<T: Config> Pallet<T> {
 	///
 	/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
 	fn store_transaction(transaction_encoded: Vec<u8>, success: bool, gas_used: Weight) {
-		let Some((encoded_logs, bloom)) = eth_block_storage::get_receipt_details() else {
-			return;
-		};
+		// Method returns `None` only when called from outside of the ethereum context.
+		// This is not the case here, since the `store_transaction` is called from within the
+		// ethereum context.
+		let (encoded_logs, bloom) = eth_block_storage::get_receipt_details().unwrap_or_default();
 
 		let block_builder_ir = EthBlockBuilderIR::<T>::get();
 		let mut block_builder = EthereumBlockBuilder::from_ir(block_builder_ir);
