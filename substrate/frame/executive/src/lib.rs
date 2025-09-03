@@ -79,44 +79,6 @@
 //! /// Executive: handles dispatch to the various modules.
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem>;
 //! ```
-//!
-//! ### Custom `OnRuntimeUpgrade` logic
-//!
-//! You can add custom logic that should be called in your runtime on a runtime upgrade. This is
-//! done by setting an optional generic parameter. The custom logic will be called before
-//! the on runtime upgrade logic of all modules is called.
-//!
-//! ```
-//! # use sp_runtime::generic;
-//! # use frame_executive as executive;
-//! # pub struct UncheckedExtrinsic {};
-//! # pub struct Header {};
-//! # type Context = frame_system::ChainContext<Runtime>;
-//! # pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-//! # pub type Balances = u64;
-//! # pub type AllPalletsWithSystem = u64;
-//! # pub enum Runtime {};
-//! # use sp_runtime::transaction_validity::{
-//! #    TransactionValidity, UnknownTransaction, TransactionSource,
-//! # };
-//! # use sp_runtime::traits::ValidateUnsigned;
-//! # impl ValidateUnsigned for Runtime {
-//! #     type Call = ();
-//! #
-//! #     fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
-//! #         UnknownTransaction::NoUnsignedValidator.into()
-//! #     }
-//! # }
-//! struct CustomOnRuntimeUpgrade;
-//! impl frame_support::traits::OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
-//!     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-//!         // Do whatever you want.
-//!         frame_support::weights::Weight::zero()
-//!     }
-//! }
-//!
-//! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem, CustomOnRuntimeUpgrade>;
-//! ```
 
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -230,15 +192,18 @@ impl core::fmt::Debug for ExecutiveError {
 /// - `UnsignedValidator`: The unsigned transaction validator of the runtime.
 /// - `AllPalletsWithSystem`: Tuple that contains all pallets including frame system pallet. Will be
 ///   used to call hooks e.g. `on_initialize`.
-/// - `OnRuntimeUpgrade`: Custom logic that should be called after a runtime upgrade. Modules are
-///   already called by `AllPalletsWithSystem`. It will be called before all modules will be called.
+/// - [**DEPRECATED** `OnRuntimeUpgrade`]: This parameter is deprecated and will be removed after
+///   September 2026. Use type `SingleBlockMigrations` in frame_system::Config instead.
 pub struct Executive<
 	System,
 	Block,
 	Context,
 	UnsignedValidator,
 	AllPalletsWithSystem,
-	OnRuntimeUpgrade = (),
+	#[deprecated(
+		note = "`OnRuntimeUpgrade` parameter in Executive is deprecated, will be removed after September 2026. \
+		Use type `SingleBlockMigrations` in frame_system::Config instead."
+	)] OnRuntimeUpgrade = (),
 >(
 	PhantomData<(
 		System,
