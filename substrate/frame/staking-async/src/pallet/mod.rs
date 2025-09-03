@@ -338,19 +338,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxEraDuration: Get<u64>;
 
-		/// Percentage of max block weight allocated for era pruning operations.
+		/// Maximum weight allocated for era pruning operations.
 		///
 		/// This controls how much computational weight is available for pruning era storage
-		/// in each call to `prune_era_step`. Higher percentages allow more storage to be
-		/// pruned per call, while lower percentages spread the work across more calls.
-		///
-		/// The weight limit is calculated as: `max_block_weight * percentage / 100`
-		///
-		/// Must be > 0 and <= 100.
-		///
-		/// Default: 10 (meaning 10% of max block weight)
+		/// in each call to `prune_era_step`. This should be set to a conservative value
+		/// equivalent to roughly 100 storage operations to ensure pruning doesn't consume
+		/// too much block space.
 		#[pallet::constant]
-		type PruningWeightPercentage: Get<u32>;
+		type MaxPruningWeight: Get<Weight>;
 
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
@@ -390,6 +385,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
+			pub const MaxPruningWeight: Weight = Weight::from_parts(1_000_000_000, 10_000); // 1ms, 10KB
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -413,7 +409,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxEraDuration = ();
-			type PruningWeightPercentage = ConstU32<10>;
+			type MaxPruningWeight = MaxPruningWeight;
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -1315,12 +1311,9 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Calculate the maximum weight available for era pruning operations.
-		/// This uses the configurable percentage of max block weight.
-		pub(crate) fn max_pruning_weight() -> u64 {
-			let percentage = T::PruningWeightPercentage::get();
-			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
-			max_block_weight * percentage.clamp(1, 100) as u64 / 100
+		/// Get the maximum weight available for era pruning operations.
+		pub(crate) fn max_pruning_weight() -> Weight {
+			T::MaxPruningWeight::get()
 		}
 
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
@@ -1430,9 +1423,14 @@ pub mod pallet {
 			// Calculate weight per item based on database operations
 			let weight_per_item = db_weight.reads_writes(1, 1);
 
-			// Calculate items limit based on available weight budget
-			let items_limit =
-				(max_pruning_weight / weight_per_item.ref_time()).try_into().unwrap_or(0); // Fallback to 0 if conversion fails
+			// Calculate items limit based on available weight budget (both ref_time and proof_size)
+			let ref_time_limit = max_pruning_weight.ref_time() / weight_per_item.ref_time();
+			let proof_size_limit = if weight_per_item.proof_size() > 0 {
+				max_pruning_weight.proof_size() / weight_per_item.proof_size()
+			} else {
+				u64::MAX // No proof_size constraint
+			};
+			let items_limit = ref_time_limit.min(proof_size_limit).try_into().unwrap_or(0);
 
 			let mut weight_used = Weight::zero();
 
@@ -1547,12 +1545,13 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
-			// Ensure PruningWeightPercentage is within valid range
-			let percentage = T::PruningWeightPercentage::get();
+			// Ensure MaxPruningWeight is reasonable (not zero)
+			let max_pruning_weight = T::MaxPruningWeight::get();
 			assert!(
-				percentage > 0 && percentage <= 100,
-				"PruningWeightPercentage must be > 0 and <= 100, got {}",
-				percentage
+				!max_pruning_weight.ref_time().is_zero() &&
+					!max_pruning_weight.proof_size().is_zero(),
+				"MaxPruningWeight must have non-zero ref_time and proof_size, got {:?}",
+				max_pruning_weight
 			);
 		}
 

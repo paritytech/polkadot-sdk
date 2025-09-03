@@ -370,7 +370,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 
 		// Process each pruning step in the exact order defined by the implementation
 		// Each step should clean its specific storage and transition to the next step
-		let expected_max_pruning_weight: u64 = Staking::max_pruning_weight();
+		let expected_max_pruning_weight: Weight = Staking::max_pruning_weight();
 
 		// Process each pruning step, potentially with multiple calls due to weight limits
 		let steps_order = [
@@ -411,13 +411,24 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					"Should report actual weight for {:?}",
 					expected_step
 				);
-				let actual_weight = post_info.actual_weight.unwrap().ref_time();
-				assert!(actual_weight > 0, "Should report non-zero weight for {:?}", expected_step);
+				let actual_weight = post_info.actual_weight.unwrap();
 				assert!(
-					actual_weight <= expected_max_pruning_weight,
-					"Weight {} should not exceed limit {} for step {:?}",
-					actual_weight,
-					expected_max_pruning_weight,
+					actual_weight.ref_time() > 0,
+					"Should report non-zero ref_time for {:?}",
+					expected_step
+				);
+				assert!(
+					actual_weight.ref_time() <= expected_max_pruning_weight.ref_time(),
+					"ref_time {} should not exceed limit {} for step {:?}",
+					actual_weight.ref_time(),
+					expected_max_pruning_weight.ref_time(),
+					expected_step
+				);
+				assert!(
+					actual_weight.proof_size() <= expected_max_pruning_weight.proof_size(),
+					"proof_size {} should not exceed limit {} for step {:?}",
+					actual_weight.proof_size(),
+					expected_max_pruning_weight.proof_size(),
 					expected_step
 				);
 

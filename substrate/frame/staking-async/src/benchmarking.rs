@@ -1282,17 +1282,27 @@ mod benchmarks {
 		if let Ok(post_info) = result {
 			if let Some(actual_weight) = post_info.actual_weight {
 				let actual_ref_time = actual_weight.ref_time();
+				let actual_proof_size = actual_weight.proof_size();
+
 				assert!(
 					actual_ref_time > 0,
-					"Should report non-zero weight for {} with v={}",
+					"Should report non-zero ref_time for {} with v={}",
 					step_name,
 					validator_count
 				);
 				assert!(
-					actual_ref_time <= max_weight,
-					"Weight {} exceeds max {} for {} with v={}",
+					actual_ref_time <= max_weight.ref_time(),
+					"ref_time {} exceeds max {} for {} with v={}",
 					actual_ref_time,
-					max_weight,
+					max_weight.ref_time(),
+					step_name,
+					validator_count
+				);
+				assert!(
+					actual_proof_size <= max_weight.proof_size(),
+					"proof_size {} exceeds max {} for {} with v={}",
+					actual_proof_size,
+					max_weight.proof_size(),
 					step_name,
 					validator_count
 				);

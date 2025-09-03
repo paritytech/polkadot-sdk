@@ -424,6 +424,8 @@ parameter_types! {
 	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
 	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	// Conservative weight for era pruning operations
+	pub MaxPruningWeight: Weight = Weight::from_parts(100_000_000, 1_000_000);
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -454,7 +456,7 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
-	type PruningWeightPercentage = frame_support::traits::ConstU32<10>;
+	type MaxPruningWeight = MaxPruningWeight;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
