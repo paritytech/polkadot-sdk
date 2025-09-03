@@ -677,6 +677,22 @@ mod test {
 	}
 
 	#[test]
+	fn test_alloy_rlp_ordering_compatibility() {
+		let zero_encoded = alloy_rlp::encode_fixed_size(&0usize);
+		let max_single_byte = alloy_rlp::encode_fixed_size(&127usize);
+		let first_multi_byte = alloy_rlp::encode_fixed_size(&128usize);
+
+		// Document the exact bytes we expect
+		assert_eq!(zero_encoded.as_slice(), &[0x80]); // RLP encoding of 0
+		assert_eq!(max_single_byte.as_slice(), &[0x7f]); // RLP encoding of 127
+		assert_eq!(first_multi_byte.as_slice(), &[0x81, 0x80]); // RLP encoding of 128
+
+		// Verify ordering
+		assert!(max_single_byte < zero_encoded);
+		assert!(zero_encoded < first_multi_byte);
+	}
+
+	#[test]
 	fn ensure_identical_hashes() {
 		// curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x161bd0f", true],"id":1}' -H "Content-Type: application/json" https://ethereum-rpc.publicnode.com | jq .result
 		const BLOCK_PATH: &str = "./test-assets/eth_block.json";
