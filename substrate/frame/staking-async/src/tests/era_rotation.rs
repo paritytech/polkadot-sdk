@@ -463,24 +463,19 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					!crate::ErasTotalStake::<T>::contains_key(1),
 					"{expected_step:?} should be empty after completing step"
 				),
-				Complete => unreachable!("Complete should not be in the processing list"),
 			}
 		}
 
-		// Should now be in Complete state
-		assert_eq!(EraPruningState::<T>::get(1), Some(Complete), "Should be in Complete state");
-
-		// Final step to emit event and cleanup pruning state
-		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
-		assert_ok!(&result);
-		let post_info = result.unwrap();
-
-		// Final step returns Pays::No because completing the pruning process is useful work
+		// After final step (ErasTotalStake), the EraPruningState should be removed
 		assert_eq!(
-			post_info.pays_fee,
-			frame_support::dispatch::Pays::No,
-			"Should return Pays::No when completing pruning (cleanup state + emit event)"
+			EraPruningState::<T>::get(1),
+			None,
+			"EraPruningState should be removed after final step"
 		);
+
+		// Attempting to prune again should return an error
+		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
+		assert_noop!(result, Error::<T>::EraNotPrunable);
 
 		// Pruning state should be completely removed
 		assert_eq!(EraPruningState::<T>::get(1), None, "Pruning state should be removed");
@@ -496,15 +491,9 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		// But era 2 should still be present (not automatically pruned)
 		assert_ok!(Eras::<T>::era_fully_present(2));
 
-		// Call the extrinsic on an already pruned era (no work done, should charge fees)
+		// Call the extrinsic on an already pruned era (should return error)
 		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
-		assert_ok!(&result);
-		let post_info = result.unwrap();
-		assert_eq!(
-			post_info.pays_fee,
-			frame_support::dispatch::Pays::Yes,
-			"Should return Pays::Yes when no work is done (era already pruned)"
-		);
+		assert_noop!(result, Error::<T>::EraNotPrunable);
 	});
 }
 

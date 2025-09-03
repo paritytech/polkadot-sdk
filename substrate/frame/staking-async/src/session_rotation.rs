@@ -352,10 +352,10 @@ impl<T: Config> Eras<T> {
 	}
 }
 
+#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+#[allow(unused)]
 impl<T: Config> Eras<T> {
 	/// Ensure the given era's data is fully present (all storage intact and not being pruned).
-	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
-	#[allow(unused)]
 	pub(crate) fn era_fully_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// these two are only set if we have some validators in an era.
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -393,15 +393,11 @@ impl<T: Config> Eras<T> {
 	}
 
 	/// Check if the given era is currently being pruned.
-	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
-	#[allow(unused)]
 	pub(crate) fn era_pruning_in_progress(era: EraIndex) -> bool {
 		EraPruningState::<T>::contains_key(era)
 	}
 
 	/// Ensure the given era is either absent or currently being pruned.
-	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
-	#[allow(unused)]
 	pub(crate) fn era_absent_or_pruning(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		if Self::era_pruning_in_progress(era) {
 			Ok(())
@@ -439,8 +435,6 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
-	#[allow(unused)]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// pruning window works.
 		let active_era = Rotator::<T>::active_era();
@@ -573,8 +567,11 @@ impl<T: Config> Rotator<T> {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
-				// accumulate pruning weight.
-				weight.saturating_accrue(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
+				// accumulate pruning weight. Let's go for the most pessimistic case (claimed
+				// rewards according to benchmarking)
+				weight.saturating_accrue(T::WeightInfo::prune_era_claimed_rewards(
+					ValidatorCount::<T>::get(),
+				));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -654,8 +651,14 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// discard old era information that is no longer needed.
+		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
+
+		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(debug, "Marking era {:?} for lazy pruning", old_era);
+			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
+		}
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {

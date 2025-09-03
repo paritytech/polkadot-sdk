@@ -1191,11 +1191,11 @@ mod benchmarks {
 		let validators = v;
 		let era = 7;
 
-		// Set current era to make era 7 prunable
-		// Era is prunable if: era + history_depth < current_era
+		// Set active era to make era 7 prunable
+		// Era is prunable if: era <= active_era - history_depth - 1
 		let history_depth = T::HistoryDepth::get();
-		let current_era = era + history_depth + 1;
-		crate::CurrentEra::<T>::put(current_era);
+		let active_era = era + history_depth + 1;
+		crate::ActiveEra::<T>::put(crate::ActiveEraInfo { index: active_era, start: Some(0) });
 
 		// Note: the number we are looking for here is not `MaxElectableVoters`, as these are unique
 		// nominators. One unique nominator can be exposed behind multiple validators. The right
