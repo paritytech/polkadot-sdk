@@ -1399,9 +1399,9 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.41", default-features = false }
-subxt-metadata = { version = "0.41", default-features = false }
-subxt-signer = { version = "0.41" }
+subxt = { version = "0.43", default-features = false }
+subxt-metadata = { version = "0.43", default-features = false }
+subxt-signer = { version = "0.43" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
@@ -1473,9 +1473,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.3.8" }
-zombienet-orchestrator = { version = "0.3.8" }
-zombienet-sdk = { version = "0.3.8" }
+zombienet-configuration = { version = "0.3.12" }
+zombienet-orchestrator = { version = "0.3.12" }
+zombienet-sdk = { version = "0.3.12" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]
