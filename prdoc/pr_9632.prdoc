@@ -20,9 +20,6 @@ doc:
 
     The new system processes era pruning across multiple blocks using a state machine pattern, ensuring storage operations remain bounded and preventing potential DoS attacks from large era cleanup operations.
 
-    ## TODO
-
-    - [ ] More tests
 crates:
 - name: pallet-staking-async
   bump: major
