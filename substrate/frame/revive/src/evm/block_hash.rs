@@ -441,7 +441,7 @@ impl Default for EthereumBlockBuilderIR {
 /// Ethereum block builder.
 pub struct EthereumBlockBuilder {
 	pub(crate) transaction_root_builder: Option<IncrementalHashBuilder>,
-	receipts_root_builder: Option<IncrementalHashBuilder>,
+	pub(crate) receipts_root_builder: Option<IncrementalHashBuilder>,
 
 	gas_used: U256,
 	pub(crate) tx_hashes: Vec<H256>,

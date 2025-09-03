@@ -19,21 +19,17 @@
 
 use crate::{
 	evm::{block_hash::EventLog, Block},
-	test_utils::{builder::Contract, ALICE},
-	tests::{assert_ok, builder, Contracts, ExtBuilder, Test},
+	test_utils::{builder::Contract, deposit_limit, ALICE},
+	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
-	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
+	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned, H256,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
 use pallet_revive_fixtures::compile_module;
 
-impl PartialEq for EventLog {
-	// Dont care about the contract address, since eth instantiate cannot expose it.
-	fn eq(&self, other: &Self) -> bool {
-		self.data == other.data && self.topics == other.topics
-	}
-}
+use alloy_consensus::RlpEncodableReceipt;
+use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
 
 #[test]
 fn on_initialize_clears_storage() {
@@ -101,50 +97,76 @@ fn transactions_are_captured() {
 	});
 }
 
-// #[test]
-// fn events_are_captured() {
-// 	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
+#[test]
+fn events_are_captured() {
+	let (binary, code_hash) = compile_module("event_and_return_on_deploy").unwrap();
 
-// 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-// 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-// 		assert_ok!(Contracts::upload_code(
-// 			RuntimeOrigin::signed(ALICE),
-// 			binary.clone(),
-// 			deposit_limit::<Test>(),
-// 		));
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			binary.clone(),
+			deposit_limit::<Test>(),
+		));
 
-// 		Contracts::on_initialize(1);
+		Contracts::on_initialize(1);
 
-// 		// Bare call must not be captured.
-// 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
-// 		let balance =
-// 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
+		// Bare call must not be captured.
+		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
+		let balance =
+			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
-// 		// Capture the EthInstantiate.
-// 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
-// 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
-// 		// Events are cleared out by storing the transaction.
-// 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
+		// Capture the EthInstantiate.
+		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
-// 		let transactions = InflightEthTransactions::<Test>::get();
-// 		let expected = vec![TransactionDetails {
-// 			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
-// 				.signed_payload(),
-// 			logs: vec![EventLog {
-// 				data: vec![1, 2, 3, 4],
-// 				topics: vec![H256::repeat_byte(42)],
-// 				contract: Default::default(),
-// 			}],
-// 			success: true,
-// 			gas_used: Weight::zero(),
-// 		}];
+		let expected_payloads = vec![
+			// Signed payload of eth_instantiate_with_code.
+			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
+		];
+		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 
-// 		assert_eq!(transactions, expected);
+		const EXPECTED_GAS: u64 = 6345452;
 
-// 		Contracts::on_finalize(0);
+		// Convert the EventLog into the AlloyLog to ensure
+		// the default address remains stable.
+		let event_log = EventLog {
+			data: vec![1, 2, 3, 4],
+			topics: vec![H256::repeat_byte(42)],
+			contract: Default::default(),
+		};
+		let logs = vec![AlloyLog::new_unchecked(
+			event_log.contract.0.into(),
+			event_log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+			event_log.data.into(),
+		)];
+		let receipt = alloy_consensus::Receipt {
+			status: true.into(),
+			cumulative_gas_used: EXPECTED_GAS,
+			logs,
+		};
 
-// 		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
-// 		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
-// 	});
-// }
+		let receipt_bloom = receipt.bloom_slow();
+		// Receipt starts with encoded tx type which is 3 for 4844 transactions.
+		let mut encoded_receipt = vec![3];
+		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt]);
+
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		// 1 transaction captured.
+		assert_eq!(block_builder.gas_info.len(), 1);
+		assert_eq!(block_builder.gas_info, vec![ReceiptGasInfo { gas_used: EXPECTED_GAS.into() }]);
+
+		let builder = EthereumBlockBuilder::from_ir(block_builder);
+		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		assert_eq!(tx_root, expected_tx_root.0.into());
+
+		let receipt_root = builder.receipts_root_builder.unwrap().finish();
+		assert_eq!(receipt_root, expected_receipt_root.0.into());
+
+		Contracts::on_finalize(0);
+
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		assert_eq!(block_builder.gas_info.len(), 0);
+	});
+}
