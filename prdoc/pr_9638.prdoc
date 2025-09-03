@@ -1,0 +1,9 @@
+title: Deprecate `OnRuntimeUpgrade` parameter in `frame_executive::Executive` struct.
+doc:
+- audience: Runtime Dev
+  description: |-
+    Deprecate `OnRuntimeUpgrade` parameter in `frame_executive::Executive` struct.
+
+crates:
+- name: pallet-executive
+  bump: major
