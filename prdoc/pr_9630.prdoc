@@ -1,0 +1,7 @@
+title: Account for PoV size when enqueing XCMP message
+doc:
+- audience: Runtime Dev
+  description: Account for PoV size when enqueing XCMP message
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
