@@ -1320,7 +1320,7 @@ pub mod pallet {
 		pub(crate) fn max_pruning_weight() -> u64 {
 			let percentage = T::PruningWeightPercentage::get();
 			let max_block_weight = T::BlockWeights::get().max_block.ref_time();
-			max_block_weight * percentage.min(100).max(1) as u64 / 100
+			max_block_weight * percentage.clamp(1, 100) as u64 / 100
 		}
 
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
