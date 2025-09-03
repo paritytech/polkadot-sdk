@@ -131,7 +131,7 @@ pub fn generate_decl_runtime_metadata<'a>(
 		methods.push(quote!(
 			#( #attrs )*
 			if #version <= impl_version {
-				let deprecation = if let Some(deprecation) = impl_deprecations.remove(&#method_name) { deprecation } else { #deprecation };
+				let deprecation = impl_deprecations.remove(&#method_name).unwrap_or(#deprecation);
 				Some(#crate_::metadata_ir::RuntimeApiMethodMetadataIR {
 					name: #method_name,
 					inputs: #crate_::vec![ #( #inputs, )* ],
