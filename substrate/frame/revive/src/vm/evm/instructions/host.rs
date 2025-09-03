@@ -76,48 +76,23 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
+	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
+	let code_hash = context.interpreter.extend.code_hash(&address);
+	let code = crate::PristineCode::<E::T>::get(&code_hash).unwrap_or_default();
 
-	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
-	let code_hash = context.interpreter.extend.code_hash(&h160);
+	let len = as_usize_or_fail!(context.interpreter, len_u256);
+	// // TODO: this needs a new benchmark since we read from DB and copy to memory
+	// // gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 
-	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
-		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
+	if len == 0 {
 		return;
-	};
-	let Ok(memory_offset) = memory_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
-		return;
-	};
-
-	let Some(code) = crate::PristineCode::<E::T>::get(&code_hash) else {
-		let zeros = vec![0u8; memory_len];
-		context.interpreter.memory.set_data(memory_offset, 0, memory_len, &zeros);
-		return;
-	};
-	let Ok(code_offset) = code_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
-		return;
-	};
-	if code_offset >= code.len() {
-		context.interpreter.halt(InstructionResult::InvalidOperandOOG);
-		return;
-	};
-	// TODO: this needs a new benchmark since we read from DB and copy to memory
-	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
-
-	context
-		.interpreter
-		.memory
-		.set_data(memory_offset, code_offset, memory_len, &code);
-	// Zero remaining bytes if any
-	let available_bytes = if code_offset >= code.len() { 0 } else { code.len() - code_offset };
-	let copy_len = memory_len.min(available_bytes);
-	if memory_len > copy_len {
-		let zero_start = memory_offset + copy_len;
-		let zero_len = memory_len - copy_len;
-		let zeros = vec![0u8; zero_len];
-		context.interpreter.memory.set_data(zero_start, 0, zero_len, &zeros);
 	}
+	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
+	let code_offset = crate::vm::evm::min(as_usize_saturated!(code_offset), code.len());
+	resize_memory!(context.interpreter, memory_offset, len);
+
+	// Note: This can't panic because we resized memory to fit.
+	context.interpreter.memory.set_data(memory_offset, code_offset, len, &code);
 }
 
 /// Implements the BLOCKHASH instruction.
