@@ -1434,7 +1434,7 @@ where
 			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		let (value, dust) = balance_with_dust.deconstruct();
 		let account_id = T::AddressMapper::to_account_id(&address);
-		T::Currency::set_balance(&account_id, ed + value);
+		T::Currency::set_balance(&account_id, ed.saturating_add(value));
 		AccountInfoOf::<T>::mutate(address, |account| {
 			account.as_mut().map(|a| a.dust = dust);
 		});
