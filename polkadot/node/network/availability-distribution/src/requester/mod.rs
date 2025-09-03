@@ -75,6 +75,11 @@ pub struct Requester {
 	/// We remove them on failure, so we get retries on the next block still pending availability.
 	fetches: HashMap<CandidateHash, FetchTask>,
 
+	/// Track candidates for which we initiated early fetching.
+	early_candidates: HashSet<CandidateHash>,
+	/// Track early candidates that later appeared on the slow path (i.e., made it on-chain).
+	early_candidates_onchain: HashSet<CandidateHash>,
+
 	/// Localized information about sessions we are currently interested in.
 	session_cache: SessionCache,
 
@@ -106,6 +111,11 @@ struct CoreInfo {
 	group_responsible: GroupIndex,
 }
 
+enum FetchOrigin {
+	Early,
+	Slow,
+}
+
 #[overseer::contextbounds(AvailabilityDistribution, prefix = self::overseer)]
 impl Requester {
 	/// How many ancestors of the leaf should we consider along with it.
@@ -119,6 +129,8 @@ impl Requester {
 		let (tx, rx) = mpsc::channel(1);
 		Requester {
 			fetches: HashMap::new(),
+			early_candidates: HashSet::new(),
+			early_candidates_onchain: HashSet::new(),
 			session_cache: SessionCache::new(),
 			tx,
 			rx,
@@ -199,7 +211,8 @@ impl Requester {
 			// The next time the subsystem receives leaf update, some of spawned task will be bumped
 			// to be live in fresh relay parent, while some might get dropped due to the current
 			// leaf being deactivated.
-			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores).await?;
+			self.add_cores(ctx, runtime, leaf, leaf_session_index, cores, FetchOrigin::Slow)
+				.await?;
 		}
 
 		let groups = get_validator_groups(sender, new_head.hash).await?;
@@ -278,8 +291,15 @@ impl Requester {
 			})
 			.collect::<Vec<_>>();
 
-		self.add_cores(ctx, runtime, activated_leaf.hash, leaf_session_index, scheduled_cores)
-			.await
+		self.add_cores(
+			ctx,
+			runtime,
+			activated_leaf.hash,
+			leaf_session_index,
+			scheduled_cores,
+			FetchOrigin::Early,
+		)
+		.await
 	}
 
 	fn core_index_for_candidate_v1(
@@ -342,9 +362,19 @@ impl Requester {
 	/// Stop requesting chunks for obsolete heads.
 	fn stop_requesting_chunks(&mut self, obsolete_leaves: impl Iterator<Item = Hash>) {
 		let obsolete_leaves: HashSet<_> = obsolete_leaves.collect();
-		self.fetches.retain(|_, task| {
+		self.fetches.retain(|candidate_hash, task| {
 			task.remove_leaves(&obsolete_leaves);
-			task.is_live()
+			let live = task.is_live();
+			if !live {
+				if self.early_candidates.contains(candidate_hash) &&
+					!self.early_candidates_onchain.contains(candidate_hash)
+				{
+					self.metrics.on_early_candidate_never_onchain();
+				}
+				self.early_candidates.remove(candidate_hash);
+				self.early_candidates_onchain.remove(candidate_hash);
+			}
+			live
 		})
 	}
 
@@ -362,11 +392,18 @@ impl Requester {
 		leaf: Hash,
 		leaf_session_index: SessionIndex,
 		cores: impl IntoIterator<Item = (CoreIndex, CoreInfo)>,
+		origin: FetchOrigin,
 	) -> Result<()> {
 		for (core_index, core) in cores {
 			if let Some(e) = self.fetches.get_mut(&core.candidate_hash) {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
+				// If this candidate was fetched early and now appears on the slow path, mark it.
+				if matches!(origin, FetchOrigin::Slow) &&
+					self.early_candidates.contains(&core.candidate_hash)
+				{
+					self.early_candidates_onchain.insert(core.candidate_hash);
+				}
 			} else {
 				let tx = self.tx.clone();
 				let metrics = self.metrics.clone();
@@ -419,6 +456,17 @@ impl Requester {
 
 					self.fetches
 						.insert(core.candidate_hash, FetchTask::start(task_cfg, context).await?);
+
+					// Record metrics for fetch origin only once we actually start a task
+					match origin {
+						FetchOrigin::Early => {
+							self.metrics.on_early_candidate_fetched();
+							self.early_candidates.insert(core.candidate_hash);
+						},
+						FetchOrigin::Slow => {
+							self.metrics.on_slow_candidate_fetched();
+						},
+					}
 				}
 			}
 		}
