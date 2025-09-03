@@ -20,7 +20,7 @@
 use crate::{
 	address::AddressMapper,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, ExtBuilder, Test},
+	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
 	Code, Config, Key, System, H256,
 };
 
@@ -374,6 +374,82 @@ fn sstore_works() {
 					fixture_type
 				);
 			}
+		});
+	}
+}
+
+#[test]
+fn logs_work() {
+	use crate::tests::initialize_block;
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Drop previous events
+			initialize_block(2);
+
+			let result = builder::bare_call(addr)
+				.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+
+			let events = System::<Test>::events();
+			assert_eq!(
+				events,
+				vec![
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x11)],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x22), H256::from_low_u64_be(0x33)],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x44), H256::from_low_u64_be(0x55), H256::from_low_u64_be(0x66)],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x77), H256::from_low_u64_be(0x88), H256::from_low_u64_be(0x99), H256::from_low_u64_be(0xaa)],
+						}),
+						topics: vec![],
+					},
+				]
+			);
 		});
 	}
 }
