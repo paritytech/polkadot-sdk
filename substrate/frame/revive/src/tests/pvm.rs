@@ -194,6 +194,7 @@ fn eth_call_transfer_with_dust_works() {
 }
 
 #[test]
+#[cfg(feature = "testing-support")]
 fn set_evm_balance_works() {
 	let (binary, _) = compile_module("dummy").unwrap();
 	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
