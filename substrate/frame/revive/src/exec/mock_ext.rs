@@ -202,7 +202,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::last_frame_output_mut")
 	}
 
-	fn get_code_slice(&mut self, address: &H160, code_offset: usize, len: usize) -> Vec<u8> {
+	fn get_code_slice(&mut self, _address: &H160, _code_offset: usize, _len: usize) -> Vec<u8> {
 		panic!("MockExt::get_code_slice")
 	}
 }
