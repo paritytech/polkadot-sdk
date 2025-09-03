@@ -1843,7 +1843,6 @@ async fn run_inner<Context>(
 					ctx.sender(),
 					&eviction_policy,
 					&state.peer_data,
-					&HashSet::from_iter(state.ah_held_off_collations .iter().map(|c| c.peer_id))
 				).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
@@ -2191,11 +2190,9 @@ async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
-	peers_with_held_off_collations: &HashSet<PeerId>,
 ) {
 	for (peer, peer_data) in peers {
-		if peer_data.is_inactive(&eviction_policy) && !peers_with_held_off_collations.contains(peer)
-		{
+		if peer_data.is_inactive(&eviction_policy) {
 			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}
