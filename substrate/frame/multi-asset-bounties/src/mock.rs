@@ -30,7 +30,10 @@ use frame_support::{
 	weights::constants::ParityDbWeight,
 	PalletId,
 };
-use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
+use sp_runtime::{
+	traits::{BlakeTwo256, Hash, IdentityLookup},
+	BuildStorage, Perbill,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -87,6 +90,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		Balances: pallet_balances,
+		Preimage: pallet_preimage,
 		Utility: pallet_utility,
 		Bounties: pallet_bounties,
 		Bounties1: pallet_bounties::<Instance1>,
@@ -111,6 +115,14 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+}
+
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = frame_system::EnsureRoot<u64>;
+	type Consideration = ();
 }
 
 impl pallet_utility::Config for Test {
@@ -182,6 +194,7 @@ impl Config for Test {
 	type ChildBountySource = ChildBountySourceAccount<Test, ()>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
+	type Preimages = Preimage;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -208,6 +221,7 @@ impl Config<Instance1> for Test {
 	type ChildBountySource = ChildBountySourceAccount<Test, Instance1>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
+	type Preimages = Preimage;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -291,6 +305,18 @@ pub fn expect_events(e: Vec<BountiesEvent<Test>>) {
 	assert_eq!(last_events(e.len()), e);
 }
 
+/// note a new preimage without registering.
+pub fn note_preimage(who: u128) -> <Test as frame_system::Config>::Hash {
+	use std::sync::atomic::{AtomicU8, Ordering};
+	// note a new preimage on every function invoke.
+	static COUNTER: AtomicU8 = AtomicU8::new(0);
+	let data = vec![COUNTER.fetch_add(1, Ordering::Relaxed)];
+	assert_ok!(Preimage::note_preimage(RuntimeOrigin::signed(who), data.clone()));
+	let hash = BlakeTwo256::hash(&data);
+	assert!(!Preimage::is_requested(&hash));
+	hash
+}
+
 pub fn get_payment_id(
 	parent_bounty_id: BountyIndex,
 	child_bounty_id: Option<BountyIndex>,
@@ -352,6 +378,7 @@ pub struct TestBounty {
 	pub child_curator_deposit: u64,
 	pub beneficiary: u128,
 	pub child_beneficiary: u128,
+	pub hash: <Test as frame_system::Config>::Hash,
 }
 
 pub fn setup_bounty() -> TestBounty {
@@ -365,6 +392,7 @@ pub fn setup_bounty() -> TestBounty {
 	let expected_deposit = Bounties::calculate_curator_deposit(&value, asset_kind).unwrap();
 	let child_expected_deposit =
 		Bounties::calculate_curator_deposit(&child_value, asset_kind).unwrap();
+	let hash = note_preimage(1);
 	Balances::make_free_balance_be(&curator, 100);
 	Balances::make_free_balance_be(&child_curator, 100);
 
@@ -380,6 +408,7 @@ pub fn setup_bounty() -> TestBounty {
 		child_curator_deposit: child_expected_deposit,
 		beneficiary,
 		child_beneficiary,
+		hash,
 	}
 }
 
@@ -391,7 +420,7 @@ pub fn create_parent_bounty() -> TestBounty {
 		Box::new(s.asset_kind),
 		s.value,
 		s.curator,
-		b"1234567890".to_vec()
+		s.hash
 	));
 	let parent_bounty_id = pallet_bounties::BountyCount::<Test>::get() - 1;
 	s.parent_bounty_id = parent_bounty_id;
@@ -462,7 +491,7 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 		s.parent_bounty_id,
 		s.child_value,
 		Some(s.child_curator),
-		b"1234567890".to_vec()
+		s.hash
 	));
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;

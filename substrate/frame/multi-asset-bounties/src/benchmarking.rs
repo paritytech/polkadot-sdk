@@ -23,7 +23,7 @@ use super::*;
 use crate as pallet_bounties;
 use crate::Pallet as Bounties;
 
-use alloc::{vec, vec::Vec};
+use alloc::{borrow::Cow, vec};
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_support::{assert_err, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
@@ -81,8 +81,8 @@ struct BenchmarkBounty<T: Config<I>, I: 'static> {
 	child_value: BalanceOf<T, I>,
 	/// The child-/bounty beneficiary account.
 	beneficiary: T::Beneficiary,
-	/// Bounty description.
-	description: Vec<u8>,
+	/// Bounty metadata hash.
+	hash: T::Hash,
 }
 
 const SEED: u32 = 0;
@@ -121,7 +121,7 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 }
 
 // Create the pre-requisite information needed to `fund_bounty`.
-fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T, I> {
+fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
 	let asset_kind = <T as Config<I>>::BenchmarkHelper::create_asset_kind(SEED);
 	T::BalanceConverter::ensure_successful(asset_kind.clone());
 	let min_native_value = T::BountyValueMinimum::get().saturating_mul(100u32.into());
@@ -142,7 +142,7 @@ fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T
 		&child_curator,
 		curator_deposit + T::Currency::minimum_balance(),
 	);
-	let description = vec![0; description as usize];
+	let hash = T::Preimages::note(Cow::from(vec![5, 6])).unwrap();
 
 	BenchmarkBounty::<T, I> {
 		parent_bounty_id: 0,
@@ -153,14 +153,14 @@ fn setup_bounty<T: Config<I>, I: 'static>(description: u32) -> BenchmarkBounty<T
 		value,
 		child_value,
 		beneficiary,
-		description,
+		hash,
 	}
 }
 
 fn create_parent_bounty<T: Config<I>, I: 'static>(
 	origin: T::RuntimeOrigin,
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
-	let mut s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+	let mut s = setup_bounty::<T, I>();
 
 	let funding_source_account =
 		Bounties::<T, I>::funding_source_account(s.asset_kind.clone()).expect("conversion failed");
@@ -180,7 +180,7 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 		Box::new(s.asset_kind.clone()),
 		s.value,
 		curator_lookup,
-		s.description.clone(),
+		s.hash,
 	)?;
 
 	s.parent_bounty_id = pallet_bounties::BountyCount::<T, I>::get() - 1;
@@ -224,7 +224,7 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 		s.parent_bounty_id,
 		s.child_value,
 		Some(child_curator_lookup),
-		s.description.clone(),
+		s.hash,
 	)?;
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
@@ -322,8 +322,8 @@ mod benchmarks {
 	/// This benchmark is short-circuited if `SpendOrigin` cannot provide
 	/// a successful origin, in which case `fund_bounty` is un-callable and can use weight=0.
 	#[benchmark]
-	fn fund_bounty(d: Linear<0, { T::MaximumReasonLength::get() }>) -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(d);
+	fn fund_bounty() -> Result<(), BenchmarkError> {
+		let s = setup_bounty::<T, I>();
 
 		let approve_origin =
 			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -341,7 +341,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.description);
+		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.hash);
 
 		let parent_bounty_id = BountyCount::<T, I>::get() - 1;
 		assert_last_event::<T, I>(Event::BountyCreated { index: parent_bounty_id }.into());
@@ -359,10 +359,8 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn fund_child_bounty(
-		d: Linear<0, { T::MaximumReasonLength::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(d);
+	fn fund_child_bounty() -> Result<(), BenchmarkError> {
+		let s = setup_bounty::<T, I>();
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator);
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -379,7 +377,7 @@ mod benchmarks {
 				s.parent_bounty_id,
 				s.child_value,
 				Some(child_curator_lookup),
-				s.description,
+				s.hash,
 			);
 
 			if spend_exists {
@@ -457,7 +455,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn propose_curator_child_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -504,7 +502,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn accept_curator() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.child_curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -545,7 +543,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn unassign_curator() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -585,7 +583,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn award_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.child_curator.clone();
 		let beneficiary_lookup = T::BeneficiaryLookup::unlookup(s.beneficiary.clone());
 
@@ -628,7 +626,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn close_parent_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_active_parent_bounty::<T, I>(origin)?;
@@ -675,7 +673,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn close_child_bounty() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_active_child_bounty::<T, I>(origin)?;
@@ -737,7 +735,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_status_funding() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -784,7 +782,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_status_refund() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -835,7 +833,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn check_status_payout() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.child_curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -884,7 +882,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn retry_payment_funding() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -945,7 +943,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn retry_payment_refund() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
@@ -1008,7 +1006,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn retry_payment_payout() -> Result<(), BenchmarkError> {
-		let s = setup_bounty::<T, I>(T::MaximumReasonLength::get());
+		let s = setup_bounty::<T, I>();
 		let caller = s.curator.clone();
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {

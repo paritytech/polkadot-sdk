@@ -37,6 +37,7 @@ fn fund_bounty_works() {
 		let asset_kind = 1;
 		let value = 50;
 		let curator = 4;
+		let hash = note_preimage(1);
 
 		// When
 		assert_ok!(Bounties::fund_bounty(
@@ -44,7 +45,7 @@ fn fund_bounty_works() {
 			Box::new(asset_kind),
 			value,
 			curator,
-			b"1234567890".to_vec()
+			hash
 		));
 
 		// Then
@@ -70,10 +71,7 @@ fn fund_bounty_works() {
 			}
 		);
 		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
-		assert_eq!(
-			pallet_bounties::BountyDescriptions::<Test>::get(parent_bounty_id).unwrap(),
-			b"1234567890".to_vec()
-		);
+		assert_eq!(pallet_bounties::BountyMetadataOf::<Test>::get(parent_bounty_id).unwrap(), hash);
 	});
 }
 
@@ -85,6 +83,7 @@ fn fund_bounty_in_batch_respects_max_total() {
 		let spend_origin = 10; // max spending of 10
 		let value = 2; // `native_amount` is 2
 		let curator = 4;
+		let hash = note_preimage(1);
 
 		// When/Then
 		// Respect the `max_total` for the given origin.
@@ -94,13 +93,13 @@ fn fund_bounty_in_batch_respects_max_total() {
 					asset_kind: Box::new(asset_kind),
 					value,
 					curator,
-					description: b"1234567890".to_vec()
+					hash
 				}),
 				RuntimeCall::from(BountiesCall::fund_bounty {
 					asset_kind: Box::new(asset_kind),
 					value,
 					curator,
-					description: b"1234567890".to_vec()
+					hash
 				})
 			]
 		})
@@ -118,13 +117,13 @@ fn fund_bounty_in_batch_respects_max_total() {
 						asset_kind: Box::new(asset_kind),
 						value,
 						curator,
-						description: b"1234567890".to_vec()
+						hash
 					}),
 					RuntimeCall::from(BountiesCall::fund_bounty {
 						asset_kind: Box::new(asset_kind),
 						value,
 						curator,
-						description: b"1234567890".to_vec()
+						hash
 					})
 				]
 			})
@@ -146,6 +145,7 @@ fn fund_bounty_second_instance_works() {
 			Bounties::bounty_account(parent_bounty_id, asset_kind).expect("conversion failed");
 		let parent_bounty_account_2 =
 			Bounties1::bounty_account(parent_bounty_id, asset_kind).expect("conversion failed");
+		let hash = note_preimage(1);
 
 		// When
 		assert_ok!(Bounties1::fund_bounty(
@@ -153,7 +153,7 @@ fn fund_bounty_second_instance_works() {
 			Box::new(asset_kind),
 			value,
 			curator,
-			b"1234567890".to_vec()
+			hash
 		));
 
 		// Then
@@ -168,16 +168,11 @@ fn fund_bounty_fails() {
 		// Given
 		let asset_kind = 1;
 		let curator = 4;
+		let hash = note_preimage(1);
 
 		// When/Then
 		assert_noop!(
-			Bounties::fund_bounty(
-				RuntimeOrigin::none(),
-				Box::new(asset_kind),
-				50,
-				curator,
-				b"1234567890".to_vec()
-			),
+			Bounties::fund_bounty(RuntimeOrigin::none(), Box::new(asset_kind), 50, curator, hash),
 			BadOrigin
 		);
 
@@ -188,20 +183,14 @@ fn fund_bounty_fails() {
 				Box::new(asset_kind),
 				50,
 				curator,
-				b"1234567890".to_vec()
+				hash
 			),
 			BadOrigin
 		);
 
 		// When/Then
 		assert_noop!(
-			Bounties::fund_bounty(
-				RuntimeOrigin::root(),
-				Box::new(asset_kind),
-				1,
-				curator,
-				b"1234567890".to_vec()
-			),
+			Bounties::fund_bounty(RuntimeOrigin::root(), Box::new(asset_kind), 1, curator, hash),
 			Error::<Test>::InvalidValue
 		);
 
@@ -212,7 +201,7 @@ fn fund_bounty_fails() {
 				Box::new(asset_kind),
 				11,
 				curator,
-				b"1234567890".to_vec()
+				hash
 			),
 			Error::<Test>::InsufficientPermission
 		);
@@ -220,13 +209,7 @@ fn fund_bounty_fails() {
 		// When/Then
 		SpendLimit::set(50);
 		assert_noop!(
-			Bounties::fund_bounty(
-				RuntimeOrigin::root(),
-				Box::new(asset_kind),
-				51,
-				curator,
-				b"1234567890".to_vec()
-			),
+			Bounties::fund_bounty(RuntimeOrigin::root(), Box::new(asset_kind), 51, curator, hash),
 			Error::<Test>::InsufficientPermission
 		);
 	});
@@ -244,7 +227,7 @@ fn fund_child_bounty_works() {
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
-			b"1234567890".to_vec()
+			s.hash
 		));
 		s.child_bounty_id =
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
@@ -289,12 +272,12 @@ fn fund_child_bounty_works() {
 		);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 1);
 		assert_eq!(
-			pallet_bounties::ChildBountyDescriptions::<Test>::get(
+			pallet_bounties::ChildBountyMetadataOf::<Test>::get(
 				s.parent_bounty_id,
 				s.child_bounty_id
 			)
 			.unwrap(),
-			b"1234567890".to_vec()
+			s.hash
 		);
 		assert_eq!(
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
@@ -307,7 +290,7 @@ fn fund_child_bounty_works() {
 			s.parent_bounty_id,
 			s.child_value,
 			None,
-			b"1234567890".to_vec()
+			s.hash
 		));
 		s.child_bounty_id =
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
@@ -355,7 +338,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.child_value,
 				Some(s.child_curator),
-				b"1234567890".to_vec()
+				s.hash
 			),
 			BadOrigin
 		);
@@ -367,7 +350,7 @@ fn fund_child_bounty_fails() {
 				2,
 				s.child_value,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::InvalidIndex
 		);
@@ -379,7 +362,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				0,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::InvalidValue
 		);
@@ -391,7 +374,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.child_value,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::RequireCurator
 		);
@@ -403,7 +386,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.value + 1,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::InsufficientBountyValue
 		);
@@ -415,7 +398,7 @@ fn fund_child_bounty_fails() {
 			s.parent_bounty_id,
 			s.child_value,
 			None,
-			b"1234567890".to_vec()
+			s.hash
 		));
 
 		// When/Then
@@ -425,7 +408,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.child_value,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::TooManyChildBounties
 		);
@@ -440,7 +423,7 @@ fn fund_child_bounty_fails() {
 				s.parent_bounty_id,
 				s.child_value,
 				None,
-				b"1234567890".to_vec()
+				s.hash
 			),
 			Error::<Test>::UnexpectedStatus
 		);
@@ -540,7 +523,7 @@ fn check_status_works() {
 		);
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 4 - 1);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
-		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(s.parent_bounty_id), None);
+		assert_eq!(pallet_bounties::BountyMetadataOf::<Test>::get(s.parent_bounty_id), None);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
@@ -590,7 +573,7 @@ fn check_status_works() {
 		}]);
 		assert_eq!(pallet_bounties::Bounties::<Test>::iter().count(), 6 - 1 - 1);
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
-		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(s.parent_bounty_id), None);
+		assert_eq!(pallet_bounties::BountyMetadataOf::<Test>::get(s.parent_bounty_id), None);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
@@ -733,7 +716,7 @@ fn check_status_works() {
 			None
 		);
 		assert_eq!(
-			pallet_bounties::ChildBountyDescriptions::<Test>::get(
+			pallet_bounties::ChildBountyMetadataOf::<Test>::get(
 				s.parent_bounty_id,
 				s.child_bounty_id
 			),
@@ -761,7 +744,7 @@ fn check_status_works() {
 			s.parent_bounty_id,
 			s.child_value,
 			None,
-			b"1234567890".to_vec()
+			s.hash
 		));
 		let child_bounty_account = Bounties::child_bounty_account(
 			s.parent_bounty_id,
@@ -826,7 +809,7 @@ fn check_status_works() {
 			None
 		);
 		assert_eq!(
-			pallet_bounties::ChildBountyDescriptions::<Test>::get(
+			pallet_bounties::ChildBountyMetadataOf::<Test>::get(
 				s.parent_bounty_id,
 				s.child_bounty_id
 			),
@@ -1250,6 +1233,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 		let parent_bounty_id = 0;
 		let asset_kind = 1;
 		let value = 2;
+		let hash = note_preimage(1);
 		let parent_bounty_account =
 			Bounties::bounty_account(parent_bounty_id, asset_kind).expect("conversion failed");
 		Balances::make_free_balance_be(&curator, 100);
@@ -1258,7 +1242,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			Box::new(asset_kind),
 			value,
 			curator,
-			b"1234567890".to_vec()
+			hash
 		));
 		approve_payment(parent_bounty_account, parent_bounty_id, None, asset_kind, value);
 
@@ -1288,7 +1272,7 @@ fn accept_curator_handles_different_deposit_calculations() {
 			Box::new(asset_kind),
 			value,
 			curator,
-			b"1234567890".to_vec()
+			hash
 		));
 		approve_payment(parent_bounty_account, parent_bounty_id, None, asset_kind, value);
 
@@ -1535,7 +1519,7 @@ fn unassign_curator_fails() {
 			Box::new(s.asset_kind),
 			s.value,
 			s.curator,
-			b"1234567890".to_vec()
+			s.hash
 		));
 
 		// When/Then
@@ -1695,7 +1679,7 @@ fn propose_curator_fails() {
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
-			b"1234567890".to_vec()
+			s.hash
 		));
 
 		// When/Then
@@ -2110,7 +2094,7 @@ fn close_bounty_fails() {
 			s.parent_bounty_id,
 			s.child_value,
 			Some(s.child_curator),
-			b"1234567890".to_vec()
+			s.hash
 		));
 
 		// When/Then
@@ -2222,7 +2206,7 @@ fn fund_and_award_child_bounty_without_curator_works() {
 			s.parent_bounty_id,
 			s.child_value,
 			None,
-			b"1234567890".to_vec()
+			s.hash
 		));
 		let child_bounty_id = 0;
 		let child_bounty_account =
@@ -2266,7 +2250,7 @@ fn fund_and_award_child_bounty_without_curator_works() {
 			None
 		);
 		assert_eq!(
-			pallet_bounties::ChildBountyDescriptions::<Test>::get(
+			pallet_bounties::ChildBountyMetadataOf::<Test>::get(
 				s.parent_bounty_id,
 				s.child_bounty_id
 			),

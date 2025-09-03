@@ -315,7 +315,7 @@ impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTr
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PalletMultiAssetBountiesArguments;
 #[cfg(feature = "runtime-benchmarks")]
-impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u128, u128>
+impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u128>
 	for PalletMultiAssetBountiesArguments
 {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
@@ -1460,6 +1460,7 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type BalanceConverter = AssetRate;
 	type OnSlash = Treasury;
+	type Preimages = Preimage;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
 }
