@@ -157,7 +157,11 @@ fn store_helper<'ext, E: Ext>(
 	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
 	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
 ) {
-	require_non_staticcall!(context.interpreter);
+	// require_non_staticcall!(context.interpreter);
+	if context.interpreter.extend.is_read_only() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	}
 
 	popn!([index, value], context.interpreter);
 
@@ -272,22 +276,4 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	// TODO: for now this instruction is not supported
 	context.interpreter.halt(InstructionResult::NotActivated);
-
-	// Check if we're in a static context
-	// require_non_staticcall!(context.interpreter);
-	// popn!([beneficiary], context.interpreter);
-	// let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
-	// let dispatch_result = context.interpreter.extend.selfdestruct(&h160);
-
-	// match dispatch_result {
-	// 	Ok(_) => {
-	// 		context.interpreter.halt(InstructionResult::SelfDestruct);
-	// 		return;
-	// 	},
-	// 	Err(e) => {
-	// 		log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
-	// 		context.interpreter.halt(InstructionResult::FatalExternalError);
-	// 		return;
-	// 	},
-	// }
 }

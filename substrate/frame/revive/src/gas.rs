@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
