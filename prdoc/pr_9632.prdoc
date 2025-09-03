@@ -12,7 +12,7 @@ doc:
     - Add PruningStep enum and EraPruningState storage for tracking progress
     - Implement do_prune_era_step() with weight-based deletion limits
     - Remove automatic pruning to prevent DoS from unbounded operations
-    - Use 10% of block weight budget for safe incremental deletions
+    - Add `PruningWeightPercentage` Runtime parameter (default: 10%)  for safe incremental deletions
     - Return Pays::No when work is done to incentivize regular maintenance
     - Add EraNotPrunable error for proper validation
     - Update benchmarking to test new extrinsic-based approach
