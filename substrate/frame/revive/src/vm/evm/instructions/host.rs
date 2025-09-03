@@ -19,7 +19,6 @@ use super::Context;
 
 use crate::{
 	storage::WriteOutcome,
-	vec,
 	vec::Vec,
 	vm::{evm::U256Converter, Ext},
 	DispatchError, Key, RuntimeCosts,
