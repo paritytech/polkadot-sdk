@@ -44,7 +44,7 @@ use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
+	CollatorPair, Id as ParaId, OccupiedCoreAssumption, DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 
 use crate::{collator as collator_util, export_pov_to_path};

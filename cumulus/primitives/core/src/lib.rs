@@ -35,8 +35,8 @@ pub use polkadot_parachain_primitives::primitives::{
 	XcmpMessageHandler,
 };
 pub use polkadot_primitives::{
-	vstaging::{ClaimQueueOffset, CoreSelector},
-	AbridgedHostConfiguration, AbridgedHrmpChannel, PersistedValidationData,
+	AbridgedHostConfiguration, AbridgedHrmpChannel, ClaimQueueOffset, CoreSelector,
+	PersistedValidationData,
 };
 pub use sp_runtime::{
 	generic::{Digest, DigestItem},
