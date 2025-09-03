@@ -133,6 +133,7 @@ runtime-benchmarks = [
 	"pallet-nft-fractionalization/runtime-benchmarks",
 	"pallet-nfts/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-uniques/runtime-benchmarks",

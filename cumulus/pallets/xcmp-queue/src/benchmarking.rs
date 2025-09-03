@@ -59,7 +59,7 @@ mod benchmarks {
 		{
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
-				&[msg],
+				&[msg.as_bounded_slice()],
 				&mut WeightMeter::new()
 			));
 		}
@@ -86,7 +86,8 @@ mod benchmarks {
 			});
 		}
 
-		let msgs = vec![Default::default(); n as usize];
+		let msg = BoundedVec::new();
+		let msgs = vec![msg.as_bounded_slice(); n as usize];
 
 		#[cfg(not(test))]
 		let fp_before = T::XcmpQueue::footprint(0.into());
@@ -120,7 +121,7 @@ mod benchmarks {
 
 		assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 			0.into(),
-			&[BoundedVec::try_from(vec![0; n as usize]).unwrap()],
+			&[BoundedVec::try_from(vec![0; n as usize]).unwrap().as_bounded_slice()],
 			&mut WeightMeter::new()
 		));
 
@@ -130,7 +131,7 @@ mod benchmarks {
 		{
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
-				&[Default::default()],
+				&[BoundedVec::new().as_bounded_slice()],
 				&mut WeightMeter::new()
 			));
 		}
@@ -169,7 +170,7 @@ mod benchmarks {
 		{
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
-				&msgs,
+				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
 				&mut WeightMeter::new()
 			));
 		}
@@ -198,7 +199,8 @@ mod benchmarks {
 				get_average_page_pos(MaxXcmpMessageLenOf::<T>::get())
 					as usize
 			])
-			.unwrap()],
+			.unwrap()
+			.as_bounded_slice()],
 			&mut WeightMeter::new()
 		));
 
@@ -213,7 +215,7 @@ mod benchmarks {
 		{
 			assert_ok!(Pallet::<T>::enqueue_xcmp_messages(
 				0.into(),
-				&msgs,
+				&msgs.iter().map(|msg| msg.as_bounded_slice()).collect::<Vec<_>>(),
 				&mut WeightMeter::new()
 			));
 		}
@@ -266,30 +268,14 @@ mod benchmarks {
 
 	/// Split a singular XCM.
 	#[benchmark]
-	fn take_first_concatenated_xcm() {
-		let max_message_size = MaxXcmpMessageLenOf::<T>::get() as usize;
-
-		assert!(MAX_INSTRUCTIONS_TO_DECODE as u32 > MAX_XCM_DECODE_DEPTH, "Preconditon failed");
-		let max_instrs = MAX_INSTRUCTIONS_TO_DECODE as u32 - MAX_XCM_DECODE_DEPTH;
-		let mut xcm = Xcm::<T>(vec![ClearOrigin; max_instrs as usize]);
-
+	fn take_first_concatenated_xcm(
+		n: Linear<0, { MAX_INSTRUCTIONS_TO_DECODE as u32 - MAX_XCM_DECODE_DEPTH }>,
+	) {
+		let mut xcm = Xcm::<T>(vec![ClearOrigin; n as usize]);
 		for _ in 0..MAX_XCM_DECODE_DEPTH - 1 {
 			xcm = Xcm::<T>(vec![Instruction::SetAppendix(xcm)]);
 		}
-
 		let data = VersionedXcm::<T>::from(xcm).encode();
-		assert!(data.len() < max_message_size, "Page size is too small");
-		// Verify that decoding works with the exact recursion limit:
-		VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
-			MAX_XCM_DECODE_DEPTH,
-			&mut &data[..],
-		)
-		.unwrap();
-		VersionedXcm::<T::RuntimeCall>::decode_all_with_depth_limit(
-			MAX_XCM_DECODE_DEPTH - 1,
-			&mut &data[..],
-		)
-		.unwrap_err();
 
 		#[block]
 		{

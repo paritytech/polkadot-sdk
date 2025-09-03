@@ -25,16 +25,23 @@ use uapi::{input, HostFn, HostFnImpl as api};
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn deploy() {}
 
+/// Called by the tests.
+///
+/// The input bytes encode the data that is directly fed into the Keccak-256 bit
+/// crypto hash function. The result is put into the output buffer.
+///
+/// After contract execution the test driver then asserts that the returned
+/// values are equal to the expected bytes for the input and hash function.
+
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
 	input!(
-		address: &[u8; 20],
-		expected_account_id: &[u8; 32],
+		256,
+		input: [u8],
 	);
 
-	let mut account_id = [0u8; 32];
-	api::to_account_id(address, &mut account_id);
-
-	assert!(&account_id == expected_account_id);
+	let mut output = [0u8; 32];
+	api::hash_keccak_256(input, &mut output);
+	api::return_value(uapi::ReturnFlags::empty(), &output);
 }
