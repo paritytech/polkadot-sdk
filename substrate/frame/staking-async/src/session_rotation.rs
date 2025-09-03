@@ -352,10 +352,10 @@ impl<T: Config> Eras<T> {
 	}
 }
 
-#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
-#[allow(unused)]
 impl<T: Config> Eras<T> {
 	/// Ensure the given era's data is fully present (all storage intact and not being pruned).
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+	#[allow(unused)]
 	pub(crate) fn era_fully_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// these two are only set if we have some validators in an era.
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -393,11 +393,15 @@ impl<T: Config> Eras<T> {
 	}
 
 	/// Check if the given era is currently being pruned.
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+	#[allow(unused)]
 	pub(crate) fn era_pruning_in_progress(era: EraIndex) -> bool {
 		EraPruningState::<T>::contains_key(era)
 	}
 
 	/// Ensure the given era is either absent or currently being pruned.
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+	#[allow(unused)]
 	pub(crate) fn era_absent_or_pruning(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		if Self::era_pruning_in_progress(era) {
 			Ok(())
@@ -406,7 +410,8 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	/// Ensure the given era has indeed been already pruned.
+	/// Ensure the given era has indeed been already pruned. This is called by the main pallet in
+	/// do_prune_era_step.
 	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// check double+ maps
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -434,14 +439,14 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
+	#[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
+	#[allow(unused)]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		// pruning window works.
 		let active_era = Rotator::<T>::active_era();
 		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
-		let maybe_first_pruned_era =
-			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
 
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?
