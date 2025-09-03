@@ -42,6 +42,9 @@ use revm::{
 use sp_core::H160;
 use sp_runtime::Weight;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod instructions;
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod instructions;
 
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
