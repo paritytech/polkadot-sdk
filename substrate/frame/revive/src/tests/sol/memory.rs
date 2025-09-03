@@ -43,12 +43,14 @@ fn memory_limit_works() {
 
 			let test_cases = [
 				(
+					// Writing 1 byte from 0 to the limit - 1 should work.
 					Memory::expandMemoryCall {
 						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
 					},
 					false,
 				),
 				(
+					// Writing 1 byte from the limit should revert.
 					Memory::expandMemoryCall {
 						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 					},
