@@ -5,5 +5,5 @@ doc:
     Deprecate `OnRuntimeUpgrade` parameter in `frame_executive::Executive` struct.
 
 crates:
-- name: pallet-executive
+- name: frame-executive
   bump: major
