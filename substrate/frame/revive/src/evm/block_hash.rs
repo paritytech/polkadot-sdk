@@ -504,7 +504,7 @@ impl EthereumBlockBuilder {
 		gas_used: Weight,
 		encoded_logs: Vec<u8>,
 		receipt_bloom: Bloom,
-	) -> ReceiptGasInfo {
+	) {
 		let tx_hash = H256(keccak_256(&transaction_encoded));
 		self.tx_hashes.push(tx_hash);
 
@@ -526,7 +526,7 @@ impl EthereumBlockBuilder {
 		);
 		Self::add_builder_value(&mut self.receipts_root_builder, encoded_receipt);
 
-		ReceiptGasInfo { gas_used: gas_used.ref_time().into() }
+		self.gas_info.push(ReceiptGasInfo { gas_used: gas_used.ref_time().into() });
 	}
 
 	/// Build the ethereum block from provided data.
