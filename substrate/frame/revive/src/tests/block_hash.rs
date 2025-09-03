@@ -114,27 +114,39 @@ fn events_are_captured() {
 
 		// Bare call must not be captured.
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
+
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
 		// Capture the EthInstantiate.
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
 
+		// The contract address is not exposed by the `eth_instantiate_with_code` call.
+		// Instead, extract the address from the frame system's last event.
+		let events = frame_system::Pallet::<Test>::events();
+		let contract = events
+			.into_iter()
+			.filter_map(|event_record| match event_record.event {
+				crate::tests::RuntimeEvent::Contracts(crate::Event::Instantiated {
+					contract,
+					..
+				}) => Some(contract),
+				_ => None,
+			})
+			.last()
+			.expect("Contract address must be found from events");
+
 		let expected_payloads = vec![
 			// Signed payload of eth_instantiate_with_code.
 			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
-
 		const EXPECTED_GAS: u64 = 6345452;
 
 		// Convert the EventLog into the AlloyLog to ensure
 		// the default address remains stable.
-		let event_log = EventLog {
-			data: vec![1, 2, 3, 4],
-			topics: vec![H256::repeat_byte(42)],
-			contract: Default::default(),
-		};
+		let event_log =
+			EventLog { data: vec![1, 2, 3, 4], topics: vec![H256::repeat_byte(42)], contract };
 		let logs = vec![AlloyLog::new_unchecked(
 			event_log.contract.0.into(),
 			event_log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
