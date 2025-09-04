@@ -124,6 +124,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.execute(&self.pool)
 		.await?;
 
+		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
 		Ok(())
 	}
 
