@@ -161,10 +161,8 @@ fn run<'a, E: Ext>(
 			InterpreterAction::Return(result) => {
 				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
 				debug_assert!(
-					result.gas.limit() == 0 &&
-						result.gas.remaining() == 0 &&
-						result.gas.refunded() == 0,
-					"Interpreter gas state should remain unchanged; found: {:?}",
+					result.gas == Default::default(),
+					"Interpreter gas state is unused; found: {:?}",
 					result.gas,
 				);
 				return result;

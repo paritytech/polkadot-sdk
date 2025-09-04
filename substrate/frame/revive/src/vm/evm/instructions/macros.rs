@@ -122,28 +122,6 @@ macro_rules! gas_or_fail_legacy {
 	};
 }
 
-use crate::vm::Ext;
-use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
-
-/// Adapted from
-/// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
-pub fn record_memory_expansion<E: Ext>(
-	memory: &mut MemoryGas,
-	_ext: &mut E,
-	new_len: usize,
-) -> MemoryExtensionResult {
-	let Some(_additional_cost) = memory.record_new_len(new_len) else {
-		return MemoryExtensionResult::Same;
-	};
-
-	// TODO: Commented this for now so that extending memory will not cost any gas.
-	// if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
-	// 	return MemoryExtensionResult::OutOfGas;
-	// }
-
-	MemoryExtensionResult::Extended
-}
-
 /// Resizes the interpreterreter memory if necessary. Fails the instruction if the memory or gas
 /// limit is exceeded.
 #[macro_export]
@@ -152,20 +130,16 @@ macro_rules! resize_memory {
 		resize_memory!($interpreter, $offset, $len, ())
 	};
 	($interpreter:expr, $offset:expr, $len:expr, $ret:expr) => {
-		let words_num = revm::interpreter::num_words($offset.saturating_add($len));
-		match crate::vm::evm::instructions::macros::record_memory_expansion(
-			$interpreter.gas.memory_mut(),
-			$interpreter.extend,
-			words_num,
-		) {
-			revm::interpreter::gas::MemoryExtensionResult::Extended => {
-				$interpreter.memory.resize(words_num * 32);
-			},
-			revm::interpreter::gas::MemoryExtensionResult::OutOfGas => {
-				$interpreter.halt(revm::interpreter::InstructionResult::MemoryOOG);
-				return $ret;
-			},
-			revm::interpreter::gas::MemoryExtensionResult::Same => (), // no action
+		let current_len = $interpreter.memory.len();
+		let target_len = revm::interpreter::num_words($offset.saturating_add($len)) * 32;
+		if target_len as u32 > $crate::limits::code::BASELINE_MEMORY_LIMIT {
+			log::debug!(target: $crate::LOG_TARGET, "check memory bounds failed: offset={} target_len={target_len} current_len={current_len}", $offset);
+			$interpreter.halt(revm::interpreter::InstructionResult::MemoryOOG);
+			return $ret;
+		}
+
+		if target_len > current_len {
+			$interpreter.memory.resize(target_len);
 		};
 	};
 }
