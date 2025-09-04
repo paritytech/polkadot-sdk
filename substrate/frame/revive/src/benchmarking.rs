@@ -2407,7 +2407,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn extcodecopy(r: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
+	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::sized(r);
 		let mut setup = CallSetup::<T>::new(module);
 		let contract = setup.contract();
