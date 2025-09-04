@@ -1,6 +1,6 @@
 title: 'Feat: speculative availability'
 doc:
-- audience: Node Operator
+- audience: [Node Dev, Node Operator]
   description: |-
     ### Description
     What do we want to achieve?
@@ -23,10 +23,10 @@ doc:
     partially resolves #5544
 crates:
 - name: polkadot-node-core-provisioner
-  bump: minor
+  bump: major
 - name: polkadot-availability-distribution
-  bump: minor
+  bump: major
 - name: polkadot-overseer
-  bump: minor
+  bump: major
 - name: polkadot-node-subsystem-util
-  bump: minor
+  bump: major
