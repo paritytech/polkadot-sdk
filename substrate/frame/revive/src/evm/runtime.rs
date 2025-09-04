@@ -299,6 +299,16 @@ pub trait EthExtra {
 			InvalidTransaction::BadProof
 		})?;
 
+		// EIP-3607: Reject transactions from senders with deployed code.
+		// Any transaction where `tx.sender` has a `CODEHASH != EMPTYCODEHASH` MUST be rejected.
+		if Pallet::<Self::Config>::code(&signer_addr).len() > 0 {
+			log::debug!(
+				target: LOG_TARGET,
+				"EIP-3607: Rejecting transaction from sender {signer_addr:?} with deployed code"
+			);
+			return Err(InvalidTransaction::Call);
+		}
+
 		let signer = <Self::Config as Config>::AddressMapper::to_fallback_account_id(&signer_addr);
 		let GenericTransaction { nonce, chain_id, to, value, input, gas, gas_price, .. } =
 			GenericTransaction::from_signed(tx, crate::GAS_PRICE.into(), None);
@@ -733,5 +743,72 @@ mod test {
 		let (call, _, _) = builder.check().unwrap();
 
 		assert_eq!(call, remark);
+	}
+
+	#[test]
+	fn eip_3607_rejects_transactions_from_senders_with_code() {
+		// This test verifies EIP-3607: transactions from accounts with deployed code should be rejected
+		ExtBuilder::default().build().execute_with(|| {
+			let account = Account::default();
+			let sender_addr = account.address();
+
+			// Fund the account
+			let _ = <Test as Config>::Currency::set_balance(
+				&account.substrate_account(),
+				100_000_000_000_000,
+			);
+
+			// Deploy a contract - this will create a ContractInfo entry for some address
+			let (code, _) = compile_module("dummy").unwrap();
+			let _result = crate::Pallet::<Test>::bare_instantiate(
+				RuntimeOrigin::signed(account.substrate_account()),
+				0,
+				Weight::MAX,
+				crate::DepositLimit::Balance(u64::MAX),
+				crate::Code::Upload(code.clone()),
+				vec![],
+				None,
+				crate::BumpNonce::No,
+			)
+			.result
+			.unwrap();
+
+			// Now simulate by directly inserting contract info for the sender address
+			// This mimics having code deployed at the sender address (collision scenario)
+			let code_hash = sp_core::H256::from_slice(&sp_io::hashing::blake2_256(&code));
+			let contract_info = crate::storage::ContractInfo::<Test>::new(
+				&sender_addr,
+				1u32.into(), // nonce
+				code_hash,
+			).unwrap();
+			crate::ContractInfoOf::<Test>::insert(&sender_addr, &contract_info);
+
+			// Also insert the code so Pallet::code() returns non-empty
+			let code_bounded: crate::CodeVec = code.try_into().unwrap();
+			crate::PristineCode::<Test>::insert(&code_hash, code_bounded);
+
+			// Verify the sender address now has code
+			assert!(crate::Pallet::<Test>::code(&sender_addr).len() > 0);
+
+			// Now try to create a transaction from the sender address that has code
+			let tx = GenericTransaction {
+				from: Some(sender_addr),
+				chain_id: Some(<Test as Config>::ChainId::get().into()),
+				gas_price: Some(U256::from(GAS_PRICE)),
+				gas: Some(U256::from(100_000)),
+				to: Some(H160::from([2u8; 20])),
+				value: Some(U256::from(1000)),
+				..Default::default()
+			};
+
+			// Sign the transaction
+			let payload = account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
+
+			// Try to validate the transaction - it should be rejected due to EIP-3607
+			let result = Extra::try_into_checked_extrinsic(payload, 1000);
+
+			// The transaction should be rejected with InvalidTransaction::Call
+			assert_eq!(result, Err(InvalidTransaction::Call));
+		});
 	}
 }
