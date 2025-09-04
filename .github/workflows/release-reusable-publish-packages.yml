@@ -36,6 +36,10 @@ on:
         required: true
       aws_default_region:
         required: true
+      aws_access_key_id:
+        required: true
+      aws_secret_access_key:
+        required: true
  
 jobs:
   check-synchronization:
