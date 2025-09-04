@@ -24,7 +24,10 @@ use crate::{
 	Code, Config, Key, System, H256,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::{fungible::Mutate, Get};
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
 use pretty_assertions::assert_eq;
@@ -493,6 +496,43 @@ fn transient_storage_works() {
 				"transient storage should return zero for {:?}",
 				fixture_type
 			);
+		});
+	}
+}
+
+#[test]
+fn logs_denied_for_static_call() {
+	use pallet_revive_fixtures::Caller;
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			// Deploy Host contract
+			let Contract { addr: host_addr, .. } =
+				builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+			// Deploy Caller contract
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+			// Use staticcall from Caller to Host's logOps function
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::CallerCalls::staticCall(Caller::staticCallCall {
+						_callee: host_addr.0.into(),
+						_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
+						_gas: U256::MAX,
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+
+			let decoded_result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+
+			assert_eq!(decoded_result.success, false);
 		});
 	}
 }
