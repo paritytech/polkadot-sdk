@@ -364,6 +364,7 @@ struct PerRelayParent {
 	v2_receipts: bool,
 	current_core: CoreIndex,
 	session_index: SessionIndex,
+	ah_held_off_advertisements: VecDeque<HeldOffAdvertisement>,
 }
 
 /// Information about a held off advertisement
@@ -440,8 +441,10 @@ struct State {
 	/// List of invulnerable AssetHub collators. They are handled with a priority.
 	ah_invulnerables: HashSet<PeerId>,
 
-	/// Timers for held off advertisements
-	ah_held_off_collations: FuturesUnordered<BoxFuture<'static, HeldOffAdvertisement>>,
+	/// Timers for AH held off advertisements. All advertisements are grouped by relay parent. Once
+	/// we get the first collation for a relay parent which should be held off we save it and start
+	/// a delay timer. When the timer fires we process all advertisements.
+	ah_held_off_rp: FuturesUnordered<BoxFuture<'static, Hash>>,
 
 	/// For how long to hold off AssetHub collations from non-invulnerable collators
 	hold_off_duration: Duration,
@@ -580,6 +583,7 @@ where
 		v2_receipts,
 		session_index,
 		current_core: core_now,
+		ah_held_off_advertisements: VecDeque::new(),
 	}))
 }
 
@@ -987,10 +991,32 @@ fn hold_off_asset_hub_collation_if_needed(
 	let hold_off_duration = state.hold_off_duration;
 	let collator_id = collator_id.clone();
 	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&peer_id) {
-		state.ah_held_off_collations.push(Box::pin(async move {
-			Delay::new(hold_off_duration).await;
-			HeldOffAdvertisement { relay_parent, peer_id, collator_id, prospective_candidate }
-		}));
+		let Some(rp_state) = state.per_relay_parent.get_mut(&relay_parent) else {
+			// this should never happen
+			gum::warn!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				"Trying to hold off AssetHub collation, but the relay parent is not known",
+			);
+			return false
+		};
+
+		if rp_state.ah_held_off_advertisements.is_empty() {
+			// This is the first advertisement which will be held off for this relay parent so start
+			// a timer.
+			state.ah_held_off_rp.push(Box::pin(async move {
+				Delay::new(hold_off_duration).await;
+				relay_parent
+			}));
+		}
+
+		rp_state.ah_held_off_advertisements.push_back(HeldOffAdvertisement {
+			relay_parent,
+			peer_id,
+			collator_id,
+			prospective_candidate,
+		});
 
 		gum::debug!(
 			target: LOG_TARGET,
@@ -1921,36 +1947,46 @@ async fn run_inner<Context>(
 				)
 				.await;
 			},
-			held_off_advertisement = state.ah_held_off_collations.select_next_some() => {
-				let HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate} = held_off_advertisement;
-				gum::debug!(
-					target: LOG_TARGET,
-					?relay_parent,
-					?peer_id,
-					?prospective_candidate,
-					"Processing held off advertisement for AssetHub",
-				);
-
-				if let Err(err) = process_advertisement(
-					ctx.sender(),
-					&mut state,
-					relay_parent,
-					ASSET_HUB_PARA_ID,
-					peer_id,
-					collator_id,
-					prospective_candidate,
-				)
-				.await {
+			rp = state.ah_held_off_rp.select_next_some() => {
+				let Some(held_off_advertisements) = state.per_relay_parent.get_mut(&rp).map(|rp_state| rp_state.ah_held_off_advertisements.drain(..).collect::<VecDeque<_>>()) else {
+					gum::warn!(
+						target: LOG_TARGET,
+						?rp,
+						"Received AssetHub held off advertisements timeout for unknown relay parent",
+					);
+					continue
+				};
+				for held_off_advertisement in held_off_advertisements {
+					let HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate} = held_off_advertisement;
 					gum::debug!(
-							target: LOG_TARGET,
-							?err,
-							?relay_parent,
-							?peer_id,
-							?prospective_candidate,
-							"Failed to handle held off advertisement",
-						);
-					if let Some(rep) = err.reputation_changes() {
-						modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+						target: LOG_TARGET,
+						?relay_parent,
+						?peer_id,
+						?prospective_candidate,
+						"Processing held off advertisement for AssetHub",
+					);
+
+					if let Err(err) = process_advertisement(
+						ctx.sender(),
+						&mut state,
+						relay_parent,
+						ASSET_HUB_PARA_ID,
+						peer_id,
+						collator_id,
+						prospective_candidate,
+					)
+					.await {
+						gum::debug!(
+								target: LOG_TARGET,
+								?err,
+								?relay_parent,
+								?peer_id,
+								?prospective_candidate,
+								"Failed to handle held off advertisement",
+							);
+						if let Some(rep) = err.reputation_changes() {
+							modify_reputation(&mut state.reputation, ctx.sender(), peer_id, rep).await;
+						}
 					}
 				}
 			},
