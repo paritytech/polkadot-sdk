@@ -282,6 +282,7 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
+	"alloy-core/std"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
