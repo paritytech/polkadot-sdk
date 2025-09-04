@@ -33,39 +33,37 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn memory_limit_works() {
-	for fixture_type in [FixtureType::Solc] {
-		let (code, _) = compile_module_with_type("Memory", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("Memory", FixtureType::Solc).unwrap();
 
-		ExtBuilder::default().build().execute_with(|| {
-			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-			let Contract { addr, .. } =
-				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-			let test_cases = [
-				(
-					// Writing 1 byte from 0 to the limit - 1 should work.
-					Memory::expandMemoryCall {
-						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
-					},
-					false,
-				),
-				(
-					// Writing 1 byte from the limit should revert.
-					Memory::expandMemoryCall {
-						memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
-					},
-					true,
-				),
-			];
+		let test_cases = [
+			(
+				// Writing 1 byte from 0 to the limit - 1 should work.
+				Memory::expandMemoryCall {
+					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
+				},
+				false,
+			),
+			(
+				// Writing 1 byte from the limit should revert.
+				Memory::expandMemoryCall {
+					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
+				},
+				true,
+			),
+		];
 
-			for (data, should_revert) in test_cases {
-				let result =
-					builder::bare_call(addr).data(data.abi_encode()).build_and_unwrap_result();
-				assert_eq!(result.did_revert(), should_revert);
-			}
-		});
-	}
+		for (data, should_revert) in test_cases {
+			let result = builder::bare_call(addr).data(data.abi_encode()).build_and_unwrap_result();
+			assert_eq!(result.did_revert(), should_revert);
+		}
+	});
 }
+
 #[test]
 fn memory_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
