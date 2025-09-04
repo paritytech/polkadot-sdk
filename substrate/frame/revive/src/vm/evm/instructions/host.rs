@@ -136,7 +136,6 @@ fn store_helper<'ext, E: Ext>(
 	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
 	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
 ) {
-	// require_non_staticcall!(context.interpreter);
 	if context.interpreter.extend.is_read_only() {
 		context.interpreter.halt(InstructionResult::Revert);
 		return;
@@ -219,7 +218,11 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Appends log record with N topics.
 pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
+	if context.interpreter.extend.is_read_only() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	}
+
 	popn!([offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
 	if len as u32 > context.interpreter.extend.max_value_size() {

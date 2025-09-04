@@ -28,17 +28,6 @@ macro_rules! tri {
 	};
 }
 
-/// Fails the instruction if the current call is static.
-#[macro_export]
-macro_rules! require_non_staticcall {
-	($interpreter:expr) => {
-		if $interpreter.runtime_flag.is_static() {
-			$interpreter.halt(revm::interpreter::InstructionResult::StateChangeDuringStaticCall);
-			return;
-		}
-	};
-}
-
 /// Macro for optional try - returns early if the expression evaluates to None.
 /// Similar to the `?` operator but for use in instruction implementations.
 #[macro_export]
