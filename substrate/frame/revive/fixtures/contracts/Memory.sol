@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 contract Memory {
     /// @notice Expands memory to the specified size by writing a byte at that offset
     /// @param memorySize The memory size in bytes to expand to
-    /// @return success Always returns true if execution completes without running out of gas
     function expandMemory(uint256 memorySize) public pure returns (bool success) {
         // Allocate memory by accessing a byte at the specified offset
         // This will trigger memory expansion up to at least memorySize + 1
@@ -14,7 +13,7 @@ contract Memory {
             mstore8(memorySize, 0xFF)
         }
 
-        return true;
+        return false;
     }
 
     function testMemory() public {

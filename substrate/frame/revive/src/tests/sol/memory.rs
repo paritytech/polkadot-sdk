@@ -19,7 +19,7 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config,
+	Code, Config, Error, ExecReturnValue,
 };
 
 use alloy_core::{
@@ -46,20 +46,20 @@ fn memory_limit_works() {
 				Memory::expandMemoryCall {
 					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT - 1),
 				},
-				false,
+				Ok(ExecReturnValue { data: vec![0u8; 32], flags: ReturnFlags::empty() }),
 			),
 			(
 				// Writing 1 byte from the limit should revert.
 				Memory::expandMemoryCall {
 					memorySize: U256::from(crate::limits::code::BASELINE_MEMORY_LIMIT),
 				},
-				true,
+				Err(<Error<Test>>::OutOfGas.into()),
 			),
 		];
 
-		for (data, should_revert) in test_cases {
-			let result = builder::bare_call(addr).data(data.abi_encode()).build_and_unwrap_result();
-			assert_eq!(result.did_revert(), should_revert);
+		for (data, expected_result) in test_cases {
+			let result = builder::bare_call(addr).data(data.abi_encode()).build().result;
+			assert_eq!(result, expected_result);
 		}
 	});
 }
