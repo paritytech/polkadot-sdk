@@ -12,7 +12,21 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+assets-common.workspace = true
+bp-asset-hub-rococo.workspace = true
+bp-asset-hub-westend.workspace = true
+bp-bridge-hub-rococo.workspace = true
+bp-bridge-hub-westend.workspace = true
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
+cumulus-pallet-aura-ext.workspace = true
+cumulus-pallet-parachain-system.workspace = true
+cumulus-pallet-session-benchmarking.workspace = true
+cumulus-pallet-weight-reclaim.workspace = true
+cumulus-pallet-xcm.workspace = true
+cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
+cumulus-primitives-aura.workspace = true
+cumulus-primitives-core.workspace = true
+cumulus-primitives-utility.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 frame-executive.workspace = true
 frame-metadata-hash-extension.workspace = true
@@ -32,6 +46,8 @@ pallet-assets.workspace = true
 pallet-aura.workspace = true
 pallet-authorship.workspace = true
 pallet-balances.workspace = true
+pallet-collator-selection.workspace = true
+pallet-message-queue.workspace = true
 pallet-migrations.workspace = true
 pallet-multisig.workspace = true
 pallet-nft-fractionalization.workspace = true
@@ -46,8 +62,19 @@ pallet-transaction-payment-rpc-runtime-api.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-uniques.workspace = true
 pallet-utility.workspace = true
+pallet-xcm-benchmarks = { optional = true, workspace = true }
+pallet-xcm-bridge-hub-router.workspace = true
+pallet-xcm.workspace = true
+parachain-info.workspace = true
+parachains-common.workspace = true
+polkadot-parachain-primitives.workspace = true
+polkadot-runtime-common.workspace = true
+primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { features = ["alloc"], workspace = true }
+snowbridge-outbound-queue-primitives.workspace = true
+snowbridge-pallet-system-frontend.workspace = true
+snowbridge-runtime-common.workspace = true
 sp-api.workspace = true
 sp-block-builder.workspace = true
 sp-consensus-aura.workspace = true
@@ -63,33 +90,6 @@ sp-std.workspace = true
 sp-storage.workspace = true
 sp-transaction-pool.workspace = true
 sp-version.workspace = true
-assets-common.workspace = true
-bp-asset-hub-rococo.workspace = true
-bp-asset-hub-westend.workspace = true
-bp-bridge-hub-rococo.workspace = true
-bp-bridge-hub-westend.workspace = true
-cumulus-pallet-aura-ext.workspace = true
-cumulus-pallet-parachain-system.workspace = true
-cumulus-pallet-session-benchmarking.workspace = true
-cumulus-pallet-weight-reclaim.workspace = true
-cumulus-pallet-xcm.workspace = true
-cumulus-pallet-xcmp-queue = { features = ["bridging"], workspace = true }
-cumulus-primitives-aura.workspace = true
-cumulus-primitives-core.workspace = true
-cumulus-primitives-utility.workspace = true
-pallet-collator-selection.workspace = true
-pallet-message-queue.workspace = true
-pallet-xcm-benchmarks = { optional = true, workspace = true }
-pallet-xcm-bridge-hub-router.workspace = true
-pallet-xcm.workspace = true
-parachain-info.workspace = true
-parachains-common.workspace = true
-polkadot-parachain-primitives.workspace = true
-polkadot-runtime-common.workspace = true
-primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }
-snowbridge-outbound-queue-primitives.workspace = true
-snowbridge-pallet-system-frontend.workspace = true
-snowbridge-runtime-common.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true }
 westend-runtime-constants.workspace = true
 xcm-builder.workspace = true
@@ -198,6 +198,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 std = [
+	"alloy-core/std",
 	"assets-common/std",
 	"bp-asset-hub-rococo/std",
 	"bp-asset-hub-westend/std",
@@ -282,7 +283,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-runtime-apis/std",
 	"xcm/std",
-	"alloy-core/std"
 ]
 
 # Enable the metadata hash generation in the wasm builder.
