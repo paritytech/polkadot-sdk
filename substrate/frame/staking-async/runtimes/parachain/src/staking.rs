@@ -665,7 +665,6 @@ mod tests {
 	use pallet_election_provider_multi_block::{
 		self as mb, signed::WeightInfo as _, unsigned::WeightInfo as _,
 	};
-	use pallet_staking_async::WeightInfo;
 	use remote_externalities::{
 		Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig, Transport,
 	};
