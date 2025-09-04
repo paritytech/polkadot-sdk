@@ -17,7 +17,7 @@
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, LOG_TARGET,
+	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -27,6 +27,8 @@ use std::{
 	sync::Arc,
 };
 use tokio::sync::Mutex;
+
+const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
@@ -138,7 +140,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		)
 		.fetch_optional(&self.pool)
 		.await
-		.ok()??;
+		.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "failed to get block mapping for ethereum block {ethereum_block_hash:?}, err: {e:?}");
+		})
+		.ok()?
+		.or_else(||{
+			log::trace!(target: LOG_TARGET, "No block mapping found for ethereum block: {ethereum_block_hash:?}");
+			None
+		})?;
+
+		log::trace!(target: LOG_TARGET, "Get block mapping ethereum block: {:?} -> substrate block: {ethereum_block_hash:?}", H256::from_slice(&result.substrate_block_hash[..]));
 
 		Some(H256::from_slice(&result.substrate_block_hash[..]))
 	}
@@ -156,7 +167,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		)
 		.fetch_optional(&self.pool)
 		.await
-		.ok()??;
+		.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "failed to get block mapping for substrate block {substrate_block_hash:?}, err: {e:?}");
+		})
+		.ok()?
+		.or_else(||{
+			log::trace!(target: LOG_TARGET, "No block mapping found for substrate block: {substrate_block_hash:?}");
+			None
+		})?;
+
+		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {:?}", H256::from_slice(&result.ethereum_block_hash[..]));
 
 		Some(H256::from_slice(&result.ethereum_block_hash[..]))
 	}
@@ -169,6 +189,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		if ethereum_block_hashes.is_empty() {
 			return Ok(());
 		}
+
+		log::trace!(target: LOG_TARGET, "Removing block mappings: {ethereum_block_hashes:?}");
 
 		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
 		let sql = format!(
@@ -353,6 +375,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let block_hash = block.hash();
 		let block_hash_ref = block_hash.as_ref();
 		let block_number = block.number() as i64;
+
+		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", block_hash);
 
 		let result = sqlx::query!(
 			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,

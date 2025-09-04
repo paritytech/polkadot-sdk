@@ -28,6 +28,8 @@ use subxt::{storage::Storage, OnlineClient};
 
 use pallet_revive::evm::{block_hash::ReceiptGasInfo, Block};
 
+const LOG_TARGET: &str = "eth-rpc::storage_api";
+
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
 pub struct StorageApi(Storage<SrcChainConfig, OnlineClient<SrcChainConfig>>);
@@ -68,8 +70,10 @@ impl StorageApi {
 		let query = subxt::dynamic::storage("Revive", "ReceiptInfoData", ());
 
 		let Some(info) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Receipt data not found");
 			return Err(ClientError::ReceiptDataNotFound);
 		};
+		log::trace!(target: LOG_TARGET, "Receipt data found");
 		let bytes = info.into_encoded();
 		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
@@ -77,23 +81,27 @@ impl StorageApi {
 	/// Get the Ethereum block from storage.
 	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
 		let query = subxt::dynamic::storage("Revive", "EthereumBlock", ());
-
 		let Some(info) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Ethereum block not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
+		log::trace!(target: LOG_TARGET, "Ethereum block found");
 		let bytes = info.into_encoded();
 		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
 		// Convert u64 to the wrapped U256 type that subxt expects
-		let number = subxt::utils::Static(U256::from(number));
+		let number_u256 = subxt::utils::Static(U256::from(number));
 
-		let query = subxt_client::storage().revive().block_hash(number);
+		let query = subxt_client::storage().revive().block_hash(number_u256);
 
 		let Some(hash) = self.0.fetch(&query).await? else {
+			log::warn!(target: LOG_TARGET, "Ethereum block #{number} hash not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
+
+		log::trace!(target: LOG_TARGET, "Ethereum block #{number} hash: {hash:?}");
 
 		Ok(hash)
 	}

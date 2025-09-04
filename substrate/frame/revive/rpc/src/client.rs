@@ -681,6 +681,8 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
+
 		let storage_api = self.storage_api(block.hash());
 		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
 			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
@@ -691,6 +693,8 @@ impl Client {
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
 		if let Ok(mut eth_block) = ethereum_block {
+			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.header_hash());
+
 			// This means we can live with the hashes returned by the Revive pallet.
 			if !hydrated_transactions {
 				return eth_block;
@@ -710,6 +714,7 @@ impl Client {
 			return eth_block;
 		}
 
+		log::trace!(target: LOG_TARGET, "Reconstructing ethereum block for substrate block {:?}", block.hash());
 		// We need to reconstruct the ETH block fully.
 		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
 			.receipt_provider
@@ -731,6 +736,7 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?} from receipts", block.hash());
 		let runtime_api = self.runtime_api(block.hash());
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 
