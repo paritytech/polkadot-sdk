@@ -338,14 +338,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxEraDuration: Get<u64>;
 
-		/// Maximum weight allocated for era pruning operations.
+		/// Maximum number of storage items that can be pruned in a single call.
 		///
-		/// This controls how much computational weight is available for pruning era storage
-		/// in each call to `prune_era_step`. This should be set to a conservative value
-		/// equivalent to roughly 100 storage operations to ensure pruning doesn't consume
-		/// too much block space.
+		/// This controls how many storage items can be deleted in each call to `prune_era_step`.
+		/// This should be set to a conservative value (e.g., 100-500 items) to ensure pruning
+		/// doesn't consume too much block space. The actual weight is determined by benchmarks.
 		#[pallet::constant]
-		type MaxPruningWeight: Get<Weight>;
+		type MaxPruningItems: Get<u32>;
 
 		/// Interface to talk to the RC-Client pallet, possibly sending election results to the
 		/// relay chain.
@@ -385,7 +384,7 @@ pub mod pallet {
 		parameter_types! {
 			pub const SessionsPerEra: SessionIndex = 3;
 			pub const BondingDuration: EraIndex = 3;
-			pub const MaxPruningWeight: Weight = Weight::from_parts(1_000_000_000, 10_000); // 1ms, 10KB
+			pub const MaxPruningItems: u32 = 100;
 		}
 
 		#[frame_support::register_default_impl(TestDefaultConfig)]
@@ -409,7 +408,7 @@ pub mod pallet {
 			type MaxControllersInDeprecationBatch = ConstU32<100>;
 			type MaxInvulnerables = ConstU32<20>;
 			type MaxEraDuration = ();
-			type MaxPruningWeight = MaxPruningWeight;
+			type MaxPruningItems = MaxPruningItems;
 			type EventListeners = ();
 			type Filter = Nothing;
 			type WeightInfo = ();
@@ -1311,11 +1310,6 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the maximum weight available for era pruning operations.
-		pub(crate) fn max_pruning_weight() -> Weight {
-			T::MaxPruningWeight::get()
-		}
-
 		/// Apply previously-unapplied slashes on the beginning of a new era, after a delay.
 		pub fn apply_unapplied_slashes(active_era: EraIndex) -> Weight {
 			let mut slashes = UnappliedSlashes::<T>::iter_prefix(&active_era).take(1);
@@ -1361,55 +1355,8 @@ pub mod pallet {
 			}
 		}
 
-		/// Helper to handle storage prefix clearing
-		fn handle_prefix_clearing(
-			era: EraIndex,
-			result: sp_io::MultiRemovalResults,
-			next_step: Option<PruningStep>,
-		) -> Weight {
-			let db_weight = T::DbWeight::get();
-			let items_removed = result.backend as u64;
-			let mut step_weight = db_weight.reads_writes(items_removed, items_removed);
-			if result.maybe_cursor.is_none() {
-				// All items removed, move to next step
-				match next_step {
-					Some(step) => EraPruningState::<T>::insert(era, step),
-					None => {
-						// Final step - remove the entry
-						EraPruningState::<T>::remove(era);
-					},
-				}
-				step_weight = step_weight.saturating_add(db_weight.writes(1));
-			}
-			step_weight
-		}
-
-		/// Helper to handle single storage item removal
-		fn handle_single_removal(
-			era: EraIndex,
-			storage_exists: bool,
-			next_step: Option<PruningStep>,
-		) -> Weight {
-			let db_weight = T::DbWeight::get();
-			let mut step_weight = Weight::zero();
-			if storage_exists {
-				step_weight = step_weight.saturating_add(db_weight.reads_writes(1, 1));
-			}
-			match next_step {
-				Some(step) => EraPruningState::<T>::insert(era, step),
-				None => {
-					// Final step - remove the entry
-					EraPruningState::<T>::remove(era);
-				},
-			}
-			step_weight.saturating_add(db_weight.writes(1))
-		}
-
 		/// Execute one step of era pruning and get actual weight used
 		fn do_prune_era_step(era: EraIndex) -> Result<Weight, DispatchError> {
-			let db_weight = T::DbWeight::get();
-			let max_pruning_weight = Self::max_pruning_weight();
-
 			// Get current pruning state. If EraPruningState doesn't exist, it means:
 			// - Era was never marked for pruning, OR
 			// - Era was already fully pruned (pruning state was removed on final step)
@@ -1418,90 +1365,68 @@ pub mod pallet {
 				return Err(Error::<T>::EraNotPrunable.into());
 			};
 
-			// Calculate weight per item based on database operations
-			let weight_per_item = db_weight.reads_writes(1, 1);
+			// Simple item-based limiting - no complex weight calculations
+			let items_limit = T::MaxPruningItems::get();
 
-			// Calculate items limit based on available weight budget (both ref_time and proof_size)
-			let ref_time_limit = max_pruning_weight.ref_time() / weight_per_item.ref_time();
-			let proof_size_limit = if weight_per_item.proof_size() > 0 {
-				max_pruning_weight.proof_size() / weight_per_item.proof_size()
-			} else {
-				u64::MAX // No proof_size constraint
-			};
-			let items_limit = ref_time_limit.min(proof_size_limit).try_into().unwrap_or(0);
-
-			let mut weight_used = Weight::zero();
-
-			let result = match current_step {
+			let actual_weight = match current_step {
 				PruningStep::ErasStakersPaged => {
 					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
-					let step_weight = Self::handle_prefix_clearing(
-						era,
-						result,
-						Some(PruningStep::ErasStakersOverview),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					let items_deleted = result.backend as u32;
+					// Update pruning state if this step is complete
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview);
+					}
+					// Return benchmark weight for actual items processed
+					T::WeightInfo::prune_era_stakers_paged(
+						items_deleted.min(T::MaxValidatorSet::get()),
+					)
 				},
 				PruningStep::ErasStakersOverview => {
 					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
-					let step_weight = Self::handle_prefix_clearing(
-						era,
-						result,
-						Some(PruningStep::ErasValidatorPrefs),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					let items_deleted = result.backend as u32;
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs);
+					}
+					T::WeightInfo::prune_era_stakers_overview(
+						items_deleted.min(T::MaxValidatorSet::get()),
+					)
 				},
 				PruningStep::ErasValidatorPrefs => {
 					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
-					let step_weight = Self::handle_prefix_clearing(
-						era,
-						result,
-						Some(PruningStep::ClaimedRewards),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					let items_deleted = result.backend as u32;
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards);
+					}
+					T::WeightInfo::prune_era_validator_prefs(
+						items_deleted.min(T::MaxValidatorSet::get()),
+					)
 				},
 				PruningStep::ClaimedRewards => {
 					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
-					let step_weight = Self::handle_prefix_clearing(
-						era,
-						result,
-						Some(PruningStep::ErasValidatorReward),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					let items_deleted = result.backend as u32;
+					if result.maybe_cursor.is_none() {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward);
+					}
+					T::WeightInfo::prune_era_claimed_rewards(
+						items_deleted.min(T::MaxValidatorSet::get()),
+					)
 				},
 				PruningStep::ErasValidatorReward => {
-					let storage_exists = ErasValidatorReward::<T>::contains_key(era);
 					ErasValidatorReward::<T>::remove(era);
-					let step_weight = Self::handle_single_removal(
-						era,
-						storage_exists,
-						Some(PruningStep::ErasRewardPoints),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
+					// Single item removal - use 1 as parameter
+					T::WeightInfo::prune_era_validator_reward(1)
 				},
 				PruningStep::ErasRewardPoints => {
-					let storage_exists = ErasRewardPoints::<T>::contains_key(era);
 					ErasRewardPoints::<T>::remove(era);
-					let step_weight = Self::handle_single_removal(
-						era,
-						storage_exists,
-						Some(PruningStep::ErasTotalStake),
-					);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+					T::WeightInfo::prune_era_reward_points(1)
 				},
 				PruningStep::ErasTotalStake => {
-					let storage_exists = ErasTotalStake::<T>::contains_key(era);
 					ErasTotalStake::<T>::remove(era);
 					// This is the final step - remove the pruning state
-					let step_weight = Self::handle_single_removal(era, storage_exists, None);
-					weight_used = weight_used.saturating_add(step_weight);
-					Ok(weight_used)
+					EraPruningState::<T>::remove(era);
+					T::WeightInfo::prune_era_total_stake(1)
 				},
 			};
 
@@ -1510,7 +1435,7 @@ pub mod pallet {
 				Self::deposit_event(Event::<T>::EraPruned { index: era });
 			}
 
-			result
+			Ok(actual_weight)
 		}
 	}
 
@@ -1550,15 +1475,11 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
-			// Ensure MaxPruningWeight is large enough to process at least one item
-			let max_pruning_weight = T::MaxPruningWeight::get();
-			let weight_per_item = T::DbWeight::get().reads_writes(1, 1);
+			// Ensure MaxPruningItems is reasonable (not zero)
 			assert!(
-				max_pruning_weight.ref_time() >= weight_per_item.ref_time() &&
-					max_pruning_weight.proof_size() >= weight_per_item.proof_size(),
-				"MaxPruningWeight must be at least as large as weight_per_item to make progress. MaxPruningWeight: {:?}, weight_per_item: {:?}",
-				max_pruning_weight,
-				weight_per_item
+				T::MaxPruningItems::get() > 0,
+				"MaxPruningItems must be greater than zero to make progress, got: {}",
+				T::MaxPruningItems::get()
 			);
 		}
 

@@ -316,8 +316,7 @@ parameter_types! {
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
-	// Conservative weight for era pruning operations (~100 storage operations)
-	pub MaxPruningWeight: Weight = Weight::from_parts(25_000_000, 100_000);
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -343,7 +342,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
-	type MaxPruningWeight = MaxPruningWeight;
+	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();

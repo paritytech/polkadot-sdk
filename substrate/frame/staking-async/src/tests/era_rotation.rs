@@ -370,9 +370,8 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 
 		// Process each pruning step in the exact order defined by the implementation
 		// Each step should clean its specific storage and transition to the next step
-		let expected_max_pruning_weight: Weight = Staking::max_pruning_weight();
 
-		// Process each pruning step, potentially with multiple calls due to weight limits
+		// Process each pruning step, potentially with multiple calls due to item limits
 		let steps_order = [
 			ErasStakersPaged,
 			ErasStakersOverview,
@@ -418,27 +417,14 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 					"Should report non-zero ref_time for {:?}",
 					expected_step
 				);
-				assert!(
-					actual_weight.ref_time() <= expected_max_pruning_weight.ref_time(),
-					"ref_time {} should not exceed limit {} for step {:?}",
-					actual_weight.ref_time(),
-					expected_max_pruning_weight.ref_time(),
-					expected_step
-				);
-				assert!(
-					actual_weight.proof_size() <= expected_max_pruning_weight.proof_size(),
-					"proof_size {} should not exceed limit {} for step {:?}",
-					actual_weight.proof_size(),
-					expected_max_pruning_weight.proof_size(),
-					expected_step
-				);
+				// No need to validate against limits since we use item-based limiting
 
 				// Check if we've moved to the next step (step completed)
 				let new_state = EraPruningState::<T>::get(1).unwrap_or(ErasStakersPaged);
 				if new_state != current_state {
 					break; // Step completed, move to next
 				}
-				// Otherwise continue with same step (partial completion due to weight limits)
+				// Otherwise continue with same step (partial completion due to item limits)
 			}
 
 			// Verify the specific storage is cleaned after completing this step

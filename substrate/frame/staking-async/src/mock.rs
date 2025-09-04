@@ -30,7 +30,7 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
-	weights::{constants::RocksDbWeight, Weight},
+	weights::constants::RocksDbWeight,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
@@ -401,7 +401,7 @@ ord_parameter_types! {
 parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = time_per_era() * 7;
-	pub const MaxPruningWeight: Weight = Weight::from_parts(1_000_000_000, 10_000); // 1ms, 10KB
+	pub const MaxPruningItems: u32 = 100;
 }
 pub struct OneTokenPerMillisecond;
 impl EraPayout<Balance> for OneTokenPerMillisecond {
@@ -440,7 +440,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type MaxInvulnerables = ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
-	type MaxPruningWeight = MaxPruningWeight;
+	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;
 	type Filter = MockedRestrictList;
 	type RcClientInterface = session_mock::Session;

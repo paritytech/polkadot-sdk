@@ -1267,8 +1267,6 @@ mod benchmarks {
 		step_name: &str,
 		validator_count: u32,
 	) {
-		let max_weight = Pallet::<T>::max_pruning_weight();
-
 		assert!(
 			result.is_ok(),
 			"Benchmark {} should succeed with v={}",
@@ -1279,7 +1277,6 @@ mod benchmarks {
 		if let Ok(post_info) = result {
 			if let Some(actual_weight) = post_info.actual_weight {
 				let actual_ref_time = actual_weight.ref_time();
-				let actual_proof_size = actual_weight.proof_size();
 
 				assert!(
 					actual_ref_time > 0,
@@ -1287,22 +1284,7 @@ mod benchmarks {
 					step_name,
 					validator_count
 				);
-				assert!(
-					actual_ref_time <= max_weight.ref_time(),
-					"ref_time {} exceeds max {} for {} with v={}",
-					actual_ref_time,
-					max_weight.ref_time(),
-					step_name,
-					validator_count
-				);
-				assert!(
-					actual_proof_size <= max_weight.proof_size(),
-					"proof_size {} exceeds max {} for {} with v={}",
-					actual_proof_size,
-					max_weight.proof_size(),
-					step_name,
-					validator_count
-				);
+				// No need to validate against MaxPruningItems since we use item-based limiting
 			} else {
 				panic!("Should report actual weight for {} with v={}", step_name, validator_count);
 			}
