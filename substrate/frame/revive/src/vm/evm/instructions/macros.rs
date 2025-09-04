@@ -122,19 +122,25 @@ macro_rules! gas_or_fail_legacy {
 	};
 }
 
-/// Ensures that memory access at `offset..offset+len` is valid.
-/// Revert if the memory is out of bounds.
+/// Resizes the interpreterreter memory if necessary. Fails the instruction if the memory or gas
+/// limit is exceeded.
 #[macro_export]
-macro_rules! check_memory_bounds {
+macro_rules! resize_memory {
 	($interpreter:expr, $offset:expr, $len:expr) => {
-		check_memory_bounds!($interpreter, $offset, $len, ())
+		resize_memory!($interpreter, $offset, $len, ())
 	};
 	($interpreter:expr, $offset:expr, $len:expr, $ret:expr) => {
-		if $offset.saturating_add($len) > $interpreter.memory.len() {
-			log::debug!(target: $crate::LOG_TARGET, "check memory bounds failed: offset={} len={} memory_size={}", $offset, $len, $interpreter.memory.len());
+		let current_len = $interpreter.memory.len();
+		let target_len = revm::interpreter::num_words($offset.saturating_add($len)) * 32;
+		if target_len as u32 > $crate::limits::code::BASELINE_MEMORY_LIMIT {
+			log::debug!(target: $crate::LOG_TARGET, "check memory bounds failed: offset={} target_len={target_len} current_len={current_len}", $offset);
 			$interpreter.halt(revm::interpreter::InstructionResult::MemoryOOG);
 			return $ret;
 		}
+
+		if target_len > current_len {
+			$interpreter.memory.resize(target_len);
+		};
 	};
 }
 

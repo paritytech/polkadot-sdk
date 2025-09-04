@@ -83,7 +83,8 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	}
 	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
 	let code_offset = as_usize_saturated!(code_offset);
-	check_memory_bounds!(context.interpreter, memory_offset, len);
+
+	resize_memory!(context.interpreter, memory_offset, len);
 
 	let code_slice = context.interpreter.extend.get_code_slice(&address, code_offset, len);
 
@@ -230,7 +231,7 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 		Bytes::new()
 	} else {
 		let offset = as_usize_or_fail!(context.interpreter, offset);
-		check_memory_bounds!(context.interpreter, offset, len);
+		resize_memory!(context.interpreter, offset, len);
 		Bytes::copy_from_slice(context.interpreter.memory.slice_len(offset, len).as_ref())
 	};
 	if context.interpreter.stack.len() < N {

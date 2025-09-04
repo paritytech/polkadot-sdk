@@ -19,7 +19,7 @@ use crate::{
 	evm::decode_revert_reason,
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, ExtBuilder, Test},
-	Code, Config, Error, ExecReturnValue,
+	Code, Config, Error, ExecReturnValue, LOG_TARGET,
 };
 
 use alloy_core::{
@@ -79,9 +79,9 @@ fn memory_works() {
 				.build_and_unwrap_result();
 			if result.flags == ReturnFlags::REVERT {
 				if let Some(revert_msg) = decode_revert_reason(&result.data) {
-					log::error!("Revert message: {}", revert_msg);
+					log::error!(target: LOG_TARGET, "Revert message: {}", revert_msg);
 				} else {
-					log::error!("Revert without message, raw data: {:?}", result.data);
+					log::error!(target: LOG_TARGET, "Revert without message, raw data: {:?}", result.data);
 				}
 			}
 			assert!(!result.did_revert(), "test reverted");

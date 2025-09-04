@@ -60,7 +60,7 @@ pub fn resize_memory<'a, E: Ext>(
 	let len = as_usize_or_fail_ret!(interpreter, len, None);
 	let offset = if len != 0 {
 		let offset = as_usize_or_fail_ret!(interpreter, offset, None);
-		check_memory_bounds!(interpreter, offset, len, None);
+		resize_memory!(interpreter, offset, len, None);
 		offset
 	} else {
 		usize::MAX //unrealistic value so we are sure it is not used
