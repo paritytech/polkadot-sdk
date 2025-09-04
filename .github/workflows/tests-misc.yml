@@ -382,7 +382,9 @@ jobs:
           xattr -c $HOME/.cargo/bin/resolc
           resolc --version
       - name: Install llvm
-        run: brew install llvm@20
+        run: |
+          brew install llvm@20
+          brew link llvm@20
       - name: cargo info
         run: |
           echo "######## rustup show ########"
