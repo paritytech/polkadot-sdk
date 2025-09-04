@@ -29,7 +29,7 @@ pub type DeltaKeys<K> = Map<XxxKey, K, foldhash::fast::FixedState>;
 
 impl<K> InternalSet<K> {
 	pub fn new() -> Self {
-		Self { inner: Map::with_capacity_and_hasher(1024, BuildNoHashHasher::<XxxKey>::default()) }
+		Self { inner: Map::with_capacity_and_hasher(16, BuildNoHashHasher::<XxxKey>::default()) }
 	}
 }
 impl<K: Hash + Eq> InternalSet<K> {
@@ -201,6 +201,23 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 		//   snapshot
 		// add key: c
 		//
+		fn fix<K: Clone + Hash + Ord + core::fmt::Debug>(top_transaction: &mut Transaction<K>) {
+			if top_transaction.len() > 1 {
+				let dirty = top_transaction.pop().expect("there is always dirty at the end");
+
+				if let TransactionKeys::Snapshot(mut base) = top_transaction.swap_remove(0) {
+					while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
+						//debug!(target:LOG_TARGET, "base: {}/{}, new keys len: {}/{}",
+						// base.inner.len(), base.inner.capacity(), keys.inner.len(),
+						// keys.inner.capacity());
+						base.extend(keys);
+					}
+					*top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
+				} else {
+					unreachable!("xxx");
+				}
+			}
+		}
 		if let Some(top_transaction) = self.transactions.last_mut() {
 			if matches!(commited.first(), Some(TransactionKeys::Snapshot(_))) {
 				if matches!(top_transaction.last(), Some(TransactionKeys::Dirty(_))) {
@@ -215,19 +232,7 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 						.contains(k)));
 				}
 				top_transaction.extend(commited);
-
-				if top_transaction.len() > 1 {
-					let dirty = top_transaction.pop().expect("there is always dirty at the end");
-
-					if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
-						while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
-							base.extend(keys);
-						}
-						*top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
-					} else {
-						unreachable!("xxx");
-					}
-				}
+				fix(top_transaction);
 			} else if commited.len() == 1 {
 				// commited transaction does not contain any snapshots. We need to merge keys with
 				// preivous trasnsaction.
@@ -245,18 +250,7 @@ impl<K: Clone + Hash + Ord + core::fmt::Debug> Changeset<K> {
 					},
 					snapshot => top_transaction.push(snapshot),
 				}
-				if top_transaction.len() > 1 {
-					let dirty = top_transaction.pop().expect("there is always dirty at the end");
-
-					if let Some(TransactionKeys::Snapshot(mut base)) = top_transaction.pop() {
-						while let Some(TransactionKeys::Snapshot(keys)) = top_transaction.pop() {
-							base.extend(keys);
-						}
-						*top_transaction = vec![TransactionKeys::Snapshot(base), dirty];
-					} else {
-						unreachable!("xxx");
-					}
-				}
+				fix(top_transaction);
 			} else {
 				top_transaction.extend(commited);
 			}
@@ -802,6 +796,9 @@ mod tests {
 		debug!(target:LOG_TARGET, ">> after commit {:?}", changeset);
 		let delta2 = changeset.create_snapshot_and_get_delta2();
 		debug!(target:LOG_TARGET, ">> after snap {:?}", changeset);
+		changeset.start_transaction();
+		changeset.commit_transaction();
+		debug!(target:LOG_TARGET, ">> after final commit {:?}", changeset);
 
 		// debug!(target:LOG_TARGET, "pre {:?}", changeset);
 		//
