@@ -29,8 +29,6 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
-#[cfg(feature = "experimental-ump-signals")]
-use relay_chain::{UMPSignal, UMP_SEPARATOR};
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus_slots::SlotDuration;
@@ -601,7 +599,7 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 #[cfg(feature = "experimental-ump-signals")]
 fn validate_block_handles_ump_signal() {
 	use cumulus_primitives_core::{
-		relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR},
+		relay_chain::{UMPSignal, UMP_SEPARATOR},
 		ClaimQueueOffset, CoreInfo, CoreSelector,
 	};
 
