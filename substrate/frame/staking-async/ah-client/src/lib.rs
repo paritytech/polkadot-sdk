@@ -404,7 +404,7 @@ pub mod pallet {
 	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of
 	/// which should NEVER be used manually.
 	///
-	/// It uses [`Config::MaxOffeenceBatchSize`] as the page size.
+	/// It uses [`Config::MaxOffenceBatchSize`] as the page size.
 	pub struct OffenceSendQueue<T: Config>(core::marker::PhantomData<T>);
 
 	/// A single buffered offence in [`OffenceSendQueue`].
