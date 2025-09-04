@@ -1949,7 +1949,7 @@ async fn run_inner<Context>(
 			},
 			rp = state.ah_held_off_rp.select_next_some() => {
 				let Some(held_off_advertisements) = state.per_relay_parent.get_mut(&rp).map(|rp_state| rp_state.ah_held_off_advertisements.drain(..).collect::<VecDeque<_>>()) else {
-					gum::warn!(
+					gum::debug!(
 						target: LOG_TARGET,
 						?rp,
 						"Received AssetHub held off advertisements timeout for unknown relay parent",
