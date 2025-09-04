@@ -441,8 +441,14 @@ impl<T: Config> Eras<T> {
 		for e in oldest_present_era..=active_era {
 			Self::era_fully_present(e)?
 		}
-		// With manual pruning, old eras can be in any state (present, absent, or being pruned)
-		// so we don't enforce any specific state for eras outside the history window
+
+		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
+		// pruning
+		ensure!(
+			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
+			"All old eras must be either fully pruned or marked for pruning"
+		);
+
 		Ok(())
 	}
 }

@@ -1377,10 +1377,8 @@ mod benchmarks {
 
 	// Benchmark pruning ErasValidatorReward (fifth step)
 	#[benchmark(pov_mode = Measured)]
-	fn prune_era_validator_reward(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let era = setup_era_for_pruning::<T>(v);
+	fn prune_era_validator_reward() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
 		EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward);
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -1391,17 +1389,15 @@ mod benchmarks {
 			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
 
-		validate_pruning_weight::<T>(&result, "ErasValidatorReward", v);
+		validate_pruning_weight::<T>(&result, "ErasValidatorReward", 1);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasRewardPoints (sixth step)
 	#[benchmark(pov_mode = Measured)]
-	fn prune_era_reward_points(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let era = setup_era_for_pruning::<T>(v);
+	fn prune_era_reward_points() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
 		EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -1412,17 +1408,15 @@ mod benchmarks {
 			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
 
-		validate_pruning_weight::<T>(&result, "ErasRewardPoints", v);
+		validate_pruning_weight::<T>(&result, "ErasRewardPoints", 1);
 
 		Ok(())
 	}
 
 	// Benchmark pruning ErasTotalStake (final step)
 	#[benchmark(pov_mode = Measured)]
-	fn prune_era_total_stake(
-		v: Linear<1, { T::MaxValidatorSet::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let era = setup_era_for_pruning::<T>(v);
+	fn prune_era_total_stake() -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(1);
 		EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -1433,7 +1427,7 @@ mod benchmarks {
 			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
 
-		validate_pruning_weight::<T>(&result, "ErasTotalStake", v);
+		validate_pruning_weight::<T>(&result, "ErasTotalStake", 1);
 
 		Ok(())
 	}

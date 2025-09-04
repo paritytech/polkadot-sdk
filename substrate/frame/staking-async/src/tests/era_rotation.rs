@@ -382,6 +382,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ErasTotalStake,
 		];
 
+		let _ = staking_events_since_last_call();
 		for expected_step in steps_order.iter() {
 			// May need multiple calls for steps with lots of data due to weight limits
 			loop {
@@ -470,15 +471,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			"EraPruningState should be removed after final step"
 		);
 
+		// Should emit exactly one EraPruned event when manual pruning completes
+		assert!(matches!(&staking_events_since_last_call()[..], &[Event::EraPruned { index: 1 }]));
+
 		// Attempting to prune again should return an error
 		let result = Staking::prune_era_step(RuntimeOrigin::signed(99), 1);
 		assert_noop!(result, Error::<T>::EraNotPrunable);
-
-		// Should emit EraPruned event when manual pruning completes
-		assert!(matches!(
-			&staking_events_since_last_call()[..],
-			&[.., Event::EraPruned { index: 1 }]
-		));
 
 		// Now era 1 should be absent
 		assert_ok!(Eras::<T>::era_absent(1));

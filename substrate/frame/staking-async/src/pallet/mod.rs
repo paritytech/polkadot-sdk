@@ -1414,19 +1414,18 @@ pub mod pallet {
 				PruningStep::ErasValidatorReward => {
 					ErasValidatorReward::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ErasRewardPoints);
-					// Single item removal - use 1 as parameter
-					T::WeightInfo::prune_era_validator_reward(1)
+					T::WeightInfo::prune_era_validator_reward()
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
-					T::WeightInfo::prune_era_reward_points(1)
+					T::WeightInfo::prune_era_reward_points()
 				},
 				PruningStep::ErasTotalStake => {
 					ErasTotalStake::<T>::remove(era);
 					// This is the final step - remove the pruning state
 					EraPruningState::<T>::remove(era);
-					T::WeightInfo::prune_era_total_stake(1)
+					T::WeightInfo::prune_era_total_stake()
 				},
 			};
 
@@ -2704,9 +2703,9 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_stakers_overview(v))
 				.max(T::WeightInfo::prune_era_validator_prefs(v))
 				.max(T::WeightInfo::prune_era_claimed_rewards(v))
-				.max(T::WeightInfo::prune_era_validator_reward(v))
-				.max(T::WeightInfo::prune_era_reward_points(v))
-				.max(T::WeightInfo::prune_era_total_stake(v))
+				.max(T::WeightInfo::prune_era_validator_reward())
+				.max(T::WeightInfo::prune_era_reward_points())
+				.max(T::WeightInfo::prune_era_total_stake())
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;

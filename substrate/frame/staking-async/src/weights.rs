@@ -93,9 +93,9 @@ pub trait WeightInfo {
 	fn prune_era_stakers_overview(v: u32, ) -> Weight;
 	fn prune_era_validator_prefs(v: u32, ) -> Weight;
 	fn prune_era_claimed_rewards(v: u32, ) -> Weight;
-	fn prune_era_validator_reward(v: u32, ) -> Weight;
-	fn prune_era_reward_points(v: u32, ) -> Weight;
-	fn prune_era_total_stake(v: u32, ) -> Weight;
+	fn prune_era_validator_reward() -> Weight;
+	fn prune_era_reward_points() -> Weight;
+	fn prune_era_total_stake() -> Weight;
 }
 
 /// Weights for `pallet_staking_async` using the Substrate node and recommended hardware.
@@ -1025,7 +1025,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_validator_reward(_v: u32, ) -> Weight {
+	fn prune_era_validator_reward() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`
@@ -1055,7 +1055,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_reward_points(_v: u32, ) -> Weight {
+	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`
@@ -1085,7 +1085,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_total_stake(_v: u32, ) -> Weight {
+	fn prune_era_total_stake() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`
@@ -2022,7 +2022,7 @@ impl WeightInfo for () {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_validator_reward(_v: u32, ) -> Weight {
+	fn prune_era_validator_reward() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`
@@ -2052,7 +2052,7 @@ impl WeightInfo for () {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_reward_points(_v: u32, ) -> Weight {
+	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`
@@ -2082,7 +2082,7 @@ impl WeightInfo for () {
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:0)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
 	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_total_stake(_v: u32, ) -> Weight {
+	fn prune_era_total_stake() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1105409 + v * (415 ±0)`
 		//  Estimated: `3998937`

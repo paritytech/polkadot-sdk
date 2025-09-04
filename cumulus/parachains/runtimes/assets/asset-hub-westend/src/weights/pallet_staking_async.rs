@@ -971,16 +971,13 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasValidatorReward` (r:1 w:1)
 	/// Proof: `Staking::ErasValidatorReward` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_validator_reward(v: u32, ) -> Weight {
+	fn prune_era_validator_reward() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `861`
 		//  Estimated: `4326`
 		// Minimum execution time: 37_912_000 picoseconds.
 		Weight::from_parts(43_128_179, 0)
 			.saturating_add(Weight::from_parts(0, 4326))
-			// Standard Error: 297
-			.saturating_add(Weight::from_parts(11_310, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -990,16 +987,13 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasRewardPoints` (r:1 w:1)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
-	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_reward_points(v: u32, ) -> Weight {
+	fn prune_era_reward_points() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `877`
 		//  Estimated: `4342`
 		// Minimum execution time: 39_515_000 picoseconds.
 		Weight::from_parts(42_928_189, 0)
 			.saturating_add(Weight::from_parts(0, 4342))
-			// Standard Error: 276
-			.saturating_add(Weight::from_parts(10_435, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -1009,16 +1003,13 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::EraPruningState` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
 	/// Storage: `Staking::ErasTotalStake` (r:1 w:1)
 	/// Proof: `Staking::ErasTotalStake` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `Measured`)
-	/// The range of component `v` is `[1, 1000]`.
-	fn prune_era_total_stake(v: u32, ) -> Weight {
+	fn prune_era_total_stake() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `861`
 		//  Estimated: `4326`
 		// Minimum execution time: 43_709_000 picoseconds.
 		Weight::from_parts(49_228_895, 0)
 			.saturating_add(Weight::from_parts(0, 4326))
-			// Standard Error: 320
-			.saturating_add(Weight::from_parts(14_430, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
