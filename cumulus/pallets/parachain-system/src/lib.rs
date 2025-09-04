@@ -114,9 +114,6 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
 
-//TODO: https://github.com/paritytech/polkadot-sdk/issues/9428
-const FIXED_CLAIM_QUEUE_OFFSET: u8 = 0;
-
 /// Something that can check the associated relay block number.
 ///
 /// Each Parachain block is built in the context of a relay chain block, this trait allows us
@@ -537,8 +534,10 @@ pub mod pallet {
 			) {
 				CoreInfoExistsAtMaxOnce::Once(core_info) => {
 					assert_eq!(
-						core_info.claim_queue_offset.0, FIXED_CLAIM_QUEUE_OFFSET,
-						"Only {FIXED_CLAIM_QUEUE_OFFSET} is supported as valid claim queue offset"
+						core_info.claim_queue_offset.0,
+						T::RelayParentOffset::get() as u8,
+						"Only {} is supported as valid claim queue offset",
+						T::RelayParentOffset::get()
 					);
 				},
 				CoreInfoExistsAtMaxOnce::NotFound => {},
