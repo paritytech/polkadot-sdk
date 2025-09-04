@@ -253,6 +253,10 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::terminate")
 	}
 
+	fn destroy_contract(&mut self, _contract_address: &H160, _beneficiary_address: &H160) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::destroy_contract")
+	}
+
 	fn selfdestruct(&mut self, _beneficiary: &H160) -> DispatchResult {
 		panic!("MockExt::selfdestruct")
 	}
