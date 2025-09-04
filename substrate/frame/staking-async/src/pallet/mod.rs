@@ -1375,9 +1375,8 @@ pub mod pallet {
 				match next_step {
 					Some(step) => EraPruningState::<T>::insert(era, step),
 					None => {
-						// Final step - remove the entry and emit completion event
+						// Final step - remove the entry
 						EraPruningState::<T>::remove(era);
-						Self::deposit_event(Event::<T>::EraPruned { index: era });
 					},
 				}
 				step_weight = step_weight.saturating_add(db_weight.writes(1));
@@ -1399,16 +1398,15 @@ pub mod pallet {
 			match next_step {
 				Some(step) => EraPruningState::<T>::insert(era, step),
 				None => {
-					// Final step - remove the entry and emit completion event
+					// Final step - remove the entry
 					EraPruningState::<T>::remove(era);
-					Self::deposit_event(Event::<T>::EraPruned { index: era });
 				},
 			}
 			step_weight.saturating_add(db_weight.writes(1))
 		}
 
 		/// Execute one step of era pruning and get actual weight used
-		fn do_prune_era_step(era: EraIndex) -> Result<(bool, Weight), DispatchError> {
+		fn do_prune_era_step(era: EraIndex) -> Result<Weight, DispatchError> {
 			let db_weight = T::DbWeight::get();
 			let max_pruning_weight = Self::max_pruning_weight();
 
@@ -1434,7 +1432,7 @@ pub mod pallet {
 
 			let mut weight_used = Weight::zero();
 
-			match current_step {
+			let result = match current_step {
 				PruningStep::ErasStakersPaged => {
 					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
 					let step_weight = Self::handle_prefix_clearing(
@@ -1443,7 +1441,7 @@ pub mod pallet {
 						Some(PruningStep::ErasStakersOverview),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ErasStakersOverview => {
 					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
@@ -1453,7 +1451,7 @@ pub mod pallet {
 						Some(PruningStep::ErasValidatorPrefs),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ErasValidatorPrefs => {
 					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
@@ -1463,7 +1461,7 @@ pub mod pallet {
 						Some(PruningStep::ClaimedRewards),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ClaimedRewards => {
 					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
@@ -1473,7 +1471,7 @@ pub mod pallet {
 						Some(PruningStep::ErasValidatorReward),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ErasValidatorReward => {
 					let storage_exists = ErasValidatorReward::<T>::contains_key(era);
@@ -1484,7 +1482,7 @@ pub mod pallet {
 						Some(PruningStep::ErasRewardPoints),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ErasRewardPoints => {
 					let storage_exists = ErasRewardPoints::<T>::contains_key(era);
@@ -1495,17 +1493,24 @@ pub mod pallet {
 						Some(PruningStep::ErasTotalStake),
 					);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
 				PruningStep::ErasTotalStake => {
 					let storage_exists = ErasTotalStake::<T>::contains_key(era);
 					ErasTotalStake::<T>::remove(era);
-					// This is the final step - remove the pruning state and emit event
+					// This is the final step - remove the pruning state
 					let step_weight = Self::handle_single_removal(era, storage_exists, None);
 					weight_used = weight_used.saturating_add(step_weight);
-					Ok((true, weight_used))
+					Ok(weight_used)
 				},
+			};
+
+			// Check if era is fully pruned (pruning state removed) and emit event
+			if EraPruningState::<T>::get(era).is_none() {
+				Self::deposit_event(Event::<T>::EraPruned { index: era });
 			}
+
+			result
 		}
 	}
 
@@ -1545,13 +1550,15 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
-			// Ensure MaxPruningWeight is reasonable (not zero)
+			// Ensure MaxPruningWeight is large enough to process at least one item
 			let max_pruning_weight = T::MaxPruningWeight::get();
+			let weight_per_item = T::DbWeight::get().reads_writes(1, 1);
 			assert!(
-				!max_pruning_weight.ref_time().is_zero() &&
-					!max_pruning_weight.proof_size().is_zero(),
-				"MaxPruningWeight must have non-zero ref_time and proof_size, got {:?}",
-				max_pruning_weight
+				max_pruning_weight.ref_time() >= weight_per_item.ref_time() &&
+					max_pruning_weight.proof_size() >= weight_per_item.proof_size(),
+				"MaxPruningWeight must be at least as large as weight_per_item to make progress. MaxPruningWeight: {:?}, weight_per_item: {:?}",
+				max_pruning_weight,
+				weight_per_item
 			);
 		}
 
@@ -2769,9 +2776,17 @@ pub mod pallet {
 		///
 		/// The era must be eligible for pruning (older than HistoryDepth + 1).
 		#[pallet::call_index(32)]
-		// NOTE: as pre-dispatch weight, I am using the max weight of this call, which is
-		// when all validators have claimed rewards in this era, according to benchmarking.
-		#[pallet::weight(T::WeightInfo::prune_era_claimed_rewards(T::MaxValidatorSet::get()))]
+		// NOTE: as pre-dispatch weight, use the maximum of all possible pruning step weights
+		#[pallet::weight({
+			let v = T::MaxValidatorSet::get();
+			T::WeightInfo::prune_era_stakers_paged(v)
+				.max(T::WeightInfo::prune_era_stakers_overview(v))
+				.max(T::WeightInfo::prune_era_validator_prefs(v))
+				.max(T::WeightInfo::prune_era_claimed_rewards(v))
+				.max(T::WeightInfo::prune_era_validator_reward(v))
+				.max(T::WeightInfo::prune_era_reward_points(v))
+				.max(T::WeightInfo::prune_era_total_stake(v))
+		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
@@ -2781,15 +2796,11 @@ pub mod pallet {
 			let earliest_prunable_era = active_era.saturating_sub(history_depth).saturating_sub(1);
 			ensure!(era <= earliest_prunable_era, Error::<T>::EraNotPrunable);
 
-			let (did_work, actual_weight) = Self::do_prune_era_step(era)?;
+			let actual_weight = Self::do_prune_era_step(era)?;
 
 			Ok(frame_support::dispatch::PostDispatchInfo {
 				actual_weight: Some(actual_weight),
-				pays_fee: if did_work {
-					frame_support::dispatch::Pays::No
-				} else {
-					frame_support::dispatch::Pays::Yes
-				},
+				pays_fee: frame_support::dispatch::Pays::No,
 			})
 		}
 	}

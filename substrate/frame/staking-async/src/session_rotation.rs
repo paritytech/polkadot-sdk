@@ -361,9 +361,7 @@ impl<T: Config> Eras<T> {
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
 		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
 		let e1 = ErasStakersOverview::<T>::iter_prefix_values(era).count() != 0;
-		if e0 != e1 {
-			return Err("ErasValidatorPrefs and ErasStakersOverview should be consistent".into());
-		}
+		ensure!(e0 == e1, "ErasValidatorPrefs and ErasStakersOverview should be consistent");
 
 		// these two must always be set
 		let e2 = ErasTotalStake::<T>::contains_key(era);
@@ -381,9 +379,7 @@ impl<T: Config> Eras<T> {
 			e2
 		};
 
-		if e2 != e4 {
-			return Err("era info presence not consistent".into());
-		}
+		ensure!(e2 == e4, "era info presence not consistent");
 
 		if e2 {
 			Ok(())
@@ -541,8 +537,8 @@ impl<T: Config> Rotator<T> {
 		end_index: SessionIndex,
 		activation_timestamp: Option<(u64, u32)>,
 	) -> Weight {
-		// baseline weight -- if we start a new era, we will add the pruning weight to it.
-		let mut weight = T::WeightInfo::rc_on_session_report();
+		// baseline weight for processing the relay chain session report
+		let weight = T::WeightInfo::rc_on_session_report();
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
@@ -567,11 +563,6 @@ impl<T: Config> Rotator<T> {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
-				// accumulate pruning weight. Let's go for the most pessimistic case (claimed
-				// rewards according to benchmarking)
-				weight.saturating_accrue(T::WeightInfo::prune_era_claimed_rewards(
-					ValidatorCount::<T>::get(),
-				));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.

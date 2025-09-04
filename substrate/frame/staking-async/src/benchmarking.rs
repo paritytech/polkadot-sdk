@@ -1263,10 +1263,7 @@ mod benchmarks {
 
 	/// Validates that the weight consumption of a pruning operation stays within expected limits.
 	fn validate_pruning_weight<T: Config>(
-		result: &Result<
-			frame_support::dispatch::PostDispatchInfo,
-			frame_support::dispatch::DispatchErrorWithPostInfo,
-		>,
+		result: &frame_support::dispatch::DispatchResultWithPostInfo,
 		step_name: &str,
 		validator_count: u32,
 	) {
