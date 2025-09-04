@@ -21,11 +21,8 @@ use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{
-		UMPSignal, UMP_SEPARATOR, Hash as RHash,
-	},
+	relay_chain::{Hash as RHash, UMPSignal, UMP_SEPARATOR},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
-
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
