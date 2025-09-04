@@ -56,9 +56,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member, Zero};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
-//TODO: https://github.com/paritytech/polkadot-sdk/issues/9428
-const FIXED_CLAIM_QUEUE_OFFSET: usize = 0;
-
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
 	Block: BlockT,
@@ -241,6 +238,7 @@ where
 				&relay_parent_header,
 				para_id,
 				parent_header,
+				relay_parent_offset,
 			)
 			.await
 			{
@@ -548,12 +546,13 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	para_parent: &H,
+	relay_parent_offset: u32,
 ) -> Result<Option<Core>, ()> {
 	let cores_at_offset = &relay_chain_data_cache
 		.get_mut_relay_chain_data(relay_parent.hash())
 		.await?
 		.claim_queue
-		.iter_claims_at_depth_for_para(FIXED_CLAIM_QUEUE_OFFSET, para_id)
+		.iter_claims_at_depth_for_para(relay_parent_offset as usize, para_id)
 		.collect::<Vec<_>>();
 
 	let is_new_relay_parent = if para_parent.number().is_zero() {
@@ -595,7 +594,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	Ok(Some(Core {
 		selector: CoreSelector(selector as u8),
 		core_index,
-		claim_queue_offset: ClaimQueueOffset(FIXED_CLAIM_QUEUE_OFFSET as u8),
+		claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
 		number_of_cores: cores_at_offset.len() as u16,
 	}))
 }

@@ -25,8 +25,8 @@ use cumulus_relay_chain_interface::*;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CommittedCandidateReceiptV2},
-	CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
+	Header as RelayHeader, Id as ParaId,
 };
 use sp_runtime::{generic::BlockId, testing::Header as TestHeader, traits::Header};
 use sp_version::RuntimeVersion;
@@ -125,7 +125,7 @@ async fn determine_core_new_relay_parent() {
 	// Setup claim queue data for the cache
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	let core = result.unwrap();
 	let core = core.unwrap();
@@ -174,7 +174,7 @@ async fn determine_core_with_core_info() {
 	// Setup claim queue data for the cache
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1), CoreIndex(2)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	match result {
 		Ok(Some(core)) => {
@@ -208,7 +208,7 @@ async fn determine_core_no_cores_available() {
 	// Setup empty claim queue
 	cache.set_test_data(relay_parent.clone(), vec![]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none());
@@ -253,7 +253,7 @@ async fn determine_core_selector_overflow() {
 	// Setup claim queue with only 2 cores
 	cache.set_test_data(relay_parent.clone(), vec![CoreIndex(0), CoreIndex(1)]);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	let core = result.unwrap();
 	assert!(core.is_none()); // Should return None when selector overflows
@@ -297,7 +297,7 @@ async fn determine_core_uses_last_claimed_core_selector() {
 		Some(CoreSelector(1)),
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	match result {
 		Ok(Some(core)) => {
@@ -350,7 +350,7 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 		Some(CoreSelector(2)),
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	match result {
 		Ok(Some(_)) => panic!("Expected None due to selector overflow"),
@@ -399,7 +399,7 @@ async fn determine_core_no_last_claimed_core_selector() {
 		None,
 	);
 
-	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent).await;
+	let result = determine_core(&mut cache, &relay_parent, 1.into(), &para_parent, 0).await;
 
 	match result {
 		Ok(Some(core)) => {
