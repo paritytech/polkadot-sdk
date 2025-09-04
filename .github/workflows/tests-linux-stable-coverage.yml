@@ -42,7 +42,7 @@ jobs:
         ci_node_total: [5]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - run: rustup component add llvm-tools-preview
       - run: cargo install cargo-llvm-cov
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: reports
           pattern: coverage-report-*
@@ -117,7 +117,7 @@ jobs:
     needs: [upload-reports]
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions-ecosystem/action-remove-labels@v1
         with:
           labels: GHA-coverage
