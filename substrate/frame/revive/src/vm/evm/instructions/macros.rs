@@ -132,7 +132,7 @@ macro_rules! check_memory_bounds {
 	($interpreter:expr, $offset:expr, $len:expr, $ret:expr) => {
 		if $offset.saturating_add($len) > $interpreter.memory.len() {
 			log::debug!(target: $crate::LOG_TARGET, "check memory bounds failed: offset={} len={} memory_size={}", $offset, $len, $interpreter.memory.len());
-			$interpreter.halt(revm::interpreter::InstructionResult::Revert);
+			$interpreter.halt(revm::interpreter::InstructionResult::MemoryOOG);
 			return $ret;
 		}
 	};
