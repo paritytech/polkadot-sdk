@@ -102,7 +102,6 @@ use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactD
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
