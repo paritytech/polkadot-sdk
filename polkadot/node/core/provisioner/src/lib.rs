@@ -36,8 +36,7 @@ use polkadot_node_subsystem_util::{
 	request_availability_cores, request_backable_candidates, TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::{BackedCandidate, CoreState},
-	Hash, SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, CoreState, Hash, SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
@@ -289,8 +288,9 @@ fn note_provisionable_data(
 	provisionable_data: ProvisionableData,
 ) {
 	match provisionable_data {
-		ProvisionableData::Bitfield(_, signed_bitfield) =>
-			per_relay_parent.signed_bitfields.push(signed_bitfield),
+		ProvisionableData::Bitfield(_, signed_bitfield) => {
+			per_relay_parent.signed_bitfields.push(signed_bitfield)
+		},
 		// We choose not to punish these forms of misbehavior for the time being.
 		// Risks from misbehavior are sufficiently mitigated at the protocol level
 		// via reputation changes. Punitive actions here may become desirable

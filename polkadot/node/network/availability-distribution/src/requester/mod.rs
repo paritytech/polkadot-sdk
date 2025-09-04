@@ -30,17 +30,20 @@ use std::{
 
 use polkadot_node_network_protocol::request_response::{v1, v2, IsRequest, ReqProtocolNames};
 use polkadot_node_subsystem::{
-	messages::{CandidateBackingMessage, ChainApiMessage, RuntimeApiMessage},
+	messages::{
+		CandidateBackingMessage, ChainApiMessage, ProspectiveParachainsMessage, RuntimeApiMessage,
+		RuntimeApiRequest,
+	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate,
 };
 use polkadot_node_subsystem_util::{
 	availability_chunks::availability_chunk_index,
 	request_backable_candidates,
-	runtime::{get_occupied_cores, RuntimeInfo},
+	runtime::{get_availability_cores, get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	vstaging::CoreState, CandidateHash, CoreIndex, GroupIndex, GroupRotationInfo, Hash,
-	Id as paraId, Id, SessionIndex, ValidatorIndex,
+	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, Hash,
+	Id as paraId, SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -58,9 +61,6 @@ use crate::error::Error::{
 	CanceledValidatorGroups, FailedValidatorGroups, GetBackableCandidates, SubsystemUtil,
 };
 use fetch_task::{FetchTask, FetchTaskConfig, FromFetchTask};
-use polkadot_node_subsystem::messages::{ProspectiveParachainsMessage, RuntimeApiRequest};
-use polkadot_node_subsystem_util::runtime::get_availability_cores;
-use polkadot_primitives::vstaging::BackedCandidate;
 
 /// Requester takes care of requesting erasure chunks from backing groups and stores them in the
 /// av store.
@@ -304,7 +304,7 @@ impl Requester {
 
 	fn core_index_for_candidate_v1(
 		availability_cores: &Vec<CoreState>,
-		para: Id,
+		para: paraId,
 	) -> Option<CoreIndex> {
 		let matching_core_index = availability_cores.iter().enumerate().find_map(
 			|(idx, core_state)| match core_state {
@@ -366,8 +366,8 @@ impl Requester {
 			task.remove_leaves(&obsolete_leaves);
 			let live = task.is_live();
 			if !live {
-				if self.early_candidates.contains(candidate_hash) &&
-					!self.early_candidates_onchain.contains(candidate_hash)
+				if self.early_candidates.contains(candidate_hash)
+					&& !self.early_candidates_onchain.contains(candidate_hash)
 				{
 					self.metrics.on_early_candidate_never_onchain();
 				}
@@ -399,8 +399,8 @@ impl Requester {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
 				// If this candidate was fetched early and now appears on the slow path, mark it.
-				if matches!(origin, FetchOrigin::Slow) &&
-					self.early_candidates.contains(&core.candidate_hash)
+				if matches!(origin, FetchOrigin::Slow)
+					&& self.early_candidates.contains(&core.candidate_hash)
 				{
 					self.early_candidates_onchain.insert(core.candidate_hash);
 				}

@@ -17,10 +17,7 @@
 use super::*;
 use bitvec::bitvec;
 use polkadot_node_subsystem_util::CoreAvailability;
-use polkadot_primitives::{
-	vstaging::{MutateDescriptorV2, OccupiedCore},
-	ScheduledCore,
-};
+use polkadot_primitives::{MutateDescriptorV2, OccupiedCore, ScheduledCore};
 use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
@@ -258,12 +255,9 @@ mod select_candidates {
 	};
 	use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 	use polkadot_primitives::{
-		vstaging::{
-			CandidateReceiptV2 as CandidateReceipt,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
-		},
-		BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, Id as ParaId,
-		PersistedValidationData,
+		BlockNumber, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, Id as ParaId,
+		MutateDescriptorV2, PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 	use std::ops::Not;
@@ -580,8 +574,9 @@ mod select_candidates {
 					_parent_hash,
 					PersistedValidationDataReq(_para_id, _assumption, tx),
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
-				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
-					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
+				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) => {
+					tx.send(Ok(mock_availability_cores.clone())).unwrap()
+				},
 				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(
 					hashes,
 					sender,

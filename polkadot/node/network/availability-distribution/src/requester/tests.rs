@@ -21,9 +21,9 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::{BackedCandidate, CommittedCandidateReceiptV2, CoreState, MutateDescriptorV2},
-	BlockNumber, ChunkIndex, CoreIndex, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
-	Id as ParaId, ScheduledCore, SessionIndex, SessionInfo,
+	BackedCandidate, BlockNumber, ChunkIndex, CommittedCandidateReceiptV2, CoreIndex, CoreState,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, MutateDescriptorV2,
+	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
@@ -59,7 +59,7 @@ struct TestState {
 	// Store prepared backed candidates by their hash to serve CandidateBacking requests
 	pub backed_map: std::collections::HashMap<
 		polkadot_primitives::CandidateHash,
-		polkadot_primitives::vstaging::BackedCandidate,
+		polkadot_primitives::BackedCandidate,
 	>,
 	/// Simulated relay chain heads. For each block except genesis
 	/// there exists a single corresponding candidate, handled in [`spawn_virtual_overseer`].

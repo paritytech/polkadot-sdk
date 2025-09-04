@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use core::time::Duration;
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::{CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt},
+		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 		Hash as RelayHash, Header as RelayHeader, InboundHrmpMessage, OccupiedCoreAssumption,
 		SessionIndex, ValidationCodeHash, ValidatorId,
 	},
