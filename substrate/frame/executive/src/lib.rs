@@ -216,9 +216,9 @@ pub struct Executive<
 	)>,
 );
 
-// Allow deprecated `OnRuntimeUpgrade` trait usage.
-// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
-// Can be removed after September 2026.
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
 #[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
@@ -258,9 +258,9 @@ where
 	}
 }
 
-// Allow deprecated `OnRuntimeUpgrade` trait usage.
-// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
-// Can be removed after September 2026.
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
 #[allow(deprecated)]
 #[cfg(feature = "try-runtime")]
 impl<
@@ -467,9 +467,9 @@ where
 	}
 }
 
-// Allow deprecated `OnRuntimeUpgrade` trait usage.
-// Deprecated since it moved to `frame_system::Config::SingleBlockMigrations`.
-// Can be removed after September 2026.
+/// TODO: The `OnRuntimeUpgrade` generic parameter in `Executive` is deprecated and will be
+/// removed in a future version. Once removed, this `#[allow(deprecated)]` attribute
+/// can be safely deleted.
 #[allow(deprecated)]
 impl<
 		System: frame_system::Config + IsInherent<Block::Extrinsic>,
