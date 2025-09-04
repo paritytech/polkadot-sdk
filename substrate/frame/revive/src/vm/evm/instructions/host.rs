@@ -24,10 +24,7 @@ use crate::{
 	DispatchError, Key, RuntimeCosts,
 };
 use revm::{
-	interpreter::{
-		interpreter_types::{RuntimeFlag, StackTr},
-		InstructionResult,
-	},
+	interpreter::{interpreter_types::StackTr, InstructionResult},
 	primitives::{Bytes, U256},
 };
 
