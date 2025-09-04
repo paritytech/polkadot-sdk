@@ -22,10 +22,10 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
 	relay_chain::{
-		vstaging::{UMPSignal, UMP_SEPARATOR},
-		Hash as RHash,
+		UMPSignal, UMP_SEPARATOR, Hash as RHash,
 	},
 	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},

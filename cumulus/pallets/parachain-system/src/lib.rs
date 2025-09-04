@@ -1224,6 +1224,7 @@ impl<T: Config> Pallet<T> {
 		if let Some(prev_msg) = maybe_prev_msg_metadata {
 			assert!(&msg_metadata >= prev_msg, "[HRMP] Messages order violation");
 		}
+		*maybe_prev_msg_metadata = Some(msg_metadata);
 
 		// Check that the message is sent from an existing channel. The channel exists
 		// if its MQC head is present in `vfp.hrmp_mqc_heads`.
@@ -1514,7 +1515,7 @@ impl<T: Config> Pallet<T> {
 	/// Send the ump signals
 	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
 
 		UpwardMessages::<T>::mutate(|up| {
 			if let Some(core_info) =
