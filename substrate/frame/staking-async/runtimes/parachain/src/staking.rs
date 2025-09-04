@@ -216,8 +216,8 @@ parameter_types! {
 	/// Fixed deposit for invulnerable accounts.
 	pub InvulnerableDeposit: Balance = UNITS;
 
-	/// * Polkadot: 20%
-	/// * Kusama: 10%
+	/// * Polkadot: 10% (more restrictive, don't bail!)
+	/// * Kusama: 25%
 	///
 	/// Reasoning: The weight/fee of the `bail` transaction is already assuming you delete all pages
 	/// of your solution while bailing, and charges you accordingly. So the chain is being
