@@ -41,9 +41,8 @@ pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 use std::sync::{
 	atomic::{AtomicU64, Ordering},
-	Arc, Mutex,
+	Arc, Mutex, LazyLock
 };
-
 pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 
 /// Assembly of PartialComponents (enough to run chain ops subcommands)
@@ -55,6 +54,8 @@ pub type Service = sc_service::PartialComponents<
 	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
 	Option<Telemetry>,
 >;
+
+pub static NEXT_TIMESTAMP: LazyLock<Arc<AtomicU64>> = LazyLock::new(|| Arc::new(AtomicU64::new(0)));
 
 pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 	let telemetry = config
@@ -191,8 +192,6 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		Consensus::InstantSeal => {
 			consensus_type = Consensus::InstantSeal;
 
-			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
-
 			let create_inherent_data_providers = move |_, ()| {
 				let delta_for_inherent = delta_for_inherent.clone();
 				async move {
@@ -287,8 +286,6 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 			);
 		},
 		Consensus::ManualSeal(None) => {
-			static NEXT_TIMESTAMP: AtomicU64 = AtomicU64::new(0);
-
 			let create_inherent_data_providers = move |_, ()| {
 				let delta_for_inherent = delta_for_inherent.clone();
 				async move {
@@ -328,6 +325,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 		let pool = transaction_pool.clone();
 		let sink = sink.clone();
 		let timestamp_delta = timestamp_delta_override.clone(); // <-- include this
+		let next_timestamp = NEXT_TIMESTAMP.clone();
 
 		Box::new(move |_| {
 			let deps = crate::rpc::FullDeps {
@@ -337,6 +335,7 @@ pub async fn new_full<Network: sc_network::NetworkBackend<Block, <Block as Block
 				manual_seal_sink: sink.clone(),
 				consensus_type: consensus_type.clone(),
 				timestamp_delta: timestamp_delta.clone(),
+				next_timestamp: next_timestamp.clone(),
 			};
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})

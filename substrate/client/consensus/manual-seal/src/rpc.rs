@@ -30,7 +30,7 @@ use sp_runtime::EncodedJustification;
 
 /// Sender passed to the authorship task to report errors or successes.
 pub type Sender<T> = Option<oneshot::Sender<std::result::Result<T, Error>>>;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, atomic::{AtomicU64, Ordering}};
 
 pub type SharedDelta = Arc<Mutex<Option<u64>>>;
 
@@ -84,12 +84,16 @@ pub trait ManualSealApi<Hash> {
 		hash: Hash,
 		justification: Option<EncodedJustification>,
 	) -> Result<bool, Error>;
+
+	#[method(name = "engine_setNextBlockTimestamp")]
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error>;
 }
 
 /// A struct that implements the [`ManualSealApiServer`].
 pub struct ManualSeal<Hash> {
 	import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
 	timestamp_delta_override: SharedDelta,
+	next_timestamp: Arc<AtomicU64>,
 }
 
 /// return type of `engine_createBlock`
@@ -108,13 +112,19 @@ impl<Hash> ManualSeal<Hash> {
 	pub fn new(
 		import_block_channel: mpsc::Sender<EngineCommand<Hash>>,
 		timestamp_delta_override: SharedDelta,
+		next_timestamp: Arc<AtomicU64>,
 	) -> Self {
-		Self { import_block_channel, timestamp_delta_override }
+		Self { import_block_channel, timestamp_delta_override, next_timestamp }
 	}
 }
 
 #[async_trait]
 impl<Hash: Send + 'static> ManualSealApiServer<Hash> for ManualSeal<Hash> {
+	async fn set_next_timestamp(&self, next_timestamp: u64) -> Result<bool, Error> {
+		self.next_timestamp.store(next_timestamp * 1000, Ordering::SeqCst);
+		Ok(true)
+	}
+
 	async fn create_block(
 		&self,
 		create_empty: bool,

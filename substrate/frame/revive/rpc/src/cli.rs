@@ -141,11 +141,10 @@ fn build_client(
 			)
 			.await?;
 
-		let ephemeral_store = Arc::new(RwLock::new(HashMap::new()));
 		let block_offset = Arc::new(RwLock::new(0u64));
 
 		let client =
-			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, ephemeral_store, block_offset).await?;
+			Client::new(api, rpc_client, rpc, block_provider, receipt_provider, block_offset).await?;
 
 		Ok(client)
 	}

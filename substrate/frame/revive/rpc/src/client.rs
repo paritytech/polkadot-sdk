@@ -68,7 +68,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::{Header, HashFor},
+	config::{HashFor, Header},
 	Config, OnlineClient,
 };
 use subxt_signer::sr25519::dev;
@@ -183,7 +183,6 @@ pub struct Client {
 	fee_history_provider: FeeHistoryProvider,
 	chain_id: u64,
 	max_block_weight: Weight,
-	ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
 	block_offset: Arc<RwLock<u64>>,
 }
 
@@ -239,7 +238,6 @@ impl Client {
 		rpc: LegacyRpcMethods<SrcChainConfig>,
 		block_provider: SubxtBlockInfoProvider,
 		receipt_provider: ReceiptProvider,
-		ephemeral_store: Arc<RwLock<HashMap<u32, u64>>>,
 		block_offset: Arc<RwLock<u64>>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight) =
@@ -254,7 +252,6 @@ impl Client {
 			fee_history_provider: FeeHistoryProvider::default(),
 			chain_id,
 			max_block_weight,
-			ephemeral_store,
 			block_offset,
 		})
 	}
@@ -663,15 +660,8 @@ impl Client {
 		let runtime_api = RuntimeApi::new(self.api.runtime_api().at(block.hash()));
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 		let header = block.header();
-		let maybe_timestamp = {
-			let store = self.ephemeral_store.read().unwrap();
-			store.get(&header.number).cloned()
-		};
 
-		let timestamp = match maybe_timestamp {
-			Some(ts) => ts,
-			None => extract_block_timestamp(block).await.unwrap_or_default(),
-		};
+		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -809,12 +799,12 @@ impl Client {
 			latest_block = Some(serde_json::from_str(res.get()).unwrap());
 		}
 
-		let mut blocks_sub =  self.api.blocks().subscribe_finalized().await.unwrap();
+		let mut blocks_sub = self.api.blocks().subscribe_finalized().await.unwrap();
 
 		while let Some(block) = blocks_sub.next().await {
 			let hash = block.unwrap().hash();
 			if hash.eq(&latest_block.clone().unwrap().hash) {
-				break
+				break;
 			}
 		}
 		Ok(latest_block.unwrap())
@@ -1119,18 +1109,12 @@ impl Client {
 		if next_timestamp.is_zero() {
 			return Err(ClientError::ConversionFailed);
 		}
-		let block_hash = self
-			.block_hash_for_tag(BlockNumberOrTagOrHash::BlockTag(BlockTag::Latest))
-			.await?;
-		let block = self.tracing_block(block_hash).await?;
-		let block_number = block.header.number;
-		let next_block_number = block_number.saturating_add(1);
 
 		let next_timestamp = next_timestamp.as_u64();
 
-		{
-			self.ephemeral_store.write().unwrap().insert(next_block_number, next_timestamp);
-		}
+		let params = rpc_params![next_timestamp].to_rpc_params().unwrap();
+
+		let _ = self.rpc_client.request("engine_setNextBlockTimestamp".to_string(), params).await;
 
 		Ok(())
 	}

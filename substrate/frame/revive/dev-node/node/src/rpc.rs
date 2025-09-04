@@ -24,6 +24,8 @@
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, RpcModule};
 
+use crate::service::FullBackend;
+use crate::snapshot::{SnapshotManager, SnapshotRpcServer};
 use polkadot_sdk::{
 	parachains_common::Hash,
 	sc_transaction_pool_api::TransactionPool,
@@ -31,9 +33,11 @@ use polkadot_sdk::{
 	*,
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
-use std::{sync::{Arc, Mutex},collections::BTreeMap,  time::Instant};
-use crate::snapshot::{SnapshotManager, SnapshotRpcServer};
-use crate::service::FullBackend;
+use std::{
+	collections::BTreeMap,
+	sync::{Arc, Mutex, atomic::AtomicU64},
+	time::Instant,
+};
 
 pub type SharedTimestampDelta = Arc<Mutex<Option<u64>>>;
 
@@ -78,6 +82,7 @@ pub struct FullDeps<C, P> {
 	/// Consensus
 	pub consensus_type: Consensus,
 	pub timestamp_delta: SharedTimestampDelta,
+	pub next_timestamp: Arc<AtomicU64>,
 }
 
 #[docify::export]
@@ -102,12 +107,13 @@ where
 	use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
 
 	let mut module = RpcModule::new(());
-	let FullDeps { client,backend, pool, manual_seal_sink, consensus_type, timestamp_delta } = deps;
+	let FullDeps { client, backend, pool, manual_seal_sink, consensus_type, timestamp_delta, next_timestamp } =
+		deps;
 
 	module.merge(System::new(client.clone(), pool.clone()).into_rpc())?;
 	module.merge(Dev::new(client.clone()).into_rpc())?;
 	module.merge(
-		ManualSeal::<Hash>::new(manual_seal_sink.clone(), timestamp_delta.clone()).into_rpc(),
+		ManualSeal::<Hash>::new(manual_seal_sink.clone(), timestamp_delta.clone(), next_timestamp.clone()).into_rpc(),
 	)?;
 	module.merge(HardhatRpcServerImpl::new(consensus_type).into_rpc())?;
 	module.merge(SnapshotManager::new(client, backend).into_rpc())?;

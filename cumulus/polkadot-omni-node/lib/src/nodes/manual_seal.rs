@@ -264,7 +264,7 @@ impl<NodeSpec: NodeSpecT> ManualSealNode<NodeSpec> {
 					None,
 				)?;
 				module
-					.merge(ManualSeal::new(manual_seal_sink.clone(), Arc::new(Mutex::new(None))).into_rpc())
+					.merge(ManualSeal::new(manual_seal_sink.clone(), Arc::new(Mutex::new(None)), Arc::new(0.into())).into_rpc())
 					.map_err(|e| sc_service::Error::Application(e.into()))?;
 				Ok(module)
 			})
