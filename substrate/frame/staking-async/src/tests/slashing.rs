@@ -400,6 +400,8 @@ fn deferred_slashes_are_deferred() {
 #[test]
 fn retroactive_deferred_slashes_two_eras_before() {
 	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+		// Set OffenceReportableWindow to allow reporting offences from era 1
+		OffenceReportableWindow::set(2);
 		assert_eq!(BondingDuration::get(), 3);
 		assert_eq!(Nominators::<T>::get(101).unwrap().targets, vec![11, 21]);
 
@@ -454,6 +456,8 @@ fn retroactive_deferred_slashes_one_before() {
 		.slash_defer_duration(2)
 		.nominate(false)
 		.build_and_execute(|| {
+			// Set OffenceReportableWindow to allow reporting offences from era 2
+			OffenceReportableWindow::set(2);
 			assert_eq!(BondingDuration::get(), 3);
 
 			// unbond at slash era.
@@ -633,30 +637,33 @@ fn really_old_offences_are_ignored() {
 		.slash_defer_duration(27)
 		.bonding_duration(28)
 		.build_and_execute(|| {
+			// Set OffenceReportableWindow to 20 (less than SlashDeferDuration of 27)
+			OffenceReportableWindow::set(20);
+
 			Session::roll_until_active_era(100);
 
-			let expected_oldest_reportable_offence = active_era() - (SlashDeferDuration::get() - 1);
+			let expected_oldest_reportable_offence = active_era() - OffenceReportableWindow::get();
 
-			assert_eq!(expected_oldest_reportable_offence, 74);
+			assert_eq!(expected_oldest_reportable_offence, 80);
 
 			// clear staking events until now
 			staking_events_since_last_call();
 
-			// WHEN: reporting offence for era 72 and 73, which are too old.
-			add_slash_in_era(11, 72, Perbill::from_percent(10));
-			add_slash_in_era(21, 73, Perbill::from_percent(10));
+			// WHEN: reporting offence for era 79 and 78, which are too old.
+			add_slash_in_era(11, 79, Perbill::from_percent(10));
+			add_slash_in_era(21, 78, Perbill::from_percent(10));
 
 			// THEN: offence is ignored.
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
 					Event::OffenceTooOld {
-						offence_era: 72,
+						offence_era: 79,
 						validator: 11,
 						fraction: Perbill::from_percent(10)
 					},
 					Event::OffenceTooOld {
-						offence_era: 73,
+						offence_era: 78,
 						validator: 21,
 						fraction: Perbill::from_percent(10)
 					},
@@ -664,19 +671,19 @@ fn really_old_offences_are_ignored() {
 			);
 
 			// also check that the ignored offences are not stored anywhere
-			assert!(OffenceQueue::<Test>::iter_prefix(72).next().is_none());
-			assert!(OffenceQueue::<Test>::iter_prefix(73).next().is_none());
-			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&72));
-			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&73));
+			assert!(OffenceQueue::<Test>::iter_prefix(79).next().is_none());
+			assert!(OffenceQueue::<Test>::iter_prefix(78).next().is_none());
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&79));
+			assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&78));
 
-			// WHEN: reporting offence for era 74.
-			add_slash_in_era(11, 74, Perbill::from_percent(10));
+			// WHEN: reporting offence for era 80.
+			add_slash_in_era(11, 80, Perbill::from_percent(10));
 
 			// THEN: offence is reported.
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::OffenceReported {
-					offence_era: 74,
+					offence_era: 80,
 					validator: 11,
 					fraction: Perbill::from_percent(10)
 				}]
@@ -688,15 +695,15 @@ fn really_old_offences_are_ignored() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![Event::SlashComputed {
-					offence_era: 74,
-					slash_era: 101,
+					offence_era: 80,
+					slash_era: 107,
 					offender: 11,
 					page: 0
 				},]
 			);
 
 			// Slash is applied at the start of the next era.
-			Session::roll_until_active_era(101);
+			Session::roll_until_active_era(107);
 			// clear staking events until now
 			staking_events_since_last_call();
 
@@ -710,6 +717,186 @@ fn really_old_offences_are_ignored() {
 					Event::Slashed { staker: 101, amount: 25 }
 				]
 			);
+		});
+}
+
+#[test]
+fn offence_reportable_window_disabled() {
+	// Verify when `OffenceReportableWindow` is set to 0, it should behave as if it is disabled.
+	ExtBuilder::default()
+		.slash_defer_duration(27)
+		.bonding_duration(28)
+		.build_and_execute(|| {
+			// Setup
+			Session::roll_until_active_era(100);
+			staking_events_since_last_call();
+
+			// Given: OffenceReportableWindow is disabled (set to 0)
+			assert_eq!(OffenceReportableWindow::get(), 0);
+
+			// When: Reporting an offence for era 72 (more than slash defer duration ago)
+			add_slash_in_era(11, 72, Perbill::from_percent(50));
+
+			// Then: Offence ignored.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceTooOld {
+					offence_era: 72,
+					validator: 11,
+					fraction: Perbill::from_percent(50)
+				}]
+			);
+
+			// When: Reporting an offence for era 73 (within slash defer duration)
+			add_slash_in_era(11, 73, Perbill::from_percent(50));
+
+			// Then: Offence reported.
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceReported {
+					offence_era: 73,
+					validator: 11,
+					fraction: Perbill::from_percent(50)
+				}]
+			);
+
+			// progress a block to compute the slash and keep try state checks happy.
+			Session::roll_next();
+		});
+}
+
+#[test]
+fn offence_reportable_window_governance_protection() {
+	// This test verifies that OffenceReportableWindow provides governance with enough time to
+	// review and cancel slashes before they are applied.
+	ExtBuilder::default()
+		.slash_defer_duration(27)
+		.bonding_duration(28)
+		.build_and_execute(|| {
+			// Set OffenceReportableWindow to 20, leaving 7 eras (27-20) exclusively for governance
+			// review
+			OffenceReportableWindow::set(20);
+
+			Session::roll_until_active_era(100);
+
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// Report an offence at the edge of the reportable window
+			add_slash_in_era(11, 80, Perbill::from_percent(50));
+
+			// Process the offence
+			Session::roll_next();
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 80,
+						validator: 11,
+						fraction: Perbill::from_percent(50)
+					},
+					Event::SlashComputed {
+						offence_era: 80,
+						slash_era: 107, // 80 + 27 = 107
+						offender: 11,
+						page: 0
+					},
+				]
+			);
+
+			// Verify slash is scheduled for era 107
+			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 1);
+
+			// Roll to next era.
+			Session::roll_until_active_era(101);
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// Offences for era 80 cannot be reported anymore
+			add_slash_in_era(11, 80, Perbill::from_percent(60));
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![Event::OffenceTooOld {
+					offence_era: 80,
+					validator: 11,
+					fraction: Perbill::from_percent(60)
+				},]
+			);
+
+			// Move to era 106 (one era before slash application)
+			Session::roll_until_active_era(106);
+
+			// At this point, governance has had 6 eras (101-106) to review and can still cancel the
+			// slash before it's applied in era 107
+			assert_ok!(Staking::cancel_deferred_slash(
+				RuntimeOrigin::root(),
+				107,
+				vec![(11, Perbill::from_percent(50))]
+			));
+
+			// Roll to era 107 (era of slashing)
+			Session::roll_until_active_era(107);
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// slashes still pending, but not applied.
+			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 1);
+
+			// Roll to the next block
+			Session::roll_next();
+
+			// This will remove the slash without applying it (as it was canceled)
+			assert_eq!(UnappliedSlashes::<Test>::iter_prefix(&107).count(), 0);
+
+			// Verify no slashing events were emitted
+			assert_eq!(staking_events_since_last_call(), vec![]);
+		});
+}
+
+#[test]
+fn offence_reportable_window_immediate_slash() {
+	// Test that when SlashDeferDuration = 0, OffenceReportableWindow is ignored
+	ExtBuilder::default()
+		.slash_defer_duration(0) // Immediate slashing
+		.build_and_execute(|| {
+			// OffenceReportableWindow should be ignored when SlashDeferDuration = 0
+			OffenceReportableWindow::set(20);
+
+			Session::roll_until_active_era(3);
+
+			// clear staking events until now
+			staking_events_since_last_call();
+
+			// With immediate slashing (SlashDeferDuration = 0), slashes are applied immediately
+			// and OffenceReportableWindow does not apply
+			add_slash_with_percent(11, 10);
+
+			// Process the offence in the next block
+			Session::roll_next();
+
+			// With immediate slashing, the slash is applied right away
+			assert_eq!(
+				staking_events_since_last_call(),
+				vec![
+					Event::OffenceReported {
+						offence_era: 3,
+						validator: 11,
+						fraction: Perbill::from_percent(10)
+					},
+					Event::SlashComputed {
+						offence_era: 3,
+						slash_era: 3, // Immediate
+						offender: 11,
+						page: 0
+					},
+					Event::Slashed { staker: 11, amount: 100 },
+					// Nominator 101 is also slashed
+					Event::Slashed { staker: 101, amount: 25 }
+				]
+			);
+
+			// Verify the balance was reduced immediately
+			assert_eq!(asset::stakeable_balance::<T>(&11), 900);
 		});
 }
 
@@ -1002,6 +1189,8 @@ fn staker_cannot_bail_deferred_slash() {
 #[test]
 fn remove_deferred() {
 	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+		// Set OffenceReportableWindow to allow reporting offences from era 1
+		OffenceReportableWindow::set(2);
 		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500);
 
@@ -1558,6 +1747,8 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 		.period(1)
 		.validator_count(6)
 		.build_and_execute(|| {
+			// Set OffenceReportableWindow to allow reporting offences from era 3
+			OffenceReportableWindow::set(2);
 			// NOTE for curious reader: Era change still takes 2 blocks... don't ask why ¯\_(ツ)_/¯
 			let _expected_era_length = 2;
 

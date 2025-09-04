@@ -1126,15 +1126,16 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
-	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
+	/// Accepts offences only if they are from era `active_era - OffenceReportableWindow` or newer.
 	///
 	/// Slashes for offences are applied `SlashDeferDuration` eras after the offence occurred.
-	/// Accepting offences older than this range would not leave enough time for slashes to be
-	/// applied.
+	/// By limiting the reportable window to `OffenceReportableWindow` (which must be less than
+	/// `SlashDeferDuration`), we ensure governance has sufficient time to review and potentially
+	/// cancel slashes before they are applied.
 	///
 	/// Note: The validator set report that we send to the relay chain contains the pruning
 	/// information for a relay chain, but we conservatively keep some extra sessions, so it is
-	/// possible that an offence report is created for a session between SlashDeferDuration and
+	/// possible that an offence report is created for a session between OffenceReportableWindow and
 	/// BondingDuration eras before the active era. But they will be dropped here.
 	fn on_new_offences(
 		slash_session: SessionIndex,
@@ -1177,9 +1178,14 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 			// bonding duration old.
 			active_era.index.saturating_sub(T::BondingDuration::get())
 		} else {
-			// slashes are deffered, so we only accept offences that are not older than the
-			// defferal duration.
-			active_era.index.saturating_sub(T::SlashDeferDuration::get().saturating_sub(1))
+			let reporting_window = match T::OffenceReportableWindow::get() {
+				// reporting window is disabled, so we can accept any offence up to the era for
+				// which slashes can still be applied.
+				0 => T::SlashDeferDuration::get(),
+				w => w,
+			};
+
+			active_era.index.saturating_sub(reporting_window)
 		};
 
 		let invulnerables = Invulnerables::<T>::get();

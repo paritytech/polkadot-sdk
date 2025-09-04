@@ -882,6 +882,7 @@ parameter_types! {
 	pub const SessionsPerEra: SessionIndex = 3;
 	pub const BondingDuration: sp_staking::EraIndex = 3;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 1;
+	pub const OffenceReportableWindow: sp_staking::EraIndex = 1;
 	pub const MaxExposurePageSize: u32 = 64;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
@@ -902,6 +903,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
+	type OffenceReportableWindow = OffenceReportableWindow;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
 	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
