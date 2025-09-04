@@ -6,10 +6,10 @@ crates:
 - name: polkadot
   bump: patch
 - name: sc-client-db
-  bump: patch
+  bump: minor
 - name: polkadot-overseer
-  bump: patch
+  bump: minor
 - name: polkadot-service
-  bump: patch
+  bump: minor
 - name: polkadot-node-core-pvf-prepare-worker
-  bump: patch
+  bump: minor
