@@ -396,7 +396,7 @@ pub mod pallet {
 	///
 	/// It has only two interfaces:
 	///
-	/// * [`OffenceSendQueue::append`], to add a single offeence.
+	/// * [`OffenceSendQueue::append`], to add a single offence.
 	/// * [`OffenceSendQueue::get_and_maybe_delete`] which retrieves the last page. Depending on the
 	///   closure, it may also delete that page. The returned value is indeed
 	///   [`Config::MaxOffenceBatchSize`] or less items.
