@@ -1,0 +1,5 @@
+title: Update `kvdb-rocksdb` to `v0.20.0`
+doc:
+- audience: Runtime Dev
+  description: Related to https://github.com/paritytech/parity-common/issues/932
+crates: []
