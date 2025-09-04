@@ -693,7 +693,7 @@ impl Client {
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
 		if let Ok(mut eth_block) = ethereum_block {
-			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.header_hash());
+			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
 
 			// This means we can live with the hashes returned by the Revive pallet.
 			if !hydrated_transactions {
