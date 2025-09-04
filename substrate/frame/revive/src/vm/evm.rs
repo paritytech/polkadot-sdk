@@ -132,7 +132,7 @@ pub fn call<'a, E: Ext>(bytecode: Bytecode, ext: &'a mut E, inputs: EVMInputs) -
 		return_data: Default::default(),
 		memory: SharedMemory::new(),
 		input: inputs,
-		runtime_flag: RuntimeFlags { is_static: false, spec_id: SpecId::default() },
+		runtime_flag: RuntimeFlags { is_static: ext.is_read_only(), spec_id: SpecId::default() },
 		extend: ext,
 	};
 
