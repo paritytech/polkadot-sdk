@@ -29,8 +29,6 @@ use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
-#[cfg(feature = "experimental-ump-signals")]
-use relay_chain::{UMPSignal, UMP_SEPARATOR};
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
 use sp_trie::StorageProof;
