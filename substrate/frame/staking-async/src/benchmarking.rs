@@ -219,6 +219,7 @@ const USER_SEED: u32 = 999666;
 #[benchmarks]
 mod benchmarks {
 	use super::*;
+	use alloc::format;
 
 	#[benchmark]
 	fn bond() {
@@ -1274,21 +1275,22 @@ mod benchmarks {
 			validator_count
 		);
 
-		if let Ok(post_info) = result {
-			if let Some(actual_weight) = post_info.actual_weight {
-				let actual_ref_time = actual_weight.ref_time();
+		let post_info = result.unwrap();
+		let actual_ref_time = post_info
+			.actual_weight
+			.expect(&format!(
+				"Should report actual weight for {} with v={}",
+				step_name, validator_count
+			))
+			.ref_time();
 
-				assert!(
-					actual_ref_time > 0,
-					"Should report non-zero ref_time for {} with v={}",
-					step_name,
-					validator_count
-				);
-				// No need to validate against MaxPruningItems since we use item-based limiting
-			} else {
-				panic!("Should report actual weight for {} with v={}", step_name, validator_count);
-			}
-		}
+		assert!(
+			actual_ref_time > 0,
+			"Should report non-zero ref_time for {} with v={}",
+			step_name,
+			validator_count
+		);
+		// No need to validate against MaxPruningItems since we use item-based limiting
 	}
 
 	// Benchmark pruning ErasStakersPaged (first step)

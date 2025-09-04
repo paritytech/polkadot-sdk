@@ -1361,9 +1361,7 @@ pub mod pallet {
 			// - Era was never marked for pruning, OR
 			// - Era was already fully pruned (pruning state was removed on final step)
 			// In either case, this is an error - user should not call prune on non-prunable eras
-			let Some(current_step) = EraPruningState::<T>::get(era) else {
-				return Err(Error::<T>::EraNotPrunable.into());
-			};
+			let current_step = EraPruningState::<T>::get(era).ok_or(Error::<T>::EraNotPrunable)?;
 
 			// Simple item-based limiting - no complex weight calculations
 			let items_limit = T::MaxPruningItems::get();
@@ -1474,10 +1472,10 @@ pub mod pallet {
 				T::BondingDuration::get(),
 			);
 
-			// Ensure MaxPruningItems is reasonable (not zero)
+			// Ensure MaxPruningItems is reasonable (minimum 100 for efficiency)
 			assert!(
-				T::MaxPruningItems::get() > 0,
-				"MaxPruningItems must be greater than zero to make progress, got: {}",
+				T::MaxPruningItems::get() >= 100,
+				"MaxPruningItems must be at least 100 for efficient pruning, got: {}",
 				T::MaxPruningItems::get()
 			);
 		}
@@ -2685,16 +2683,17 @@ pub mod pallet {
 			Ok(Pays::No.into())
 		}
 
-		/// Perform one step of era pruning to prevent DoS from unbounded deletions.
+		/// Perform one step of era pruning to prevent PoV size exhaustion from unbounded deletions.
 		///
 		/// This extrinsic enables permissionless lazy pruning of era data by performing
 		/// incremental deletion of storage items. Each call processes a limited number
-		/// of items based on available block weight to avoid DoS attacks.
+		/// of items based on available block weight to avoid exceeding block limits.
 		///
 		/// Returns `Pays::No` when work is performed to incentivize regular maintenance.
 		/// Anyone can call this to help maintain the chain's storage health.
 		///
 		/// The era must be eligible for pruning (older than HistoryDepth + 1).
+		/// Check `EraPruningState` storage to see if an era needs pruning before calling.
 		#[pallet::call_index(32)]
 		// NOTE: as pre-dispatch weight, use the maximum of all possible pruning step weights
 		#[pallet::weight({
