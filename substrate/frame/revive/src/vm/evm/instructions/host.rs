@@ -73,9 +73,11 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
+	let len = as_usize_or_fail!(context.interpreter, len_u256);
+
+	gas!(context.interpreter, RuntimeCosts::ExtCodeCopy(len as u32));
 	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 
-	let len = as_usize_or_fail!(context.interpreter, len_u256);
 	if len == 0 {
 		return;
 	}
@@ -87,9 +89,6 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let code_slice = context.interpreter.extend.get_code_slice(&address, code_offset, len);
 
 	context.interpreter.memory.set_data(memory_offset, 0, len, &code_slice);
-
-	// TODO: this needs a new benchmark since we read from DB and copy to memory
-	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
 }
 
 /// Implements the BLOCKHASH instruction.

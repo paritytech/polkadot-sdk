@@ -17,10 +17,10 @@
 
 use crate::{
 	exec::ExecError,
-	vec,
+	gas, vec,
 	vm::{BytecodeType, ExecResult, Ext},
-	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue, H256,
-	LOG_TARGET, U256,
+	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue,
+	RuntimeCosts, H256, LOG_TARGET, U256,
 };
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp::min;
@@ -42,6 +42,9 @@ use revm::{
 use sp_core::H160;
 use sp_runtime::Weight;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod instructions;
+#[cfg(not(feature = "runtime-benchmarks"))]
 mod instructions;
 
 /// Hard-coded value returned by the EVM `DIFFICULTY` opcode.
@@ -187,7 +190,6 @@ fn run_call<'a, E: Ext>(
 
 	let input = match &call_input.input {
 		CallInput::Bytes(bytes) => bytes.to_vec(),
-		// Consider the usage fo SharedMemory as REVM is doing
 		CallInput::SharedBuffer(range) => interpreter.memory.global_slice(range.clone()).to_vec(),
 	};
 	let call_result = match call_input.scheme {
@@ -211,25 +213,27 @@ fn run_call<'a, E: Ext>(
 		),
 	};
 
-	let return_value = interpreter.extend.last_frame_output();
-	let return_data: Bytes = return_value.data.clone().into();
+	let (return_data, did_revert) = {
+		let return_value = interpreter.extend.last_frame_output();
+		let return_data: Bytes = return_value.data.clone().into();
+		(return_data, return_value.did_revert())
+	};
 
 	let mem_length = call_input.return_memory_offset.len();
 	let mem_start = call_input.return_memory_offset.start;
 	let returned_len = return_data.len();
 	let target_len = min(mem_length, returned_len);
-	// Set the interpreter with the nested frame result
+
 	interpreter.return_data.set_buffer(return_data);
 
 	match call_result {
 		Ok(()) => {
 			// success or revert
-			// TODO: Charge CopyToContract
+			gas!(interpreter, RuntimeCosts::CopyToContract(target_len as u32));
 			interpreter
 				.memory
 				.set(mem_start, &interpreter.return_data.buffer()[..target_len]);
-			let _ =
-				interpreter.stack.push(primitives::U256::from(!return_value.did_revert() as u8));
+			let _ = interpreter.stack.push(primitives::U256::from(!did_revert as u8));
 		},
 		Err(err) => {
 			let _ = interpreter.stack.push(primitives::U256::ZERO);
@@ -268,7 +272,7 @@ fn run_create<'a, E: Ext>(
 		Ok(address) => {
 			if return_value.did_revert() {
 				// Contract creation reverted — return data must be propagated
-				// TODO: Charge CopyToContract
+				gas!(interpreter, RuntimeCosts::CopyToContract(return_data.len() as u32));
 				interpreter.return_data.set_buffer(return_data);
 				let _ = interpreter.stack.push(primitives::U256::ZERO);
 			} else {
