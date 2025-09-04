@@ -720,6 +720,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (non-cache)");
 
 		let snapshot = self.top.storage_root_snaphost_delta_keys2();
+		#[cfg(feature = "std")]
+		let elapsed00 = start.elapsed();
+
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
 		let mut transcation_nodes = 0;
@@ -729,6 +732,20 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.values_mut()
 			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
 
+		#[cfg(feature = "std")]
+		let elapsed01 = start.elapsed();
+
+		#[cfg(feature = "std")]
+		let mut elapsed02 = Default::default();
+		#[cfg(feature = "std")]
+		let mut elapsed03 = Default::default();
+		#[cfg(feature = "std")]
+		let mut elapsed04 = Default::default();
+		#[cfg(feature = "std")]
+		let mut elapsed05 = Default::default();
+		#[cfg(feature = "std")]
+		let mut elapsed06 = Default::default();
+
 		let root = {
 			let delta = self
 				.top
@@ -736,9 +753,19 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.into_iter()
 				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
+			#[cfg(feature = "std")]
+			{
+				elapsed02 = start.elapsed();
+			}
+
 			let child_delta = self.children.values_mut().map(|v| {
 				(&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
 			});
+
+			#[cfg(feature = "std")]
+			{
+				elapsed03 = start.elapsed();
+			}
 
 			let xxx = Some((
 				self.storage_transaction_cache2
@@ -751,12 +778,23 @@ impl<H: Hasher> OverlayedChanges<H> {
 					.as_ref()
 					.map(|t| t.transaction_storage_root.clone()),
 			));
+
+			#[cfg(feature = "std")]
+			{
+				elapsed04 = start.elapsed();
+			}
+
 			let (root2, transaction) = backend.trigger_storage_root_size_estimation_full(
 				delta,
 				child_delta,
 				state_version,
 				xxx,
 			);
+
+			#[cfg(feature = "std")]
+			{
+				elapsed05 = start.elapsed();
+			}
 
 			// transcation_nodes = transaction.keys().len();
 
@@ -771,6 +809,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 			self.storage_transaction_cache2
 				.push(StorageTransactionCache { transaction, transaction_storage_root: root2 });
+			#[cfg(feature = "std")]
+			{
+				elapsed06 = start.elapsed();
+			}
 			root2
 
 			// if let Some(current_snaphost) = self.storage_transaction_cache2.pop() {
@@ -810,6 +852,15 @@ impl<H: Hasher> OverlayedChanges<H> {
 		#[cfg(feature = "std")]
 		{
 			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} transcation_nodes={}", start.elapsed(), snapshot_len, transcation_nodes);
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+				elapsed00,
+				elapsed01,
+				elapsed02,
+				elapsed03,
+				elapsed04,
+				elapsed05,
+				elapsed06,
+			);
 		}
 
 		(root, false)
