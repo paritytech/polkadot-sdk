@@ -144,7 +144,7 @@ pub struct ExtendedOverseerGenArgs {
 	/// The presence of this parameter here is needed to have different values per chain.
 	pub fetch_chunks_threshold: Option<usize>,
 	/// Set of invulnerable AH collator `PeerId`s
-	pub invulnerable_ah_collators: Option<HashSet<polkadot_node_network_protocol::PeerId>>,
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
 }

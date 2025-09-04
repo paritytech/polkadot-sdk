@@ -79,7 +79,7 @@ pub enum ProtocolSide {
 		/// Prometheus metrics for validators.
 		metrics: validator_side::Metrics,
 		/// List of invulnerable collators which is handled with a priority.
-		invulnerables: Option<HashSet<PeerId>>,
+		invulnerables: HashSet<PeerId>,
 		/// Override for `HOLD_OFF_DURATION` constant .
 		collator_protocol_hold_off: Option<Duration>,
 	},

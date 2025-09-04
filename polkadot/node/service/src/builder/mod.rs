@@ -95,7 +95,7 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
 	/// Set of invulnerable AH collator `PeerId`s
-	pub invulnerable_ah_collators: Option<HashSet<polkadot_node_network_protocol::PeerId>>,
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
 	/// Override for `HOLD_OFF_DURATION` constant .
 	pub collator_protocol_hold_off: Option<Duration>,
 }

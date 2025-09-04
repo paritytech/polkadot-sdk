@@ -35,7 +35,7 @@ use sp_keyring::Sr25519Keyring;
 pub use crate::error::Error;
 #[cfg(feature = "pyroscope")]
 use std::net::ToSocketAddrs;
-use std::{collections::HashSet, path::PathBuf, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -44,6 +44,36 @@ fn get_exec_name() -> Option<String> {
 		.ok()
 		.and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
 		.and_then(|s| s.into_string().ok())
+}
+
+fn get_invulnerable_ah_collators(
+	chain_spec: &Box<dyn polkadot_service::ChainSpec>,
+) -> HashSet<PeerId> {
+	// A default set of invulnerable asset hub collators
+	const KUSAMA: [&str; 6] = [
+		"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
+		"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
+		"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
+		"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
+		"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
+		"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
+	];
+
+	if chain_spec.is_kusama() {
+		KUSAMA
+			.iter()
+			.filter_map(|invuln_str| {
+				invuln_str
+					.parse::<PeerId>()
+					.map_err(|e| {
+						info!("Failed to parse AssetHub invulnerable peer from the default list. This should never happen. {:?}", e)
+					})
+					.ok()
+			})
+			.collect()
+	} else {
+		HashSet::new()
+	}
 }
 
 impl SubstrateCli for Cli {
@@ -159,50 +189,6 @@ fn set_default_ss58_version(spec: &Box<dyn polkadot_service::ChainSpec>) {
 	sp_core::crypto::set_default_ss58_version(ss58_version);
 }
 
-/// Parse invulnerable AH collators from a file path. The file should contain `PeerId`s separated by
-/// spaces and/or newlines.
-pub fn parse_invulnerable_ah_collators(
-	maybe_path: &Option<PathBuf>,
-) -> Result<Option<HashSet<PeerId>>> {
-	let Some(path) = maybe_path else {
-		// param is not provided
-		return Ok(None);
-	};
-
-	// Validate that the path exists and is a file
-	if !path.exists() {
-		return Err(format!("Invulnerable AH collators file does not exist: {:?}", path).into());
-	}
-
-	if !path.is_file() {
-		return Err(format!("Invulnerable AH collators path is not a file: {:?}", path).into());
-	}
-
-	// Read the file content
-	let content = std::fs::read_to_string(&path)
-		.map_err(|e| format!("Failed to read invulnerable AH collators file {:?}: {}", path, e))?;
-
-	// Parse PeerIds from the content (separated by whitespace)
-	let mut peer_ids = HashSet::new();
-	for (line_number, line) in content.lines().enumerate() {
-		for peer_id_str in line.split_whitespace() {
-			if !peer_id_str.trim().is_empty() {
-				let peer_id = peer_id_str.parse::<PeerId>().map_err(|e| {
-					format!(
-						"Invalid PeerId '{}' on line {} in file {:?}: {}",
-						peer_id_str,
-						line_number + 1,
-						path,
-						e
-					)
-				})?;
-				peer_ids.insert(peer_id);
-			}
-		}
-	}
-	Ok(Some(peer_ids))
-}
-
 /// Launch a node, accepting arguments just like a regular node,
 /// accepts an alternative overseer generator, to adjust behavior
 /// for integration tests as needed.
@@ -249,14 +235,9 @@ where
 
 	let secure_validator_mode = cli.run.base.validator && !cli.run.insecure_validator;
 
-	// Parse invulnerable AH collators from file, if provided
-	let invulnerable_ah_collators = parse_invulnerable_ah_collators(
-		&cli.run.invulnerable_ah_collators_list.clone(),
-	)
-	.map_err(|e| Error::Other(format!("Failed to parse invulnerable AH collators: {}", e)))?;
-
-	// Parse collator protocol hold off value
+	// Parse collator protocol hold off value and get the list of the invlunerable collators.
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
+	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
 
 	runner.run_node_until_exit(move |config| async move {
 		let hwbench = (!cli.run.no_hardware_benchmarks)

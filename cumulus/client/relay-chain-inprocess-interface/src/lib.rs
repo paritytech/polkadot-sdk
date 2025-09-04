@@ -16,7 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashSet, VecDeque},
 	pin::Pin,
 	sync::Arc,
 	time::Duration,
@@ -417,7 +417,7 @@ fn build_polkadot_full_node(
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
 		keep_finalized_for: None,
-		invulnerable_ah_collators: None,
+		invulnerable_ah_collators: HashSet::new(),
 		collator_protocol_hold_off: None,
 	};
 

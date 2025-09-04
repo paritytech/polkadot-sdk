@@ -124,16 +124,6 @@ const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
 #[cfg(test)]
 const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 
-// A default set of invulnerable asset hub collators
-const ASSET_HUB_INVULNERABLES: [&str; 6] = [
-	"12D3KooWHNEENyCc4R3iDLLFaJiynUp9eDZp7TtS1G6DCp459vVK",
-	"12D3KooWAVqLdQEjSezy7CPEgMLMSTuyfSBdbxPGkmik5x2aL8u4",
-	"12D3KooWBxMiVQdYa5MaQjSWAu3YsfKdrs7vgX9cPk4cCwFVAXEu",
-	"12D3KooWGbRmQ9FjwkzTVTSxfUh854wxc3LUD5agjzcucDarZrNn",
-	"12D3KooWHwXftCGdp73t4BUxW3c9UKjYTvjc7tHsrinT5M8AUmXo",
-	"12D3KooWCTSAq83D99RcT64rrV5X3sGZxc9JQ8nVtd6GbZEKnDqC",
-];
-
 #[derive(Debug)]
 struct CollatingPeerState {
 	collator_id: CollatorId,
@@ -1766,29 +1756,9 @@ pub(crate) async fn run<Context>(
 	keystore: KeystorePtr,
 	eviction_policy: crate::CollatorEvictionPolicy,
 	metrics: Metrics,
-	ah_invulnerables: Option<HashSet<PeerId>>,
+	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
 ) -> std::result::Result<(), SubsystemError> {
-	// Ideally we should do this conversion earlier and fail. In practice however this parsing
-	// should always succeed and it's cleaner to keep collator related information in the collator
-	// protocol implementation instead of the command line parsing module.
-	let ah_invulnerables = ah_invulnerables.unwrap_or_else(|| {
-		ASSET_HUB_INVULNERABLES
-			.iter()
-			.filter_map(|invuln_str| {
-				invuln_str
-					.parse::<PeerId>()
-					.map_err(|e| {
-						gum::error!(
-						target: LOG_TARGET,
-						error = ?e,
-						"Failed to parse AssetHub invulnerable peer from the default list. This should never happen.")
-					})
-					.ok()
-			})
-			.collect()
-	});
-
 	run_inner(
 		ctx,
 		keystore,
