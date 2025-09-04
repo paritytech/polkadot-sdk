@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.34.0"
+version = "0.34.1"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -4590,7 +4590,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -14049,7 +14049,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "bounded-collections 0.3.2",
  "frame-benchmarking",
@@ -18682,7 +18682,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
@@ -27789,7 +27789,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "26.0.1"
+version = "26.0.2"
 dependencies = [
  "approx",
  "binary-merkle-tree",
