@@ -2408,7 +2408,7 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
-		let module = VmBinaryModule::sized(r);
+		let module = VmBinaryModule::sized(n);
 		let mut setup = CallSetup::<T>::new(module);
 		let contract = setup.contract();
 
@@ -2431,7 +2431,7 @@ mod benchmarks {
 		let extcodecopy_fn = table[EXTCODECOPY as usize];
 
 		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
-		let _ = interpreter.stack.push(primitives::U256::from(r));
+		let _ = interpreter.stack.push(primitives::U256::from(n));
 		let _ = interpreter.stack.push(primitives::U256::from(0u32));
 		let _ = interpreter.stack.push(primitives::U256::from(0u32));
 		let _ = interpreter.stack.push(primitives::U256::from_be_bytes(address));
@@ -2445,8 +2445,8 @@ mod benchmarks {
 		}
 
 		assert_eq!(
-			*interpreter.memory.slice(0..r as usize),
-			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..r as usize],
+			*interpreter.memory.slice(0..n as usize),
+			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
 			"Memory should contain the contract's code after extcodecopy"
 		);
 
