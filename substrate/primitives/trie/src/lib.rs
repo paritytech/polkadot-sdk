@@ -294,6 +294,42 @@ where
 }
 
 /// Determine a trie root given a hash DB and delta values.
+pub fn delta_trie_root_forget<L: TrieConfiguration, I, A, B, DB, V>(
+	db: &mut DB,
+	mut root: TrieHash<L>,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<TrieHash<L>, Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = (A, B)>,
+	A: Borrow<[u8]>,
+	B: Borrow<Option<V>>,
+	V: Borrow<[u8]>,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
+{
+	{
+		let mut trie = TrieDBMutBuilder::<L>::from_existing(db, &mut root)
+			.with_optional_cache(cache)
+			.with_optional_recorder(recorder)
+			.build();
+
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		delta.sort_by(|l, r| l.0.borrow().cmp(r.0.borrow()));
+
+		for (key, change) in delta {
+			match change.borrow() {
+				Some(val) => trie.insert(key.borrow(), val.borrow())?,
+				None => trie.remove(key.borrow())?,
+			};
+		}
+
+		core::mem::forget(trie);
+	}
+
+	Ok(root)
+}
+
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, DB, V>(
 	db: &mut DB,
 	mut root: TrieHash<L>,

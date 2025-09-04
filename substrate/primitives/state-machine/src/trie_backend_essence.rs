@@ -34,7 +34,7 @@ use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
-	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
+	child_delta_trie_root, delta_trie_root, delta_trie_root_forget, empty_child_trie_root,
 	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
 	read_trie_first_descendant_value, read_trie_value,
 	trie_types::{TrieDBBuilder, TrieError},
@@ -678,30 +678,34 @@ where
 					debug!(target: "trie", "using read-only overlay for: {:?} snapshots len:{}", xxx.1, ll);
 				}
 				match state_version {
-					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
-						&mut tmp_eph2,
-						xxx.1.unwrap_or(self.root),
-						delta,
-						recorder,
-						cache,
-					),
-					StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
-						&mut tmp_eph2,
-						xxx.1.unwrap_or(self.root),
-						delta,
-						recorder,
-						cache,
-					),
+					StateVersion::V0 =>
+						delta_trie_root_forget::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+							&mut tmp_eph2,
+							xxx.1.unwrap_or(self.root),
+							delta,
+							recorder,
+							cache,
+						),
+					StateVersion::V1 =>
+						delta_trie_root_forget::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+							&mut tmp_eph2,
+							xxx.1.unwrap_or(self.root),
+							delta,
+							recorder,
+							cache,
+						),
 				}
 			} else {
 				let mut eph = Ephemeral2::new(self.backend_storage(), &mut write_overlay);
 				match state_version {
-					StateVersion::V0 => delta_trie_root::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
-						&mut eph, self.root, delta, recorder, cache,
-					),
-					StateVersion::V1 => delta_trie_root::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
-						&mut eph, self.root, delta, recorder, cache,
-					),
+					StateVersion::V0 =>
+						delta_trie_root_forget::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
+							&mut eph, self.root, delta, recorder, cache,
+						),
+					StateVersion::V1 =>
+						delta_trie_root_forget::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
+							&mut eph, self.root, delta, recorder, cache,
+						),
 				}
 			};
 
