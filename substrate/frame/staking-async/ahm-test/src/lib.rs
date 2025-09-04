@@ -350,7 +350,7 @@ mod tests {
 			assert_eq!(staking_classic::UnappliedSlashes::<rc::Runtime>::get(4).len(), 1);
 
 			// Verify buffered offences are stored correctly
-			let buffered_offences = ah_client::BufferedOffences::<rc::Runtime>::get();
+			let buffered_offences = ah_client::MigrationBufferedOffences::<rc::Runtime>::get();
 			assert_eq!(
 				buffered_offences.len(),
 				3,
@@ -405,7 +405,7 @@ mod tests {
 		// SCENE (3): AHM migration ends.
 		shared::in_rc(|| {
 			// Before migration ends, verify we have 9 buffered offences across multiple sessions
-			let buffered_before = ah_client::BufferedOffences::<rc::Runtime>::get();
+			let buffered_before = ah_client::MigrationBufferedOffences::<rc::Runtime>::get();
 			let total_offences_before: usize =
 				buffered_before.values().map(|session_map| session_map.len()).sum();
 			assert_eq!(total_offences_before, 9);
@@ -439,7 +439,7 @@ mod tests {
 
 			// All buffered offences should be cleared now
 			assert!(
-				ah_client::BufferedOffences::<rc::Runtime>::get().is_empty(),
+				ah_client::MigrationBufferedOffences::<rc::Runtime>::get().is_empty(),
 				"All buffered offences should be processed"
 			);
 		});
@@ -868,5 +868,210 @@ mod tests {
 	fn session_report_burst() {
 		// AH is offline for a while, and it suddenly receives 3 eras worth of session reports. What
 		// do we do?
+	}
+
+	mod message_queue_sizes {
+		use super::*;
+		use sp_core::crypto::AccountId32;
+
+		#[test]
+		fn normal_session_report() {
+			assert_eq!(
+				rc_client::SessionReport::<AccountId32> {
+					end_index: 0,
+					activation_timestamp: Some((0, 0)),
+					leftover: false,
+					validator_points: (0..1000)
+						.map(|i| (AccountId32::from([i as u8; 32]), 1000))
+						.collect(),
+				}
+				.encoded_size(),
+				36_020
+			);
+		}
+
+		#[test]
+		fn normal_validator_set() {
+			assert_eq!(
+				rc_client::ValidatorSetReport::<AccountId32> {
+					id: 42,
+					leftover: false,
+					new_validator_set: (0..1000)
+						.map(|i| AccountId32::from([i as u8; 32]))
+						.collect(),
+					prune_up_to: Some(69),
+				}
+				.encoded_size(),
+				32_012
+			);
+		}
+
+		#[test]
+		fn normal_offence_legacy_single() {
+			// when one validator had an offence
+			let offences = (0..1)
+				.map(|i| rc_client::Offence::<AccountId32> {
+					offender: AccountId32::from([i as u8; 32]),
+					reporters: vec![AccountId32::from([42; 32])],
+					slash_fraction: Perbill::from_percent(50),
+				})
+				.collect::<Vec<_>>();
+
+			// offence + session-index
+			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
+			assert_eq!(encoded_size, 74);
+		}
+
+		#[test]
+		fn normal_offence_legacy_third() {
+			// when a third of validators are offending
+			let offences = (0..333)
+				.map(|i| rc_client::Offence::<AccountId32> {
+					offender: AccountId32::from([i as u8; 32]),
+					reporters: vec![AccountId32::from([42; 32])],
+					slash_fraction: Perbill::from_percent(50),
+				})
+				.collect::<Vec<_>>();
+
+			// offence + session-index
+			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
+			assert_eq!(encoded_size, 22_983);
+		}
+
+		// Kusama has the same configurations as of now.
+		const POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE: u32 = 51200; // 50 Kib
+		const POLKADOT_MAX_UPWARD_MESSAGE_SIZE: u32 = 65531; // 64 Kib
+
+		#[test]
+		fn session_report() {
+			let mut num_validator_points = 1;
+			loop {
+				let session_report = rc_client::SessionReport::<AccountId32> {
+					end_index: 0,
+					activation_timestamp: Some((0, 0)),
+					leftover: false,
+					validator_points: (0..num_validator_points)
+						.map(|i| (AccountId32::from([i as u8; 32]), 1000))
+						.collect(),
+				};
+
+				// Note: the real encoded size of the message will be a few bytes more, due to call
+				// indices and XCM instructions, but not significant.
+				let encoded_size = session_report.encoded_size() as u32;
+
+				if encoded_size > POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE {
+					println!(
+						"SessionReport: num_validator_points: {}, encoded len: {}, max: {:?}, largest session report: {}",
+						num_validator_points, encoded_size, POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE, num_validator_points - 1
+					);
+					break;
+				}
+				num_validator_points += 1;
+			}
+
+			// We can send up to 1422 32-octet validators + u32 points in a single message. This
+			// should inform the configuration `MaximumValidatorsWithPoints`.
+			assert_eq!(num_validator_points, 1422);
+		}
+
+		#[test]
+		fn validator_set() {
+			let mut num_validators = 1;
+			loop {
+				let validator_set_report = rc_client::ValidatorSetReport::<AccountId32> {
+					id: 42,
+					leftover: false,
+					new_validator_set: (0..num_validators)
+						.map(|i| AccountId32::from([i as u8; 32]))
+						.collect(),
+					prune_up_to: Some(69),
+				};
+
+				// Note: the real encoded size of the message will be a few bytes more, due to call
+				// indices and XCM instructions, but not significant.
+				let encoded_size = validator_set_report.encoded_size() as u32;
+				if encoded_size > POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE {
+					println!(
+						"ValidatorSetReport: num_validators: {}, encoded len: {}, max: {:?}, largest validator set: {}",
+						num_validators, encoded_size, POLKADOT_MAX_DOWNWARD_MESSAGE_SIZE, num_validators - 1
+					);
+					break;
+				}
+				num_validators += 1;
+			}
+
+			// We can send up to 1599 32-octet validator keys (+ other small metadata) in a single
+			// validator set report.
+			assert_eq!(num_validators, 1600);
+		}
+
+		#[test]
+		fn offence_legacy() {
+			// the format sent in `SendToAssetHub::relay_new_offence`
+			let mut offenders_in_session = 0;
+			let session_index: u32 = 42;
+			loop {
+				let offences = (0..offenders_in_session)
+					.map(|i| rc_client::Offence::<AccountId32> {
+						offender: AccountId32::from([i as u8; 32]),
+						reporters: vec![AccountId32::from([42; 32])],
+						slash_fraction: Perbill::from_percent(50),
+					})
+					.collect::<Vec<_>>();
+
+				// Note: the real encoded size of the message will be a few bytes more, due to call
+				// indices and XCM instructions, but not significant.
+				let encoded_size = offences.encoded_size() + session_index.encoded_size();
+
+				if encoded_size as u32 > POLKADOT_MAX_UPWARD_MESSAGE_SIZE {
+					println!(
+						"Offence: offenders_in_session: {}, encoded len: {}, max: {:?}, largest offence: {}",
+						offenders_in_session, encoded_size, POLKADOT_MAX_UPWARD_MESSAGE_SIZE, offenders_in_session - 1
+					);
+					break;
+				}
+
+				offenders_in_session += 1;
+			}
+
+			// We can send up to 950 offences associated with a single session in the legacy format.
+			// Should inform the value of `MaxOffenceBatchSize`.
+			assert_eq!(offenders_in_session, 950);
+		}
+
+		#[test]
+		fn offence_batched() {
+			let mut num_offences = 1;
+			let session_index: u32 = 42;
+			loop {
+				let offences = (0..num_offences)
+					.map(|i| {
+						(
+							session_index,
+							rc_client::Offence::<AccountId32> {
+								offender: AccountId32::from([i as u8; 32]),
+								reporters: vec![AccountId32::from([42; 32])],
+								slash_fraction: Perbill::from_percent(50),
+							},
+						)
+					})
+					.collect::<Vec<_>>();
+				let encoded_size = offences.encoded_size();
+
+				if encoded_size as u32 > POLKADOT_MAX_UPWARD_MESSAGE_SIZE {
+					println!(
+						"Offence (batched): num_offences: {}, encoded len: {}, max: {:?}, largest offence batch: {}",
+						num_offences, encoded_size, POLKADOT_MAX_UPWARD_MESSAGE_SIZE, num_offences - 1
+					);
+					break;
+				}
+
+				num_offences += 1;
+			}
+
+			// expectedly, this is a bit less than `offence_legacy` since we encode the session
+			// index over and over again.
+			assert_eq!(num_offences, 898);
+		}
 	}
 }

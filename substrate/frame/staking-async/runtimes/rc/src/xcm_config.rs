@@ -63,6 +63,8 @@ parameter_types! {
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	/// Westend does not have mint authority anymore after the Asset Hub migration.
+	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 }
 
 pub type LocationConverter = (
@@ -83,8 +85,8 @@ pub type LocalAssetTransactor = FungibleAdapter<
 	LocationConverter,
 	// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	AccountId,
-	// It's a native asset so we keep track of the teleports to maintain total issuance.
-	LocalCheckAccount,
+	// Teleport tracking
+	TeleportTracking,
 >;
 
 type LocalOriginConverter = (

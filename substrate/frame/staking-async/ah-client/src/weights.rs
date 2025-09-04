@@ -77,7 +77,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_staking_async_ah_client`.
 pub trait WeightInfo {
-	fn process_buffered_offences(n: u32, ) -> Weight;
+	fn process_migration_buffered_offences(n: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_staking_async_ah_client` using the Substrate node and recommended hardware.
@@ -94,7 +94,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Paras::Heads` (r:1 w:0)
 	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[1, 1000]`.
-	fn process_buffered_offences(n: u32, ) -> Weight {
+	fn process_migration_buffered_offences(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `340 + n * (69 ±0)`
 		//  Estimated: `3803 + n * (69 ±0)`
@@ -121,7 +121,7 @@ impl WeightInfo for () {
 	/// Storage: `Paras::Heads` (r:1 w:0)
 	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[1, 1000]`.
-	fn process_buffered_offences(n: u32, ) -> Weight {
+	fn process_migration_buffered_offences(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `340 + n * (69 ±0)`
 		//  Estimated: `3803 + n * (69 ±0)`

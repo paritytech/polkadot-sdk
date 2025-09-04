@@ -216,8 +216,8 @@ parameter_types! {
 	/// Fixed deposit for invulnerable accounts.
 	pub InvulnerableDeposit: Balance = UNITS;
 
-	/// * Polkadot: 20%
-	/// * Kusama: 10%
+	/// * Polkadot: 10% (more restrictive, don't bail!)
+	/// * Kusama: 25%
 	///
 	/// Reasoning: The weight/fee of the `bail` transaction is already assuming you delete all pages
 	/// of your solution while bailing, and charges you accordingly. So the chain is being
@@ -448,7 +448,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = ConstU32<1>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
@@ -463,6 +463,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<5>;
 }
 
 parameter_types! {
@@ -505,13 +506,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			StakingXcmDestination,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
@@ -690,6 +691,11 @@ mod tests {
 		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
 		weight_diff(block_weight, prune_era);
+
+		assert!(
+			MessageQueueServiceWeight::get().all_gt(prune_era),
+			"prune_era weight is such that it will exceed the weight of the message queue"
+		);
 	}
 
 	#[test]
@@ -698,6 +704,11 @@ mod tests {
 		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
 		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
 		weight_diff(block_weight, prune_era);
+
+		assert!(
+			MessageQueueServiceWeight::get().all_gt(prune_era),
+			"prune_era weight is such that it will exceed the weight of the message queue"
+		);
 	}
 
 	#[test]

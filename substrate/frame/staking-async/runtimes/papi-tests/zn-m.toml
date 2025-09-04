@@ -7,12 +7,13 @@ name = "alice"
 validator = true
 rpc_port = 9942
 
+
 [[relaychain.nodes]]
 name = "bob"
 validator = true
 rpc_port = 9943
 args = [
-	"-lruntime::system=debug,runtime::session=trace,runtime::staking::ah-client=trace,runtime::ah-client=debug",
+	"-lruntime::system=debug,runtime::session=trace,runtime::staking-async::ah-client=trace,runtime::ah-client=debug",
 ]
 
 [[relaychain.nodes]]

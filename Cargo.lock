@@ -1331,6 +1331,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "log",
  "pallet-ah-ops",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -1408,6 +1409,7 @@ dependencies = [
  "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-version",
  "staging-parachain-info",
@@ -11223,6 +11225,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-election-provider-multi-block",
+ "pallet-offences",
  "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
@@ -13518,6 +13521,7 @@ dependencies = [
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
+ "pallet-staking-async-ah-client",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
