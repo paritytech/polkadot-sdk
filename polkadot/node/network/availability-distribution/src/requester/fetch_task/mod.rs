@@ -372,7 +372,7 @@ impl RunningTask {
 
 		match response_recv.await {
 			Ok((bytes, protocol)) => match protocol {
-				_ if protocol == self.req_v2_protocol_name => {
+				_ if protocol == self.req_v2_protocol_name =>
 					match v2::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 						Ok(chunk_response) => Ok(Option::<ErasureChunk>::from(chunk_response)),
 						Err(e) => {
@@ -389,9 +389,8 @@ impl RunningTask {
 							);
 							Err(TaskError::PeerError)
 						},
-					}
-				},
-				_ if protocol == self.req_v1_protocol_name => {
+					},
+				_ if protocol == self.req_v1_protocol_name =>
 					match v1::ChunkFetchingResponse::decode(&mut &bytes[..]) {
 						Ok(chunk_response) => Ok(Option::<ChunkResponse>::from(chunk_response)
 							.map(|c| c.recombine_into_chunk(&self.request.into()))),
@@ -409,8 +408,7 @@ impl RunningTask {
 							);
 							Err(TaskError::PeerError)
 						},
-					}
-				},
+					},
 				_ => {
 					gum::warn!(
 						target: LOG_TARGET,

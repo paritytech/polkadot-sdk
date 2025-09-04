@@ -42,8 +42,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{get_availability_cores, get_occupied_cores, RuntimeInfo},
 };
 use polkadot_primitives::{
-	BackedCandidate, CandidateHash, CoreIndex, CoreState, GroupIndex, GroupRotationInfo, Hash,
-	Id as paraId, SessionIndex, ValidatorIndex,
+	BackedCandidate, CandidateHash, CommittedCandidateReceiptV2, CoreIndex, CoreState, GroupIndex,
+	GroupRotationInfo, Hash, Id as paraId, SessionIndex, ValidatorIndex,
 };
 
 use super::{FatalError, Metrics, Result, LOG_TARGET};
@@ -259,34 +259,22 @@ impl Requester {
 		// Process candidates and collect cores
 		let scheduled_cores = backable_candidates
 			.into_iter()
-			.flat_map(|(para, candidates)| {
+			.flat_map(|(_, candidates)| {
 				candidates.into_iter().filter_map(move |candidate| {
 					let receipt = candidate.candidate();
+					let core_index = Self::core_index_for_candidate(availability_cores, receipt)?;
 
-					// Handle both V1 and V2 candidates
-					let core_index = if let Some(core_index) = receipt.descriptor.core_index() {
-						// V2 candidate - has explicit core index
-						core_index
-					} else {
-						// V1 candidate - find core index by matching para_id with scheduled cores
-						Self::core_index_for_candidate_v1(availability_cores, para)?
-					};
-
-					let core_state = availability_cores.get(core_index.0 as usize)?;
-					match core_state {
-						CoreState::Scheduled(s) if para == s.para_id => Some((
-							core_index,
-							CoreInfo {
-								candidate_hash: receipt.hash(),
-								relay_parent: receipt.descriptor.relay_parent(),
-								erasure_root: receipt.descriptor.erasure_root(),
-								group_responsible: validator_groups
-									.1
-									.group_for_core(core_index, total_cores),
-							},
-						)),
-						_ => None,
-					}
+					Some((
+						core_index,
+						CoreInfo {
+							candidate_hash: receipt.hash(),
+							relay_parent: receipt.descriptor.relay_parent(),
+							erasure_root: receipt.descriptor.erasure_root(),
+							group_responsible: validator_groups
+								.1
+								.group_for_core(core_index, total_cores),
+						},
+					))
 				})
 			})
 			.collect::<Vec<_>>();
@@ -302,17 +290,24 @@ impl Requester {
 		.await
 	}
 
-	fn core_index_for_candidate_v1(
+	fn core_index_for_candidate(
 		availability_cores: &Vec<CoreState>,
-		para: paraId,
+		candidate: &CommittedCandidateReceiptV2,
 	) -> Option<CoreIndex> {
-		let matching_core_index = availability_cores.iter().enumerate().find_map(
-			|(idx, core_state)| match core_state {
-				CoreState::Scheduled(s) if s.para_id == para => Some(CoreIndex(idx as u32)),
-				_ => None,
+		match candidate.descriptor.core_index() {
+			Some(core_index) => Some(core_index), // V2 candidate - has explicit core index
+			None => {
+				// V1 candidate - find core index by matching para_id with scheduled cores
+				availability_cores
+					.iter()
+					.enumerate()
+					.find_map(|(idx, core_state)| match core_state {
+						CoreState::Scheduled(s) if s.para_id == candidate.descriptor.para_id() =>
+							Some(CoreIndex(idx as u32)),
+						_ => None,
+					})
 			},
-		)?;
-		Some(matching_core_index)
+		}
 	}
 
 	/// Requests the hashes of backable candidates from prospective parachains subsystem,
@@ -366,8 +361,8 @@ impl Requester {
 			task.remove_leaves(&obsolete_leaves);
 			let live = task.is_live();
 			if !live {
-				if self.early_candidates.contains(candidate_hash)
-					&& !self.early_candidates_onchain.contains(candidate_hash)
+				if self.early_candidates.contains(candidate_hash) &&
+					!self.early_candidates_onchain.contains(candidate_hash)
 				{
 					self.metrics.on_early_candidate_never_onchain();
 				}
@@ -399,8 +394,8 @@ impl Requester {
 				// Just book keeping - we are already requesting that chunk:
 				e.add_leaf(leaf);
 				// If this candidate was fetched early and now appears on the slow path, mark it.
-				if matches!(origin, FetchOrigin::Slow)
-					&& self.early_candidates.contains(&core.candidate_hash)
+				if matches!(origin, FetchOrigin::Slow) &&
+					self.early_candidates.contains(&core.candidate_hash)
 				{
 					self.early_candidates_onchain.insert(core.candidate_hash);
 				}
