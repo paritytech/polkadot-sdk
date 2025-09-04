@@ -178,8 +178,8 @@ jobs:
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
           PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_secret_access_key }}
         run: |
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             # Find the downloaded .deb artifact
