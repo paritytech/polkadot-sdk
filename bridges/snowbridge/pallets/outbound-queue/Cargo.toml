@@ -37,7 +37,7 @@ snowbridge-merkle-tree.workspace = true
 snowbridge-outbound-queue-primitives.workspace = true
 
 [dev-dependencies]
-pallet-message-queue = { workspace = true, default-features = false }
+pallet-message-queue = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]
