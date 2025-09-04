@@ -190,6 +190,7 @@ jobs:
             fi
             echo "Found DEB package: $debname"
             echo "Local repo path $LOCAL_REPO_PATH"
+            echo "AWS default region $AWS_DEFAULT_REGION"
 
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
