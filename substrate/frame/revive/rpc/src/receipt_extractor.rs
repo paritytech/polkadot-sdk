@@ -123,7 +123,7 @@ impl ReceiptExtractor {
 
 		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
 		let tx_info =
-			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
+			GenericTransaction::from_signed(signed_tx.0.clone(), base_gas_price, Some(from));
 		let gas_price = tx_info.gas_price.unwrap_or_default();
 		let gas_used = U256::from(tx_fees.tip.saturating_add(tx_fees.actual_fee))
 			.saturating_mul(self.native_to_eth_ratio.into())
@@ -178,7 +178,7 @@ impl ReceiptExtractor {
 			transaction_index.into(),
 			tx_info.r#type.unwrap_or_default(),
 		);
-		Ok((signed_tx, receipt))
+		Ok((signed_tx.0, receipt))
 	}
 
 	/// Extract receipts from block.

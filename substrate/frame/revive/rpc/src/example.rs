@@ -175,10 +175,8 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		mutate(&mut unsigned_tx);
 
 		let signed_tx = signer.sign_transaction(unsigned_tx.into());
-		let bytes = signed_tx.signed_payload();
-
 		let hash = client
-			.send_raw_transaction(bytes.into())
+			.send_raw_transaction(signed_tx.clone())
 			.await
 			.with_context(|| "send_raw_transaction failed")?;
 
