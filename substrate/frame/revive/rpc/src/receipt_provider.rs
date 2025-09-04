@@ -346,6 +346,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
+		self.prune_blocks(block).await?;
+
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert(block, &receipts).await?;
 
@@ -357,6 +359,35 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		Ok(receipts)
+	}
+
+	/// Prune blocks older blocks.
+	async fn prune_blocks(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
+		// Keep track of the latest block hashes, so we can prune older blocks.
+		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
+			let latest = block.number();
+			let block_hash = block.hash();
+			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
+
+			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
+			let mut to_remove = block_number_to_hash
+				.iter()
+				.take_while(|(n, _)| **n <= oldest_block)
+				.map(|(_, hash)| *hash)
+				.collect::<Vec<_>>();
+
+			block_number_to_hash.retain(|&n, _| n > oldest_block);
+			match block_number_to_hash.insert(block.number(), block_hash) {
+				Some(old_hash) if old_hash != block_hash => {
+					to_remove.push(old_hash);
+				},
+				_ => {},
+			}
+
+			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
+			self.remove(&to_remove).await?;
+		}
+		Ok(())
 	}
 
 	/// Insert receipts into the provider.
@@ -387,30 +418,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		if result.exists {
 			return Ok(());
-		}
-
-		// Keep track of the latest block hashes, so we can prune older blocks.
-		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
-			let latest = block.number();
-			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
-
-			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
-			let mut to_remove = block_number_to_hash
-				.iter()
-				.take_while(|(n, _)| **n <= oldest_block)
-				.map(|(_, hash)| *hash)
-				.collect::<Vec<_>>();
-
-			block_number_to_hash.retain(|&n, _| n > oldest_block);
-			match block_number_to_hash.insert(block.number(), block_hash) {
-				Some(old_hash) if old_hash != block_hash => {
-					to_remove.push(old_hash);
-				},
-				_ => {},
-			}
-
-			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
-			self.remove(&to_remove).await?;
 		}
 
 		for (_, receipt) in receipts {
