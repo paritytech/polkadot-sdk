@@ -200,6 +200,7 @@ std = [
 	"sp-session/std",
 	"sp-staking/std",
 	"sp-storage/std",
+	"sp-tracing/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
