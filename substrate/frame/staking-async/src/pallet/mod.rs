@@ -1307,6 +1307,8 @@ pub mod pallet {
 		UnappliedSlashesInPreviousEra,
 		/// The era is not eligible for pruning.
 		EraNotPrunable,
+		/// The slash has been cancelled and cannot be applied.
+		CancelledSlash,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1322,12 +1324,7 @@ pub mod pallet {
 				);
 
 				// Check if this slash has been cancelled
-				let cancelled_slashes = CancelledSlashes::<T>::get(&active_era);
-				let is_cancelled = cancelled_slashes.iter().any(|(validator, cancel_fraction)| {
-					*validator == key.0 && *cancel_fraction >= key.1
-				});
-
-				if is_cancelled {
+				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
 					crate::log!(
 						debug,
 						"🦹 slash for {:?} in era {:?} was cancelled, skipping",
@@ -2033,7 +2030,8 @@ pub mod pallet {
 		/// slashes.
 		///
 		/// ## Parameters
-		/// - `era`: The staking era for which slashes should be cancelled.
+		/// - `era`: The staking era for which slashes should be cancelled. This is the era where
+		///   the slash would be applied, not the era in which the offence was committed.
 		/// - `validator_slashes`: A list of validator stash accounts and their slash fractions to
 		///   be cancelled.
 		#[pallet::call_index(17)]
@@ -2668,6 +2666,13 @@ pub mod pallet {
 			let _ = ensure_signed(origin)?;
 			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
 			ensure!(slash_era <= active_era, Error::<T>::EraNotStarted);
+
+			// Check if this slash has been cancelled
+			ensure!(
+				!Self::check_slash_cancelled(slash_era, &slash_key.0, slash_key.1),
+				Error::<T>::CancelledSlash
+			);
+
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
 			slashing::apply_slash::<T>(unapplied_slash, slash_era);

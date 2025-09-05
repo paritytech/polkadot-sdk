@@ -1,0 +1,8 @@
+title: 'staking-async: prevent manual application of cancelled slashes'
+doc:
+- audience: Runtime Dev
+  description: |-
+      Fix security vulnerability where the permissionless `apply_slash` extrinsic could be used to manually apply slashes that governance had cancelled via `cancel_deferred_slash`.
+crates:
+- name: pallet-staking-async
+  bump: major
