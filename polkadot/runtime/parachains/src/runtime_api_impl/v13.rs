@@ -14,7 +14,7 @@
 //! A module exporting runtime API implementation functions for all runtime APIs using `v5`
 //! primitives.
 //!
-//! Runtimes implementing the v11 runtime API are recommended to forward directly to these
+//! Runtimes implementing the v13 runtime API are recommended to forward directly to these
 //! functions.
 
 use crate::{
@@ -30,19 +30,15 @@ use frame_support::traits::{GetStorageVersion, StorageVersion};
 use frame_system::pallet_prelude::*;
 use polkadot_primitives::{
 	async_backing::{
-		AsyncBackingParams, Constraints, InboundHrmpLimitations, OutboundHrmpChannelLimitations,
+		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
+		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	slashing,
-	vstaging::{
-		async_backing::{BackingState, CandidatePendingAvailability},
-		CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState,
-		OccupiedCore, ScrapedOnChainVotes,
-	},
-	ApprovalVotingParams, AuthorityDiscoveryId, CandidateHash, CoreIndex, DisputeState,
+	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, DisputeState,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
-	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
-	PvfCheckStatement, SessionIndex, SessionInfo, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	InboundHrmpMessage, NodeFeatures, OccupiedCore, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 use sp_runtime::traits::One;
 
@@ -402,7 +398,7 @@ pub fn minimum_backing_votes<T: initializer::Config>() -> u32 {
 }
 
 // Helper function that returns the backing constraints given a parachain id.
-pub(crate) fn backing_constraints<T: initializer::Config>(
+pub fn backing_constraints<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Option<Constraints<BlockNumberFor<T>>> {
 	let config = configuration::ActiveConfig::<T>::get();
@@ -462,6 +458,7 @@ pub(crate) fn backing_constraints<T: initializer::Config>(
 		min_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,
+		max_head_data_size: Constraints::<BlockNumberFor<T>>::DEFAULT_MAX_HEAD_DATA_SIZE,
 		ump_remaining,
 		ump_remaining_bytes,
 		max_ump_num_per_candidate: config.max_upward_message_num_per_candidate,
@@ -555,4 +552,15 @@ pub fn candidates_pending_availability<T: initializer::Config>(
 	para_id: ParaId,
 ) -> Vec<CommittedCandidateReceipt<T::Hash>> {
 	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
+}
+
+/// Implementation for `validation_code_bomb_limit` function from the runtime API
+pub fn validation_code_bomb_limit<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_code_size *
+		configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO
+}
+
+/// Implementation for `scheduling_lookahead` function from the runtime API
+pub fn scheduling_lookahead<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().scheduler_params.lookahead
 }

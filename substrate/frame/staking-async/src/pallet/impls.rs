@@ -1123,7 +1123,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	) -> Weight {
 		// worst case weight of this is always
 		T::WeightInfo::rc_on_session_report()
-			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
