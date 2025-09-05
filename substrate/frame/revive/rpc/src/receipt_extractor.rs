@@ -137,8 +137,13 @@ impl ReceiptExtractor {
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
-		let fetch_eth_block_hash =
-			Arc::new(|_, _| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
+		// This method is useful when testing eth - substrate mapping.
+		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: u64| {
+			// Generate hash from substrate block hash and number
+			let bytes: Vec<u8> = [block_hash.as_bytes(), &block_number.to_be_bytes()].concat();
+			let eth_block_hash = H256::from(keccak_256(&bytes));
+			Box::pin(std::future::ready(Some(eth_block_hash))) as Pin<Box<_>>
+		});
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
