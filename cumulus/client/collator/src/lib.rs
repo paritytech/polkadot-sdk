@@ -286,7 +286,7 @@ mod tests {
 
 		let msg = block_on(sub_rx.into_future())
 			.0
-			.expect("message should be send by `start_collator` above.");
+			.expect("message should be send by `cumulus-relay-driven-collator` above.");
 
 		let collator_fn = match msg {
 			CollationGenerationMessage::Initialize(CollationGenerationConfig {
