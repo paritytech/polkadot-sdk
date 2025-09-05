@@ -10,5 +10,6 @@ crates:
   bump: major
   validate: false
 - name: asset-hub-westend-runtime
-  bump: major
-  validate: false
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
