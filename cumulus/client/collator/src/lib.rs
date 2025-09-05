@@ -266,12 +266,9 @@ mod tests {
 			.await;
 			while let Some(request) = request_stream.next().await {
 				let validation_data = request.persisted_validation_data().clone();
-				let last_head = match <Block as BlockT>::Header::decode(
-					&mut &validation_data.parent_head.0[..],
-				) {
-					Ok(x) => x,
-					Err(e) => panic!("Could not decode header: {}", e),
-				};
+				let last_head =
+					<Block as BlockT>::Header::decode(&mut &validation_data.parent_head.0[..])
+						.expect("decode header");
 				let candidate = parachain_consensus
 					.produce_candidate(&last_head, *request.relay_parent(), &validation_data)
 					.await
