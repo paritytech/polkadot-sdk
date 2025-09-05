@@ -33,10 +33,7 @@ use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
 use core::{cmp, marker::PhantomData};
 use cumulus_primitives_core::{
-	relay_chain::{
-		self,
-		vstaging::{ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	},
+	relay_chain::{self, ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
 	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
 	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
 	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
@@ -1550,7 +1547,7 @@ impl<T: Config> Pallet<T> {
 	/// Send the ump signals
 	#[cfg(feature = "experimental-ump-signals")]
 	fn send_ump_signal() {
-		use cumulus_primitives_core::relay_chain::vstaging::{UMPSignal, UMP_SEPARATOR};
+		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
 
 		UpwardMessages::<T>::mutate(|up| {
 			up.push(UMP_SEPARATOR);
