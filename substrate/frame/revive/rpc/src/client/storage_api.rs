@@ -67,27 +67,26 @@ impl StorageApi {
 
 	/// Get the receipt data from storage.
 	pub async fn get_receipt_data(&self) -> Result<Vec<ReceiptGasInfo>, ClientError> {
-		let query = subxt::dynamic::storage("Revive", "ReceiptInfoData", ());
+		let query = subxt_client::storage().revive().receipt_info_data();
 
-		let Some(info) = self.0.fetch(&query).await? else {
+		let Some(receipt_info_data) = self.0.fetch(&query).await? else {
 			log::warn!(target: LOG_TARGET, "Receipt data not found");
 			return Err(ClientError::ReceiptDataNotFound);
 		};
 		log::trace!(target: LOG_TARGET, "Receipt data found");
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+		let receipt_info_data = receipt_info_data.into_iter().map(|entry| entry.0).collect();
+		Ok(receipt_info_data)
 	}
 
 	/// Get the Ethereum block from storage.
 	pub async fn get_ethereum_block(&self) -> Result<Block, ClientError> {
-		let query = subxt::dynamic::storage("Revive", "EthereumBlock", ());
-		let Some(info) = self.0.fetch(&query).await? else {
+		let query = subxt_client::storage().revive().ethereum_block();
+		let Some(block) = self.0.fetch(&query).await? else {
 			log::warn!(target: LOG_TARGET, "Ethereum block not found");
 			return Err(ClientError::EthereumBlockNotFound);
 		};
-		log::trace!(target: LOG_TARGET, "Ethereum block found");
-		let bytes = info.into_encoded();
-		codec::Decode::decode(&mut &bytes[..]).map_err(|err| err.into())
+		log::trace!(target: LOG_TARGET, "Ethereum block found hash: {:?}", block.hash);
+		Ok(block.0)
 	}
 
 	pub async fn get_ethereum_block_hash(&self, number: u64) -> Result<H256, ClientError> {
