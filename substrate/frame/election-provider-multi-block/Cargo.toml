@@ -38,7 +38,7 @@ sp-std.workspace = true
 frame-benchmarking = { default-features = true, workspace = true }
 pallet-balances = { default-features = true, workspace = true }
 parking_lot = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = false }
+sp-core = { default-features = false, workspace = true }
 sp-io = { default-features = true, workspace = true }
 sp-tracing = { default-features = true, workspace = true }
 

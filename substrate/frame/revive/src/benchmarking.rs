@@ -18,7 +18,6 @@
 //! Benchmarks for the revive pallet.
 
 #![cfg(feature = "runtime-benchmarks")]
-
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
 	evm::runtime::GAS_PRICE,
@@ -26,13 +25,14 @@ use crate::{
 	limits,
 	precompiles::{self, run::builtin as run_builtin_precompile},
 	storage::WriteOutcome,
-	ConversionPrecision, Pallet as Contracts, *,
+	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Encode, MaxEncodedLen};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
+	migrations::SteppedMigration,
 	storage::child,
 	traits::fungible::InspectHold,
 	weights::{Weight, WeightMeter},
@@ -45,7 +45,10 @@ use sp_consensus_babe::{
 	BABE_ENGINE_ID,
 };
 use sp_consensus_slots::Slot;
-use sp_runtime::generic::{Digest, DigestItem};
+use sp_runtime::{
+	generic::{Digest, DigestItem},
+	traits::Zero,
+};
 
 /// How many runs we do per API benchmark.
 ///
@@ -124,9 +127,7 @@ mod benchmarks {
 	// is not in the first basic block is never read. We are primarily interested in the
 	// `proof_size` result of this benchmark.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_code_per_byte(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) -> Result<(), BenchmarkError> {
+	fn call_with_code_per_byte(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::sized(c), vec![])?;
 		let value = Pallet::<T>::min_balance();
@@ -184,8 +185,8 @@ mod benchmarks {
 	// `i`: Size of the input in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn instantiate_with_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
 	) {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
@@ -220,10 +221,65 @@ mod benchmarks {
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
 	}
 
+	// `c`: Size of the code in bytes.
+	// `i`: Size of the input in bytes.
+	// `d`: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn eth_instantiate_with_code(
+		c: Linear<0, { 100 * 1024 }>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
+		d: Linear<0, 1>,
+	) {
+		let input = vec![42u8; i as usize];
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 42u32 * d;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+
+		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
+		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
+		let origin = RawOrigin::Signed(caller.clone());
+		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		let deployer = T::AddressMapper::to_address(&caller);
+		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
+		let addr = crate::address::create1(&deployer, nonce);
+		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
+		let storage_deposit = default_deposit_limit::<T>();
+
+		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
+
+		#[extrinsic_call]
+		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
+
+		let deposit =
+			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
+		// uploading the code reserves some balance in the callers account
+		let code_deposit =
+			T::Currency::balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &caller);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
+
+		assert_eq!(
+			Pallet::<T>::evm_balance(&deployer),
+			Pallet::<T>::convert_native_to_evm(
+				caller_funding::<T>() -
+					Pallet::<T>::min_balance() -
+					Pallet::<T>::min_balance() -
+					value - deposit - code_deposit -
+					mapping_deposit,
+			) - dust,
+		);
+
+		// contract has the full value
+		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+	}
+
 	// `i`: Size of the input in bytes.
 	// `s`: Size of e salt in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
+	fn instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
 		let input = vec![42u8; i as usize];
 		let salt = [42u8; 32];
 		let value = Pallet::<T>::min_balance();
@@ -306,13 +362,59 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// `d`: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn eth_call(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let data = vec![42u8; 1024];
+		let instance =
+			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
+
+		let value = Pallet::<T>::min_balance();
+		let dust = 42u32 * d;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+
+		let caller_addr = T::AddressMapper::to_address(&instance.caller);
+		let origin = RawOrigin::Signed(instance.caller.clone());
+		let before = Pallet::<T>::evm_balance(&instance.address);
+		let storage_deposit = default_deposit_limit::<T>();
+		#[extrinsic_call]
+		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data);
+		let deposit = T::Currency::balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+		);
+		let code_deposit = T::Currency::balance_on_hold(
+			&HoldReason::CodeUploadDepositReserve.into(),
+			&instance.caller,
+		);
+		let mapping_deposit =
+			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &instance.caller);
+		// value and value transferred via call should be removed from the caller
+		assert_eq!(
+			Pallet::<T>::evm_balance(&caller_addr),
+			Pallet::<T>::convert_native_to_evm(
+				caller_funding::<T>() -
+					Pallet::<T>::min_balance() -
+					Pallet::<T>::min_balance() -
+					value - deposit - code_deposit -
+					mapping_deposit,
+			) - dust,
+		);
+
+		// contract should have received the value
+		assert_eq!(Pallet::<T>::evm_balance(&instance.address), before + evm_value);
+		// contract should still exist
+		instance.info()?;
+
+		Ok(())
+	}
+
 	// This constructs a contract that is maximal expensive to instrument.
 	// It creates a maximum number of metering blocks per byte.
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn upload_code(
-		c: Linear<0, { limits::code::STATIC_MEMORY_BYTES / limits::code::BYTES_PER_INSTRUCTION }>,
-	) {
+	fn upload_code(c: Linear<0, { 100 * 1024 }>) {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, hash, .. } = VmBinaryModule::sized(c);
@@ -601,23 +703,37 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
+		build_runtime!(runtime, contract, memory: [[0u8;32], ]);
+		contract.set_balance(BalanceWithDust::new_unchecked::<T>(
+			Pallet::<T>::min_balance() * 2u32.into(),
+			42u32,
+		));
+
 		let result;
 		#[block]
 		{
 			result = runtime.bench_balance(memory.as_mut_slice(), 0);
 		}
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().balance());
+		assert_eq!(
+			U256::from_little_endian(&memory[..]),
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
+				Pallet::<T>::min_balance(),
+				42
+			))
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
 	fn seal_balance_of() {
 		let len = <sp_core::U256 as MaxEncodedLen>::max_encoded_len();
 		let account = account::<T::AccountId>("target", 0, 0);
+		<T as Config>::AddressMapper::bench_map(&account).unwrap();
+
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
 		T::Currency::set_balance(&account, balance);
+		AccountInfoOf::<T>::insert(&address, AccountInfo { dust: 42, ..Default::default() });
 
 		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
 
@@ -628,7 +744,13 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..len]), runtime.ext().balance_of(&address));
+		assert_eq!(
+			U256::from_little_endian(&memory[..len]),
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
+				Pallet::<T>::min_balance(),
+				42
+			))
+		);
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -933,7 +1055,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn seal_return(n: Linear<0, { limits::code::BLOB_BYTES - 4 }>) {
+	fn seal_return(n: Linear<0, { limits::CALLDATA_BYTES }>) {
 		build_runtime!(runtime, memory: [n.to_le_bytes(), vec![42u8; n as usize], ]);
 
 		let result;
@@ -1543,16 +1665,21 @@ mod benchmarks {
 	}
 
 	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(t: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
-		let Contract { account_id: callee, .. } =
+	fn seal_call(t: Linear<0, 1>, d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+		let Contract { account_id: callee, address: callee_addr, .. } =
 			Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![]).unwrap();
+
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
-		let value: BalanceOf<T> = (1_000_000 * t).into();
-		let value_bytes = Into::<U256>::into(value).encode();
+		let value: BalanceOf<T> = (1_000_000u32 * t).into();
+		let dust = 100u32 * d;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+		let value_bytes = evm_value.encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
 		let deposit_bytes = Into::<U256>::into(deposit).encode();
@@ -1564,6 +1691,7 @@ mod benchmarks {
 		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
 		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
+		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 		let (mut ext, _) = setup.ext();
 		let mut runtime = crate::vm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
@@ -1583,13 +1711,18 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(
+			Pallet::<T>::evm_balance(&callee_addr),
+			evm_value,
+			"{callee_addr:?} balance should hold {evm_value:?}"
+		);
 	}
 
 	// d: 1 if the associated pre-compile has a contract info that needs to be loaded
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::code::BLOB_BYTES }>) {
+	fn seal_call_precompile(d: Linear<0, 1>, i: Linear<0, { limits::CALLDATA_BYTES - 100 }>) {
 		use alloy_core::sol_types::SolInterface;
 		use precompiles::{BenchmarkNoInfo, BenchmarkWithInfo, BuiltinPrecompile, IBenchmarking};
 
@@ -1609,7 +1742,7 @@ mod benchmarks {
 		let value_len = value_bytes.len() as u32;
 
 		let input_bytes = IBenchmarking::IBenchmarkingCalls::bench(IBenchmarking::benchCall {
-			input: vec![42; i as usize].into(),
+			input: vec![42_u8; i as usize].into(),
 		})
 		.abi_encode();
 		let input_len = input_bytes.len() as u32;
@@ -1681,20 +1814,28 @@ mod benchmarks {
 			);
 		}
 
-		assert_ok!(result);
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
-	// t: value to transfer
-	// i: size of input in bytes
+	// t: with or without some value to transfer
+	// d: with or without dust value to transfer
+	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(i: Linear<0, { limits::code::BLOB_BYTES }>) -> Result<(), BenchmarkError> {
+	fn seal_instantiate(
+		t: Linear<0, 1>,
+		d: Linear<0, 1>,
+		i: Linear<0, { limits::CALLDATA_BYTES }>,
+	) -> Result<(), BenchmarkError> {
 		let code = VmBinaryModule::dummy();
 		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 		let hash_bytes = hash.encode();
 
-		let value: BalanceOf<T> = 1_000_000u32.into();
-		let value_bytes = Into::<U256>::into(value).encode();
+		let value: BalanceOf<T> = (1_000_000u32 * t).into();
+		let dust = 100u32 * d;
+		let evm_value =
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+		let value_bytes = evm_value.encode();
 		let value_len = value_bytes.len() as u32;
 
 		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
@@ -1703,7 +1844,7 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_origin(Origin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + (Pallet::<T>::min_balance() * 2u32.into()));
+		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 		let account_id = &setup.contract().account_id.clone();
 		let (mut ext, _) = setup.ext();
@@ -1714,7 +1855,6 @@ mod benchmarks {
 		let salt = [42u8; 32];
 		let deployer = T::AddressMapper::to_address(&account_id);
 		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
 		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
 
 		let mut offset = {
@@ -1725,7 +1865,7 @@ mod benchmarks {
 			}
 		};
 
-		assert!(ContractInfoOf::<T>::get(&addr).is_none());
+		assert!(AccountInfoOf::<T>::get(&addr).is_none());
 
 		let result;
 		#[block]
@@ -1734,20 +1874,20 @@ mod benchmarks {
 				memory.as_mut_slice(),
 				u64::MAX,                                           // ref_time_limit
 				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deopsit_ptr + value_ptr
+				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
 				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
 				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
 				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
 			);
 		}
 
-		assert_ok!(result);
-		assert!(ContractInfoOf::<T>::get(&addr).is_some());
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
+
 		assert_eq!(
-			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() +
-				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
-					.unwrap()
+			Pallet::<T>::evm_balance(&addr),
+			evm_value,
+			"{addr:?} balance should hold {evm_value:?}"
 		);
 		Ok(())
 	}
@@ -1828,16 +1968,29 @@ mod benchmarks {
 
 	// `n`: Input to hash in bytes
 	#[benchmark(pov_mode = Measured)]
-	fn seal_hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
-		build_runtime!(runtime, memory: [[0u8; 32], vec![0u8; n as usize], ]);
+	fn hash_blake2_256(n: Linear<0, { limits::code::BLOB_BYTES }>) {
+		use crate::precompiles::{BenchmarkSystem, BuiltinPrecompile, ISystem};
+		use alloy_core::sol_types::SolInterface;
+
+		let input = vec![0u8; n as usize];
+		let input_bytes = ISystem::ISystemCalls::hashBlake256(ISystem::hashBlake256Call {
+			input: input.clone().into(),
+		})
+		.abi_encode();
+
+		let mut call_setup = CallSetup::<T>::default();
+		let (mut ext, _) = call_setup.ext();
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_hash_blake2_256(memory.as_mut_slice(), 32, n, 0);
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
 		}
-		assert_eq!(sp_io::hashing::blake2_256(&memory[32..]), &memory[0..32]);
-		assert_ok!(result);
+		assert_eq!(sp_io::hashing::blake2_256(&input).to_vec(), result.unwrap().data);
 	}
 
 	// `n`: Input to hash in bytes
@@ -2128,6 +2281,28 @@ mod benchmarks {
 		{
 			prepared.call().unwrap();
 		}
+	}
+
+	#[benchmark]
+	fn v1_migration_step() {
+		use crate::migrations::v1;
+		let addr = H160::from([1u8; 20]);
+		let contract_info = ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap();
+
+		v1::old::ContractInfoOf::<T>::insert(addr, contract_info.clone());
+		let mut meter = WeightMeter::new();
+		assert_eq!(AccountInfo::<T>::load_contract(&addr), None);
+
+		#[block]
+		{
+			v1::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert_eq!(v1::old::ContractInfoOf::<T>::get(&addr), None);
+		assert_eq!(AccountInfo::<T>::load_contract(&addr).unwrap(), contract_info);
+
+		// uses twice the weight once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v1_migration_step() * 2);
 	}
 
 	impl_benchmark_test_suite!(
