@@ -498,22 +498,6 @@ impl Client {
 		self.receipts_count_per_block(ethereum_hash).await
 	}
 
-	/// Populate missing block mappings for existing blocks.
-	/// This can be used for historical data population.
-	pub async fn populate_missing_mappings(&self, substrate_block: &SubstrateBlock) -> Result<(), ClientError> {
-		self.receipt_provider.populate_missing_mappings(substrate_block).await
-	}
-
-	/// Batch populate missing mappings for a range of blocks.
-	pub async fn batch_populate_mappings(
-		&self,
-		start_block: SubstrateBlockNumber,
-		end_block: SubstrateBlockNumber,
-		batch_size: usize,
-	) -> Result<u32, ClientError> {
-		self.receipt_provider.batch_populate_mappings(start_block, end_block, batch_size).await
-	}
-
 	/// Get the system health.
 	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
 		let health = self.rpc.system_health().await?;
