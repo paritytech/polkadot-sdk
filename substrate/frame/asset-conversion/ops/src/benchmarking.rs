@@ -82,10 +82,10 @@ fn mint_setup_fee_asset<T: Config>(
 	assert_ok!(T::Assets::mint_into(
 		T::PoolSetupFeeAsset::get(),
 		&caller,
-		T::PoolSetupFee::get() +
-			T::Assets::deposit_required(asset1.clone()) +
-			T::Assets::deposit_required(asset2.clone()) +
-			T::PoolAssets::deposit_required(lp_token.clone())
+		T::PoolSetupFee::get()
+			+ T::Assets::deposit_required(asset1.clone())
+			+ T::Assets::deposit_required(asset2.clone())
+			+ T::PoolAssets::deposit_required(lp_token.clone())
 	));
 }
 

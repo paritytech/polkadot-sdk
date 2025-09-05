@@ -718,9 +718,9 @@ fn multiple_thaws_works_in_alternative_thaw_order() {
 fn enlargement_to_target_works() {
 	new_test_ext().execute_with(|| {
 		System::run_to_block::<AllPalletsWithSystem>(2);
-		let w = <() as WeightInfo>::process_queues() +
-			<() as WeightInfo>::process_queue() +
-			(<() as WeightInfo>::process_bid() * 2);
+		let w = <() as WeightInfo>::process_queues()
+			+ <() as WeightInfo>::process_queue()
+			+ (<() as WeightInfo>::process_bid() * 2);
 		super::mock::MaxIntakeWeight::set(w);
 		assert_ok!(Nis::place_bid(signed(1), 40, 1));
 		assert_ok!(Nis::place_bid(signed(1), 40, 2));

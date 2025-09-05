@@ -272,8 +272,8 @@ where
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		let loc = Origin::get();
-		&loc == origin &&
-			matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
+		&loc == origin
+			&& matches!(asset, Asset { id: AssetId(asset_loc), fun: Fungible(_a) }
 			if asset_loc.starts_with(&Prefix::get()))
 	}
 }
@@ -331,8 +331,8 @@ impl<AssetLocation: Get<Location>, Origin: Get<Location>> ContainsPair<Asset, Lo
 {
 	fn contains(asset: &Asset, origin: &Location) -> bool {
 		tracing::trace!(target: "xcm::contains", ?asset, ?origin, "AssetFromChain");
-		*origin == Origin::get() &&
-			matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
+		*origin == Origin::get()
+			&& matches!(asset.id.clone(), AssetId(id) if id == AssetLocation::get())
 	}
 }
 

@@ -240,8 +240,8 @@ mod pallet {
 				"weight of `submit_unsigned` is too high"
 			);
 			assert!(
-				<T as Config>::MinerPages::get() as usize <=
-					<T as crate::Config>::Pages::get() as usize,
+				<T as Config>::MinerPages::get() as usize
+					<= <T as crate::Config>::Pages::get() as usize,
 				"number of pages in the unsigned phase is too high"
 			);
 		}

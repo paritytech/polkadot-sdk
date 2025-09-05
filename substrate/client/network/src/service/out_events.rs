@@ -205,8 +205,8 @@ impl OutChannels {
 					);
 				}
 				sender.warning_fired = SenderWarningState::FiredFull;
-			} else if sender.warning_fired == SenderWarningState::FiredFull &&
-				current_pending < sender.queue_size_warning.wrapping_div(2)
+			} else if sender.warning_fired == SenderWarningState::FiredFull
+				&& current_pending < sender.queue_size_warning.wrapping_div(2)
 			{
 				sender.warning_fired = SenderWarningState::FiredFree;
 				debug!(
@@ -304,7 +304,7 @@ impl Metrics {
 					self.events_total.with_label_values(&[protocol_label, "sent", name]).inc();
 				});
 			},
-			Event::NotificationsReceived { messages, .. } =>
+			Event::NotificationsReceived { messages, .. } => {
 				for (protocol, message) in messages {
 					format_label("notif-", protocol, |protocol_label| {
 						self.events_total.with_label_values(&[protocol_label, "sent", name]).inc();
@@ -312,7 +312,8 @@ impl Metrics {
 					self.notifications_sizes
 						.with_label_values(&[protocol, "sent", name])
 						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
-				},
+				}
+			},
 		}
 	}
 
@@ -331,7 +332,7 @@ impl Metrics {
 					self.events_total.with_label_values(&[protocol_label, "received", name]).inc();
 				});
 			},
-			Event::NotificationsReceived { messages, .. } =>
+			Event::NotificationsReceived { messages, .. } => {
 				for (protocol, message) in messages {
 					format_label("notif-", protocol, |protocol_label| {
 						self.events_total
@@ -341,7 +342,8 @@ impl Metrics {
 					self.notifications_sizes
 						.with_label_values(&[protocol, "received", name])
 						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
-				},
+				}
+			},
 		}
 	}
 }

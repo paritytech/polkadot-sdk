@@ -201,7 +201,7 @@ fn get_at_param_name(
 					 takes at least one argument, the `Hash`.",
 					ADVANCED_ATTRIBUTE,
 				),
-			))
+			));
 		}
 
 		// `param_names` and `param_types` have the same length, so if `param_names` is not empty
@@ -209,7 +209,7 @@ fn get_at_param_name(
 		let ptype_and_borrows = param_types_and_borrows.remove(0);
 		let span = ptype_and_borrows.1.span();
 		if ptype_and_borrows.1 {
-			return Err(Error::new(span, "`Hash` needs to be taken by value and not by reference!"))
+			return Err(Error::new(span, "`Hash` needs to be taken by value and not by reference!"));
 		}
 
 		let name = param_names.remove(0);
@@ -374,7 +374,7 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 		let block_type = extract_block_type_from_trait_path(impl_trait_path)?;
 
 		self_ty = match self_ty.take() {
-			Some(self_ty) =>
+			Some(self_ty) => {
 				if self_ty == impl_.self_ty {
 					Some(self_ty)
 				} else {
@@ -385,13 +385,14 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 
 					error.combine(Error::new(self_ty.span(), "First self type found here"));
 
-					return Err(error)
-				},
+					return Err(error);
+				}
+			},
 			None => Some(impl_.self_ty.clone()),
 		};
 
 		global_block_type = match global_block_type.take() {
-			Some(global_block_type) =>
+			Some(global_block_type) => {
 				if global_block_type == *block_type {
 					Some(global_block_type)
 				} else {
@@ -405,8 +406,9 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 						"First block type found here",
 					));
 
-					return Err(error)
-				},
+					return Err(error);
+				}
+			},
 			None => Some(block_type.clone()),
 		};
 

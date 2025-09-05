@@ -66,8 +66,9 @@ where
 		let origin = env.caller();
 		let frame_origin = match origin {
 			Origin::Root => frame_system::RawOrigin::Root.into(),
-			Origin::Signed(account_id) =>
-				frame_system::RawOrigin::Signed(account_id.clone()).into(),
+			Origin::Signed(account_id) => {
+				frame_system::RawOrigin::Signed(account_id.clone()).into()
+			},
 		};
 
 		match input {
@@ -526,8 +527,9 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}")
+				},
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
@@ -586,8 +588,9 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}")
+				},
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
@@ -654,8 +657,9 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error: {err:?}")
+				},
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
@@ -721,8 +725,9 @@ mod test {
 
 			let weight_result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}")
+				},
 			};
 
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
@@ -824,8 +829,9 @@ mod test {
 
 			let result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}")
+				},
 			};
 			assert!(result.did_revert());
 
@@ -848,8 +854,9 @@ mod test {
 
 			let result = match xcm_weight_results.result {
 				Ok(value) => value,
-				Err(err) =>
-					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}"),
+				Err(err) => {
+					panic!("XcmExecutePrecompile Failed to decode weight with error {err:?}")
+				},
 			};
 			assert!(result.did_revert());
 		});

@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
 					T::Consideration::new(&who, Footprint::from_parts(1, len as usize))
 						.defensive_proof("Unexpected inability to take deposit after unreserved")
 				else {
-					return true
+					return true;
 				};
 				RequestStatus::Unrequested { ticket: (who, ticket), len }
 			},
@@ -291,7 +291,7 @@ impl<T: Config> Pallet<T> {
 									"Unexpected inability to take deposit after unreserved",
 								)
 						else {
-							return true
+							return true;
 						};
 						Some((who, ticket))
 					} else {
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 		origin: T::RuntimeOrigin,
 	) -> Result<Option<T::AccountId>, BadOrigin> {
 		if T::ManagerOrigin::ensure_origin(origin.clone()).is_ok() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let who = ensure_signed(origin)?;
 		Ok(Some(who))
@@ -337,17 +337,20 @@ impl<T: Config> Pallet<T> {
 		// We take a deposit only if there is a provided depositor and the preimage was not
 		// previously requested. This also allows the tx to pay no fee.
 		let status = match (RequestStatusFor::<T>::get(hash), maybe_depositor) {
-			(Some(RequestStatus::Requested { maybe_ticket, count, .. }), _) =>
-				RequestStatus::Requested { maybe_ticket, count, maybe_len: Some(len) },
-			(Some(RequestStatus::Unrequested { .. }), Some(_)) =>
-				return Err(Error::<T>::AlreadyNoted.into()),
+			(Some(RequestStatus::Requested { maybe_ticket, count, .. }), _) => {
+				RequestStatus::Requested { maybe_ticket, count, maybe_len: Some(len) }
+			},
+			(Some(RequestStatus::Unrequested { .. }), Some(_)) => {
+				return Err(Error::<T>::AlreadyNoted.into())
+			},
 			(Some(RequestStatus::Unrequested { ticket, len }), None) => RequestStatus::Requested {
 				maybe_ticket: Some(ticket),
 				count: 1,
 				maybe_len: Some(len),
 			},
-			(None, None) =>
-				RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: Some(len) },
+			(None, None) => {
+				RequestStatus::Requested { maybe_ticket: None, count: 1, maybe_len: Some(len) }
+			},
 			(None, Some(depositor)) => {
 				let ticket =
 					T::Consideration::new(depositor, Footprint::from_parts(1, len as usize))?;
@@ -479,8 +482,9 @@ impl<T: Config> Pallet<T> {
 		use RequestStatus::*;
 		Self::do_ensure_updated(&hash);
 		match RequestStatusFor::<T>::get(hash) {
-			Some(Requested { maybe_len: Some(len), .. }) | Some(Unrequested { len, .. }) =>
-				Some(len),
+			Some(Requested { maybe_len: Some(len), .. }) | Some(Unrequested { len, .. }) => {
+				Some(len)
+			},
 			_ => None,
 		}
 	}

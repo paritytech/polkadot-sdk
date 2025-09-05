@@ -220,13 +220,14 @@ pub fn prepare_test(
 	let (overseer, overseer_handle) = match &mode {
 		TestDataAvailability::Read(options) => {
 			let subsystem = match options.strategy {
-				Strategy::FullFromBackers =>
+				Strategy::FullFromBackers => {
 					AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 						collation_req_receiver,
 						&state.req_protocol_names,
 						Metrics::try_register(&dependencies.registry).unwrap(),
 						RecoveryStrategyKind::BackersFirstAlways,
-					),
+					)
+				},
 				Strategy::Chunks => AvailabilityRecoverySubsystem::with_recovery_strategy_kind(
 					collation_req_receiver,
 					&state.req_protocol_names,
@@ -436,8 +437,8 @@ pub async fn benchmark_availability_write(
 				.get(index)
 				.expect("all validators have keys");
 
-			if env.network().is_peer_connected(peer) &&
-				env.network().send_request_from_peer(peer, request).is_ok()
+			if env.network().is_peer_connected(peer)
+				&& env.network().send_request_from_peer(peer, request).is_ok()
 			{
 				Some(pending_response_receiver)
 			} else {

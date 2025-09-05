@@ -333,8 +333,9 @@ fn asset_transaction_payment_with_tip_and_refund() {
 			let len = 10;
 			// we convert the from weight to fee based on the ratio between asset min balance and
 			// existential deposit
-			let fee_with_tip = (base_weight + weight + ext_weight.ref_time() + len as u64 + tip) *
-				min_balance / ExistentialDeposit::get();
+			let fee_with_tip = (base_weight + weight + ext_weight.ref_time() + len as u64 + tip)
+				* min_balance
+				/ ExistentialDeposit::get();
 			let mut info = info_from_weight(Weight::from_parts(weight, 0));
 			info.extension_weight = ext_weight;
 			let (pre, _) =
@@ -360,10 +361,10 @@ fn asset_transaction_payment_with_tip_and_refund() {
 				len,
 				&Ok(()),
 			));
-			let final_fee = fee_with_tip -
-				(weight - final_weight + ext_weight.ref_time() -
-					MockWeights::charge_asset_tx_payment_asset().ref_time()) *
-					min_balance / ExistentialDeposit::get();
+			let final_fee = fee_with_tip
+				- (weight - final_weight + ext_weight.ref_time()
+					- MockWeights::charge_asset_tx_payment_asset().ref_time())
+					* min_balance / ExistentialDeposit::get();
 			assert_eq!(Assets::balance(asset_id, caller), balance - (final_fee));
 			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), final_fee);
 

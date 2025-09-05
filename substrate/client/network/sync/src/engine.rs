@@ -290,8 +290,8 @@ where
 	where
 		N: NetworkBackend<B, <B as BlockT>::Hash>,
 	{
-		let cache_capacity = (net_config.network_config.default_peers_set.in_peers +
-			net_config.network_config.default_peers_set.out_peers)
+		let cache_capacity = (net_config.network_config.default_peers_set.in_peers
+			+ net_config.network_config.default_peers_set.out_peers)
 			.max(1);
 		let important_peers = {
 			let mut imp_p = HashSet::new();
@@ -328,8 +328,8 @@ where
 		let default_peers_set_num_full =
 			net_config.network_config.default_peers_set_num_full as usize;
 		let default_peers_set_num_light = {
-			let total = net_config.network_config.default_peers_set.out_peers +
-				net_config.network_config.default_peers_set.in_peers;
+			let total = net_config.network_config.default_peers_set.out_peers
+				+ net_config.network_config.default_peers_set.in_peers;
 			total.saturating_sub(net_config.network_config.default_peers_set_num_full) as usize
 		};
 
@@ -663,10 +663,12 @@ where
 				}
 				self.event_streams.push(tx);
 			},
-			ToServiceCommand::RequestJustification(hash, number) =>
-				self.strategy.request_justification(&hash, number),
-			ToServiceCommand::ClearJustificationRequests =>
-				self.strategy.clear_justification_requests(),
+			ToServiceCommand::RequestJustification(hash, number) => {
+				self.strategy.request_justification(&hash, number)
+			},
+			ToServiceCommand::ClearJustificationRequests => {
+				self.strategy.clear_justification_requests()
+			},
 			ToServiceCommand::BlocksProcessed(imported, count, results) => {
 				self.strategy.on_blocks_processed(imported, count, results);
 			},
@@ -715,8 +717,9 @@ where
 					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
-			ToServiceCommand::OnBlockFinalized(hash, header) =>
-				self.strategy.on_block_finalized(&hash, *header.number()),
+			ToServiceCommand::OnBlockFinalized(hash, header) => {
+				self.strategy.on_block_finalized(&hash, *header.number())
+			},
 		}
 	}
 
@@ -796,9 +799,9 @@ where
 			log::debug!(target: LOG_TARGET, "{peer_id} disconnected");
 		}
 
-		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id) &&
-			info.inbound &&
-			info.info.roles.is_full()
+		if !self.default_peers_set_no_slot_connected_peers.remove(&peer_id)
+			&& info.inbound
+			&& info.info.roles.is_full()
 		{
 			match self.num_in_peers.checked_sub(1) {
 				Some(value) => {
@@ -899,21 +902,21 @@ where
 		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
 
-		if handshake.roles.is_full() &&
-			self.strategy.num_peers() >=
-				self.default_peers_set_num_full +
-					self.default_peers_set_no_slot_connected_peers.len() +
-					this_peer_reserved_slot
+		if handshake.roles.is_full()
+			&& self.strategy.num_peers()
+				>= self.default_peers_set_num_full
+					+ self.default_peers_set_no_slot_connected_peers.len()
+					+ this_peer_reserved_slot
 		{
 			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
 			return Err(false);
 		}
 
 		// make sure to accept no more than `--in-peers` many full nodes
-		if !no_slot_peer &&
-			handshake.roles.is_full() &&
-			direction.is_inbound() &&
-			self.num_in_peers == self.max_in_peers
+		if !no_slot_peer
+			&& handshake.roles.is_full()
+			&& direction.is_inbound()
+			&& self.num_in_peers == self.max_in_peers
 		{
 			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
 			return Err(false);
@@ -923,8 +926,8 @@ where
 		//
 		// `ChainSync` only accepts full peers whereas `SyncingEngine` accepts both full and light
 		// peers. Verify that there is a slot in `SyncingEngine` for the inbound light peer
-		if handshake.roles.is_light() &&
-			(self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
+		if handshake.roles.is_light()
+			&& (self.peers.len() - self.strategy.num_peers()) >= self.default_peers_set_num_light
 		{
 			log::debug!(target: LOG_TARGET, "Too many light nodes, rejecting {peer_id}");
 			return Err(false);
@@ -1015,8 +1018,8 @@ where
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},
-					RequestFailure::Network(OutboundFailure::ConnectionClosed) |
-					RequestFailure::NotConnected => {
+					RequestFailure::Network(OutboundFailure::ConnectionClosed)
+					| RequestFailure::NotConnected => {
 						self.network_service
 							.disconnect_peer(peer_id, self.block_announce_protocol_name.clone());
 					},

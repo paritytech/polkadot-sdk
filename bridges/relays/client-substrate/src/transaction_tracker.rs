@@ -121,10 +121,12 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 				(TrackedTransactionStatus::Lost, None)
 			},
 			Either::Right((invalidation_status, _)) => match invalidation_status {
-				InvalidationStatus::Finalized(at_block) =>
-					(TrackedTransactionStatus::Finalized(at_block), Some(invalidation_status)),
-				InvalidationStatus::Invalid =>
-					(TrackedTransactionStatus::Lost, Some(invalidation_status)),
+				InvalidationStatus::Finalized(at_block) => {
+					(TrackedTransactionStatus::Finalized(at_block), Some(invalidation_status))
+				},
+				InvalidationStatus::Invalid => {
+					(TrackedTransactionStatus::Lost, Some(invalidation_status))
+				},
 				InvalidationStatus::Lost => {
 					// wait for the rest of stall timeout - this way we'll be sure that the
 					// transaction is actually dead if it has been crafted properly
@@ -208,10 +210,10 @@ async fn watch_transaction_status<
 							e,
 						);
 						// that's the best option we have here
-						return InvalidationStatus::Lost
+						return InvalidationStatus::Lost;
 					},
 				};
-				return InvalidationStatus::Finalized(header_id)
+				return InvalidationStatus::Finalized(header_id);
 			},
 			Some(TransactionStatusOf::<C>::Invalid) => {
 				// if node says that the transaction is invalid, there are still chances that
@@ -226,11 +228,11 @@ async fn watch_transaction_status<
 					C::NAME,
 					transaction_hash,
 				);
-				return InvalidationStatus::Invalid
+				return InvalidationStatus::Invalid;
 			},
-			Some(TransactionStatusOf::<C>::Future) |
-			Some(TransactionStatusOf::<C>::Ready) |
-			Some(TransactionStatusOf::<C>::Broadcast(_)) => {
+			Some(TransactionStatusOf::<C>::Future)
+			| Some(TransactionStatusOf::<C>::Ready)
+			| Some(TransactionStatusOf::<C>::Broadcast(_)) => {
 				// nothing important (for us) has happened
 			},
 			Some(TransactionStatusOf::<C>::InBlock(block_hash)) => {
@@ -263,7 +265,7 @@ async fn watch_transaction_status<
 					transaction_hash,
 					block_hash,
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Usurped(new_transaction_hash)) => {
 				// this may be result of our transaction resubmitter work or some manual
@@ -276,7 +278,7 @@ async fn watch_transaction_status<
 					transaction_hash,
 					new_transaction_hash,
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Dropped) => {
 				// the transaction has been removed from the pool because of its limits. Let's wait
@@ -287,12 +289,12 @@ async fn watch_transaction_status<
 					C::NAME,
 					transaction_hash,
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			None => {
 				// the status of transaction is unknown to us (the subscription has been closed?).
 				// Let's wait a bit and report a stall
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 		}
 	}

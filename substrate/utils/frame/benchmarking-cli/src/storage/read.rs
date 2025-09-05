@@ -46,12 +46,12 @@ impl StorageCmd {
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
 		if self.params.is_validate_block_mode() && self.params.disable_pov_recorder {
-			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder` from the command line.".into())
+			return Err("PoV recorder must be activated to provide a storage proof for block validation at runtime. Remove `--disable-pov-recorder` from the command line.".into());
 		}
-		if self.params.is_validate_block_mode() &&
-			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
+		if self.params.is_validate_block_mode()
+			&& self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 		{
-			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into())
+			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into());
 		}
 
 		let mut record = BenchRecord::default();
@@ -63,7 +63,7 @@ impl StorageCmd {
 		let (mut rng, _) = new_rng(None);
 		keys.shuffle(&mut rng);
 		if keys.is_empty() {
-			return Err("Can't process benchmarking with empty storage".into())
+			return Err("Can't process benchmarking with empty storage".into());
 		}
 
 		let mut child_nodes = Vec::new();
@@ -158,8 +158,8 @@ impl StorageCmd {
 					record.append(v.len(), start.elapsed())?;
 				}
 				read_in_batch += 1;
-				let is_batch_full = read_in_batch >= self.params.batch_size ||
-					(last_child_key == key && last_child_info == info);
+				let is_batch_full = read_in_batch >= self.params.batch_size
+					|| (last_child_key == key && last_child_info == info);
 
 				// Read child keys on block validation
 				if is_batch_full && self.params.is_validate_block_mode() {

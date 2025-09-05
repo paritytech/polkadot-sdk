@@ -493,10 +493,10 @@ pub mod pallet {
 
 			// Check if there are any rings with suspensions and try to clean the first one.
 			if let Some(ring_index) = PendingSuspensions::<T>::iter_keys().next() {
-				if Self::should_remove_suspended_keys(ring_index, true) &&
-					weight_meter.can_consume(T::WeightInfo::remove_suspended_people(
-						T::MaxRingSize::get(),
-					)) {
+				if Self::should_remove_suspended_keys(ring_index, true)
+					&& weight_meter
+						.can_consume(T::WeightInfo::remove_suspended_people(T::MaxRingSize::get()))
+				{
 					let actual = Self::remove_suspended_keys(ring_index);
 					weight_meter.consume(actual)
 				}
@@ -828,9 +828,9 @@ pub mod pallet {
 			// merged.
 			let current_ring_index = CurrentRingIndex::<T>::get();
 			ensure!(
-				base_ring_index != target_ring_index &&
-					base_ring_index != current_ring_index &&
-					target_ring_index != current_ring_index,
+				base_ring_index != target_ring_index
+					&& base_ring_index != current_ring_index
+					&& target_ring_index != current_ring_index,
 				Error::<T>::InvalidRing
 			);
 
@@ -1090,8 +1090,9 @@ pub mod pallet {
 					People::<T>::insert(id, record);
 				},
 				// This call accepts migrations only for included keys.
-				RingPosition::Onboarding { .. } =>
-					return Err(Error::<T>::InvalidKeyMigration.into()),
+				RingPosition::Onboarding { .. } => {
+					return Err(Error::<T>::InvalidKeyMigration.into())
+				},
 				// Suspended people shouldn't be able to call this, but protect against this case
 				// anyway.
 				RingPosition::Suspended => return Err(Error::<T>::Suspended.into()),
@@ -1211,9 +1212,9 @@ pub mod pallet {
 			// Here we check we have enough items in the queue so that the onboarding group size is
 			// respected, but also that we can support another queue of at least onboarding size
 			// in a future call.
-			let can_onboard_with_cohort = to_include >= onboarding_size &&
-				ring_status.total.saturating_add(to_include.saturated_into()) <=
-					T::MaxRingSize::get().saturating_sub(onboarding_size);
+			let can_onboard_with_cohort = to_include >= onboarding_size
+				&& ring_status.total.saturating_add(to_include.saturated_into())
+					<= T::MaxRingSize::get().saturating_sub(onboarding_size);
 			// If this call completely fills the ring, no onboarding rule enforcement will be
 			// necessary.
 			let ring_filled = open_slots == to_include;
@@ -1504,7 +1505,7 @@ pub mod pallet {
 						let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 						let Err(insert_idx) = suspended_indices.binary_search(&ring_position)
 						else {
-							return Err(Error::<T>::KeyAlreadySuspended.into())
+							return Err(Error::<T>::KeyAlreadySuspended.into());
 						};
 						suspended_indices
 							.try_insert(insert_idx, ring_position)
@@ -1644,8 +1645,9 @@ pub mod pallet {
 				}
 
 				let op_res = with_storage_layer::<bool, DispatchError, _>(|| match drain.next() {
-					Some((id, new_key)) =>
-						Self::migrate_keys_single_included_key(id, new_key).map(|_| false),
+					Some((id, new_key)) => {
+						Self::migrate_keys_single_included_key(id, new_key).map(|_| false)
+					},
 					None => {
 						let rings_state = RingsState::<T>::get()
 							.end_key_migration()
@@ -1660,7 +1662,7 @@ pub mod pallet {
 					Ok(true) => {
 						// Read on `KeyMigrationQueue`.
 						meter.consume(T::DbWeight::get().reads(1));
-						break
+						break;
 					},
 					Err(e) => {
 						meter.consume(weight);
@@ -1685,7 +1687,7 @@ pub mod pallet {
 				} = record.position
 				else {
 					Keys::<T>::remove(new_key);
-					return Ok(())
+					return Ok(());
 				};
 				let mut suspended_indices = PendingSuspensions::<T>::get(ring_index);
 				let Err(insert_idx) = suspended_indices.binary_search(&ring_position) else {
@@ -1808,9 +1810,9 @@ pub mod pallet {
 		}
 
 		fn renew_id_reservation(personal_id: PersonalId) -> Result<(), DispatchError> {
-			if NextPersonalId::<T>::get() <= personal_id ||
-				People::<T>::contains_key(personal_id) ||
-				ReservedPersonalId::<T>::contains_key(personal_id)
+			if NextPersonalId::<T>::get() <= personal_id
+				|| People::<T>::contains_key(personal_id)
+				|| ReservedPersonalId::<T>::contains_key(personal_id)
 			{
 				return Err(Error::<T>::PersonalIdReservationCannotRenew.into());
 			}
@@ -2045,8 +2047,9 @@ pub mod pallet {
 
 		fn try_origin(o: OriginFor<T>, arg: &Context) -> Result<Self::Success, OriginFor<T>> {
 			match ensure_revised_personal_alias(o.clone().into_caller()) {
-				Ok(ca) if &ca.ca.context == arg =>
-					Ok(RevisedAlias { revision: ca.revision, ring: ca.ring, alias: ca.ca.alias }),
+				Ok(ca) if &ca.ca.context == arg => {
+					Ok(RevisedAlias { revision: ca.revision, ring: ca.ring, alias: ca.ca.alias })
+				},
 				_ => Err(o),
 			}
 		}

@@ -102,7 +102,7 @@ impl FeeHistoryProvider {
 				base_fee_per_gas: vec![],
 				gas_used_ratio: vec![],
 				reward: vec![],
-			})
+			});
 		};
 
 		let lowest = highest.saturating_sub(block_count.saturating_sub(1)).max(lowest_in_cache);

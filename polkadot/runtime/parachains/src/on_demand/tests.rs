@@ -210,8 +210,9 @@ fn spot_traffic_can_decrease() {
 		Perbill::from_percent(100),
 		Perbill::from_percent(100),
 	) {
-		Ok(new_traffic) =>
-			assert_eq!(new_traffic, FixedU128::from_inner(50_000_000_000_000_000_000u128)),
+		Ok(new_traffic) => {
+			assert_eq!(new_traffic, FixedU128::from_inner(50_000_000_000_000_000_000u128))
+		},
 		_ => panic!("Error"),
 	}
 }

@@ -262,13 +262,13 @@ fn check_wasm_toolchain_installed(
 				return Err(colorize_error_message(
 					&format!("Cannot compile the WASM runtime: no standard library sources found at {}!\n\
 					 You can install them with `rustup component add rust-src --toolchain {toolchain}` if you're using `rustup`.", src_path.display()),
-				))
+				));
 			}
 		}
 	}
 
-	if cargo_command.supports_wasm32v1_none_target() &&
-		!cargo_command.is_wasm32v1_none_target_installed()
+	if cargo_command.supports_wasm32v1_none_target()
+		&& !cargo_command.is_wasm32v1_none_target_installed()
 	{
 		build_helper::warning!("You are building WASM runtime using `wasm32-unknown-unknown` target, although Rust >= 1.84 supports `wasm32v1-none` target!");
 		build_helper::warning!("You can install it with `rustup target add wasm32v1-none --toolchain {toolchain}` if you're using `rustup`.");

@@ -363,29 +363,29 @@ where
 		use InconsistentError::*;
 
 		if self.scheduler_params.group_rotation_frequency.is_zero() {
-			return Err(ZeroGroupRotationFrequency)
+			return Err(ZeroGroupRotationFrequency);
 		}
 
 		if self.scheduler_params.paras_availability_period.is_zero() {
-			return Err(ZeroParasAvailabilityPeriod)
+			return Err(ZeroParasAvailabilityPeriod);
 		}
 
 		if self.no_show_slots.is_zero() {
-			return Err(ZeroNoShowSlots)
+			return Err(ZeroNoShowSlots);
 		}
 
 		if self.max_code_size > MAX_CODE_SIZE {
-			return Err(MaxCodeSizeExceedHardLimit { max_code_size: self.max_code_size })
+			return Err(MaxCodeSizeExceedHardLimit { max_code_size: self.max_code_size });
 		}
 
 		if self.max_head_data_size > MAX_HEAD_DATA_SIZE {
 			return Err(MaxHeadDataSizeExceedHardLimit {
 				max_head_data_size: self.max_head_data_size,
-			})
+			});
 		}
 
 		if self.max_pov_size > POV_SIZE_HARD_LIMIT {
-			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size })
+			return Err(MaxPovSizeExceedHardLimit { max_pov_size: self.max_pov_size });
 		}
 
 		if self.minimum_validation_upgrade_delay <= self.scheduler_params.paras_availability_period
@@ -393,60 +393,60 @@ where
 			return Err(MinimumValidationUpgradeDelayLessThanChainAvailabilityPeriod {
 				minimum_validation_upgrade_delay: self.minimum_validation_upgrade_delay.clone(),
 				paras_availability_period: self.scheduler_params.paras_availability_period.clone(),
-			})
+			});
 		}
 
 		if self.validation_upgrade_delay <= 1.into() {
 			return Err(ValidationUpgradeDelayIsTooLow {
 				validation_upgrade_delay: self.validation_upgrade_delay.clone(),
-			})
+			});
 		}
 
 		if self.max_upward_message_size > crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND {
 			return Err(MaxUpwardMessageSizeExceeded {
 				max_message_size: self.max_upward_message_size,
-			})
+			});
 		}
 
 		if self.hrmp_max_message_num_per_candidate > MAX_HORIZONTAL_MESSAGE_NUM {
 			return Err(MaxHorizontalMessageNumExceeded {
 				max_message_num: self.hrmp_max_message_num_per_candidate,
-			})
+			});
 		}
 
 		if self.max_upward_message_num_per_candidate > MAX_UPWARD_MESSAGE_NUM {
 			return Err(MaxUpwardMessageNumExceeded {
 				max_message_num: self.max_upward_message_num_per_candidate,
-			})
+			});
 		}
 
 		if self.hrmp_max_parachain_outbound_channels > crate::hrmp::HRMP_MAX_OUTBOUND_CHANNELS_BOUND
 		{
-			return Err(MaxHrmpOutboundChannelsExceeded)
+			return Err(MaxHrmpOutboundChannelsExceeded);
 		}
 
 		if self.hrmp_max_parachain_inbound_channels > crate::hrmp::HRMP_MAX_INBOUND_CHANNELS_BOUND {
-			return Err(MaxHrmpInboundChannelsExceeded)
+			return Err(MaxHrmpInboundChannelsExceeded);
 		}
 
 		if self.minimum_backing_votes.is_zero() {
-			return Err(ZeroMinimumBackingVotes)
+			return Err(ZeroMinimumBackingVotes);
 		}
 
 		if let Err(inner) = self.executor_params.check_consistency() {
-			return Err(InconsistentExecutorParams { inner })
+			return Err(InconsistentExecutorParams { inner });
 		}
 
 		if self.scheduler_params.lookahead == 0 {
-			return Err(LookaheadZero)
+			return Err(LookaheadZero);
 		}
 
 		if self.scheduler_params.on_demand_queue_max_size > ON_DEMAND_MAX_QUEUE_MAX_SIZE {
-			return Err(OnDemandQueueSizeTooLarge)
+			return Err(OnDemandQueueSizeTooLarge);
 		}
 
 		if self.n_delay_tranches.is_zero() {
-			return Err(ZeroDelayTranches)
+			return Err(ZeroDelayTranches);
 		}
 
 		Ok(())
@@ -1302,7 +1302,7 @@ impl<T: Config> Pallet<T> {
 
 		// No pending configuration changes, so we're done.
 		if pending_configs.is_empty() {
-			return SessionChangeOutcome { prev_config, new_config: None }
+			return SessionChangeOutcome { prev_config, new_config: None };
 		}
 
 		let (mut past_and_present, future) = pending_configs
@@ -1419,7 +1419,7 @@ impl<T: Config> Pallet<T> {
 					"Configuration change rejected due to invalid configuration: {:?}",
 					e,
 				);
-				return Err(Error::<T>::InvalidNewValue.into())
+				return Err(Error::<T>::InvalidNewValue.into());
 			} else {
 				// The configuration was already broken, so we can as well proceed with the update.
 				// You cannot break something that is already broken.

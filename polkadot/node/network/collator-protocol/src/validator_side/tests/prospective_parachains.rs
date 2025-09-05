@@ -156,7 +156,7 @@ pub(super) async fn update_view(
 				if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
 					// Ancestry has already been cached for this leaf.
 					next_overseer_message.replace(msg);
-					break
+					break;
 				}
 
 				assert_matches!(

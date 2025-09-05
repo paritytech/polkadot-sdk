@@ -2499,8 +2499,8 @@ fn systematic_chunks_are_not_requested_again_in_regular_recovery() {
 					&mut virtual_overseer,
 					1,
 					|i| {
-						if (test_state.chunks.get(i).unwrap().index.0 as usize) <
-							test_state.systematic_threshold()
+						if (test_state.chunks.get(i).unwrap().index.0 as usize)
+							< test_state.systematic_threshold()
 						{
 							panic!("Already requested")
 						} else {

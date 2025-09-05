@@ -97,17 +97,21 @@ where
 		use RequestResult::*;
 
 		match result {
-			Authorities(relay_parent, authorities) =>
-				self.requests_cache.cache_authorities(relay_parent, authorities),
-			Validators(relay_parent, validators) =>
-				self.requests_cache.cache_validators(relay_parent, validators),
+			Authorities(relay_parent, authorities) => {
+				self.requests_cache.cache_authorities(relay_parent, authorities)
+			},
+			Validators(relay_parent, validators) => {
+				self.requests_cache.cache_validators(relay_parent, validators)
+			},
 			MinimumBackingVotes(session_index, minimum_backing_votes) => self
 				.requests_cache
 				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
-			ValidatorGroups(relay_parent, groups) =>
-				self.requests_cache.cache_validator_groups(relay_parent, groups),
-			AvailabilityCores(relay_parent, cores) =>
-				self.requests_cache.cache_availability_cores(relay_parent, cores),
+			ValidatorGroups(relay_parent, groups) => {
+				self.requests_cache.cache_validator_groups(relay_parent, groups)
+			},
+			AvailabilityCores(relay_parent, cores) => {
+				self.requests_cache.cache_availability_cores(relay_parent, cores)
+			},
 			PersistedValidationData(relay_parent, para_id, assumption, data) => self
 				.requests_cache
 				.cache_persisted_validation_data((relay_parent, para_id, assumption), data),
@@ -123,63 +127,79 @@ where
 			CheckValidationOutputs(relay_parent, para_id, commitments, b) => self
 				.requests_cache
 				.cache_check_validation_outputs((relay_parent, para_id, commitments), b),
-			SessionIndexForChild(relay_parent, session_index) =>
-				self.requests_cache.cache_session_index_for_child(relay_parent, session_index),
+			SessionIndexForChild(relay_parent, session_index) => {
+				self.requests_cache.cache_session_index_for_child(relay_parent, session_index)
+			},
 			ValidationCode(relay_parent, para_id, assumption, code) => self
 				.requests_cache
 				.cache_validation_code((relay_parent, para_id, assumption), code),
-			ValidationCodeByHash(_relay_parent, validation_code_hash, code) =>
-				self.requests_cache.cache_validation_code_by_hash(validation_code_hash, code),
+			ValidationCodeByHash(_relay_parent, validation_code_hash, code) => {
+				self.requests_cache.cache_validation_code_by_hash(validation_code_hash, code)
+			},
 			CandidatePendingAvailability(relay_parent, para_id, candidate) => self
 				.requests_cache
 				.cache_candidate_pending_availability((relay_parent, para_id), candidate),
 			CandidatesPendingAvailability(relay_parent, para_id, candidates) => self
 				.requests_cache
 				.cache_candidates_pending_availability((relay_parent, para_id), candidates),
-			CandidateEvents(relay_parent, events) =>
-				self.requests_cache.cache_candidate_events(relay_parent, events),
-			SessionExecutorParams(_relay_parent, session_index, index) =>
-				self.requests_cache.cache_session_executor_params(session_index, index),
-			SessionInfo(_relay_parent, session_index, info) =>
+			CandidateEvents(relay_parent, events) => {
+				self.requests_cache.cache_candidate_events(relay_parent, events)
+			},
+			SessionExecutorParams(_relay_parent, session_index, index) => {
+				self.requests_cache.cache_session_executor_params(session_index, index)
+			},
+			SessionInfo(_relay_parent, session_index, info) => {
 				if let Some(info) = info {
 					self.requests_cache.cache_session_info(session_index, info);
-				},
-			DmqContents(relay_parent, para_id, messages) =>
-				self.requests_cache.cache_dmq_contents((relay_parent, para_id), messages),
+				}
+			},
+			DmqContents(relay_parent, para_id, messages) => {
+				self.requests_cache.cache_dmq_contents((relay_parent, para_id), messages)
+			},
 			InboundHrmpChannelsContents(relay_parent, para_id, contents) => self
 				.requests_cache
 				.cache_inbound_hrmp_channel_contents((relay_parent, para_id), contents),
-			CurrentBabeEpoch(relay_parent, epoch) =>
-				self.requests_cache.cache_current_babe_epoch(relay_parent, epoch),
-			FetchOnChainVotes(relay_parent, scraped) =>
-				self.requests_cache.cache_on_chain_votes(relay_parent, scraped),
-			PvfsRequirePrecheck(relay_parent, pvfs) =>
-				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
+			CurrentBabeEpoch(relay_parent, epoch) => {
+				self.requests_cache.cache_current_babe_epoch(relay_parent, epoch)
+			},
+			FetchOnChainVotes(relay_parent, scraped) => {
+				self.requests_cache.cache_on_chain_votes(relay_parent, scraped)
+			},
+			PvfsRequirePrecheck(relay_parent, pvfs) => {
+				self.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs)
+			},
 			SubmitPvfCheckStatement(()) => {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) => self
 				.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
-			Version(relay_parent, version) =>
-				self.requests_cache.cache_version(relay_parent, version),
-			Disputes(relay_parent, disputes) =>
-				self.requests_cache.cache_disputes(relay_parent, disputes),
-			UnappliedSlashes(relay_parent, unapplied_slashes) =>
-				self.requests_cache.cache_unapplied_slashes(relay_parent, unapplied_slashes),
+			Version(relay_parent, version) => {
+				self.requests_cache.cache_version(relay_parent, version)
+			},
+			Disputes(relay_parent, disputes) => {
+				self.requests_cache.cache_disputes(relay_parent, disputes)
+			},
+			UnappliedSlashes(relay_parent, unapplied_slashes) => {
+				self.requests_cache.cache_unapplied_slashes(relay_parent, unapplied_slashes)
+			},
 			KeyOwnershipProof(relay_parent, validator_id, key_ownership_proof) => self
 				.requests_cache
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
-			ApprovalVotingParams(_relay_parent, session_index, params) =>
-				self.requests_cache.cache_approval_voting_params(session_index, params),
+			ApprovalVotingParams(_relay_parent, session_index, params) => {
+				self.requests_cache.cache_approval_voting_params(session_index, params)
+			},
 			SubmitReportDisputeLost(_) => {},
-			DisabledValidators(relay_parent, disabled_validators) =>
-				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
+			DisabledValidators(relay_parent, disabled_validators) => {
+				self.requests_cache.cache_disabled_validators(relay_parent, disabled_validators)
+			},
 			ParaBackingState(relay_parent, para_id, constraints) => self
 				.requests_cache
 				.cache_para_backing_state((relay_parent, para_id), constraints),
-			AsyncBackingParams(relay_parent, params) =>
-				self.requests_cache.cache_async_backing_params(relay_parent, params),
-			NodeFeatures(session_index, params) =>
-				self.requests_cache.cache_node_features(session_index, params),
+			AsyncBackingParams(relay_parent, params) => {
+				self.requests_cache.cache_async_backing_params(relay_parent, params)
+			},
+			NodeFeatures(session_index, params) => {
+				self.requests_cache.cache_node_features(session_index, params)
+			},
 			ClaimQueue(relay_parent, sender) => {
 				self.requests_cache.cache_claim_queue(relay_parent, sender);
 			},
@@ -189,8 +209,9 @@ where
 			SchedulingLookahead(session_index, scheduling_lookahead) => self
 				.requests_cache
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
-			ValidationCodeBombLimit(session_index, limit) =>
-				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
+			ValidationCodeBombLimit(session_index, limit) => {
+				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit)
+			},
 			ParaIds(session_index, para_ids) => {
 				self.requests_cache.cache_para_ids(session_index, para_ids);
 			},
@@ -224,19 +245,24 @@ where
 		}
 
 		match request {
-			Request::Version(sender) =>
-				query!(version(), sender).map(|sender| Request::Version(sender)),
-			Request::Authorities(sender) =>
-				query!(authorities(), sender).map(|sender| Request::Authorities(sender)),
-			Request::Validators(sender) =>
-				query!(validators(), sender).map(|sender| Request::Validators(sender)),
-			Request::ValidatorGroups(sender) =>
-				query!(validator_groups(), sender).map(|sender| Request::ValidatorGroups(sender)),
+			Request::Version(sender) => {
+				query!(version(), sender).map(|sender| Request::Version(sender))
+			},
+			Request::Authorities(sender) => {
+				query!(authorities(), sender).map(|sender| Request::Authorities(sender))
+			},
+			Request::Validators(sender) => {
+				query!(validators(), sender).map(|sender| Request::Validators(sender))
+			},
+			Request::ValidatorGroups(sender) => {
+				query!(validator_groups(), sender).map(|sender| Request::ValidatorGroups(sender))
+			},
 			Request::AvailabilityCores(sender) => query!(availability_cores(), sender)
 				.map(|sender| Request::AvailabilityCores(sender)),
-			Request::PersistedValidationData(para, assumption, sender) =>
+			Request::PersistedValidationData(para, assumption, sender) => {
 				query!(persisted_validation_data(para, assumption), sender)
-					.map(|sender| Request::PersistedValidationData(para, assumption, sender)),
+					.map(|sender| Request::PersistedValidationData(para, assumption, sender))
+			},
 			Request::AssumedValidationData(
 				para,
 				expected_persisted_validation_data_hash,
@@ -252,25 +278,31 @@ where
 					sender,
 				)
 			}),
-			Request::CheckValidationOutputs(para, commitments, sender) =>
+			Request::CheckValidationOutputs(para, commitments, sender) => {
 				query!(check_validation_outputs(para, commitments), sender)
-					.map(|sender| Request::CheckValidationOutputs(para, commitments, sender)),
+					.map(|sender| Request::CheckValidationOutputs(para, commitments, sender))
+			},
 			Request::SessionIndexForChild(sender) => query!(session_index_for_child(), sender)
 				.map(|sender| Request::SessionIndexForChild(sender)),
-			Request::ValidationCode(para, assumption, sender) =>
+			Request::ValidationCode(para, assumption, sender) => {
 				query!(validation_code(para, assumption), sender)
-					.map(|sender| Request::ValidationCode(para, assumption, sender)),
-			Request::ValidationCodeByHash(validation_code_hash, sender) =>
+					.map(|sender| Request::ValidationCode(para, assumption, sender))
+			},
+			Request::ValidationCodeByHash(validation_code_hash, sender) => {
 				query!(validation_code_by_hash(validation_code_hash), sender)
-					.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender)),
-			Request::CandidatePendingAvailability(para, sender) =>
+					.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender))
+			},
+			Request::CandidatePendingAvailability(para, sender) => {
 				query!(candidate_pending_availability(para), sender)
-					.map(|sender| Request::CandidatePendingAvailability(para, sender)),
-			Request::CandidatesPendingAvailability(para, sender) =>
+					.map(|sender| Request::CandidatePendingAvailability(para, sender))
+			},
+			Request::CandidatesPendingAvailability(para, sender) => {
 				query!(candidates_pending_availability(para), sender)
-					.map(|sender| Request::CandidatesPendingAvailability(para, sender)),
-			Request::CandidateEvents(sender) =>
-				query!(candidate_events(), sender).map(|sender| Request::CandidateEvents(sender)),
+					.map(|sender| Request::CandidatesPendingAvailability(para, sender))
+			},
+			Request::CandidateEvents(sender) => {
+				query!(candidate_events(), sender).map(|sender| Request::CandidateEvents(sender))
+			},
 			Request::SessionExecutorParams(session_index, sender) => {
 				if let Some(executor_params) =
 					self.requests_cache.session_executor_params(session_index)
@@ -291,40 +323,50 @@ where
 					Some(Request::SessionInfo(index, sender))
 				}
 			},
-			Request::DmqContents(id, sender) =>
-				query!(dmq_contents(id), sender).map(|sender| Request::DmqContents(id, sender)),
-			Request::InboundHrmpChannelsContents(id, sender) =>
+			Request::DmqContents(id, sender) => {
+				query!(dmq_contents(id), sender).map(|sender| Request::DmqContents(id, sender))
+			},
+			Request::InboundHrmpChannelsContents(id, sender) => {
 				query!(inbound_hrmp_channels_contents(id), sender)
-					.map(|sender| Request::InboundHrmpChannelsContents(id, sender)),
-			Request::CurrentBabeEpoch(sender) =>
-				query!(current_babe_epoch(), sender).map(|sender| Request::CurrentBabeEpoch(sender)),
-			Request::FetchOnChainVotes(sender) =>
-				query!(on_chain_votes(), sender).map(|sender| Request::FetchOnChainVotes(sender)),
+					.map(|sender| Request::InboundHrmpChannelsContents(id, sender))
+			},
+			Request::CurrentBabeEpoch(sender) => {
+				query!(current_babe_epoch(), sender).map(|sender| Request::CurrentBabeEpoch(sender))
+			},
+			Request::FetchOnChainVotes(sender) => {
+				query!(on_chain_votes(), sender).map(|sender| Request::FetchOnChainVotes(sender))
+			},
 			Request::PvfsRequirePrecheck(sender) => query!(pvfs_require_precheck(), sender)
 				.map(|sender| Request::PvfsRequirePrecheck(sender)),
 			request @ Request::SubmitPvfCheckStatement(_, _, _) => {
 				// This request is side-effecting and thus cannot be cached.
 				Some(request)
 			},
-			Request::ValidationCodeHash(para, assumption, sender) =>
+			Request::ValidationCodeHash(para, assumption, sender) => {
 				query!(validation_code_hash(para, assumption), sender)
-					.map(|sender| Request::ValidationCodeHash(para, assumption, sender)),
-			Request::Disputes(sender) =>
-				query!(disputes(), sender).map(|sender| Request::Disputes(sender)),
-			Request::UnappliedSlashes(sender) =>
-				query!(unapplied_slashes(), sender).map(|sender| Request::UnappliedSlashes(sender)),
-			Request::KeyOwnershipProof(validator_id, sender) =>
+					.map(|sender| Request::ValidationCodeHash(para, assumption, sender))
+			},
+			Request::Disputes(sender) => {
+				query!(disputes(), sender).map(|sender| Request::Disputes(sender))
+			},
+			Request::UnappliedSlashes(sender) => {
+				query!(unapplied_slashes(), sender).map(|sender| Request::UnappliedSlashes(sender))
+			},
+			Request::KeyOwnershipProof(validator_id, sender) => {
 				query!(key_ownership_proof(validator_id), sender)
-					.map(|sender| Request::KeyOwnershipProof(validator_id, sender)),
-			Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) =>
+					.map(|sender| Request::KeyOwnershipProof(validator_id, sender))
+			},
+			Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender) => {
 				query!(submit_report_dispute_lost(dispute_proof, key_ownership_proof), sender).map(
 					|sender| {
 						Request::SubmitReportDisputeLost(dispute_proof, key_ownership_proof, sender)
 					},
-				),
-			Request::ApprovalVotingParams(session_index, sender) =>
+				)
+			},
+			Request::ApprovalVotingParams(session_index, sender) => {
 				query!(approval_voting_params(session_index), sender)
-					.map(|sender| Request::ApprovalVotingParams(session_index, sender)),
+					.map(|sender| Request::ApprovalVotingParams(session_index, sender))
+			},
 			Request::DisabledValidators(sender) => query!(disabled_validators(), sender)
 				.map(|sender| Request::DisabledValidators(sender)),
 			Request::ParaBackingState(para, sender) => query!(para_backing_state(para), sender)
@@ -349,8 +391,9 @@ where
 					Some(Request::NodeFeatures(index, sender))
 				}
 			},
-			Request::ClaimQueue(sender) =>
-				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender)),
+			Request::ClaimQueue(sender) => {
+				query!(claim_queue(), sender).map(|sender| Request::ClaimQueue(sender))
+			},
 			Request::BackingConstraints(para, sender) => query!(backing_constraints(para), sender)
 				.map(|sender| Request::BackingConstraints(para, sender)),
 			Request::SchedulingLookahead(index, sender) => {

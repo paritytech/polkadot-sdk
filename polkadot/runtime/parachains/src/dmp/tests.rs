@@ -300,8 +300,8 @@ fn verify_fee_increase_and_decrease() {
 		let big_message = [0; 10240].to_vec();
 		let msg_len_in_kb = big_message.len().saturating_div(1024) as u32;
 		let result = initial.saturating_mul(
-			Dmp::EXPONENTIAL_FEE_BASE +
-				Dmp::MESSAGE_SIZE_FEE_BASE.saturating_mul(FixedU128::from_u32(msg_len_in_kb)),
+			Dmp::EXPONENTIAL_FEE_BASE
+				+ Dmp::MESSAGE_SIZE_FEE_BASE.saturating_mul(FixedU128::from_u32(msg_len_in_kb)),
 		);
 		queue_downward_message(a, big_message).unwrap();
 		assert_eq!(DeliveryFeeFactor::<Test>::get(a), result);

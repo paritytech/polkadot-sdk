@@ -279,7 +279,9 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 			match T::Bridges::exporter_for(network, remote_location, message) {
 				Some((bridge_hub_location, maybe_payment))
 					if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-					(bridge_hub_location, maybe_payment),
+				{
+					(bridge_hub_location, maybe_payment)
+				},
 				_ => {
 					tracing::trace!(
 						target: LOG_TARGET,
@@ -504,8 +506,8 @@ mod tests {
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(initial_fee_factor));
 
 			// it should eventually decrease to one
-			while XcmBridgeHubRouter::bridge().delivery_fee_factor >
-				Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR
+			while XcmBridgeHubRouter::bridge().delivery_fee_factor
+				> Pallet::<TestRuntime, ()>::MIN_FEE_FACTOR
 			{
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
@@ -637,10 +639,10 @@ mod tests {
 			let factor = FixedU128::from_rational(125, 100);
 			Bridge::<TestRuntime, ()>::put(uncongested_bridge(factor));
 			let expected_fee =
-				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128)) *
-					factor)
-					.into_inner() / FixedU128::DIV +
-					HRMP_FEE;
+				(FixedU128::saturating_from_integer(BASE_FEE + BYTE_FEE * (msg_size as u128))
+					* factor)
+					.into_inner() / FixedU128::DIV
+					+ HRMP_FEE;
 			assert_eq!(
 				XcmBridgeHubRouter::validate(&mut Some(dest), &mut Some(xcm)).unwrap().1.get(0),
 				Some(&(BridgeFeeAsset::get(), expected_fee).into()),

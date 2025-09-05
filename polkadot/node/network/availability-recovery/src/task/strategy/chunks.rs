@@ -191,8 +191,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 		// No need to query the validators that have the chunks we already received or that we know
 		// don't have the data from previous strategies.
 		self.validators.retain(|v_index| {
-			!state.received_chunks.values().any(|c| v_index == &c.validator_index) &&
-				state.can_retry_request(
+			!state.received_chunks.values().any(|c| v_index == &c.validator_index)
+				&& state.can_retry_request(
 					&(common_params.validator_authority_keys[v_index.0 as usize].clone(), *v_index),
 					REGULAR_CHUNKS_REQ_RETRY_LIMIT,
 				)
@@ -217,7 +217,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// Do this before requesting any chunks because we may have enough of them coming from
 			// past RecoveryStrategies.
 			if state.chunk_count() >= common_params.threshold {
-				return self.attempt_recovery::<Sender>(state, common_params).await
+				return self.attempt_recovery::<Sender>(state, common_params).await;
 			}
 
 			if Self::is_unavailable(
@@ -237,7 +237,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable)
+				return Err(RecoveryError::Unavailable);
 			}
 
 			let desired_requests_count =
@@ -279,8 +279,8 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					 in_flight_reqs,
 					 chunk_count,
 					 _systematic_chunk_count| {
-						chunk_count >= common_params.threshold ||
-							Self::is_unavailable(
+						chunk_count >= common_params.threshold
+							|| Self::is_unavailable(
 								unrequested_validators,
 								in_flight_reqs,
 								chunk_count,

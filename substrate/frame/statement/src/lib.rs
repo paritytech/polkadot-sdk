@@ -143,7 +143,7 @@ where
 			Some(Proof::OnChain { who, block_hash, event_index }) => {
 				if frame_system::Pallet::<T>::parent_hash().as_ref() != block_hash.as_slice() {
 					log::debug!(target: LOG_TARGET, "Bad block hash.");
-					return Err(InvalidStatement::BadProof)
+					return Err(InvalidStatement::BadProof);
 				}
 				let account: T::AccountId = (*who).into();
 				match frame_system::Pallet::<T>::event_no_consensus(*event_index as usize) {
@@ -152,16 +152,16 @@ where
 						if let Ok(Event::NewStatement { account: a, statement: s }) = e.try_into() {
 							if a != account || s != statement {
 								log::debug!(target: LOG_TARGET, "Event data mismatch");
-								return Err(InvalidStatement::BadProof)
+								return Err(InvalidStatement::BadProof);
 							}
 						} else {
 							log::debug!(target: LOG_TARGET, "Event type mismatch");
-							return Err(InvalidStatement::BadProof)
+							return Err(InvalidStatement::BadProof);
 						}
 					},
 					_ => {
 						log::debug!(target: LOG_TARGET, "Bad event index");
-						return Err(InvalidStatement::BadProof)
+						return Err(InvalidStatement::BadProof);
 					},
 				}
 				account
@@ -170,11 +170,11 @@ where
 				SignatureVerificationResult::Valid(account) => account.into(),
 				SignatureVerificationResult::Invalid => {
 					log::debug!(target: LOG_TARGET, "Bad statement signature.");
-					return Err(InvalidStatement::BadProof)
+					return Err(InvalidStatement::BadProof);
 				},
 				SignatureVerificationResult::NoSignature => {
 					log::debug!(target: LOG_TARGET, "Missing statement signature.");
-					return Err(InvalidStatement::NoProof)
+					return Err(InvalidStatement::NoProof);
 				},
 			},
 		};

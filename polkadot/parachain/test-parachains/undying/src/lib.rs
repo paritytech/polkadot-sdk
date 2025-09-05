@@ -152,7 +152,7 @@ pub fn execute(
 			hash_state(&block_data.state),
 			parent_head.post_state,
 		);
-		return Err(StateMismatch)
+		return Err(StateMismatch);
 	}
 
 	let mut upward_messages: UpwardMessages = Default::default();

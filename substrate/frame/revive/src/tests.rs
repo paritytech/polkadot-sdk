@@ -159,8 +159,8 @@ pub mod test_utils {
 		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u64;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
-		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len) +
-			DepositPerItem::get().saturating_mul(2)
+		DepositPerByte::get().saturating_mul(code_len as u64 + code_info_len)
+			+ DepositPerItem::get().saturating_mul(2)
 	}
 	pub fn ensure_stored(code_hash: sp_core::H256) -> usize {
 		// Assert that code_info is stored
@@ -3101,8 +3101,8 @@ fn native_dependency_deposit_works() {
 
 			// Check updated storage_deposit due to code size changes
 			let deposit_diff = lockup_deposit_percent
-				.mul_ceil(test_utils::get_code_deposit(&code_hash)) -
-				lockup_deposit_percent.mul_ceil(test_utils::get_code_deposit(&dummy_code_hash));
+				.mul_ceil(test_utils::get_code_deposit(&code_hash))
+				- lockup_deposit_percent.mul_ceil(test_utils::get_code_deposit(&dummy_code_hash));
 			let new_base_deposit = test_utils::contract_base_deposit(&addr);
 			assert_ne!(deposit_diff, 0);
 			assert_eq!(base_deposit - new_base_deposit, deposit_diff);

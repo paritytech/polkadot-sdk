@@ -96,13 +96,13 @@ where
 					error = ?e,
 					"Could not decode the head data."
 				);
-				return None
+				return None;
 			},
 		};
 
 		let last_head_hash = last_head.hash();
 		if !self.service.check_block_status(last_head_hash, &last_head) {
-			return None
+			return None;
 		}
 
 		tracing::info!(
@@ -209,7 +209,7 @@ pub mod relay_chain_driven {
 						CollationRequest { relay_parent, pvd: validation_data, sender: this_tx };
 
 					if stream_tx.send(request).await.is_err() {
-						return None
+						return None;
 					}
 
 					this_rx.await.ok().flatten()

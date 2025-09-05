@@ -111,11 +111,12 @@ impl CompositeDef {
 			// a fixed variant count.
 			for variant in &item.variants {
 				match variant.fields {
-					syn::Fields::Named(_) | syn::Fields::Unnamed(_) =>
+					syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
 						return Err(syn::Error::new(
 							variant.ident.span(),
 							"The composite enum does not support variants with fields!",
-						)),
+						))
+					},
 					syn::Fields::Unit => (),
 				}
 			}
@@ -124,12 +125,12 @@ impl CompositeDef {
 			return Err(syn::Error::new(
 				item.span(),
 				"Invalid pallet::composite_enum, expected enum item",
-			))
+			));
 		};
 
 		if !matches!(item.vis, syn::Visibility::Public(_)) {
 			let msg = format!("Invalid pallet::composite_enum, `{}` must be public", item.ident);
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		}
 
 		let has_instance = if item.generics.params.first().is_some() {

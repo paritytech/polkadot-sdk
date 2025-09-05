@@ -318,8 +318,9 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		results
 			.into_iter()
 			.map(|res| match res {
-				Ok(outcome) if removed.contains(&outcome.hash) =>
-					Err(error::Error::ImmediatelyDropped.into()),
+				Ok(outcome) if removed.contains(&outcome.hash) => {
+					Err(error::Error::ImmediatelyDropped.into())
+				},
 				other => other,
 			})
 			.collect()
@@ -339,7 +340,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					"ValidatedPool::submit_one"
 				);
 				if !tx.propagate && !(self.is_validator.0)() {
-					return Err(error::Error::Unactionable.into())
+					return Err(error::Error::Unactionable.into());
 				}
 
 				let imported = self.pool.write().import(tx)?;
@@ -348,7 +349,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					let sinks = &mut self.import_notification_sinks.lock();
 					sinks.retain_mut(|sink| match sink.try_send(*hash) {
 						Ok(()) => true,
-						Err(e) =>
+						Err(e) => {
 							if e.is_full() {
 								warn!(
 									target: LOG_TARGET,
@@ -358,7 +359,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 								true
 							} else {
 								false
-							},
+							}
+						},
 					});
 				}
 
@@ -394,8 +396,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		let ready_limit = &self.options.ready;
 		let future_limit = &self.options.future;
 
-		if ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
-			future_limit.is_exceeded(status.future, status.future_bytes)
+		if ready_limit.is_exceeded(status.ready, status.ready_bytes)
+			|| future_limit.is_exceeded(status.future, status.future_bytes)
 		{
 			trace!(
 				target: LOG_TARGET,
@@ -575,8 +577,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 								final_statuses.insert(tx_hash, Status::Failed);
 							},
 						},
-						ValidatedTransaction::Invalid(_, _) |
-						ValidatedTransaction::Unknown(_, _) => {
+						ValidatedTransaction::Invalid(_, _)
+						| ValidatedTransaction::Unknown(_, _) => {
 							final_statuses.insert(tx_hash, Status::Failed);
 						},
 					}
@@ -774,7 +776,7 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 	pub fn remove_invalid(&self, hashes: &[ExtrinsicHash<B>]) -> Vec<TransactionFor<B>> {
 		// early exit in case there is no invalid transactions.
 		if hashes.is_empty() {
-			return vec![]
+			return vec![];
 		}
 
 		let invalid = self.remove_subtree(hashes, true, |listener, removed_tx_hash| {

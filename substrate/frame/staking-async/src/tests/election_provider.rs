@@ -410,9 +410,9 @@ mod paged_exposures {
 
 			// validator 1 has 3 paged exposures.
 			assert!(
-				ErasStakersPaged::<T>::iter_prefix_values((current_era, &1)).count() as u32 ==
-					Eras::<T>::exposure_page_count(current_era, &1) &&
-					Eras::<T>::exposure_page_count(current_era, &1) == 3
+				ErasStakersPaged::<T>::iter_prefix_values((current_era, &1)).count() as u32
+					== Eras::<T>::exposure_page_count(current_era, &1)
+					&& Eras::<T>::exposure_page_count(current_era, &1) == 3
 			);
 			assert!(ErasStakersPaged::<T>::get((current_era, &1, 0)).is_some());
 			assert!(ErasStakersPaged::<T>::get((current_era, &1, 1)).is_some());

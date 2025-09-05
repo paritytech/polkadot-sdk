@@ -303,8 +303,8 @@ impl<AccountId> SessionReport<AccountId> {
 
 	/// Merge oneself with another instance.
 	pub fn merge(mut self, other: Self) -> Result<Self, UnexpectedKind> {
-		if self.end_index != other.end_index ||
-			self.activation_timestamp != other.activation_timestamp
+		if self.end_index != other.end_index
+			|| self.activation_timestamp != other.activation_timestamp
 		{
 			// Must be some bug -- don't merge.
 			return Err(UnexpectedKind::SessionReportIntegrityFailed);
@@ -437,14 +437,17 @@ where
 			{
 				Ok((_ticket, price)) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
-					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+					return Ok(current_messages
+						.into_iter()
+						.map(ToXcm::convert)
+						.collect::<Vec<_>>());
 				},
 				Err(SendError::ExceedsMaxMessageSize) => {
 					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
 					chunk_size = chunk_size.saturating_div(2);
 					steps += 1;
-					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) ||
-						chunk_size.is_zero()
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps)
+						|| chunk_size.is_zero()
 					{
 						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps or chunk_size = 0");
 						return Err(SendError::ExceedsMaxMessageSize);

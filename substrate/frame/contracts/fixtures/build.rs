@@ -99,7 +99,7 @@ fn collect_entries(contracts_dir: &Path, out_dir: &Path) -> Vec<Entry> {
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
 			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None
+				return None;
 			}
 
 			let entry = Entry::new(path);
@@ -161,7 +161,7 @@ fn invoke_cargo_fmt<'a>(
 		.output()
 		.map_or(false, |o| o.status.success())
 	{
-		return Ok(())
+		return Ok(());
 	}
 
 	let fmt_res = Command::new("rustup")
@@ -172,7 +172,7 @@ fn invoke_cargo_fmt<'a>(
 		.expect("failed to execute process");
 
 	if fmt_res.status.success() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let stdout = String::from_utf8_lossy(&fmt_res.stdout);
@@ -210,7 +210,7 @@ fn invoke_wasm_build(current_dir: &Path) -> Result<()> {
 		.expect("failed to execute process");
 
 	if build_res.status.success() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
@@ -224,8 +224,8 @@ fn post_process_wasm(input_path: &Path, output_path: &Path) -> Result<()> {
 		deserialize_file(input_path).with_context(|| format!("Failed to read {:?}", input_path))?;
 	if let Some(section) = module.export_section_mut() {
 		section.entries_mut().retain(|entry| {
-			matches!(entry.internal(), Internal::Function(_)) &&
-				(entry.field() == "call" || entry.field() == "deploy")
+			matches!(entry.internal(), Internal::Function(_))
+				&& (entry.field() == "call" || entry.field() == "deploy")
 		});
 	}
 
@@ -275,7 +275,7 @@ fn main() -> Result<()> {
 
 	let entries = collect_entries(&contracts_dir, &out_dir);
 	if entries.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let tmp_dir = tempfile::tempdir()?;

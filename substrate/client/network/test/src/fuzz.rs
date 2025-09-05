@@ -214,7 +214,7 @@ async fn test_once() {
 								"Awaiting incoming response, ignoring obsolete Connect from PSM for peer {}",
 								peer_id,
 							);
-							continue
+							continue;
 						}
 
 						last_state = Some(*state);
@@ -239,7 +239,7 @@ async fn test_once() {
 								"Awaiting incoming response, ignoring obsolete Drop from PSM for peer {}",
 								peer_id,
 							);
-							continue
+							continue;
 						}
 
 						last_state = Some(*state);
@@ -259,19 +259,20 @@ async fn test_once() {
 
 						let state = known_nodes.get_mut(&peer_id).unwrap();
 						match *state {
-							State::Incoming(incoming_index) =>
+							State::Incoming(incoming_index) => {
 								if n.0 < incoming_index.0 {
 									log::info!(
 										"Ignoring obsolete Accept for {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-									continue
+									continue;
 								} else if n.0 > incoming_index.0 {
 									panic!(
 										"Received {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-								},
+								}
+							},
 							_ => {},
 						}
 
@@ -290,19 +291,20 @@ async fn test_once() {
 
 						let state = known_nodes.get_mut(&peer_id).unwrap();
 						match *state {
-							State::Incoming(incoming_index) =>
+							State::Incoming(incoming_index) => {
 								if n.0 < incoming_index.0 {
 									log::info!(
 										"Ignoring obsolete Reject for {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-									continue
+									continue;
 								} else if n.0 > incoming_index.0 {
 									panic!(
 										"Received {:?} while awaiting {:?} for peer {}",
 										n, incoming_index, peer_id,
 									);
-								},
+								}
+							},
 							_ => {},
 						}
 
@@ -326,15 +328,16 @@ async fn test_once() {
 				},
 
 				// If we generate 2, adjust a random reputation.
-				2 =>
+				2 => {
 					if let Some(id) = known_nodes.keys().choose(&mut rng) {
 						let val = Uniform::new_inclusive(i32::MIN, i32::MAX).sample(&mut rng);
 						let peer: sc_network_types::PeerId = id.into();
 						peer_store_handle.report_peer(peer, ReputationChange::new(val, ""));
-					},
+					}
+				},
 
 				// If we generate 3, disconnect from a random node.
-				3 =>
+				3 => {
 					if let Some(id) = connected_nodes.iter().choose(&mut rng).cloned() {
 						log::info!("Disconnected from {}", id);
 						connected_nodes.remove(&id);
@@ -347,15 +350,16 @@ async fn test_once() {
 
 						current_peer = Some(id);
 						current_event = Some(Event::Disconnected);
-					},
+					}
+				},
 
 				// If we generate 4, connect to a random node.
 				4 => {
 					if let Some(id) = known_nodes
 						.keys()
 						.filter(|n| {
-							incoming_nodes.values().all(|m| m != *n) &&
-								!connected_nodes.contains(*n)
+							incoming_nodes.values().all(|m| m != *n)
+								&& !connected_nodes.contains(*n)
 						})
 						.choose(&mut rng)
 						.cloned()
@@ -395,12 +399,13 @@ async fn test_once() {
 						reserved_nodes.insert(*id);
 					}
 				},
-				8 =>
+				8 => {
 					if let Some(id) = reserved_nodes.iter().choose(&mut rng).cloned() {
 						log::info!("Remove reserved: {}", id);
 						reserved_nodes.remove(&id);
 						protocol_handle.remove_reserved_peer(id);
-					},
+					}
+				},
 
 				_ => unreachable!(),
 			}

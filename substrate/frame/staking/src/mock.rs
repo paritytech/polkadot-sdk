@@ -752,9 +752,9 @@ pub(crate) fn on_offence_in_era(
 				slash_fraction,
 				start_session,
 			);
-			return
+			return;
 		} else if bonded_era > era {
-			break
+			break;
 		}
 	}
 

@@ -104,7 +104,7 @@ fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<()
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	if status.success() {
-		return Err("Command should have failed!".into())
+		return Err("Command should have failed!".into());
 	}
 
 	// Weight files should not have been created
@@ -157,7 +157,7 @@ fn create_benchmark_spec_command(base_path: &Path, chain_spec_path: &Path) -> Co
 /// Checks if the benchmark completed successfully and created weight files
 fn assert_benchmark_success(status: ExitStatus, base_path: &Path) -> Result<(), String> {
 	if !status.success() {
-		return Err("Command failed".into())
+		return Err("Command failed".into());
 	}
 
 	// Weight files have been created

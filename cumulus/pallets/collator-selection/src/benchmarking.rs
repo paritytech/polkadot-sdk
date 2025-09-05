@@ -268,8 +268,8 @@ mod benchmarks {
 		let caller = CandidateList::<T>::get()[0].who.clone();
 		v2::whitelist!(caller);
 
-		let bond_amount: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() +
-			<T as pallet::Config>::Currency::minimum_balance();
+		let bond_amount: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance()
+			+ <T as pallet::Config>::Currency::minimum_balance();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()), bond_amount);
@@ -278,8 +278,8 @@ mod benchmarks {
 			Event::CandidateBondUpdated { account_id: caller, deposit: bond_amount }.into(),
 		);
 		assert!(
-			CandidateList::<T>::get().iter().last().unwrap().deposit ==
-				<T as pallet::Config>::Currency::minimum_balance() * 2u32.into()
+			CandidateList::<T>::get().iter().last().unwrap().deposit
+				== <T as pallet::Config>::Currency::minimum_balance() * 2u32.into()
 		);
 		Ok(())
 	}

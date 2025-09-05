@@ -79,7 +79,7 @@ where
 			if let Some(authorize) = call.authorize(source) {
 				return authorize.map(|(validity, unspent)| {
 					(validity, unspent, crate::Origin::<T>::Authorized.into())
-				})
+				});
 			}
 		}
 

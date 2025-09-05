@@ -1125,11 +1125,11 @@ where
 				// voters don't conclude naturally
 				return Poll::Ready(Err(Error::Safety(
 					"consensus-grandpa inner voter has concluded.".into(),
-				)))
+				)));
 			},
 			Poll::Ready(Err(CommandOrError::Error(e))) => {
 				// return inner observer error
-				return Poll::Ready(Err(e))
+				return Poll::Ready(Err(e));
 			},
 			Poll::Ready(Err(CommandOrError::VoterCommand(command))) => {
 				// some command issued internally
@@ -1142,7 +1142,7 @@ where
 			Poll::Pending => {},
 			Poll::Ready(None) => {
 				// the `voter_commands_rx` stream should never conclude since it's never closed.
-				return Poll::Ready(Err(Error::Safety("`voter_commands_rx` was closed.".into())))
+				return Poll::Ready(Err(Error::Safety("`voter_commands_rx` was closed.".into())));
 			},
 			Poll::Ready(Some(command)) => {
 				// some command issued externally
@@ -1183,7 +1183,7 @@ where
 
 	let revertible = blocks.min(best_number - finalized);
 	if revertible == Zero::zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let number = best_number - revertible;

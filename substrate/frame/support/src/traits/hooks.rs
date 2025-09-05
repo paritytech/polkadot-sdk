@@ -292,7 +292,7 @@ impl OnRuntimeUpgrade for Tuple {
 		)*);
 
 		if errors.len() == 1 {
-			return Err(errors[0])
+			return Err(errors[0]);
 		} else if !errors.is_empty() {
 			log::error!(
 				target: "try-runtime",
@@ -307,7 +307,7 @@ impl OnRuntimeUpgrade for Tuple {
 				);
 			});
 
-			return Err("Detected multiple errors while executing `try_on_runtime_upgrade`, check the logs!".into())
+			return Err("Detected multiple errors while executing `try_on_runtime_upgrade`, check the logs!".into());
 		}
 
 		Ok(cumulative_weight)

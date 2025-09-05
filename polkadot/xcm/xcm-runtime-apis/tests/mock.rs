@@ -339,8 +339,9 @@ where
 {
 	fn try_convert(origin: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		origin.try_with_caller(|caller| match caller.try_into() {
-			Ok(SystemRawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: None, index: who.into() }.into()),
+			Ok(SystemRawOrigin::Signed(who)) => {
+				Ok(Junction::AccountIndex64 { network: None, index: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})

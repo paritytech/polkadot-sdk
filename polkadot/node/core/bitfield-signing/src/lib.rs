@@ -249,7 +249,7 @@ where
 			Err(Error::Runtime(runtime_err)) => {
 				// Don't take down the node on runtime API errors.
 				gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
-				return Ok(())
+				return Ok(());
 			},
 			Err(err) => return Err(err),
 			Ok(bitfield) => bitfield,
@@ -263,7 +263,7 @@ where
 					target: LOG_TARGET,
 					"Key was found at construction, but while signing it could not be found.",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 

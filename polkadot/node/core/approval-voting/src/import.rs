@@ -135,15 +135,17 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		let events: Vec<CandidateEvent> = match c_rx.await {
 			Ok(Ok(events)) => events,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("CandidateEvents", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("CandidateEvents", error))
+			},
 		};
 
 		events
 			.into_iter()
 			.filter_map(|e| match e {
-				CandidateEvent::CandidateIncluded(receipt, _, core, group) =>
-					Some((receipt.hash(), receipt, core, group)),
+				CandidateEvent::CandidateIncluded(receipt, _, core, group) => {
+					Some((receipt.hash(), receipt, core, group))
+				},
 				_ => None,
 			})
 			.collect()
@@ -163,8 +165,9 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		let session_index = match s_rx.await {
 			Ok(Ok(s)) => s,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("SessionIndexForChild", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("SessionIndexForChild", error))
+			},
 		};
 
 		// We can't determine if the block is finalized or not - try processing it
@@ -177,7 +180,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 				block_hash,
 			);
 
-			return Err(ImportedBlockInfoError::BlockAlreadyFinalized)
+			return Err(ImportedBlockInfoError::BlockAlreadyFinalized);
 		}
 
 		session_index
@@ -214,8 +217,9 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 		match s_rx.await {
 			Ok(Ok(s)) => s,
 			Ok(Err(error)) => return Err(ImportedBlockInfoError::RuntimeError(error)),
-			Err(error) =>
-				return Err(ImportedBlockInfoError::FutureCancelled("CurrentBabeEpoch", error)),
+			Err(error) => {
+				return Err(ImportedBlockInfoError::FutureCancelled("CurrentBabeEpoch", error))
+			},
 		}
 	};
 
@@ -270,7 +274,7 @@ async fn imported_block_info<Sender: SubsystemSender<RuntimeApiMessage>>(
 					block_hash,
 				);
 
-				return Err(ImportedBlockInfoError::VrfInfoUnavailable)
+				return Err(ImportedBlockInfoError::VrfInfoUnavailable);
 			},
 		}
 	};
@@ -360,12 +364,12 @@ pub(crate) async fn handle_new_head<
 					e,
 				);
 				// May be a better way of handling errors here.
-				return Ok(Vec::new())
+				return Ok(Vec::new());
 			},
 			Ok(None) => {
 				gum::warn!(target: LOG_TARGET, "Missing header for new head {}", head);
 				// May be a better way of handling warnings here.
-				return Ok(Vec::new())
+				return Ok(Vec::new());
 			},
 			Ok(Some(h)) => h,
 		}
@@ -387,7 +391,7 @@ pub(crate) async fn handle_new_head<
 	.await?;
 
 	if new_blocks.is_empty() {
-		return Ok(Vec::new())
+		return Ok(Vec::new());
 	}
 
 	let mut approval_meta: Vec<BlockApprovalMeta> = Vec::with_capacity(new_blocks.len());
@@ -430,7 +434,7 @@ pub(crate) async fn handle_new_head<
 						);
 					}
 
-					return Ok(Vec::new())
+					return Ok(Vec::new());
 				},
 			};
 		}

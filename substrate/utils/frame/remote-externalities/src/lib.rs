@@ -98,7 +98,7 @@ impl<B: BlockT> Snapshot<B> {
 			.map_err(|_| "Failed to decode snapshot version")?;
 
 		if snapshot_version != SNAPSHOT_VERSION {
-			return Err("Unsupported snapshot version detected. Please create a new snapshot.")
+			return Err("Unsupported snapshot version detected. Please create a new snapshot.");
 		}
 
 		Decode::decode(&mut &*bytes).map_err(|_| "Decode failed")
@@ -420,7 +420,7 @@ where
 			// no need to divide workload
 			if scale < 9 {
 				prefix.extend(vec![0; scale]);
-				return vec![StorageKey(prefix)]
+				return vec![StorageKey(prefix)];
 			}
 
 			let chunks = 16;
@@ -522,7 +522,7 @@ where
 			// we are done either way
 			if page_len < Self::DEFAULT_KEY_DOWNLOAD_PAGE as usize {
 				debug!(target: LOG_TARGET, "last page received: {page_len}");
-				break
+				break;
 			}
 
 			debug!(
@@ -617,7 +617,7 @@ where
 				},
 				Err(e) => {
 					if retries > Self::MAX_RETRIES {
-						return Err(e.to_string())
+						return Err(e.to_string());
 					}
 
 					retries += 1;
@@ -636,7 +636,7 @@ where
 						batch_size =
 							(batch_size as f32 * Self::BATCH_SIZE_DECREASE_FACTOR) as usize;
 					}
-					continue
+					continue;
 				},
 			};
 
@@ -706,7 +706,7 @@ where
 		.await?;
 
 		if keys.is_empty() {
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		let client = self.as_online().rpc_client();
@@ -737,7 +737,7 @@ where
 			Ok(storage_data) => storage_data.into_iter().flatten().collect::<Vec<_>>(),
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error while getting storage data: {e}");
-				return Err("Error while getting storage data")
+				return Err("Error while getting storage data");
 			},
 		};
 		bar.finish_with_message("✅ Downloaded key values");
@@ -809,7 +809,7 @@ where
 				Ok(storage_data) => storage_data,
 				Err(e) => {
 					error!(target: LOG_TARGET, "batch processing failed: {e:?}");
-					return Err("batch processing failed")
+					return Err("batch processing failed");
 				},
 			};
 
@@ -910,7 +910,7 @@ where
 
 		if child_roots.is_empty() {
 			info!(target: LOG_TARGET, "👩‍👦 no child roots found to scrape");
-			return Ok(Default::default())
+			return Ok(Default::default());
 		}
 
 		info!(
@@ -936,7 +936,7 @@ where
 				Some((ChildType::ParentKeyId, storage_key)) => storage_key,
 				None => {
 					error!(target: LOG_TARGET, "invalid key: {prefixed_top_key:?}");
-					return Err("Invalid child key")
+					return Err("Invalid child key");
 				},
 			};
 
@@ -1114,7 +1114,7 @@ where
 				raw_storage,
 				storage_root,
 				self.overwrite_state_version.unwrap_or(state_version),
-			))
+			));
 		}
 
 		Ok(pending_ext)
@@ -1411,8 +1411,8 @@ mod remote_tests {
 
 		// there should be more keys in the child ext.
 		assert!(
-			child_ext.as_backend().backend_storage().keys().len() >
-				ext.as_backend().backend_storage().keys().len()
+			child_ext.as_backend().backend_storage().keys().len()
+				> ext.as_backend().backend_storage().keys().len()
 		);
 	}
 
@@ -1558,7 +1558,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn can_build_big_pallet() {
 		if std::option_env!("TEST_WS").is_none() {
-			return
+			return;
 		}
 		init_logger();
 		Builder::<Block>::new()
@@ -1577,7 +1577,7 @@ mod remote_tests {
 	#[tokio::test]
 	async fn can_fetch_all() {
 		if std::option_env!("TEST_WS").is_none() {
-			return
+			return;
 		}
 		init_logger();
 		Builder::<Block>::new()

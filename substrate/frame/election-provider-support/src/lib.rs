@@ -966,7 +966,7 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 	pub fn sorted_truncate_from(mut support: sp_npos_elections::Support<AccountId>) -> (Self, u32) {
 		// If bounds meet, then short circuit.
 		if let Ok(bounded) = support.clone().try_into() {
-			return (bounded, 0)
+			return (bounded, 0);
 		}
 
 		let pre_len = support.voters.len();
@@ -978,7 +978,7 @@ impl<AccountId: Clone, Bound: Get<u32>> BoundedSupport<AccountId, Bound> {
 		let mut bounded = Self { voters: Default::default(), total: 0 };
 		while let Some((voter, weight)) = support.voters.pop() {
 			if let Err(_) = bounded.voters.try_push((voter, weight)) {
-				break
+				break;
 			}
 			bounded.total += weight;
 		}
@@ -1052,7 +1052,7 @@ impl<AccountId: Clone, BOuter: Get<u32>, BInner: Get<u32>>
 	pub fn sorted_truncate_from(supports: Supports<AccountId>) -> (Self, u32, u32) {
 		// if bounds, meet, short circuit
 		if let Ok(bounded) = supports.clone().try_into() {
-			return (bounded, 0, 0)
+			return (bounded, 0, 0);
 		}
 
 		let pre_winners = supports.len();

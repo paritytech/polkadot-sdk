@@ -577,8 +577,9 @@ mod select_candidates {
 					_parent_hash,
 					PersistedValidationDataReq(_para_id, _assumption, tx),
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
-				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
-					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
+				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) => {
+					tx.send(Ok(mock_availability_cores.clone())).unwrap()
+				},
 				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(
 					hashes,
 					sender,

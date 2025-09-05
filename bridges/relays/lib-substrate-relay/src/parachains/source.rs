@@ -119,7 +119,7 @@ where
 				at_block,
 				P::SourceParachain::NAME,
 			);
-			return Ok(AvailableHeader::Unavailable)
+			return Ok(AvailableHeader::Unavailable);
 		}
 
 		// else - try to read head from the source client

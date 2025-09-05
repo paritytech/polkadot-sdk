@@ -309,7 +309,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				notifications_sink,
 				negotiated_fallback,
 				..
-			} =>
+			} => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_opened(
 						peer_id,
@@ -334,8 +334,9 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							None
 						},
 					}
-				},
-			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } =>
+				}
+			},
+			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self
 						.sync_handle
@@ -349,7 +350,8 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							notifications_sink,
 						},
 					)
-				},
+				}
+			},
 			NotificationsOut::CustomProtocolClosed { peer_id, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_closed(peer_id);

@@ -285,8 +285,9 @@ pub struct AllowFromEthereumFrontend;
 impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id), PalletInstance(index)]) =>
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
+			(1, [Parachain(para_id), PalletInstance(index)]) => {
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
+			},
 			_ => false,
 		}
 	}

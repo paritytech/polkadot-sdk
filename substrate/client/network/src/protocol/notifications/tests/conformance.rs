@@ -209,12 +209,12 @@ async fn libp2p_to_litep2p_substream() {
 	let mut libp2p_1111_seen = false;
 	let mut libp2p_2222_seen = false;
 
-	while !libp2p_ready ||
-		!litep2p_ready ||
-		!litep2p_3333_seen ||
-		!litep2p_4444_seen ||
-		!libp2p_1111_seen ||
-		!libp2p_2222_seen
+	while !libp2p_ready
+		|| !litep2p_ready
+		|| !litep2p_3333_seen
+		|| !litep2p_4444_seen
+		|| !libp2p_1111_seen
+		|| !libp2p_2222_seen
 	{
 		tokio::select! {
 			event = libp2p.select_next_some() => match event {

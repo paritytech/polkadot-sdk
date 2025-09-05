@@ -244,7 +244,7 @@ pub mod pallet {
 			if let Some((lease_period, first_block)) = Self::lease_period_index(n) {
 				// If we're beginning a new lease period then handle that.
 				if first_block {
-					return Self::manage_lease_period_start(lease_period)
+					return Self::manage_lease_period_start(lease_period);
 				}
 			}
 
@@ -362,8 +362,8 @@ pub mod pallet {
 				lease_count: 0,
 			};
 
-			if lease_period_start == SlotLeasePeriodStart::Current &&
-				ActiveTemporarySlotCount::<T>::get() < T::MaxTemporarySlotPerLeasePeriod::get()
+			if lease_period_start == SlotLeasePeriodStart::Current
+				&& ActiveTemporarySlotCount::<T>::get() < T::MaxTemporarySlotPerLeasePeriod::get()
 			{
 				// Try to allocate slot directly
 				match Self::configure_slot_lease(
@@ -519,8 +519,8 @@ impl<T: Config> Pallet<T> {
 		});
 
 		let mut newly_created_lease = 0u32;
-		if active_temp_slots < T::MaxTemporarySlotPerLeasePeriod::get() &&
-			!pending_temp_slots.is_empty()
+		if active_temp_slots < T::MaxTemporarySlotPerLeasePeriod::get()
+			&& !pending_temp_slots.is_empty()
 		{
 			// Sort by lease_count, favoring slots that had no or less turns first
 			// (then by last_lease index, and then Para ID)
@@ -624,8 +624,8 @@ impl<T: Config> Pallet<T> {
 				err
 			);
 		}
-		<T as slots::Config>::WeightInfo::force_lease() *
-			(T::MaxTemporarySlotPerLeasePeriod::get() as u64)
+		<T as slots::Config>::WeightInfo::force_lease()
+			* (T::MaxTemporarySlotPerLeasePeriod::get() as u64)
 	}
 }
 

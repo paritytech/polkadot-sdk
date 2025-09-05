@@ -178,8 +178,9 @@ impl ChainApi for TestApi {
 	) -> Result<Option<NumberFor<Self>>, Self::Error> {
 		Ok(match at {
 			BlockId::Number(num) => Some(*num),
-			BlockId::Hash(hash) if *hash == H256::from_low_u64_be(hash.to_low_u64_be()) =>
-				Some(hash.to_low_u64_be()),
+			BlockId::Hash(hash) if *hash == H256::from_low_u64_be(hash.to_low_u64_be()) => {
+				Some(hash.to_low_u64_be())
+			},
 			BlockId::Hash(_) => None,
 		})
 	}

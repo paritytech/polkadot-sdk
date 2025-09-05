@@ -181,7 +181,7 @@ async fn handle_validation_message<AD>(
 						?peer,
 						"Failed to determine peer role for validation protocol",
 					);
-					return
+					return;
 				},
 			};
 
@@ -200,7 +200,7 @@ async fn handle_validation_message<AD>(
 								"Unknown fallback",
 							);
 
-							return
+							return;
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
@@ -212,7 +212,7 @@ async fn handle_validation_message<AD>(
 									"Fallback mismatched peer-set",
 								);
 
-								return
+								return;
 							}
 
 							(p2, v2)
@@ -237,7 +237,7 @@ async fn handle_validation_message<AD>(
 						?role,
 						"Message sink not available for peer",
 					);
-					return
+					return;
 				},
 			}
 
@@ -408,7 +408,7 @@ async fn handle_collation_message<AD>(
 						?peer,
 						"Failed to determine peer role for validation protocol",
 					);
-					return
+					return;
 				},
 			};
 
@@ -427,7 +427,7 @@ async fn handle_collation_message<AD>(
 								"Unknown fallback",
 							);
 
-							return
+							return;
 						},
 						Some((p2, v2)) => {
 							if p2 != peer_set {
@@ -439,7 +439,7 @@ async fn handle_collation_message<AD>(
 									"Fallback mismatched peer-set",
 								);
 
-								return
+								return;
 							}
 
 							(p2, v2)
@@ -465,7 +465,7 @@ async fn handle_collation_message<AD>(
 						role = ?role,
 						"Message sink not available for peer",
 					);
-					return
+					return;
 				},
 			}
 
@@ -923,7 +923,7 @@ fn update_our_view<Context>(
 			Some(ref v) if v.check_heads_eq(&new_view) => return,
 			None if live_heads.is_empty() => {
 				shared.local_view = Some(new_view);
-				return
+				return;
 			},
 			_ => {
 				shared.local_view = Some(new_view.clone());
@@ -1017,31 +1017,32 @@ fn handle_peer_messages<RawMessage: Decode, OutMessage: From<RawMessage>>(
 		let message = match WireMessage::<RawMessage>::decode_all(&mut message.as_ref()) {
 			Err(_) => {
 				reports.push(MALFORMED_MESSAGE_COST);
-				continue
+				continue;
 			},
 			Ok(m) => m,
 		};
 
 		outgoing_events.push(match message {
 			WireMessage::ViewUpdate(new_view) => {
-				if new_view.len() > MAX_VIEW_HEADS ||
-					new_view.finalized_number < peer_data.view.finalized_number
+				if new_view.len() > MAX_VIEW_HEADS
+					|| new_view.finalized_number < peer_data.view.finalized_number
 				{
 					reports.push(MALFORMED_VIEW_COST);
-					continue
+					continue;
 				} else if new_view.is_empty() {
 					reports.push(EMPTY_VIEW_COST);
-					continue
+					continue;
 				} else if new_view == peer_data.view {
-					continue
+					continue;
 				} else {
 					peer_data.view = new_view;
 
 					NetworkBridgeEvent::PeerViewChange(peer, peer_data.view.clone())
 				}
 			},
-			WireMessage::ProtocolMessage(message) =>
-				NetworkBridgeEvent::PeerMessage(peer, message.into()),
+			WireMessage::ProtocolMessage(message) => {
+				NetworkBridgeEvent::PeerMessage(peer, message.into())
+			},
 		})
 	}
 
@@ -1123,9 +1124,9 @@ async fn dispatch_validation_events_to_all<I>(
 					// NetworkBridgeEvent::OurViewChange(..) must also be here,
 					// but it is sent via an unbounded channel.
 					// See https://github.com/paritytech/polkadot-sdk/issues/824
-					NetworkBridgeEvent::PeerConnected(..) |
-						NetworkBridgeEvent::PeerDisconnected(..) |
-						NetworkBridgeEvent::PeerViewChange(..)
+					NetworkBridgeEvent::PeerConnected(..)
+						| NetworkBridgeEvent::PeerDisconnected(..)
+						| NetworkBridgeEvent::PeerViewChange(..)
 				);
 				let message = $message::from(event);
 				if has_high_priority {

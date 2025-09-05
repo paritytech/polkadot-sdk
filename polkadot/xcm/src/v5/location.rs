@@ -236,7 +236,7 @@ impl Location {
 	pub fn at(&self, i: usize) -> Option<&Junction> {
 		let num_parents = self.parents as usize;
 		if i < num_parents {
-			return None
+			return None;
 		}
 		self.interior.at(i - num_parents)
 	}
@@ -246,7 +246,7 @@ impl Location {
 	pub fn at_mut(&mut self, i: usize) -> Option<&mut Junction> {
 		let num_parents = self.parents as usize;
 		if i < num_parents {
-			return None
+			return None;
 		}
 		self.interior.at_mut(i - num_parents)
 	}
@@ -286,7 +286,7 @@ impl Location {
 	/// ```
 	pub fn match_and_split(&self, prefix: &Location) -> Option<&Junction> {
 		if self.parents != prefix.parents {
-			return None
+			return None;
 		}
 		self.interior.match_and_split(&prefix.interior)
 	}
@@ -356,12 +356,12 @@ impl Location {
 		let prepend_interior = prefix.interior.len().saturating_sub(self.parents as usize);
 		let final_interior = self.interior.len().saturating_add(prepend_interior);
 		if final_interior > super::junctions::MAX_JUNCTIONS {
-			return Err(prefix)
+			return Err(prefix);
 		}
 		let suffix_parents = (self.parents as usize).saturating_sub(prefix.interior.len());
 		let final_parents = (prefix.parents as usize).saturating_add(suffix_parents);
 		if final_parents > 255 {
-			return Err(prefix)
+			return Err(prefix);
 		}
 
 		// cancel out the final item on the prefix interior for one of the suffix's parents.
@@ -410,7 +410,7 @@ impl Location {
 	pub fn simplify(&mut self, context: &Junctions) {
 		if context.len() < self.parents as usize {
 			// Not enough context
-			return
+			return;
 		}
 		while self.parents > 0 {
 			let maybe = context.at(context.len() - (self.parents as usize));
@@ -431,7 +431,7 @@ impl Location {
 		while let Some(j) = clone.last() {
 			if matches!(j, Junction::Parachain(_) | Junction::GlobalConsensus(_)) {
 				// return chain subsection
-				return clone
+				return clone;
 			} else {
 				(clone, _) = clone.split_last_interior();
 			}

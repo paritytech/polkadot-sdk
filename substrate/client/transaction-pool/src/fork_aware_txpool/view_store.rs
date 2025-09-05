@@ -299,7 +299,7 @@ where
 	) -> Result<ViewStoreSubmitOutcome<ChainApi>, ChainApi::Error> {
 		let tx_hash = self.api.hash_and_length(&xt).0;
 		let Some(external_watcher) = self.listener.create_external_watcher_for_tx(tx_hash) else {
-			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into())
+			return Err(PoolError::AlreadyImported(Box::new(tx_hash)).into());
 		};
 		let submit_futures = {
 			let active_views = self.active_views.read();
@@ -330,8 +330,9 @@ where
 				);
 				return Err(error);
 			},
-			Some(Ok(result)) =>
-				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher)),
+			Some(Ok(result)) => {
+				Ok(ViewStoreSubmitOutcome::from(result).with_watcher(external_watcher))
+			},
 			None => Ok(ViewStoreSubmitOutcome::new(tx_hash, None).with_watcher(external_watcher)),
 		}
 	}
@@ -423,9 +424,9 @@ where
 			self.most_recent_view.read().as_ref().map(|v| v.pool.validated_pool().ready());
 
 		if let Some(ready_iterator) = ready_iterator {
-			return Box::new(ready_iterator)
+			return Box::new(ready_iterator);
 		} else {
-			return Box::new(std::iter::empty())
+			return Box::new(std::iter::empty());
 		}
 	}
 
@@ -579,7 +580,7 @@ where
 		}
 		if allow_inactive {
 			if let Some(view) = self.inactive_views.read().get(&at) {
-				return Some((view.clone(), true))
+				return Some((view.clone(), true));
 			}
 		};
 		None
@@ -769,7 +770,7 @@ where
 		if let Entry::Vacant(entry) = self.pending_txs_tasks.write().entry(replaced) {
 			entry.insert(PendingPreInsertTask::new_submission_action(xt.clone(), source.clone()));
 		} else {
-			return
+			return;
 		};
 
 		let tx_hash = self.api.hash_and_length(&xt).0;

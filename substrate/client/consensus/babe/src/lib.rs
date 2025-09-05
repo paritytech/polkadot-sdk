@@ -399,10 +399,11 @@ where
 			}
 		},
 		Some(2) => runtime_api.configuration(at_hash)?,
-		_ =>
+		_ => {
 			return Err(sp_blockchain::Error::VersionInvalid(
 				"Unsupported or invalid BabeApi version".to_string(),
-			)),
+			))
+		},
 	};
 	Ok(config)
 }
@@ -798,13 +799,14 @@ where
 		let sinks = &mut self.slot_notification_sinks.lock();
 		sinks.retain_mut(|sink| match sink.try_send((slot, epoch_descriptor.clone())) {
 			Ok(()) => true,
-			Err(e) =>
+			Err(e) => {
 				if e.is_full() {
 					warn!(target: LOG_TARGET, "Trying to notify a slot but the channel is full");
 					true
 				} else {
 					false
-				},
+				}
+			},
 		});
 	}
 
@@ -860,7 +862,7 @@ where
 					self.client.info().finalized_number,
 					slot,
 					self.logging_target(),
-				)
+				);
 			}
 		}
 		false
@@ -905,7 +907,7 @@ pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<PreDigest, Error
 		return Ok(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
 			slot: 0.into(),
 			authority_index: 0,
-		}))
+		}));
 	}
 
 	let mut pre_digest: Option<_> = None;
@@ -929,8 +931,9 @@ pub fn find_next_epoch_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, epoch_digest.is_some()) {
-			(Some(ConsensusLog::NextEpochData(_)), true) =>
-				return Err(babe_err(Error::MultipleEpochChangeDigests)),
+			(Some(ConsensusLog::NextEpochData(_)), true) => {
+				return Err(babe_err(Error::MultipleEpochChangeDigests))
+			},
 			(Some(ConsensusLog::NextEpochData(epoch)), false) => epoch_digest = Some(epoch),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -948,8 +951,9 @@ fn find_next_config_digest<B: BlockT>(
 		trace!(target: LOG_TARGET, "Checking log {:?}, looking for epoch change digest.", log);
 		let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&BABE_ENGINE_ID));
 		match (log, config_digest.is_some()) {
-			(Some(ConsensusLog::NextConfigData(_)), true) =>
-				return Err(babe_err(Error::MultipleConfigChangeDigests)),
+			(Some(ConsensusLog::NextConfigData(_)), true) => {
+				return Err(babe_err(Error::MultipleConfigChangeDigests))
+			},
 			(Some(ConsensusLog::NextConfigData(config)), false) => config_digest = Some(config),
 			_ => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
 		}
@@ -1032,7 +1036,7 @@ where
 		// don't report any equivocations during initial sync
 		// as they are most likely stale.
 		if *origin == BlockOrigin::NetworkInitialSync {
-			return Ok(())
+			return Ok(());
 		}
 
 		// check if authorship of this header is an equivocation and return a proof if so.
@@ -1085,7 +1089,7 @@ where
 						target: LOG_TARGET,
 						"Equivocation offender is not part of the authority set."
 					);
-					return Ok(())
+					return Ok(());
 				},
 			},
 		};
@@ -1146,8 +1150,8 @@ where
 		let info = self.client.info();
 		let number = *block.header.number();
 
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block.with_state()
+		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end)
+			|| block.with_state()
 		{
 			// Verification for imported blocks is skipped in two cases:
 			// 1. When importing blocks below the last finalized block during network initial
@@ -1156,7 +1160,7 @@ where
 			//    from the state after import. We also skip all verifications because there's no
 			//    parent state and we trust the sync module to verify that the state is correct and
 			//    finalized.
-			return Ok(block)
+			return Ok(block);
 		}
 
 		debug!(
@@ -1363,11 +1367,12 @@ where
 		let import_result = self.inner.import_block(block).await;
 		let aux = match import_result {
 			Ok(ImportResult::Imported(aux)) => aux,
-			Ok(r) =>
+			Ok(r) => {
 				return Err(ConsensusError::ClientImport(format!(
 					"Unexpected import result: {:?}",
 					r
-				))),
+				)))
+			},
 			Err(r) => return Err(r.into()),
 		};
 
@@ -1422,18 +1427,18 @@ where
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
 		// epoch change or because of missing epoch data in the tree, respectively.
-		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
-			block_status == BlockStatus::InChain
+		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end)
+			|| block_status == BlockStatus::InChain
 		{
 			// When re-importing existing block strip away intermediates.
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
+			return self.inner.import_block(block).await.map_err(Into::into);
 		}
 
 		if block.with_state() {
-			return self.import_state(block).await
+			return self.import_state(block).await;
 		}
 
 		let pre_digest = find_pre_digest::<Block>(&block.header).expect(
@@ -1461,7 +1466,7 @@ where
 		if slot <= parent_slot {
 			return Err(ConsensusError::ClientImport(
 				babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-			))
+			));
 		}
 
 		// if there's a pending epoch we'll save the previous epoch changes here
@@ -1511,18 +1516,21 @@ where
 			match (first_in_epoch, next_epoch_digest.is_some(), next_config_digest.is_some()) {
 				(true, true, _) => {},
 				(false, false, false) => {},
-				(false, false, true) =>
+				(false, false, true) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedConfigChange).into(),
-					)),
-				(true, false, _) =>
+					))
+				},
+				(true, false, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::ExpectedEpochChange(hash, slot)).into(),
-					)),
-				(false, true, _) =>
+					))
+				},
+				(false, true, _) => {
 					return Err(ConsensusError::ClientImport(
 						babe_err(Error::<Block>::UnexpectedEpochChange).into(),
-					)),
+					))
+				},
 			}
 
 			if let Some(next_epoch_descriptor) = next_epoch_digest {
@@ -1620,7 +1628,7 @@ where
 					debug!(target: LOG_TARGET, "Failed to launch next epoch: {}", e);
 					*epoch_changes =
 						old_epoch_changes.expect("set `Some` above and not taken; qed");
-					return Err(e)
+					return Err(e);
 				}
 
 				crate::aux_schema::write_epoch_changes::<Block, _, _>(&*epoch_changes, |insert| {
@@ -1884,7 +1892,7 @@ where
 
 	let revertible = blocks.min(best_number - finalized);
 	if revertible == Zero::zero() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let revert_up_to_number = best_number - revertible;
@@ -1920,11 +1928,11 @@ where
 		let mut hash = leaf;
 		loop {
 			let meta = client.header_metadata(hash)?;
-			if meta.number <= revert_up_to_number ||
-				!weight_keys.insert(aux_schema::block_weight_key(hash))
+			if meta.number <= revert_up_to_number
+				|| !weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
 				// We've reached the revert point or an already processed branch, stop here.
-				break
+				break;
 			}
 			hash = meta.parent;
 		}

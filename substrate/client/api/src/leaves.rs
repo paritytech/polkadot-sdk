@@ -132,7 +132,7 @@ where
 		let number = Reverse(number);
 
 		if !self.remove_leaf(&number, &hash) {
-			return None
+			return None;
 		}
 
 		let inserted = parent_hash.and_then(|parent_hash| {

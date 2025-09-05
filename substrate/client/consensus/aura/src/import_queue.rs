@@ -88,8 +88,9 @@ where
 
 			Ok(CheckedHeader::Checked(header, (slot, seal)))
 		},
-		Err(SealVerificationError::Deferred(header, slot)) =>
-			Ok(CheckedHeader::Deferred(header, slot)),
+		Err(SealVerificationError::Deferred(header, slot)) => {
+			Ok(CheckedHeader::Deferred(header, slot))
+		},
 		Err(SealVerificationError::Unsealed) => Err(Error::HeaderUnsealed(hash)),
 		Err(SealVerificationError::BadSeal) => Err(Error::HeaderBadSeal(hash)),
 		Err(SealVerificationError::BadSignature) => Err(Error::BadSignature(hash)),
@@ -186,7 +187,7 @@ where
 			// When we are importing only the state of a block, it will be the best block.
 			block.fork_choice = Some(ForkChoiceStrategy::Custom(block.with_state()));
 
-			return Ok(block)
+			return Ok(block);
 		}
 
 		let hash = block.header.hash();

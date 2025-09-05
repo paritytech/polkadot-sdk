@@ -106,18 +106,19 @@ pub fn log_error(
 		Ok(()) => Ok(()),
 		Err(jfyi) => {
 			match jfyi {
-				JfyiError::UnexpectedPoV |
-				JfyiError::InvalidValidatorIndex |
-				JfyiError::NoSuchCachedSession { .. } |
-				JfyiError::QueryAvailableDataResponseChannel(_) |
-				JfyiError::QueryChunkResponseChannel(_) |
-				JfyiError::FailedNodeFeatures(_) |
-				JfyiError::ErasureCoding(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
-				JfyiError::FetchPoV(_) |
-				JfyiError::SendResponse |
-				JfyiError::NoSuchPoV |
-				JfyiError::Runtime(_) =>
-					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = ?jfyi, ctx),
+				JfyiError::UnexpectedPoV
+				| JfyiError::InvalidValidatorIndex
+				| JfyiError::NoSuchCachedSession { .. }
+				| JfyiError::QueryAvailableDataResponseChannel(_)
+				| JfyiError::QueryChunkResponseChannel(_)
+				| JfyiError::FailedNodeFeatures(_)
+				| JfyiError::ErasureCoding(_) => gum::warn!(target: LOG_TARGET, error = %jfyi, ctx),
+				JfyiError::FetchPoV(_)
+				| JfyiError::SendResponse
+				| JfyiError::NoSuchPoV
+				| JfyiError::Runtime(_) => {
+					gum::warn_if_frequent!(freq: warn_freq, max_rate: gum::Times::PerHour(100), target: LOG_TARGET, error = ?jfyi, ctx)
+				},
 			}
 			Ok(())
 		},

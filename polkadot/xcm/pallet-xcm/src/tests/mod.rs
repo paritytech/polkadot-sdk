@@ -1594,8 +1594,9 @@ fn migrate_data_to_xcm_version_works() {
 				|left: Option<RemoteLockedFungibleRecord<_, _>>,
 				 right: Option<RemoteLockedFungibleRecord<_, _>>| {
 					match (left, right) {
-						(None, Some(_)) | (Some(_), None) =>
-							assert!(false, "Received unexpected message"),
+						(None, Some(_)) | (Some(_), None) => {
+							assert!(false, "Received unexpected message")
+						},
 						(None, None) => (),
 						(Some(l), Some(r)) => {
 							assert_eq!(l.owner, r.owner);

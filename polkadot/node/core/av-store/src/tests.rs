@@ -1266,10 +1266,10 @@ async fn has_all_chunks(
 	expect_present: bool,
 ) -> bool {
 	for i in 0..n_validators {
-		if query_chunk(virtual_overseer, candidate_hash, ValidatorIndex(i)).await.is_some() !=
-			expect_present
+		if query_chunk(virtual_overseer, candidate_hash, ValidatorIndex(i)).await.is_some()
+			!= expect_present
 		{
-			return false
+			return false;
 		}
 	}
 	true

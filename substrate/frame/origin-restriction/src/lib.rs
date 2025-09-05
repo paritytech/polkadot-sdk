@@ -193,11 +193,11 @@ pub mod pallet {
 			// `None` origin is better to reject in general, due to being used for inherents and
 			// validate unsigned.
 			if ensure_none(origin.clone()).is_ok() {
-				return Err(BadOrigin.into())
+				return Err(BadOrigin.into());
 			}
 
 			let Some(mut usage) = Usages::<T>::take(&entity) else {
-				return Err(Error::<T>::NoUsage.into())
+				return Err(Error::<T>::NoUsage.into());
 			};
 
 			let now = frame_system::Pallet::<T>::block_number();
@@ -269,7 +269,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 
 	fn weight(&self, _call: &T::RuntimeCall) -> frame_support::weights::Weight {
 		if !self.0 {
-			return Weight::zero()
+			return Weight::zero();
 		}
 
 		<T as Config>::WeightInfo::restrict_origin_tx_ext()
@@ -294,7 +294,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		if !self.0 {
 			// Extension is disabled, but the restriction must happen, the extension should have
 			// been enabled.
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		let now = frame_system::Pallet::<T>::block_number();
@@ -317,8 +317,8 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		Usages::<T>::insert(&entity, &usage);
 
 		let allowed_one_time_excess = || {
-			usage_without_new_xt == 0u32.into() &&
-				T::OperationAllowedOneTimeExcess::contains(&entity, call)
+			usage_without_new_xt == 0u32.into()
+				&& T::OperationAllowedOneTimeExcess::contains(&entity, call)
 		};
 		if usage.used <= allowance.max || allowed_one_time_excess() {
 			Ok((ValidTransaction::default(), Val::Charge { fee, entity }, origin))
@@ -349,7 +349,7 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Pre::Charge { fee, entity } =>
+			Pre::Charge { fee, entity } => {
 				if post_info.pays_fee == Pays::No {
 					Usages::<T>::mutate_exists(entity, |maybe_usage| {
 						if let Some(usage) = maybe_usage {
@@ -363,7 +363,8 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for RestrictOrigin<T> {
 					Ok(Weight::zero())
 				} else {
 					Ok(Weight::zero())
-				},
+				}
+			},
 			Pre::NoCharge { refund } => Ok(refund),
 		}
 	}

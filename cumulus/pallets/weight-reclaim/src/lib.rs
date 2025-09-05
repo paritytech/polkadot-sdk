@@ -203,7 +203,7 @@ where
 		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
 			"Proof recording enabled during prepare, now disabled. This should not happen.",
 		) else {
-			return Ok(inner_refund)
+			return Ok(inner_refund);
 		};
 
 		// The consumed proof size as measured by the host.

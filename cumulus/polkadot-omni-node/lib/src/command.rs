@@ -90,10 +90,12 @@ fn new_node_spec(
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u32>>(aura_id, extra_args),
-			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args),
+			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
+			},
+			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args)
+			},
 		},
 	})
 }
@@ -136,7 +138,7 @@ where
 		// Handle the extra, and return - subcommands are self contained,
 		// no need to handle the rest of the CLI or node running.
 		extra.handle(&cmd_config)?;
-		return Ok(())
+		return Ok(());
 	}
 
 	// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
@@ -190,8 +192,9 @@ where
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
-		Some(Subcommand::ChainSpecBuilder(cmd)) =>
-			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+		Some(Subcommand::ChainSpecBuilder(cmd)) => {
+			cmd.run().map_err(|err| sc_cli::Error::Application(err.into()))
+		},
 
 		Some(Subcommand::PurgeChain(cmd)) => {
 			let runner = cli.create_runner(cmd)?;

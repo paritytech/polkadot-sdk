@@ -208,8 +208,8 @@ struct CandidateTestData {
 impl CandidateTestData {
 	/// If message in this tranche needs to be sent.
 	fn should_send_tranche(&self, tranche: u32) -> bool {
-		self.sent_assignment <= self.needed_approvals ||
-			tranche <= self.max_tranche + self.num_no_shows
+		self.sent_assignment <= self.needed_approvals
+			|| tranche <= self.max_tranche + self.num_no_shows
 	}
 
 	/// Sets max tranche
@@ -234,8 +234,8 @@ impl CandidateTestData {
 
 	/// Tells if a message in this tranche should be a no-show.
 	fn should_no_show(&self, tranche: u32) -> bool {
-		(self.num_no_shows < self.max_no_shows && self.last_tranche_with_no_show < tranche) ||
-			(tranche == 0 && self.num_no_shows == 0 && self.max_no_shows > 0)
+		(self.num_no_shows < self.max_no_shows && self.last_tranche_with_no_show < tranche)
+			|| (tranche == 0 && self.num_no_shows == 0 && self.max_no_shows > 0)
 	}
 }
 
@@ -548,8 +548,8 @@ impl PeerMessageProducer {
 					.blocks
 					.iter()
 					.filter(|block_info| {
-						block_info.slot <= current_slot &&
-							!initialized_blocks.contains(&block_info.hash)
+						block_info.slot <= current_slot
+							&& !initialized_blocks.contains(&block_info.hash)
 					})
 					.cloned()
 					.collect_vec();
@@ -557,8 +557,8 @@ impl PeerMessageProducer {
 					if !TestEnvironment::metric_lower_than(
 						&self.registry,
 						"polkadot_parachain_imported_candidates_total",
-						(block_info.total_candidates_before + block_info.candidates.len() as u64 -
-							1) as f64,
+						(block_info.total_candidates_before + block_info.candidates.len() as u64
+							- 1) as f64,
 					) {
 						initialized_blocks.insert(block_info.hash);
 						self.initialize_block(&block_info).await;
@@ -671,8 +671,8 @@ impl PeerMessageProducer {
 					}
 				}
 			}
-		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst) &&
-			self.options.num_no_shows_per_candidate > 0
+		} else if !block_info.approved.load(std::sync::atomic::Ordering::SeqCst)
+			&& self.options.num_no_shows_per_candidate > 0
 		{
 			skipped_messages.push(bundle);
 		}
@@ -709,9 +709,9 @@ impl PeerMessageProducer {
 		block_info: &BlockTestData,
 		block_initialized: bool,
 	) -> bool {
-		bundle.tranche_to_send() <= tranche_now &&
-			current_slot >= block_info.slot &&
-			block_initialized
+		bundle.tranche_to_send() <= tranche_now
+			&& current_slot >= block_info.slot
+			&& block_initialized
 	}
 
 	// Queue message to be sent by validator `sent_by`
@@ -1012,8 +1012,8 @@ pub async fn bench_approvals_run(
 	let start_marker = Instant::now();
 	let real_clock = SystemClock {};
 	state.delta_tick_from_generated.store(
-		real_clock.tick_now() -
-			slot_number_to_tick(SLOT_DURATION_MILLIS, state.generated_state.initial_slot),
+		real_clock.tick_now()
+			- slot_number_to_tick(SLOT_DURATION_MILLIS, state.generated_state.initial_slot),
 		std::sync::atomic::Ordering::SeqCst,
 	);
 	let system_clock = PastSystemClock::new(real_clock, state.delta_tick_from_generated.clone());
@@ -1047,8 +1047,8 @@ pub async fn bench_approvals_run(
 
 	// Wait for all blocks to be approved before exiting.
 	// This is an invariant of the benchmark, if this does not happen something went terribly wrong.
-	while state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst) <
-		env.config().num_blocks as u32
+	while state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst)
+		< env.config().num_blocks as u32
 	{
 		gum::info!(
 			"Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}",

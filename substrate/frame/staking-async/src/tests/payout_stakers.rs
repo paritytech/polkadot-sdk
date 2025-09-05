@@ -105,9 +105,9 @@ fn rewards_with_nominator_should_work() {
 		);
 		assert_eq_error_rate!(
 			asset::total_balance::<T>(&101),
-			init_balance_101 +
-				part_for_101_from_11 * validator_payout_0 * 2 / 3 +
-				part_for_101_from_21 * validator_payout_0 * 1 / 3,
+			init_balance_101
+				+ part_for_101_from_11 * validator_payout_0 * 2 / 3
+				+ part_for_101_from_21 * validator_payout_0 * 1 / 3,
 			2
 		);
 
@@ -149,9 +149,9 @@ fn rewards_with_nominator_should_work() {
 		);
 		assert_eq_error_rate!(
 			asset::total_balance::<T>(&101),
-			init_balance_101 +
-				part_for_101_from_11 * (validator_payout_0 * 2 / 3 + total_payout_1) +
-				part_for_101_from_21 * validator_payout_0 * 1 / 3,
+			init_balance_101
+				+ part_for_101_from_11 * (validator_payout_0 * 2 / 3 + total_payout_1)
+				+ part_for_101_from_21 * validator_payout_0 * 1 / 3,
 			2
 		);
 	});

@@ -392,11 +392,14 @@ impl ChainApi for TestApi {
 				// the transaction. (This is not required for this test function, but in real
 				// environment it would fail because of this).
 				if !found_best {
-					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1))))
+					return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(
+						1,
+					))));
 				}
 			},
-			Ok(None) =>
-				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))),
+			Ok(None) => {
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2))))
+			},
 			Err(e) => return Err(e),
 		}
 
@@ -437,7 +440,7 @@ impl ChainApi for TestApi {
 
 			if self.enable_stale_check && transfer.nonce < chain_nonce {
 				log::info!("test_api::validate_transaction: invalid_transaction(stale)....");
-				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)))
+				return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale)));
 			}
 
 			(requires, provides)
@@ -447,7 +450,7 @@ impl ChainApi for TestApi {
 
 		if self.chain.read().invalid_hashes.contains(&self.hash_and_length(&uxt).0) {
 			log::info!("test_api::validate_transaction: invalid_transaction....");
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(0))));
 		}
 
 		let priority = self.chain.read().priorities.get(&self.hash_and_length(&uxt).0).cloned();
@@ -461,7 +464,7 @@ impl ChainApi for TestApi {
 			.unwrap_or(64);
 
 		if longevity == 0 {
-			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)))
+			return Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof)));
 		}
 
 		let mut validity = ValidTransaction {
@@ -482,8 +485,9 @@ impl ChainApi for TestApi {
 		at: &BlockId<Self::Block>,
 	) -> Result<Option<NumberFor<Self::Block>>, Error> {
 		Ok(match at {
-			generic::BlockId::Hash(x) =>
-				self.chain.read().block_by_hash.get(x).map(|b| *b.header.number()),
+			generic::BlockId::Hash(x) => {
+				self.chain.read().block_by_hash.get(x).map(|b| *b.header.number())
+			},
 			generic::BlockId::Number(num) => Some(*num),
 		})
 	}
@@ -494,10 +498,11 @@ impl ChainApi for TestApi {
 	) -> Result<Option<<Self::Block as BlockT>::Hash>, Error> {
 		Ok(match at {
 			generic::BlockId::Hash(x) => Some(*x),
-			generic::BlockId::Number(num) =>
+			generic::BlockId::Number(num) => {
 				self.chain.read().block_by_number.get(num).and_then(|blocks| {
 					blocks.iter().find(|b| b.1.is_best()).map(|b| b.0.header().hash())
-				}),
+				})
+			},
 		})
 	}
 

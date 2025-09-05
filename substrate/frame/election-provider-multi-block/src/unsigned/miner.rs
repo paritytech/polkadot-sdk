@@ -655,7 +655,7 @@ impl<T: MinerConfig> BaseMiner<T> {
 						"no more pages to trim from at page {}, already trimmed",
 						current_trimming_page
 					);
-					break
+					break;
 				}
 			}
 		}
@@ -925,8 +925,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 			|maybe_head: Result<Option<BlockNumberFor<T>>, _>| {
 				match maybe_head {
 					Ok(Some(head)) if now < head => Err("fork."),
-					Ok(Some(head)) if now >= head && now <= head + threshold =>
-						Err("recently executed."),
+					Ok(Some(head)) if now >= head && now <= head + threshold => {
+						Err("recently executed.")
+					},
 					Ok(Some(head)) if now > head + threshold => {
 						// we can run again now. Write the new head.
 						Ok(now)
@@ -961,8 +962,9 @@ impl<T: Config> OffchainWorkerMiner<T> {
 		let storage = StorageValueRef::persistent(&Self::OFFCHAIN_CACHED_CALL);
 		match storage.mutate::<_, (), _>(|_| Ok((call.clone(), snapshot_fingerprint))) {
 			Ok(_) => Ok(()),
-			Err(MutateStorageError::ConcurrentModification(_)) =>
-				Err(OffchainMinerError::FailedToStoreSolution),
+			Err(MutateStorageError::ConcurrentModification(_)) => {
+				Err(OffchainMinerError::FailedToStoreSolution)
+			},
 			Err(MutateStorageError::ValueFunctionFailed(_)) => {
 				// this branch should be unreachable according to the definition of
 				// `StorageValueRef::mutate`: that function should only ever `Err` if the closure we

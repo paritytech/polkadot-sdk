@@ -91,9 +91,9 @@ impl RequestError {
 	/// Whether the error represents some kind of timeout condition.
 	pub fn is_timed_out(&self) -> bool {
 		match self {
-			Self::Canceled(_) |
-			Self::NetworkError(network::RequestFailure::Obsolete) |
-			Self::NetworkError(network::RequestFailure::Network(
+			Self::Canceled(_)
+			| Self::NetworkError(network::RequestFailure::Obsolete)
+			| Self::NetworkError(network::RequestFailure::Network(
 				network::OutboundFailure::Timeout,
 			)) => true,
 			_ => false,

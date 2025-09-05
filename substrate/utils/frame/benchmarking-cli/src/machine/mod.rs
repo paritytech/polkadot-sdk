@@ -150,8 +150,9 @@ impl MachineCmd {
 
 		let score = match metric {
 			Metric::Blake2256 => benchmark_cpu(hash_limit),
-			Metric::Blake2256Parallel { num_cores } =>
-				benchmark_cpu_parallelism(hash_limit, *num_cores),
+			Metric::Blake2256Parallel { num_cores } => {
+				benchmark_cpu_parallelism(hash_limit, *num_cores)
+			},
 			Metric::Sr25519Verify => benchmark_sr25519_verify(verify_limit),
 			Metric::MemCopy => benchmark_memory(memory_limit),
 			Metric::DiskSeqWrite => benchmark_disk_sequential_writes(disk_limit, dir)?,
@@ -213,7 +214,7 @@ impl MachineCmd {
 	/// Validates the CLI arguments.
 	fn validate_args(&self) -> Result<()> {
 		if self.tolerance > 100.0 || self.tolerance < 0.0 {
-			return Err("The --tolerance argument is out of range".into())
+			return Err("The --tolerance argument is out of range".into());
 		}
 		Ok(())
 	}

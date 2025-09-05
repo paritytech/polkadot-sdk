@@ -202,7 +202,7 @@ impl<Block: BlockT> RecoveryQueue<Block> {
 		loop {
 			if self.signaling_queue.next().await.is_some() {
 				if let Some(hash) = self.recovery_queue.pop_front() {
-					return hash
+					return hash;
 				} else {
 					tracing::error!(
 						target: LOG_TARGET,
@@ -286,18 +286,18 @@ where
 					error = ?e,
 					"Failed to decode parachain header from pending candidate",
 				);
-				return
+				return;
 			},
 		};
 
 		if *header.number() <= self.parachain_client.usage_info().chain.finalized_number {
-			return
+			return;
 		}
 
 		let hash = header.hash();
 
 		if self.candidates.contains_key(&hash) {
-			return
+			return;
 		}
 
 		tracing::debug!(target: LOG_TARGET, block_hash = ?hash, "Adding outstanding candidate");
@@ -364,7 +364,7 @@ where
 		match ParachainBlockData::<Block>::decode_all(&mut &data[..]) {
 			Ok(block_data) => {
 				if block_data.blocks().last().map_or(false, |b| b.hash() == expected_block_hash) {
-					return Some(block_data)
+					return Some(block_data);
 				}
 
 				tracing::debug!(
@@ -393,11 +393,11 @@ where
 				self.candidates_in_retry.remove(&block_hash);
 				pov
 			},
-			None =>
+			None => {
 				if self.candidates_in_retry.insert(block_hash) {
 					tracing::debug!(target: LOG_TARGET, ?block_hash, "Recovery failed, retrying.");
 					self.candidate_recovery_queue.push_recovery(block_hash);
-					return
+					return;
 				} else {
 					tracing::warn!(
 						target: LOG_TARGET,
@@ -406,8 +406,9 @@ where
 					);
 					self.candidates_in_retry.remove(&block_hash);
 					self.reset_candidate(block_hash);
-					return
-				},
+					return;
+				}
+			},
 		};
 
 		let raw_block_data =
@@ -417,14 +418,14 @@ where
 					tracing::debug!(target: LOG_TARGET, ?error, "Failed to decompress PoV");
 
 					self.reset_candidate(block_hash);
-					return
+					return;
 				},
 			};
 
 		let Some(block_data) = Self::decode_parachain_block_data(&raw_block_data, block_hash)
 		else {
 			self.reset_candidate(block_hash);
-			return
+			return;
 		};
 
 		let blocks = block_data.into_blocks();
@@ -462,7 +463,7 @@ where
 							.or_default()
 							.push(b);
 					});
-					return
+					return;
 				} else {
 					tracing::debug!(
 						target: LOG_TARGET,
@@ -472,7 +473,7 @@ where
 					);
 
 					self.reset_candidate(block_hash);
-					return
+					return;
 				}
 			},
 			Err(error) => {
@@ -484,7 +485,7 @@ where
 				);
 
 				self.reset_candidate(block_hash);
-				return
+				return;
 			},
 			// Any other status is fine to "ignore/accept"
 			_ => (),
@@ -549,7 +550,7 @@ where
 						block_hash = ?hash,
 						"Could not recover. Block was never announced as candidate"
 					);
-					return
+					return;
 				},
 			};
 
@@ -569,12 +570,12 @@ where
 					for hash in to_recover {
 						self.clear_waiting_recovery(&hash);
 					}
-					return
+					return;
 				},
 			}
 
 			if kind == RecoveryKind::Simple {
-				break
+				break;
 			}
 
 			hash = candidate.parent_hash;
@@ -599,7 +600,7 @@ where
 			Ok(pending_candidates_stream) => pending_candidates_stream.fuse(),
 			Err(err) => {
 				tracing::error!(target: LOG_TARGET, error = ?err, "Unable to retrieve pending candidate stream.");
-				return
+				return;
 			},
 		};
 

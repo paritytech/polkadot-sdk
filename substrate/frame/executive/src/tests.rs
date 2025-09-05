@@ -267,9 +267,9 @@ mod custom2 {
 		// Inherent call is accepted for being dispatched
 		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
 			match call {
-				Call::allowed_unsigned { .. } |
-				Call::optional_inherent { .. } |
-				Call::inherent { .. } => Ok(()),
+				Call::allowed_unsigned { .. }
+				| Call::optional_inherent { .. }
+				| Call::inherent { .. } => Ok(()),
 				_ => Err(UnknownTransaction::NoUnsignedValidator.into()),
 			}
 		}
@@ -592,8 +592,8 @@ fn balance_transfer_dispatch_works() {
 		.assimilate_storage(&mut t)
 		.unwrap();
 	let xt = UncheckedXt::new_signed(call_transfer(2, 69), 1, 1.into(), tx_ext(0, 0));
-	let weight = xt.get_dispatch_info().total_weight() +
-		<Runtime as frame_system::Config>::BlockWeights::get()
+	let weight = xt.get_dispatch_info().total_weight()
+		+ <Runtime as frame_system::Config>::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.base_extrinsic;
 	let fee: Balance =
@@ -759,8 +759,8 @@ fn block_weight_limit_enforced() {
 					// + extension weight
 					// + extrinsic len
 					Weight::from_parts(
-						(transfer_weight.ref_time() + extension_weight.ref_time() + 5) *
-							(nonce + 1),
+						(transfer_weight.ref_time() + extension_weight.ref_time() + 5)
+							* (nonce + 1),
 						(nonce + 1) * encoded_len
 					) + base_block_weight,
 				);
@@ -801,8 +801,8 @@ fn block_weight_and_size_is_stored_per_tx() {
 	let mut t = new_test_ext(2);
 	t.execute_with(|| {
 		// Block execution weight + on_initialize weight from custom module
-		let base_block_weight = Weight::from_parts(175, 0) +
-			<Runtime as frame_system::Config>::BlockWeights::get().base_block;
+		let base_block_weight = Weight::from_parts(175, 0)
+			+ <Runtime as frame_system::Config>::BlockWeights::get().base_block;
 
 		Executive::initialize_block(&Header::new_from_number(1));
 
@@ -813,9 +813,9 @@ fn block_weight_and_size_is_stored_per_tx() {
 		assert!(Executive::apply_extrinsic(x1.clone()).unwrap().is_ok());
 		assert!(Executive::apply_extrinsic(x2.clone()).unwrap().is_ok());
 
-		let extrinsic_weight = transfer_weight +
-			extension_weight +
-			<Runtime as frame_system::Config>::BlockWeights::get()
+		let extrinsic_weight = transfer_weight
+			+ extension_weight
+			+ <Runtime as frame_system::Config>::BlockWeights::get()
 				.get(DispatchClass::Normal)
 				.base_extrinsic;
 		// Check we account for all extrinsic weight and their len.
@@ -1084,10 +1084,10 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			custom_runtime_upgrade_weight
+				+ runtime_upgrade_weight
+				+ on_initialize_weight
+				+ base_block_weight,
 		);
 	});
 }

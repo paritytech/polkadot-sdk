@@ -603,19 +603,19 @@ where
 	) -> Result<FixedU128, SpotTrafficCalculationErr> {
 		// Return early if queue has no capacity.
 		if queue_capacity == 0 {
-			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero)
+			return Err(SpotTrafficCalculationErr::QueueCapacityIsZero);
 		}
 
 		// Return early if queue size is greater than capacity.
 		if queue_size > queue_capacity {
-			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity)
+			return Err(SpotTrafficCalculationErr::QueueSizeLargerThanCapacity);
 		}
 
 		// (queue_size / queue_capacity) - target_queue_utilisation
 		let queue_util_ratio = FixedU128::from_rational(queue_size.into(), queue_capacity.into());
 		let positive = queue_util_ratio >= target_queue_utilisation.into();
-		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into()) -
-			queue_util_ratio.min(target_queue_utilisation.into());
+		let queue_util_diff = queue_util_ratio.max(target_queue_utilisation.into())
+			- queue_util_ratio.min(target_queue_utilisation.into());
 
 		// variability * queue_util_diff
 		let var_times_qud = queue_util_diff.saturating_mul(variability.into());
@@ -666,8 +666,9 @@ where
 
 		match affinity {
 			None => FreeEntries::<T>::mutate(|entries| entries.push(order)),
-			Some(affinity) =>
-				AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order)),
+			Some(affinity) => {
+				AffinityEntries::<T>::mutate(affinity.core_index, |entries| entries.push(order))
+			},
 		}
 	}
 
@@ -728,13 +729,14 @@ where
 	/// `CoreIndex`.
 	fn increase_affinity(para_id: ParaId, core_index: CoreIndex) {
 		ParaIdAffinity::<T>::mutate(para_id, |maybe_affinity| match maybe_affinity {
-			Some(affinity) =>
+			Some(affinity) => {
 				if affinity.core_index == core_index {
 					*maybe_affinity = Some(CoreAffinityCount {
 						core_index,
 						count: affinity.count.saturating_add(1),
 					});
-				},
+				}
+			},
 			None => {
 				*maybe_affinity = Some(CoreAffinityCount { core_index, count: 1 });
 			},
@@ -751,7 +753,7 @@ where
 				if when > now.saturating_sub(index.into()) {
 					amount = amount.saturating_add(revenue.pop().defensive_unwrap_or(0u32.into()));
 				} else {
-					break
+					break;
 				}
 			}
 		});

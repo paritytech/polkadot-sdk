@@ -442,7 +442,7 @@ impl BootnodeAdvertisement {
 
 	fn handle_dht_event(&mut self, event: DhtEvent) {
 		match event {
-			DhtEvent::StartedProviding(key) =>
+			DhtEvent::StartedProviding(key) => {
 				if Some(&key) == self.current_epoch_key.as_ref() {
 					debug!(
 						target: LOG_TARGET,
@@ -455,8 +455,9 @@ impl BootnodeAdvertisement {
 						"Successfully published provider for next epoch key {}",
 						hex::encode(key.as_ref()),
 					);
-				},
-			DhtEvent::StartProvidingFailed(key) =>
+				}
+			},
+			DhtEvent::StartProvidingFailed(key) => {
 				if Some(&key) == self.current_epoch_key.as_ref() {
 					debug!(
 						target: LOG_TARGET,
@@ -473,7 +474,8 @@ impl BootnodeAdvertisement {
 					);
 					self.next_epoch_publish_retry =
 						Box::pin(tokio::time::sleep(RETRY_DELAY).fuse());
-				},
+				}
+			},
 			_ => {},
 		}
 	}

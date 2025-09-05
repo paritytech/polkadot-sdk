@@ -147,8 +147,9 @@ impl<AccountId, Call: Dispatchable, Extension: TransactionExtension<Call>>
 	pub fn extension_weight(&self) -> Weight {
 		match &self.format {
 			ExtrinsicFormat::Bare => Weight::zero(),
-			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) =>
-				ext.weight(&self.function),
+			ExtrinsicFormat::Signed(_, ext) | ExtrinsicFormat::General(_, ext) => {
+				ext.weight(&self.function)
+			},
 		}
 	}
 }

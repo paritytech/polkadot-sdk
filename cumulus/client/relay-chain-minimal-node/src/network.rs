@@ -110,8 +110,8 @@ pub(crate) fn build_collator_network<Network: NetworkBackend<Block, Hash>>(
 }
 
 fn adjust_network_config_light_in_peers(config: &mut NetworkConfiguration) {
-	let light_client_in_peers = (config.default_peers_set.in_peers +
-		config.default_peers_set.out_peers)
+	let light_client_in_peers = (config.default_peers_set.in_peers
+		+ config.default_peers_set.out_peers)
 		.saturating_sub(config.default_peers_set_num_full);
 	if light_client_in_peers > 0 {
 		tracing::debug!(target: crate::LOG_TARGET, "Detected {light_client_in_peers} peer slots for light clients. Since this minimal node does support\

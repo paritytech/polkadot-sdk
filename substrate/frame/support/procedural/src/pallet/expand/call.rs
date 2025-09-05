@@ -98,7 +98,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 	// Emit a warning for each call that is missing `call_index` when not in dev-mode.
 	for method in &methods {
 		if method.explicit_call_index || def.dev_mode {
-			continue
+			continue;
 		}
 
 		let warning = Warning::new_deprecated("ImplicitCallIndex")

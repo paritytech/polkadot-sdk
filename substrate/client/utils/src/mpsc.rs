@@ -108,8 +108,9 @@ impl<T> TracingUnboundedSender<T> {
 				.with_label_values(&[self.name])
 				.set(self.inner.len().saturated_into());
 
-			if self.inner.len() >= self.queue_size_warning &&
-				self.warning_fired
+			if self.inner.len() >= self.queue_size_warning
+				&& self
+					.warning_fired
 					.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
 					.is_ok()
 			{

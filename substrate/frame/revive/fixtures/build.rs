@@ -68,7 +68,7 @@ fn collect_entries(contracts_dir: &Path) -> Vec<Entry> {
 		.filter_map(|file| {
 			let path = file.expect("file exists; qed").path();
 			if path.extension().map_or(true, |ext| ext != "rs") {
-				return None
+				return None;
 			}
 
 			Some(Entry::new(path))
@@ -168,7 +168,7 @@ fn invoke_build(current_dir: &Path) -> Result<()> {
 	let build_res = build_command.output().expect("failed to execute process");
 
 	if build_res.status.success() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let stderr = String::from_utf8_lossy(&build_res.stderr);
@@ -305,7 +305,7 @@ pub fn main() -> Result<()> {
 
 	let entries = collect_entries(&contracts_dir);
 	if entries.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	create_cargo_toml(&fixtures_dir, entries.iter(), &build_dir)?;

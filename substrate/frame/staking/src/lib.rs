@@ -607,7 +607,7 @@ impl<T: Config> StakingLedger<T> {
 		// first we try to remove stake from active
 		if self.active >= to_withdraw {
 			self.active -= to_withdraw;
-			return self
+			return self;
 		} else {
 			withdrawn += self.active;
 			self.active = BalanceOf::<T>::zero();
@@ -625,7 +625,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if withdrawn >= to_withdraw {
-				break
+				break;
 			}
 		}
 
@@ -652,7 +652,7 @@ impl<T: Config> StakingLedger<T> {
 			}
 
 			if unlocking_balance >= value {
-				break
+				break;
 			}
 		}
 
@@ -689,7 +689,7 @@ impl<T: Config> StakingLedger<T> {
 		slash_era: EraIndex,
 	) -> BalanceOf<T> {
 		if slash_amount.is_zero() {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		use sp_runtime::PerThing as _;
@@ -782,7 +782,7 @@ impl<T: Config> StakingLedger<T> {
 		let mut slashed_unlocking = BTreeMap::<_, _>::new();
 		for i in slash_chunks_priority {
 			if remaining_slash.is_zero() {
-				break
+				break;
 			}
 
 			if let Some(chunk) = self.unlocking.get_mut(i).defensive() {
@@ -790,7 +790,7 @@ impl<T: Config> StakingLedger<T> {
 				// write the new slashed value of this chunk to the map.
 				slashed_unlocking.insert(chunk.era, chunk.value);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -1192,7 +1192,7 @@ impl<T: Config> EraInfo<T> {
 				1
 			} else {
 				// if no exposure, then no rewards to claim.
-				return false
+				return false;
 			}
 		};
 
@@ -1201,7 +1201,7 @@ impl<T: Config> EraInfo<T> {
 			.map(|l| l.legacy_claimed_rewards.contains(&era))
 			.unwrap_or_default()
 		{
-			return false
+			return false;
 		}
 
 		ClaimedRewards::<T>::get(era, validator).len() < page_count as usize
@@ -1218,8 +1218,8 @@ impl<T: Config> EraInfo<T> {
 		validator: &T::AccountId,
 		page: Page,
 	) -> bool {
-		ledger.legacy_claimed_rewards.binary_search(&era).is_ok() ||
-			Self::is_rewards_claimed(era, validator, page)
+		ledger.legacy_claimed_rewards.binary_search(&era).is_ok()
+			|| Self::is_rewards_claimed(era, validator, page)
 	}
 
 	/// Check if the rewards for the given era and page index have been claimed.
@@ -1245,12 +1245,12 @@ impl<T: Config> EraInfo<T> {
 		// return clipped exposure if page zero and paged exposure does not exist
 		// exists for backward compatibility and can be removed as part of #13034
 		if overview.is_none() && page == 0 {
-			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)))
+			return Some(PagedExposure::from_clipped(<ErasStakersClipped<T>>::get(era, validator)));
 		}
 
 		// no exposure for this validator
 		if overview.is_none() {
-			return None
+			return None;
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1277,7 +1277,7 @@ impl<T: Config> EraInfo<T> {
 		let overview = <ErasStakersOverview<T>>::get(&era, validator);
 
 		if overview.is_none() {
-			return ErasStakers::<T>::get(era, validator)
+			return ErasStakers::<T>::get(era, validator);
 		}
 
 		let overview = overview.expect("checked above; qed");
@@ -1322,7 +1322,7 @@ impl<T: Config> EraInfo<T> {
 				Ok(_) => None,
 				// Non-paged exposure is considered as a single page
 				Err(_) => Some(0),
-			}
+			};
 		}
 
 		// Find next claimable page of paged exposure.
@@ -1355,7 +1355,7 @@ impl<T: Config> EraInfo<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries

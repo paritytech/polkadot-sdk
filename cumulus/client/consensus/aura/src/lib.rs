@@ -250,7 +250,7 @@ where
 		// With https://github.com/paritytech/polkadot-sdk/issues/3168 this implementation will be
 		// obsolete and also the underlying issue will be fixed.
 		if self.last_slot_processed.fetch_max(*info.slot, Ordering::Relaxed) >= *info.slot {
-			return None
+			return None;
 		}
 
 		let res = self.aura_worker.lock().await.on_slot(info).await?;
@@ -277,14 +277,14 @@ pub(crate) fn export_pov_to_path<Block: BlockT>(
 ) {
 	if let Err(error) = fs::create_dir_all(&path) {
 		tracing::error!(target: LOG_TARGET, %error, path = %path.display(), "Failed to create PoV export directory");
-		return
+		return;
 	}
 
 	let mut file = match File::create(path.join(format!("{block_hash:?}_{block_number}.pov"))) {
 		Ok(f) => f,
 		Err(error) => {
 			tracing::error!(target: LOG_TARGET, %error, "Failed to export PoV.");
-			return
+			return;
 		},
 	};
 

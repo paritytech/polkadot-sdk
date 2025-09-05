@@ -130,7 +130,7 @@ where
 		// was checked/chosen properly, e.g. by warp syncing to this block using a finality proof.
 		if block_params.state_action.skip_execution_checks() || block_params.with_state() {
 			block_params.fork_choice = Some(ForkChoiceStrategy::Custom(block_params.with_state()));
-			return Ok(block_params)
+			return Ok(block_params);
 		}
 
 		let post_hash = block_params.header.hash();
@@ -195,7 +195,7 @@ where
 						return Err(format!(
 							"Rejecting block {:?} due to excessive equivocations at slot",
 							post_hash,
-						))
+						));
 					}
 				},
 				Err(aura_internal::SealVerificationError::Deferred(hdr, slot)) => {
@@ -211,13 +211,14 @@ where
 					return Err(format!(
 						"Rejecting block ({:?}) from future slot {:?}",
 						post_hash, slot
-					))
+					));
 				},
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Rejecting block ({:?}) with invalid seal ({:?})",
 						post_hash, e
-					)),
+					))
+				},
 			}
 		}
 
@@ -245,11 +246,12 @@ where
 				for (i, e) in inherent_res.into_errors() {
 					match create_inherent_data_providers.try_handle_error(&i, &e).await {
 						Some(res) => res.map_err(|e| format!("Inherent Error {:?}", e))?,
-						None =>
+						None => {
 							return Err(format!(
 								"Unknown inherent error, source {:?}",
 								String::from_utf8_lossy(&i[..])
-							)),
+							))
+						},
 					}
 				}
 			}

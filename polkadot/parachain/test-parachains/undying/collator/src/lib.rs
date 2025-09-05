@@ -287,7 +287,7 @@ impl Collator {
 						"Requested to build on top of malformed head-data: {:?}",
 						err,
 					);
-					return futures::future::ready(None).boxed()
+					return futures::future::ready(None).boxed();
 				},
 				Ok(p) => p,
 			};
@@ -301,7 +301,7 @@ impl Collator {
 							parent,
 							err,
 						);
-						return futures::future::ready(None).boxed()
+						return futures::future::ready(None).boxed();
 					},
 					Ok(x) => x,
 				};
@@ -377,7 +377,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
+				return;
 			}
 		}
 	}
@@ -393,7 +393,7 @@ impl Collator {
 			Delay::new(Duration::from_secs(1)).await;
 
 			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}

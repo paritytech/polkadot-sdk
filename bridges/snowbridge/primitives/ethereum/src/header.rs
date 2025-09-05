@@ -105,7 +105,7 @@ impl Header {
 		let final_hash: Option<[u8; 32]> = iter.try_fold(keccak_256(first_bytes), |acc, x| {
 			let node: Box<dyn mpt::Node> = x.as_slice().try_into().ok()?;
 			if (*node).contains_hash(acc.into()) {
-				return Some(keccak_256(x))
+				return Some(keccak_256(x));
 			}
 			None
 		});
@@ -140,7 +140,7 @@ impl Header {
 	fn decoded_seal_field(&self, index: usize, max_len: usize) -> Option<Bytes> {
 		let bytes: Bytes = rlp::decode(self.seal.get(index)?).ok()?;
 		if bytes.len() > max_len {
-			return None
+			return None;
 		}
 		Some(bytes)
 	}

@@ -327,7 +327,7 @@ impl CollationTracker {
 	pub fn drain_expired(&mut self, block_number: BlockNumber) -> Vec<CollationStats> {
 		let Some(expired) = self.expire.remove(&block_number) else {
 			// No collations built on all seen relay parents at height `block_number`
-			return Vec::new()
+			return Vec::new();
 		};
 
 		expired
@@ -359,7 +359,7 @@ impl CollationTracker {
 			stats.backed().unwrap_or_default() + MAX_AVAILABILITY_DELAY
 		} else {
 			// If block included no reason to track it.
-			return
+			return;
 		};
 
 		self.expire

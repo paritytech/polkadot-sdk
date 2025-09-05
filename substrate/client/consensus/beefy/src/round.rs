@@ -180,8 +180,8 @@ where
 
 		// add valid vote
 		let round = self.rounds.entry(vote.commitment.clone()).or_default();
-		if round.add_vote((vote.id, vote.signature)) &&
-			round.is_done(threshold(self.validator_set.len()))
+		if round.add_vote((vote.id, vote.signature))
+			&& round.is_done(threshold(self.validator_set.len()))
 		{
 			if let Some(round) = self.rounds.remove_entry(&vote.commitment) {
 				return VoteImportResult::RoundConcluded(self.signed_commitment(round));

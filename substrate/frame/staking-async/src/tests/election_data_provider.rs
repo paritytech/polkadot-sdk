@@ -635,10 +635,10 @@ mod paged_snapshot {
 			// requested.
 			let snapshot = Staking::electable_targets(bounds, 0).unwrap();
 			assert!(
-				snapshot == all_targets &&
-					snapshot == Staking::electable_targets(bounds, 1).unwrap() &&
-					snapshot == Staking::electable_targets(bounds, 2).unwrap() &&
-					snapshot == Staking::electable_targets(bounds, u32::MAX).unwrap(),
+				snapshot == all_targets
+					&& snapshot == Staking::electable_targets(bounds, 1).unwrap()
+					&& snapshot == Staking::electable_targets(bounds, 2).unwrap()
+					&& snapshot == Staking::electable_targets(bounds, u32::MAX).unwrap(),
 			);
 		})
 	}

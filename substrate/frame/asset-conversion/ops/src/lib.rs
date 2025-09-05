@@ -207,8 +207,8 @@ pub mod pallet {
 			// Transfer all pool related assets to the new account.
 
 			ensure!(
-				balance1 ==
-					T::Assets::transfer(
+				balance1
+					== T::Assets::transfer(
 						asset1.clone(),
 						&prior_account,
 						&new_account,
@@ -219,8 +219,8 @@ pub mod pallet {
 			);
 
 			ensure!(
-				balance2 ==
-					T::Assets::transfer(
+				balance2
+					== T::Assets::transfer(
 						asset2.clone(),
 						&prior_account,
 						&new_account,
@@ -231,8 +231,8 @@ pub mod pallet {
 			);
 
 			ensure!(
-				lp_balance ==
-					T::PoolAssets::transfer(
+				lp_balance
+					== T::PoolAssets::transfer(
 						info.lp_token.clone(),
 						&prior_account,
 						&new_account,

@@ -142,10 +142,11 @@ where
 
 		let paras_inherent_data = match paras_inherent_data {
 			Some(p) => p,
-			None =>
+			None => {
 				return Err(
 					format!("Could not create paras inherent data at {:?}", relay_parent).into()
-				),
+				)
+			},
 		};
 
 		let mut other_inherent_data = self

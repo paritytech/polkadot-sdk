@@ -205,8 +205,9 @@ impl<BlockNumber: Copy + UniqueSaturatedInto<u64>, BlockHash: Copy>
 			TransactionEra::Immortal => sp_runtime::generic::Era::immortal(),
 			// `unique_saturated_into` is fine here - mortality `u64::MAX` is not something we
 			// expect to see on any chain
-			TransactionEra::Mortal(header_id, period) =>
-				sp_runtime::generic::Era::mortal(period as _, header_id.0.unique_saturated_into()),
+			TransactionEra::Mortal(header_id, period) => {
+				sp_runtime::generic::Era::mortal(period as _, header_id.0.unique_saturated_into())
+			},
 		}
 	}
 
@@ -309,10 +310,10 @@ pub trait StorageDoubleMapKeyProvider {
 		let storage_prefix_hashed = frame_support::Twox128::hash(Self::MAP_NAME.as_bytes());
 
 		let mut final_key = Vec::with_capacity(
-			pallet_prefix_hashed.len() +
-				storage_prefix_hashed.len() +
-				key1_hashed.as_ref().len() +
-				key2_hashed.as_ref().len(),
+			pallet_prefix_hashed.len()
+				+ storage_prefix_hashed.len()
+				+ key1_hashed.as_ref().len()
+				+ key2_hashed.as_ref().len(),
 		);
 
 		final_key.extend_from_slice(&pallet_prefix_hashed[..]);
@@ -394,7 +395,9 @@ pub trait OwnedBridgeModule<T: frame_system::Config> {
 			Ok(RawOrigin::Root) => Ok(()),
 			Ok(RawOrigin::Signed(ref signer))
 				if Self::OwnerStorage::get().as_ref() == Some(signer) =>
-				Ok(()),
+			{
+				Ok(())
+			},
 			_ => Err(BadOrigin),
 		}
 	}

@@ -357,8 +357,9 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 	builder: sc_chain_spec::ChainSpecBuilder<T>,
 ) -> Result<String, String> {
 	let builder = match cmd.action {
-		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
-			builder.with_genesis_config_preset_name(&preset_name),
+		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) => {
+			builder.with_genesis_config_preset_name(&preset_name)
+		},
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
 			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;

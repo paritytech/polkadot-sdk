@@ -32,8 +32,8 @@ impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 		if let (prefix, Some(account_id @ AccountId32 { .. })) =
 			origin.clone().split_last_interior()
 		{
-			return Prefix::contains(&prefix) &&
-				*target == Location { parents: 0, interior: [account_id].into() }
+			return Prefix::contains(&prefix)
+				&& *target == Location { parents: 0, interior: [account_id].into() };
 		}
 		false
 	}
@@ -43,7 +43,7 @@ impl<Prefix: Contains<Location>> ContainsPair<Location, Location>
 pub struct AliasChildLocation;
 impl ContainsPair<Location, Location> for AliasChildLocation {
 	fn contains(origin: &Location, target: &Location) -> bool {
-		return target.starts_with(origin)
+		return target.starts_with(origin);
 	}
 }
 
@@ -60,12 +60,12 @@ where
 	fn contains(origin: &Location, target: &Location) -> bool {
 		// check that `origin` is a root location
 		match origin.unpack() {
-			(1, [Parachain(_)]) |
-			(2, [GlobalConsensus(_)]) |
-			(2, [GlobalConsensus(_), Parachain(_)]) => (),
+			(1, [Parachain(_)])
+			| (2, [GlobalConsensus(_)])
+			| (2, [GlobalConsensus(_), Parachain(_)]) => (),
 			_ => return false,
 		};
 		// check that `origin` matches `Origin` and `target` matches `Filter`
-		return Origin::get().eq(origin) && Filter::contains(target)
+		return Origin::get().eq(origin) && Filter::contains(target);
 	}
 }

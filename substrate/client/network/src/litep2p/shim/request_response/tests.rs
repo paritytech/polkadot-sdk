@@ -90,7 +90,7 @@ async fn connect_peers(litep2p1: &mut Litep2p, litep2p2: &mut Litep2p) {
 		}
 
 		if litep2p1_connected && litep2p2_connected {
-			break
+			break;
 		}
 	}
 }

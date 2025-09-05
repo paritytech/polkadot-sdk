@@ -72,14 +72,14 @@ where
 
 		if network != expected_network {
 			log::trace!(target: TARGET, "skipped due to unmatched bridge network {network:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning destination to avoid modifying the value so subsequent exporters can use it.
 		let dest = destination.clone().ok_or(SendError::MissingArgument)?;
 		if dest != Here {
 			log::trace!(target: TARGET, "skipped due to unmatched remote destination {dest:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		// Cloning universal_source to avoid modifying the value so subsequent exporters can use it.
@@ -96,20 +96,20 @@ where
 
 		if Ok(local_net) != universal_location.global_consensus() {
 			log::trace!(target: TARGET, "skipped due to unmatched relay network {local_net:?}.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let para_id = match local_sub.as_slice() {
 			[Parachain(para_id)] => *para_id,
 			_ => {
 				log::error!(target: TARGET, "could not get parachain id from universal source '{local_sub:?}'.");
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			},
 		};
 
 		if ParaId::from(para_id) != AssetHubParaId::get() {
 			log::error!(target: TARGET, "is not from asset hub '{para_id:?}'.");
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let message = message.clone().ok_or_else(|| {
@@ -129,7 +129,7 @@ where
 				return match inst {
 					AliasOrigin(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
-				}
+				};
 			},
 		);
 		ensure!(result.is_err(), SendError::NotApplicable);
@@ -178,7 +178,7 @@ impl<T: ExporterFor, M: Contains<Xcm<()>>> ExporterFor for XcmFilterExporter<T, 
 	) -> Option<(Location, Option<Asset>)> {
 		// check the XCM
 		if !M::contains(xcm) {
-			return None
+			return None;
 		}
 		// check `network` and `remote_location`
 		T::exporter_for(network, remote_location, xcm)
@@ -196,7 +196,7 @@ impl Contains<Xcm<()>> for XcmForSnowbridgeV2 {
 				return match inst {
 					AliasOrigin(..) => Err(ProcessMessageError::Yield),
 					_ => Ok(ControlFlow::Continue(())),
-				}
+				};
 			},
 		);
 		result.is_err()

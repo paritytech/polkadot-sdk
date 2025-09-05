@@ -385,9 +385,9 @@ fn rewards_should_work() {
 		);
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&101),
-			init_balance_101 +
-				part_for_101_from_11 * total_payout_0 * 2 / 3 +
-				part_for_101_from_21 * total_payout_0 * 1 / 3,
+			init_balance_101
+				+ part_for_101_from_11 * total_payout_0 * 2 / 3
+				+ part_for_101_from_21 * total_payout_0 * 1 / 3,
 			2
 		);
 
@@ -425,9 +425,9 @@ fn rewards_should_work() {
 		);
 		assert_eq_error_rate!(
 			asset::total_balance::<Test>(&101),
-			init_balance_101 +
-				part_for_101_from_11 * (total_payout_0 * 2 / 3 + total_payout_1) +
-				part_for_101_from_21 * total_payout_0 * 1 / 3,
+			init_balance_101
+				+ part_for_101_from_11 * (total_payout_0 * 2 / 3 + total_payout_1)
+				+ part_for_101_from_21 * total_payout_0 * 1 / 3,
 			2
 		);
 	});
@@ -6534,8 +6534,8 @@ fn test_validator_exposure_is_backward_compatible_with_non_paged_rewards_payout(
 		let actual_exposure_page_1 = ErasStakersPaged::<Test>::get((1, 11, 1)).unwrap();
 		expected_individual_exposures.iter().for_each(|exposure| {
 			assert!(
-				actual_exposure_page_0.others.contains(exposure) ||
-					actual_exposure_page_1.others.contains(exposure)
+				actual_exposure_page_0.others.contains(exposure)
+					|| actual_exposure_page_1.others.contains(exposure)
 			);
 		});
 		assert_eq!(
@@ -9283,8 +9283,8 @@ fn manual_slashing_works() {
 		let expected_balance_1 = initial_balance - (initial_balance / 4); // 25% slash
 
 		assert!(
-			balance_after_first_slash <= expected_balance_1 &&
-				balance_after_first_slash >= expected_balance_1 - 5,
+			balance_after_first_slash <= expected_balance_1
+				&& balance_after_first_slash >= expected_balance_1 - 5,
 			"First slash was not applied correctly. Expected around {}, got {}",
 			expected_balance_1,
 			balance_after_first_slash
@@ -9336,8 +9336,8 @@ fn manual_slashing_works() {
 		let expected_balance_3 = initial_balance / 2; // 50% of original
 
 		assert!(
-			balance_after_third_slash <= expected_balance_3 &&
-				balance_after_third_slash >= expected_balance_3 - 5,
+			balance_after_third_slash <= expected_balance_3
+				&& balance_after_third_slash >= expected_balance_3 - 5,
 			"Third slash was not applied correctly. Expected around {}, got {}",
 			expected_balance_3,
 			balance_after_third_slash
@@ -9379,8 +9379,8 @@ fn manual_slashing_works() {
 		let expected_balance_5 = initial_balance / 4; // 25% of original (75% slashed)
 
 		assert!(
-			balance_after_fifth_slash <= expected_balance_5 &&
-				balance_after_fifth_slash >= expected_balance_5 - 5,
+			balance_after_fifth_slash <= expected_balance_5
+				&& balance_after_fifth_slash >= expected_balance_5 - 5,
 			"Fifth slash was not applied correctly. Expected around {}, got {}",
 			expected_balance_5,
 			balance_after_fifth_slash

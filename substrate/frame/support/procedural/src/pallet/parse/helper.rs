@@ -60,7 +60,7 @@ where
 	let Some(index) = attrs.iter().position(|attr| {
 		attr.path().segments.first().map_or(false, |segment| segment.ident == "pallet")
 	}) else {
-		return Ok(None)
+		return Ok(None);
 	};
 
 	let pallet_attr = attrs.remove(index);
@@ -162,7 +162,7 @@ impl syn::parse::Parse for Unit {
 		syn::parenthesized!(content in input);
 		if !content.is_empty() {
 			let msg = "unexpected tokens, expected nothing inside parenthesis as `()`";
-			return Err(syn::Error::new(content.span(), msg))
+			return Err(syn::Error::new(content.span(), msg));
 		}
 		Ok(Self)
 	}
@@ -175,7 +175,7 @@ impl syn::parse::Parse for StaticLifetime {
 		let lifetime = input.parse::<syn::Lifetime>()?;
 		if lifetime.ident != "static" {
 			let msg = "unexpected tokens, expected `static`";
-			return Err(syn::Error::new(lifetime.ident.span(), msg))
+			return Err(syn::Error::new(lifetime.ident.span(), msg));
 		}
 		Ok(Self)
 	}
@@ -273,7 +273,7 @@ pub fn check_type_def_optional_gen(
 	impl syn::parse::Parse for Checker {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 			if input.is_empty() {
-				return Ok(Self(None))
+				return Ok(Self(None));
 			}
 
 			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
@@ -281,7 +281,7 @@ pub fn check_type_def_optional_gen(
 			input.parse::<keyword::T>()?;
 
 			if input.is_empty() {
-				return Ok(Self(Some(instance_usage)))
+				return Ok(Self(Some(instance_usage)));
 			}
 
 			let lookahead = input.lookahead1();
@@ -298,7 +298,7 @@ pub fn check_type_def_optional_gen(
 				input.parse::<keyword::Config>()?;
 
 				if input.is_empty() {
-					return Ok(Self(Some(instance_usage)))
+					return Ok(Self(Some(instance_usage)));
 				}
 
 				instance_usage.has_instance = true;
@@ -440,7 +440,7 @@ pub fn check_type_def_gen(
 			input.parse::<keyword::T>()?;
 
 			if input.is_empty() {
-				return Ok(Self(instance_usage))
+				return Ok(Self(instance_usage));
 			}
 
 			let lookahead = input.lookahead1();
@@ -457,7 +457,7 @@ pub fn check_type_def_gen(
 				input.parse::<keyword::Config>()?;
 
 				if input.is_empty() {
-					return Ok(Self(instance_usage))
+					return Ok(Self(instance_usage));
 				}
 
 				instance_usage.has_instance = true;
@@ -517,10 +517,10 @@ pub fn check_genesis_builder_usage(type_: &syn::Path) -> syn::Result<Option<Inst
 					input.parse::<keyword::I>()?;
 				}
 				input.parse::<syn::Token![>]>()?;
-				return Ok(Self(Some(instance_usage)))
+				return Ok(Self(Some(instance_usage)));
 			} else {
 				input.parse::<keyword::BuildGenesisConfig>()?;
-				return Ok(Self(None))
+				return Ok(Self(None));
 			}
 		}
 	}
@@ -554,7 +554,7 @@ pub fn check_type_value_gen(
 	impl syn::parse::Parse for Checker {
 		fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 			if input.is_empty() {
-				return Ok(Self(None))
+				return Ok(Self(None));
 			}
 
 			input.parse::<keyword::T>()?;
@@ -564,7 +564,7 @@ pub fn check_type_value_gen(
 			let mut instance_usage = InstanceUsage { span: input.span(), has_instance: false };
 
 			if input.is_empty() {
-				return Ok(Self(Some(instance_usage)))
+				return Ok(Self(Some(instance_usage)));
 			}
 
 			instance_usage.has_instance = true;
@@ -609,7 +609,7 @@ pub fn check_pallet_call_return_type(sig: &syn::Signature) -> syn::Result<CallRe
 	let syn::ReturnType::Type(_, type_) = &sig.output else {
 		let msg = "Invalid pallet::call, require return type \
 			DispatchResultWithPostInfo";
-		return Err(syn::Error::new(sig.span(), msg))
+		return Err(syn::Error::new(sig.span(), msg));
 	};
 
 	pub struct Checker(CallReturnType);

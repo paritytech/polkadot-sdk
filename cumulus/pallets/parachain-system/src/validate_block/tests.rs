@@ -158,8 +158,8 @@ fn build_multiple_blocks_with_witness(
 	sproof_builder.current_slot = (std::time::SystemTime::now()
 		.duration_since(std::time::SystemTime::UNIX_EPOCH)
 		.expect("Time is always after UNIX_EPOCH; qed")
-		.as_millis() as u64 /
-		6000)
+		.as_millis() as u64
+		/ 6000)
 		.into();
 
 	let validation_data = PersistedValidationData {

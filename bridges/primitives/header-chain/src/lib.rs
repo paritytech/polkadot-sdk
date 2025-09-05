@@ -434,8 +434,8 @@ mod tests {
 	#[test]
 	fn max_expected_submit_finality_proof_arguments_size_respects_mandatory_argument() {
 		assert!(
-			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100) >
-				max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
+			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100)
+				> max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
 		);
 	}
 

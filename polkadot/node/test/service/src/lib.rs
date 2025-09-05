@@ -83,7 +83,7 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
 	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p =>
+		sc_network::config::NetworkBackendType::Libp2p => {
 			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(
 				config,
 				polkadot_service::NewFullParams {
@@ -104,8 +104,9 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					prepare_workers_soft_max_num: None,
 					keep_finalized_for: None,
 				},
-			),
-		sc_network::config::NetworkBackendType::Litep2p =>
+			)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
 			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(
 				config,
 				polkadot_service::NewFullParams {
@@ -126,7 +127,8 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 					prepare_workers_soft_max_num: None,
 					keep_finalized_for: None,
 				},
-			),
+			)
+		},
 	}
 }
 
@@ -410,7 +412,7 @@ impl PolkadotTestNode {
 		while let Some(notification) = import_notification_stream.next().await {
 			blocks.insert(notification.hash);
 			if blocks.len() == count {
-				break
+				break;
 			}
 		}
 	}

@@ -104,8 +104,8 @@ where
 	/// Returns the number of blocks read thus far.
 	fn read_block_count(&self) -> u64 {
 		match self {
-			BlockIter::Binary { read_block_count, .. } |
-			BlockIter::Json { read_block_count, .. } => *read_block_count,
+			BlockIter::Binary { read_block_count, .. }
+			| BlockIter::Json { read_block_count, .. } => *read_block_count,
 		}
 	}
 
@@ -229,8 +229,8 @@ impl<B: BlockT> Speedometer<B> {
 			let speed = diff
 				.saturating_mul(10_000)
 				.checked_div(u128::from(elapsed_ms))
-				.map_or(0.0, |s| s as f64) /
-				10.0;
+				.map_or(0.0, |s| s as f64)
+				/ 10.0;
 			info!("📦 Current best block: {} ({:4.1} bps)", self.best_number, speed);
 		} else {
 			// If the number of blocks can't be converted to a regular integer, then we need a more
@@ -326,7 +326,7 @@ where
 				if let (Err(err), hash) = result {
 					warn!("There was an error importing block with hash {:?}: {}", hash, err);
 					self.has_error.store(true, Ordering::Release);
-					break
+					break;
 				}
 			}
 		}
@@ -340,7 +340,7 @@ where
 		Err(e) => {
 			// We've encountered an error while creating the block iterator
 			// so we can just return a future that returns an error.
-			return future::ready(Err(Error::Other(e))).boxed()
+			return future::ready(Err(Error::Other(e))).boxed();
 		},
 	};
 
@@ -375,8 +375,8 @@ where
 						let read_block_count = block_iter.read_block_count();
 						match block_result {
 							Ok(block) => {
-								if read_block_count - link.imported_blocks.load(Ordering::Acquire) >=
-									MAX_PENDING_BLOCKS
+								if read_block_count - link.imported_blocks.load(Ordering::Acquire)
+									>= MAX_PENDING_BLOCKS
 								{
 									// The queue is full, so do not add this block and simply wait
 									// until the queue has made some progress.
@@ -392,19 +392,20 @@ where
 									state = Some(ImportState::Reading { block_iter });
 								}
 							},
-							Err(e) =>
+							Err(e) => {
 								return Poll::Ready(Err(Error::Other(format!(
 									"Error reading block #{}: {}",
 									read_block_count, e
-								)))),
+								))))
+							},
 						}
 					},
 				}
 			},
 			ImportState::WaitingForImportQueueToCatchUp { block_iter, mut delay, block } => {
 				let read_block_count = block_iter.read_block_count();
-				if read_block_count - link.imported_blocks.load(Ordering::Acquire) >=
-					MAX_PENDING_BLOCKS
+				if read_block_count - link.imported_blocks.load(Ordering::Acquire)
+					>= MAX_PENDING_BLOCKS
 				{
 					// Queue is still full, so wait until there is room to insert our block.
 					match Pin::new(&mut delay).poll(cx) {
@@ -414,7 +415,7 @@ where
 								delay,
 								block,
 							});
-							return Poll::Pending
+							return Poll::Pending;
 						},
 						Poll::Ready(_) => {
 							delay.reset(Duration::from_millis(DELAY_TIME));
@@ -450,7 +451,7 @@ where
 						read_block_count,
 						client.info().best_number
 					);
-					return Poll::Ready(Ok(()))
+					return Poll::Ready(Ok(()));
 				} else {
 					// Importing is not done, we still have to wait for the queue to finish.
 					// Wait for the delay, because we know the queue is lagging behind.
@@ -461,7 +462,7 @@ where
 								read_block_count,
 								delay,
 							});
-							return Poll::Pending
+							return Poll::Pending;
 						},
 						Poll::Ready(_) => {
 							delay.reset(Duration::from_millis(DELAY_TIME));
@@ -486,7 +487,7 @@ where
 			return Poll::Ready(Err(Error::Other(format!(
 				"Stopping after #{} blocks because of an error",
 				link.imported_blocks.load(Ordering::Acquire)
-			))))
+			))));
 		}
 
 		cx.waker().wake_by_ref();

@@ -197,7 +197,7 @@ impl LightClientRpcWorker {
 				target: LOG_TARGET,
 				"Unable to initialize new heads subscription"
 			);
-			return
+			return;
 		};
 
 		let Ok(mut finalized_head_subscription) =
@@ -213,7 +213,7 @@ impl LightClientRpcWorker {
 				target: LOG_TARGET,
 				"Unable to initialize finalized heads subscription"
 			);
-			return
+			return;
 		};
 
 		let Ok(mut all_head_subscription) = <JsonRpseeClient as ChainApiClient<
@@ -228,7 +228,7 @@ impl LightClientRpcWorker {
 				target: LOG_TARGET,
 				"Unable to initialize all heads subscription"
 			);
-			return
+			return;
 		};
 
 		loop {

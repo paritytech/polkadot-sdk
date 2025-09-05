@@ -243,8 +243,8 @@ impl Artifacts {
 			let Some(file_name) = path.file_name().and_then(|f| f.to_str()) else { continue };
 			if path.is_dir() && file_name.starts_with(WORKER_DIR_PREFIX) {
 				let _ = fs::remove_dir_all(path);
-			} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION) ||
-				file_name.starts_with(ARTIFACT_OLD_PREFIX)
+			} else if path.extension().map_or(false, |ext| ext == ARTIFACT_EXTENSION)
+				|| file_name.starts_with(ARTIFACT_OLD_PREFIX)
 			{
 				let _ = fs::remove_file(path);
 			}
@@ -322,7 +322,7 @@ impl Artifacts {
 
 		while total_size > cleanup_config.cache_limit {
 			let Some((artifact_id, path, size, last_time_needed)) = artifact_sizes.pop() else {
-				break
+				break;
 			};
 
 			let used_recently = now

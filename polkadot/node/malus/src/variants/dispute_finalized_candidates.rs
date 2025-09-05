@@ -88,7 +88,7 @@ where
 					return Some(FromOrchestra::Signal(OverseerSignal::BlockFinalized(
 						finalized_hash,
 						finalized_height,
-					)))
+					)));
 				}
 
 				let dispute_offset = self.dispute_offset;
@@ -118,7 +118,7 @@ where
 									target: MALUS,
 									"😈 Seems the target is not yet finalized! Nothing to dispute."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -132,14 +132,14 @@ where
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 							Err(e) => {
 								gum::error!(
 									target: MALUS,
 									"😈 Failed to fetch candidate events: {:?}", e
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -148,14 +148,15 @@ where
 							matches!(event, CandidateEvent::CandidateIncluded(_, _, _, _))
 						});
 						let candidate = match event {
-							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) =>
-								candidate,
+							Some(CandidateEvent::CandidateIncluded(candidate, _, _, _)) => {
+								candidate
+							},
 							_ => {
 								gum::error!(
 									target: MALUS,
 									"😈 No candidate included event found! Nothing to dispute."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 
@@ -177,7 +178,7 @@ where
 									target: MALUS,
 									"😈 Failed to fetch session index for candidate."
 								);
-								return // Early return from the async block
+								return; // Early return from the async block
 							},
 						};
 						gum::info!(

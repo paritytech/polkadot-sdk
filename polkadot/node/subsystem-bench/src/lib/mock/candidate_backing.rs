@@ -73,8 +73,8 @@ impl MockCandidateBacking {
 					.or_insert(1);
 
 				let statements_received_count = *statements_tracker.get(&candidate_hash).unwrap();
-				if statements_received_count == (self.config.minimum_backing_votes - 1) &&
-					is_own_backing_group
+				if statements_received_count == (self.config.minimum_backing_votes - 1)
+					&& is_own_backing_group
 				{
 					let statement = Statement::Valid(candidate_hash);
 					let context = SigningContext { parent_hash: relay_parent, session_index: 0 };
@@ -142,10 +142,11 @@ impl MockCandidateBacking {
 		loop {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => {
 					gum::trace!(target: LOG_TARGET, msg=?msg, "recv message");
 

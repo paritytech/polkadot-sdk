@@ -185,7 +185,7 @@ where
 			Ok(dxt) => dxt,
 			Err(e) => {
 				spawn_subscription_task(&self.executor, pending.reject(e));
-				return
+				return;
 			},
 		};
 
@@ -202,7 +202,7 @@ where
 				Ok(stream) => stream,
 				Err(err) => {
 					let _ = pending.reject(ErrorObject::from(err)).await;
-					return
+					return;
 				},
 			};
 

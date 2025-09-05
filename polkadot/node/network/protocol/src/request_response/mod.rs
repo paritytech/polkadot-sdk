@@ -203,7 +203,7 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
+			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => {
 				N::request_response_config(
 					name,
 					legacy_names,
@@ -212,7 +212,8 @@ impl Protocol {
 					// Taken from initial implementation in collator protocol:
 					POV_REQUEST_TIMEOUT_CONNECTED,
 					tx,
-				),
+				)
+			},
 			Protocol::PoVFetchingV1 => N::request_response_config(
 				name,
 				legacy_names,
@@ -280,8 +281,8 @@ impl Protocol {
 				// wasting precious time.
 				let available_bandwidth = 7 * MIN_BANDWIDTH_BYTES / 10;
 				let size = u64::saturating_sub(
-					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth /
-						(1000 * MAX_CODE_SIZE as u64),
+					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth
+						/ (1000 * MAX_CODE_SIZE as u64),
 					MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as u64,
 				);
 				debug_assert!(

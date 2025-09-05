@@ -211,9 +211,9 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// the justification request should be scheduled to the
 	// new peer which is at the given block
 	assert!(sync.justification_requests().iter().any(|(p, r)| {
-		*p == peer_id3 &&
-			r.fields == BlockAttributes::JUSTIFICATION &&
-			r.from == FromBlock::Hash(b1_hash)
+		*p == peer_id3
+			&& r.fields == BlockAttributes::JUSTIFICATION
+			&& r.from == FromBlock::Hash(b1_hash)
 	}));
 
 	assert_eq!(
@@ -557,7 +557,7 @@ fn can_sync_huge_fork() {
 
 		request = if actions.is_empty() {
 			// We found the ancestor
-			break
+			break;
 		} else {
 			assert_eq!(actions.len(), 1);
 			match actions.pop().unwrap() {
@@ -705,7 +705,7 @@ fn syncs_fork_without_duplicate_requests() {
 
 		request = if actions.is_empty() {
 			// We found the ancestor
-			break
+			break;
 		} else {
 			assert_eq!(actions.len(), 1);
 			match actions.pop().unwrap() {

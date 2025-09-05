@@ -75,12 +75,12 @@ async fn check_validation_code_or_log(
 				%para_id,
 				"Failed to fetch validation code hash",
 			);
-			return
+			return;
 		},
 	};
 
 	match state_validation_code_hash {
-		Some(state) =>
+		Some(state) => {
 			if state != *local_validation_code_hash {
 				tracing::warn!(
 					target: super::LOG_TARGET,
@@ -90,7 +90,8 @@ async fn check_validation_code_or_log(
 					relay_validation_code_hash = ?state,
 					"Parachain code doesn't match validation code stored in the relay chain state.",
 				);
-			},
+			}
+		},
 		None => {
 			tracing::warn!(
 				target: super::LOG_TARGET,
@@ -125,10 +126,10 @@ async fn scheduling_lookahead(
 		)
 		.unwrap_or_default();
 
-	if parachain_host_runtime_api_version <
-		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
+	if parachain_host_runtime_api_version
+		< RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
 	{
-		return None
+		return None;
 	}
 
 	match relay_client.scheduling_lookahead(relay_parent).await {
@@ -165,7 +166,7 @@ async fn cores_scheduled_for_para(
 				?relay_parent,
 				"Failed to query claim queue runtime API",
 			);
-			return Vec::new()
+			return Vec::new();
 		},
 	};
 
@@ -258,7 +259,7 @@ where
 				"Could not fetch potential parents to build upon"
 			);
 
-			return None
+			return None;
 		},
 		Ok(x) => x,
 	};
@@ -420,7 +421,7 @@ impl RelayParentData {
 		let Self { relay_parent, mut descendants } = self;
 
 		if descendants.is_empty() {
-			return Default::default()
+			return Default::default();
 		}
 
 		let mut result = vec![relay_parent];

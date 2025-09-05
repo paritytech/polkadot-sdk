@@ -503,8 +503,8 @@ fn register_and_send_multiple_tokens_v2() {
 
 		// Beneficiary received the weth transfer value
 		assert!(
-			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc_bytes)) >
-				weth_transfer_value
+			ForeignAssets::balance(weth_location(), AccountId::from(beneficiary_acc_bytes))
+				> weth_transfer_value
 		);
 
 		let events = AssetHubWestend::events();

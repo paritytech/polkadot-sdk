@@ -135,8 +135,8 @@ mod tests {
 			// - staking-classic is active on RC.
 			rc::roll_until_matches(
 				|| {
-					staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0) ==
-						1
+					staking_classic::ActiveEra::<rc::Runtime>::get().map(|a| a.index).unwrap_or(0)
+						== 1
 				},
 				true,
 			);
@@ -186,8 +186,8 @@ mod tests {
 			// era.
 			rc::roll_until_matches(
 				|| {
-					pallet_session::CurrentIndex::<rc::Runtime>::get() ==
-						current_session + ah::SessionsPerEra::get() + 1
+					pallet_session::CurrentIndex::<rc::Runtime>::get()
+						== current_session + ah::SessionsPerEra::get() + 1
 				},
 				true,
 			);
@@ -215,8 +215,8 @@ mod tests {
 			);
 			assert_eq!(
 				ah_client::ValidatorPoints::<rc::Runtime>::get(&11),
-				(migration_start_block_number - pre_migration_block_number) as u32 *
-					<<rc::Runtime as ah_client::Config>::PointsPerBlock as Get<u32>>::get()
+				(migration_start_block_number - pre_migration_block_number) as u32
+					* <<rc::Runtime as ah_client::Config>::PointsPerBlock as Get<u32>>::get()
 			);
 
 			// Verify buffered mode doesn't send anything to AH

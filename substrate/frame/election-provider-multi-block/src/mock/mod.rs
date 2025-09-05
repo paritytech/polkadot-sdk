@@ -282,9 +282,10 @@ impl InstantElectionProvider for MockFallback {
 		desired_targets: u32,
 	) -> Result<BoundedSupportsOf<Self>, Self::Error> {
 		match FallbackMode::get() {
-			FallbackModes::Continue =>
+			FallbackModes::Continue => {
 				crate::Continue::<Runtime>::instant_elect(voters, targets, desired_targets)
-					.map_err(|x| x.to_string()),
+					.map_err(|x| x.to_string())
+			},
 			FallbackModes::Emergency => crate::InitiateEmergencyPhase::<Runtime>::instant_elect(
 				voters,
 				targets,

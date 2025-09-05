@@ -59,7 +59,7 @@ pub mod data {
 			for locked in self.iter_mut() {
 				if locked.1.identify_version() < to_xcm_version {
 					let Ok(new_unlocker) = locked.1.clone().into_version(to_xcm_version) else {
-						return Err(())
+						return Err(());
 					};
 					locked.1 = new_unlocker;
 					was_modified = true;
@@ -80,34 +80,37 @@ pub mod data {
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
 			match &self {
-				QueryStatus::Pending { responder, maybe_match_querier, .. } =>
-					responder.identify_version() < minimal_allowed_xcm_version ||
-						maybe_match_querier
+				QueryStatus::Pending { responder, maybe_match_querier, .. } => {
+					responder.identify_version() < minimal_allowed_xcm_version
+						|| maybe_match_querier
 							.as_ref()
 							.map(|v| v.identify_version() < minimal_allowed_xcm_version)
-							.unwrap_or(false),
-				QueryStatus::VersionNotifier { origin, .. } =>
-					origin.identify_version() < minimal_allowed_xcm_version,
-				QueryStatus::Ready { response, .. } =>
-					response.identify_version() < minimal_allowed_xcm_version,
+							.unwrap_or(false)
+				},
+				QueryStatus::VersionNotifier { origin, .. } => {
+					origin.identify_version() < minimal_allowed_xcm_version
+				},
+				QueryStatus::Ready { response, .. } => {
+					response.identify_version() < minimal_allowed_xcm_version
+				},
 			}
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			// do migration
 			match self {
 				QueryStatus::Pending { responder, maybe_match_querier, maybe_notify, timeout } => {
 					let Ok(responder) = responder.into_version(to_xcm_version) else {
-						return Err(())
+						return Err(());
 					};
 					let Ok(maybe_match_querier) =
 						maybe_match_querier.map(|mmq| mmq.into_version(to_xcm_version)).transpose()
 					else {
-						return Err(())
+						return Err(());
 					};
 					Ok(Some(QueryStatus::Pending {
 						responder,
@@ -131,13 +134,13 @@ pub mod data {
 		type MigratedData = Self;
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-			self.0 < minimal_allowed_xcm_version ||
-				self.2.identify_version() < minimal_allowed_xcm_version
+			self.0 < minimal_allowed_xcm_version
+				|| self.2.identify_version() < minimal_allowed_xcm_version
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let Ok(asset_id) = self.2.into_version(to_xcm_version) else { return Err(()) };
@@ -152,13 +155,13 @@ pub mod data {
 		type MigratedData = Self;
 
 		fn needs_migration(&self, minimal_allowed_xcm_version: XcmVersion) -> bool {
-			self.owner.identify_version() < minimal_allowed_xcm_version ||
-				self.locker.identify_version() < minimal_allowed_xcm_version
+			self.owner.identify_version() < minimal_allowed_xcm_version
+				|| self.locker.identify_version() < minimal_allowed_xcm_version
 		}
 
 		fn try_migrate(self, to_xcm_version: XcmVersion) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(to_xcm_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let RemoteLockedFungibleRecord { amount, owner, locker, consumers } = self;
@@ -177,8 +180,9 @@ pub mod data {
 		type MigratedData = (VersionedLocation, AuthorizedAliasesEntry<TicketOf<T>, M>);
 
 		fn needs_migration(&self, required_version: XcmVersion) -> bool {
-			self.0.identify_version() != required_version ||
-				self.1
+			self.0.identify_version() != required_version
+				|| self
+					.1
 					.aliasers
 					.iter()
 					.any(|alias| alias.location.identify_version() != required_version)
@@ -189,12 +193,12 @@ pub mod data {
 			required_version: XcmVersion,
 		) -> Result<Option<Self::MigratedData>, ()> {
 			if !self.needs_migration(required_version) {
-				return Ok(None)
+				return Ok(None);
 			}
 
 			let key = if self.0.identify_version() != required_version {
 				let Ok(converted_key) = self.0.clone().into_version(required_version) else {
-					return Err(())
+					return Err(());
 				};
 				converted_key
 			} else {
@@ -420,7 +424,7 @@ pub mod v1 {
 
 			if StorageVersion::get::<Pallet<T>>() != 0 {
 				tracing::warn!("skipping v1, should be removed");
-				return weight
+				return weight;
 			}
 
 			weight.saturating_accrue(T::DbWeight::get().writes(1));

@@ -76,8 +76,9 @@ pub enum ParachainBlockData<Block: BlockT> {
 impl<Block: BlockT> Encode for ParachainBlockData<Block> {
 	fn encode(&self) -> Vec<u8> {
 		match self {
-			Self::V0 { block, proof } =>
-				(block[0].header(), block[0].extrinsics(), &proof).encode(),
+			Self::V0 { block, proof } => {
+				(block[0].header(), block[0].extrinsics(), &proof).encode()
+			},
 			Self::V1 { blocks, proof } => {
 				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
 				1u8.encode_to(&mut res);
@@ -180,7 +181,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 			Self::V0 { .. } => Some(self.clone()),
 			Self::V1 { blocks, proof } => {
 				if blocks.len() != 1 {
-					return None
+					return None;
 				}
 
 				blocks

@@ -214,7 +214,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 							?result,
 							"Received `FromSendingTask::Finished` for non existing task."
 						);
-						return
+						return;
 					},
 					Some(status) => status,
 				};
@@ -317,8 +317,9 @@ async fn wait_response_task<M: 'static + Send + Sync>(
 	let result = pending_response.await;
 	let msg = match result {
 		Err(err) => TaskFinish { candidate_hash, receiver, result: TaskResult::Failed(err) },
-		Ok(DisputeResponse::Confirmed) =>
-			TaskFinish { candidate_hash, receiver, result: TaskResult::Succeeded },
+		Ok(DisputeResponse::Confirmed) => {
+			TaskFinish { candidate_hash, receiver, result: TaskResult::Succeeded }
+		},
 	};
 	if let Err(err) = tx.send_message(msg).await {
 		gum::debug!(

@@ -94,7 +94,7 @@ impl<Block: BlockT> ActiveCandidateRecovery<Block> {
 	pub async fn wait_for_recovery(&mut self) -> (Block::Hash, Option<Arc<PoV>>) {
 		loop {
 			if let Some(res) = self.recoveries.next().await {
-				return res
+				return res;
 			} else {
 				futures::pending!()
 			}

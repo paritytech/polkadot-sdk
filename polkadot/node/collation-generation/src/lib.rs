@@ -205,7 +205,7 @@ impl CollationGenerationSubsystem {
 					our_para = %config.para_id,
 					"No validation data for para - does it exist at this relay-parent?",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -258,7 +258,7 @@ impl CollationGenerationSubsystem {
 		// If there is no collation function provided, bail out early.
 		// Important: Lookahead collator and slot based collator do not use `CollatorFn`.
 		if config.collator.is_none() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let para_id = config.para_id;
@@ -284,7 +284,7 @@ impl CollationGenerationSubsystem {
 
 		// Nothing to do if no core is assigned to us at any depth.
 		if assigned_cores.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// We are being very optimistic here, but one of the cores could be pending availability
@@ -309,7 +309,7 @@ impl CollationGenerationSubsystem {
 					our_para = %para_id,
 					"validation data is not available",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -332,7 +332,7 @@ impl CollationGenerationSubsystem {
 					our_para = %para_id,
 					"validation code hash is not found.",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 
@@ -364,7 +364,7 @@ impl CollationGenerationSubsystem {
 									?para_id,
 									"collator returned no collation on collate",
 								);
-								return
+								return;
 							},
 						};
 
@@ -382,7 +382,7 @@ impl CollationGenerationSubsystem {
 								"error processing UMP signals: {}",
 								err
 							);
-							return
+							return;
 						},
 					};
 
@@ -406,7 +406,7 @@ impl CollationGenerationSubsystem {
 							"no core is assigned to para at depth {}",
 							cq_offset,
 						);
-						return
+						return;
 					}
 
 					let descriptor_core_index =
@@ -420,7 +420,7 @@ impl CollationGenerationSubsystem {
 							"parachain repeatedly selected the same core index: {}",
 							descriptor_core_index.0,
 						);
-						return
+						return;
 					}
 
 					used_cores.insert(descriptor_core_index.0);
@@ -458,7 +458,7 @@ impl CollationGenerationSubsystem {
 							"Failed to construct and distribute collation: {}",
 							err
 						);
-						return
+						return;
 					}
 
 					// Chain the collations. All else stays the same as we build the chained
@@ -505,7 +505,7 @@ impl SessionInfoCache {
 		sender: &mut Sender,
 	) -> Result<PerSessionInfo> {
 		if let Some(info) = self.0.get(&session_index) {
-			return Ok(info.clone())
+			return Ok(info.clone());
 		}
 
 		let n_validators =
@@ -574,7 +574,7 @@ async fn construct_and_distribute_receipt(
 		// As such, honest collators never produce an uncompressed PoV which starts with
 		// a compression magic number, which would lead validators to reject the collation.
 		if encoded_size > validation_data.max_pov_size as usize {
-			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize))
+			return Err(Error::POVSizeExceeded(encoded_size, validation_data.max_pov_size as usize));
 		}
 
 		pov

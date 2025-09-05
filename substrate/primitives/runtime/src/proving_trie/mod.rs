@@ -107,8 +107,9 @@ impl From<TrieError> for &'static str {
 		match e {
 			TrieError::InvalidStateRoot => "The state root is not in the database.",
 			TrieError::IncompleteDatabase => "A trie item was not found in the database.",
-			TrieError::ValueAtIncompleteKey =>
-				"A value was found with a key that is not byte-aligned.",
+			TrieError::ValueAtIncompleteKey => {
+				"A value was found with a key that is not byte-aligned."
+			},
 			TrieError::DecoderError => "A corrupt trie item was encountered.",
 			TrieError::InvalidHash => "The hash does not match the expected value.",
 			TrieError::DuplicateKey => "The proof contains duplicate keys.",

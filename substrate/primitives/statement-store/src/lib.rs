@@ -134,8 +134,9 @@ impl Proof {
 		match self {
 			Proof::Sr25519 { signer, .. } => *signer,
 			Proof::Ed25519 { signer, .. } => *signer,
-			Proof::Secp256k1Ecdsa { signer, .. } =>
-				<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer).into(),
+			Proof::Secp256k1Ecdsa { signer, .. } => {
+				<sp_runtime::traits::BlakeTwo256 as sp_core::Hasher>::hash(signer).into()
+			},
 			Proof::OnChain { who, .. } => *who,
 		}
 	}
@@ -196,7 +197,7 @@ impl Decode for Statement {
 		for i in 0..num_fields.into() {
 			let field: Field = Decode::decode(input)?;
 			if i > 0 && field.discriminant() <= tag {
-				return Err("Invalid field order or duplicate fields".into())
+				return Err("Invalid field order or duplicate fields".into());
 			}
 			tag = field.discriminant();
 			match field {
@@ -475,12 +476,12 @@ impl Statement {
 	fn encoded(&self, for_signing: bool) -> Vec<u8> {
 		// Encoding matches that of Vec<Field>. Basically this just means accepting that there
 		// will be a prefix of vector length.
-		let num_fields = if !for_signing && self.proof.is_some() { 1 } else { 0 } +
-			if self.decryption_key.is_some() { 1 } else { 0 } +
-			if self.priority.is_some() { 1 } else { 0 } +
-			if self.channel.is_some() { 1 } else { 0 } +
-			if self.data.is_some() { 1 } else { 0 } +
-			self.num_topics as u32;
+		let num_fields = if !for_signing && self.proof.is_some() { 1 } else { 0 }
+			+ if self.decryption_key.is_some() { 1 } else { 0 }
+			+ if self.priority.is_some() { 1 } else { 0 }
+			+ if self.channel.is_some() { 1 } else { 0 }
+			+ if self.data.is_some() { 1 } else { 0 }
+			+ self.num_topics as u32;
 
 		let mut output = Vec::new();
 		// When encoding signature payload, the length prefix is omitted.

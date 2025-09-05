@@ -69,10 +69,10 @@ where
 		let include_code = !self.config.disable_code;
 
 		let is_empty = |info: &PrestateTraceInfo| {
-			!info.storage.values().any(|v| v.is_some()) &&
-				info.balance.is_none() &&
-				info.nonce.is_none() &&
-				info.code.is_none()
+			!info.storage.values().any(|v| v.is_some())
+				&& info.balance.is_none()
+				&& info.nonce.is_none()
+				&& info.code.is_none()
 		};
 
 		if self.config.diff_mode {
@@ -87,7 +87,7 @@ where
 
 			pre.retain(|addr, pre_info| {
 				if is_empty(&pre_info) {
-					return false
+					return false;
 				}
 
 				let post_info = post.entry(*addr).or_insert_with_key(|addr| {
@@ -100,7 +100,7 @@ where
 
 				if post_info == pre_info {
 					post.remove(addr);
-					return false
+					return false;
 				}
 
 				if post_info.code == pre_info.code {
@@ -142,7 +142,7 @@ where
 	fn bytecode(address: &H160) -> Option<Bytes> {
 		let code_hash = ContractInfoOf::<T>::get(address)?.code_hash;
 		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
-		return Some(code.into())
+		return Some(code.into());
 	}
 
 	/// Update the prestate info for the given address.
@@ -227,7 +227,7 @@ where
 	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
 		let create_code = self.is_create.take();
 		if output.did_revert() {
-			return
+			return;
 		}
 
 		let code = if self.config.disable_code {
@@ -235,8 +235,9 @@ where
 		} else if let Some(code) = create_code {
 			match code {
 				Code::Upload(code) => Some(code.into()),
-				Code::Existing(code_hash) =>
-					PristineCode::<T>::get(&code_hash).map(|code| Bytes::from(code.to_vec())),
+				Code::Existing(code_hash) => {
+					PristineCode::<T>::get(&code_hash).map(|code| Bytes::from(code.to_vec()))
+				},
 			}
 		} else {
 			Self::bytecode(&self.current_addr)
@@ -262,7 +263,7 @@ where
 			.or_insert_with(|| old_value.map(Into::into));
 
 		if !self.config.diff_mode {
-			return
+			return;
 		}
 
 		if old_value.as_ref().map(|v| v.0.as_ref()) != new_value {

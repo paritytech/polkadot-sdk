@@ -500,7 +500,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			// It is important that this is not available in production!
 			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
 			if &root == id {
-				return Ok(tracks::GRAND_MASTERS)
+				return Ok(tracks::GRAND_MASTERS);
 			}
 		}
 

@@ -285,10 +285,11 @@ where
 		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
-				IsParachainNode::Collator(_) | IsParachainNode::FullNode =>
+				IsParachainNode::Collator(_) | IsParachainNode::FullNode => {
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build validator overseer for parachain node".to_owned(),
-					))),
+					)))
+				},
 				IsParachainNode::No => ProtocolSide::Validator {
 					keystore: keystore.clone(),
 					eviction_policy: Default::default(),
@@ -454,10 +455,11 @@ where
 		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
-				IsParachainNode::No =>
+				IsParachainNode::No => {
 					return Err(Error::Overseer(SubsystemError::Context(
 						"build parachain node overseer for validator".to_owned(),
-					))),
+					)))
+				},
 				IsParachainNode::Collator(collator_pair) => ProtocolSide::Collator {
 					peer_id: network_service.local_peer_id(),
 					collator_pair,

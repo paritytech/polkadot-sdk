@@ -602,7 +602,7 @@ where
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
 			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
-			return
+			return;
 		};
 
 		let FinishRevalidationLocalChannels {

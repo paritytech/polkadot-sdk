@@ -109,12 +109,13 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.full_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.full_client.header(hash)?;
 
@@ -351,7 +352,7 @@ pub fn check_block_in_chain(
 	let _lock = backend.get_import_lock().read();
 
 	if backend.blockchain().status(hash)? == BlockStatus::InChain {
-		return Ok(BlockCheckStatus::InChain)
+		return Ok(BlockCheckStatus::InChain);
 	}
 
 	let listener = client.import_notification_stream();

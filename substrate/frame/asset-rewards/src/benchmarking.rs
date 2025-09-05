@@ -255,8 +255,8 @@ mod benchmarks {
 		}
 
 		let new_reward_rate_per_block =
-			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one()) +
-				T::Balance::one();
+			T::Assets::minimum_balance(T::BenchmarkHelper::reward_asset()).max(T::Balance::one())
+				+ T::Balance::one();
 
 		#[extrinsic_call]
 		_(caller_origin as T::RuntimeOrigin, 0, new_reward_rate_per_block);

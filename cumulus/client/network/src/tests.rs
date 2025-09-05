@@ -169,8 +169,8 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		_: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Option<CommittedCandidateReceiptV2>> {
-		if self.data.lock().runtime_version >=
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.data.lock().runtime_version
+			>= RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidates_pending_availability instead");
 		}
@@ -187,8 +187,8 @@ impl RelayChainInterface for DummyRelayChainInterface {
 		_: PHash,
 		_: ParaId,
 	) -> RelayChainResult<Vec<CommittedCandidateReceiptV2>> {
-		if self.data.lock().runtime_version <
-			RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
+		if self.data.lock().runtime_version
+			< RuntimeApiRequest::CANDIDATES_PENDING_AVAILABILITY_RUNTIME_REQUIREMENT
 		{
 			panic!("Should have used candidate_pending_availability instead");
 		}
@@ -292,12 +292,13 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	async fn header(&self, block_id: BlockId) -> RelayChainResult<Option<PHeader>> {
 		let hash = match block_id {
 			BlockId::Hash(hash) => hash,
-			BlockId::Number(num) =>
+			BlockId::Number(num) => {
 				if let Some(hash) = self.relay_client.hash(num)? {
 					hash
 				} else {
-					return Ok(None)
-				},
+					return Ok(None);
+				}
+			},
 		};
 		let header = self.relay_client.header(hash)?;
 

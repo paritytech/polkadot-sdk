@@ -262,7 +262,7 @@ impl<T: Config> Pallet<T> {
 			Ok(None) => return None,
 			Err(_) => {
 				log::warn!(target: LOG_TARGET, "ParachainsInherentData failed to decode");
-				return None
+				return None;
 			},
 		};
 		match Self::process_inherent_data(parachains_inherent_data) {
@@ -461,7 +461,7 @@ impl<T: Config> Pallet<T> {
 			};
 
 			// The relay chain we are currently on is invalid. Proceed no further on parachains.
-			return Ok((processed, Some(checked_disputes_sets_consumed_weight).into()))
+			return Ok((processed, Some(checked_disputes_sets_consumed_weight).into()));
 		}
 
 		// Contains the disputes that are concluded in the current session only,
@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
 	) -> impl Iterator<Item = (CoreIndex, ParaId)> + 'a {
 		scheduler::ClaimQueue::<T>::get().into_iter().filter_map(|(core_idx, queue)| {
 			if occupied_cores.contains(&core_idx) {
-				return None
+				return None;
 			}
 			let next_scheduled = queue.front()?;
 			Some((core_idx, next_scheduled.para_id()))
@@ -709,7 +709,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 	weight_limit: Weight,
 ) -> (Weight, Vec<usize>) {
 	if selectables.is_empty() {
-		return (Weight::zero(), Vec::new())
+		return (Weight::zero(), Vec::new());
 	}
 	// all indices that are not part of the preferred set
 	let mut indices = (0..selectables.len())
@@ -726,7 +726,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 		if let Some(item) = selectables.get(preferred_idx) {
 			let updated = weight_acc.saturating_add(weight_fn(item));
 			if updated.any_gt(weight_limit) {
-				continue
+				continue;
 			}
 			weight_acc = updated;
 			picked_indices.push(preferred_idx);
@@ -739,7 +739,7 @@ fn random_sel<X, F: Fn(&X) -> Weight>(
 		let updated = weight_acc.saturating_add(weight_fn(item));
 
 		if updated.any_gt(weight_limit) {
-			continue
+			continue;
 		}
 		weight_acc = updated;
 
@@ -784,7 +784,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 
 	// candidates + bitfields fit into the block
 	if max_consumable_weight.all_gte(total) {
-		return total
+		return total;
 	}
 
 	// Invariant: block author provides candidate in the order in which they form a chain
@@ -852,7 +852,7 @@ pub(crate) fn apply_weight_limit<T: Config + inclusion::Config>(
 
 		*candidates = chained_candidates.into_iter().flatten().collect::<Vec<_>>();
 
-		return total_consumed
+		return total_consumed;
 	}
 
 	candidates.clear();
@@ -900,7 +900,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 		// This is a system logic error that should never occur, but we want to handle it gracefully
 		// so we just drop all bitfields
 		log::error!(target: LOG_TARGET, "BUG: disputed_bitfield != expected_bits");
-		return vec![]
+		return vec![];
 	}
 
 	let all_zeros = BitVec::<u8, bitvec::order::Lsb0>::repeat(false, expected_bits);
@@ -914,18 +914,18 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				unchecked_bitfield.unchecked_payload().0.len(),
 				expected_bits,
 			);
-			continue
+			continue;
 		}
 
-		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone() !=
-			all_zeros
+		if unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
+			!= all_zeros
 		{
 			log::trace!(
 				target: LOG_TARGET,
 				"bitfield contains disputed cores: {:?}",
 				unchecked_bitfield.unchecked_payload().0.clone() & disputed_bitfield.0.clone()
 			);
-			continue
+			continue;
 		}
 
 		let validator_index = unchecked_bitfield.unchecked_validator_index();
@@ -937,7 +937,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				last_index.as_ref().map(|x| x.0),
 				validator_index.0
 			);
-			continue
+			continue;
 		}
 
 		if unchecked_bitfield.unchecked_validator_index().0 as usize >= validators.len() {
@@ -947,7 +947,7 @@ pub(crate) fn sanitize_bitfields<T: crate::inclusion::Config>(
 				validator_index.0,
 				validators.len(),
 			);
-			continue
+			continue;
 		}
 
 		let validator_public = &validators[validator_index.0 as usize];
@@ -990,7 +990,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
-		return false
+		return false;
 	}
 
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
@@ -1002,7 +1002,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
-		return false
+		return false;
 	}
 
 	// Get the claim queue snapshot at the candidate relay parent.
@@ -1015,7 +1015,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.descriptor().relay_parent(),
 			candidate.candidate().hash(),
 		);
-		return false
+		return false;
 	};
 
 	if let Err(err) = candidate.candidate().parse_ump_signals(&rp_info.claim_queue) {
@@ -1026,12 +1026,12 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id()
 		);
-		return false
+		return false;
 	}
 
 	if descriptor_version == CandidateDescriptorVersion::V1 {
 		// Nothing more to check for v1 descriptors.
-		return true
+		return true;
 	}
 
 	let Some(session_index) = candidate.descriptor().session_index() else {
@@ -1041,7 +1041,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.candidate().hash(),
 			candidate.descriptor().para_id(),
 		);
-		return false
+		return false;
 	};
 
 	// Check if session index is equal to current session index.
@@ -1054,7 +1054,7 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			session_index,
 			shared::CurrentSessionIndex::<T>::get()
 		);
-		return false
+		return false;
 	}
 
 	true
@@ -1092,7 +1092,7 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 	for candidate in backed_candidates {
 		if !sanitize_backed_candidate_v2::<T>(&candidate, allowed_relay_parents, allow_v2_receipts)
 		{
-			continue
+			continue;
 		}
 
 		candidates_per_para
@@ -1240,7 +1240,7 @@ fn retain_candidates<
 				// Found a valid candidate.
 				latest_valid_idx = Some(idx);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -1270,7 +1270,7 @@ fn filter_backed_statements_from_disabled_validators<
 
 	if disabled_validators.is_empty() {
 		// No disabled validators - nothing to do
-		return
+		return;
 	}
 
 	let minimum_backing_votes = configuration::ActiveConfig::<T>::get().minimum_backing_votes;
@@ -1296,7 +1296,7 @@ fn filter_backed_statements_from_disabled_validators<
 					"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.",
 					bc.descriptor().relay_parent()
 				);
-				return false
+				return false;
 			},
 		};
 
@@ -1308,7 +1308,7 @@ fn filter_backed_statements_from_disabled_validators<
 			Some(group_idx) => group_idx,
 			None => {
 				log::debug!(target: LOG_TARGET, "Can't get the group index for core idx {:?}. Dropping the candidate.", core_idx);
-				return false
+				return false;
 			},
 		};
 
@@ -1317,7 +1317,7 @@ fn filter_backed_statements_from_disabled_validators<
 			Some(validator_group) => validator_group,
 			None => {
 				log::debug!(target: LOG_TARGET, "Can't get the validators from group {:?}. Dropping the candidate.", group_idx);
-				return false
+				return false;
 			},
 		};
 
@@ -1341,8 +1341,8 @@ fn filter_backed_statements_from_disabled_validators<
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there
 		// are not enough backing votes after filtering we will remove the whole candidate.
-		if bc.validity_votes().len() <
-			effective_minimum_backing_votes(validator_group.len(), minimum_backing_votes)
+		if bc.validity_votes().len()
+			< effective_minimum_backing_votes(validator_group.len(), minimum_backing_votes)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -1351,7 +1351,7 @@ fn filter_backed_statements_from_disabled_validators<
 				para_id
 			);
 
-			return false
+			return false;
 		}
 
 		true
@@ -1370,12 +1370,12 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	for para_id in candidates.keys() {
 		let Some(latest_head_data) = inclusion::Pallet::<T>::para_latest_head_data(&para_id) else {
 			defensive!("Latest included head data for paraid {:?} is None", para_id);
-			continue
+			continue;
 		};
 		let Some(latest_relay_parent) = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
 		else {
 			defensive!("Latest relay parent for paraid {:?} is None", para_id);
-			continue
+			continue;
 		};
 		para_latest_context.insert(*para_id, (latest_head_data, latest_relay_parent));
 	}
@@ -1385,7 +1385,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 	retain_candidates::<T, _, _>(candidates, |para_id, candidate| {
 		let Some((latest_head_data, latest_relay_parent)) = para_latest_context.get(&para_id)
 		else {
-			return false
+			return false;
 		};
 		let candidate_hash = candidate.candidate().hash();
 
@@ -1400,7 +1400,7 @@ fn filter_unchained_candidates<T: inclusion::Config + paras::Config + inclusion:
 			);
 
 			// If we got a duplicate candidate, stop.
-			return false
+			return false;
 		} else {
 			visited_candidates.insert(candidate_hash);
 		}
@@ -1453,7 +1453,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 	for (para_id, backed_candidates) in candidates.into_iter() {
 		if backed_candidates.len() == 0 {
 			defensive!("Backed candidates for paraid {} is empty.", para_id);
-			continue
+			continue;
 		}
 
 		let Some(scheduled_cores) = scheduled.get_mut(&para_id) else {
@@ -1463,7 +1463,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 				para_id,
 				backed_candidates.len()
 			);
-			continue
+			continue;
 		};
 
 		// ParaIds without scheduled cores are silently filtered out.
@@ -1474,7 +1474,7 @@ fn map_candidates_to_cores<T: configuration::Config + scheduler::Config + inclus
 				para_id,
 				backed_candidates.len()
 			);
-			continue
+			continue;
 		}
 
 		// We must preserve the dependency order given in the input.
@@ -1556,7 +1556,7 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
 	let (validator_indices, Some(core_idx)) = candidate.validator_indices_and_core_index() else {
-		return None
+		return None;
 	};
 
 	let relay_parent_block_number =
@@ -1569,7 +1569,7 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 					candidate.descriptor().relay_parent(),
 					candidate.candidate().hash(),
 				);
-				return None
+				return None;
 			},
 		};
 
@@ -1585,7 +1585,7 @@ fn get_injected_core_index<T: configuration::Config + scheduler::Config + inclus
 				"Can't get the group index for core idx {:?}.",
 				core_idx,
 			);
-			return None
+			return None;
 		},
 	};
 

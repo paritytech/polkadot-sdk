@@ -364,7 +364,7 @@ pub async fn benchmark_statement_distribution(
 		{
 			let messages_sent_count = messages_tracker.get_mut(group_index).unwrap();
 			if *messages_sent_count == max_messages_per_candidate {
-				continue
+				continue;
 			}
 			*messages_sent_count += 1;
 

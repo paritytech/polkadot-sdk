@@ -126,8 +126,9 @@ async fn generate_opposing_votes_pair(
 	valid_vote_type: VoteType,
 ) -> (SignedDisputeStatement, SignedDisputeStatement) {
 	let valid_vote = match valid_vote_type {
-		VoteType::Backing =>
-			test_state.issue_backing_statement_with_index(valid_voter_idx, candidate_hash, session),
+		VoteType::Backing => {
+			test_state.issue_backing_statement_with_index(valid_voter_idx, candidate_hash, session)
+		},
 		VoteType::Explicit => test_state.issue_explicit_statement_with_index(
 			valid_voter_idx,
 			candidate_hash,
@@ -440,7 +441,7 @@ impl TestState {
 				},
 			}
 		}
-		return sent_disputes
+		return sent_disputes;
 	}
 
 	async fn handle_resume_sync(

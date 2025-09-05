@@ -346,7 +346,7 @@ where
 	/// SAFETY: Does not panic even on corrupted storage.
 	fn peek_first(&self) -> Option<BoundedSlice<u8, IntoU32<HeapSize, Size>>> {
 		if self.first > self.last {
-			return None
+			return None;
 		}
 		let f = (self.first.into() as usize).min(self.heap.len());
 		let mut item_slice = &self.heap[f..];
@@ -355,7 +355,7 @@ where
 			if payload_len <= item_slice.len() {
 				// impossible to truncate since is sliced up from `self.heap: BoundedVec<u8,
 				// HeapSize>`
-				return Some(BoundedSlice::defensive_truncate_from(&item_slice[..payload_len]))
+				return Some(BoundedSlice::defensive_truncate_from(&item_slice[..payload_len]));
 			}
 		}
 		defensive!("message-queue: heap corruption");
@@ -388,14 +388,14 @@ where
 			let h = ItemHeader::<Size>::decode(&mut item_slice).ok()?;
 			let item_len = h.payload_len.into() as usize;
 			if item_slice.len() < item_len {
-				return None
+				return None;
 			}
 			item_slice = &item_slice[item_len..];
 			pos.saturating_accrue(header_len.saturating_add(item_len));
 		}
 		let h = ItemHeader::<Size>::decode(&mut item_slice).ok()?;
 		if item_slice.len() < h.payload_len.into() as usize {
-			return None
+			return None;
 		}
 		item_slice = &item_slice[..h.payload_len.into() as usize];
 		Some((pos, h.is_processed, item_slice))
@@ -886,7 +886,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the current head if it got be bumped and `None` otherwise.
 	fn bump_service_head(weight: &mut WeightMeter) -> Option<MessageOriginOf<T>> {
 		if weight.try_consume(T::WeightInfo::bump_service_head()).is_err() {
-			return None
+			return None;
 		}
 
 		if let Some(head) = ServiceHead::<T>::get() {
@@ -905,7 +905,7 @@ impl<T: Config> Pallet<T> {
 
 	fn set_service_head(weight: &mut WeightMeter, queue: &MessageOriginOf<T>) -> Result<bool, ()> {
 		if weight.try_consume(T::WeightInfo::set_service_head()).is_err() {
-			return Err(())
+			return Err(());
 		}
 
 		// Ensure that we never set the head to an un-ready queue.
@@ -966,13 +966,13 @@ impl<T: Config> Pallet<T> {
 					"ServiceWeight too low: {}. Must be at least {}",
 					service,
 					Self::single_msg_overhead(),
-				))
+				));
 			}
 
 			if service.any_gt(max_block) {
 				return Err(format!(
 					"ServiceWeight {service} is bigger than max block weight {max_block}"
-				))
+				));
 			}
 		}
 
@@ -980,18 +980,18 @@ impl<T: Config> Pallet<T> {
 			if on_idle.any_gt(max_block) {
 				return Err(format!(
 					"IdleMaxServiceWeight {on_idle} is bigger than max block weight {max_block}"
-				))
+				));
 			}
 		}
 
 		if let (Some(service_weight), Some(on_idle)) =
 			(T::ServiceWeight::get(), T::IdleMaxServiceWeight::get())
 		{
-			if !(service_weight.all_gt(on_idle) ||
-				on_idle.all_gt(service_weight) ||
-				service_weight == on_idle)
+			if !(service_weight.all_gt(on_idle)
+				|| on_idle.all_gt(service_weight)
+				|| service_weight == on_idle)
 			{
-				return Err("One of `ServiceWeight` or `IdleMaxServiceWeight` needs to be `all_gt` or both need to be equal.".into())
+				return Err("One of `ServiceWeight` or `IdleMaxServiceWeight` needs to be `all_gt` or both need to be equal.".into());
 			}
 		}
 
@@ -1094,8 +1094,8 @@ impl<T: Config> Pallet<T> {
 			page.peek_index(index.into() as usize).ok_or(Error::<T>::NoMessage)?;
 		let payload_len = payload.len() as u64;
 		ensure!(
-			page_index < book_state.begin ||
-				(page_index == book_state.begin && pos < page.first.into() as usize),
+			page_index < book_state.begin
+				|| (page_index == book_state.begin && pos < page.first.into() as usize),
 			Error::<T>::Queued
 		);
 		ensure!(!is_processed, Error::<T>::AlreadyProcessed);
@@ -1112,8 +1112,9 @@ impl<T: Config> Pallet<T> {
 			// additional overweight event being deposited.
 		) {
 			Overweight | InsufficientWeight => Err(Error::<T>::InsufficientWeight),
-			StackLimitReached | Unprocessable { permanent: false } =>
-				Err(Error::<T>::TemporarilyUnprocessable),
+			StackLimitReached | Unprocessable { permanent: false } => {
+				Err(Error::<T>::TemporarilyUnprocessable)
+			},
 			Unprocessable { permanent: true } | Processed => {
 				page.note_processed_at_pos(pos);
 				book_state.message_count.saturating_dec();
@@ -1229,14 +1230,14 @@ impl<T: Config> Pallet<T> {
 			)
 			.is_err()
 		{
-			return (false, None)
+			return (false, None);
 		}
 
 		let mut book_state = BookStateFor::<T>::get(&origin);
 		let mut total_processed = 0;
 		if T::QueuePausedQuery::is_paused(&origin) {
 			let next_ready = book_state.ready_neighbours.as_ref().map(|x| x.next.clone());
-			return (false, next_ready)
+			return (false, next_ready);
 		}
 
 		while book_state.end > book_state.begin {
@@ -1284,7 +1285,7 @@ impl<T: Config> Pallet<T> {
 			)
 			.is_err()
 		{
-			return (0, Bailed)
+			return (0, Bailed);
 		}
 
 		let page_index = book_state.begin;
@@ -1292,7 +1293,7 @@ impl<T: Config> Pallet<T> {
 			Some(p) => p,
 			None => {
 				defensive!("message-queue: referenced page not found");
-				return (0, NoMore)
+				return (0, NoMore);
 			},
 		};
 
@@ -1342,10 +1343,10 @@ impl<T: Config> Pallet<T> {
 		// This ugly pre-checking is needed for the invariant
 		// "we never bail if a page became complete".
 		if page.is_complete() {
-			return ItemExecutionStatus::NoItem
+			return ItemExecutionStatus::NoItem;
 		}
 		if weight.try_consume(T::WeightInfo::service_page_item()).is_err() {
-			return ItemExecutionStatus::Bailed
+			return ItemExecutionStatus::Bailed;
 		}
 
 		let payload = &match page.peek_first() {
@@ -1373,7 +1374,7 @@ impl<T: Config> Pallet<T> {
 			*page = new_page;
 		} else {
 			defensive!("page must exist since we just inserted it and recursive calls are not allowed to remove anything");
-			return ItemExecutionStatus::NoItem
+			return ItemExecutionStatus::NoItem;
 		};
 
 		let is_processed = match res {
@@ -1481,7 +1482,7 @@ impl<T: Config> Pallet<T> {
 							counted_remaining_messages += 1;
 						}
 					} else {
-						break
+						break;
 					}
 				}
 
@@ -1492,7 +1493,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if head_book_state.ready_neighbours.as_ref().unwrap().next == starting_origin {
-				break
+				break;
 			}
 		}
 		Ok(())
@@ -1537,7 +1538,7 @@ impl<T: Config> Pallet<T> {
 						page_info.push_str(&format!("{:?}, ", msg));
 						page.skip_first(true);
 					} else {
-						break
+						break;
 					}
 				}
 				page_info.push_str("]\n");
@@ -1583,7 +1584,7 @@ impl<T: Config> Pallet<T> {
 				defensive!(
 					"Error occurred processing message, storage changes will be rolled back"
 				);
-				return MessageExecutionStatus::Unprocessable { permanent: true }
+				return MessageExecutionStatus::Unprocessable { permanent: true };
 			},
 		};
 
@@ -1655,10 +1656,10 @@ impl<T: Config> Pallet<T> {
 				let (progressed, n) =
 					Self::service_queue(next.clone(), &mut weight, overweight_limit);
 				next = match n {
-					Some(n) =>
+					Some(n) => {
 						if !progressed {
 							if last_no_progress == Some(n.clone()) {
-								break
+								break;
 							}
 							if last_no_progress.is_none() {
 								last_no_progress = Some(next.clone())
@@ -1667,7 +1668,8 @@ impl<T: Config> Pallet<T> {
 						} else {
 							last_no_progress = None;
 							n
-						},
+						}
+					},
 					None => break,
 				}
 			}
@@ -1770,7 +1772,7 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 			)
 			.is_err()
 		{
-			return Err(ExecuteOverweightError::InsufficientWeight)
+			return Err(ExecuteOverweightError::InsufficientWeight);
 		}
 
 		Pallet::<T>::do_execute_overweight(message_origin, page, index, weight.remaining()).map_err(
@@ -1778,8 +1780,9 @@ impl<T: Config> ServiceQueues for Pallet<T> {
 				Error::<T>::InsufficientWeight => ExecuteOverweightError::InsufficientWeight,
 				Error::<T>::AlreadyProcessed => ExecuteOverweightError::AlreadyProcessed,
 				Error::<T>::QueuePaused => ExecuteOverweightError::QueuePaused,
-				Error::<T>::NoPage | Error::<T>::NoMessage | Error::<T>::Queued =>
-					ExecuteOverweightError::NotFound,
+				Error::<T>::NoPage | Error::<T>::NoMessage | Error::<T>::Queued => {
+					ExecuteOverweightError::NotFound
+				},
 				Error::<T>::RecursiveDisallowed => ExecuteOverweightError::RecursiveDisallowed,
 				_ => ExecuteOverweightError::Other,
 			},
@@ -1811,7 +1814,7 @@ impl<T: Config> EnqueueMessage<MessageOriginOf<T>> for Pallet<T> {
 
 	fn sweep_queue(origin: MessageOriginOf<T>) {
 		if !BookStateFor::<T>::contains_key(&origin) {
-			return
+			return;
 		}
 		let mut book_state = BookStateFor::<T>::get(&origin);
 		book_state.begin = book_state.end;

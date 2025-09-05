@@ -369,9 +369,9 @@ async fn handle_leaf_activation(
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
 				RuntimeApiRequest::BackingConstraints(p_id, tx),
-			)) if parent == *hash &&
-				test_state.runtime_api_version >=
-					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
+			)) if parent == *hash
+				&& test_state.runtime_api_version
+					>= RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
 			{
 				let PerParaData { min_relay_parent, head_data, pending_availability: _ } =
 					leaf.para_data(p_id);
@@ -388,9 +388,9 @@ async fn handle_leaf_activation(
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
 				RuntimeApiRequest::BackingConstraints(_p_id, tx),
-			)) if parent == *hash &&
-				test_state.runtime_api_version <
-					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
+			)) if parent == *hash
+				&& test_state.runtime_api_version
+					< RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
 			{
 				tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
 				None

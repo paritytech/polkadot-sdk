@@ -131,7 +131,7 @@ impl PacketDispatcher {
 		let Some(core_id) = to_core_peer_id(id) else {
 			debug!(target: LOG_TARGET,
 				"Cannot add peer; failed to convert libp2p peer ID {id} to mixnet peer ID");
-			return
+			return;
 		};
 		if self.peer_queues.insert(core_id, Arc::new(PeerQueue::new())).is_some() {
 			warn!(target: LOG_TARGET, "Two stream opened notifications for peer ID {id}");
@@ -142,7 +142,7 @@ impl PacketDispatcher {
 		let Some(core_id) = to_core_peer_id(id) else {
 			debug!(target: LOG_TARGET,
 				"Cannot remove peer; failed to convert libp2p peer ID {id} to mixnet peer ID");
-			return
+			return;
 		};
 		if self.peer_queues.remove(&core_id).is_none() {
 			warn!(target: LOG_TARGET, "Stream closed notification for unknown peer ID {id}");
@@ -156,7 +156,7 @@ impl PacketDispatcher {
 		let Some(queue) = self.peer_queues.get_mut(&packet.peer_id) else {
 			debug!(target: LOG_TARGET, "Dropped packet to mixnet peer ID {:x?}; not connected",
 				packet.peer_id);
-			return None
+			return None;
 		};
 
 		match queue.push(packet.packet) {
@@ -174,7 +174,7 @@ impl PacketDispatcher {
 						failed to convert mixnet peer ID {:x?} to libp2p peer ID",
 						packet.peer_id);
 					queue.clear();
-					return None
+					return None;
 				};
 				Some(ReadyPeer { id, queue: queue.clone() })
 			},

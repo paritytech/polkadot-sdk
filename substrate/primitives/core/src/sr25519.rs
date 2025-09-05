@@ -516,25 +516,34 @@ pub mod vrf {
 			NotMarkedSchnorrkel => "Signature error: `NotMarkedSchnorrkel`".into(),
 			BytesLengthError { .. } => "Signature error: `BytesLengthError`".into(),
 			InvalidKey => "Signature error: `InvalidKey`".into(),
-			MuSigAbsent { musig_stage: Commitment } =>
-				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
-			MuSigAbsent { musig_stage: Reveal } =>
-				"Signature error: `MuSigAbsent` at stage `Reveal`".into(),
-			MuSigAbsent { musig_stage: Cosignature } =>
-				"Signature error: `MuSigAbsent` at stage `Commitment`".into(),
-			MuSigInconsistent { musig_stage: Commitment, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Commitment, duplicate: false } =>
-				"Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate".into(),
-			MuSigInconsistent { musig_stage: Reveal, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Reveal, duplicate: false } =>
-				"Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate".into(),
-			MuSigInconsistent { musig_stage: Cosignature, duplicate: true } =>
-				"Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate".into(),
-			MuSigInconsistent { musig_stage: Cosignature, duplicate: false } =>
+			MuSigAbsent { musig_stage: Commitment } => {
+				"Signature error: `MuSigAbsent` at stage `Commitment`".into()
+			},
+			MuSigAbsent { musig_stage: Reveal } => {
+				"Signature error: `MuSigAbsent` at stage `Reveal`".into()
+			},
+			MuSigAbsent { musig_stage: Cosignature } => {
+				"Signature error: `MuSigAbsent` at stage `Commitment`".into()
+			},
+			MuSigInconsistent { musig_stage: Commitment, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Commitment, duplicate: false } => {
+				"Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Reveal, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Reveal, duplicate: false } => {
+				"Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Cosignature, duplicate: true } => {
+				"Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate".into()
+			},
+			MuSigInconsistent { musig_stage: Cosignature, duplicate: false } => {
 				"Signature error: `MuSigInconsistent` at stage `Cosignature` on not duplicate"
-					.into(),
+					.into()
+			},
 		}
 	}
 

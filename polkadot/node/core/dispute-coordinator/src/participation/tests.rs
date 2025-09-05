@@ -256,8 +256,8 @@ fn reqs_get_queued_when_out_of_capacity() {
 		let mut recover_available_data_msg_count = 0;
 		let mut block_number_msg_count = 0;
 
-		while recover_available_data_msg_count < MAX_PARALLEL_PARTICIPATIONS + 1 ||
-			block_number_msg_count < 1
+		while recover_available_data_msg_count < MAX_PARALLEL_PARTICIPATIONS + 1
+			|| block_number_msg_count < 1
 		{
 			match ctx_handle.recv().await {
 				AllMessages::AvailabilityRecovery(

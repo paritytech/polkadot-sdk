@@ -160,7 +160,7 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 				backend.unpin_block(hash);
 			} else {
 				log::debug!(target: LOG_TARGET, "Terminating unpin-worker, backend reference was dropped.");
-				return Err(())
+				return Err(());
 			}
 		} else {
 			log::debug!(target: LOG_TARGET, "Received unpin message for already unpinned block. hash = {hash:?}");
@@ -176,10 +176,11 @@ impl<Block: BlockT, Back: Backend<Block>> NotificationPinningWorker<Block, Back>
 		while let Some(message) = self.unpin_message_rx.next().await {
 			match message {
 				UnpinWorkerMessage::AnnouncePin(hash) => self.handle_announce_message(hash),
-				UnpinWorkerMessage::Unpin(hash) =>
+				UnpinWorkerMessage::Unpin(hash) => {
 					if self.handle_unpin_message(hash).is_err() {
-						return
-					},
+						return;
+					}
+				},
 			}
 		}
 		log::debug!(target: LOG_TARGET, "Terminating unpin-worker, stream terminated.")

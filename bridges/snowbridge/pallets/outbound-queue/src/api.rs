@@ -14,7 +14,7 @@ where
 	T: Config,
 {
 	if !MessageLeaves::<T>::exists() {
-		return None
+		return None;
 	}
 	let proof =
 		merkle_proof::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter(), leaf_index);

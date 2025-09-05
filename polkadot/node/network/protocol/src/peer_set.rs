@@ -161,20 +161,22 @@ impl PeerSet {
 		// Unfortunately, labels must be static strings, so we must manually cover them
 		// for all protocol versions here.
 		match self {
-			PeerSet::Validation =>
+			PeerSet::Validation => {
 				if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
-				},
-			PeerSet::Collation =>
+				}
+			},
+			PeerSet::Collation => {
 				if version == CollationVersion::V1.into() {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
 				} else {
 					None
-				},
+				}
+			},
 		}
 	}
 }
@@ -263,7 +265,7 @@ impl TryFrom<ProtocolVersion> for ValidationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 
@@ -277,7 +279,7 @@ impl TryFrom<ProtocolVersion> for CollationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 
@@ -313,7 +315,7 @@ impl PeerSetProtocolNames {
 		let mut names = HashMap::new();
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						Self::register_main_protocol(
 							&mut protocols,
@@ -323,7 +325,8 @@ impl PeerSetProtocolNames {
 							&genesis_hash,
 							fork_id,
 						);
-					},
+					}
+				},
 				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						Self::register_main_protocol(
@@ -559,7 +562,7 @@ mod tests {
 
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						assert_eq!(
 							protocol_names.get_name(protocol, version.into()),
@@ -570,8 +573,9 @@ mod tests {
 								version.into(),
 							),
 						);
-					},
-				PeerSet::Collation =>
+					}
+				},
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						assert_eq!(
 							protocol_names.get_name(protocol, version.into()),
@@ -582,7 +586,8 @@ mod tests {
 								version.into(),
 							),
 						);
-					},
+					}
+				},
 			}
 		}
 	}
@@ -591,18 +596,20 @@ mod tests {
 	fn all_protocol_versions_have_labels() {
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						protocol
 							.get_protocol_label(version.into())
 							.expect("All validation protocol versions must have a label.");
-					},
-				PeerSet::Collation =>
+					}
+				},
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						protocol
 							.get_protocol_label(version.into())
 							.expect("All collation protocol versions must have a label.");
-					},
+					}
+				},
 			}
 		}
 	}

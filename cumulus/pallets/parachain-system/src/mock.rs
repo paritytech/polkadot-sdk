@@ -167,10 +167,10 @@ impl XcmpMessageSource for FromThreadLocal {
 
 				let msg_len = m.1.len();
 
-				if !ids.contains(&m.0) &&
-					taken_messages < maximum_channels &&
-					msg_len <= max_size_ever &&
-					taken_bytes + msg_len <= max_size_now
+				if !ids.contains(&m.0)
+					&& taken_messages < maximum_channels
+					&& msg_len <= max_size_ever
+					&& taken_bytes + msg_len <= max_size_now
 				{
 					ids.insert(m.0);
 					taken_messages += 1;

@@ -41,7 +41,7 @@ fn get_latest_version() -> u16 {
 					path
 				);
 
-				return Some(version)
+				return Some(version);
 			}
 			None
 		})

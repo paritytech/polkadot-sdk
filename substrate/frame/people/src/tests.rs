@@ -2056,8 +2056,8 @@ mod onboard_people {
 			assert_eq!(tail, 2);
 
 			assert!(
-				!OnboardingQueue::<Test>::get(head).is_empty() &&
-					!OnboardingQueue::<Test>::get(tail).is_empty()
+				!OnboardingQueue::<Test>::get(head).is_empty()
+					&& !OnboardingQueue::<Test>::get(tail).is_empty()
 			);
 
 			for _ in 0..=expected_rings_to_build - 1 {
@@ -2662,11 +2662,11 @@ fn on_poll_works() {
 		let merge_pages_weight =
 			<<Test as Config>::WeightInfo as crate::WeightInfo>::merge_queue_pages();
 
-		let expected_consumed = base_weight +
-			step_migration_weight.saturating_mul(5) +
-			end_migrate_db_weight +
-			step_remove_keys_weight +
-			merge_pages_weight;
+		let expected_consumed = base_weight
+			+ step_migration_weight.saturating_mul(5)
+			+ end_migrate_db_weight
+			+ step_remove_keys_weight
+			+ merge_pages_weight;
 		assert_eq!(meter.consumed(), expected_consumed);
 	});
 }

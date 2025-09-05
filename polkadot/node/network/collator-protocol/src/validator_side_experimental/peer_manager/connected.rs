@@ -91,7 +91,7 @@ impl ConnectedPeers {
 		peer_info: PeerInfo,
 	) -> TryAcceptOutcome {
 		if self.contains(&peer_id) {
-			return TryAcceptOutcome::Added
+			return TryAcceptOutcome::Added;
 		}
 
 		let mut outcome = TryAcceptOutcome::Rejected;
@@ -104,12 +104,13 @@ impl ConnectedPeers {
 					outcome = outcome.combine(res);
 				}
 			},
-			PeerState::Connected =>
+			PeerState::Connected => {
 				for (para_id, per_para) in self.per_para.iter_mut() {
 					let past_reputation = reputation_query_fn(peer_id, *para_id).await;
 					let res = per_para.try_accept(peer_id, past_reputation);
 					outcome = outcome.combine(res);
-				},
+				}
+			},
 		}
 
 		match outcome {
@@ -246,7 +247,7 @@ impl PerPara {
 		} else {
 			let Some(min_score) = self.sorted_scores.first() else {
 				// The limit must be 0, which is not possible given that limit is a NonZeroU16.
-				return TryAcceptOutcome::Rejected
+				return TryAcceptOutcome::Rejected;
 			};
 
 			if min_score.score >= score {
@@ -255,7 +256,7 @@ impl PerPara {
 				let Some(replaced) = self.sorted_scores.pop_first() else {
 					// Cannot really happen since we already know there's some entry with a lower
 					// score than ours.
-					return TryAcceptOutcome::Rejected
+					return TryAcceptOutcome::Rejected;
 				};
 				self.per_peer_score.remove(&replaced.peer_id);
 
@@ -269,7 +270,7 @@ impl PerPara {
 	fn update_reputation(&mut self, update: ReputationUpdate) {
 		let Some(score) = self.per_peer_score.get_mut(&update.peer_id) else {
 			// If the peer is not connected we don't care to update anything besides the DB.
-			return
+			return;
 		};
 
 		self.sorted_scores
@@ -567,12 +568,15 @@ mod tests {
 		let rep_query_fn = |peer_id, para_id| async move {
 			match (peer_id, para_id) {
 				(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-					Score::new(20).unwrap(),
-				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-					Score::new(20).unwrap(),
-				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 =>
-					Score::new(5).unwrap(),
+				(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+					Score::new(20).unwrap()
+				},
+				(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+					Score::new(20).unwrap()
+				},
+				(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
+					Score::new(5).unwrap()
+				},
 
 				(_, _) => Score::default(),
 			}
@@ -714,12 +718,15 @@ mod tests {
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
 					(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-						Score::new(20).unwrap(),
-					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-						Score::new(20).unwrap(),
-					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 =>
-						Score::new(15).unwrap(),
+					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+						Score::new(20).unwrap()
+					},
+					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+						Score::new(20).unwrap()
+					},
+					(peer_id, para_id) if peer_id == fourth_peer && para_id == para_2 => {
+						Score::new(15).unwrap()
+					},
 					(peer_id, para_id) if peer_id == new_peer => Score::new(30).unwrap(),
 
 					(_, _) => Score::default(),
@@ -863,12 +870,15 @@ mod tests {
 			let rep_query_fn = |peer_id, para_id| async move {
 				match (peer_id, para_id) {
 					(peer_id, para_id) if peer_id == first_peer => Score::new(10).unwrap(),
-					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 =>
-						Score::new(5).unwrap(),
-					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 =>
-						Score::new(5).unwrap(),
-					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 =>
-						Score::new(8).unwrap(),
+					(peer_id, para_id) if peer_id == second_peer && para_id == para_1 => {
+						Score::new(5).unwrap()
+					},
+					(peer_id, para_id) if peer_id == third_peer && para_id == para_2 => {
+						Score::new(5).unwrap()
+					},
+					(peer_id, para_id) if peer_id == new_peer && para_id == para_1 => {
+						Score::new(8).unwrap()
+					},
 
 					(_, _) => Score::default(),
 				}

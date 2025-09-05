@@ -114,7 +114,9 @@ impl MessageRaceLimits {
 				Some(new_selected_weight)
 					if new_selected_weight
 						.all_lte(reference.max_messages_weight_in_single_batch) =>
-					new_selected_weight,
+				{
+					new_selected_weight
+				},
 				new_selected_weight if selected_count == 0 => {
 					log::warn!(
 						target: "bridge",
@@ -132,7 +134,9 @@ impl MessageRaceLimits {
 			let new_selected_size = match relay_reference.selected_size.checked_add(details.size) {
 				Some(new_selected_size)
 					if new_selected_size <= reference.max_messages_size_in_single_batch =>
-					new_selected_size,
+				{
+					new_selected_size
+				},
 				new_selected_size if selected_count == 0 => {
 					log::warn!(
 						target: "bridge",
@@ -149,7 +153,7 @@ impl MessageRaceLimits {
 			// limit number of messages in the batch
 			let new_selected_count = selected_count + 1;
 			if new_selected_count > reference.max_messages_in_this_batch {
-				break
+				break;
 			}
 			relay_reference.selected_size = new_selected_size;
 

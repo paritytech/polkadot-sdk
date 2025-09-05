@@ -150,8 +150,8 @@ where
 		// If it is higher, there is either a bug with the pallet or a bug in the calculation of the
 		// deposit amount.
 		ensure!(
-			account_deposits.iter().all(|(account, deposit)| *deposit <=
-				*account_reserved_before.get(account).unwrap_or(&Zero::zero())),
+			account_deposits.iter().all(|(account, deposit)| *deposit
+				<= *account_reserved_before.get(account).unwrap_or(&Zero::zero())),
 			"Deposit amount is greater than reserved amount"
 		);
 
@@ -176,7 +176,7 @@ where
 		// Deposited funds need to be unreserved.
 		for (account, unreserve_amount) in account_deposits.iter() {
 			if unreserve_amount.is_zero() {
-				continue
+				continue;
 			}
 			T::Currency::unreserve(&account, *unreserve_amount);
 		}
@@ -219,7 +219,7 @@ where
 					actual_reserved_after,
 					expected_amount_deducted
 				);
-				return Err("Reserved balance is incorrect".into())
+				return Err("Reserved balance is incorrect".into());
 			}
 		}
 
@@ -289,17 +289,17 @@ mod test {
 			// Verify the expected amount is reserved
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_0),
-				tipper_0_initial_reserved +
-					<Test as crate::Config>::TipReportDepositBase::get() +
-					<Test as crate::Config>::DataDepositPerByte::get() *
-						tip_0_reason.len() as u64
+				tipper_0_initial_reserved
+					+ <Test as crate::Config>::TipReportDepositBase::get()
+					+ <Test as crate::Config>::DataDepositPerByte::get()
+						* tip_0_reason.len() as u64
 			);
 			assert_eq!(
 				<Test as pallet_treasury::Config>::Currency::reserved_balance(&tipper_1),
-				tipper_1_initial_reserved +
-					<Test as crate::Config>::TipReportDepositBase::get() +
-					<Test as crate::Config>::DataDepositPerByte::get() *
-						tip_1_reason.len() as u64
+				tipper_1_initial_reserved
+					+ <Test as crate::Config>::TipReportDepositBase::get()
+					+ <Test as crate::Config>::DataDepositPerByte::get()
+						* tip_1_reason.len() as u64
 			);
 
 			// Execute the migration

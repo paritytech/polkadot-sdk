@@ -165,7 +165,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 
 	fn from_seed_slice(seed_slice: &[u8]) -> Result<Self, SecretStringError> {
 		if seed_slice.len() != SECRET_KEY_SERIALIZED_SIZE {
-			return Err(SecretStringError::InvalidSeedLength)
+			return Err(SecretStringError::InvalidSeedLength);
 		}
 		let secret = w3f_bls::SecretKey::from_seed(seed_slice);
 		let public = secret.into_public();
@@ -268,13 +268,13 @@ where
 		let Ok(proof_of_possession) =
 			NuggetBLSnCPPoP::<T>::from_bytes(proof_of_possession.as_ref())
 		else {
-			return false
+			return false;
 		};
 
 		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
 			DoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref())
 		else {
-			return false
+			return false;
 		};
 
 		BlsProofOfPossession::<T, Sha256, _>::verify(

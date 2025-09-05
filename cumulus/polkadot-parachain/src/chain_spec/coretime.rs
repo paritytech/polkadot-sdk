@@ -82,16 +82,17 @@ impl From<CoretimeRuntimeType> for &str {
 impl From<CoretimeRuntimeType> for ChainType {
 	fn from(runtime_type: CoretimeRuntimeType) -> Self {
 		match runtime_type {
-			CoretimeRuntimeType::Kusama |
-			CoretimeRuntimeType::Polkadot |
-			CoretimeRuntimeType::Rococo |
-			CoretimeRuntimeType::Westend => ChainType::Live,
-			CoretimeRuntimeType::KusamaLocal |
-			CoretimeRuntimeType::PolkadotLocal |
-			CoretimeRuntimeType::RococoLocal |
-			CoretimeRuntimeType::WestendLocal => ChainType::Local,
-			CoretimeRuntimeType::RococoDevelopment | CoretimeRuntimeType::WestendDevelopment =>
-				ChainType::Development,
+			CoretimeRuntimeType::Kusama
+			| CoretimeRuntimeType::Polkadot
+			| CoretimeRuntimeType::Rococo
+			| CoretimeRuntimeType::Westend => ChainType::Live,
+			CoretimeRuntimeType::KusamaLocal
+			| CoretimeRuntimeType::PolkadotLocal
+			| CoretimeRuntimeType::RococoLocal
+			| CoretimeRuntimeType::WestendLocal => ChainType::Local,
+			CoretimeRuntimeType::RococoDevelopment | CoretimeRuntimeType::WestendDevelopment => {
+				ChainType::Development
+			},
 		}
 	}
 }
@@ -110,17 +111,21 @@ impl CoretimeRuntimeType {
 			CoretimeRuntimeType::Rococo => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../chain-specs/coretime-rococo.json")[..],
 			)?)),
-			CoretimeRuntimeType::RococoLocal =>
-				Ok(Box::new(rococo::local_config(*self, "rococo-local"))),
-			CoretimeRuntimeType::RococoDevelopment =>
-				Ok(Box::new(rococo::local_config(*self, "rococo-dev"))),
+			CoretimeRuntimeType::RococoLocal => {
+				Ok(Box::new(rococo::local_config(*self, "rococo-local")))
+			},
+			CoretimeRuntimeType::RococoDevelopment => {
+				Ok(Box::new(rococo::local_config(*self, "rococo-dev")))
+			},
 			CoretimeRuntimeType::Westend => Ok(Box::new(GenericChainSpec::from_json_bytes(
 				&include_bytes!("../../../parachains/chain-specs/coretime-westend.json")[..],
 			)?)),
-			CoretimeRuntimeType::WestendLocal =>
-				Ok(Box::new(westend::local_config(*self, "westend-local"))),
-			CoretimeRuntimeType::WestendDevelopment =>
-				Ok(Box::new(westend::local_config(*self, "westend-dev"))),
+			CoretimeRuntimeType::WestendLocal => {
+				Ok(Box::new(westend::local_config(*self, "westend-local")))
+			},
+			CoretimeRuntimeType::WestendDevelopment => {
+				Ok(Box::new(westend::local_config(*self, "westend-dev")))
+			},
 			other => Err(std::format!(
 				"No default config present for {:?}, you should provide a chain-spec as json file!",
 				other

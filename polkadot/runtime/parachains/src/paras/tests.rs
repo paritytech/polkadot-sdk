@@ -2111,8 +2111,8 @@ fn remove_upgrade_cooldown_works() {
 		assert_ok!(Call::<Test>::remove_upgrade_cooldown { para: para_id }
 			.dispatch_bypass_filter(RuntimeOrigin::signed(1)));
 
-		let expected_issuance = issuance -
-			Pallet::<Test>::calculate_remove_upgrade_cooldown_cost(next_possible_upgrade_at);
+		let expected_issuance = issuance
+			- Pallet::<Test>::calculate_remove_upgrade_cooldown_cost(next_possible_upgrade_at);
 		// Check that we burned the funds
 		assert_eq!(expected_issuance, Balances::total_issuance());
 

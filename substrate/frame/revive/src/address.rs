@@ -152,8 +152,8 @@ where
 	}
 
 	fn is_mapped(account_id: &T::AccountId) -> bool {
-		is_eth_derived(account_id) ||
-			<OriginalAccount<T>>::contains_key(Self::to_address(account_id))
+		is_eth_derived(account_id)
+			|| <OriginalAccount<T>>::contains_key(Self::to_address(account_id))
 	}
 }
 

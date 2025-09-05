@@ -221,13 +221,13 @@ impl<T: Config> Pallet<T> {
 		let session_start_block = SessionStartBlock::<T>::get();
 
 		if at < session_start_block {
-			return None
+			return None;
 		}
 
 		let validator_groups = ValidatorGroups::<T>::get();
 
 		if core.0 as usize >= validator_groups.len() {
-			return None
+			return None;
 		}
 
 		let rotations_since_session_start: BlockNumberFor<T> =
@@ -421,7 +421,7 @@ impl<T: Config> Pallet<T> {
 				if let Some(assignment) = T::AssignmentProvider::pop_assignment_for_core(core_idx) {
 					cq.push_back(assignment);
 				} else {
-					break
+					break;
 				}
 			}
 

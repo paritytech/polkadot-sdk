@@ -408,16 +408,18 @@ pub async fn build_relay_chain_interface(
 			task_manager,
 			hwbench,
 		),
-		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
+		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) => {
 			build_minimal_relay_chain_node_with_rpc(
 				relay_chain_config,
 				parachain_config.prometheus_registry(),
 				task_manager,
 				rpc_target_urls,
 			)
-			.await,
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
+			.await
+		},
+		cumulus_client_cli::RelayChainMode::LightClient => {
+			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await
+		},
 	}
 }
 
@@ -600,7 +602,7 @@ where
 				finalized_header.number(),
 				finalized_header.hash()
 			);
-			return Ok(finalized_header)
+			return Ok(finalized_header);
 		}
 	}
 
@@ -619,7 +621,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 		Ok(import_notifications) => import_notifications,
 		Err(e) => {
 			log::error!("Failed to get import notification stream: {e:?}. Parachain informant will not run!");
-			return
+			return;
 		},
 	};
 	let mut last_backed_block_time: Option<Instant> = None;
@@ -628,7 +630,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 			Ok(candidate_events) => candidate_events,
 			Err(e) => {
 				log::warn!("Failed to get candidate events for block {}: {e:?}", n.hash());
-				continue
+				continue;
 			},
 		};
 		let mut backed_candidates = Vec::new();
@@ -643,7 +645,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from backed block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					let backed_block_time = Instant::now();
@@ -663,7 +665,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from included block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					let unincluded_segment_size =
@@ -681,7 +683,7 @@ async fn parachain_informant<Block: BlockT, Client>(
 							log::warn!(
 								"Failed to decode parachain header from timed out block: {e:?}"
 							);
-							continue
+							continue;
 						},
 					};
 					timed_out_candidates.push(timed_out_block);

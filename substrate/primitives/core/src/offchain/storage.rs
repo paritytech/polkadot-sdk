@@ -75,13 +75,14 @@ impl OffchainStorage for InMemOffchainStorage {
 		let key = prefix.iter().chain(key).cloned().collect();
 
 		match self.storage.entry(key) {
-			Entry::Vacant(entry) =>
+			Entry::Vacant(entry) => {
 				if old_value.is_none() {
 					entry.insert(new_value.to_vec());
 					true
 				} else {
 					false
-				},
+				}
+			},
 			Entry::Occupied(ref mut entry) if Some(entry.get().as_slice()) == old_value => {
 				entry.insert(new_value.to_vec());
 				true
@@ -161,8 +162,9 @@ impl<Storage: OffchainStorage> DbExternalities for OffchainDb<Storage> {
 			"CAS",
 		);
 		match kind {
-			StorageKind::PERSISTENT =>
-				self.persistent.compare_and_set(STORAGE_PREFIX, key, old_value, new_value),
+			StorageKind::PERSISTENT => {
+				self.persistent.compare_and_set(STORAGE_PREFIX, key, old_value, new_value)
+			},
 			StorageKind::LOCAL => unavailable_yet(LOCAL_DB),
 		}
 	}

@@ -241,9 +241,9 @@ pub fn compute_assignments(
 	leaving_cores: impl IntoIterator<Item = (CandidateHash, CoreIndex, GroupIndex)> + Clone,
 	enable_v2_assignments: bool,
 ) -> HashMap<CoreIndex, OurAssignment> {
-	if config.n_cores == 0 ||
-		config.assignment_keys.is_empty() ||
-		config.validator_groups.is_empty()
+	if config.n_cores == 0
+		|| config.assignment_keys.is_empty()
+		|| config.validator_groups.is_empty()
 	{
 		gum::trace!(
 			target: LOG_TARGET,
@@ -253,7 +253,7 @@ pub fn compute_assignments(
 			"Not producing assignments because config is degenerate",
 		);
 
-		return HashMap::new()
+		return HashMap::new();
 	}
 
 	let (index, assignments_key): (ValidatorIndex, AssignmentPair) = {
@@ -273,7 +273,7 @@ pub fn compute_assignments(
 		match key {
 			None => {
 				gum::trace!(target: LOG_TARGET, "No assignment key");
-				return HashMap::new()
+				return HashMap::new();
 			},
 			Some(k) => k,
 		}
@@ -503,13 +503,14 @@ fn compute_relay_vrf_delay_assignments(
 				let _ = e.insert(our_assignment);
 				true
 			},
-			Entry::Occupied(mut e) =>
+			Entry::Occupied(mut e) => {
 				if e.get().tranche() > our_assignment.tranche() {
 					e.insert(our_assignment);
 					true
 				} else {
 					false
-				},
+				}
+			},
 		};
 
 		if used {
@@ -555,10 +556,10 @@ pub(crate) fn check_assignment_cert(
 		.map_err(|_| InvalidAssignment(Reason::InvalidAssignmentKey))?;
 
 	// Check that we have all backing groups for claimed cores.
-	if claimed_core_indices.count_ones() == 0 ||
-		claimed_core_indices.count_ones() != backing_groups.len()
+	if claimed_core_indices.count_ones() == 0
+		|| claimed_core_indices.count_ones() != backing_groups.len()
 	{
-		return Err(InvalidAssignment(Reason::InvalidArguments))
+		return Err(InvalidAssignment(Reason::InvalidArguments));
 	}
 
 	// Check that the validator was not part of the backing group
@@ -566,14 +567,14 @@ pub(crate) fn check_assignment_cert(
 	for (claimed_core, backing_group) in claimed_core_indices.iter_ones().zip(backing_groups.iter())
 	{
 		if claimed_core >= config.n_cores as usize {
-			return Err(InvalidAssignment(Reason::CoreIndexOutOfBounds))
+			return Err(InvalidAssignment(Reason::CoreIndexOutOfBounds));
 		}
 
 		let is_in_backing =
 			is_in_backing_group(&config.validator_groups, validator_index, *backing_group);
 
 		if is_in_backing {
-			return Err(InvalidAssignment(Reason::IsInBackingGroup))
+			return Err(InvalidAssignment(Reason::IsInBackingGroup));
 		}
 	}
 
@@ -586,7 +587,7 @@ pub(crate) fn check_assignment_cert(
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
 			// Check that claimed core bitfield match the one from certificate.
 			if &claimed_core_indices != core_bitfield {
-				return Err(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch))
+				return Err(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch));
 			}
 
 			let (vrf_in_out, _) = public
@@ -617,7 +618,7 @@ pub(crate) fn check_assignment_cert(
 						vrf_modulo_cores = ?resulting_cores,
 						"Assignment claimed cores mismatch",
 					);
-					return Err(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch))
+					return Err(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch));
 				}
 			}
 
@@ -625,7 +626,7 @@ pub(crate) fn check_assignment_cert(
 		},
 		AssignmentCertKindV2::RelayVRFModulo { sample } => {
 			if *sample >= config.relay_vrf_modulo_samples {
-				return Err(InvalidAssignment(Reason::SampleOutOfBounds))
+				return Err(InvalidAssignment(Reason::SampleOutOfBounds));
 			}
 
 			// Enforce claimed candidates is 1.
@@ -635,7 +636,7 @@ pub(crate) fn check_assignment_cert(
 					?claimed_core_indices,
 					"`RelayVRFModulo` assignment must always claim 1 core",
 				);
-				return Err(InvalidAssignment(Reason::InvalidArguments))
+				return Err(InvalidAssignment(Reason::InvalidArguments));
 			}
 
 			let (vrf_in_out, _) = public
@@ -669,11 +670,11 @@ pub(crate) fn check_assignment_cert(
 					?claimed_core_indices,
 					"`RelayVRFDelay` assignment must always claim 1 core",
 				);
-				return Err(InvalidAssignment(Reason::InvalidArguments))
+				return Err(InvalidAssignment(Reason::InvalidArguments));
 			}
 
 			if core_index.0 != first_claimed_core_index {
-				return Err(InvalidAssignment(Reason::VRFDelayCoreIndexMismatch))
+				return Err(InvalidAssignment(Reason::VRFDelayCoreIndexMismatch));
 			}
 
 			let (vrf_in_out, _) = public
@@ -1069,8 +1070,8 @@ mod tests {
 	fn check_rejects_modulo_core_wrong() {
 		check_mutated_assignments(200, 100, 25, |m| {
 			match m.cert.kind.clone() {
-				AssignmentCertKindV2::RelayVRFModulo { .. } |
-				AssignmentCertKindV2::RelayVRFModuloCompact { .. } => {
+				AssignmentCertKindV2::RelayVRFModulo { .. }
+				| AssignmentCertKindV2::RelayVRFModuloCompact { .. } => {
 					m.cores = CoreIndex((m.cores.first_one().unwrap() + 1) as u32 % 100).into();
 
 					Some(false)

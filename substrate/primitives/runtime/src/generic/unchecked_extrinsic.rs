@@ -197,8 +197,9 @@ where
 		match self {
 			Self::Bare(_) => write!(f, "Bare"),
 			Self::Signed(address, _, tx_ext) => write!(f, "Signed({:?}, {:?})", address, tx_ext),
-			Self::General(ext_version, tx_ext) =>
-				write!(f, "General({:?}, {:?})", ext_version, tx_ext),
+			Self::General(ext_version, tx_ext) => {
+				write!(f, "General({:?}, {:?})", ext_version, tx_ext)
+			},
 		}
 	}
 }
@@ -377,7 +378,7 @@ where
 				// The `Implicit` is "implicitly" included in the payload.
 				let raw_payload = SignedPayload::new(self.function, tx_ext)?;
 				if !raw_payload.using_encoded(|payload| signature.verify(payload, &signed)) {
-					return Err(InvalidTransaction::BadProof.into())
+					return Err(InvalidTransaction::BadProof.into());
 				}
 				let (function, tx_ext, _) = raw_payload.deconstruct();
 				CheckedExtrinsic { format: ExtrinsicFormat::Signed(signed, tx_ext), function }
@@ -386,8 +387,9 @@ where
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => {
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function }
+			},
 		})
 	}
 
@@ -408,8 +410,9 @@ where
 				format: ExtrinsicFormat::General(extension_version, tx_ext),
 				function: self.function,
 			},
-			Preamble::Bare(_) =>
-				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function },
+			Preamble::Bare(_) => {
+				CheckedExtrinsic { format: ExtrinsicFormat::Bare, function: self.function }
+			},
 		})
 	}
 }
@@ -455,7 +458,7 @@ where
 		let function = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
 		if input.count() != expected_length.0 as u64 {
-			return Err("Invalid length prefix".into())
+			return Err("Invalid length prefix".into());
 		}
 
 		Ok(Self { preamble, function })
@@ -677,7 +680,7 @@ mod legacy {
 			let is_signed = version & 0b1000_0000 != 0;
 			let version = version & 0b0111_1111;
 			if version != 4u8 {
-				return Err("Invalid transaction version".into())
+				return Err("Invalid transaction version".into());
 			}
 
 			let signature = is_signed.then(|| Decode::decode(input)).transpose()?;
@@ -689,7 +692,7 @@ mod legacy {
 				let length = before_length.saturating_sub(after_length);
 
 				if length != expected_length.0 as usize {
-					return Err("Invalid length prefix".into())
+					return Err("Invalid length prefix".into());
 				}
 			}
 

@@ -144,7 +144,7 @@ where
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
 				let checked = E::try_into_checked_extrinsic(payload.to_vec(), self.encoded_size())?;
-				return Ok(checked)
+				return Ok(checked);
 			};
 		}
 		self.0.check(lookup)
@@ -353,7 +353,7 @@ pub trait EthExtra {
 
 				if value != 0u32.into() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
-					return Err(InvalidTransaction::Call)
+					return Err(InvalidTransaction::Call);
 				}
 
 				call
@@ -369,8 +369,9 @@ pub trait EthExtra {
 			}
 		} else {
 			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
+				Some(blob_len) => {
+					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len)))
+				},
 				_ => None,
 			};
 
@@ -414,7 +415,7 @@ pub trait EthExtra {
 		// by the account.
 		if eth_fee < actual_fee {
 			log::debug!(target: LOG_TARGET, "eth fees {eth_fee:?} too low, actual fees: {actual_fee:?}");
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 
 		let tip =
@@ -780,7 +781,8 @@ mod test {
 				&sender_addr,
 				1u32.into(), // nonce
 				code_hash,
-			).unwrap();
+			)
+			.unwrap();
 			crate::ContractInfoOf::<Test>::insert(&sender_addr, &contract_info);
 
 			// Also insert the code so Pallet::code() returns non-empty
@@ -802,7 +804,8 @@ mod test {
 			};
 
 			// Sign the transaction
-			let payload = account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
+			let payload =
+				account.sign_transaction(tx.try_into_unsigned().unwrap()).signed_payload();
 
 			// Try to validate the transaction - it should be rejected due to EIP-3607
 			let result = Extra::try_into_checked_extrinsic(payload, 1000);

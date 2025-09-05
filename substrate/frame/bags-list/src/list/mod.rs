@@ -164,7 +164,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	pub fn migrate(old_thresholds: &[T::Score]) -> u32 {
 		let new_thresholds = T::BagThresholds::get();
 		if new_thresholds == old_thresholds {
-			return 0
+			return 0;
 		}
 
 		// we can't check all preconditions, but we can check one
@@ -199,7 +199,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			if !affected_old_bags.insert(affected_bag) {
 				// If the previous threshold list was [10, 20], and we insert [3, 5], then there's
 				// no point iterating through bag 10 twice.
-				continue
+				continue;
 			}
 
 			if let Some(bag) = Bag::<T, I>::get(affected_bag) {
@@ -211,7 +211,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// a removed bag means that all members of that bag must be rebagged
 		for removed_bag in removed_bags.clone() {
 			if !affected_old_bags.insert(removed_bag) {
-				continue
+				continue;
 			}
 
 			if let Some(bag) = Bag::<T, I>::get(removed_bag) {
@@ -267,15 +267,14 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// easier; they can just configure `type BagThresholds = ()`.
 		let thresholds = T::BagThresholds::get();
 		let iter = thresholds.iter().copied();
-		let iter: Box<dyn Iterator<Item = T::Score>> = if thresholds.last() ==
-			Some(&T::Score::max_value())
-		{
-			// in the event that they included it, we can just pass the iterator through unchanged.
-			Box::new(iter.rev())
-		} else {
-			// otherwise, insert it here.
-			Box::new(iter.chain(iter::once(T::Score::max_value())).rev())
-		};
+		let iter: Box<dyn Iterator<Item = T::Score>> =
+			if thresholds.last() == Some(&T::Score::max_value()) {
+				// in the event that they included it, we can just pass the iterator through unchanged.
+				Box::new(iter.rev())
+			} else {
+				// otherwise, insert it here.
+				Box::new(iter.chain(iter::once(T::Score::max_value())).rev())
+			};
 
 		iter.filter_map(Bag::get).flat_map(|bag| bag.iter())
 	}
@@ -341,7 +340,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns an error if the list already contains `id`.
 	pub(crate) fn insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
 		if Self::contains(&id) {
-			return Err(ListError::Duplicate)
+			return Err(ListError::Duplicate);
 		}
 
 		let bag_score = notional_bag_for::<T, I>(score);
@@ -367,7 +366,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Remove an id from the list, returning an error if `id` does not exists.
 	pub(crate) fn remove(id: &T::AccountId) -> Result<(), ListError> {
 		if !Self::contains(id) {
-			return Err(ListError::NodeNotFound)
+			return Err(ListError::NodeNotFound);
 		}
 		let _ = Self::remove_many(core::iter::once(id));
 		Ok(())
@@ -612,15 +611,14 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 
 		let thresholds = T::BagThresholds::get();
 		let iter = thresholds.iter().copied();
-		let iter: Box<dyn Iterator<Item = T::Score>> = if thresholds.last() ==
-			Some(&T::Score::max_value())
-		{
-			// in the event that they included it, we can just pass the iterator through unchanged.
-			Box::new(iter)
-		} else {
-			// otherwise, insert it here.
-			Box::new(iter.chain(core::iter::once(T::Score::max_value())))
-		};
+		let iter: Box<dyn Iterator<Item = T::Score>> =
+			if thresholds.last() == Some(&T::Score::max_value()) {
+				// in the event that they included it, we can just pass the iterator through unchanged.
+				Box::new(iter)
+			} else {
+				// otherwise, insert it here.
+				Box::new(iter.chain(core::iter::once(T::Score::max_value())))
+			};
 
 		iter.filter_map(|t| {
 			Bag::<T, I>::get(t)
@@ -747,7 +745,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 				// this should never happen, but this check prevents one path to a worst case
 				// infinite loop.
 				defensive!("system logic error: inserting a node who has the id of tail");
-				return
+				return;
 			};
 		}
 
@@ -957,9 +955,9 @@ impl<T: Config<I>, I: 'static> Node<T, I> {
 		let expected_bag = Bag::<T, I>::get(self.bag_upper).ok_or("bag not found for node")?;
 		let id = self.id();
 
-		let non_terminal_check = !self.is_terminal() &&
-			expected_bag.head.as_ref() != Some(id) &&
-			expected_bag.tail.as_ref() != Some(id);
+		let non_terminal_check = !self.is_terminal()
+			&& expected_bag.head.as_ref() != Some(id)
+			&& expected_bag.tail.as_ref() != Some(id);
 		let terminal_check =
 			expected_bag.head.as_ref() == Some(id) || expected_bag.tail.as_ref() == Some(id);
 		frame_support::ensure!(

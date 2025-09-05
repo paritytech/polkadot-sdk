@@ -52,8 +52,9 @@ struct TestLeaf {
 
 fn table_statement_to_primitive(statement: TableStatement) -> Statement {
 	match statement {
-		TableStatement::Seconded(committed_candidate_receipt) =>
-			Statement::Seconded(committed_candidate_receipt),
+		TableStatement::Seconded(committed_candidate_receipt) => {
+			Statement::Seconded(committed_candidate_receipt)
+		},
 		TableStatement::Valid(candidate_hash) => Statement::Valid(candidate_hash),
 	}
 }
@@ -437,7 +438,7 @@ async fn activate_leaf(
 			// reuse the message.
 			if !matches!(&msg, AllMessages::ChainApi(ChainApiMessage::BlockHeader(..))) {
 				next_overseer_message.replace(msg);
-				break
+				break;
 			}
 
 			assert_matches!(
@@ -3731,7 +3732,7 @@ fn concurrent_dependent_candidates() {
 					backed_statements.insert(hash);
 
 					if backed_statements.len() == 2 {
-						break
+						break;
 					}
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(

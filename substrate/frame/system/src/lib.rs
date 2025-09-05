@@ -820,13 +820,13 @@ pub mod pallet {
 		#[pallet::weight(task.weight())]
 		pub fn do_task(_origin: OriginFor<T>, task: T::RuntimeTask) -> DispatchResultWithPostInfo {
 			if !task.is_valid() {
-				return Err(Error::<T>::InvalidTask.into())
+				return Err(Error::<T>::InvalidTask.into());
 			}
 
 			Self::deposit_event(Event::TaskStarted { task: task.clone() });
 			if let Err(err) = task.run() {
 				Self::deposit_event(Event::TaskFailed { task, err });
-				return Err(Error::<T>::FailedTask.into())
+				return Err(Error::<T>::FailedTask.into());
 			}
 
 			// Emit a success event, if your design includes events for this pallet.
@@ -887,8 +887,9 @@ pub mod pallet {
 
 			match Self::can_set_code(&code, res.check_version) {
 				CanSetCodeResult::Ok => {},
-				CanSetCodeResult::MultiBlockMigrationsOngoing =>
-					return Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+				CanSetCodeResult::MultiBlockMigrationsOngoing => {
+					return Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+				},
 				CanSetCodeResult::InvalidVersion(error) => {
 					// The upgrade is invalid and there is no benefit in trying to apply this again.
 					Self::deposit_event(Event::RejectedInvalidAuthorizedUpgrade {
@@ -897,7 +898,7 @@ pub mod pallet {
 					});
 
 					// Not the fault of the caller of call.
-					return Ok(Pays::No.into())
+					return Ok(Pays::No.into());
 				},
 			};
 			T::OnSetCode::set_code(code)?;
@@ -1144,7 +1145,7 @@ pub mod pallet {
 							provides: vec![res.code_hash.encode()],
 							longevity: TransactionLongevity::max_value(),
 							propagate: true,
-						})
+						});
 					}
 				}
 			}
@@ -1158,7 +1159,7 @@ pub mod pallet {
 						provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
 						longevity: TransactionLongevity::max_value(),
 						propagate: true,
-					})
+					});
 				}
 			}
 
@@ -1535,8 +1536,9 @@ impl<T: Config> CanSetCodeResult<T> {
 	pub fn into_result(self) -> Result<(), DispatchError> {
 		match self {
 			Self::Ok => Ok(()),
-			Self::MultiBlockMigrationsOngoing =>
-				Err(Error::<T>::MultiBlockMigrationsOngoing.into()),
+			Self::MultiBlockMigrationsOngoing => {
+				Err(Error::<T>::MultiBlockMigrationsOngoing.into())
+			},
 			Self::InvalidVersion(err) => Err(err.into()),
 		}
 	}
@@ -1842,7 +1844,7 @@ impl<T: Config> Pallet<T> {
 
 		// Don't populate events on genesis.
 		if block_number.is_zero() {
-			return
+			return;
 		}
 
 		let phase = ExecutionPhase::<T>::get().unwrap_or_default();
@@ -2313,7 +2315,7 @@ impl<T: Config> Pallet<T> {
 	/// - `check_version`: Should the runtime version be checked?
 	pub fn can_set_code(code: &[u8], check_version: bool) -> CanSetCodeResult<T> {
 		if T::MultiBlockMigrator::ongoing() {
-			return CanSetCodeResult::MultiBlockMigrationsOngoing
+			return CanSetCodeResult::MultiBlockMigrationsOngoing;
 		}
 
 		if check_version {
@@ -2321,7 +2323,7 @@ impl<T: Config> Pallet<T> {
 			let Some(new_version) = sp_io::misc::runtime_version(code)
 				.and_then(|v| RuntimeVersion::decode(&mut &v[..]).ok())
 			else {
-				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion)
+				return CanSetCodeResult::InvalidVersion(Error::<T>::FailedToExtractRuntimeVersion);
 			};
 
 			cfg_if::cfg_if! {

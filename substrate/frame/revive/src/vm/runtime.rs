@@ -618,8 +618,9 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {error}");
 				Some(Err(Error::<E::T>::ExecutionFailed.into()))
 			},
-			Ok(Finished) =>
-				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })),
+			Ok(Finished) => {
+				Some(Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() }))
+			},
 			Ok(Trap) => Some(Err(Error::<E::T>::ContractTrapped.into())),
 			Ok(Segfault(_)) => Some(Err(Error::<E::T>::ExecutionFailed.into())),
 			Ok(NotEnoughGas) => Some(Err(Error::<E::T>::OutOfGas.into())),
@@ -633,7 +634,7 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 					return Some(Ok(ExecReturnValue {
 						flags: ReturnFlags::empty(),
 						data: Vec::new(),
-					}))
+					}));
 				}
 				let Some(syscall_symbol) = module.imports().get(idx) else {
 					return Some(Err(<Error<E::T>>::InvalidSyscall.into()));
@@ -644,11 +645,12 @@ impl<'a, E: Ext, M: PolkaVmInstance<E::T>> Runtime<'a, E, M> {
 						instance.write_output(return_value);
 						None
 					},
-					Err(TrapReason::Return(ReturnData { flags, data })) =>
+					Err(TrapReason::Return(ReturnData { flags, data })) => {
 						match ReturnFlags::from_bits(flags) {
 							None => Some(Err(Error::<E::T>::InvalidCallFlags.into())),
 							Some(flags) => Some(Ok(ExecReturnValue { flags, data })),
-						},
+						}
+					},
 					Err(TrapReason::Termination) => Some(Ok(Default::default())),
 					Err(TrapReason::SupervisorError(error)) => Some(Err(error.into())),
 				}
@@ -1057,8 +1059,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let callee = memory.read_h160(callee_ptr)?;
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		match &precompile {
-			Some(precompile) if precompile.has_contract_info() =>
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?,
+			Some(precompile) if precompile.has_contract_info() => {
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => self.charge_gas(call_type.cost())?,
 		};

@@ -859,7 +859,7 @@ pub mod pallet {
 		/// Derives the current reward per token for this pool.
 		fn reward_per_token(pool_info: &PoolInfoFor<T>) -> Result<T::Balance, DispatchError> {
 			if pool_info.total_tokens_staked.is_zero() {
-				return Ok(pool_info.reward_per_token_stored)
+				return Ok(pool_info.reward_per_token_stored);
 			}
 
 			let rewardable_blocks_elapsed: u32 =

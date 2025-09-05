@@ -290,8 +290,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn report_processed(assignment: Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::report_processed(para_id, core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::report_processed(para_id, core_index)
+			},
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -303,8 +304,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 	/// - `assignment`: The on demand assignment.
 	fn push_back_assignment(assignment: Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::push_back_assignment(para_id, core_index)
+			},
 			Assignment::Bulk(_) => {
 				// Session changes are rough. We just drop assignments that did not make it on a
 				// session boundary. This seems sensible as bulk is region based. Meaning, even if
@@ -324,8 +326,9 @@ impl<T: Config> AssignmentProvider<BlockNumberFor<T>> for Pallet<T> {
 
 	fn assignment_duplicated(assignment: &Assignment) {
 		match assignment {
-			Assignment::Pool { para_id, core_index } =>
-				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index),
+			Assignment::Pool { para_id, core_index } => {
+				on_demand::Pallet::<T>::assignment_duplicated(*para_id, *core_index)
+			},
 			Assignment::Bulk(_) => {},
 		}
 	}
@@ -350,30 +353,30 @@ impl<T: Config> Pallet<T> {
 
 		let Some(queue) = descriptor.queue else {
 			// No queue.
-			return
+			return;
 		};
 
 		let mut next_scheduled = queue.first;
 
 		if next_scheduled > now {
 			// Not yet ready.
-			return
+			return;
 		}
 
 		// Update is needed:
 		let update = loop {
 			let Some(update) = CoreSchedules::<T>::take((next_scheduled, core_idx)) else {
-				break None
+				break None;
 			};
 			// Still good?
 			if update.end_hint.map_or(true, |e| e > now) {
-				break Some(update)
+				break Some(update);
 			}
 			// Move on if possible:
 			if let Some(n) = update.next_schedule {
 				next_scheduled = n;
 			} else {
-				break None
+				break None;
 			}
 		};
 

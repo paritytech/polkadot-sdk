@@ -56,7 +56,7 @@ pub struct Log {
 impl Log {
 	pub fn validate(&self) -> Result<(), LogValidationError> {
 		if self.topics.len() > MAX_TOPICS {
-			return Err(LogValidationError::TooManyTopics)
+			return Err(LogValidationError::TooManyTopics);
 		}
 		Ok(())
 	}

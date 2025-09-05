@@ -215,7 +215,7 @@ where
 						onchain_state
 					} else {
 						// onchain knows nothing about this dispute - add all votes
-						return (session_index, candidate_hash, votes)
+						return (session_index, candidate_hash, votes);
 					};
 
 				votes.valid.retain(|validator_idx, (statement_kind, _)| {
@@ -251,7 +251,7 @@ where
 					"vote_selection DisputeCoordinatorMessage::QueryCandidateVotes counter",
 				);
 
-				return result
+				return result;
 			}
 
 			result.insert((session_index, candidate_hash), selected_votes);
@@ -332,8 +332,8 @@ fn concluded_onchain(onchain_state: &DisputeState) -> bool {
 	// Check if there are enough onchain votes for or against to conclude the dispute
 	let supermajority = supermajority_threshold(onchain_state.validators_for.len());
 
-	onchain_state.validators_for.count_ones() >= supermajority ||
-		onchain_state.validators_against.count_ones() >= supermajority
+	onchain_state.validators_for.count_ones() >= supermajority
+		|| onchain_state.validators_against.count_ones() >= supermajority
 }
 
 fn partition_recent_disputes(
@@ -367,8 +367,9 @@ fn partition_recent_disputes(
 		match onchain.get(&(session_index, candidate_hash)) {
 			Some(d) => match concluded_onchain(d) {
 				true => partitioned.active_concluded_onchain.push((session_index, candidate_hash)),
-				false =>
-					partitioned.active_unconcluded_onchain.push((session_index, candidate_hash)),
+				false => {
+					partitioned.active_unconcluded_onchain.push((session_index, candidate_hash))
+				},
 			},
 			None => partitioned.active_unknown_onchain.push((session_index, candidate_hash)),
 		};
@@ -377,12 +378,13 @@ fn partition_recent_disputes(
 	// ... and INACTIVE in three more
 	for (session_index, candidate_hash, _) in inactive {
 		match onchain.get(&(session_index, candidate_hash)) {
-			Some(onchain_state) =>
+			Some(onchain_state) => {
 				if concluded_onchain(onchain_state) {
 					partitioned.inactive_concluded_onchain.push((session_index, candidate_hash));
 				} else {
 					partitioned.inactive_unconcluded_onchain.push((session_index, candidate_hash));
-				},
+				}
+			},
 			None => partitioned.inactive_unknown_onchain.push((session_index, candidate_hash)),
 		}
 	}
@@ -404,8 +406,8 @@ fn is_vote_worth_to_keep(
 	// punished when misbehaving.
 	if let Some(kind) = valid_kind {
 		match kind {
-			ValidDisputeStatementKind::BackingValid(_) |
-			ValidDisputeStatementKind::BackingSeconded(_) => return true,
+			ValidDisputeStatementKind::BackingValid(_)
+			| ValidDisputeStatementKind::BackingSeconded(_) => return true,
 			_ => (),
 		}
 	}
@@ -425,13 +427,13 @@ fn is_vote_worth_to_keep(
 
 	if in_validators_for && in_validators_against {
 		// The validator has double voted and runtime knows about this. Ignore this vote.
-		return false
+		return false;
 	}
 
 	if offchain_vote && in_validators_against || !offchain_vote && in_validators_for {
 		// offchain vote differs from the onchain vote
 		// we need this vote to punish the offending validator
-		return true
+		return true;
 	}
 
 	// The vote is valid. Return true if it is not seen onchain.
@@ -506,10 +508,12 @@ where
 		.map_err(|_| GetOnchainDisputesError::Channel)
 		.and_then(|res| {
 			res.map_err(|e| match e {
-				RuntimeApiError::Execution { .. } =>
-					GetOnchainDisputesError::Execution(e, relay_parent),
-				RuntimeApiError::NotSupported { .. } =>
-					GetOnchainDisputesError::NotSupported(e, relay_parent),
+				RuntimeApiError::Execution { .. } => {
+					GetOnchainDisputesError::Execution(e, relay_parent)
+				},
+				RuntimeApiError::NotSupported { .. } => {
+					GetOnchainDisputesError::NotSupported(e, relay_parent)
+				},
 			})
 		})
 		.map(|v| v.into_iter().map(|e| ((e.0, e.1), e.2)).collect())

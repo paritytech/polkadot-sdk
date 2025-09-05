@@ -246,7 +246,7 @@ impl CumulusDigestItem {
 				let Ok(CumulusDigestItem::SelectCore { selector, claim_queue_offset }) =
 					CumulusDigestItem::decode_all(&mut &val[..])
 				else {
-					return None
+					return None;
 				};
 
 				Some((selector, claim_queue_offset))
@@ -262,11 +262,12 @@ impl CumulusDigestItem {
 /// well-behaving runtimes should not produce headers with more than one.
 pub fn extract_relay_parent(digest: &Digest) -> Option<relay_chain::Hash> {
 	digest.convert_first(|d| match d {
-		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID =>
+		DigestItem::Consensus(id, val) if id == &CUMULUS_CONSENSUS_ID => {
 			match CumulusDigestItem::decode(&mut &val[..]) {
 				Ok(CumulusDigestItem::RelayParent(hash)) => Some(hash),
 				_ => None,
-			},
+			}
+		},
 		_ => None,
 	})
 }

@@ -59,8 +59,9 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	};
 
 	let patch = match id.as_ref() {
-		sp_genesis_builder::DEV_RUNTIME_PRESET =>
-			genesis_fn(vec![Sr25519Keyring::Alice.public().into()]),
+		sp_genesis_builder::DEV_RUNTIME_PRESET => {
+			genesis_fn(vec![Sr25519Keyring::Alice.public().into()])
+		},
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => genesis_fn(vec![
 			Sr25519Keyring::Alice.public().into(),
 			Sr25519Keyring::Bob.public().into(),

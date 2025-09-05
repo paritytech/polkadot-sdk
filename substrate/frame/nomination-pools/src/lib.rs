@@ -644,9 +644,10 @@ impl<T: Config> PoolMember<T> {
 	) -> Result<(), Error<T>> {
 		if let Some(new_points) = self.points.checked_sub(&points_dissolved) {
 			match self.unbonding_eras.get_mut(&unbonding_era) {
-				Some(already_unbonding_points) =>
+				Some(already_unbonding_points) => {
 					*already_unbonding_points =
-						already_unbonding_points.saturating_add(points_issued),
+						already_unbonding_points.saturating_add(points_issued)
+				},
 				None => self
 					.unbonding_eras
 					.try_insert(unbonding_era, points_issued)
@@ -811,13 +812,13 @@ impl<T: Config> Commission<T> {
 
 			// do not throttle if `to` is the same or a decrease in commission.
 			if *to <= commission_as_percent {
-				return false
+				return false;
 			}
 			// Test for `max_increase` throttling.
 			//
 			// Throttled if the attempted increase in commission is greater than `max_increase`.
 			if (*to).saturating_sub(commission_as_percent) > t.max_increase {
-				return true
+				return true;
 			}
 
 			// Test for `min_delay` throttling.
@@ -840,7 +841,7 @@ impl<T: Config> Commission<T> {
 						blocks_surpassed < t.min_delay
 					}
 				},
-			)
+			);
 		}
 		false
 	}
@@ -898,7 +899,7 @@ impl<T: Config> Commission<T> {
 		);
 		if let Some(old) = self.max.as_mut() {
 			if new_max > *old {
-				return Err(Error::<T>::MaxCommissionRestricted.into())
+				return Err(Error::<T>::MaxCommissionRestricted.into());
 			}
 			*old = new_max;
 		} else {
@@ -1138,8 +1139,8 @@ impl<T: Config> BondedPool<T> {
 	}
 
 	fn can_nominate(&self, who: &T::AccountId) -> bool {
-		self.is_root(who) ||
-			self.roles.nominator.as_ref().map_or(false, |nominator| nominator == who)
+		self.is_root(who)
+			|| self.roles.nominator.as_ref().map_or(false, |nominator| nominator == who)
 	}
 
 	fn can_kick(&self, who: &T::AccountId) -> bool {
@@ -1246,9 +1247,9 @@ impl<T: Config> BondedPool<T> {
 
 		// any unbond must comply with the balance condition:
 		ensure!(
-			is_full_unbond ||
-				balance_after_unbond >=
-					if is_depositor {
+			is_full_unbond
+				|| balance_after_unbond
+					>= if is_depositor {
 						Pallet::<T>::depositor_min_bond()
 					} else {
 						MinJoinBond::<T>::get()
@@ -1280,7 +1281,7 @@ impl<T: Config> BondedPool<T> {
 			},
 			(false, true) => {
 				// the depositor can simply not be unbonded permissionlessly, period.
-				return Err(Error::<T>::DoesNotHavePermission.into())
+				return Err(Error::<T>::DoesNotHavePermission.into());
 			},
 		};
 
@@ -2872,8 +2873,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::PoolMemberNotFound)?
 				.active_points();
 
-			if bonded_pool.points_to_balance(depositor_points) >=
-				T::StakeAdapter::minimum_nominator_bond()
+			if bonded_pool.points_to_balance(depositor_points)
+				>= T::StakeAdapter::minimum_nominator_bond()
 			{
 				ensure!(bonded_pool.can_nominate(&who), Error::<T>::NotNominator);
 			}
@@ -3242,8 +3243,8 @@ pub mod pallet {
 			// ensure pool exists.
 			let bonded_pool = BondedPool::<T>::get(pool_id).ok_or(Error::<T>::PoolNotFound)?;
 			ensure!(
-				T::StakeAdapter::pool_strategy(Pool::from(bonded_pool.bonded_account())) ==
-					adapter::StakeStrategyType::Transfer,
+				T::StakeAdapter::pool_strategy(Pool::from(bonded_pool.bonded_account()))
+					== adapter::StakeStrategyType::Transfer,
 				Error::<T>::AlreadyMigrated
 			);
 
@@ -3442,7 +3443,7 @@ impl<T: Config> Pallet<T> {
 		let balance = T::U256ToBalance::convert;
 		if current_balance.is_zero() || current_points.is_zero() || points.is_zero() {
 			// There is nothing to unbond
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		// Equivalent of (current_balance / current_points) * points
@@ -3479,7 +3480,7 @@ impl<T: Config> Pallet<T> {
 		// will be zero.
 		let pending_rewards = member.pending_rewards(current_reward_counter)?;
 		if pending_rewards.is_zero() {
-			return Ok(pending_rewards)
+			return Ok(pending_rewards);
 		}
 
 		// IFF the reward is non-zero alter the member and reward pool info.
@@ -3616,10 +3617,12 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		let (points_issued, bonded) = match extra {
-			BondExtra::FreeBalance(amount) =>
-				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount),
-			BondExtra::Rewards =>
-				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed),
+			BondExtra::FreeBalance(amount) => {
+				(bonded_pool.try_bond_funds(&member_account, amount, BondType::Extra)?, amount)
+			},
+			BondExtra::Rewards => {
+				(bonded_pool.try_bond_funds(&member_account, claimed, BondType::Extra)?, claimed)
+			},
 		};
 
 		bonded_pool.ok_to_be_open()?;
@@ -3709,7 +3712,7 @@ impl<T: Config> Pallet<T> {
 		let min_balance = T::Currency::minimum_balance();
 
 		if pre_frozen_balance == min_balance {
-			return Err(Error::<T>::NothingToAdjust.into())
+			return Err(Error::<T>::NothingToAdjust.into());
 		}
 
 		// Update frozen amount with current ED.
@@ -3772,15 +3775,15 @@ impl<T: Config> Pallet<T> {
 	) -> Result<BalanceOf<T>, DispatchError> {
 		// only executed in tests: ensure the member account is correct.
 		debug_assert!(
-			PoolMembers::<T>::get(member_account.clone().get()).expect("member must exist") ==
-				pool_member
+			PoolMembers::<T>::get(member_account.clone().get()).expect("member must exist")
+				== pool_member
 		);
 
 		let pool_account = Pallet::<T>::generate_bonded_account(pool_member.pool_id);
 		// if the pool doesn't have any pending slash, it implies the member also does not have any
 		// pending slash.
 		if T::StakeAdapter::pending_slash(Pool::from(pool_account.clone())).is_zero() {
-			return Ok(Zero::zero())
+			return Ok(Zero::zero());
 		}
 
 		// this is their actual held balance that may or may not have been slashed.
@@ -3848,7 +3851,7 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", feature = "fuzzing", test, debug_assertions))]
 	pub fn do_try_state(level: u8) -> Result<(), TryRuntimeError> {
 		if level.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		// note: while a bit wacky, since they have the same key, even collecting to vec should
 		// result in the same set of keys, in the same order.
@@ -3875,8 +3878,8 @@ impl<T: Config> Pallet<T> {
 
 		for id in reward_pools {
 			let account = Self::generate_reward_account(id);
-			if T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite) <
-				T::Currency::minimum_balance()
+			if T::Currency::reducible_balance(&account, Preservation::Expendable, Fortitude::Polite)
+				< T::Currency::minimum_balance()
 			{
 				log!(
 					warn,
@@ -3921,8 +3924,8 @@ impl<T: Config> Pallet<T> {
 		RewardPools::<T>::iter_keys().try_for_each(|id| -> Result<(), TryRuntimeError> {
 			// the sum of the pending rewards must be less than the leftover balance. Since the
 			// reward math rounds down, we might accumulate some dust here.
-			let pending_rewards_lt_leftover_bal = RewardPool::<T>::current_balance(id) >=
-				pools_members_pending_rewards.get(&id).copied().unwrap_or_default();
+			let pending_rewards_lt_leftover_bal = RewardPool::<T>::current_balance(id)
+				>= pools_members_pending_rewards.get(&id).copied().unwrap_or_default();
 
 			// If this happens, this is most likely due to an old bug and not a recent code change.
 			// We warn about this in try-runtime checks but do not panic.
@@ -3953,8 +3956,8 @@ impl<T: Config> Pallet<T> {
 
 			let depositor = PoolMembers::<T>::get(&bonded_pool.roles.depositor).unwrap();
 			ensure!(
-				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
-					depositor.active_points() >= MinCreateBond::<T>::get(),
+				bonded_pool.is_destroying_and_only_depositor(depositor.active_points())
+					|| depositor.active_points() >= MinCreateBond::<T>::get(),
 				"depositor must always have MinCreateBond stake in the pool, except for when the \
 				pool is being destroyed and the depositor is the last member",
 			);
@@ -3985,7 +3988,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if level <= 1 {
-			return Ok(())
+			return Ok(());
 		}
 
 		for (pool_id, _pool) in BondedPools::<T>::iter() {
@@ -4080,7 +4083,7 @@ impl<T: Config> Pallet<T> {
 				let (current_reward_counter, _) = reward_pool
 					.current_reward_counter(pool_member.pool_id, bonded_pool.points, commission)
 					.ok()?;
-				return pool_member.pending_rewards(current_reward_counter).ok()
+				return pool_member.pending_rewards(current_reward_counter).ok();
 			}
 		}
 
@@ -4139,19 +4142,19 @@ impl<T: Config> Pallet<T> {
 	pub fn api_pool_needs_delegate_migration(pool_id: PoolId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		// if pool does not exist, return false.
 		if !BondedPools::<T>::contains_key(pool_id) {
-			return false
+			return false;
 		}
 
 		let pool_account = Self::generate_bonded_account(pool_id);
 
 		// true if pool is still not migrated to `DelegateStake`.
-		T::StakeAdapter::pool_strategy(Pool::from(pool_account)) !=
-			adapter::StakeStrategyType::Delegate
+		T::StakeAdapter::pool_strategy(Pool::from(pool_account))
+			!= adapter::StakeStrategyType::Delegate
 	}
 
 	/// Checks whether member delegation needs to be migrated to
@@ -4162,14 +4165,14 @@ impl<T: Config> Pallet<T> {
 	pub fn api_member_needs_delegate_migration(who: T::AccountId) -> bool {
 		// if the `Delegate` strategy is not used in the pallet, then no migration required.
 		if T::StakeAdapter::strategy_type() != adapter::StakeStrategyType::Delegate {
-			return false
+			return false;
 		}
 
 		PoolMembers::<T>::get(who.clone())
 			.map(|pool_member| {
 				if Self::api_pool_needs_delegate_migration(pool_member.pool_id) {
 					// the pool needs to be migrated before members can be migrated.
-					return false
+					return false;
 				}
 
 				let member_balance = pool_member.total_balance();

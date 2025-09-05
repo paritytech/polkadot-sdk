@@ -101,7 +101,7 @@ where
 				return MessageDispatchResult {
 					unspent_weight: Weight::zero(),
 					dispatch_level_result: XcmBlobMessageDispatchResult::InvalidPayload,
-				}
+				};
 			},
 		};
 		let dispatch_level_result = match T::BlobDispatcher::dispatch_blob(payload) {

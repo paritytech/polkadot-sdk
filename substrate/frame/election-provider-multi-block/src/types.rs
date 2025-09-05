@@ -169,7 +169,7 @@ impl<T: Default + Clone + Debug> PadSolutionPages for Vec<T> {
 		let desired_pages_usize = desired_pages as usize;
 		debug_assert!(self.len() <= desired_pages_usize);
 		if self.len() == desired_pages_usize {
-			return self
+			return self;
 		}
 
 		// we basically need to prepend the list with this many items.
@@ -188,7 +188,7 @@ impl<T: Default + Clone + Debug, Bound: frame_support::traits::Get<u32>> PadSolu
 		let desired_pages_usize = (desired_pages).min(Bound::get()) as usize;
 		debug_assert!(self.len() <= desired_pages_usize);
 		if self.len() == desired_pages_usize {
-			return self
+			return self;
 		}
 
 		// we basically need to prepend the list with this many items.
@@ -324,7 +324,7 @@ impl<T: crate::Config> Phase<T> {
 			Self::Emergency => Self::Emergency,
 
 			// snapshot phase
-			Self::Snapshot(0) =>
+			Self::Snapshot(0) => {
 				if let Some(signed_duration) = T::SignedPhase::get().checked_sub(&One::one()) {
 					Self::Signed(signed_duration)
 				} else if let Some(unsigned_duration) =
@@ -333,39 +333,48 @@ impl<T: crate::Config> Phase<T> {
 					Self::Unsigned(unsigned_duration)
 				} else {
 					Self::are_we_done()
-				},
-			Self::Snapshot(non_zero_remaining) =>
-				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one())),
+				}
+			},
+			Self::Snapshot(non_zero_remaining) => {
+				Self::Snapshot(non_zero_remaining.defensive_saturating_sub(One::one()))
+			},
 
 			// signed phase
-			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() =>
-				Self::SignedValidation(T::SignedValidationPhase::get()),
-			Self::Signed(non_zero_left) =>
-				Self::Signed(non_zero_left.defensive_saturating_sub(One::one())),
+			Self::Signed(zero) if zero == BlockNumberFor::<T>::zero() => {
+				Self::SignedValidation(T::SignedValidationPhase::get())
+			},
+			Self::Signed(non_zero_left) => {
+				Self::Signed(non_zero_left.defensive_saturating_sub(One::one()))
+			},
 
 			// signed validation
 			Self::SignedValidation(zero)
 				if zero == BlockNumberFor::<T>::zero() && Self::verifier_done() =>
+			{
 				if let Some(unsigned_duration) = T::UnsignedPhase::get().checked_sub(&One::one()) {
 					Self::Unsigned(unsigned_duration)
 				} else {
 					Self::are_we_done()
-				},
-			Self::SignedValidation(non_zero_left) =>
-				Self::SignedValidation(non_zero_left.saturating_sub(One::one())),
+				}
+			},
+			Self::SignedValidation(non_zero_left) => {
+				Self::SignedValidation(non_zero_left.saturating_sub(One::one()))
+			},
 
 			// unsigned phase -- at this phase we will
 			Self::Unsigned(zero) if zero == BlockNumberFor::<T>::zero() => Self::are_we_done(),
-			Self::Unsigned(non_zero_left) =>
-				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one())),
+			Self::Unsigned(non_zero_left) => {
+				Self::Unsigned(non_zero_left.defensive_saturating_sub(One::one()))
+			},
 
 			// Done
 			Self::Done => Self::Done,
 
 			// Export
 			Self::Export(0) => Self::Off,
-			Self::Export(non_zero_left) =>
-				Self::Export(non_zero_left.defensive_saturating_sub(One::one())),
+			Self::Export(non_zero_left) => {
+				Self::Export(non_zero_left.defensive_saturating_sub(One::one()))
+			},
 		}
 	}
 

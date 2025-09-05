@@ -73,8 +73,9 @@ pub(crate) fn assert_matches_reserve_asset_deposited_instructions<RuntimeCall: D
 		})
 		.expect("expected instruction BuyExecution")
 		.match_next_inst(|instr| match instr {
-			DepositAsset { assets: _, beneficiary } if beneficiary == expected_beneficiary =>
-				Ok(()),
+			DepositAsset { assets: _, beneficiary } if beneficiary == expected_beneficiary => {
+				Ok(())
+			},
 			_ => Err(ProcessMessageError::BadFormat),
 		})
 		.expect("expected instruction DepositAsset");

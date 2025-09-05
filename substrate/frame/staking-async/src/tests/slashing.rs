@@ -762,9 +762,9 @@ fn nominator_is_slashed_by_max_for_validator_in_era() {
 		);
 		assert_eq!(
 			asset::stakeable_balance::<T>(&nominator),
-			500 - first_slash_nominator_amount -
-				second_slash_nominator_amount -
-				third_slash_nominator_amount
+			500 - first_slash_nominator_amount
+				- second_slash_nominator_amount
+				- third_slash_nominator_amount
 		);
 		assert_eq!(asset::stakeable_balance::<T>(&21), v2_stakeable);
 	});

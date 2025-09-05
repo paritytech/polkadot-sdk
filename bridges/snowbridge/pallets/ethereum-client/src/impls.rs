@@ -40,7 +40,7 @@ impl<T: Config> Verifier for Pallet<T> {
 				target: "ethereum-client",
 				"💫 Event log not found in receipt for transaction",
 			);
-			return Err(LogNotFound)
+			return Err(LogNotFound);
 		}
 
 		Ok(())
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
 				let state = <FinalizedBeaconState<T>>::get(beacon_block_root)
 					.ok_or(Error::<T>::ExpectedFinalizedHeaderNotStored)?;
 				if execution_proof.header.slot != state.slot {
-					return Err(Error::<T>::ExpectedFinalizedHeaderNotStored.into())
+					return Err(Error::<T>::ExpectedFinalizedHeaderNotStored.into());
 				}
 			},
 		}

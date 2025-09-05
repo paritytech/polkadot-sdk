@@ -204,13 +204,13 @@ where
 	ChainApi: graph::ChainApi<Block = Block> + 'static,
 {
 	fn eq(&self, other: &Self) -> bool {
-		self.watched == other.watched &&
-			self.tx == other.tx &&
-			self.bytes == other.bytes &&
-			self.source == other.source &&
-			*self.priority.read() == *other.priority.read() &&
-			self.validated_at.load(atomic::Ordering::Relaxed) ==
-				other.validated_at.load(atomic::Ordering::Relaxed)
+		self.watched == other.watched
+			&& self.tx == other.tx
+			&& self.bytes == other.bytes
+			&& self.source == other.source
+			&& *self.priority.read() == *other.priority.read()
+			&& self.validated_at.load(atomic::Ordering::Relaxed)
+				== other.validated_at.load(atomic::Ordering::Relaxed)
 	}
 }
 
@@ -409,13 +409,13 @@ where
 	/// Returns the number of bytes used by all extrinsics in the the pool.
 	#[cfg(test)]
 	pub fn bytes(&self) -> usize {
-		return self.transactions.bytes()
+		return self.transactions.bytes();
 	}
 
 	/// Returns true if provided values would exceed defined limits.
 	fn is_limit_exceeded(&self, length: usize, current_total_bytes: usize) -> bool {
-		length > self.max_transactions_count ||
-			current_total_bytes > self.max_transactions_total_bytes
+		length > self.max_transactions_count
+			|| current_total_bytes > self.max_transactions_total_bytes
 	}
 
 	/// Attempts to insert a transaction into the memory pool, ensuring it does not
@@ -438,8 +438,9 @@ where
 				transactions.insert(tx_hash, Arc::from(tx));
 				Ok(InsertionInfo::new(tx_hash, source))
 			},
-			(_, true) =>
-				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash))),
+			(_, true) => {
+				Err(sc_transaction_pool_api::error::Error::AlreadyImported(Box::new(tx_hash)))
+			},
 			(true, _) => Err(sc_transaction_pool_api::error::Error::ImmediatelyDropped),
 		};
 		trace!(
@@ -580,9 +581,9 @@ where
 				self.with_transactions(|iter| {
 					iter.filter(|(_, xt)| {
 						let finalized_block_number = finalized_block.number.into().as_u64();
-						xt.validated_at.load(atomic::Ordering::Relaxed) +
-							TXMEMPOOL_REVALIDATION_PERIOD <
-							finalized_block_number
+						xt.validated_at.load(atomic::Ordering::Relaxed)
+							+ TXMEMPOOL_REVALIDATION_PERIOD
+							< finalized_block_number
 					})
 					.sorted_by_key(|(_, tx)| tx.validated_at.load(atomic::Ordering::Relaxed))
 					.take(TXMEMPOOL_MAX_REVALIDATION_BATCH_SIZE)
@@ -615,11 +616,11 @@ where
 		let invalid_hashes = validation_results
 			.into_iter()
 			.filter_map(|(tx_hash, validation_result)| match validation_result {
-				Ok(Ok(_)) |
-				Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
-				Err(_) |
-				Ok(Err(TransactionValidityError::Unknown(_))) |
-				Ok(Err(TransactionValidityError::Invalid(_))) => {
+				Ok(Ok(_))
+				| Ok(Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => None,
+				Err(_)
+				| Ok(Err(TransactionValidityError::Unknown(_)))
+				| Ok(Err(TransactionValidityError::Invalid(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,

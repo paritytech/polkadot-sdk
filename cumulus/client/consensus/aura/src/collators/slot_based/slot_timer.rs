@@ -83,8 +83,8 @@ fn compute_next_wake_up_time(
 	// we should still produce two blocks if we are scheduled on every relay block.
 	let mut block_production_interval = min(para_slot_duration.as_duration(), relay_slot_duration);
 
-	if assigned_core_num > para_slots_per_relay_block &&
-		para_slot_duration.as_duration() >= relay_slot_duration
+	if assigned_core_num > para_slots_per_relay_block
+		&& para_slot_duration.as_duration() >= relay_slot_duration
 	{
 		block_production_interval =
 			max(relay_slot_duration / assigned_core_num, BLOCK_PRODUCTION_MINIMUM_INTERVAL_MS);
@@ -120,9 +120,9 @@ fn time_until_next_attempt(
 ) -> (Duration, Timestamp) {
 	let now = now.as_millis().saturating_sub(offset.as_millis());
 
-	let next_slot_time = ((now + block_production_interval.as_millis()) /
-		block_production_interval.as_millis()) *
-		block_production_interval.as_millis();
+	let next_slot_time = ((now + block_production_interval.as_millis())
+		/ block_production_interval.as_millis())
+		* block_production_interval.as_millis();
 	let remaining_millis = next_slot_time - now;
 	(Duration::from_millis(remaining_millis as u64), Timestamp::from(next_slot_time as u64))
 }
@@ -161,7 +161,7 @@ where
 	pub async fn wait_until_next_slot(&mut self) -> Result<(), ()> {
 		let Ok(slot_duration) = crate::slot_duration(&*self.client) else {
 			tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
-			return Err(())
+			return Err(());
 		};
 
 		let (time_until_next_attempt, mut next_aura_slot) = compute_next_wake_up_time(
@@ -270,6 +270,7 @@ mod tests {
 			offset,
 		);
 
-		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch."); // Should wait 5 seconds
+		assert_eq!(wait_duration.as_millis(), expected_wait_duration, "Wait time mismatch.");
+		// Should wait 5 seconds
 	}
 }

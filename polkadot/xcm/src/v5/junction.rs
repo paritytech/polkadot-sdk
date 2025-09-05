@@ -217,8 +217,9 @@ impl<'a> TryFrom<&'a Junction> for BoundedSlice<'a, u8, ConstU32<32>> {
 	type Error = ();
 	fn try_from(key: &'a Junction) -> Result<Self, ()> {
 		match key {
-			Junction::GeneralKey { length, data } =>
-				BoundedSlice::try_from(&data[..data.len().min(*length as usize)]).map_err(|_| ()),
+			Junction::GeneralKey { length, data } => {
+				BoundedSlice::try_from(&data[..data.len().min(*length as usize)]).map_err(|_| ())
+			},
 			_ => Err(()),
 		}
 	}
@@ -248,12 +249,15 @@ impl TryFrom<OldJunction> for Junction {
 		use OldJunction::*;
 		Ok(match value {
 			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: maybe_network, id } =>
-				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id },
-			AccountIndex64 { network: maybe_network, index } =>
-				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index },
-			AccountKey20 { network: maybe_network, key } =>
-				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key },
+			AccountId32 { network: maybe_network, id } => {
+				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id }
+			},
+			AccountIndex64 { network: maybe_network, index } => {
+				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index }
+			},
+			AccountKey20 { network: maybe_network, key } => {
+				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key }
+			},
 			PalletInstance(index) => Self::PalletInstance(index),
 			GeneralIndex(id) => Self::GeneralIndex(id),
 			GeneralKey { length, data } => Self::GeneralKey { length, data },
@@ -291,9 +295,9 @@ impl Junction {
 	pub fn remove_network_id(&mut self) {
 		use Junction::*;
 		match self {
-			AccountId32 { ref mut network, .. } |
-			AccountIndex64 { ref mut network, .. } |
-			AccountKey20 { ref mut network, .. } => *network = None,
+			AccountId32 { ref mut network, .. }
+			| AccountIndex64 { ref mut network, .. }
+			| AccountKey20 { ref mut network, .. } => *network = None,
 			_ => {},
 		}
 	}

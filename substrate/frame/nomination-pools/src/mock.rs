@@ -171,8 +171,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		DelegateMock::on_withdraw(who, withdraw_amount);
 
 		UnbondingBalanceMap::set(&unbonding_map);
-		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty() &&
-			BondedBalanceMap::get().get(&who).unwrap().is_zero())
+		Ok(UnbondingBalanceMap::get().get(&who).unwrap().is_empty()
+			&& BondedBalanceMap::get().get(&who).unwrap().is_zero())
 	}
 
 	fn bond(stash: &Self::AccountId, value: Self::Balance, _: &Self::AccountId) -> DispatchResult {

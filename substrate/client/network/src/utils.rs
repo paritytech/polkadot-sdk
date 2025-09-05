@@ -54,7 +54,7 @@ impl<T: Hash + Eq> LruHashSet<T> {
 			if self.set.len() == usize::from(self.limit) {
 				self.set.pop_front(); // remove oldest entry
 			}
-			return true
+			return true;
 		}
 		false
 	}

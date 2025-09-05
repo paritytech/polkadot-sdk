@@ -985,13 +985,13 @@ async fn set_reserved_peers_move_previously_reserved() {
 				state,
 				&PeerState::Connected { direction: Direction::Outbound(Reserved::Yes) }
 			);
-			continue
+			continue;
 		}
 
 		// Part of the new reserved nodes.
 		if reserved_peers.contains(peer) {
 			assert_eq!(state, &PeerState::Disconnected);
-			continue
+			continue;
 		}
 
 		// Previously reserved, but remained connected.
@@ -1001,7 +1001,7 @@ async fn set_reserved_peers_move_previously_reserved() {
 				state,
 				&PeerState::Connected { direction: Direction::Outbound(Reserved::No) }
 			);
-			continue
+			continue;
 		}
 		panic!("Invalid state peer={peer:?} state={state:?}");
 	}

@@ -211,10 +211,11 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 		assert_eq!(
 			T::Currency::balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -251,10 +252,11 @@ mod benchmarks {
 		// value was removed from the caller
 		assert_eq!(
 			T::Currency::total_balance(&caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance(),
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance(),
 		);
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
@@ -293,10 +295,11 @@ mod benchmarks {
 		// value and value transferred via call should be removed from the caller
 		assert_eq!(
 			T::Currency::balance(&instance.caller),
-			caller_funding::<T>() -
-				value - deposit -
-				code_deposit - mapping_deposit -
-				Pallet::<T>::min_balance()
+			caller_funding::<T>()
+				- value - deposit
+				- code_deposit
+				- mapping_deposit
+				- Pallet::<T>::min_balance()
 		);
 		// contract should have received the value
 		assert_eq!(T::Currency::balance(&instance.account_id), before + value);
@@ -1746,8 +1749,8 @@ mod benchmarks {
 		assert!(ContractInfoOf::<T>::get(&addr).is_some());
 		assert_eq!(
 			T::Currency::balance(&account_id),
-			Pallet::<T>::min_balance() +
-				Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
+			Pallet::<T>::min_balance()
+				+ Pallet::<T>::convert_evm_to_native(value.into(), ConversionPrecision::Exact)
 					.unwrap()
 		);
 		Ok(())

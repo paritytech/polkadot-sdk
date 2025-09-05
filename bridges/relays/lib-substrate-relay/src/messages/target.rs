@@ -335,7 +335,7 @@ where
 			if let Some(batch_tx) =
 				BatchProofTransaction::new(source_to_target_headers_relay.clone(), id.0).await?
 			{
-				return Ok(Some(batch_tx))
+				return Ok(Some(batch_tx));
 			}
 
 			source_to_target_headers_relay.require_more_headers(id.0).await;

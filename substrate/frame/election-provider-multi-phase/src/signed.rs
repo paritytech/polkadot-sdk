@@ -220,7 +220,7 @@ impl<T: Config> SignedSubmissions<T> {
 		insert: Option<(ElectionScore, BlockNumberFor<T>, u32)>,
 	) -> Option<SignedSubmissionOf<T>> {
 		if remove_pos >= self.indices.len() {
-			return None
+			return None;
 		}
 
 		// safe: index was just checked in the line above.
@@ -320,7 +320,7 @@ impl<T: Config> SignedSubmissions<T> {
 				// if we haven't improved on the weakest score, don't change anything.
 				if !submission.raw_solution.score.strict_threshold_better(weakest_score, threshold)
 				{
-					return InsertResult::NotInserted
+					return InsertResult::NotInserted;
 				}
 
 				self.swap_out_submission(
@@ -438,7 +438,7 @@ impl<T: Config> Pallet<T> {
 
 					weight = weight
 						.saturating_add(T::WeightInfo::finalize_signed_phase_accept_solution());
-					break
+					break;
 				},
 				Err(_) => {
 					log!(warn, "finalized_signed: invalid signed submission found, slashing.");

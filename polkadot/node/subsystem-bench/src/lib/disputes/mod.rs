@@ -218,8 +218,8 @@ pub async fn benchmark_dispute_coordinator(
 
 		let candidate_hashes =
 			candidate_receipts.iter().map(|receipt| receipt.hash()).collect::<Vec<_>>();
-		let requests_expected = candidate_hashes.len() *
-			(state.config.n_validators * state.config.connectivity / 100 - 1);
+		let requests_expected = candidate_hashes.len()
+			* (state.config.n_validators * state.config.connectivity / 100 - 1);
 
 		loop {
 			let requests_sent = candidate_hashes

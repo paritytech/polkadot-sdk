@@ -127,21 +127,23 @@ async fn test_once() {
 			match WeightedIndex::new(&action_weights).unwrap().sample(&mut rng) {
 				0 => match peerset.next().now_or_never() {
 					// open substreams to `peers`
-					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) =>
+					Some(Some(PeersetNotificationCommand::OpenSubstream { peers })) => {
 						for peer in peers {
 							opening.insert(peer, Direction::Outbound);
 							closed.remove(&peer);
 
 							assert!(!closing.contains(&peer));
 							assert!(!open.contains_key(&peer));
-						},
+						}
+					},
 					// close substreams to `peers`
-					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) =>
+					Some(Some(PeersetNotificationCommand::CloseSubstream { peers })) => {
 						for peer in peers {
 							assert!(closing.insert(peer));
 							assert!(open.remove(&peer).is_some());
 							assert!(!opening.contains_key(&peer));
-						},
+						}
+					},
 					Some(None) => panic!("peerset exited"),
 					None => {},
 				},
@@ -163,7 +165,7 @@ async fn test_once() {
 				// substream to `Peerset` and move peer state to `open`.
 				//
 				// if the substream was canceled while it was opening, move peer to `closing`
-				2 =>
+				2 => {
 					if let Some(peer) = opening.keys().choose(&mut rng).copied() {
 						let direction = opening.remove(&peer).unwrap();
 						match peerset.report_substream_opened(peer, direction) {
@@ -174,37 +176,43 @@ async fn test_once() {
 								assert!(closing.insert(peer));
 							},
 						}
-					},
+					}
+				},
 				// substream failed to open
-				3 =>
+				3 => {
 					if let Some(peer) = opening.keys().choose(&mut rng).copied() {
 						let _ = opening.remove(&peer).unwrap();
 						peerset.report_substream_open_failure(peer, NotificationError::Rejected);
-					},
+					}
+				},
 				// substream was closed by remote peer
-				4 =>
+				4 => {
 					if let Some(peer) = open.keys().choose(&mut rng).copied() {
 						let _ = open.remove(&peer).unwrap();
 						peerset.report_substream_closed(peer);
 						assert!(closed.insert(peer));
-					},
+					}
+				},
 				// substream was closed by local node
-				5 =>
+				5 => {
 					if let Some(peer) = closing.iter().choose(&mut rng).copied() {
 						assert!(closing.remove(&peer));
 						assert!(closed.insert(peer));
 						peerset.report_substream_closed(peer);
-					},
+					}
+				},
 				// random connected peer was disconnected by the protocol
-				6 =>
+				6 => {
 					if let Some(peer) = open.keys().choose(&mut rng).copied() {
 						to_peerset.unbounded_send(PeersetCommand::DisconnectPeer { peer }).unwrap();
-					},
+					}
+				},
 				// ban random peer
-				7 =>
+				7 => {
 					if let Some(peer) = known_peers.iter().choose(&mut rng).copied() {
 						peer_store_handle.report_peer(peer, ReputationChange::new_fatal(""));
-					},
+					}
+				},
 				// inbound substream is received for a peer that was considered
 				// outbound
 				8 => {
@@ -365,7 +373,7 @@ async fn test_once() {
 					}
 				},
 				// inbound substream received for a peer in `closed`
-				15 =>
+				15 => {
 					if let Some(peer) = closed.iter().choose(&mut rng).copied() {
 						match peerset.report_inbound_substream(peer) {
 							ValidationResult::Accept => {
@@ -374,7 +382,8 @@ async fn test_once() {
 							},
 							ValidationResult::Reject => {},
 						}
-					},
+					}
+				},
 				_ => unreachable!(),
 			}
 		}

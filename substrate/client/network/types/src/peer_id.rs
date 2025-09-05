@@ -77,8 +77,9 @@ impl PeerId {
 	pub fn from_multihash(multihash: Multihash) -> Result<PeerId, Multihash> {
 		match Code::try_from(multihash.code()) {
 			Ok(Code::Sha2_256) => Ok(PeerId { multihash }),
-			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH =>
-				Ok(PeerId { multihash }),
+			Ok(Code::Identity) if multihash.digest().len() <= MAX_INLINE_KEY_LENGTH => {
+				Ok(PeerId { multihash })
+			},
 			_ => Err(multihash),
 		}
 	}
@@ -105,7 +106,7 @@ impl PeerId {
 		// https://www.ietf.org/archive/id/draft-multiformats-multihash-07.html#name-the-multihash-identifier-re
 		if hash.code() != 0 {
 			// Hash is not identity
-			return None
+			return None;
 		}
 
 		let public = libp2p_identity::PublicKey::try_decode_protobuf(hash.digest()).ok()?;

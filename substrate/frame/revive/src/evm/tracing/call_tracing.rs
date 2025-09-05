@@ -145,7 +145,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 			}
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent
@@ -165,13 +165,14 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 			trace.gas_used = (self.gas_mapper)(gas_used);
 
 			trace.error = match error {
-				DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-					Some(message.unwrap_or_default().to_string()),
+				DispatchError::Module(sp_runtime::ModuleError { message, .. }) => {
+					Some(message.unwrap_or_default().to_string())
+				},
 				_ => Some(format!("{:?}", error)),
 			};
 
 			if self.config.only_top_call {
-				return
+				return;
 			}
 
 			//  Move the current trace into its parent

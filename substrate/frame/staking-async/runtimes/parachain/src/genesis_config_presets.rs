@@ -99,10 +99,12 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		pages: 4,
 	};
 	let patch = match id.as_ref() {
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
-			staking_async_parachain_genesis(dev_and_testnet_params),
-		sp_genesis_builder::DEV_RUNTIME_PRESET =>
-			staking_async_parachain_genesis(dev_and_testnet_params),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
+			staking_async_parachain_genesis(dev_and_testnet_params)
+		},
+		sp_genesis_builder::DEV_RUNTIME_PRESET => {
+			staking_async_parachain_genesis(dev_and_testnet_params)
+		},
 		"ksm_size" => {
 			dev_and_testnet_params.validator_count = 1_000;
 			dev_and_testnet_params.dev_stakers = Some((4_000, 20_000));

@@ -40,14 +40,18 @@ impl TransactionUnsigned {
 	/// Extract the unsigned transaction from a signed transaction.
 	pub fn from_signed(tx: TransactionSigned) -> Self {
 		match tx {
-			TransactionSigned::TransactionLegacySigned(signed) =>
-				Self::TransactionLegacyUnsigned(signed.transaction_legacy_unsigned),
-			TransactionSigned::Transaction4844Signed(signed) =>
-				Self::Transaction4844Unsigned(signed.transaction_4844_unsigned),
-			TransactionSigned::Transaction1559Signed(signed) =>
-				Self::Transaction1559Unsigned(signed.transaction_1559_unsigned),
-			TransactionSigned::Transaction2930Signed(signed) =>
-				Self::Transaction2930Unsigned(signed.transaction_2930_unsigned),
+			TransactionSigned::TransactionLegacySigned(signed) => {
+				Self::TransactionLegacyUnsigned(signed.transaction_legacy_unsigned)
+			},
+			TransactionSigned::Transaction4844Signed(signed) => {
+				Self::Transaction4844Unsigned(signed.transaction_4844_unsigned)
+			},
+			TransactionSigned::Transaction1559Signed(signed) => {
+				Self::Transaction1559Unsigned(signed.transaction_1559_unsigned)
+			},
+			TransactionSigned::Transaction2930Signed(signed) => {
+				Self::Transaction2930Unsigned(signed.transaction_2930_unsigned)
+			},
 		}
 	}
 
@@ -58,7 +62,7 @@ impl TransactionUnsigned {
 		let recovery_id = signature[64];
 
 		match self {
-			TransactionUnsigned::Transaction2930Unsigned(transaction_2930_unsigned) =>
+			TransactionUnsigned::Transaction2930Unsigned(transaction_2930_unsigned) => {
 				Transaction2930Signed {
 					transaction_2930_unsigned,
 					r,
@@ -66,8 +70,9 @@ impl TransactionUnsigned {
 					v: None,
 					y_parity: U256::from(recovery_id),
 				}
-				.into(),
-			TransactionUnsigned::Transaction1559Unsigned(transaction_1559_unsigned) =>
+				.into()
+			},
+			TransactionUnsigned::Transaction1559Unsigned(transaction_1559_unsigned) => {
 				Transaction1559Signed {
 					transaction_1559_unsigned,
 					r,
@@ -75,16 +80,18 @@ impl TransactionUnsigned {
 					v: None,
 					y_parity: U256::from(recovery_id),
 				}
-				.into(),
+				.into()
+			},
 
-			TransactionUnsigned::Transaction4844Unsigned(transaction_4844_unsigned) =>
+			TransactionUnsigned::Transaction4844Unsigned(transaction_4844_unsigned) => {
 				Transaction4844Signed {
 					transaction_4844_unsigned,
 					r,
 					s,
 					y_parity: U256::from(recovery_id),
 				}
-				.into(),
+				.into()
+			},
 
 			TransactionUnsigned::TransactionLegacyUnsigned(transaction_legacy_unsigned) => {
 				let v = transaction_legacy_unsigned

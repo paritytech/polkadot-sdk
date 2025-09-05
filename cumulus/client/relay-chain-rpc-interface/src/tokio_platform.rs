@@ -83,12 +83,12 @@ impl PlatformRef for TokioPlatform {
 	fn supports_connection_type(&self, connection_type: ConnectionType) -> bool {
 		matches!(
 			connection_type,
-			ConnectionType::TcpIpv4 |
-				ConnectionType::TcpIpv6 |
-				ConnectionType::TcpDns |
-				ConnectionType::WebSocketIpv4 { .. } |
-				ConnectionType::WebSocketIpv6 { .. } |
-				ConnectionType::WebSocketDns { secure: false, .. }
+			ConnectionType::TcpIpv4
+				| ConnectionType::TcpIpv6
+				| ConnectionType::TcpDns
+				| ConnectionType::WebSocketIpv4 { .. }
+				| ConnectionType::WebSocketIpv6 { .. }
+				| ConnectionType::WebSocketDns { secure: false, .. }
 		)
 	}
 
@@ -97,12 +97,15 @@ impl PlatformRef for TokioPlatform {
 			either::Either<SocketAddr, (String, u16)>,
 			Option<String>,
 		) = match multiaddr {
-			Address::TcpDns { hostname, port } =>
-				(either::Right((hostname.to_string(), port)), None),
-			Address::TcpIp { ip: IpAddr::V4(ip), port } =>
-				(either::Left(SocketAddr::from((ip, port))), None),
-			Address::TcpIp { ip: IpAddr::V6(ip), port } =>
-				(either::Left(SocketAddr::from((ip, port))), None),
+			Address::TcpDns { hostname, port } => {
+				(either::Right((hostname.to_string(), port)), None)
+			},
+			Address::TcpIp { ip: IpAddr::V4(ip), port } => {
+				(either::Left(SocketAddr::from((ip, port))), None)
+			},
+			Address::TcpIp { ip: IpAddr::V6(ip), port } => {
+				(either::Left(SocketAddr::from((ip, port))), None)
+			},
 			Address::WebSocketDns { hostname, port, secure: false } => (
 				either::Right((hostname.to_string(), port)),
 				Some(format!("{}:{}", hostname, port)),
@@ -144,8 +147,9 @@ impl PlatformRef for TokioPlatform {
 					})?,
 				),
 				(Ok(tcp_socket), None) => future::Either::Left(tcp_socket.compat()),
-				(Err(err), _) =>
-					return Err(ConnectError { message: format!("Failed to reach peer: {err}") }),
+				(Err(err), _) => {
+					return Err(ConnectError { message: format!("Failed to reach peer: {err}") })
+				},
 			};
 
 			Ok(Stream(with_buffers::WithBuffers::new(socket)))

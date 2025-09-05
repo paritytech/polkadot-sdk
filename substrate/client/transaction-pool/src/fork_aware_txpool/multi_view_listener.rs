@@ -113,10 +113,10 @@ where
 {
 	fn hash(&self) -> ExtrinsicHash<ChainApi> {
 		match self {
-			Self::Invalidated(hash) |
-			Self::Finalized(hash, _, _) |
-			Self::Broadcasted(hash, _) |
-			Self::Dropped(hash, _) => *hash,
+			Self::Invalidated(hash)
+			| Self::Finalized(hash, _, _)
+			| Self::Broadcasted(hash, _)
+			| Self::Dropped(hash, _) => *hash,
 			Self::FinalityTimeout(hash, _) => *hash,
 		}
 	}
@@ -130,18 +130,24 @@ where
 	fn into(self) -> TransactionStatus<ExtrinsicHash<ChainApi>, BlockHash<ChainApi>> {
 		match self {
 			TransactionStatusUpdate::Invalidated(_) => TransactionStatus::Invalid,
-			TransactionStatusUpdate::Finalized(_, hash, index) =>
-				TransactionStatus::Finalized((*hash, *index)),
-			TransactionStatusUpdate::Broadcasted(_, peers) =>
-				TransactionStatus::Broadcast(peers.clone()),
-			TransactionStatusUpdate::Dropped(_, DroppedReason::Usurped(by)) =>
-				TransactionStatus::Usurped(*by),
-			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) =>
-				TransactionStatus::Dropped,
-			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) =>
-				TransactionStatus::Invalid,
-			TransactionStatusUpdate::FinalityTimeout(_, block_hash) =>
-				TransactionStatus::FinalityTimeout(*block_hash),
+			TransactionStatusUpdate::Finalized(_, hash, index) => {
+				TransactionStatus::Finalized((*hash, *index))
+			},
+			TransactionStatusUpdate::Broadcasted(_, peers) => {
+				TransactionStatus::Broadcast(peers.clone())
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Usurped(by)) => {
+				TransactionStatus::Usurped(*by)
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::LimitsEnforced) => {
+				TransactionStatus::Dropped
+			},
+			TransactionStatusUpdate::Dropped(_, DroppedReason::Invalid) => {
+				TransactionStatus::Invalid
+			},
+			TransactionStatusUpdate::FinalityTimeout(_, block_hash) => {
+				TransactionStatus::FinalityTimeout(*block_hash)
+			},
 		}
 	}
 }
@@ -390,12 +396,12 @@ where
 				self.terminate = true;
 				Some(status)
 			},
-			TransactionStatus::FinalityTimeout(_) |
-			TransactionStatus::Retracted(_) |
-			TransactionStatus::Broadcast(_) |
-			TransactionStatus::Usurped(_) |
-			TransactionStatus::Dropped |
-			TransactionStatus::Invalid => None,
+			TransactionStatus::FinalityTimeout(_)
+			| TransactionStatus::Retracted(_)
+			| TransactionStatus::Broadcast(_)
+			| TransactionStatus::Usurped(_)
+			| TransactionStatus::Dropped
+			| TransactionStatus::Invalid => None,
 		}
 	}
 
@@ -591,7 +597,7 @@ where
 			futures::stream::unfold(external_ctx, |mut ctx| async move {
 				if ctx.terminate {
 					trace!(target: LOG_TARGET, tx_hash = ?ctx.tx_hash, "terminate");
-					return None
+					return None;
 				}
 				loop {
 					tokio::select! {

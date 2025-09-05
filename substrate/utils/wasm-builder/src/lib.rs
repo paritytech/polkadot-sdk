@@ -238,7 +238,7 @@ fn get_rustup_command(target: RuntimeTarget) -> Option<CargoCommand> {
 		let cmd = CargoCommand::new_with_args("rustup", &["run", &rustup_version, "cargo"]);
 
 		if !cmd.supports_substrate_runtime_env(target) {
-			continue
+			continue;
 		}
 
 		let Some(cargo_version) = cmd.version() else { continue };
@@ -303,8 +303,8 @@ impl CargoCommand {
 
 	/// Returns whether this version of the toolchain supports nightly features.
 	fn supports_nightly_features(&self) -> bool {
-		self.version.map_or(false, |version| version.is_nightly) ||
-			env::var("RUSTC_BOOTSTRAP").is_ok()
+		self.version.map_or(false, |version| version.is_nightly)
+			|| env::var("RUSTC_BOOTSTRAP").is_ok()
 	}
 
 	/// Check if the supplied cargo command supports our runtime environment.
@@ -326,7 +326,7 @@ impl CargoCommand {
 		// compiler. For "more" information, see:
 		// https://github.com/rust-lang/rust/blob/fa0f7d0080d8e7e9eb20aa9cbf8013f96c81287f/src/libsyntax/feature_gate/check.rs#L891
 		if env::var("RUSTC_BOOTSTRAP").is_ok() {
-			return true
+			return true;
 		}
 
 		let Some(version) = self.version() else { return false };
@@ -433,12 +433,13 @@ impl RuntimeTarget {
 	/// Figures out the target parameter value for rustc.
 	fn rustc_target(self, cargo_command: &CargoCommand) -> String {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
+				}
+			},
 			RuntimeTarget::Riscv => {
 				let path = polkavm_linker::target_json_32_path().expect("riscv not found");
 				path.into_os_string().into_string().unwrap()
@@ -449,12 +450,13 @@ impl RuntimeTarget {
 	/// Figures out the target directory name used by cargo.
 	fn rustc_target_dir(self, cargo_command: &CargoCommand) -> &'static str {
 		match self {
-			RuntimeTarget::Wasm =>
+			RuntimeTarget::Wasm => {
 				if cargo_command.is_wasm32v1_none_target_available() {
 					"wasm32v1-none".into()
 				} else {
 					"wasm32-unknown-unknown".into()
-				},
+				}
+			},
 			RuntimeTarget::Riscv => "riscv32emac-unknown-none-polkavm",
 		}
 	}

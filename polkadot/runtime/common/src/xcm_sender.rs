@@ -113,7 +113,7 @@ where
 			*id
 		} else {
 			*dest = Some(d);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// Downward message passing.
@@ -238,10 +238,10 @@ impl<
 		// check if the destination matches the expected `Parachain`.
 		if let Some(Parachain(para_id)) = dest.first_interior() {
 			if ParaId::from(*para_id) != Parachain::get().into() {
-				return (None, None)
+				return (None, None);
 			}
 		} else {
-			return (None, None)
+			return (None, None);
 		}
 
 		// allow more initialization for target parachain

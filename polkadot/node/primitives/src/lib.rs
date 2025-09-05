@@ -243,8 +243,9 @@ pub enum StatementWithPVD {
 impl std::fmt::Debug for StatementWithPVD {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			StatementWithPVD::Seconded(seconded, _) =>
-				write!(f, "Seconded: {:?}", seconded.descriptor),
+			StatementWithPVD::Seconded(seconded, _) => {
+				write!(f, "Seconded: {:?}", seconded.descriptor)
+			},
 			StatementWithPVD::Valid(hash) => write!(f, "Valid: {:?}", hash),
 		}
 	}
@@ -584,7 +585,7 @@ impl TryFrom<Vec<Vec<u8>>> for Proof {
 
 	fn try_from(input: Vec<Vec<u8>>) -> Result<Self, Self::Error> {
 		if input.len() > MERKLE_PROOF_MAX_DEPTH {
-			return Err(Self::Error::MerkleProofDepthExceeded(input.len()))
+			return Err(Self::Error::MerkleProofDepthExceeded(input.len()));
 		}
 		let mut out = Vec::new();
 		for element in input.into_iter() {

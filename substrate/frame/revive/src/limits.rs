@@ -122,7 +122,7 @@ pub mod code {
 		#[cfg(feature = "std")]
 		if std::env::var_os("REVIVE_SKIP_VALIDATION").is_some() {
 			log::warn!(target: LOG_TARGET, "Skipping validation because env var REVIVE_SKIP_VALIDATION is set");
-			return Ok(blob)
+			return Ok(blob);
 		}
 
 		let program = polkavm::ProgramBlob::parse(blob.as_slice().into()).map_err(|err| {
@@ -173,11 +173,11 @@ pub mod code {
 			match inst.kind {
 				Instruction::invalid => {
 					log::debug!(target: LOG_TARGET, "invalid instruction at offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into())
+					return Err(<Error<T>>::InvalidInstruction.into());
 				},
 				Instruction::sbrk(_, _) => {
 					log::debug!(target: LOG_TARGET, "sbrk instruction is not allowed. offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into())
+					return Err(<Error<T>>::InvalidInstruction.into());
 				},
 				// Only benchmarking code is allowed to circumvent the import table. We might want
 				// to remove this magic syscall number later. Hence we need to prevent contracts
@@ -185,7 +185,7 @@ pub mod code {
 				#[cfg(not(feature = "runtime-benchmarks"))]
 				Instruction::ecalli(idx) if idx == crate::SENTINEL => {
 					log::debug!(target: LOG_TARGET, "reserved syscall idx {idx}. offset {}", inst.offset);
-					return Err(<Error<T>>::InvalidInstruction.into())
+					return Err(<Error<T>>::InvalidInstruction.into());
 				},
 				_ => (),
 			}
@@ -193,7 +193,7 @@ pub mod code {
 
 		if max_basic_block_size > BASIC_BLOCK_SIZE {
 			log::debug!(target: LOG_TARGET, "basic block too large: {max_basic_block_size} limit: {BASIC_BLOCK_SIZE}");
-			return Err(Error::<T>::BasicBlockTooLarge.into())
+			return Err(Error::<T>::BasicBlockTooLarge.into());
 		}
 
 		// The memory consumptions is the byte size of the whole blob,
@@ -218,7 +218,7 @@ pub mod code {
 
 		if memory_size > STATIC_MEMORY_BYTES.into() {
 			log::debug!(target: LOG_TARGET, "static memory too large: {memory_size} limit: {STATIC_MEMORY_BYTES}");
-			return Err(Error::<T>::StaticMemoryTooLarge.into())
+			return Err(Error::<T>::StaticMemoryTooLarge.into());
 		}
 
 		Ok(blob)

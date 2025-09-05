@@ -1170,9 +1170,9 @@ mod enter {
 		let backed_candidates_weight =
 			backed_candidates_weight::<Test>(&inherent_data.backed_candidates);
 
-		let sum = multi_dispute_statement_sets_weight +
-			signed_bitfields_weight +
-			backed_candidates_weight;
+		let sum = multi_dispute_statement_sets_weight
+			+ signed_bitfields_weight
+			+ backed_candidates_weight;
 
 		println!(
 			"disputes({})={} + bitfields({})={} + candidates({})={} -> {}",
