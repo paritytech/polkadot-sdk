@@ -17,10 +17,7 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
-
-use sp_core::traits::SpawnNamed;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Block as BlockT;
 
 use cumulus_client_consensus_common::ParachainConsensus;
 use polkadot_node_primitives::CollationGenerationConfig;
@@ -28,8 +25,6 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
-use codec::Decode;
-use futures::prelude::*;
 use std::sync::Arc;
 
 pub mod service;
