@@ -1,0 +1,17 @@
+title: '[XCMP] Add support for double encoded XCMs'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR adds support for receiving double encoded XCMs via XCMP.
+
+    Right now parachains pass XCM messages between them through XCMP pages that use the `XcmpMessageFormat::ConcatenatedVersionedXcm` format. These pages contain concatenated encoded `VersionedXcm`s and on the receiving side, in order to split the page into individual messages, we need to first decode them and then re-encode and forward them to the `pallet-messages-queue`. This adds extra overhead ([about 2.5 microseconds + some cost per byte](https://github.com/paritytech/polkadot-sdk/blob/3dfbdf4a454f35238500779e503e1ec32ba7fc63/cumulus/parachains/runtimes/assets/asset-hub-rococo/src/weights/cumulus_pallet_xcmp_queue.rs#L199-L208)).
+
+    This PR adds a new (`XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm`) format that will be used for pages with double-encoded XCMs. This makes the decoding much easier and almost free, improving the XCMP bandwidth.
+
+    This new format is never used for sending for the moment. We'll have to come out with a roll-out plan later.
+    For the moment it's important to add the support for receiving `XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm` and to let it propagate to as many parachains as possible as they update the runtime.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: polkadot-parachain-primitives
+  bump: major
