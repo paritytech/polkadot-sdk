@@ -251,6 +251,7 @@ parameter_types! {
 	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
 	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -278,9 +279,10 @@ impl pallet_staking_async::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
-	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
+	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
 	type MaxInvulnerables = frame_support::traits::ConstU32<20>;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
@@ -501,21 +503,5 @@ mod tests {
 			op.proof_size() / WEIGHT_PROOF_SIZE_PER_KB,
 			op.proof_size() as f64 / block.proof_size() as f64
 		);
-	}
-
-	#[test]
-	fn polkadot_prune_era() {
-		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(600);
-		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
-	}
-
-	#[test]
-	fn kusama_prune_era() {
-		sp_tracing::try_init_simple();
-		let prune_era = <Runtime as pallet_staking_async::Config>::WeightInfo::prune_era(1000);
-		let block_weight = <Runtime as frame_system::Config>::BlockWeights::get().max_block;
-		weight_diff(block_weight, prune_era);
 	}
 }
