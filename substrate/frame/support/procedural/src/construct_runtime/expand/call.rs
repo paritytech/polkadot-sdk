@@ -205,6 +205,15 @@ pub fn expand_outer_dispatch(
 						_ => None,
 					}
 				}
+
+				#[allow(unreachable_patterns)]
+				fn try_into_sub_type(self) -> Option<#scrate::dispatch::CallableCallFor<#pallet_names, #runtime>> {
+					match self {
+						#variant_patterns => Some(call),
+						// May be unreachable
+						_ => None,
+					}
+				}
 			}
 
 			#pallet_attrs

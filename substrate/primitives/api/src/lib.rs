@@ -72,6 +72,9 @@ extern crate self as sp_api;
 
 extern crate alloc;
 
+#[cfg(feature = "std")]
+pub mod client_side;
+
 /// Private exports used by the macros.
 ///
 /// This is seen as internal API and can change at any point.
@@ -311,7 +314,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #       fn version() -> sp_version::RuntimeVersion {
 /// #           unimplemented!()
 /// #       }
-/// #       fn execute_block(_block: Block) {}
+/// #       fn execute_block(_block: <Block as BlockT>::LazyBlock) {}
 /// #       fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 /// #           unimplemented!()
 /// #       }
@@ -819,12 +822,15 @@ pub fn deserialize_runtime_api_info(bytes: [u8; RUNTIME_API_INFO_SIZE]) -> ([u8;
 decl_runtime_apis! {
 	/// The `Core` runtime api that every Substrate runtime needs to implement.
 	#[core_trait]
-	#[api_version(5)]
+	#[api_version(6)]
 	pub trait Core {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
+		#[changed_in(6)]
 		fn execute_block(block: Block);
+		/// Execute the given block.
+		fn execute_block(block: Block::LazyBlock);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]

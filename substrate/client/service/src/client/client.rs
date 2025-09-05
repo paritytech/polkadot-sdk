@@ -58,10 +58,12 @@ use sp_blockchain::{
 };
 use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
+use super::call_executor::LocalCallExecutor;
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
+use sp_api::client_side::ExecuteBlockError;
 use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
-	traits::{CallContext, SpawnNamed},
+	traits::{CallContext, CodeExecutor, SpawnNamed},
 };
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
@@ -84,9 +86,6 @@ use std::{
 	path::PathBuf,
 	sync::Arc,
 };
-
-use super::call_executor::LocalCallExecutor;
-use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -841,10 +840,16 @@ where
 					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
-				runtime_api.execute_block(
+				sp_api::client_side::execute_block(
+					&runtime_api,
 					*parent_hash,
 					Block::new(import_block.header.clone(), body.clone()),
-				)?;
+				)
+				.map_err(|e| match e {
+					ExecuteBlockError::ApiError(e) => sp_blockchain::Error::RuntimeApiError(e),
+					ExecuteBlockError::VersionInvalid =>
+						sp_blockchain::Error::VersionInvalid("Core".to_string()),
+				})?;
 
 				let state = self.backend.state_at(*parent_hash, call_context.into())?;
 				let gen_storage_changes = runtime_api

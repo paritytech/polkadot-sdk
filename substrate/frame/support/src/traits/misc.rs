@@ -815,12 +815,26 @@ impl<T> IsType<T> for T {
 ///             _ => None,
 ///         }
 ///     }
+///
+///     fn try_into_sub_type(self) -> Option<String> {
+///         match self {
+///             Self::String(r) => Some(r),
+///             _ => None,
+///         }
+///     }
 /// }
 ///
 /// impl IsSubType<u32> for Test {
 ///     fn is_sub_type(&self) -> Option<&u32> {
 ///         match self {
 ///             Self::U32(ref r) => Some(r),
+///             _ => None,
+///         }
+///     }
+///
+///     fn try_into_sub_type(self) -> Option<u32> {
+///         match self {
+///             Self::U32(r) => Some(r),
 ///             _ => None,
 ///         }
 ///     }
@@ -835,6 +849,9 @@ impl<T> IsType<T> for T {
 pub trait IsSubType<T> {
 	/// Returns `Some(_)` if `self` is an instance of sub type `T`.
 	fn is_sub_type(&self) -> Option<&T>;
+
+	/// Converts `self` in an instance of sub type `T` if applicable.
+	fn try_into_sub_type(self) -> Option<T>;
 }
 
 /// Something that can execute a given block.
@@ -850,7 +867,7 @@ pub trait ExecuteBlock<Block: BlockT> {
 	/// # Panic
 	///
 	/// Panics when an extrinsics panics or the resulting header doesn't match the expected header.
-	fn execute_block(block: Block);
+	fn execute_block(block: Block::LazyBlock);
 }
 
 /// Something that can compare privileges of two origins.

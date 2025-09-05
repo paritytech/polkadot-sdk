@@ -216,7 +216,7 @@ impl From<Justification> for Justifications {
 
 use traits::{Lazy, Verify};
 
-use crate::traits::IdentifyAccount;
+use crate::traits::{IdentifyAccount, LazyExtrinsic};
 #[cfg(feature = "serde")]
 pub use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -975,9 +975,20 @@ macro_rules! assert_eq_error_rate_float {
 pub struct OpaqueExtrinsic(Vec<u8>);
 
 impl OpaqueExtrinsic {
+	/// Create a new instance of `OpaqueExtrinsic` from a `Vec<u8>`.
+	pub fn from_bytes(bytes: Vec<u8>) -> Self {
+		Self(bytes)
+	}
+
 	/// Convert an encoded extrinsic to an `OpaqueExtrinsic`.
-	pub fn from_bytes(mut bytes: &[u8]) -> Result<Self, codec::Error> {
+	pub fn try_from_encoded_extrinsic(mut bytes: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode(&mut bytes)
+	}
+}
+
+impl LazyExtrinsic for OpaqueExtrinsic {
+	fn try_from_opaque(opaque: &OpaqueExtrinsic) -> Result<Self, codec::Error> {
+		Ok(opaque.clone())
 	}
 }
 
@@ -1081,7 +1092,7 @@ pub enum ExtrinsicInclusionMode {
 }
 
 /// Simple blob that hold a value in an encoded form without committing to its type.
-#[derive(Decode, Encode, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
 pub struct OpaqueValue(Vec<u8>);
 impl OpaqueValue {
 	/// Create a new `OpaqueValue` using the given encoded representation.

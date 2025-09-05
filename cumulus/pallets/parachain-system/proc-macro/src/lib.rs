@@ -31,7 +31,6 @@ mod keywords {
 struct Input {
 	runtime: Path,
 	block_executor: Path,
-	check_inherents: Option<Path>,
 }
 
 impl Parse for Input {
@@ -76,7 +75,6 @@ impl Parse for Input {
 		Ok(Self {
 			runtime: runtime.expect("Everything is parsed before; qed"),
 			block_executor: block_executor.expect("Everything is parsed before; qed"),
-			check_inherents,
 		})
 	}
 }
@@ -92,7 +90,7 @@ fn crate_() -> Result<Ident, Error> {
 
 #[proc_macro]
 pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let Input { runtime, block_executor, check_inherents } = match syn::parse(input) {
+	let Input { runtime, block_executor } = match syn::parse(input) {
 		Ok(t) => t,
 		Err(e) => return e.into_compile_error().into(),
 	};
@@ -100,17 +98,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 	let crate_ = match crate_() {
 		Ok(c) => c,
 		Err(e) => return e.into_compile_error().into(),
-	};
-
-	let check_inherents = match check_inherents {
-		Some(_check_inherents) => {
-			quote::quote! { #_check_inherents }
-		},
-		None => {
-			quote::quote! {
-				#crate_::DummyCheckInherents<<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock>
-			}
-		},
 	};
 
 	if cfg!(not(feature = "std")) {
@@ -139,7 +126,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,
 						#block_executor,
 						#runtime,
-						#check_inherents,
 					>(params);
 
 					#crate_::validate_block::polkadot_parachain_primitives::write_result(&res)
