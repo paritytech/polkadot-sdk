@@ -17,7 +17,10 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use sp_runtime::traits::Block as BlockT;
+use cumulus_primitives_core::{relay_chain::Hash as PHash, PersistedValidationData};
+
+use sp_core::traits::SpawnNamed;
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use cumulus_client_consensus_common::ParachainConsensus;
 use polkadot_node_primitives::CollationGenerationConfig;
@@ -25,6 +28,8 @@ use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProt
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
+use codec::Decode;
+use futures::prelude::*;
 use std::sync::Arc;
 
 pub mod service;
@@ -160,6 +165,7 @@ pub struct StartCollatorParams<Block: BlockT, RA, BS, Spawner> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::service::CollatorService;
 	use async_trait::async_trait;
 	use codec::Encode;
 	use cumulus_client_consensus_common::ParachainCandidate;
@@ -171,7 +177,7 @@ mod tests {
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use cumulus_test_runtime::{Block, Header};
 	use futures::{channel::mpsc, executor::block_on, StreamExt};
-	use polkadot_node_primitives::CollationGenerationConfig;
+	use polkadot_node_primitives::{CollationGenerationConfig, CollationResult};
 	use polkadot_node_subsystem::messages::CollationGenerationMessage;
 	use polkadot_node_subsystem_test_helpers::ForwardSubsystem;
 	use polkadot_overseer::{dummy::dummy_overseer_builder, HeadSupportsParachains};
@@ -243,18 +249,43 @@ mod tests {
 
 		spawner.spawn("overseer", None, overseer.run().then(|_| async {}).boxed());
 
-		#[allow(deprecated)]
-		let collator_start = start_collator(StartCollatorParams {
-			runtime_api: client.clone(),
-			block_status: client.clone(),
-			announce_block: Arc::new(announce_block),
-			overseer_handle: OverseerHandle::new(handle),
-			spawner,
-			para_id,
-			key: CollatorPair::generate().0,
-			parachain_consensus: Box::new(DummyParachainConsensus { client }),
+		let collator_service = CollatorService::new(
+			client.clone(),
+			Arc::new(spawner.clone()),
+			Arc::new(announce_block),
+			client.clone(),
+		);
+		let mut parachain_consensus = Box::new(DummyParachainConsensus { client });
+
+		let collation_future = Box::pin(async move {
+			let mut request_stream = relay_chain_driven::init(
+				CollatorPair::generate().0,
+				para_id,
+				OverseerHandle::new(handle),
+			)
+			.await;
+			while let Some(request) = request_stream.next().await {
+				let validation_data = request.persisted_validation_data().clone();
+				let last_head = match <Block as BlockT>::Header::decode(
+					&mut &validation_data.parent_head.0[..],
+				) {
+					Ok(x) => x,
+					Err(e) => panic!("Could not decode header: {}", e),
+				};
+				let candidate = parachain_consensus
+					.produce_candidate(&last_head, *request.relay_parent(), &validation_data)
+					.await
+					.expect("candidate to be produced.");
+				let block_hash = candidate.block.header().hash();
+				let (collation, _) = collator_service
+					.build_collation(&last_head, block_hash, candidate)
+					.expect("collation to succeed.");
+
+				request.complete(Some(CollationResult { collation, result_sender: None }));
+			}
 		});
-		block_on(collator_start);
+
+		spawner.spawn("cumulus-relay-driven-collator", None, collation_future);
 
 		let msg = block_on(sub_rx.into_future())
 			.0
