@@ -17,16 +17,10 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use sp_runtime::traits::Block as BlockT;
-
-use cumulus_client_consensus_common::ParachainConsensus;
 use polkadot_node_primitives::CollationGenerationConfig;
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
-
-use std::sync::Arc;
-
 pub mod service;
 
 /// Relay-chain-driven collators are those whose block production is driven purely
@@ -146,41 +140,33 @@ pub async fn initialize_collator_subsystems(
 		.await;
 }
 
-/// Parameters for [`start_collator`].
-pub struct StartCollatorParams<Block: BlockT, RA, BS, Spawner> {
-	pub para_id: ParaId,
-	pub runtime_api: Arc<RA>,
-	pub block_status: Arc<BS>,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub overseer_handle: OverseerHandle,
-	pub spawner: Spawner,
-	pub key: CollatorPair,
-	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-}
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::service::CollatorService;
 	use async_trait::async_trait;
-	use codec::Encode;
-	use cumulus_client_consensus_common::ParachainCandidate;
-	use cumulus_primitives_core::ParachainBlockData;
+	use codec::{Decode, Encode};
+	use cumulus_client_consensus_common::{ParachainCandidate, ParachainConsensus};
+	use cumulus_primitives_core::{
+		relay_chain::Hash as PHash, ParachainBlockData, PersistedValidationData,
+	};
 	use cumulus_test_client::{
 		Client, ClientBlockImportExt, DefaultTestClientBuilderExt, InitBlockBuilder,
 		TestClientBuilder, TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use cumulus_test_runtime::{Block, Header};
-	use futures::{channel::mpsc, executor::block_on, StreamExt};
+	use futures::{channel::mpsc, executor::block_on, prelude::*, StreamExt};
 	use polkadot_node_primitives::{CollationGenerationConfig, CollationResult};
 	use polkadot_node_subsystem::messages::CollationGenerationMessage;
 	use polkadot_node_subsystem_test_helpers::ForwardSubsystem;
 	use polkadot_overseer::{dummy::dummy_overseer_builder, HeadSupportsParachains};
 	use polkadot_primitives::HeadData;
 	use sp_consensus::BlockOrigin;
-	use sp_core::{testing::TaskExecutor, Pair};
-	use sp_runtime::traits::BlakeTwo256;
+	use sp_core::{testing::TaskExecutor, traits::SpawnNamed, Pair};
+	use sp_runtime::traits::{BlakeTwo256, Block as BlockT, Header as HeaderT};
 	use sp_state_machine::Backend;
+	use std::sync::Arc;
 
 	struct AlwaysSupportsParachains;
 
