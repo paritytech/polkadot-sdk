@@ -372,9 +372,11 @@ impl ReceiptExtractor {
 	}
 
 	/// Get the Ethereum block hash for the given Substrate block.
-	pub async fn get_ethereum_block_hash(&self, block: &SubstrateBlock) -> Option<H256> {
-		let substrate_block_number = block.number() as u64;
-		let substrate_block_hash = block.hash();
-		(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number).await
+	pub async fn get_ethereum_block_hash(
+		&self,
+		block_hash: &H256,
+		block_number: u64,
+	) -> Option<H256> {
+		(self.fetch_eth_block_hash)(*block_hash, block_number).await
 	}
 }

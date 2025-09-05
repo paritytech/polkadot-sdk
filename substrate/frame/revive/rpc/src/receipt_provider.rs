@@ -261,23 +261,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		self.prune_blocks(block).await?;
-
 		let receipts = self.receipts_from_block(block).await?;
 		self.insert(block, &receipts).await?;
-
-		// Insert block mapping from Ethereum to Substrate hash
-		if let Some(ethereum_hash) = self.receipt_extractor.get_ethereum_block_hash(block).await {
-			let substrate_hash = block.hash();
-			let block_number = block.number() as u64;
-			self.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number).await?;
-		}
-
 		Ok(receipts)
 	}
 
 	/// Prune blocks older blocks.
-	async fn prune_blocks(&self, block: &SubstrateBlock) -> Result<(), ClientError> {
+	async fn prune_blocks(&self, block: &impl BlockInfo) -> Result<(), ClientError> {
 		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			let latest = block.number();
@@ -314,10 +304,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
 	) -> Result<(), ClientError> {
-		if receipts.is_empty() {
-			return Ok(());
-		}
-
 		let block_hash = block.hash();
 		let block_hash_ref = block_hash.as_ref();
 		let block_number = block.number() as i64;
@@ -331,65 +317,76 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.fetch_one(&self.pool)
 		.await?;
 
-		if result.exists {
-			return Ok(());
-		}
+		self.prune_blocks(block).await?;
 
-		for (_, receipt) in receipts {
-			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
-			let transaction_index = receipt.transaction_index.as_u32() as i32;
-
-			query!(
-				r#"
-				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
-				VALUES ($1, $2, $3)
-				"#,
-				transaction_hash,
-				block_hash_ref,
-				transaction_index
-			)
-			.execute(&self.pool)
-			.await?;
-
-			for log in &receipt.logs {
-				let log_index = log.log_index.as_u32() as i32;
-				let address: &[u8] = log.address.as_ref();
-
-				let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
-				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
-				let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
-				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
-				let data = log.data.as_ref().map(|v| &v.0[..]);
+		if !result.exists {
+			for (_, receipt) in receipts {
+				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
+				let transaction_index = receipt.transaction_index.as_u32() as i32;
 
 				query!(
 					r#"
-					INSERT OR REPLACE INTO logs(
-						block_hash,
+					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					VALUES ($1, $2, $3)
+					"#,
+					transaction_hash,
+					block_hash_ref,
+					transaction_index
+				)
+				.execute(&self.pool)
+				.await?;
+
+				for log in &receipt.logs {
+					let log_index = log.log_index.as_u32() as i32;
+					let address: &[u8] = log.address.as_ref();
+
+					let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
+					let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
+					let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
+					let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
+					let data = log.data.as_ref().map(|v| &v.0[..]);
+
+					query!(
+						r#"
+						INSERT OR REPLACE INTO logs(
+							block_hash,
+							transaction_index,
+							log_index,
+							address,
+							block_number,
+							transaction_hash,
+							topic_0, topic_1, topic_2, topic_3,
+							data)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+						"#,
+						block_hash_ref,
 						transaction_index,
 						log_index,
 						address,
 						block_number,
 						transaction_hash,
-						topic_0, topic_1, topic_2, topic_3,
-						data)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-					"#,
-					block_hash_ref,
-					transaction_index,
-					log_index,
-					address,
-					block_number,
-					transaction_hash,
-					topic_0,
-					topic_1,
-					topic_2,
-					topic_3,
-					data
-				)
-				.execute(&self.pool)
-				.await?;
+						topic_0,
+						topic_1,
+						topic_2,
+						topic_3,
+						data
+					)
+					.execute(&self.pool)
+					.await?;
+				}
 			}
 		}
+
+		// Insert block mapping from Ethereum to Substrate hash
+		if let Some(ethereum_hash) = self
+			.receipt_extractor
+			.get_ethereum_block_hash(&block_hash, block_number as u64)
+			.await
+		{
+			self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
+				.await?;
+		}
+
 		Ok(())
 	}
 
@@ -712,6 +709,7 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
 		assert_eq!(count(&provider.pool, "logs", None).await, n);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 		assert_eq!(provider.block_number_to_hash.lock().await.len(), n);
 
 		return Ok(());
@@ -740,6 +738,7 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
 		assert_eq!(count(&provider.pool, "logs", None).await, 1);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 		assert_eq!(
 			provider.block_number_to_hash.lock().await.clone(),
 			[(1, H256::from([2u8; 32]))].into(),
@@ -1070,20 +1069,12 @@ mod tests {
 		Ok(())
 	}
 
-	async fn count_mappings(pool: &SqlitePool) -> usize {
-		let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM eth_to_substrate_blocks")
-			.fetch_one(pool)
-			.await
-			.unwrap();
-		count as _
-	}
-
 	#[sqlx::test]
 	async fn test_mapping_count(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Initially no mappings
-		assert_eq!(count_mappings(&provider.pool).await, 0);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
 
 		// Insert some mappings
 		provider
@@ -1093,11 +1084,11 @@ mod tests {
 			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
 			.await?;
 
-		assert_eq!(count_mappings(&provider.pool).await, 2);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
 
 		// Remove one
 		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
-		assert_eq!(count_mappings(&provider.pool).await, 1);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 
 		Ok(())
 	}
