@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757065478563,
+  "lastUpdate": 1757090320107,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ub2262000@gmail.com",
-            "name": "Utkarsh Bhardwaj",
-            "username": "UtkarshBhardwaj007"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4f7a93885e1a35ec60178d3b4f1e59a7df3d85f5",
-          "message": "add poke_deposit extrinsic to pallet-proxy (#7801)\n\n# Description\n\n* This PR adds a new extrinsic `poke_deposit` to `pallet-proxy`. This\nextrinsic will be used to re-adjust the deposits made in the pallet to\ncreate a proxy or to create an announcement.\n* Part of #5591 \n\n## Review Notes\n\n* Added a new extrinsic `poke_deposit` in `pallet-proxy`.\n* This extrinsic checks and adjusts the deposits made for either\ncreating a proxy or creating an announcement or both.\n* Added a new event `DepositPoked` to be emitted upon a successful call\nof the extrinsic.\n* Although the immediate use of the extrinsic will be to give back some\nof the deposit after the AH-migration, the extrinsic is written such\nthat it can work if the deposit decreases or increases (both).\n* The call to the extrinsic would be `free` if an actual adjustment is\nmade to the deposit for creating a proxy or to the deposit for creating\nan announcement or both and `paid` otherwise (when no deposit is\nchanged).\n* Added a new enum `DepositKind` to differentiate between proxy deposit\nadjusted and announcement deposit adjusted when emitting events.\n* Added tests to test all scenarios.\n\n## TO-DOs\n* [ ] Run CI cmd bot to benchmark\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2025-03-06T20:05:06Z",
-          "tree_id": "74f2c950411465b08e622b1ff9f66d69bb43bc68",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4f7a93885e1a35ec60178d3b4f1e59a7df3d85f5"
-        },
-        "date": 1741295054255,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.18396620029999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.288162785366666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.397756682833332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4acb964059a218be9bac954b4e3803b78b5526bf",
+          "message": "Forward `CoreInfo` via an digest to the runtime (#9002)\n\nBefore this pull request we had this rather inflexible `SelectCore` type\nin `parachain-system`. It was just taking the last byte of the block\nnumber as the core selector. This resulted in issues like #8893. While\nit was not totally static, it was very complicated to forward the needed\ninformation to the runtime. In the case of running with block bundling\n(500ms blocks), multiple blocks are actually validated on the same core.\nFinding out the selector and offset without having access to the claim\nqueue is rather hard. The claim queue could be forwarded to the runtime,\nbut it would waste POV size as we would need to include the entire claim\nqueue of all parachains.\n\nThis pull request solves the problem by moving the entire core selection\nto the collator side. From there the information is passed via a\n`PreRuntime` digest to the runtime. The `CoreInfo` contains the\n`selector`, `claim_queue_offset` and `number_of_cores`. Doing this on\nthe collator side is fine as long as we don't have slot durations that\nare lower than the relay chain slot duration. As we have agreed to\nalways have equal or bigger slot durations on parachains, there should\nbe no problem with this change.\n\nDownstream users need to remove the `SelectCore` type from the\n`parachain_system::Config`:\n```diff\n- type SelectCore = ...;\n+\n```\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8893\nhttps://github.com/paritytech/polkadot-sdk/issues/8906\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2025-09-05T15:26:49Z",
+          "tree_id": "edd4ea3b225223f31c9ab6550f848bf6d9254b3e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4acb964059a218be9bac954b4e3803b78b5526bf"
+        },
+        "date": 1757090302138,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.212208401233333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.19669355933333335,
             "unit": "seconds"
           }
         ]
