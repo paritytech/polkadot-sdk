@@ -37,17 +37,15 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	CollatorPair, Id as ParaId, OccupiedCoreAssumption, DEFAULT_CLAIM_QUEUE_OFFSET,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use crate::{collator as collator_util, export_pov_to_path};
+use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -220,17 +218,11 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.relay_client,
-				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-			)
-			.await
-			.get(0)
-			{
-				*core_index
-			} else {
+			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
+				.await
+				.iter_claims_at_depth_for_para(0, params.para_id)
+				.next()
+			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,

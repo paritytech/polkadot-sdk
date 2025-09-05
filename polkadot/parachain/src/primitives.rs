@@ -42,7 +42,6 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -50,6 +49,12 @@ pub use polkadot_core_primitives::BlockNumber as RelayChainBlockNumber;
 )]
 #[cfg_attr(feature = "std", derive(Hash, Default))]
 pub struct HeadData(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for HeadData {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "HeadData({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl HeadData {
 	/// Returns the hash of this head data.
@@ -68,7 +73,6 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
 	derive_more::From,
 	TypeInfo,
 	Serialize,
@@ -76,6 +80,12 @@ impl codec::EncodeLike<HeadData> for alloc::vec::Vec<u8> {}
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct ValidationCode(#[serde(with = "bytes")] pub Vec<u8>);
+
+impl core::fmt::Debug for ValidationCode {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		write!(f, "ValidationCode({})", array_bytes::bytes2hex("0x", &self.0))
+	}
+}
 
 impl ValidationCode {
 	/// Get the blake2-256 hash of the validation code bytes.
