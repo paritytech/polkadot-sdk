@@ -48,9 +48,7 @@ use url::Url;
 
 use crate::runtime::Weight;
 use cumulus_client_cli::{CollatorOptions, RelayChainMode};
-use cumulus_client_consensus_common::{
-	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
-};
+use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
 use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
@@ -61,12 +59,12 @@ use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 
-use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
+use cumulus_test_runtime::{Hash, NodeBlock as Block, RuntimeApi};
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
 use polkadot_node_subsystem::{errors::RecoveryError, messages::AvailabilityRecoveryMessage};
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{CandidateHash, CollatorPair, Hash as PHash, PersistedValidationData};
+use polkadot_primitives::{CandidateHash, CollatorPair};
 use polkadot_service::ProvideRuntimeApi;
 use sc_consensus::ImportQueue;
 use sc_network::{
@@ -100,22 +98,6 @@ pub use cumulus_test_runtime as runtime;
 pub use sp_keyring::Sr25519Keyring as Keyring;
 
 const LOG_TARGET: &str = "cumulus-test-service";
-
-/// A consensus that will never produce any block.
-#[derive(Clone)]
-struct NullConsensus;
-
-#[async_trait::async_trait]
-impl ParachainConsensus<Block> for NullConsensus {
-	async fn produce_candidate(
-		&mut self,
-		_: &Header,
-		_: PHash,
-		_: &PersistedValidationData,
-	) -> Option<ParachainCandidate<Block>> {
-		None
-	}
-}
 
 /// The signature of the announce block fn.
 pub type AnnounceBlockFn = Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>;
@@ -321,7 +303,6 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	fail_pov_recovery: bool,
 	rpc_ext_builder: RB,
-	consensus: Consensus,
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
 	use_slot_based_collator: bool,
@@ -385,10 +366,7 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
-			sybil_resistance_level: CollatorSybilResistance::Resistant, /* Either Aura that is
-			                                                             * resistant or null that
-			                                                             * is not producing any
-			                                                             * blocks at all. */
+			sybil_resistance_level: CollatorSybilResistance::Resistant,
 		})
 		.await?;
 
@@ -546,14 +524,6 @@ pub struct TestNode {
 	pub backend: Arc<Backend>,
 }
 
-#[allow(missing_docs)]
-pub enum Consensus {
-	/// Use Aura consensus.
-	Aura,
-	/// Use the null consensus that will never produce any block.
-	Null,
-}
-
 /// A builder to create a [`TestNode`].
 pub struct TestNodeBuilder {
 	para_id: ParaId,
@@ -566,7 +536,6 @@ pub struct TestNodeBuilder {
 	wrap_announce_block: Option<Box<dyn FnOnce(AnnounceBlockFn) -> AnnounceBlockFn>>,
 	storage_update_func_parachain: Option<Box<dyn Fn()>>,
 	storage_update_func_relay_chain: Option<Box<dyn Fn()>>,
-	consensus: Consensus,
 	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec<AccountId>,
 	record_proof_during_import: bool,
@@ -591,7 +560,6 @@ impl TestNodeBuilder {
 			wrap_announce_block: None,
 			storage_update_func_parachain: None,
 			storage_update_func_relay_chain: None,
-			consensus: Consensus::Aura,
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
 			record_proof_during_import: true,
@@ -680,12 +648,6 @@ impl TestNodeBuilder {
 		self
 	}
 
-	/// Use the null consensus that will never author any block.
-	pub fn use_null_consensus(mut self) -> Self {
-		self.consensus = Consensus::Null;
-		self
-	}
-
 	/// Connect to full node via RPC.
 	pub fn use_external_relay_chain_node_at_url(mut self, network_address: Url) -> Self {
 		self.relay_chain_mode = RelayChainMode::ExternalRpc(vec![network_address]);
@@ -754,7 +716,6 @@ impl TestNodeBuilder {
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
-						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
 						false,
@@ -769,7 +730,6 @@ impl TestNodeBuilder {
 						self.wrap_announce_block,
 						false,
 						|_| Ok(jsonrpsee::RpcModule::new(())),
-						self.consensus,
 						collator_options,
 						self.record_proof_during_import,
 						false,
