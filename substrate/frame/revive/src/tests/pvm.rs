@@ -744,7 +744,7 @@ fn deploy_and_call_other_contract() {
 						),
 						source: ALICE,
 						dest: callee_account.clone(),
-						transferred: 556,
+						transferred: 2146,
 					}),
 					topics: vec![],
 				},

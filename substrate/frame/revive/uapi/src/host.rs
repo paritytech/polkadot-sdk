@@ -487,31 +487,6 @@ pub trait HostFn: private::Sealed {
 	#[unstable_hostfn]
 	fn caller_is_root() -> bool;
 
-	/// Clear the value at the given key in the contract storage.
-	///
-	/// # Parameters
-	///
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	#[unstable_hostfn]
-	fn clear_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
-	/// Checks whether there is a value stored under the given key.
-	///
-	/// The key length must not exceed the maximum defined by the contracts module parameter.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	///
-	/// # Return
-	///
-	/// Returns the size of the pre-existing value at the specified key if any.
-	#[unstable_hostfn]
-	fn contains_storage(flags: StorageFlags, key: &[u8]) -> Option<u32>;
-
 	/// Calculates Ethereum address from the ECDSA compressed public key and stores
 	/// it into the supplied buffer.
 	///
@@ -585,18 +560,6 @@ pub trait HostFn: private::Sealed {
 	/// - [Sr25519VerifyFailed][`crate::ReturnErrorCode::Sr25519VerifyFailed]
 	#[unstable_hostfn]
 	fn sr25519_verify(signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> Result;
-
-	/// Retrieve and remove the value under the given key from storage.
-	///
-	/// # Parameters
-	/// - `key`: The storage key.
-	/// - `output`: A reference to the output data buffer to write the storage entry.
-	///
-	/// # Errors
-	///
-	/// [KeyNotFound][`crate::ReturnErrorCode::KeyNotFound]
-	#[unstable_hostfn]
-	fn take_storage(flags: StorageFlags, key: &[u8], output: &mut &mut [u8]) -> Result;
 
 	/// Remove the calling account and transfer remaining **free** balance.
 	///

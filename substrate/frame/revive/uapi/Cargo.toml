@@ -21,6 +21,9 @@ codec = { features = ["derive", "max-encoded-len"], optional = true, workspace =
 pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
 
+const-crypto = { version = "0.3.0" }
+hex-literal = { version = "0.4.1", default-features = false }
+
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 polkavm-derive = { version = "0.27.0" }
 
