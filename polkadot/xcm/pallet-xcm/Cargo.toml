@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "22.0.0"
+version = "22.0.1"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
