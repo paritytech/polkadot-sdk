@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{hash_map::Entry, HashMap, HashSet},
+	time::{SystemTime, UNIX_EPOCH},
+};
 
 use futures::{Future, FutureExt};
 
@@ -26,6 +29,7 @@ use polkadot_node_network_protocol::{
 	},
 	IfDisconnected,
 };
+use polkadot_node_primitives::Timestamp;
 use polkadot_node_subsystem::{messages::NetworkBridgeTxMessage, overseer};
 use polkadot_node_subsystem_util::{metrics, nesting_sender::NestingSender, runtime::RuntimeInfo};
 use polkadot_primitives::{
@@ -53,6 +57,13 @@ pub struct SendTask<M> {
 	/// boundaries. It will always be at least the `parachain` validators of the session where the
 	/// dispute happened and the authorities of the current sessions as determined by active heads.
 	deliveries: HashMap<AuthorityDiscoveryId, DeliveryStatus>,
+
+	/// Rejected deliveries - if the peer is overloaded (its queue is full) it will reject the
+	/// message. To avoid unnecessary network load we will slow down sending further messages to
+	/// that peer.
+	/// The value of the `HashMap` is the timestamp of the last rejection and the number of
+	/// attempts.
+	rejected_deliveries: HashMap<AuthorityDiscoveryId, (Timestamp, usize)>,
 
 	/// Whether we have any tasks failed since the last refresh.
 	has_failed_sends: bool,
@@ -114,8 +125,13 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 		request: DisputeRequest,
 		metrics: &Metrics,
 	) -> Result<Self> {
-		let mut send_task =
-			Self { request, deliveries: HashMap::new(), has_failed_sends: false, tx };
+		let mut send_task = Self {
+			request,
+			deliveries: HashMap::new(),
+			rejected_deliveries: HashMap::new(),
+			has_failed_sends: false,
+			tx,
+		};
 		send_task.refresh_sends(ctx, runtime, active_sessions, metrics).await?;
 		Ok(send_task)
 	}
@@ -153,6 +169,7 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 			"Cleaning up deliveries"
 		);
 		self.deliveries.retain(|k, _| new_authorities.contains(k));
+		self.rejected_deliveries.retain(|k, _| new_authorities.contains(k));
 
 		// Start any new tasks that are needed:
 		gum::trace!(
@@ -162,9 +179,15 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 			already_running_deliveries = ?self.deliveries.len(),
 			"Starting new send requests for authorities."
 		);
-		let new_statuses =
-			send_requests(ctx, self.tx.clone(), add_authorities, self.request.clone(), metrics)
-				.await?;
+		let new_statuses = send_requests(
+			ctx,
+			self.tx.clone(),
+			add_authorities,
+			&self.rejected_deliveries,
+			self.request.clone(),
+			metrics,
+		)
+		.await?;
 
 		let was_empty = new_statuses.is_empty();
 		gum::trace!(
@@ -198,11 +221,49 @@ impl<M: 'static + Send + Sync> SendTask<M> {
 					"Error sending dispute statements to node."
 				);
 
+				// If a message is rejected, note the recipient so that we don't overload it with
+				// additional dispute requests.
+				if err.is_rejected() {
+					gum::debug!(
+						target: LOG_TARGET,
+						?authority,
+						candidate_hash = %self.request.0.candidate_receipt.hash(),
+						"Peer refused to accept our request, marking it as rejected."
+					);
+
+					match self.rejected_deliveries.entry(authority.clone()) {
+						// If the peer is already in the rejected list, increase the number of
+						// attempts.
+						Entry::Occupied(mut entry) => {
+							let (timestamp, attempts) = entry.get_mut();
+							*timestamp =
+								SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+							*attempts += 1;
+						},
+						// Otherwise, insert it with the current timestamp and one attempt.
+						Entry::Vacant(entry) => {
+							entry.insert((
+								SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+								1,
+							));
+						},
+					}
+				}
+
 				self.has_failed_sends = true;
 				// Remove state, so we know what to try again:
 				self.deliveries.remove(authority);
 			},
 			TaskResult::Succeeded => {
+				if self.rejected_deliveries.remove(&authority).is_some() {
+					gum::debug!(
+						target: LOG_TARGET,
+						?authority,
+						candidate_hash = %self.request.0.candidate_receipt.hash(),
+						"Peer accepted our request after rejecting it before."
+					);
+				}
+
 				let status = match self.deliveries.get_mut(&authority) {
 					None => {
 						// Can happen when a sending became irrelevant while the response was
@@ -277,13 +338,40 @@ async fn send_requests<Context, M: 'static + Send + Sync>(
 	ctx: &mut Context,
 	tx: NestingSender<M, TaskFinish>,
 	receivers: Vec<AuthorityDiscoveryId>,
+	rejected_deliveries: &HashMap<AuthorityDiscoveryId, (Timestamp, usize)>,
 	req: DisputeRequest,
 	metrics: &Metrics,
 ) -> Result<HashMap<AuthorityDiscoveryId, DeliveryStatus>> {
 	let mut statuses = HashMap::with_capacity(receivers.len());
 	let mut reqs = Vec::with_capacity(receivers.len());
+	let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 
+	gum::trace!(
+		target: LOG_TARGET,
+		?rejected_deliveries,
+		"Sending dispute request to authorities."
+	);
 	for receiver in receivers {
+		if let Some((last_retry_time, num_retries)) = rejected_deliveries.get(&receiver) {
+			// Context for the backoff logic: https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/retry-backoff.html
+			if now < *last_retry_time + (2 ^ *num_retries as u64) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?receiver,
+					candidate_hash = %req.0.candidate_receipt.hash(),
+					num_retries=*num_retries,
+					"Skipping sending to peer, it rejected our request recently."
+				);
+				continue;
+			}
+			gum::debug!(
+				target: LOG_TARGET,
+				?receiver,
+				candidate_hash = %req.0.candidate_receipt.hash(),
+				num_retries=*num_retries,
+				"Peer rejected our request, but enough time has passed, sending again."
+			);
+		}
 		let (outgoing, pending_response) =
 			OutgoingRequest::new(Recipient::Authority(receiver.clone()), req.clone());
 
