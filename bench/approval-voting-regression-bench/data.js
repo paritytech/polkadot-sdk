@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757065532895,
+  "lastUpdate": 1757090374265,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ndk@parity.io",
-            "name": "Andrii",
-            "username": "x3c41a"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "d5bd15b2389ae86e4b2ed1fa10dd4303208b22ab",
-          "message": "[XCM] Add generic location to account converter that also works with external ecosystems for bridge hubs (#7809)\n\nThat's the continuation of\n[PR#7313](https://github.com/paritytech/polkadot-sdk/pull/7313)",
-          "timestamp": "2025-03-06T17:42:54Z",
-          "tree_id": "e381ef5ebc1a436cef931a6f321ff51275af944e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d5bd15b2389ae86e4b2ed1fa10dd4303208b22ab"
-        },
-        "date": 1741286775474,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63622.45,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.39207576464,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005873271040000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.381419016090001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 1.8838524343199914,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.370257468920003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.504822661710008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.3479785244099998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 3.3834476095022517,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000195802,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 11.88627914113,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000019010600000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000195802,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000019010600000000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.4474469012199984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4acb964059a218be9bac954b4e3803b78b5526bf",
+          "message": "Forward `CoreInfo` via an digest to the runtime (#9002)\n\nBefore this pull request we had this rather inflexible `SelectCore` type\nin `parachain-system`. It was just taking the last byte of the block\nnumber as the core selector. This resulted in issues like #8893. While\nit was not totally static, it was very complicated to forward the needed\ninformation to the runtime. In the case of running with block bundling\n(500ms blocks), multiple blocks are actually validated on the same core.\nFinding out the selector and offset without having access to the claim\nqueue is rather hard. The claim queue could be forwarded to the runtime,\nbut it would waste POV size as we would need to include the entire claim\nqueue of all parachains.\n\nThis pull request solves the problem by moving the entire core selection\nto the collator side. From there the information is passed via a\n`PreRuntime` digest to the runtime. The `CoreInfo` contains the\n`selector`, `claim_queue_offset` and `number_of_cores`. Doing this on\nthe collator side is fine as long as we don't have slot durations that\nare lower than the relay chain slot duration. As we have agreed to\nalways have equal or bigger slot durations on parachains, there should\nbe no problem with this change.\n\nDownstream users need to remove the `SelectCore` type from the\n`parachain_system::Config`:\n```diff\n- type SelectCore = ...;\n+\n```\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8893\nhttps://github.com/paritytech/polkadot-sdk/issues/8906\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>",
+          "timestamp": "2025-09-05T15:26:49Z",
+          "tree_id": "edd4ea3b225223f31c9ab6550f848bf6d9254b3e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4acb964059a218be9bac954b4e3803b78b5526bf"
+        },
+        "date": 1757090356011,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63626,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.5046378483299985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001987721,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019240459999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.5097533049900007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019240459999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 12.45286471108,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001987721,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005495263840000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.4896449989399985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 1.9681081652599963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 2.757770941350887,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.5288152788100025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.4464098509100028,
             "unit": "seconds"
           }
         ]
