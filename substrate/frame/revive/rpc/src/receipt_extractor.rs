@@ -154,14 +154,15 @@ impl ReceiptExtractor {
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
-		block_number: U256,
-		block_hash: H256,
+		substrate_block: &SubstrateBlock,
+		eth_block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		maybe_receipt: Option<ReceiptGasInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
 		let events = ext.events().await?;
+		let block_number: U256 = substrate_block.number().into();
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
 			log::debug!(
@@ -185,14 +186,7 @@ impl ReceiptExtractor {
 			ClientError::RecoverEthAddressFailed
 		})?;
 
-		// TODO below causes such errors:
-		// ```
-		// 2025-08-27 23:34:42.026  WARN tokio-runtime-worker eth-rpc: Error extracting extrinsic: SubxtError(Rpc(ClientError(User(UserError { code: 4003, message: "Client error: UnknownBlock: Expect block number from id: BlockId::Hash(0x69a76a3ffb732205f70236a5ac95653680a193dee3c02f489ba88af4e9cc8978)", data: None }))))
-		// 2025-08-27 23:34:42.026 ERROR tokio-runtime-worker eth-rpc: Failed to process block 9: SubxtError(Rpc(ClientError(User(UserError { code: 4003, message: "Client error: UnknownBlock: Expect block number from id: BlockId::Hash(0x69a76a3ffb732205f70236a5ac95653680a193dee3c02f489ba88af4e9cc8978)", data: None }))))
-		// 2025-08-27 23:34:42.923 DEBUG tokio-runtime-worker eth-rpc: Processing block receipts for Substrate block 0x84fcafbf84a9cce7d0aa9a6c9ef219c6f4dc1b96697a864a95bb0effeea3d4d3 (block #7)
-		// ```
-		// let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
-		let base_gas_price = U256::zero();
+		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 
@@ -223,7 +217,7 @@ impl ReceiptExtractor {
 					block_number,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
-					block_hash,
+					block_hash: eth_block_hash,
 					log_index: event_details.index().into(),
 					..Default::default()
 				})
@@ -244,7 +238,7 @@ impl ReceiptExtractor {
 		};
 
 		let receipt = ReceiptInfo::new(
-			block_hash,
+			eth_block_hash,
 			block_number,
 			contract_address,
 			from,
@@ -282,17 +276,11 @@ impl ReceiptExtractor {
 		// the state tries. Are we sorting them afterwards?
 		stream::iter(ext_iter)
 			.map(|(ext, call, receipt)| async move {
-				self.extract_from_extrinsic(
-					substrate_block_number.into(),
-					eth_block_hash,
-					ext,
-					call,
-					receipt,
-				)
-				.await
-				.inspect_err(|err| {
-					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-				})
+				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt)
+					.await
+					.inspect_err(|err| {
+						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
+					})
 			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
@@ -374,14 +362,8 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		self.extract_from_extrinsic(
-			substrate_block_number.into(),
-			eth_block_hash,
-			ext,
-			eth_call,
-			maybe_receipt,
-		)
-		.await
+		self.extract_from_extrinsic(block, eth_block_hash, ext, eth_call, maybe_receipt)
+			.await
 	}
 
 	/// Get the Ethereum block hash for the given Substrate block.
