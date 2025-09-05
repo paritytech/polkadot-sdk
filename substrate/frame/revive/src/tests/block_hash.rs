@@ -18,11 +18,11 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::{block_hash::EventLog, Block},
+	evm::Block,
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
-	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned, H256,
+	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
@@ -143,14 +143,10 @@ fn events_are_captured() {
 		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
 		const EXPECTED_GAS: u64 = 6345452;
 
-		// Convert the EventLog into the AlloyLog to ensure
-		// the default address remains stable.
-		let event_log =
-			EventLog { data: vec![1, 2, 3, 4], topics: vec![H256::repeat_byte(42)], contract };
 		let logs = vec![AlloyLog::new_unchecked(
-			event_log.contract.0.into(),
-			event_log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
-			event_log.data.into(),
+			contract.0.into(),
+			vec![FixedBytes::from([42u8; 32])],
+			vec![1, 2, 3, 4].into(),
 		)];
 		let receipt = alloy_consensus::Receipt {
 			status: true.into(),

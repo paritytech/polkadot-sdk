@@ -45,7 +45,7 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR, EventLog, ReceiptGasInfo},
+		block_hash::{EthereumBlockBuilder, EthereumBlockBuilderIR, ReceiptGasInfo},
 		runtime::GAS_PRICE,
 		CallTracer, GasEncoder, GenericTransaction, PrestateTracer, Trace, Tracer, TracerType,
 		TransactionSigned, TYPE_EIP1559,

@@ -29,20 +29,6 @@ use frame_support::weights::Weight;
 use scale_info::TypeInfo;
 use sp_core::{keccak_256, H160, H256, U256};
 
-/// The log emitted by executing the ethereum transaction.
-///
-/// This is needed to compute the receipt bloom hash.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug)]
-pub struct EventLog {
-	/// The contract that emitted the event.
-	pub contract: H160,
-	/// Data supplied by the contract. Metadata generated during contract compilation
-	/// is needed to decode it.
-	pub data: Vec<u8>,
-	/// A list of topics used to index the event.
-	pub topics: Vec<H256>,
-}
-
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
 #[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
@@ -431,14 +417,12 @@ impl AccumulateReceipt {
 		}
 		// Account for the size of the list header.
 		let topics_list_header_length = topics_len + alloy_rlp::length_of_length(topics_len);
-
 		// Compute the total payload length of the log.
 		let payload_length = alloy_rlp::Encodable::length(&contract.0) +
 			alloy_rlp::Encodable::length(&data) +
 			topics_list_header_length;
 
 		let header = alloy_rlp::Header { list: true, payload_length };
-
 		header.encode(&mut self.encoding);
 		alloy_rlp::Encodable::encode(&contract.0, &mut self.encoding);
 		// Encode the topics as a list
