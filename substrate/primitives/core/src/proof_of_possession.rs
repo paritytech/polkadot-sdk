@@ -17,7 +17,7 @@
 
 //! Utilities for proving possession of a particular public key
 
-use crate::crypto::{CryptoType, Pair};
+use crate::crypto::{CryptoType, Pair, Signature};
 use sp_std::vec::Vec;
 
 /// Pair which is able to generate proof of possession.
@@ -26,20 +26,29 @@ use sp_std::vec::Vec;
 pub trait ProofOfPossessionGenerator: Pair
 where
 	Self::Public: CryptoType,
+	Self::ProofOfPossession: Signature,
 {
 	/// Generate proof of possession.
 	///
-	/// The proof of possession generator is supposed to
+	/// This is usually done by signing the owner's idetifier, this is prevent
+	/// front runner to claim ownership of public keys of other entities.
+	///
+	/// However, for aggregatable signature
+	/// the proof of possession generator is supposed to
 	/// produce a "signature" with unique hash context that should
-	/// never be used in other signatures. This proves that
-	/// the secret key is known to the prover. While prevent
+	/// never be used in other signatures. While this proves that
+	/// the secret key is known to the prover, it prevents
 	/// malicious actors to trick an honest party to sign an
 	/// unpossessed public key resulting in a rogue key attack (See: Section 4.3 of
 	/// - Ristenpart, T., & Yilek, S. (2007). The power of proofs-of-possession: Securing multiparty
 	///   signatures against rogue-key attacks. In , Annual {{International Conference}} on the
 	///   {{Theory}} and {{Applications}} of {{Cryptographic Techniques} (pp. 228–245). : Springer).
+	///
+	/// As such, for aggregatable signatures, proof of possession consists of two signatures one
+	/// regular signature signing the owner identity and the second one with unique context which
+	/// signs the correspoding public key (and nothing else).
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self) -> Self::Signature;
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession;
 }
 
 /// Pair which is able to verify proof of possession.
@@ -50,6 +59,7 @@ where
 pub trait ProofOfPossessionVerifier: Pair
 where
 	Self::Public: CryptoType,
+	Self::ProofOfPossession: Signature,
 {
 	/// Verify proof of possession.
 	///
@@ -57,9 +67,17 @@ where
 	/// context that is produced solely for this reason. This proves that that the secret key is
 	/// known to the prover.
 	fn verify_proof_of_possession(
-		proof_of_possession: &Self::Signature,
+		owner: &[u8],
+		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool;
+}
+
+/// Simply returns the owner prefixed with proof of possession context.
+pub fn statement_of_ownership(owner: &[u8]) -> Vec<u8> {
+	/// The context which attached to pop message to attest its purpose.
+	const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
+	[PROOF_OF_POSSESSION_CONTEXT_TAG, owner].concat()
 }
 
 /// Marker trait to identify whether the scheme is not aggregatable.
@@ -81,16 +99,14 @@ where
 /// confirming signatures at API level
 pub trait NonAggregatable: Pair {
 	/// Default proof_of_possession statement.
-	fn proof_of_possession_statement(pk: &impl crate::Public) -> Vec<u8> {
-		/// The context which attached to pop message to attest its purpose.
-		const PROOF_OF_POSSESSION_CONTEXT_TAG: &[u8; 4] = b"POP_";
-		[PROOF_OF_POSSESSION_CONTEXT_TAG, pk.to_raw_vec().as_slice()].concat()
+	fn proof_of_possession_statement(owner: &[u8]) -> Vec<u8> {
+		statement_of_ownership(owner)
 	}
 }
 
 impl<T> ProofOfPossessionVerifier for T
 where
-	T: NonAggregatable,
+	T: NonAggregatable<ProofOfPossession = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
@@ -98,11 +114,11 @@ where
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
 	fn verify_proof_of_possession(
-		proof_of_possession: &Self::Signature,
+		owner: &[u8],
+		proof_of_possession: &Self::ProofOfPossession,
 		allegedly_possessesd_pubkey: &Self::Public,
 	) -> bool {
-		let proof_of_possession_statement =
-			Self::proof_of_possession_statement(allegedly_possessesd_pubkey);
+		let proof_of_possession_statement = statement_of_ownership(owner);
 		Self::verify(
 			&proof_of_possession,
 			proof_of_possession_statement,
@@ -113,7 +129,7 @@ where
 
 impl<T> ProofOfPossessionGenerator for T
 where
-	T: NonAggregatable,
+	T: NonAggregatable<ProofOfPossession = Self::Signature>,
 {
 	/// Default implementation for non-aggregatable signatures.
 	///
@@ -121,8 +137,8 @@ where
 	/// it remains as an advisory for the default implementation using signature API used for
 	/// non-aggregatable schemes
 	#[cfg(feature = "full_crypto")]
-	fn generate_proof_of_possession(&mut self) -> Self::Signature {
-		let proof_of_possession_statement = Self::proof_of_possession_statement(&self.public());
+	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
+		let proof_of_possession_statement = statement_of_ownership(owner);
 		self.sign(proof_of_possession_statement.as_slice())
 	}
 }

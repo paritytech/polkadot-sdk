@@ -37,6 +37,7 @@ fn ecdsa_bls381_works_in_runtime() {
 	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
+	let test_owner = b"owner"; //this must be the same owner used in runtime::TestAPI
 
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
@@ -49,16 +50,22 @@ fn ecdsa_bls381_works_in_runtime() {
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 	assert!(supported_keys.len() == 3);
 
-	assert!(AppPair::verify_proof_of_possession(&proof_of_possession, &public));
+	assert!(AppPair::verify_proof_of_possession(
+		test_owner,
+		&proof_of_possession.into(),
+		&public.into()
+	));
 }
 
 #[test]
 fn ecdsa_bls381_client_proof_of_possession_verified_by_runtime_public() {
+	let test_owner = b"owner";
 	let (mut test_pair, _) = EcdsaBls381Pair::generate();
 
-	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession();
+	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession(test_owner);
 	assert!(RuntimePublic::verify_proof_of_possession(
 		&test_pair.public(),
+		test_owner,
 		&client_generated_proof_of_possession
 	));
 }

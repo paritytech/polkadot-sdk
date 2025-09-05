@@ -133,10 +133,11 @@ impl MemoryKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &T::Public,
-	) -> Result<Option<T::Signature>, Error> {
+		owner: &[u8],
+	) -> Result<Option<T::ProofOfPossession>, Error> {
 		let proof_of_possession = self
 			.pair::<T>(key_type, public)
-			.map(|mut pair| pair.generate_proof_of_possession());
+			.map(|mut pair| pair.generate_proof_of_possession(owner));
 		Ok(proof_of_possession)
 	}
 }
@@ -320,8 +321,9 @@ impl Keystore for MemoryKeystore {
 		&self,
 		key_type: KeyTypeId,
 		public: &bls381::Public,
-	) -> Result<Option<bls381::Signature>, Error> {
-		self.generate_proof_of_possession::<bls381::Pair>(key_type, public)
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error> {
+		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
 	}
 
 	#[cfg(feature = "bls-experimental")]
