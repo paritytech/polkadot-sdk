@@ -860,7 +860,7 @@ fn build_overseer(
 		.replace_network_bridge_tx(|_| mock_tx_bridge)
 		.replace_network_bridge_rx(|_| mock_rx_bridge)
 		.replace_availability_recovery(|_| MockAvailabilityRecovery::new())
-		.replace_candidate_validation(|_| MockCandidateValidation::new());
+		.replace_candidate_validation(|_| MockCandidateValidation::new(vec![]));
 
 	let (overseer, raw_handle) = if state.options.approval_voting_parallel_enabled {
 		let approval_voting_parallel = ApprovalVotingParallelSubsystem::with_config_and_clock(
