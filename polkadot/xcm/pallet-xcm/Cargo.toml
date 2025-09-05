@@ -1,6 +1,6 @@
 [package]
 name = "pallet-xcm"
-version = "21.0.0"
+version = "22.0.0"
 description = "A pallet for handling XCM programs."
 authors.workspace = true
 edition.workspace = true
@@ -17,6 +17,7 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
+hex-literal = { workspace = true, default-features = false }
 pallet-balances = { optional = true, workspace = true }
 pallet-revive.workspace = true
 pallet-timestamp.workspace = true

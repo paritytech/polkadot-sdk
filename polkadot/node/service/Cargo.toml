@@ -1,7 +1,7 @@
 [package]
 name = "polkadot-service"
 rust-version = "1.60"
-version = "26.0.0"
+version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -187,7 +187,7 @@ assert_matches = { workspace = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
 polkadot-primitives-test-helpers = { workspace = true }
 polkadot-test-client = { workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 tempfile = { workspace = true }
 
 [features]

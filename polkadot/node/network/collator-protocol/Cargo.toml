@@ -47,7 +47,7 @@ tokio = { features = ["macros"], workspace = true, default-features = true, opti
 [dev-dependencies]
 assert_matches = { workspace = true }
 rstest = { workspace = true }
-sp-tracing = { workspace = true, default-features = false }
+sp-tracing = { default-features = false, workspace = true }
 
 codec = { features = ["std"], workspace = true, default-features = true }
 sc-keystore = { default-features = true, workspace = true }
