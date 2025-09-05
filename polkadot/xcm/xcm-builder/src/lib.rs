@@ -139,6 +139,10 @@ pub use transactional::FrameTransactionalProcessor;
 
 #[allow(deprecated)]
 pub use universal_exports::UnpaidLocalExporter;
+
+mod transfer;
+pub use transfer::{GetDefaultRemoteFee, Transfer, TransferOverXcm};
+
 mod universal_exports;
 pub use universal_exports::{
 	ensure_is_remote, BridgeBlobDispatcher, BridgeMessage, DispatchBlob, DispatchBlobError,
