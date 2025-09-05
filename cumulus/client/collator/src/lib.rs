@@ -17,127 +17,17 @@
 
 //! Cumulus Collator implementation for Substrate.
 
-use cumulus_primitives_core::{
-	relay_chain::Hash as PHash, CollectCollationInfo, PersistedValidationData,
-};
-
-use sc_client_api::BlockBackend;
-use sp_api::ProvideRuntimeApi;
-use sp_core::traits::SpawnNamed;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::Block as BlockT;
 
 use cumulus_client_consensus_common::ParachainConsensus;
-use polkadot_node_primitives::{CollationGenerationConfig, CollationResult, MaybeCompressedPoV};
+use polkadot_node_primitives::CollationGenerationConfig;
 use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId};
 
-use codec::Decode;
-use futures::prelude::*;
 use std::sync::Arc;
 
-use crate::service::CollatorService;
-
 pub mod service;
-
-/// The logging target.
-const LOG_TARGET: &str = "cumulus-collator";
-
-/// The implementation of the Cumulus `Collator`.
-///
-/// Note that this implementation is soon to be deprecated and removed, and it is suggested to
-/// directly use the [`CollatorService`] instead, so consensus engine implementations
-/// live at the top level.
-pub struct Collator<Block: BlockT, BS, RA> {
-	service: CollatorService<Block, BS, RA>,
-	parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-}
-
-impl<Block: BlockT, BS, RA> Clone for Collator<Block, BS, RA> {
-	fn clone(&self) -> Self {
-		Collator {
-			service: self.service.clone(),
-			parachain_consensus: self.parachain_consensus.clone(),
-		}
-	}
-}
-
-impl<Block, BS, RA> Collator<Block, BS, RA>
-where
-	Block: BlockT,
-	BS: BlockBackend<Block>,
-	RA: ProvideRuntimeApi<Block>,
-	RA::Api: CollectCollationInfo<Block>,
-{
-	/// Create a new instance.
-	fn new(
-		collator_service: CollatorService<Block, BS, RA>,
-		parachain_consensus: Box<dyn ParachainConsensus<Block>>,
-	) -> Self {
-		Self { service: collator_service, parachain_consensus }
-	}
-
-	async fn produce_candidate(
-		mut self,
-		relay_parent: PHash,
-		validation_data: PersistedValidationData,
-	) -> Option<CollationResult> {
-		tracing::trace!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent,
-			"Producing candidate",
-		);
-
-		let last_head = match Block::Header::decode(&mut &validation_data.parent_head.0[..]) {
-			Ok(x) => x,
-			Err(e) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					error = ?e,
-					"Could not decode the head data."
-				);
-				return None
-			},
-		};
-
-		let last_head_hash = last_head.hash();
-		if !self.service.check_block_status(last_head_hash, &last_head) {
-			return None
-		}
-
-		tracing::info!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent,
-			at = ?last_head_hash,
-			"Starting collation.",
-		);
-
-		let candidate = self
-			.parachain_consensus
-			.produce_candidate(&last_head, relay_parent, &validation_data)
-			.await?;
-
-		let block_hash = candidate.block.header().hash();
-
-		let (collation, b) = self.service.build_collation(&last_head, block_hash, candidate)?;
-
-		b.log_size_info();
-
-		if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
-			tracing::info!(
-				target: LOG_TARGET,
-				"Compressed PoV size: {}kb",
-				pov.block_data.0.len() as f64 / 1024f64,
-			);
-		}
-
-		let result_sender = self.service.announce_with_barrier(block_hash);
-
-		tracing::info!(target: LOG_TARGET, ?block_hash, "Produced proof-of-validity candidate.",);
-
-		Some(CollationResult { collation, result_sender: Some(result_sender) })
-	}
-}
 
 /// Relay-chain-driven collators are those whose block production is driven purely
 /// by new relay chain blocks and the most recently included parachain blocks
@@ -267,66 +157,6 @@ pub struct StartCollatorParams<Block: BlockT, RA, BS, Spawner> {
 	pub key: CollatorPair,
 	pub parachain_consensus: Box<dyn ParachainConsensus<Block>>,
 }
-
-/// Start the collator.
-#[deprecated = "Collators should run consensus futures which handle this logic internally"]
-pub async fn start_collator<Block, RA, BS, Spawner>(
-	params: StartCollatorParams<Block, RA, BS, Spawner>,
-) where
-	Block: BlockT,
-	BS: BlockBackend<Block> + Send + Sync + 'static,
-	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	RA::Api: CollectCollationInfo<Block>,
-{
-	// This never needed to be asynchronous, but shouldn't be changed due to backcompat.
-	#[allow(deprecated)]
-	start_collator_sync(params);
-}
-
-/// Start the collator in a synchronous function.
-#[deprecated = "Collators should run consensus futures which handle this logic internally"]
-pub fn start_collator_sync<Block, RA, BS, Spawner>(
-	StartCollatorParams {
-		para_id,
-		block_status,
-		announce_block,
-		overseer_handle,
-		spawner,
-		key,
-		parachain_consensus,
-		runtime_api,
-	}: StartCollatorParams<Block, RA, BS, Spawner>,
-) where
-	Block: BlockT,
-	BS: BlockBackend<Block> + Send + Sync + 'static,
-	Spawner: SpawnNamed + Clone + Send + Sync + 'static,
-	RA: ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	RA::Api: CollectCollationInfo<Block>,
-{
-	let collator_service =
-		CollatorService::new(block_status, Arc::new(spawner.clone()), announce_block, runtime_api);
-
-	let collator = Collator::new(collator_service, parachain_consensus);
-
-	let collation_future = Box::pin(async move {
-		let mut request_stream = relay_chain_driven::init(key, para_id, overseer_handle).await;
-		while let Some(request) = request_stream.next().await {
-			let collation = collator
-				.clone()
-				.produce_candidate(
-					*request.relay_parent(),
-					request.persisted_validation_data().clone(),
-				)
-				.await;
-
-			request.complete(collation);
-		}
-	});
-
-	spawner.spawn("cumulus-relay-driven-collator", None, collation_future);
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;

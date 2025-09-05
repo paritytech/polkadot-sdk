@@ -52,8 +52,6 @@ use cumulus_client_consensus_common::{
 	ParachainBlockImport as TParachainBlockImport, ParachainCandidate, ParachainConsensus,
 };
 use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
-#[allow(deprecated)]
-use cumulus_client_service::old_consensus;
 use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
 	CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
@@ -454,96 +452,75 @@ where
 	})?;
 
 	if let Some(collator_key) = collator_key {
-		if let Consensus::Null = consensus {
-			#[allow(deprecated)]
-			old_consensus::start_collator(old_consensus::StartCollatorParams {
-				block_status: client.clone(),
-				announce_block,
-				runtime_api: client.clone(),
-				spawner: task_manager.spawn_handle(),
+		let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
+			task_manager.spawn_handle(),
+			client.clone(),
+			transaction_pool.clone(),
+			prometheus_registry.as_ref(),
+			None,
+		);
+
+		let collator_service = CollatorService::new(
+			client.clone(),
+			Arc::new(task_manager.spawn_handle()),
+			announce_block,
+			client.clone(),
+		);
+
+		let client_for_aura = client.clone();
+
+		if use_slot_based_collator {
+			tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
+			let params = SlotBasedParams {
+				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
+				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
+				keystore,
+				collator_key,
+				relay_chain_slot_duration,
 				para_id,
-				parachain_consensus: Box::new(NullConsensus) as Box<_>,
-				key: collator_key,
-				overseer_handle,
-			})
-			.await;
+				proposer,
+				collator_service,
+				authoring_duration: Duration::from_millis(2000),
+				reinitialize: false,
+				slot_offset: Duration::from_secs(1),
+				block_import_handle: slot_based_handle,
+				spawner: task_manager.spawn_handle(),
+				export_pov: None,
+				max_pov_percentage: None,
+			};
+
+			slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 		} else {
-			let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
-				task_manager.spawn_handle(),
-				client.clone(),
-				transaction_pool.clone(),
-				prometheus_registry.as_ref(),
-				None,
-			);
+			tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
+			let params = AuraParams {
+				create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+				block_import,
+				para_client: client.clone(),
+				para_backend: backend.clone(),
+				relay_client: relay_chain_interface,
+				code_hash_provider: move |block_hash| {
+					client_for_aura.code_at(block_hash).ok().map(|c| ValidationCode::from(c).hash())
+				},
+				keystore,
+				collator_key,
+				para_id,
+				overseer_handle,
+				relay_chain_slot_duration,
+				proposer,
+				collator_service,
+				authoring_duration: Duration::from_millis(2000),
+				reinitialize: false,
+				max_pov_percentage: None,
+			};
 
-			let collator_service = CollatorService::new(
-				client.clone(),
-				Arc::new(task_manager.spawn_handle()),
-				announce_block,
-				client.clone(),
-			);
-
-			let client_for_aura = client.clone();
-
-			if use_slot_based_collator {
-				tracing::info!(target: LOG_TARGET, "Starting block authoring with slot based authoring.");
-				let params = SlotBasedParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-					block_import,
-					para_client: client.clone(),
-					para_backend: backend.clone(),
-					relay_client: relay_chain_interface,
-					code_hash_provider: move |block_hash| {
-						client_for_aura
-							.code_at(block_hash)
-							.ok()
-							.map(|c| ValidationCode::from(c).hash())
-					},
-					keystore,
-					collator_key,
-					relay_chain_slot_duration,
-					para_id,
-					proposer,
-					collator_service,
-					authoring_duration: Duration::from_millis(2000),
-					reinitialize: false,
-					slot_offset: Duration::from_secs(1),
-					block_import_handle: slot_based_handle,
-					spawner: task_manager.spawn_handle(),
-					export_pov: None,
-					max_pov_percentage: None,
-				};
-
-				slot_based::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
-			} else {
-				tracing::info!(target: LOG_TARGET, "Starting block authoring with lookahead collator.");
-				let params = AuraParams {
-					create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-					block_import,
-					para_client: client.clone(),
-					para_backend: backend.clone(),
-					relay_client: relay_chain_interface,
-					code_hash_provider: move |block_hash| {
-						client_for_aura
-							.code_at(block_hash)
-							.ok()
-							.map(|c| ValidationCode::from(c).hash())
-					},
-					keystore,
-					collator_key,
-					para_id,
-					overseer_handle,
-					relay_chain_slot_duration,
-					proposer,
-					collator_service,
-					authoring_duration: Duration::from_millis(2000),
-					reinitialize: false,
-					max_pov_percentage: None,
-				};
-
-				let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
-				task_manager.spawn_essential_handle().spawn("aura", None, fut);
-			}
+			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+			task_manager.spawn_essential_handle().spawn("aura", None, fut);
 		}
 	}
 
