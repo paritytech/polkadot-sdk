@@ -885,7 +885,7 @@ k256 = { version = "0.13.4", default-features = false }
 kitchensink-runtime = { path = "substrate/bin/node/runtime" }
 kvdb = { version = "0.13.0" }
 kvdb-memorydb = { version = "0.13.0" }
-kvdb-rocksdb = { version = "0.19.0" }
+kvdb-rocksdb = { version = "0.20.0" }
 kvdb-shared-tests = { version = "0.11.0" }
 landlock = { version = "0.3.0" }
 libc = { version = "0.2.155" }
@@ -1416,8 +1416,10 @@ testnet-parachains-constants = { path = "cumulus/parachains/runtimes/constants",
 thiserror = { version = "1.0.64" }
 thousands = { version = "0.2.0" }
 threadpool = { version = "1.7" }
-tikv-jemalloc-ctl = { version = "0.5.0" }
-tikv-jemallocator = { version = "0.5.0" }
+tikv-jemalloc-ctl = { version = "0.6.0", features = [
+	"stats",
+] }
+tikv-jemallocator = { version = "0.6.0" }
 time = { version = "0.3" }
 tiny-keccak = { version = "2.0.2" }
 tokio = { version = "1.45.0", default-features = false }
