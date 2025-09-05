@@ -12,4 +12,4 @@ crates:
 - name: asset-hub-westend-runtime
   bump: minor
 - name: pallet-staking-async-parachain-runtime
-  bump: patch
+  bump: minor
