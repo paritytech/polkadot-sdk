@@ -62,8 +62,6 @@ mod test_pallet;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use codec::Encode;
-use cumulus_pallet_parachain_system::{DefaultCoreSelector, SelectCore};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -79,7 +77,7 @@ use sp_runtime::{
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::ParaId;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -353,46 +351,6 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub storage BlocksPerPoV: u32 = 1;
-}
-
-/// Super ultra hacky core selector.
-///
-/// TODO: Replace with something useful.
-pub struct MultipleBlocksPerPoVCoreSelector;
-
-impl SelectCore for MultipleBlocksPerPoVCoreSelector {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let blocks_per_pov = BlocksPerPoV::get();
-
-		if blocks_per_pov == 0 {
-			return (CoreSelector(0), ClaimQueueOffset(0))
-		} else if blocks_per_pov == 1 {
-			return DefaultCoreSelector::<Runtime>::selected_core()
-		}
-
-		let core_selector =
-			(System::block_number().saturating_sub(1) / blocks_per_pov).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(0))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let blocks_per_pov = BlocksPerPoV::get();
-
-		if blocks_per_pov == 0 {
-			return (CoreSelector(0), ClaimQueueOffset(0))
-		} else if blocks_per_pov == 1 {
-			return DefaultCoreSelector::<Runtime>::select_next_core()
-		}
-
-		let core_selector = (System::block_number() / blocks_per_pov).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(0))
-	}
-}
-
 #[cfg(feature = "relay-parent-offset")]
 const RELAY_PARENT_OFFSET: u32 = 2;
 
@@ -419,7 +377,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = MultipleBlocksPerPoVCoreSelector;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
@@ -648,12 +605,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
-		}
-	}
-
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
 		}
 	}
 

@@ -110,7 +110,7 @@ mod benchmarks {
 
 	/// Add an XCMP message of 0 bytes to the message queue at the provided position
 	/// on an existing page.
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn enqueue_empty_xcmp_message_at(
 		n: Linear<0, { crate::MaxXcmpMessageLenOf::<T>::get() - 10 }>,
 	) {
@@ -181,7 +181,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn enqueue_1000_small_xcmp_messages() {
 		#[cfg(test)]
 		{
