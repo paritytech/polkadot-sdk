@@ -8,5 +8,7 @@ doc:
 crates:
 - name: pallet-staking-async
   bump: major
+  validate: false
 - name: asset-hub-westend-runtime
   bump: major
+  validate: false
