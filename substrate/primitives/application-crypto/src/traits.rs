@@ -20,7 +20,7 @@ use scale_info::TypeInfo;
 
 use alloc::vec::Vec;
 use core::fmt::Debug;
-use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public};
+use sp_core::crypto::{CryptoType, CryptoTypeId, IsWrappedBy, KeyTypeId, Pair, Public, Signature};
 
 /// Application-specific cryptographic object.
 ///
@@ -68,9 +68,9 @@ pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
 }
 
 /// Application-specific signature.
-pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
+pub trait AppSignature: AppCrypto + Signature + Eq + PartialEq + Debug + Clone {
 	/// The wrapped type which is just a plain instance of `Signature`.
-	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
+	type Generic: IsWrappedBy<Self> + Signature + Eq + PartialEq + Debug;
 }
 
 /// Runtime interface for a public key.
