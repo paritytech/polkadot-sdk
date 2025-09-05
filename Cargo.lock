@@ -15945,6 +15945,7 @@ dependencies = [
 name = "polkadot-parachain-primitives"
 version = "6.0.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "bounded-collections 0.3.2",
  "derive_more 0.99.17",
  "parity-scale-codec",
