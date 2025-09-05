@@ -21,15 +21,14 @@
 use sc_client_api::backend;
 use sc_executor::RuntimeVersionOf;
 use sp_blockchain::{HeaderBackend, Result};
-use sp_core::traits::{FetchRuntimeCode, RuntimeCode, WrappedRuntimeCode};
+use sp_core::{
+	traits::{FetchRuntimeCode, RuntimeCode, WrappedRuntimeCode},
+	Hasher,
+};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_state_machine::BasicExternalities;
 use sp_version::RuntimeVersion;
-use std::{
-	collections::{hash_map::DefaultHasher, HashMap},
-	hash::Hasher as _,
-	sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 /// A wasm substitute for the on chain wasm.
 #[derive(Debug)]
@@ -43,8 +42,8 @@ struct WasmSubstitute<Block: BlockT> {
 
 impl<Block: BlockT> WasmSubstitute<Block> {
 	fn new(code: Vec<u8>, block_number: NumberFor<Block>, version: RuntimeVersion) -> Self {
-		let hash = make_hash(&code);
-		Self { code, hash, block_number, version }
+		let hash = sp_core::Blake2Hasher::hash(&code);
+		Self { code, hash: hash.as_bytes().to_vec(), block_number, version }
 	}
 
 	fn runtime_code(&self, heap_pages: Option<u64>) -> RuntimeCode {
@@ -61,13 +60,6 @@ impl<Block: BlockT> WasmSubstitute<Block> {
 
 		Some(self.block_number) <= requested_block_number
 	}
-}
-
-/// Make a hash out of a byte string using the default rust hasher
-fn make_hash<K: std::hash::Hash + ?Sized>(val: &K) -> Vec<u8> {
-	let mut state = DefaultHasher::new();
-	val.hash(&mut state);
-	state.finish().to_le_bytes().to_vec()
 }
 
 impl<Block: BlockT> FetchRuntimeCode for WasmSubstitute<Block> {
@@ -123,10 +115,11 @@ where
 		let substitutes = substitutes
 			.into_iter()
 			.map(|(block_number, code)| {
+				let code_hash = sp_core::Blake2Hasher::hash(&code);
 				let runtime_code = RuntimeCode {
 					code_fetcher: &WrappedRuntimeCode((&code).into()),
 					heap_pages: None,
-					hash: make_hash(&code),
+					hash: code_hash.as_bytes().to_vec(),
 				};
 				let version = Self::runtime_version(&executor, &runtime_code)?;
 				let spec_version = version.spec_version;

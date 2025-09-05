@@ -1,0 +1,13 @@
+title: 'executor:  log host alloc/dealloc'
+doc:
+- audience: Node Dev
+  description: |-
+    Testing allocation patterns in the context of #8992 required adding some debug logs to trace the calls into host allocator `allocate` or `deallocate` functions, while also tracking which runtime did the call (as code hash), which instance of the runtime, and a `call_id` to determine an approximate order of the allocator calls (since the logs associated to allocator calls could pottentially show up out of order in the node logs).
+
+crates:
+- name: sc-executor-common
+  bump: major
+- name: sc-executor-wasmtime
+  bump: major
+- name: sc-service
+  bump: major
