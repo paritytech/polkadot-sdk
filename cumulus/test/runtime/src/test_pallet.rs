@@ -112,17 +112,12 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		#[serde(skip)]
 		pub _config: core::marker::PhantomData<T>,
-		pub blocks_per_pov: Option<u32>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			sp_io::storage::set(TEST_RUNTIME_UPGRADE_KEY, &[1, 2, 3, 4]);
-
-			if let Some(blocks_per_pov) = self.blocks_per_pov {
-				crate::BlocksPerPoV::set(&blocks_per_pov);
-			}
 		}
 	}
 }
