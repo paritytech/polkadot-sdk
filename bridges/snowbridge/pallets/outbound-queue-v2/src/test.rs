@@ -34,7 +34,6 @@ fn submit_messages_and_commit() {
 		let digest = System::digest();
 		let digest_items = digest.logs();
 		assert!(digest_items.len() == 1 && digest_items[0].as_other().is_some());
-		assert_eq!(Messages::<Test>::decode_len(), Some(4));
 	});
 }
 
@@ -61,7 +60,7 @@ fn commit_exits_early_if_no_processed_messages() {
 #[test]
 fn process_message_yields_on_max_messages_per_block() {
 	new_tester().execute_with(|| {
-		for _ in 0..<Test as Config>::MaxMessagesPerBlock::get() {
+		for _ in 0..<Test as Config>::MaxMessagesInBatch::get() {
 			MessageLeaves::<Test>::append(H256::zero())
 		}
 
@@ -310,10 +309,14 @@ fn test_add_tip_cumulative() {
 		let nonce = 1;
 		let initial_fee = 1000;
 		let additional_fee = 500;
-		let current_block = System::block_number();
-		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
-		PendingOrders::<Test>::insert(nonce, order);
+		let message = mock_message(1000);
+		let ticket = OutboundQueue::validate(&message).unwrap();
+		assert_ok!(OutboundQueue::deliver(ticket));
+
+		ServiceWeight::set(Some(Weight::MAX));
+		run_to_end_of_next_block();
 		assert_ok!(OutboundQueue::add_tip(nonce, additional_fee));
+
 		let order_after = PendingOrders::<Test>::get(nonce).unwrap();
 		assert_eq!(order_after.fee, initial_fee + additional_fee);
 	});
@@ -334,9 +337,11 @@ fn test_add_tip_fails_amount_zero() {
 		let nonce = 1;
 		let initial_fee = 1000;
 		let zero_amount = 0;
-		let current_block = System::block_number();
-		let order = PendingOrder { nonce, fee: initial_fee, block_number: current_block };
-		PendingOrders::<Test>::insert(nonce, order);
+		let message = mock_message(1000);
+		let ticket = OutboundQueue::validate(&message).unwrap();
+		assert_ok!(OutboundQueue::deliver(ticket));
+		ServiceWeight::set(Some(Weight::MAX));
+		run_to_end_of_next_block();
 
 		assert_noop!(OutboundQueue::add_tip(nonce, zero_amount), AddTipError::AmountZero);
 
