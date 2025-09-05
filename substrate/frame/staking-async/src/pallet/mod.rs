@@ -1363,51 +1363,43 @@ pub mod pallet {
 			// In either case, this is an error - user should not call prune on non-prunable eras
 			let current_step = EraPruningState::<T>::get(era).ok_or(Error::<T>::EraNotPrunable)?;
 
-			// Simple item-based limiting - no complex weight calculations
-			let items_limit = T::MaxPruningItems::get();
+			// Limit items to prevent deleting more than we can safely account for in weight
+			// calculations
+			let items_limit = T::MaxPruningItems::get().min(T::MaxValidatorSet::get());
 
 			let actual_weight = match current_step {
 				PruningStep::ErasStakersPaged => {
 					let result = ErasStakersPaged::<T>::clear_prefix((era,), items_limit, None);
 					let items_deleted = result.backend as u32;
-					// Update pruning state if this step is complete
-					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview);
-					}
-					// Return benchmark weight for actual items processed
-					T::WeightInfo::prune_era_stakers_paged(
-						items_deleted.min(T::MaxValidatorSet::get()),
-					)
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasStakersOverview)
+					});
+					T::WeightInfo::prune_era_stakers_paged(items_deleted)
 				},
 				PruningStep::ErasStakersOverview => {
 					let result = ErasStakersOverview::<T>::clear_prefix(era, items_limit, None);
 					let items_deleted = result.backend as u32;
-					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs);
-					}
-					T::WeightInfo::prune_era_stakers_overview(
-						items_deleted.min(T::MaxValidatorSet::get()),
-					)
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorPrefs)
+					});
+					T::WeightInfo::prune_era_stakers_overview(items_deleted)
 				},
 				PruningStep::ErasValidatorPrefs => {
 					let result = ErasValidatorPrefs::<T>::clear_prefix(era, items_limit, None);
 					let items_deleted = result.backend as u32;
-					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards);
-					}
-					T::WeightInfo::prune_era_validator_prefs(
-						items_deleted.min(T::MaxValidatorSet::get()),
-					)
+					result
+						.maybe_cursor
+						.is_none()
+						.then(|| EraPruningState::<T>::insert(era, PruningStep::ClaimedRewards));
+					T::WeightInfo::prune_era_validator_prefs(items_deleted)
 				},
 				PruningStep::ClaimedRewards => {
 					let result = ClaimedRewards::<T>::clear_prefix(era, items_limit, None);
 					let items_deleted = result.backend as u32;
-					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward);
-					}
-					T::WeightInfo::prune_era_claimed_rewards(
-						items_deleted.min(T::MaxValidatorSet::get()),
-					)
+					result.maybe_cursor.is_none().then(|| {
+						EraPruningState::<T>::insert(era, PruningStep::ErasValidatorReward)
+					});
+					T::WeightInfo::prune_era_claimed_rewards(items_deleted)
 				},
 				PruningStep::ErasValidatorReward => {
 					ErasValidatorReward::<T>::remove(era);
