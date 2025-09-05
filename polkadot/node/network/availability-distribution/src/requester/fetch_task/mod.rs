@@ -358,11 +358,8 @@ impl RunningTask {
 
 		self.sender
 			.send(FromFetchTask::Message(
-				NetworkBridgeTxMessage::SendRequests(
-					vec![requests],
-					IfDisconnected::ImmediateError,
-				)
-				.into(),
+				NetworkBridgeTxMessage::SendRequests(vec![requests], IfDisconnected::TryConnect)
+					.into(),
 			))
 			.await
 			.map_err(|_| TaskError::ShuttingDown)?;

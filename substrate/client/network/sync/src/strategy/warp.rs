@@ -714,7 +714,7 @@ where
 					protocol_name,
 					request.encode(),
 					tx,
-					IfDisconnected::ImmediateError,
+					IfDisconnected::TryConnect,
 				);
 
 				SyncingAction::StartRequest {

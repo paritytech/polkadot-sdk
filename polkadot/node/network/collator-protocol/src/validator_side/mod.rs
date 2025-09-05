@@ -745,7 +745,7 @@ async fn request_collation(
 	sender
 		.send_message(NetworkBridgeTxMessage::SendRequests(
 			vec![requests],
-			IfDisconnected::ImmediateError,
+			IfDisconnected::TryConnect,
 		))
 		.await;
 	Ok(())
