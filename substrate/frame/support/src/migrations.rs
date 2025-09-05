@@ -299,13 +299,9 @@ pub fn migrate_from_pallet_version_to_storage_version<
 /// 	AnyOtherMigrations...
 /// );
 ///
-/// pub type Executive = frame_executive::Executive<
-/// 	Runtime,
-/// 	Block,
-/// 	frame_system::ChainContext<Runtime>,
-/// 	Runtime,
-/// 	Migrations
-/// >;
+/// impl frame_system::Config for Runtime {
+/// 	type SingleBlockMigrations = Migrations;
+/// }
 /// ```
 ///
 /// WARNING: `RemovePallet` has no guard rails preventing it from bricking the chain if the
@@ -410,13 +406,9 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 /// 	AnyOtherMigrations...
 /// );
 ///
-/// pub type Executive = frame_executive::Executive<
-/// 	Runtime,
-/// 	Block,
-/// 	frame_system::ChainContext<Runtime>,
-/// 	Runtime,
-/// 	Migrations
-/// >;
+/// impl frame_system::Config for Runtime {
+/// 	type SingleBlockMigrations = Migrations;
+/// }
 /// ```
 ///
 /// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
