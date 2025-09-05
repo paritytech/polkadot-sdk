@@ -2143,17 +2143,12 @@ where
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
 
 		let copy_len = code.len().saturating_sub(code_offset).min(len);
-		let mut result = Vec::with_capacity(len);
 
 		if copy_len > 0 {
-			result.extend_from_slice(&code[code_offset..code_offset + copy_len]);
+			code[code_offset..code_offset + copy_len].to_vec()
+		} else {
+			Vec::new()
 		}
-
-		if len > copy_len {
-			result.resize(len, 0u8);
-		}
-
-		result
 	}
 }
 

@@ -85,6 +85,8 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	let code_slice = context.interpreter.extend.get_code_slice(&address, code_offset, len);
 
+	// If len > code_slice.len() the set_data method will zero out the remaining memory that was not
+	// copied over.
 	context.interpreter.memory.set_data(memory_offset, 0, len, &code_slice);
 }
 
