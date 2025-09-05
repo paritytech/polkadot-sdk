@@ -22,13 +22,16 @@ use core::marker::PhantomData;
 use frame_support::{
 	defensive, ensure,
 	traits::{
+		fungible::{self, MutateHold},
 		fungibles,
 		tokens::{Balance, Fortitude, Precision, Preservation, WithdrawConsequence},
-		Defensive, OnUnbalanced, SameOrOther,
+		OnUnbalanced,
 	},
 	unsigned::TransactionValidityError,
 };
-use pallet_asset_conversion::{QuotePrice, SwapCredit};
+use frame_system::Pallet as System;
+use pallet_asset_conversion::{QuotePrice, Swap, SwapCredit};
+use pallet_transaction_payment::HoldReason;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Get, PostDispatchInfoOf, Zero},
 	transaction_validity::InvalidTransaction,
@@ -99,8 +102,10 @@ pub struct SwapAssetAdapter<A, F, S, OU>(PhantomData<(A, F, S, OU)>);
 impl<A, F, S, OU, T> OnChargeAssetTransaction<T> for SwapAssetAdapter<A, F, S, OU>
 where
 	A: Get<T::AssetId>,
-	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>, AssetId = T::AssetId>,
-	S: SwapCredit<
+	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>, AssetId = T::AssetId>
+		+ MutateHold<T::AccountId, Balance = BalanceOf<T>, Reason = T::RuntimeHoldReason>,
+	S: Swap<T::AccountId, Balance = BalanceOf<T>, AssetKind = T::AssetId>
+		+ SwapCredit<
 			T::AccountId,
 			Balance = BalanceOf<T>,
 			AssetKind = T::AssetId,
@@ -119,56 +124,65 @@ where
 		_dispatch_info: &DispatchInfoOf<<T>::RuntimeCall>,
 		asset_id: Self::AssetId,
 		fee: Self::Balance,
-		_tip: Self::Balance,
+		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		if asset_id == A::get() {
-			// The `asset_id` is the target asset, we do not need to swap.
-			let fee_credit = F::withdraw(
-				asset_id.clone(),
-				who,
-				fee,
-				Precision::Exact,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.map_err(|_| InvalidTransaction::Payment)?;
+		// We need to have the account stay alive even when all the free balance is sent away.
+		// Otherwise the held balance is burned before we have a chance to recover it.
+		<System<T>>::inc_providers(who);
 
-			return Ok((fee_credit, fee));
-		}
+		// if we are not paying in native balance we need to convert first
+		let (asset_fee, fee) = if asset_id != A::get() {
+			// target account needs to be brought to live
+			let native_ed = <F as fungible::Inspect<T::AccountId>>::minimum_balance();
+			let fee = if <F as fungible::Inspect<T::AccountId>>::balance(who).is_zero() {
+				fee.saturating_add(native_ed)
+			} else {
+				fee
+			};
 
-		// Quote the amount of the `asset_id` needed to pay the fee in the asset `A`.
-		let asset_fee =
-			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
-				.ok_or(InvalidTransaction::Payment)?;
+			// Quote the amount of the `asset_id` needed to pay the fee in the asset `A`.
+			let asset_fee =
+				S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
+					.ok_or(InvalidTransaction::Payment)?;
 
-		// Withdraw the `asset_id` credit for the swap.
-		let asset_fee_credit = F::withdraw(
-			asset_id.clone(),
-			who,
-			asset_fee,
-			Precision::Exact,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		)
-		.map_err(|_| InvalidTransaction::Payment)?;
+			match <S as Swap<_>>::swap_exact_tokens_for_tokens(
+				who.clone(),
+				vec![asset_id.clone(), A::get()],
+				asset_fee,
+				Some(fee),
+				who.clone(),
+				true,
+			) {
+				Ok(fee_used) => ensure!(fee_used == fee, InvalidTransaction::Payment),
+				Err(_) => {
+					defensive!("Fee swap should pass for the quoted amount");
+					return Err(InvalidTransaction::Payment.into())
+				},
+			};
 
-		let (fee_credit, change) = match S::swap_tokens_for_exact_tokens(
-			vec![asset_id, A::get()],
-			asset_fee_credit,
-			fee,
-		) {
-			Ok((fee_credit, change)) => (fee_credit, change),
-			Err((credit_in, _)) => {
-				defensive!("Fee swap should pass for the quoted amount");
-				let _ = F::resolve(who, credit_in).defensive_proof("Should resolve the credit");
-				return Err(InvalidTransaction::Payment.into())
-			},
+			(asset_fee, fee)
+		} else {
+			(fee, fee)
 		};
 
-		// Since the exact price for `fee` has been quoted, the change should be zero.
-		ensure!(change.peek().is_zero(), InvalidTransaction::Payment);
+		// Pallets have no way of knowing the amount of tip. Hence they have no way
+		// of making sure that they don't consume the tip. This is why we exclude it
+		// from the hold.
+		let tip_credit = F::withdraw(
+			A::get(),
+			who,
+			tip,
+			Precision::Exact,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)
+		.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
 
-		Ok((fee_credit, asset_fee))
+		// Put on hold so that pallets can withdraw from it in order to pay for deposits.
+		F::hold(&HoldReason::Payment.into(), who, fee.saturating_sub(tip))
+			.map_err(|_| InvalidTransaction::Payment)?;
+
+		Ok((tip_credit, asset_fee))
 	}
 
 	/// Dry run of swap & withdraw the predicted fee from the transaction origin.
@@ -183,7 +197,8 @@ where
 	) -> Result<(), TransactionValidityError> {
 		if asset_id == A::get() {
 			// The `asset_id` is the target asset, we do not need to swap.
-			match F::can_withdraw(asset_id.clone(), who, fee) {
+			match <F as fungibles::Inspect<T::AccountId>>::can_withdraw(asset_id.clone(), who, fee)
+			{
 				WithdrawConsequence::BalanceLow |
 				WithdrawConsequence::UnknownAsset |
 				WithdrawConsequence::Underflow |
@@ -196,12 +211,24 @@ where
 			}
 		}
 
+		// target account needs to be brought to live
+		let native_ed = <F as fungible::Inspect<T::AccountId>>::minimum_balance();
+		let fee = if <F as fungible::Inspect<T::AccountId>>::balance(who).is_zero() {
+			fee.saturating_add(native_ed)
+		} else {
+			fee
+		};
+
 		let asset_fee =
 			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
 				.ok_or(InvalidTransaction::Payment)?;
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
-		match F::can_withdraw(asset_id.clone(), who, asset_fee) {
+		match <F as fungibles::Inspect<T::AccountId>>::can_withdraw(
+			asset_id.clone(),
+			who,
+			asset_fee,
+		) {
 			WithdrawConsequence::BalanceLow |
 			WithdrawConsequence::UnknownAsset |
 			WithdrawConsequence::Underflow |
@@ -223,101 +250,64 @@ where
 		corrected_fee: Self::Balance,
 		tip: Self::Balance,
 		asset_id: Self::AssetId,
-		already_withdrawn: Self::LiquidityInfo,
+		already_paid: Self::LiquidityInfo,
 	) -> Result<BalanceOf<T>, TransactionValidityError> {
-		let (fee_paid, initial_asset_consumed) = already_withdrawn;
-		let refund_amount = fee_paid.peek().saturating_sub(corrected_fee);
-		let (fee_in_asset, adjusted_paid) = if refund_amount.is_zero() ||
-			F::total_balance(asset_id.clone(), who).is_zero()
-		{
-			// Nothing to refund or the account was removed be the dispatched function.
-			(initial_asset_consumed, fee_paid)
-		} else if asset_id == A::get() {
-			// The `asset_id` is the target asset, we do not need to swap.
-			let (refund, fee_paid) = fee_paid.split(refund_amount);
-			if let Err(refund) = F::resolve(who, refund) {
-				let fee_paid = fee_paid.merge(refund).map_err(|_| {
-					defensive!("`fee_paid` and `refund` are credits of the same asset.");
-					InvalidTransaction::Payment
-				})?;
-				(initial_asset_consumed, fee_paid)
-			} else {
-				(fee_paid.peek().saturating_sub(refund_amount), fee_paid)
-			}
-		} else {
-			// Check if the refund amount can be swapped back into the asset used by `who` for fee
-			// payment.
-			let refund_asset_amount = S::quote_price_exact_tokens_for_tokens(
+		let (tip_credit, asset_fee) = already_paid;
+		let corrected_fee = corrected_fee.saturating_sub(tip);
+		let account_dead = <System<T>>::reference_count(who) == 1;
+		let available_fee = F::balance_on_hold(&HoldReason::Payment.into(), who);
+
+		// If pallets take away too much it makes the transaction invalid. They need to make
+		// sure that this does not happen.
+		if available_fee < corrected_fee {
+			defensive!("Not enough balance on hold to pay tx fees. This is a bug.");
+			Err(TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+		}
+
+		F::release(&HoldReason::Payment.into(), who, available_fee, Precision::Exact)
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+
+		let (refund_credit, payable_credit) = {
+			// need to withdraw everything in one go to prevent a dusting in case the account
+			// was only kept alive by the transaction fee
+			let available_credit = F::withdraw(
 				A::get(),
-				asset_id.clone(),
-				refund_amount,
-				true,
+				who,
+				available_fee,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
 			)
-			// No refund given if it cannot be swapped back.
-			.unwrap_or(Zero::zero());
-
-			let debt = if refund_asset_amount.is_zero() {
-				fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone())
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			let refund = if account_dead {
+				Zero::zero()
 			} else {
-				// Deposit the refund before the swap to ensure it can be processed.
-				match F::deposit(asset_id.clone(), &who, refund_asset_amount, Precision::BestEffort)
-				{
-					Ok(debt) => debt,
-					// No refund given since it cannot be deposited.
-					Err(_) => fungibles::Debt::<T::AccountId, F>::zero(asset_id.clone()),
-				}
+				available_fee.saturating_sub(corrected_fee)
 			};
-
-			if debt.peek().is_zero() {
-				// No refund given.
-				(initial_asset_consumed, fee_paid)
-			} else {
-				let (refund, adjusted_paid) = fee_paid.split(refund_amount);
-				match S::swap_exact_tokens_for_tokens(
-					vec![A::get(), asset_id],
-					refund,
-					Some(refund_asset_amount),
-				) {
-					Ok(refund_asset) => {
-						match refund_asset.offset(debt) {
-							Ok(SameOrOther::None) => {},
-							// This arm should never be reached, as the  amount of `debt` is
-							// expected to be exactly equal to the amount of `refund_asset` credit.
-							_ => {
-								defensive!("Debt should be equal to the refund credit");
-								return Err(InvalidTransaction::Payment.into())
-							},
-						};
-						(
-							initial_asset_consumed.saturating_sub(refund_asset_amount.into()),
-							adjusted_paid,
-						)
-					},
-					// The error should not occur since swap was quoted before.
-					Err((refund, _)) => {
-						defensive!("Refund swap should pass for the quoted amount");
-						match F::settle(who, debt, Preservation::Expendable) {
-							Ok(dust) => ensure!(dust.peek().is_zero(), InvalidTransaction::Payment),
-							// The error should not occur as the `debt` was just withdrawn above.
-							Err(_) => {
-								defensive!("Should settle the debt");
-								return Err(InvalidTransaction::Payment.into())
-							},
-						};
-						let adjusted_paid = adjusted_paid.merge(refund).map_err(|_| {
-							// The error should never occur since `adjusted_paid` and `refund` are
-							// credits of the same asset.
-							InvalidTransaction::Payment
-						})?;
-						(initial_asset_consumed, adjusted_paid)
-					},
-				}
-			}
+			available_credit.split(refund)
 		};
 
-		// Handle the imbalance (fee and tip separately).
-		let (tip, fee) = adjusted_paid.split(tip);
-		OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
-		Ok(fee_in_asset)
+		// only the refund needs to be swapped back
+		let refund_credit = if asset_id != A::get() && !refund_credit.peek().is_zero() {
+			<S as SwapCredit<_>>::swap_exact_tokens_for_tokens(
+				vec![A::get(), asset_id.clone()],
+				refund_credit,
+				None,
+			)
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?
+		} else {
+			refund_credit
+		};
+
+		let asset_refund_amount = refund_credit.peek();
+		if !asset_refund_amount.is_zero() {
+			F::resolve(who, refund_credit)
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+		}
+
+		<System<T>>::dec_providers(who).expect("We increased the provider in withdraw_fee. We assume all other providers are balanced. qed");
+
+		OU::on_unbalanceds(Some(payable_credit).into_iter().chain(Some(tip_credit)));
+		Ok(asset_fee.saturating_sub(asset_refund_amount).saturating_add(tip))
 	}
 }

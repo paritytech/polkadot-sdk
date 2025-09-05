@@ -100,7 +100,7 @@ parameter_types! {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
-	type ExistentialDeposit = ConstU64<10>;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 }
 

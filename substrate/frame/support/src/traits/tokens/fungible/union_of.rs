@@ -195,6 +195,45 @@ impl<
 	}
 }
 
+impl<Left: fungible::Inspect<AccountId>, Right, Criterion, AssetKind, AccountId>
+	fungible::Inspect<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type Balance = Left::Balance;
+
+	fn total_issuance() -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::total_issuance()
+	}
+	fn active_issuance() -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::active_issuance()
+	}
+	fn minimum_balance() -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::minimum_balance()
+	}
+	fn balance(who: &AccountId) -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::balance(who)
+	}
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::total_balance(who)
+	}
+	fn reducible_balance(
+		who: &AccountId,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Self::Balance {
+		<Left as fungible::Inspect<AccountId>>::reducible_balance(who, preservation, force)
+	}
+	fn can_deposit(
+		who: &AccountId,
+		amount: Self::Balance,
+		provenance: Provenance,
+	) -> DepositConsequence {
+		<Left as fungible::Inspect<AccountId>>::can_deposit(who, amount, provenance)
+	}
+	fn can_withdraw(who: &AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
+		<Left as fungible::Inspect<AccountId>>::can_withdraw(who, amount)
+	}
+}
+
 impl<
 		Left: fungible::InspectHold<AccountId>,
 		Right: fungibles::InspectHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
@@ -256,6 +295,28 @@ impl<
 			Right(a) =>
 				<Right as fungibles::InspectHold<AccountId>>::can_hold(a, reason, who, amount),
 		}
+	}
+}
+
+impl<Left: fungible::InspectHold<AccountId>, Right, Criterion, AssetKind, AccountId>
+	fungible::InspectHold<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	type Reason = Left::Reason;
+
+	fn reducible_total_balance_on_hold(who: &AccountId, force: Fortitude) -> Self::Balance {
+		<Left as fungible::InspectHold<AccountId>>::reducible_total_balance_on_hold(who, force)
+	}
+	fn hold_available(reason: &Self::Reason, who: &AccountId) -> bool {
+		<Left as fungible::InspectHold<AccountId>>::hold_available(reason, who)
+	}
+	fn total_balance_on_hold(who: &AccountId) -> Self::Balance {
+		<Left as fungible::InspectHold<AccountId>>::total_balance_on_hold(who)
+	}
+	fn balance_on_hold(reason: &Self::Reason, who: &AccountId) -> Self::Balance {
+		<Left as fungible::InspectHold<AccountId>>::balance_on_hold(reason, who)
+	}
+	fn can_hold(reason: &Self::Reason, who: &AccountId, amount: Self::Balance) -> bool {
+		<Left as fungible::InspectHold<AccountId>>::can_hold(reason, who, amount)
 	}
 }
 
@@ -365,6 +426,48 @@ impl<
 	}
 }
 
+impl<Left: fungible::Unbalanced<AccountId>, Right, Criterion, AssetKind, AccountId>
+	fungible::Unbalanced<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn handle_dust(dust: fungible::Dust<AccountId, Self>)
+	where
+		Self: Sized,
+	{
+		<Left as fungible::Unbalanced<AccountId>>::handle_dust(fungible::Dust(dust.0))
+	}
+	fn write_balance(
+		who: &AccountId,
+		amount: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		<Left as fungible::Unbalanced<AccountId>>::write_balance(who, amount)
+	}
+	fn set_total_issuance(amount: Self::Balance) -> () {
+		<Left as fungible::Unbalanced<AccountId>>::set_total_issuance(amount)
+	}
+	fn decrease_balance(
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::Unbalanced<AccountId>>::decrease_balance(
+			who,
+			amount,
+			precision,
+			preservation,
+			force,
+		)
+	}
+	fn increase_balance(
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::Unbalanced<AccountId>>::increase_balance(who, amount, precision)
+	}
+}
+
 impl<
 		Left: fungible::UnbalancedHold<AccountId>,
 		Right: fungibles::UnbalancedHold<AccountId, Balance = Left::Balance, Reason = Left::Reason>,
@@ -419,6 +522,38 @@ impl<
 				a, reason, who, amount, precision,
 			),
 		}
+	}
+}
+
+impl<Left: fungible::UnbalancedHold<AccountId>, Right, Criterion, AssetKind, AccountId>
+	fungible::UnbalancedHold<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn set_balance_on_hold(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		<Left as fungible::UnbalancedHold<AccountId>>::set_balance_on_hold(reason, who, amount)
+	}
+	fn decrease_balance_on_hold(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::UnbalancedHold<AccountId>>::decrease_balance_on_hold(
+			reason, who, amount, precision,
+		)
+	}
+	fn increase_balance_on_hold(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::UnbalancedHold<AccountId>>::increase_balance_on_hold(
+			reason, who, amount, precision,
+		)
 	}
 }
 
@@ -615,6 +750,63 @@ impl<
 				force,
 			),
 		}
+	}
+}
+
+impl<Left: fungible::MutateHold<AccountId>, Right, Criterion, AssetKind, AccountId>
+	fungible::MutateHold<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn hold(reason: &Self::Reason, who: &AccountId, amount: Self::Balance) -> DispatchResult {
+		<Left as fungible::MutateHold<AccountId>>::hold(reason, who, amount)
+	}
+	fn release(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::MutateHold<AccountId>>::release(reason, who, amount, precision)
+	}
+	fn burn_held(
+		reason: &Self::Reason,
+		who: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::MutateHold<AccountId>>::burn_held(reason, who, amount, precision, force)
+	}
+	fn transfer_on_hold(
+		reason: &Self::Reason,
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+		mode: Restriction,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::MutateHold<AccountId>>::transfer_on_hold(
+			reason, source, dest, amount, precision, mode, force,
+		)
+	}
+	fn transfer_and_hold(
+		reason: &Self::Reason,
+		source: &AccountId,
+		dest: &AccountId,
+		amount: Self::Balance,
+		precision: Precision,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Result<Self::Balance, DispatchError> {
+		<Left as fungible::MutateHold<AccountId>>::transfer_and_hold(
+			reason,
+			source,
+			dest,
+			amount,
+			precision,
+			preservation,
+			force,
+		)
 	}
 }
 
