@@ -23,7 +23,7 @@ use crate::evm::{
 
 use alloc::{vec, vec::Vec};
 use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
-use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, B256};
+use alloy_core::primitives::{bytes::BufMut, B256};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -352,49 +352,107 @@ pub struct AccumulateReceipt {
 	/// The RLP bytes where the logs are accumulated.
 	pub encoding: Vec<u8>,
 	/// The bloom filter collected from accumulating logs.
-	pub bloom: Bloom,
+	pub bloom: LogsBloom,
+}
+
+/// Bloom log filter compatible with Ethereum implementation.
+///
+/// This structure avoids conversions between substrate to alloy types
+/// to optimally compute the bloom.
+#[derive(Clone, Copy)]
+pub struct LogsBloom {
+	/// The bloom bytes used to store logs.
+	pub bloom: [u8; BLOOM_SIZE_BYTES],
+}
+
+impl Default for LogsBloom {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+impl LogsBloom {
+	/// Constructs a new [`LogsBloom`].
+	pub const fn new() -> Self {
+		Self { bloom: [0u8; BLOOM_SIZE_BYTES] }
+	}
+
+	/// Ingests a raw log (event) into the bloom filter.
+	pub fn accrue_log(&mut self, contract: &H160, topics: &[H256]) {
+		Self::m3_2048(&mut self.bloom, contract.as_ref());
+
+		for topic in topics {
+			Self::m3_2048(&mut self.bloom, topic.as_ref());
+		}
+	}
+
+	/// Accrues the input into the bloom filter.
+	pub fn accrue_bloom(&mut self, other: &Self) {
+		for i in 0..BLOOM_SIZE_BYTES {
+			self.bloom[i] |= other.bloom[i];
+		}
+	}
+
+	/// Specialized Bloom filter that sets three bits out of 2048, given an
+	/// arbitrary byte sequence.
+	///
+	/// See Section 4.3.1 "Transaction Receipt" of the
+	/// [Ethereum Yellow Paper][ref] (page 6).
+	///
+	/// [ref]: https://ethereum.github.io/yellowpaper/paper.pdf
+	fn m3_2048(bloom: &mut [u8; 256], bytes: &[u8]) {
+		let hash = keccak_256(bytes);
+		for i in [0, 2, 4] {
+			let bit = (hash[i + 1] as usize + ((hash[i] as usize) << 8)) & 0x7FF;
+			bloom[256 - 1 - bit / 8] |= 1 << (bit % 8);
+		}
+	}
 }
 
 impl AccumulateReceipt {
 	/// Constructs a new [`AccumulateReceipt`].
 	pub const fn new() -> Self {
-		Self { encoding: Vec::new(), bloom: Bloom(FixedBytes::ZERO) }
+		Self { encoding: Vec::new(), bloom: LogsBloom::new() }
 	}
 
 	/// Add the log into the accumulated receipt.
 	///
 	/// This accrues the log bloom and keeps track of the RLP encoding of the log.
-	pub fn add_log(&mut self, contract: H160, data: &[u8], topics: &[H256]) {
-		// Contract address is using 20 bytes, topics are using 32 bytes each.
-		let payload_length = 20 + data.len() + topics.len() * 32;
-		alloy_rlp::Header { list: true, payload_length }.encode(&mut self.encoding);
+	pub fn add_log(&mut self, contract: &H160, data: &[u8], topics: &[H256]) {
+		// Accrue the log bloom.
+		self.bloom.accrue_log(contract, topics);
 
+		// Determine the length of the log RLP encoding.
+		let mut topics_len = 0;
+		for topic in topics {
+			// Topics are represented by 32 bytes. However, their encoding
+			// can produce different lengths depending on their value.
+			topics_len += alloy_rlp::Encodable::length(&topic.0);
+		}
+		// Account for the size of the list header.
+		let topics_list_header_length = topics_len + alloy_rlp::length_of_length(topics_len);
+
+		// Compute the total payload length of the log.
+		let payload_length = alloy_rlp::Encodable::length(&contract.0) +
+			alloy_rlp::Encodable::length(&data) +
+			topics_list_header_length;
+
+		let header = alloy_rlp::Header { list: true, payload_length };
+
+		header.encode(&mut self.encoding);
 		alloy_rlp::Encodable::encode(&contract.0, &mut self.encoding);
 		// Encode the topics as a list
-		alloy_rlp::Header { list: true, payload_length: topics.len() * 32 }
-			.encode(&mut self.encoding);
+		alloy_rlp::Header { list: true, payload_length: topics_len }.encode(&mut self.encoding);
 		for topic in topics {
 			alloy_rlp::Encodable::encode(&topic.0, &mut self.encoding);
 		}
 		alloy_rlp::Encodable::encode(&data, &mut self.encoding);
-
-		// self.address.encode(out);
-		// self.data.topics.encode(out);
-		// self.data.data.encode(out);
-
-		// let log = Log::new_unchecked(
-		// 	log.contract.0.into(),
-		// 	log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
-		// 	log.data.into(),
-		// );
-		// self.bloom.accrue_log(&log);
-		// log.encode(&mut self.encoding);
 	}
 
 	/// Finalize the accumulated receipt and return the RLP encoded bytes.
 	pub fn encoded_receipt(
 		encoded_logs: Vec<u8>,
-		bloom: Bloom,
+		bloom: LogsBloom,
 		status: bool,
 		gas: u64,
 		transaction_type: Vec<u8>,
@@ -406,7 +464,7 @@ impl AccumulateReceipt {
 			list: true,
 			payload_length: alloy_rlp::Encodable::length(&status) +
 				alloy_rlp::Encodable::length(&gas) +
-				alloy_rlp::Encodable::length(&bloom.0) +
+				alloy_rlp::Encodable::length(&bloom.bloom) +
 				list_header_length,
 		};
 
@@ -414,7 +472,7 @@ impl AccumulateReceipt {
 		header.encode(&mut encoded);
 		alloy_rlp::Encodable::encode(&status, &mut encoded);
 		alloy_rlp::Encodable::encode(&gas, &mut encoded);
-		alloy_rlp::Encodable::encode(&bloom.0, &mut encoded);
+		alloy_rlp::Encodable::encode(&bloom.bloom, &mut encoded);
 
 		let logs_header = alloy_rlp::Header { list: true, payload_length: logs_length };
 		logs_header.encode(&mut encoded);
@@ -462,7 +520,7 @@ pub struct EthereumBlockBuilder {
 	gas_used: U256,
 	pub(crate) tx_hashes: Vec<H256>,
 
-	logs_bloom: Bloom,
+	logs_bloom: LogsBloom,
 	gas_info: Vec<ReceiptGasInfo>,
 }
 
@@ -474,7 +532,7 @@ impl EthereumBlockBuilder {
 			receipts_root_builder: None,
 			gas_used: U256::zero(),
 			tx_hashes: Vec::new(),
-			logs_bloom: Bloom(FixedBytes::ZERO),
+			logs_bloom: LogsBloom::new(),
 			gas_info: Vec::new(),
 		}
 	}
@@ -486,7 +544,7 @@ impl EthereumBlockBuilder {
 			receipts_root_builder: self.receipts_root_builder.map(|b| b.to_ir()),
 			gas_used: self.gas_used,
 			tx_hashes: self.tx_hashes,
-			logs_bloom: (*self.logs_bloom.data()).into(),
+			logs_bloom: self.logs_bloom.bloom,
 			gas_info: self.gas_info,
 		}
 	}
@@ -502,7 +560,7 @@ impl EthereumBlockBuilder {
 				.map(|b| IncrementalHashBuilder::from_ir(b)),
 			gas_used: ir.gas_used,
 			tx_hashes: ir.tx_hashes,
-			logs_bloom: Bloom(FixedBytes::from_slice(&ir.logs_bloom)),
+			logs_bloom: LogsBloom { bloom: ir.logs_bloom },
 			gas_info: ir.gas_info,
 		}
 	}
@@ -519,7 +577,7 @@ impl EthereumBlockBuilder {
 		success: bool,
 		gas_used: Weight,
 		encoded_logs: Vec<u8>,
-		receipt_bloom: Bloom,
+		receipt_bloom: LogsBloom,
 	) {
 		let tx_hash = H256(keccak_256(&transaction_encoded));
 		self.tx_hashes.push(tx_hash);
@@ -573,7 +631,7 @@ impl EthereumBlockBuilder {
 
 			gas_used: self.gas_used,
 
-			logs_bloom: (*self.logs_bloom.data()).into(),
+			logs_bloom: self.logs_bloom.bloom.into(),
 			transactions: HashesOrTransactionInfos::Hashes(tx_hashes),
 
 			..Default::default()

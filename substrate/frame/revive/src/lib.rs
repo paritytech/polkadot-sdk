@@ -130,9 +130,11 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
-	use crate::{evm::block_hash::AccumulateReceipt, H160, H256};
+	use crate::{
+		evm::block_hash::{AccumulateReceipt, LogsBloom},
+		H160, H256,
+	};
 	use alloc::vec::Vec;
-	use alloy_core::primitives::Bloom;
 	use environmental::environmental;
 
 	/// The maximum number of block hashes to keep in the history.
@@ -148,7 +150,7 @@ pub(crate) mod eth_block_storage {
 	/// Capture the Ethereum log for the current transaction.
 	///
 	/// This method does nothing if called from outside of the ethereum context.
-	pub fn capture_ethereum_log(contract: H160, data: &[u8], topics: &[H256]) {
+	pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
 		receipt::with(|receipt| {
 			receipt.add_log(contract, data, topics);
 		});
@@ -158,7 +160,7 @@ pub(crate) mod eth_block_storage {
 	///
 	/// This method returns `None` if and only if the function is called
 	/// from outside of the ethereum context.
-	pub fn get_receipt_details() -> Option<(Vec<u8>, Bloom)> {
+	pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
 		receipt::with(|receipt| {
 			let encoding = core::mem::take(&mut receipt.encoding);
 			let bloom = core::mem::take(&mut receipt.bloom);
