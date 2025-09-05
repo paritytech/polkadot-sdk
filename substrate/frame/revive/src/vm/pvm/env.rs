@@ -861,20 +861,6 @@ pub mod env {
 		Ok(self.ext.gas_meter().gas_left().ref_time())
 	}
 
-	/// Checks whether the caller of the current contract is the origin of the whole call stack.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_origin`].
-	fn caller_is_origin(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsOrigin)?;
-		Ok(self.ext.caller_is_origin() as u32)
-	}
-
-	/// Checks whether the caller of the current contract is root.
-	/// See [`pallet_revive_uapi::HostFn::caller_is_root`].
-	fn caller_is_root(&mut self, _memory: &mut M) -> Result<u32, TrapReason> {
-		self.charge_gas(RuntimeCosts::CallerIsRoot)?;
-		Ok(self.ext.caller_is_root() as u32)
-	}
-
 	/// Clear the value at the given key in the contract storage.
 	/// See [`pallet_revive_uapi::HostFn::clear_storage`]
 	#[mutating]
@@ -919,33 +905,6 @@ pub mod env {
 			},
 			Err(_) => Ok(ReturnErrorCode::EcdsaRecoveryFailed),
 		}
-	}
-
-	/// Stores the minimum balance (a.k.a. existential deposit) into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::minimum_balance`].
-	fn minimum_balance(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::MinimumBalance)?;
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			&self.ext.minimum_balance().to_little_endian(),
-			false,
-			already_charged,
-		)?)
-	}
-
-	/// Retrieve the code hash of the currently executing contract.
-	/// See [`pallet_revive_uapi::HostFn::own_code_hash`].
-	fn own_code_hash(&mut self, memory: &mut M, out_ptr: u32) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::OwnCodeHash)?;
-		let code_hash = *self.ext.own_code_hash();
-		Ok(self.write_fixed_sandbox_output(
-			memory,
-			out_ptr,
-			code_hash.as_bytes(),
-			false,
-			already_charged,
-		)?)
 	}
 
 	/// Replace the contract code at the specified address with new code.
@@ -1015,25 +974,5 @@ pub mod env {
 			self.adjust_gas(charged, RuntimeCosts::Terminate { code_removed: false });
 		}
 		Err(TrapReason::Termination)
-	}
-
-	/// Stores the amount of weight left into the supplied buffer.
-	/// See [`pallet_revive_uapi::HostFn::weight_left`].
-	fn weight_left(
-		&mut self,
-		memory: &mut M,
-		out_ptr: u32,
-		out_len_ptr: u32,
-	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::WeightLeft)?;
-		let gas_left = &self.ext.gas_meter().gas_left().encode();
-		Ok(self.write_sandbox_output(
-			memory,
-			out_ptr,
-			out_len_ptr,
-			gas_left,
-			false,
-			already_charged,
-		)?)
 	}
 }

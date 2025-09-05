@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Call chain extension by passing through input and output of this contract.
+//! This fixture calls `gas_price` `n` times.
+
 #![no_std]
 #![no_main]
 include!("../panic_handler.rs");
@@ -29,14 +30,9 @@ pub extern "C" fn deploy() {}
 #[no_mangle]
 #[polkavm_derive::polkavm_export]
 pub extern "C" fn call() {
-	input!(input, 8, func_id: u32,);
+	input!(n: u32, );
 
-	// the chain extension passes through the input and returns it as output
-	let mut output_buffer = [0u8; 32];
-	let output = &mut &mut output_buffer[0..input.len()];
-
-	let ret_id = api::call_chain_extension(func_id, input, Some(output));
-	assert_eq!(ret_id, func_id);
-
-	api::return_value(uapi::ReturnFlags::empty(), output);
+	for _ in 0..n {
+		let _ = api::gas_price();
+	}
 }

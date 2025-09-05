@@ -204,9 +204,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
-	/// Returns the code hash of the contract being executed.
-	fn own_code_hash(&mut self) -> &H256;
-
 	/// Sets new code hash and immutable data for an existing contract.
 	/// Returns whether the old code was removed as a result of this operation.
 	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
@@ -287,8 +284,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
-	///
-	/// Returns the code size of the called contract.
 	fn call(
 		&mut self,
 		gas_limit: Weight,
@@ -334,12 +329,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the code size of the contract at the given `address` or zero.
 	fn code_size(&self, address: &H160) -> u64;
 
-	/// Check if the caller of the current contract is the origin of the whole call stack.
-	fn caller_is_origin(&self) -> bool;
-
-	/// Check if the caller is origin, and this origin is root.
-	fn caller_is_root(&self) -> bool;
-
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
 
@@ -363,9 +352,6 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns the timestamp of the current block in seconds.
 	fn now(&self) -> U256;
-
-	/// Returns the minimum balance that is required for creating an account.
-	fn minimum_balance(&self) -> U256;
 
 	/// Deposit an event with the given topics.
 	///
@@ -427,6 +413,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Convert a native balance to EVM balance.
+	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1692,10 +1681,6 @@ where
 		Ok(removed)
 	}
 
-	fn own_code_hash(&mut self) -> &H256 {
-		&self.top_frame_mut().contract_info().code_hash
-	}
-
 	/// TODO: This should be changed to run the constructor of the supplied `hash`.
 	///
 	/// Because the immutable data is attached to a contract and not a code,
@@ -2014,15 +1999,6 @@ where
 			.unwrap_or_default()
 	}
 
-	fn caller_is_origin(&self) -> bool {
-		self.origin == self.caller()
-	}
-
-	fn caller_is_root(&self) -> bool {
-		// if the caller isn't origin, then it can't be root.
-		self.caller_is_origin() && self.origin == Origin::Root
-	}
-
 	fn balance(&self) -> U256 {
 		self.account_balance(&self.top_frame().account_id)
 	}
@@ -2042,10 +2018,6 @@ where
 
 	fn now(&self) -> U256 {
 		(self.timestamp / 1000u32.into()).into()
-	}
-
-	fn minimum_balance(&self) -> U256 {
-		T::Currency::minimum_balance().into()
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
@@ -2128,6 +2100,11 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	/// Convert a native balance to EVM balance.
+	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256 {
+		crate::Pallet::<T>::convert_native_to_evm(value)
 	}
 }
 
