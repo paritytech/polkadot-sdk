@@ -1415,6 +1415,13 @@ where
 			tx.r#type = Some(TYPE_EIP1559.into());
 		}
 
+		let Ok(unsigned) = tx.clone().try_into_unsigned() else {
+			return Err(EthTransactError::Message("Failed to convert to unsigned tx".into()));
+		};
+		const DUMMY_SIGNATURE: [u8; 65] = [1u8; 65];
+		let dummy_signed = unsigned.with_signature(DUMMY_SIGNATURE);
+		let encoded_dummy_payload = dummy_signed.signed_payload();
+
 		// Convert the value to the native balance type.
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
@@ -1506,7 +1513,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						transaction_encoded: TransactionSigned::default().signed_payload(),
+						transaction_encoded: encoded_dummy_payload,
 					}
 					.into();
 					(result, dispatch_call)
@@ -1578,7 +1585,7 @@ where
 						// Since this is a dry run, we don't need to pass the signed transaction
 						// payload. Instead, use a dummy value. The signed transaction
 						// will be provided by the user when the tx is submitted.
-						transaction_encoded: TransactionSigned::default().signed_payload(),
+						transaction_encoded: encoded_dummy_payload,
 					}
 					.into();
 				(result, dispatch_call)
@@ -1589,8 +1596,7 @@ where
 			return Err(EthTransactError::Message("Invalid transaction".into()));
 		}
 
-		let eth_transact_call =
-			crate::Call::<T>::eth_transact { signed_transaction: TransactionSigned::default() };
+		let eth_transact_call = crate::Call::<T>::eth_transact { signed_transaction: dummy_signed };
 		let fee = tx_fee(eth_transact_call.into(), dispatch_call);
 		let raw_gas = Self::evm_fee_to_gas(fee);
 		let eth_gas =
@@ -1668,12 +1674,20 @@ where
 		<T as frame_system::Config>::RuntimeCall:
 			Dispatchable<Info = frame_support::dispatch::DispatchInfo>,
 	{
+		use sp_runtime::SaturatedConversion;
+
 		let max_block_weight = T::BlockWeights::get()
 			.get(DispatchClass::Normal)
 			.max_total
 			.unwrap_or_else(|| T::BlockWeights::get().max_block);
 
-		Self::evm_gas_from_weight(max_block_weight)
+		// Length to fee conversion of 5 MiB tx size:
+		// pallet_transaction_payment::Pallet::<T>::length_to_fee(5 * 1024 * 1024);
+		let length_fee: u64 = 52428800000000000 + 6 * 10 ^ 9;
+		// 519.999.999.188
+		let balance: BalanceOf<T> = BalanceOf::<T>::saturated_from(length_fee);
+
+		Self::evm_gas_from_weight(max_block_weight).saturating_add(Self::evm_fee_to_gas(balance))
 	}
 
 	/// Get the gas price.
