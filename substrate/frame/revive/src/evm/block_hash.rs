@@ -23,8 +23,7 @@ use crate::evm::{
 
 use alloc::{vec, vec::Vec};
 use alloy_consensus::private::alloy_trie::{HashBuilder, Nibbles};
-use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, Log, B256};
-use alloy_rlp::Encodable;
+use alloy_core::primitives::{bytes::BufMut, Bloom, FixedBytes, B256};
 use codec::{Decode, Encode};
 use frame_support::weights::Weight;
 use scale_info::TypeInfo;
@@ -365,14 +364,31 @@ impl AccumulateReceipt {
 	/// Add the log into the accumulated receipt.
 	///
 	/// This accrues the log bloom and keeps track of the RLP encoding of the log.
-	pub fn add_log(&mut self, log: EventLog) {
-		let log = Log::new_unchecked(
-			log.contract.0.into(),
-			log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
-			log.data.into(),
-		);
-		self.bloom.accrue_log(&log);
-		log.encode(&mut self.encoding);
+	pub fn add_log(&mut self, contract: H160, data: &[u8], topics: &[H256]) {
+		// Contract address is using 20 bytes, topics are using 32 bytes each.
+		let payload_length = 20 + data.len() + topics.len() * 32;
+		alloy_rlp::Header { list: true, payload_length }.encode(&mut self.encoding);
+
+		alloy_rlp::Encodable::encode(&contract.0, &mut self.encoding);
+		// Encode the topics as a list
+		alloy_rlp::Header { list: true, payload_length: topics.len() * 32 }
+			.encode(&mut self.encoding);
+		for topic in topics {
+			alloy_rlp::Encodable::encode(&topic.0, &mut self.encoding);
+		}
+		alloy_rlp::Encodable::encode(&data, &mut self.encoding);
+
+		// self.address.encode(out);
+		// self.data.topics.encode(out);
+		// self.data.data.encode(out);
+
+		// let log = Log::new_unchecked(
+		// 	log.contract.0.into(),
+		// 	log.topics.into_iter().map(|h| FixedBytes::from(h.0)).collect::<Vec<_>>(),
+		// 	log.data.into(),
+		// );
+		// self.bloom.accrue_log(&log);
+		// log.encode(&mut self.encoding);
 	}
 
 	/// Finalize the accumulated receipt and return the RLP encoded bytes.
@@ -726,14 +742,10 @@ mod test {
 					panic!("Transaction and receipt index do not match");
 				}
 
-				let logs: Vec<EventLog> = receipt_info
+				let logs: Vec<_> = receipt_info
 					.logs
 					.into_iter()
-					.map(|log| EventLog {
-						contract: log.address.into(),
-						data: log.data.unwrap_or_default().0,
-						topics: log.topics,
-					})
+					.map(|log| (log.address, log.data.unwrap_or_default().0, log.topics))
 					.collect();
 
 				(
@@ -751,10 +763,10 @@ mod test {
 			let mut log_size = 0;
 
 			let mut accumulate_receipt = AccumulateReceipt::new();
-			for log in &logs {
-				let current_size = log.data.len() + log.topics.len() * 32 + 20;
+			for (address, data, topics) in &logs {
+				let current_size = data.len() + topics.len() * 32 + 20;
 				log_size += current_size;
-				accumulate_receipt.add_log(log.clone());
+				accumulate_receipt.add_log(address, data, topics);
 			}
 
 			incremental_block.process_transaction(

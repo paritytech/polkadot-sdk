@@ -130,7 +130,7 @@ const SENTINEL: u32 = u32::MAX;
 const LOG_TARGET: &str = "runtime::revive";
 
 pub(crate) mod eth_block_storage {
-	use crate::{evm::block_hash::AccumulateReceipt, EventLog, H160, H256};
+	use crate::{evm::block_hash::AccumulateReceipt, H160, H256};
 	use alloc::vec::Vec;
 	use alloy_core::primitives::Bloom;
 	use environmental::environmental;
@@ -150,7 +150,7 @@ pub(crate) mod eth_block_storage {
 	/// This method does nothing if called from outside of the ethereum context.
 	pub fn capture_ethereum_log(contract: H160, data: &[u8], topics: &[H256]) {
 		receipt::with(|receipt| {
-			receipt.add_log(EventLog { contract, data: data.to_vec(), topics: topics.to_vec() });
+			receipt.add_log(contract, data, topics);
 		});
 	}
 
