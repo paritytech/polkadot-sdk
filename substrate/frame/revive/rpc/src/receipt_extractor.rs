@@ -137,8 +137,13 @@ impl ReceiptExtractor {
 	#[cfg(test)]
 	pub fn new_mock() -> Self {
 		let fetch_receipt_data = Arc::new(|_| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
-		let fetch_eth_block_hash =
-			Arc::new(|_, _| Box::pin(std::future::ready(None)) as Pin<Box<_>>);
+		// This method is useful when testing eth - substrate mapping.
+		let fetch_eth_block_hash = Arc::new(|block_hash: H256, block_number: u64| {
+			// Generate hash from substrate block hash and number
+			let bytes: Vec<u8> = [block_hash.as_bytes(), &block_number.to_be_bytes()].concat();
+			let eth_block_hash = H256::from(keccak_256(&bytes));
+			Box::pin(std::future::ready(Some(eth_block_hash))) as Pin<Box<_>>
+		});
 		let fetch_gas_price =
 			Arc::new(|_| Box::pin(std::future::ready(Ok(U256::from(1000)))) as Pin<Box<_>>);
 
@@ -154,14 +159,15 @@ impl ReceiptExtractor {
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
-		block_number: U256,
-		block_hash: H256,
+		substrate_block: &SubstrateBlock,
+		eth_block_hash: H256,
 		ext: subxt::blocks::ExtrinsicDetails<SrcChainConfig, subxt::OnlineClient<SrcChainConfig>>,
 		call: EthTransact,
 		maybe_receipt: Option<ReceiptGasInfo>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let transaction_index = ext.index();
 		let events = ext.events().await?;
+		let block_number: U256 = substrate_block.number().into();
 
 		let success = events.has::<ExtrinsicSuccess>().inspect_err(|err| {
 			log::debug!(
@@ -185,7 +191,7 @@ impl ReceiptExtractor {
 			ClientError::RecoverEthAddressFailed
 		})?;
 
-		let base_gas_price = (self.fetch_gas_price)(block_hash).await?;
+		let base_gas_price = (self.fetch_gas_price)(substrate_block.hash()).await?;
 		let tx_info =
 			GenericTransaction::from_signed(signed_tx.clone(), base_gas_price, Some(from));
 
@@ -216,7 +222,7 @@ impl ReceiptExtractor {
 					block_number,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
-					block_hash,
+					block_hash: eth_block_hash,
 					log_index: event_details.index().into(),
 					..Default::default()
 				})
@@ -237,7 +243,7 @@ impl ReceiptExtractor {
 		};
 
 		let receipt = ReceiptInfo::new(
-			block_hash,
+			eth_block_hash,
 			block_number,
 			contract_address,
 			from,
@@ -275,17 +281,11 @@ impl ReceiptExtractor {
 		// the state tries. Are we sorting them afterwards?
 		stream::iter(ext_iter)
 			.map(|(ext, call, receipt)| async move {
-				self.extract_from_extrinsic(
-					substrate_block_number.into(),
-					eth_block_hash,
-					ext,
-					call,
-					receipt,
-				)
-				.await
-				.inspect_err(|err| {
-					log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
-				})
+				self.extract_from_extrinsic(block, eth_block_hash, ext, call, receipt)
+					.await
+					.inspect_err(|err| {
+						log::warn!(target: LOG_TARGET, "Error extracting extrinsic: {err:?}");
+					})
 			})
 			.buffer_unordered(10)
 			.collect::<Vec<Result<_, _>>>()
@@ -367,13 +367,16 @@ impl ReceiptExtractor {
 				.await
 				.unwrap_or(substrate_block_hash);
 
-		self.extract_from_extrinsic(
-			substrate_block_number.into(),
-			eth_block_hash,
-			ext,
-			eth_call,
-			maybe_receipt,
-		)
-		.await
+		self.extract_from_extrinsic(block, eth_block_hash, ext, eth_call, maybe_receipt)
+			.await
+	}
+
+	/// Get the Ethereum block hash for the given Substrate block.
+	pub async fn get_ethereum_block_hash(
+		&self,
+		block_hash: &H256,
+		block_number: u64,
+	) -> Option<H256> {
+		(self.fetch_eth_block_hash)(*block_hash, block_number).await
 	}
 }

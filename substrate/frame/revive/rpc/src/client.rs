@@ -476,6 +476,28 @@ impl Client {
 		self.receipt_provider.receipts_count_per_block(block_hash).await
 	}
 
+	/// Get an EVM transaction receipt by Ethereum hash with automatic resolution.
+	pub async fn receipt_by_ethereum_hash_and_index(
+		&self,
+		ethereum_hash: &H256,
+		transaction_index: usize,
+	) -> Option<ReceiptInfo> {
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await;
+		}
+		// Fallback: treat as Substrate hash
+		self.receipt_by_hash_and_index(ethereum_hash, transaction_index).await
+	}
+
+	/// Get receipts count per block using Ethereum block hash with automatic resolution.
+	pub async fn receipts_count_per_ethereum_block(&self, ethereum_hash: &H256) -> Option<usize> {
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.receipts_count_per_block(&substrate_hash).await;
+		}
+		// Fallback: treat as Substrate hash
+		self.receipts_count_per_block(ethereum_hash).await
+	}
+
 	/// Get the system health.
 	pub async fn system_health(&self) -> Result<SystemHealth, ClientError> {
 		let health = self.rpc.system_health().await?;
@@ -524,6 +546,27 @@ impl Client {
 		hash: &SubstrateBlockHash,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
 		self.block_provider.block_by_hash(hash).await
+	}
+
+	/// Resolve Ethereum block hash to Substrate block hash, then get the block.
+	/// This method provides the abstraction layer needed by the RPC APIs.
+	pub async fn resolve_substrate_hash(&self, ethereum_hash: &H256) -> Option<H256> {
+		self.receipt_provider.get_substrate_hash(ethereum_hash).await
+	}
+
+	/// Get a block by Ethereum hash with automatic resolution to Substrate hash.
+	/// Falls back to treating the hash as a Substrate hash if no mapping exists.
+	pub async fn block_by_ethereum_hash(
+		&self,
+		ethereum_hash: &H256,
+	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+		// First try to resolve the Ethereum hash to a Substrate hash
+		if let Some(substrate_hash) = self.resolve_substrate_hash(ethereum_hash).await {
+			return self.block_by_hash(&substrate_hash).await;
+		}
+
+		// Fallback: treat the provided hash as a Substrate hash (backward compatibility)
+		self.block_by_hash(ethereum_hash).await
 	}
 
 	/// Get a block by number
@@ -622,6 +665,8 @@ impl Client {
 		block: Arc<SubstrateBlock>,
 		hydrated_transactions: bool,
 	) -> Block {
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?}", block.hash());
+
 		let storage_api = self.storage_api(block.hash());
 		let ethereum_block = storage_api.get_ethereum_block().await.inspect_err(|err| {
 			log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.hash());
@@ -632,6 +677,8 @@ impl Client {
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
 		if let Ok(mut eth_block) = ethereum_block {
+			log::trace!(target: LOG_TARGET, "Ethereum block from storage hash {:?}", eth_block.hash);
+
 			// This means we can live with the hashes returned by the Revive pallet.
 			if !hydrated_transactions {
 				return eth_block;
@@ -651,6 +698,7 @@ impl Client {
 			return eth_block;
 		}
 
+		log::trace!(target: LOG_TARGET, "Reconstructing ethereum block for substrate block {:?}", block.hash());
 		// We need to reconstruct the ETH block fully.
 		let (signed_txs, receipts): (Vec<_>, Vec<_>) = self
 			.receipt_provider
@@ -672,6 +720,7 @@ impl Client {
 		signed_txs: Vec<TransactionSigned>,
 		hydrated_transactions: bool,
 	) -> Block {
+		log::trace!(target: LOG_TARGET, "Get Ethereum block for hash {:?} from receipts", block.hash());
 		let runtime_api = self.runtime_api(block.hash());
 		let gas_limit = runtime_api.block_gas_limit().await.unwrap_or_default();
 

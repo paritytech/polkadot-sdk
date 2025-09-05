@@ -17,7 +17,7 @@
 use crate::{
 	client::{SubstrateBlock, SubstrateBlockNumber},
 	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, LOG_TARGET,
+	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
 use sp_core::{H256, U256};
@@ -27,6 +27,8 @@ use std::{
 	sync::Arc,
 };
 use tokio::sync::Mutex;
+
+const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
@@ -99,6 +101,112 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some((block_hash, transaction_index))
 	}
 
+	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
+	pub async fn insert_block_mapping(
+		&self,
+		ethereum_block_hash: &H256,
+		substrate_block_hash: &H256,
+		block_number: u64,
+	) -> Result<(), ClientError> {
+		let ethereum_hash = ethereum_block_hash.as_ref();
+		let substrate_hash = substrate_block_hash.as_ref();
+		let block_number = block_number as i64;
+
+		query!(
+			r#"
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash, block_number)
+			VALUES ($1, $2, $3)
+			"#,
+			ethereum_hash,
+			substrate_hash,
+			block_number
+		)
+		.execute(&self.pool)
+		.await?;
+
+		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {ethereum_block_hash:?} -> substrate block: {substrate_block_hash:?}");
+		Ok(())
+	}
+
+	/// Get the Substrate block hash for the given Ethereum block hash.
+	pub async fn get_substrate_hash(&self, ethereum_block_hash: &H256) -> Option<H256> {
+		let ethereum_hash = ethereum_block_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT substrate_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE ethereum_block_hash = $1
+			"#,
+			ethereum_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "failed to get block mapping for ethereum block {ethereum_block_hash:?}, err: {e:?}");
+		})
+		.ok()?
+		.or_else(||{
+			log::trace!(target: LOG_TARGET, "No block mapping found for ethereum block: {ethereum_block_hash:?}");
+			None
+		})?;
+
+		log::trace!(target: LOG_TARGET, "Get block mapping ethereum block: {:?} -> substrate block: {ethereum_block_hash:?}", H256::from_slice(&result.substrate_block_hash[..]));
+
+		Some(H256::from_slice(&result.substrate_block_hash[..]))
+	}
+
+	/// Get the Ethereum block hash for the given Substrate block hash.
+	pub async fn get_ethereum_hash(&self, substrate_block_hash: &H256) -> Option<H256> {
+		let substrate_hash = substrate_block_hash.as_ref();
+		let result = query!(
+			r#"
+			SELECT ethereum_block_hash
+			FROM eth_to_substrate_blocks
+			WHERE substrate_block_hash = $1
+			"#,
+			substrate_hash
+		)
+		.fetch_optional(&self.pool)
+		.await
+		.inspect_err(|e| {
+			log::error!(target: LOG_TARGET, "failed to get block mapping for substrate block {substrate_block_hash:?}, err: {e:?}");
+		})
+		.ok()?
+		.or_else(||{
+			log::trace!(target: LOG_TARGET, "No block mapping found for substrate block: {substrate_block_hash:?}");
+			None
+		})?;
+
+		log::trace!(target: LOG_TARGET, "Get block mapping substrate block: {substrate_block_hash:?} -> ethereum block: {:?}", H256::from_slice(&result.ethereum_block_hash[..]));
+
+		Some(H256::from_slice(&result.ethereum_block_hash[..]))
+	}
+
+	/// Remove block mappings for the given Ethereum block hashes.
+	pub async fn remove_block_mappings(
+		&self,
+		ethereum_block_hashes: &[H256],
+	) -> Result<(), ClientError> {
+		if ethereum_block_hashes.is_empty() {
+			return Ok(());
+		}
+
+		log::trace!(target: LOG_TARGET, "Removing block mappings: {ethereum_block_hashes:?}");
+
+		let placeholders = vec!["?"; ethereum_block_hashes.len()].join(", ");
+		let sql = format!(
+			"DELETE FROM eth_to_substrate_blocks WHERE ethereum_block_hash in ({placeholders})"
+		);
+		let mut query = sqlx::query(&sql);
+
+		for ethereum_hash in ethereum_block_hashes {
+			query = query.bind(ethereum_hash.as_ref());
+		}
+
+		query.execute(&self.pool).await?;
+		Ok(())
+	}
+
 	/// Deletes older records from the database.
 	pub async fn remove(&self, block_hashes: &[H256]) -> Result<(), ClientError> {
 		if block_hashes.is_empty() {
@@ -113,14 +221,21 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
 		let mut delete_logs_query = sqlx::query(&sql);
 
+		let sql = format!(
+			"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
+		);
+		let mut delete_mappings_query = sqlx::query(&sql);
+
 		for block_hash in block_hashes {
 			delete_tx_query = delete_tx_query.bind(block_hash.as_ref());
 			delete_logs_query = delete_logs_query.bind(block_hash.as_ref());
+			delete_mappings_query = delete_mappings_query.bind(block_hash.as_ref());
 		}
 
 		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
 		let delete_logs = delete_logs_query.execute(&self.pool);
-		tokio::try_join!(delete_transaction_hashes, delete_logs)?;
+		let delete_mappings = delete_mappings_query.execute(&self.pool);
+		tokio::try_join!(delete_transaction_hashes, delete_logs, delete_mappings)?;
 		Ok(())
 	}
 
@@ -151,37 +266,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
-	/// Insert receipts into the provider.
-	///
-	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
-	/// us create Mock `SubstrateBlock`
-	async fn insert(
-		&self,
-		block: &impl BlockInfo,
-		receipts: &[(TransactionSigned, ReceiptInfo)],
-	) -> Result<(), ClientError> {
-		if receipts.is_empty() {
-			return Ok(());
-		}
-
-		let block_hash = block.hash();
-		let block_hash_ref = block_hash.as_ref();
-		let block_number = block.number() as i64;
-
-		let result = sqlx::query!(
-			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
-			block_hash_ref
-		)
-		.fetch_one(&self.pool)
-		.await?;
-
-		if result.exists {
-			return Ok(());
-		}
-
+	/// Prune blocks older blocks.
+	async fn prune_blocks(&self, block: &impl BlockInfo) -> Result<(), ClientError> {
 		// Keep track of the latest block hashes, so we can prune older blocks.
 		if let Some(keep_latest_n_blocks) = self.keep_latest_n_blocks {
 			let latest = block.number();
+			let block_hash = block.hash();
 			let mut block_number_to_hash = self.block_number_to_hash.lock().await;
 
 			let oldest_block = latest.saturating_sub(keep_latest_n_blocks as _);
@@ -202,62 +292,101 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			log::trace!(target: LOG_TARGET, "Pruning old blocks: {to_remove:?}");
 			self.remove(&to_remove).await?;
 		}
+		Ok(())
+	}
 
-		for (_, receipt) in receipts {
-			let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
-			let transaction_index = receipt.transaction_index.as_u32() as i32;
+	/// Insert receipts into the provider.
+	///
+	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
+	/// us create Mock `SubstrateBlock`
+	async fn insert(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+	) -> Result<(), ClientError> {
+		let block_hash = block.hash();
+		let block_hash_ref = block_hash.as_ref();
+		let block_number = block.number() as i64;
 
-			query!(
-				r#"
-				INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
-				VALUES ($1, $2, $3)
-				"#,
-				transaction_hash,
-				block_hash_ref,
-				transaction_index
-			)
-			.execute(&self.pool)
-			.await?;
+		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", block_hash);
 
-			for log in &receipt.logs {
-				let log_index = log.log_index.as_u32() as i32;
-				let address: &[u8] = log.address.as_ref();
+		let result = sqlx::query!(
+			r#"SELECT EXISTS(SELECT 1 FROM transaction_hashes WHERE block_hash = $1) AS "exists!: bool""#,
+			block_hash_ref
+		)
+		.fetch_one(&self.pool)
+		.await?;
 
-				let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
-				let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
-				let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
-				let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
-				let data = log.data.as_ref().map(|v| &v.0[..]);
+		self.prune_blocks(block).await?;
+
+		if !result.exists {
+			for (_, receipt) in receipts {
+				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
+				let transaction_index = receipt.transaction_index.as_u32() as i32;
 
 				query!(
 					r#"
-					INSERT OR REPLACE INTO logs(
-						block_hash,
+					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
+					VALUES ($1, $2, $3)
+					"#,
+					transaction_hash,
+					block_hash_ref,
+					transaction_index
+				)
+				.execute(&self.pool)
+				.await?;
+
+				for log in &receipt.logs {
+					let log_index = log.log_index.as_u32() as i32;
+					let address: &[u8] = log.address.as_ref();
+
+					let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
+					let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
+					let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
+					let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
+					let data = log.data.as_ref().map(|v| &v.0[..]);
+
+					query!(
+						r#"
+						INSERT OR REPLACE INTO logs(
+							block_hash,
+							transaction_index,
+							log_index,
+							address,
+							block_number,
+							transaction_hash,
+							topic_0, topic_1, topic_2, topic_3,
+							data)
+						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+						"#,
+						block_hash_ref,
 						transaction_index,
 						log_index,
 						address,
 						block_number,
 						transaction_hash,
-						topic_0, topic_1, topic_2, topic_3,
-						data)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-					"#,
-					block_hash_ref,
-					transaction_index,
-					log_index,
-					address,
-					block_number,
-					transaction_hash,
-					topic_0,
-					topic_1,
-					topic_2,
-					topic_3,
-					data
-				)
-				.execute(&self.pool)
-				.await?;
+						topic_0,
+						topic_1,
+						topic_2,
+						topic_3,
+						data
+					)
+					.execute(&self.pool)
+					.await?;
+				}
 			}
 		}
+
+		// Insert block mapping from Ethereum to Substrate hash
+		if let Some(ethereum_hash) = self
+			.receipt_extractor
+			.get_ethereum_block_hash(&block_hash, block_number as u64)
+			.await
+		{
+			self.insert_block_mapping(&ethereum_hash, &block_hash, block_number as u64)
+				.await?;
+		}
+
 		Ok(())
 	}
 
@@ -305,7 +434,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				qb.push(" AND block_number <= ").push_bind(to_block.as_u64() as i64);
 			},
 			(None, None, Some(hash)) => {
-				qb.push(" AND block_hash = ").push_bind(hash.0.to_vec());
+				// Try to resolve Ethereum hash to Substrate hash first
+				let substrate_hash = if let Some(resolved) = self.get_substrate_hash(&hash).await {
+					resolved
+				} else {
+					// Fallback: treat as Substrate hash for backward compatibility
+					hash
+				};
+				qb.push(" AND block_hash = ").push_bind(substrate_hash.0.to_vec());
 			},
 			(None, None, None) => {
 				qb.push(" AND block_number = ").push_bind(latest_block.as_u64() as i64);
@@ -573,6 +709,7 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
 		assert_eq!(count(&provider.pool, "logs", None).await, n);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
 		assert_eq!(provider.block_number_to_hash.lock().await.len(), n);
 
 		return Ok(());
@@ -601,6 +738,7 @@ mod tests {
 		}
 		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 1);
 		assert_eq!(count(&provider.pool, "logs", None).await, 1);
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
 		assert_eq!(
 			provider.block_number_to_hash.lock().await.clone(),
 			[(1, H256::from([2u8; 32]))].into(),
@@ -779,6 +917,179 @@ mod tests {
 			}))
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_insert_get(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+
+		// Test forward lookup
+		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
+		assert_eq!(resolved, Some(substrate_hash));
+
+		// Test reverse lookup
+		let resolved = provider.get_ethereum_hash(&substrate_hash).await;
+		assert_eq!(resolved, Some(ethereum_hash));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_overwrite(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash1 = H256::from([2u8; 32]);
+		let substrate_hash2 = H256::from([3u8; 32]);
+		let block_number = 42u64;
+
+		// Insert first mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash1, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash1));
+
+		// Insert second mapping (should overwrite)
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash2, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash2));
+
+		// Old mapping should be gone
+		assert_eq!(provider.get_ethereum_hash(&substrate_hash1).await, None);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_remove(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash1 = H256::from([1u8; 32]);
+		let ethereum_hash2 = H256::from([2u8; 32]);
+		let substrate_hash1 = H256::from([3u8; 32]);
+		let substrate_hash2 = H256::from([4u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mappings
+		provider
+			.insert_block_mapping(&ethereum_hash1, &substrate_hash1, block_number)
+			.await?;
+		provider
+			.insert_block_mapping(&ethereum_hash2, &substrate_hash2, block_number)
+			.await?;
+
+		// Verify they exist
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, Some(substrate_hash1));
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
+
+		// Remove one mapping
+		provider.remove_block_mappings(&[ethereum_hash1]).await?;
+
+		// Verify removal
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash1).await, None);
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash2).await, Some(substrate_hash2));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_block_mapping_pruning_integration(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 42u64;
+
+		// Insert mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, Some(substrate_hash));
+
+		// Remove substrate block (this should also remove the mapping)
+		provider.remove(&[substrate_hash]).await?;
+
+		// Mapping should be gone
+		assert_eq!(provider.get_substrate_hash(&ethereum_hash).await, None);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_logs_with_ethereum_block_hash_mapping(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let ethereum_hash = H256::from([1u8; 32]);
+		let substrate_hash = H256::from([2u8; 32]);
+		let block_number = 1u64;
+
+		// Create a log with substrate hash
+		let log = Log {
+			block_hash: substrate_hash,
+			block_number: block_number.into(),
+			address: H160::from([1u8; 20]),
+			topics: vec![H256::from([1u8; 32])],
+			transaction_hash: H256::from([3u8; 32]),
+			transaction_index: U256::from(0),
+			log_index: U256::from(0),
+			data: Some(vec![0u8; 32].into()),
+			..Default::default()
+		};
+
+		// Insert the log
+		let block = MockBlockInfo { hash: substrate_hash, number: block_number as u32 };
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				logs: vec![log.clone()],
+				transaction_hash: log.transaction_hash,
+				transaction_index: log.transaction_index,
+				..Default::default()
+			},
+		)];
+		provider.insert(&block, &receipts).await?;
+
+		// Insert block mapping
+		provider
+			.insert_block_mapping(&ethereum_hash, &substrate_hash, block_number)
+			.await?;
+
+		// Query logs using Ethereum block hash (should resolve to substrate hash)
+		let logs = provider
+			.logs(Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }))
+			.await?;
+		assert_eq!(logs, vec![log]);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_mapping_count(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Initially no mappings
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
+
+		// Insert some mappings
+		provider
+			.insert_block_mapping(&H256::from([1u8; 32]), &H256::from([2u8; 32]), 1)
+			.await?;
+		provider
+			.insert_block_mapping(&H256::from([3u8; 32]), &H256::from([4u8; 32]), 2)
+			.await?;
+
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
+
+		// Remove one
+		provider.remove_block_mappings(&[H256::from([1u8; 32])]).await?;
+		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
+
 		Ok(())
 	}
 }
