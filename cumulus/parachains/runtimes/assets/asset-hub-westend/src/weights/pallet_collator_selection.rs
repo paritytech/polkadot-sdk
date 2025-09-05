@@ -236,6 +236,9 @@ impl<T: frame_system::Config> pallet_collator_selection::WeightInfo for WeightIn
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	fn withdraw_unbonded() -> Weight {
+		Weight::zero()
+	}
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `CollatorSelection::LastAuthoredBlock` (r:0 w:1)
