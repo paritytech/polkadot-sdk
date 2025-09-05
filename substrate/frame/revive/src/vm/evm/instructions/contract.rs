@@ -41,7 +41,10 @@ use revm::{
 ///
 /// Creates a new contract with provided bytecode.
 pub fn create<'ext, const IS_CREATE2: bool, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
+	if context.interpreter.extend.is_read_only() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	}
 
 	popn!([value, code_offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);

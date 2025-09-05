@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -323,6 +323,10 @@ impl<T: Config> GasMeter<T> {
 	#[cfg(test)]
 	pub fn tokens(&self) -> &[ErasedToken] {
 		&self.tokens
+	}
+
+	pub fn consume_all(&mut self) {
+		self.gas_left = Zero::zero();
 	}
 }
 

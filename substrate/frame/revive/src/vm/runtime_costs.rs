@@ -34,6 +34,8 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight charged for executing the extcodecopy instruction.
+	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -225,6 +227,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			ExtCodeCopy(len) => T::WeightInfo::extcodecopy(len),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
