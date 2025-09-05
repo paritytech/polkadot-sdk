@@ -118,20 +118,6 @@ pub struct StartRelayChainTasksParams<'a, Block: BlockT, Client, RCInterface> {
 	pub prometheus_registry: Option<&'a Registry>,
 }
 
-/// Parameters given to [`start_full_node`].
-pub struct StartFullNodeParams<'a, Block: BlockT, Client, RCInterface> {
-	pub para_id: ParaId,
-	pub client: Arc<Client>,
-	pub relay_chain_interface: RCInterface,
-	pub task_manager: &'a mut TaskManager,
-	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub relay_chain_slot_duration: Duration,
-	pub import_queue: Box<dyn ImportQueueService<Block>>,
-	pub recovery_handle: Box<dyn RecoveryHandle>,
-	pub sync_service: Arc<SyncingService<Block>>,
-	pub prometheus_registry: Option<&'a Registry>,
-}
-
 /// Start necessary consensus tasks related to the relay chain.
 ///
 /// Parachain nodes need to track the state of the relay chain and use the
