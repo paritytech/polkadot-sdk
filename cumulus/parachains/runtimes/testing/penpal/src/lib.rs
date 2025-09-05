@@ -54,7 +54,12 @@ use assets_common::{
 	AssetIdForTrustBackedAssetsConvert,
 };
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+<<<<<<< HEAD
 use cumulus_primitives_core::{AggregateMessageOrigin, ClaimQueueOffset, CoreSelector, ParaId};
+=======
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+
+>>>>>>> 4acb9640 (Forward `CoreInfo` via an digest to the runtime (#9002))
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -101,7 +106,10 @@ use xcm_config::{ForeignAssetsAssetId, LocationToAccountId, XcmOriginToTransactD
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
+<<<<<<< HEAD
 use parachains_common::{AccountId, Signature};
+=======
+>>>>>>> 4acb9640 (Forward `CoreInfo` via an digest to the runtime (#9002))
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{
@@ -688,7 +696,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
+<<<<<<< HEAD
 	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+=======
+
+>>>>>>> 4acb9640 (Forward `CoreInfo` via an digest to the runtime (#9002))
 	type RelayParentOffset = ConstU32<0>;
 }
 
@@ -1078,12 +1090,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
-		}
-	}
-
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
 		}
 	}
 

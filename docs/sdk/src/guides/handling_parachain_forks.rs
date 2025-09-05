@@ -74,7 +74,6 @@
 //! impl cumulus_pallet_parachain_system::Config for Runtime {
 //! 	// Other config items here
 //!     ...
-//! 	type SelectCore = DefaultCoreSelector<Test>;
 //! 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 //! }
 //! ```
