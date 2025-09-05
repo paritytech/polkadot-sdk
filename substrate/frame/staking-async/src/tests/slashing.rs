@@ -1339,7 +1339,7 @@ fn apply_slash_rejects_cancelled_slashes() {
 		// Try to manually apply the cancelled slash - this should fail
 		assert_noop!(
 			Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key),
-			Error::<T>::SlashWasCancelled
+			Error::<T>::CancelledSlash
 		);
 
 		// Verify the slash is still in UnappliedSlashes

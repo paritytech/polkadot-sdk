@@ -1308,7 +1308,7 @@ pub mod pallet {
 		/// The era is not eligible for pruning.
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
-		SlashWasCancelled,
+		CancelledSlash,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1324,7 +1324,7 @@ pub mod pallet {
 				);
 
 				// Check if this slash has been cancelled
-				if Self::is_slash_cancelled(active_era, &key.0, key.1) {
+				if Self::check_slash_cancelled(active_era, &key.0, key.1) {
 					crate::log!(
 						debug,
 						"🦹 slash for {:?} in era {:?} was cancelled, skipping",
@@ -2669,8 +2669,8 @@ pub mod pallet {
 
 			// Check if this slash has been cancelled
 			ensure!(
-				!Self::is_slash_cancelled(slash_era, &slash_key.0, slash_key.1),
-				Error::<T>::SlashWasCancelled
+				!Self::check_slash_cancelled(slash_era, &slash_key.0, slash_key.1),
+				Error::<T>::CancelledSlash
 			);
 
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)

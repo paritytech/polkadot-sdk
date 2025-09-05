@@ -179,7 +179,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Checks if a slash has been cancelled for the given era and slash parameters.
-	pub(crate) fn is_slash_cancelled(
+	pub(crate) fn check_slash_cancelled(
 		era: EraIndex,
 		validator: &T::AccountId,
 		slash_fraction: Perbill,
