@@ -9,4 +9,4 @@ doc:
 
 crates:
 - name: pallet-society
-  bump: major
+  bump: minor
