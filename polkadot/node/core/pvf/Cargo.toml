@@ -67,6 +67,7 @@ sc-sysinfo = { workspace = true, default-features = true }
 [features]
 ci-only-tests = []
 jemalloc-allocator = ["polkadot-node-core-pvf-common/jemalloc-allocator"]
+no-jemalloc = ["polkadot-node-core-pvf-common/no-jemalloc"]
 # This feature is used to export test code to other crates without putting it in the production build.
 test-utils = [
 	"dep:is_executable",
