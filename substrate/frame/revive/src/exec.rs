@@ -2142,9 +2142,7 @@ where
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
 
-		let available_len = if code_offset >= code.len() { 0 } else { code.len() - code_offset };
-
-		let copy_len = len.min(available_len);
+		let copy_len = code.len().saturating_sub(code_offset).min(len);
 		let mut result = Vec::with_capacity(len);
 
 		if copy_len > 0 {
