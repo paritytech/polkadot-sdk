@@ -1,6 +1,6 @@
 [package]
 name = "pallet-revive"
-version = "0.8.0"
+version = "0.9.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -92,7 +92,6 @@ std = [
 	"num-traits/std",
 	"pallet-revive-fixtures?/std",
 	"pallet-transaction-payment/std",
-	"pallet-utility/std",
 	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",

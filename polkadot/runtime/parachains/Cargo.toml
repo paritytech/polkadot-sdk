@@ -1,6 +1,6 @@
 [package]
 name = "polkadot-runtime-parachains"
-version = "21.0.0"
+version = "21.0.1"
 description = "Relay Chain runtime code responsible for Parachains."
 authors.workspace = true
 edition.workspace = true
@@ -56,7 +56,7 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-polkadot-primitives = { features = ["test"], workspace = true, default-features = false }
+polkadot-primitives = { features = ["test"], default-features = false, workspace = true }
 
 assert_matches = { workspace = true }
 frame-support-test = { workspace = true }
