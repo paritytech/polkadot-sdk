@@ -1516,7 +1516,8 @@ where
 			Ok(())
 		}
 
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
+		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
 		if value.is_zero() {
 			return Ok(());
 		}
