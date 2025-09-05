@@ -26,7 +26,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 
 [dev-dependencies]
-pallet-people = { workspace = true, default-features = false }
+pallet-people = { default-features = false, workspace = true }
 verifiable = { workspace = true, features = ["small-ring"] }
 
 [features]
