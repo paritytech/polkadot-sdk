@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Event` type in crate `pallet_revive_eth_rpc`."><title>Event in pallet_revive_eth_rpc::subxt_client::src_chain::staking - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Event</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.Bonded" title="Bonded">Bonded</a></li><li><a href="#variant.Chilled" title="Chilled">Chilled</a></li><li><a href="#variant.ControllerBatchDeprecated" title="ControllerBatchDeprecated">ControllerBatchDeprecated</a></li><li><a href="#variant.CurrencyMigrated" title="CurrencyMigrated">CurrencyMigrated</a></li><li><a href="#variant.EraPaid" title="EraPaid">EraPaid</a></li><li><a href="#variant.ForceEra" title="ForceEra">ForceEra</a></li><li><a href="#variant.Kicked" title="Kicked">Kicked</a></li><li><a href="#variant.OldSlashingReportDiscarded" title="OldSlashingReportDiscarded">OldSlashingReportDiscarded</a></li><li><a href="#variant.PayoutStarted" title="PayoutStarted">PayoutStarted</a></li><li><a href="#variant.Rewarded" title="Rewarded">Rewarded</a></li><li><a href="#variant.SlashReported" title="SlashReported">SlashReported</a></li><li><a href="#variant.Slashed" title="Slashed">Slashed</a></li><li><a href="#variant.SnapshotTargetsSizeExceeded" title="SnapshotTargetsSizeExceeded">SnapshotTargetsSizeExceeded</a></li><li><a href="#variant.SnapshotVotersSizeExceeded" title="SnapshotVotersSizeExceeded">SnapshotVotersSizeExceeded</a></li><li><a href="#variant.StakersElected" title="StakersElected">StakersElected</a></li><li><a href="#variant.StakingElectionFailed" title="StakingElectionFailed">StakingElectionFailed</a></li><li><a href="#variant.Unbonded" title="Unbonded">Unbonded</a></li><li><a href="#variant.ValidatorPrefsSet" title="ValidatorPrefsSet">ValidatorPrefsSet</a></li><li><a href="#variant.Withdrawn" title="Withdrawn">Withdrawn</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>staking</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">staking</a></div><h1>Type Alias <span class="type">Event</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Event = <a class="enum" href="../runtime_types/pallet_staking/pallet/pallet/enum.Event.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::pallet::pallet::Event">Event</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Event {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 19 variants</span></summary>    EraPaid {
+        era_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        validator_payout: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        remainder: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Rewarded {
+        stash: AccountId32,
+        dest: <a class="enum" href="../runtime_types/pallet_staking/enum.RewardDestination.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::RewardDestination">RewardDestination</a>&lt;AccountId32&gt;,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Slashed {
+        staker: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    SlashReported {
+        validator: AccountId32,
+        fraction: <a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>,
+        slash_era: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    OldSlashingReportDiscarded {
+        session_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    StakersElected,
+    Bonded {
+        stash: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Unbonded {
+        stash: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Withdrawn {
+        stash: AccountId32,
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    Kicked {
+        nominator: AccountId32,
+        stash: AccountId32,
+    },
+    StakingElectionFailed,
+    Chilled {
+        stash: AccountId32,
+    },
+    PayoutStarted {
+        era_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        validator_stash: AccountId32,
+        page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        next: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    ValidatorPrefsSet {
+        stash: AccountId32,
+        prefs: <a class="struct" href="../runtime_types/pallet_staking/struct.ValidatorPrefs.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::ValidatorPrefs">ValidatorPrefs</a>,
+    },
+    SnapshotVotersSizeExceeded {
+        size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    SnapshotTargetsSizeExceeded {
+        size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    ForceEra {
+        mode: <a class="enum" href="../runtime_types/pallet_staking/enum.Forcing.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::Forcing">Forcing</a>,
+    },
+    ControllerBatchDeprecated {
+        failures: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    CurrencyMigrated {
+        stash: AccountId32,
+        force_withdraw: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.EraPaid" class="variant"><a href="#variant.EraPaid" class="anchor">§</a><h3 class="code-header">EraPaid</h3></section><div class="sub-variant" id="variant.EraPaid.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.EraPaid.field.era_index" class="section-header"><a href="#variant.EraPaid.field.era_index" class="anchor field">§</a><code>era_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.EraPaid.field.validator_payout" class="section-header"><a href="#variant.EraPaid.field.validator_payout" class="anchor field">§</a><code>validator_payout: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.EraPaid.field.remainder" class="section-header"><a href="#variant.EraPaid.field.remainder" class="anchor field">§</a><code>remainder: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Rewarded" class="variant"><a href="#variant.Rewarded" class="anchor">§</a><h3 class="code-header">Rewarded</h3></section><div class="sub-variant" id="variant.Rewarded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Rewarded.field.stash" class="section-header"><a href="#variant.Rewarded.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Rewarded.field.dest" class="section-header"><a href="#variant.Rewarded.field.dest" class="anchor field">§</a><code>dest: <a class="enum" href="../runtime_types/pallet_staking/enum.RewardDestination.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::RewardDestination">RewardDestination</a>&lt;AccountId32&gt;</code></span></div><div class="sub-variant-field"><span id="variant.Rewarded.field.amount" class="section-header"><a href="#variant.Rewarded.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Slashed" class="variant"><a href="#variant.Slashed" class="anchor">§</a><h3 class="code-header">Slashed</h3></section><div class="sub-variant" id="variant.Slashed.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Slashed.field.staker" class="section-header"><a href="#variant.Slashed.field.staker" class="anchor field">§</a><code>staker: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Slashed.field.amount" class="section-header"><a href="#variant.Slashed.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.SlashReported" class="variant"><a href="#variant.SlashReported" class="anchor">§</a><h3 class="code-header">SlashReported</h3></section><div class="sub-variant" id="variant.SlashReported.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SlashReported.field.validator" class="section-header"><a href="#variant.SlashReported.field.validator" class="anchor field">§</a><code>validator: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.SlashReported.field.fraction" class="section-header"><a href="#variant.SlashReported.field.fraction" class="anchor field">§</a><code>fraction: <a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a></code></span></div><div class="sub-variant-field"><span id="variant.SlashReported.field.slash_era" class="section-header"><a href="#variant.SlashReported.field.slash_era" class="anchor field">§</a><code>slash_era: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.OldSlashingReportDiscarded" class="variant"><a href="#variant.OldSlashingReportDiscarded" class="anchor">§</a><h3 class="code-header">OldSlashingReportDiscarded</h3></section><div class="sub-variant" id="variant.OldSlashingReportDiscarded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.OldSlashingReportDiscarded.field.session_index" class="section-header"><a href="#variant.OldSlashingReportDiscarded.field.session_index" class="anchor field">§</a><code>session_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.StakersElected" class="variant"><a href="#variant.StakersElected" class="anchor">§</a><h3 class="code-header">StakersElected</h3></section><section id="variant.Bonded" class="variant"><a href="#variant.Bonded" class="anchor">§</a><h3 class="code-header">Bonded</h3></section><div class="sub-variant" id="variant.Bonded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Bonded.field.stash" class="section-header"><a href="#variant.Bonded.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Bonded.field.amount" class="section-header"><a href="#variant.Bonded.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Unbonded" class="variant"><a href="#variant.Unbonded" class="anchor">§</a><h3 class="code-header">Unbonded</h3></section><div class="sub-variant" id="variant.Unbonded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Unbonded.field.stash" class="section-header"><a href="#variant.Unbonded.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Unbonded.field.amount" class="section-header"><a href="#variant.Unbonded.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Withdrawn" class="variant"><a href="#variant.Withdrawn" class="anchor">§</a><h3 class="code-header">Withdrawn</h3></section><div class="sub-variant" id="variant.Withdrawn.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Withdrawn.field.stash" class="section-header"><a href="#variant.Withdrawn.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Withdrawn.field.amount" class="section-header"><a href="#variant.Withdrawn.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.Kicked" class="variant"><a href="#variant.Kicked" class="anchor">§</a><h3 class="code-header">Kicked</h3></section><div class="sub-variant" id="variant.Kicked.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Kicked.field.nominator" class="section-header"><a href="#variant.Kicked.field.nominator" class="anchor field">§</a><code>nominator: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.Kicked.field.stash" class="section-header"><a href="#variant.Kicked.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div></div><section id="variant.StakingElectionFailed" class="variant"><a href="#variant.StakingElectionFailed" class="anchor">§</a><h3 class="code-header">StakingElectionFailed</h3></section><section id="variant.Chilled" class="variant"><a href="#variant.Chilled" class="anchor">§</a><h3 class="code-header">Chilled</h3></section><div class="sub-variant" id="variant.Chilled.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Chilled.field.stash" class="section-header"><a href="#variant.Chilled.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div></div><section id="variant.PayoutStarted" class="variant"><a href="#variant.PayoutStarted" class="anchor">§</a><h3 class="code-header">PayoutStarted</h3></section><div class="sub-variant" id="variant.PayoutStarted.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.PayoutStarted.field.era_index" class="section-header"><a href="#variant.PayoutStarted.field.era_index" class="anchor field">§</a><code>era_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.PayoutStarted.field.validator_stash" class="section-header"><a href="#variant.PayoutStarted.field.validator_stash" class="anchor field">§</a><code>validator_stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.PayoutStarted.field.page" class="section-header"><a href="#variant.PayoutStarted.field.page" class="anchor field">§</a><code>page: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.PayoutStarted.field.next" class="section-header"><a href="#variant.PayoutStarted.field.next" class="anchor field">§</a><code>next: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.ValidatorPrefsSet" class="variant"><a href="#variant.ValidatorPrefsSet" class="anchor">§</a><h3 class="code-header">ValidatorPrefsSet</h3></section><div class="sub-variant" id="variant.ValidatorPrefsSet.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ValidatorPrefsSet.field.stash" class="section-header"><a href="#variant.ValidatorPrefsSet.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.ValidatorPrefsSet.field.prefs" class="section-header"><a href="#variant.ValidatorPrefsSet.field.prefs" class="anchor field">§</a><code>prefs: <a class="struct" href="../runtime_types/pallet_staking/struct.ValidatorPrefs.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::ValidatorPrefs">ValidatorPrefs</a></code></span></div></div><section id="variant.SnapshotVotersSizeExceeded" class="variant"><a href="#variant.SnapshotVotersSizeExceeded" class="anchor">§</a><h3 class="code-header">SnapshotVotersSizeExceeded</h3></section><div class="sub-variant" id="variant.SnapshotVotersSizeExceeded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SnapshotVotersSizeExceeded.field.size" class="section-header"><a href="#variant.SnapshotVotersSizeExceeded.field.size" class="anchor field">§</a><code>size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.SnapshotTargetsSizeExceeded" class="variant"><a href="#variant.SnapshotTargetsSizeExceeded" class="anchor">§</a><h3 class="code-header">SnapshotTargetsSizeExceeded</h3></section><div class="sub-variant" id="variant.SnapshotTargetsSizeExceeded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.SnapshotTargetsSizeExceeded.field.size" class="section-header"><a href="#variant.SnapshotTargetsSizeExceeded.field.size" class="anchor field">§</a><code>size: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.ForceEra" class="variant"><a href="#variant.ForceEra" class="anchor">§</a><h3 class="code-header">ForceEra</h3></section><div class="sub-variant" id="variant.ForceEra.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ForceEra.field.mode" class="section-header"><a href="#variant.ForceEra.field.mode" class="anchor field">§</a><code>mode: <a class="enum" href="../runtime_types/pallet_staking/enum.Forcing.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_staking::Forcing">Forcing</a></code></span></div></div><section id="variant.ControllerBatchDeprecated" class="variant"><a href="#variant.ControllerBatchDeprecated" class="anchor">§</a><h3 class="code-header">ControllerBatchDeprecated</h3></section><div class="sub-variant" id="variant.ControllerBatchDeprecated.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ControllerBatchDeprecated.field.failures" class="section-header"><a href="#variant.ControllerBatchDeprecated.field.failures" class="anchor field">§</a><code>failures: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.CurrencyMigrated" class="variant"><a href="#variant.CurrencyMigrated" class="anchor">§</a><h3 class="code-header">CurrencyMigrated</h3></section><div class="sub-variant" id="variant.CurrencyMigrated.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.CurrencyMigrated.field.stash" class="section-header"><a href="#variant.CurrencyMigrated.field.stash" class="anchor field">§</a><code>stash: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.CurrencyMigrated.field.force_withdraw" class="section-header"><a href="#variant.CurrencyMigrated.field.force_withdraw" class="anchor field">§</a><code>force_withdraw: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_staking/pallet/pallet/enum.Event.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::staking::Event" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

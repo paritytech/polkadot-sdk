@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CallerCalls"],"struct":["create2Call","create2Return","createCall","createReturn","delegateCall","delegateReturn","normalCall","normalReturn","staticCallCall","staticCallReturn"]};

@@ -1,0 +1,216 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::society - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.bestow_membership" title="bestow_membership">bestow_membership</a></li><li><a href="#variant.bid" title="bid">bid</a></li><li><a href="#variant.claim_membership" title="claim_membership">claim_membership</a></li><li><a href="#variant.cleanup_candidacy" title="cleanup_candidacy">cleanup_candidacy</a></li><li><a href="#variant.cleanup_challenge" title="cleanup_challenge">cleanup_challenge</a></li><li><a href="#variant.defender_vote" title="defender_vote">defender_vote</a></li><li><a href="#variant.dissolve" title="dissolve">dissolve</a></li><li><a href="#variant.drop_candidate" title="drop_candidate">drop_candidate</a></li><li><a href="#variant.found_society" title="found_society">found_society</a></li><li><a href="#variant.judge_suspended_member" title="judge_suspended_member">judge_suspended_member</a></li><li><a href="#variant.kick_candidate" title="kick_candidate">kick_candidate</a></li><li><a href="#variant.payout" title="payout">payout</a></li><li><a href="#variant.poke_deposit" title="poke_deposit">poke_deposit</a></li><li><a href="#variant.punish_skeptic" title="punish_skeptic">punish_skeptic</a></li><li><a href="#variant.resign_candidacy" title="resign_candidacy">resign_candidacy</a></li><li><a href="#variant.set_parameters" title="set_parameters">set_parameters</a></li><li><a href="#variant.unbid" title="unbid">unbid</a></li><li><a href="#variant.unvouch" title="unvouch">unvouch</a></li><li><a href="#variant.vote" title="vote">vote</a></li><li><a href="#variant.vouch" title="vouch">vouch</a></li><li><a href="#variant.waive_repay" title="waive_repay">waive_repay</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>society</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">society</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/pallet_society/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_society::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 21 variants</span></summary>    bid {
+        value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    unbid,
+    vouch {
+        who: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        tip: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    unvouch,
+    vote {
+        candidate: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        approve: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    defender_vote {
+        approve: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    payout,
+    waive_repay {
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    found_society {
+        founder: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        max_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_intake: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_strikes: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        candidate_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        rules: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    dissolve,
+    judge_suspended_member {
+        who: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        forgive: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    set_parameters {
+        max_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_intake: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_strikes: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        candidate_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    punish_skeptic,
+    claim_membership,
+    bestow_membership {
+        candidate: AccountId32,
+    },
+    kick_candidate {
+        candidate: AccountId32,
+    },
+    resign_candidacy,
+    drop_candidate {
+        candidate: AccountId32,
+    },
+    cleanup_candidacy {
+        candidate: AccountId32,
+        max: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    cleanup_challenge {
+        challenge_round: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    poke_deposit,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.bid" class="variant"><a href="#variant.bid" class="anchor">§</a><h3 class="code-header">bid</h3></section><div class="sub-variant" id="variant.bid.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.bid.field.value" class="section-header"><a href="#variant.bid.field.value" class="anchor field">§</a><code>value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.unbid" class="variant"><a href="#variant.unbid" class="anchor">§</a><h3 class="code-header">unbid</h3></section><section id="variant.vouch" class="variant"><a href="#variant.vouch" class="anchor">§</a><h3 class="code-header">vouch</h3></section><div class="sub-variant" id="variant.vouch.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.vouch.field.who" class="section-header"><a href="#variant.vouch.field.who" class="anchor field">§</a><code>who: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.vouch.field.value" class="section-header"><a href="#variant.vouch.field.value" class="anchor field">§</a><code>value: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.vouch.field.tip" class="section-header"><a href="#variant.vouch.field.tip" class="anchor field">§</a><code>tip: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.unvouch" class="variant"><a href="#variant.unvouch" class="anchor">§</a><h3 class="code-header">unvouch</h3></section><section id="variant.vote" class="variant"><a href="#variant.vote" class="anchor">§</a><h3 class="code-header">vote</h3></section><div class="sub-variant" id="variant.vote.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.vote.field.candidate" class="section-header"><a href="#variant.vote.field.candidate" class="anchor field">§</a><code>candidate: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.vote.field.approve" class="section-header"><a href="#variant.vote.field.approve" class="anchor field">§</a><code>approve: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.defender_vote" class="variant"><a href="#variant.defender_vote" class="anchor">§</a><h3 class="code-header">defender_vote</h3></section><div class="sub-variant" id="variant.defender_vote.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.defender_vote.field.approve" class="section-header"><a href="#variant.defender_vote.field.approve" class="anchor field">§</a><code>approve: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.payout" class="variant"><a href="#variant.payout" class="anchor">§</a><h3 class="code-header">payout</h3></section><section id="variant.waive_repay" class="variant"><a href="#variant.waive_repay" class="anchor">§</a><h3 class="code-header">waive_repay</h3></section><div class="sub-variant" id="variant.waive_repay.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.waive_repay.field.amount" class="section-header"><a href="#variant.waive_repay.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.found_society" class="variant"><a href="#variant.found_society" class="anchor">§</a><h3 class="code-header">found_society</h3></section><div class="sub-variant" id="variant.found_society.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.found_society.field.founder" class="section-header"><a href="#variant.found_society.field.founder" class="anchor field">§</a><code>founder: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.found_society.field.max_members" class="section-header"><a href="#variant.found_society.field.max_members" class="anchor field">§</a><code>max_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.found_society.field.max_intake" class="section-header"><a href="#variant.found_society.field.max_intake" class="anchor field">§</a><code>max_intake: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.found_society.field.max_strikes" class="section-header"><a href="#variant.found_society.field.max_strikes" class="anchor field">§</a><code>max_strikes: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.found_society.field.candidate_deposit" class="section-header"><a href="#variant.found_society.field.candidate_deposit" class="anchor field">§</a><code>candidate_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.found_society.field.rules" class="section-header"><a href="#variant.found_society.field.rules" class="anchor field">§</a><code>rules: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.dissolve" class="variant"><a href="#variant.dissolve" class="anchor">§</a><h3 class="code-header">dissolve</h3></section><section id="variant.judge_suspended_member" class="variant"><a href="#variant.judge_suspended_member" class="anchor">§</a><h3 class="code-header">judge_suspended_member</h3></section><div class="sub-variant" id="variant.judge_suspended_member.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.judge_suspended_member.field.who" class="section-header"><a href="#variant.judge_suspended_member.field.who" class="anchor field">§</a><code>who: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.judge_suspended_member.field.forgive" class="section-header"><a href="#variant.judge_suspended_member.field.forgive" class="anchor field">§</a><code>forgive: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.set_parameters" class="variant"><a href="#variant.set_parameters" class="anchor">§</a><h3 class="code-header">set_parameters</h3></section><div class="sub-variant" id="variant.set_parameters.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_parameters.field.max_members" class="section-header"><a href="#variant.set_parameters.field.max_members" class="anchor field">§</a><code>max_members: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_parameters.field.max_intake" class="section-header"><a href="#variant.set_parameters.field.max_intake" class="anchor field">§</a><code>max_intake: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_parameters.field.max_strikes" class="section-header"><a href="#variant.set_parameters.field.max_strikes" class="anchor field">§</a><code>max_strikes: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_parameters.field.candidate_deposit" class="section-header"><a href="#variant.set_parameters.field.candidate_deposit" class="anchor field">§</a><code>candidate_deposit: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.punish_skeptic" class="variant"><a href="#variant.punish_skeptic" class="anchor">§</a><h3 class="code-header">punish_skeptic</h3></section><section id="variant.claim_membership" class="variant"><a href="#variant.claim_membership" class="anchor">§</a><h3 class="code-header">claim_membership</h3></section><section id="variant.bestow_membership" class="variant"><a href="#variant.bestow_membership" class="anchor">§</a><h3 class="code-header">bestow_membership</h3></section><div class="sub-variant" id="variant.bestow_membership.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.bestow_membership.field.candidate" class="section-header"><a href="#variant.bestow_membership.field.candidate" class="anchor field">§</a><code>candidate: AccountId32</code></span></div></div><section id="variant.kick_candidate" class="variant"><a href="#variant.kick_candidate" class="anchor">§</a><h3 class="code-header">kick_candidate</h3></section><div class="sub-variant" id="variant.kick_candidate.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.kick_candidate.field.candidate" class="section-header"><a href="#variant.kick_candidate.field.candidate" class="anchor field">§</a><code>candidate: AccountId32</code></span></div></div><section id="variant.resign_candidacy" class="variant"><a href="#variant.resign_candidacy" class="anchor">§</a><h3 class="code-header">resign_candidacy</h3></section><section id="variant.drop_candidate" class="variant"><a href="#variant.drop_candidate" class="anchor">§</a><h3 class="code-header">drop_candidate</h3></section><div class="sub-variant" id="variant.drop_candidate.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.drop_candidate.field.candidate" class="section-header"><a href="#variant.drop_candidate.field.candidate" class="anchor field">§</a><code>candidate: AccountId32</code></span></div></div><section id="variant.cleanup_candidacy" class="variant"><a href="#variant.cleanup_candidacy" class="anchor">§</a><h3 class="code-header">cleanup_candidacy</h3></section><div class="sub-variant" id="variant.cleanup_candidacy.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cleanup_candidacy.field.candidate" class="section-header"><a href="#variant.cleanup_candidacy.field.candidate" class="anchor field">§</a><code>candidate: AccountId32</code></span></div><div class="sub-variant-field"><span id="variant.cleanup_candidacy.field.max" class="section-header"><a href="#variant.cleanup_candidacy.field.max" class="anchor field">§</a><code>max: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.cleanup_challenge" class="variant"><a href="#variant.cleanup_challenge" class="anchor">§</a><h3 class="code-header">cleanup_challenge</h3></section><div class="sub-variant" id="variant.cleanup_challenge.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cleanup_challenge.field.challenge_round" class="section-header"><a href="#variant.cleanup_challenge.field.challenge_round" class="anchor field">§</a><code>challenge_round: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.cleanup_challenge.field.max" class="section-header"><a href="#variant.cleanup_challenge.field.max" class="anchor field">§</a><code>max: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.poke_deposit" class="variant"><a href="#variant.poke_deposit" class="anchor">§</a><h3 class="code-header">poke_deposit</h3></section></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_society/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::society::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

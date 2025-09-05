@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Utility module for subsystems"><title>polkadot_node_subsystem_util - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="polkadot_node_subsystem_util" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../polkadot_node_subsystem_util/index.html">polkadot_<wbr>node_<wbr>subsystem_<wbr>util</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>polkadot_node_subsystem_util</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/polkadot_node_subsystem_util/lib.rs.html#17-544">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Utility module for subsystems</p>
+<p>Many subsystems have common interests such as canceling a bunch of spawned jobs,
+or determining what their validator ID is. These common interests are factored into
+this module.</p>
+<p>This crate also reexports Prometheus metric types which are expected to be implemented by
+subsystems.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.rand"><code>pub use <a class="mod" href="https://rust-random.github.io/rand/rand/index.html" title="mod rand">rand</a>;</code></dt><dt id="reexport.metered"><code>pub use metered;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="availability_chunks/index.html" title="mod polkadot_node_subsystem_util::availability_chunks">availability_<wbr>chunks</a></dt><dd>Helpers for the validator-&gt;chunk index mapping.</dd><dt><a class="mod" href="backing_implicit_view/index.html" title="mod polkadot_node_subsystem_util::backing_implicit_view">backing_<wbr>implicit_<wbr>view</a></dt><dd>A utility for managing the implicit view of the relay-chain derived from active
+leaves and the minimum allowed relay-parents that parachain candidates can have
+and be backed in those leaves’ children.</dd><dt><a class="mod" href="database/index.html" title="mod polkadot_node_subsystem_util::database">database</a></dt><dd>Database trait for subsystem.
+Database trait for polkadot db.</dd><dt><a class="mod" href="inclusion_emulator/index.html" title="mod polkadot_node_subsystem_util::inclusion_emulator">inclusion_<wbr>emulator</a></dt><dd>An emulator for node-side code to predict the results of on-chain parachain inclusion
+and predict future constraints.</dd><dt><a class="mod" href="metrics/index.html" title="mod polkadot_node_subsystem_util::metrics">metrics</a></dt><dd>This module reexports Prometheus types and defines the <a href="metrics/trait.Metrics.html" title="trait polkadot_node_subsystem_util::metrics::Metrics"><code>Metrics</code></a> trait.</dd><dt><a class="mod" href="nesting_sender/index.html" title="mod polkadot_node_subsystem_util::nesting_sender">nesting_<wbr>sender</a></dt><dd>Nested message sending</dd><dt><a class="mod" href="reexports/index.html" title="mod polkadot_node_subsystem_util::reexports">reexports</a></dt><dd>These reexports are required so that external crates can use the <code>delegated_subsystem</code> macro
+properly.</dd><dt><a class="mod" href="reputation/index.html" title="mod polkadot_node_subsystem_util::reputation">reputation</a></dt><dd>A utility abstraction to collect and send reputation changes.</dd><dt><a class="mod" href="runtime/index.html" title="mod polkadot_node_subsystem_util::runtime">runtime</a></dt><dd>Convenient and efficient runtime info access.
+Convenient interface to runtime information.</dd><dt><a class="mod" href="vstaging/index.html" title="mod polkadot_node_subsystem_util::vstaging">vstaging</a></dt><dd>Helpers for working with unreleased runtime calls
+Contains helpers for staging runtime calls.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ControlledValidatorIndices.html" title="struct polkadot_node_subsystem_util::ControlledValidatorIndices">Controlled<wbr>Validator<wbr>Indices</a></dt><dd>Keeps track of the validator indices controlled by the local validator in a given session. For
+better performance, the values for each session are cached.</dd><dt><a class="struct" href="struct.Metronome.html" title="struct polkadot_node_subsystem_util::Metronome">Metronome</a></dt><dd>Create a stream of ticks with a defined cycle duration.</dd><dt><a class="struct" href="struct.Timeout.html" title="struct polkadot_node_subsystem_util::Timeout">Timeout</a></dt><dd>A future that wraps another future with a <code>Delay</code> allowing for time-limited futures.</dd><dt><a class="struct" href="struct.Validator.html" title="struct polkadot_node_subsystem_util::Validator">Validator</a></dt><dd>Local validator information</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Error.html" title="enum polkadot_node_subsystem_util::Error">Error</a></dt><dd>Utility errors</dd><dt><a class="enum" href="enum.OverseerError.html" title="enum polkadot_node_subsystem_util::OverseerError">Overseer<wbr>Error</a></dt><dd>An error type that describes faults that may happen</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.JOB_CHANNEL_CAPACITY.html" title="constant polkadot_node_subsystem_util::JOB_CHANNEL_CAPACITY">JOB_<wbr>CHANNEL_<wbr>CAPACITY</a></dt><dd>Capacity of channels to and from individual jobs</dd><dt><a class="constant" href="constant.JOB_GRACEFUL_STOP_DURATION.html" title="constant polkadot_node_subsystem_util::JOB_GRACEFUL_STOP_DURATION">JOB_<wbr>GRACEFUL_<wbr>STOP_<wbr>DURATION</a></dt><dd>Duration a job will wait after sending a stop signal before hard-aborting.</dd><dt><a class="constant" href="constant.MIN_GOSSIP_PEERS.html" title="constant polkadot_node_subsystem_util::MIN_GOSSIP_PEERS">MIN_<wbr>GOSSIP_<wbr>PEERS</a></dt><dd>The minimum amount of peers to send gossip messages to.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Subsystem.html" title="trait polkadot_node_subsystem_util::Subsystem">Subsystem</a></dt><dd>A trait that describes the <a href="trait.Subsystem.html"><code>Subsystem</code></a>s that can run on the <a href="struct.Orchestra.html"><code>Orchestra</code></a>.</dd><dt><a class="trait" href="trait.TimeoutExt.html" title="trait polkadot_node_subsystem_util::TimeoutExt">Timeout<wbr>Ext</a></dt><dd>Extends <code>Future</code> to allow time-limited futures.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.choose_random_subset.html" title="fn polkadot_node_subsystem_util::choose_random_subset">choose_<wbr>random_<wbr>subset</a></dt><dd>Choose a random subset of <code>min</code> elements.
+But always include <code>is_priority</code> elements.</dd><dt><a class="fn" href="fn.choose_random_subset_with_rng.html" title="fn polkadot_node_subsystem_util::choose_random_subset_with_rng">choose_<wbr>random_<wbr>subset_<wbr>with_<wbr>rng</a></dt><dd>Choose a random subset of <code>min</code> elements using a specific Random Generator <code>Rng</code>
+But always include <code>is_priority</code> elements.</dd><dt><a class="fn" href="fn.determine_new_blocks.html" title="fn polkadot_node_subsystem_util::determine_new_blocks">determine_<wbr>new_<wbr>blocks</a></dt><dd>Given a new chain-head hash, this determines the hashes of all new blocks we should track
+metadata for, given this head.</dd><dt><a class="fn" href="fn.executor_params_at_relay_parent.html" title="fn polkadot_node_subsystem_util::executor_params_at_relay_parent">executor_<wbr>params_<wbr>at_<wbr>relay_<wbr>parent</a></dt><dd>Requests executor parameters from the runtime effective at given relay-parent. First obtains
+session index at the relay-parent, relying on the fact that it should be cached by the runtime
+API caching layer even if the block itself has already been pruned. Then requests executor
+parameters by session index.
+Returns an error if failed to communicate to the runtime, or the parameters are not in the
+storage, which should never happen.
+Returns default execution parameters if the runtime doesn’t yet support <code>SessionExecutorParams</code>
+API call.
+Otherwise, returns execution parameters returned by the runtime.</dd><dt><a class="fn" href="fn.find_validator_group.html" title="fn polkadot_node_subsystem_util::find_validator_group">find_<wbr>validator_<wbr>group</a></dt><dd>Find the validator group the given validator index belongs to.</dd><dt><a class="fn" href="fn.gen_ratio.html" title="fn polkadot_node_subsystem_util::gen_ratio">gen_<wbr>ratio</a></dt><dd>Returns a <code>bool</code> with a probability of <code>a / b</code> of being true.</dd><dt><a class="fn" href="fn.gen_ratio_rng.html" title="fn polkadot_node_subsystem_util::gen_ratio_rng">gen_<wbr>ratio_<wbr>rng</a></dt><dd>Returns a <code>bool</code> with a probability of <code>a / b</code> of being true.</dd><dt><a class="fn" href="fn.has_required_runtime.html" title="fn polkadot_node_subsystem_util::has_required_runtime">has_<wbr>required_<wbr>runtime</a></dt><dd>Verifies if <code>ParachainHost</code> runtime api is at least at version <code>required_runtime_version</code>. This
+method is used to determine if a given runtime call is supported by the runtime.</dd><dt><a class="fn" href="fn.request_assumed_validation_data.html" title="fn polkadot_node_subsystem_util::request_assumed_validation_data">request_<wbr>assumed_<wbr>validation_<wbr>data</a></dt><dd>Request <code>AssumedValidationData</code> from the runtime</dd><dt><a class="fn" href="fn.request_async_backing_params.html" title="fn polkadot_node_subsystem_util::request_async_backing_params">request_<wbr>async_<wbr>backing_<wbr>params</a></dt><dd>Request <code>AsyncBackingParams</code> from the runtime</dd><dt><a class="fn" href="fn.request_authorities.html" title="fn polkadot_node_subsystem_util::request_authorities">request_<wbr>authorities</a></dt><dd>Request <code>Authorities</code> from the runtime</dd><dt><a class="fn" href="fn.request_availability_cores.html" title="fn polkadot_node_subsystem_util::request_availability_cores">request_<wbr>availability_<wbr>cores</a></dt><dd>Request <code>AvailabilityCores</code> from the runtime</dd><dt><a class="fn" href="fn.request_backing_constraints.html" title="fn polkadot_node_subsystem_util::request_backing_constraints">request_<wbr>backing_<wbr>constraints</a></dt><dd>Request <code>BackingConstraints</code> from the runtime</dd><dt><a class="fn" href="fn.request_candidate_events.html" title="fn polkadot_node_subsystem_util::request_candidate_events">request_<wbr>candidate_<wbr>events</a></dt><dd>Request <code>CandidateEvents</code> from the runtime</dd><dt><a class="fn" href="fn.request_candidate_pending_availability.html" title="fn polkadot_node_subsystem_util::request_candidate_pending_availability">request_<wbr>candidate_<wbr>pending_<wbr>availability</a></dt><dd>Request <code>CandidatePendingAvailability</code> from the runtime</dd><dt><a class="fn" href="fn.request_candidates_pending_availability.html" title="fn polkadot_node_subsystem_util::request_candidates_pending_availability">request_<wbr>candidates_<wbr>pending_<wbr>availability</a></dt><dd>Request <code>CandidatesPendingAvailability</code> from the runtime</dd><dt><a class="fn" href="fn.request_claim_queue.html" title="fn polkadot_node_subsystem_util::request_claim_queue">request_<wbr>claim_<wbr>queue</a></dt><dd>Request <code>ClaimQueue</code> from the runtime</dd><dt><a class="fn" href="fn.request_disabled_validators.html" title="fn polkadot_node_subsystem_util::request_disabled_validators">request_<wbr>disabled_<wbr>validators</a></dt><dd>Request <code>DisabledValidators</code> from the runtime</dd><dt><a class="fn" href="fn.request_from_runtime.html" title="fn polkadot_node_subsystem_util::request_from_runtime">request_<wbr>from_<wbr>runtime</a></dt><dd>Request some data from the <code>RuntimeApi</code>.</dd><dt><a class="fn" href="fn.request_key_ownership_proof.html" title="fn polkadot_node_subsystem_util::request_key_ownership_proof">request_<wbr>key_<wbr>ownership_<wbr>proof</a></dt><dd>Request <code>KeyOwnershipProof</code> from the runtime</dd><dt><a class="fn" href="fn.request_min_backing_votes.html" title="fn polkadot_node_subsystem_util::request_min_backing_votes">request_<wbr>min_<wbr>backing_<wbr>votes</a></dt><dd>Request <code>MinimumBackingVotes</code> from the runtime</dd><dt><a class="fn" href="fn.request_node_features.html" title="fn polkadot_node_subsystem_util::request_node_features">request_<wbr>node_<wbr>features</a></dt><dd>Request <code>NodeFeatures</code> from the runtime</dd><dt><a class="fn" href="fn.request_on_chain_votes.html" title="fn polkadot_node_subsystem_util::request_on_chain_votes">request_<wbr>on_<wbr>chain_<wbr>votes</a></dt><dd>Request <code>FetchOnChainVotes</code> from the runtime</dd><dt><a class="fn" href="fn.request_para_backing_state.html" title="fn polkadot_node_subsystem_util::request_para_backing_state">request_<wbr>para_<wbr>backing_<wbr>state</a></dt><dd>Request <code>ParaBackingState</code> from the runtime</dd><dt><a class="fn" href="fn.request_para_ids.html" title="fn polkadot_node_subsystem_util::request_para_ids">request_<wbr>para_<wbr>ids</a></dt><dd>Request <code>ParaIds</code> from the runtime</dd><dt><a class="fn" href="fn.request_persisted_validation_data.html" title="fn polkadot_node_subsystem_util::request_persisted_validation_data">request_<wbr>persisted_<wbr>validation_<wbr>data</a></dt><dd>Request <code>PersistedValidationData</code> from the runtime</dd><dt><a class="fn" href="fn.request_runtime_api_version.html" title="fn polkadot_node_subsystem_util::request_runtime_api_version">request_<wbr>runtime_<wbr>api_<wbr>version</a></dt><dd>Request <code>Version</code> from the runtime</dd><dt><a class="fn" href="fn.request_session_executor_params.html" title="fn polkadot_node_subsystem_util::request_session_executor_params">request_<wbr>session_<wbr>executor_<wbr>params</a></dt><dd>Request <code>SessionExecutorParams</code> from the runtime</dd><dt><a class="fn" href="fn.request_session_index_for_child.html" title="fn polkadot_node_subsystem_util::request_session_index_for_child">request_<wbr>session_<wbr>index_<wbr>for_<wbr>child</a></dt><dd>Request <code>SessionIndexForChild</code> from the runtime</dd><dt><a class="fn" href="fn.request_session_info.html" title="fn polkadot_node_subsystem_util::request_session_info">request_<wbr>session_<wbr>info</a></dt><dd>Request <code>SessionInfo</code> from the runtime</dd><dt><a class="fn" href="fn.request_submit_report_dispute_lost.html" title="fn polkadot_node_subsystem_util::request_submit_report_dispute_lost">request_<wbr>submit_<wbr>report_<wbr>dispute_<wbr>lost</a></dt><dd>Request <code>SubmitReportDisputeLost</code> from the runtime</dd><dt><a class="fn" href="fn.request_unapplied_slashes.html" title="fn polkadot_node_subsystem_util::request_unapplied_slashes">request_<wbr>unapplied_<wbr>slashes</a></dt><dd>Request <code>UnappliedSlashes</code> from the runtime</dd><dt><a class="fn" href="fn.request_validation_code.html" title="fn polkadot_node_subsystem_util::request_validation_code">request_<wbr>validation_<wbr>code</a></dt><dd>Request <code>ValidationCode</code> from the runtime</dd><dt><a class="fn" href="fn.request_validation_code_by_hash.html" title="fn polkadot_node_subsystem_util::request_validation_code_by_hash">request_<wbr>validation_<wbr>code_<wbr>by_<wbr>hash</a></dt><dd>Request <code>ValidationCodeByHash</code> from the runtime</dd><dt><a class="fn" href="fn.request_validation_code_hash.html" title="fn polkadot_node_subsystem_util::request_validation_code_hash">request_<wbr>validation_<wbr>code_<wbr>hash</a></dt><dd>Request <code>ValidationCodeHash</code> from the runtime</dd><dt><a class="fn" href="fn.request_validator_groups.html" title="fn polkadot_node_subsystem_util::request_validator_groups">request_<wbr>validator_<wbr>groups</a></dt><dd>Request <code>ValidatorGroups</code> from the runtime</dd><dt><a class="fn" href="fn.request_validators.html" title="fn polkadot_node_subsystem_util::request_validators">request_<wbr>validators</a></dt><dd>Request <code>Validators</code> from the runtime</dd><dt><a class="fn" href="fn.sign.html" title="fn polkadot_node_subsystem_util::sign">sign</a></dt><dd>Sign the given data with the given validator ID.</dd><dt><a class="fn" href="fn.signing_key.html" title="fn polkadot_node_subsystem_util::signing_key">signing_<wbr>key</a></dt><dd>From the given set of validators, find the first key we can sign with, if any.</dd><dt><a class="fn" href="fn.signing_key_and_index.html" title="fn polkadot_node_subsystem_util::signing_key_and_index">signing_<wbr>key_<wbr>and_<wbr>index</a></dt><dd>From the given set of validators, find the first key we can sign with, if any, and return it
+along with the validator index.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.RuntimeApiReceiver.html" title="type polkadot_node_subsystem_util::RuntimeApiReceiver">Runtime<wbr>ApiReceiver</a></dt><dd>A type alias for Runtime API receivers.</dd></dl><script type="text/json" id="notable-traits-data">{"&<Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut <Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T, A> as IntoIterator>::IntoIter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoDeserializer<'de, E>>::Deserializer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoParallelIterator>::Iter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<u8> as AsLockedWrite>::Write<'_>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<u8> as Group>::Fork":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

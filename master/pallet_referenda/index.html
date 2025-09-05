@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Referenda Pallet"><title>pallet_referenda - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_referenda/index.html">pallet_<wbr>referenda</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#referenda-pallet" title="Referenda Pallet">Referenda Pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#terms" title="Terms">Terms</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_referenda</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_referenda/lib.rs.html#18-1418">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="referenda-pallet"><a class="doc-anchor" href="#referenda-pallet">§</a>Referenda Pallet</h2><h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>A pallet for executing referenda. No voting logic is present here, and the <code>Polling</code> and
+<code>PollStatus</code> traits are used to allow the voting logic (likely in a pallet) to be utilized.</p>
+<p>A referendum is a vote on whether a proposal should be dispatched from a particular origin. The
+origin is used to determine which one of several <em>tracks</em> that a referendum happens under.
+Tracks each have their own configuration which governs the voting process and parameters.</p>
+<p>A referendum’s lifecycle has three main stages: Preparation, deciding and conclusion.
+Referenda are considered “ongoing” immediately after submission until their eventual
+conclusion, and votes may be cast throughout.</p>
+<p>In order to progress from preparating to being decided, three things must be in place:</p>
+<ul>
+<li>There must have been a <em>Decision Deposit</em> placed, an amount determined by the track. Anyone
+may place this deposit.</li>
+<li>A period must have elapsed since submission of the referendum. This period is known as the
+<em>Preparation Period</em> and is determined by the track.</li>
+<li>The track must not already be at capacity with referendum being decided. The maximum number of
+referenda which may be being decided simultaneously is determined by the track.</li>
+</ul>
+<p>In order to become concluded, one of three things must happen:</p>
+<ul>
+<li>The referendum should remain in an unbroken <em>Passing</em> state for a period of time. This
+is known as the <em>Confirmation Period</em> and is determined by the track. A referendum is considered
+<em>Passing</em> when there is a sufficiently high support and approval, given the amount of time it
+has been being decided. Generally the threshold for what counts as being “sufficiently high”
+will reduce over time. The curves setting these thresholds are determined by the track. In this
+case, the referendum is considered <em>Approved</em> and the proposal is scheduled for dispatch.</li>
+<li>The referendum reaches the end of its deciding phase outside not <em>Passing</em>. It ends in
+rejection and the proposal is not dispatched.</li>
+<li>The referendum is cancelled.</li>
+</ul>
+<p>A general time-out is also in place and referenda which exist in preparation for too long may
+conclude without ever entering into a deciding stage.</p>
+<p>Once a referendum is concluded, the decision deposit may be refunded.</p>
+<h3 id="terms"><a class="doc-anchor" href="#terms">§</a>Terms</h3>
+<ul>
+<li>
+<p><em>Support</em>: The number of aye-votes, pre-conviction, as a proportion of the total number of
+pre-conviction votes able to be cast in the population.</p>
+</li>
+<li>
+<p><a href="pallet/trait.Config.html" title="trait pallet_referenda::pallet::Config"><code>Config</code></a></p>
+</li>
+<li>
+<p><a href="pallet/enum.Call.html" title="enum pallet_referenda::pallet::Call"><code>Call</code></a></p>
+</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use self::weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_referenda::weights::WeightInfo">WeightInfo</a>;</code></dt><dt><code>pub use self::<a class="mod" href="pallet/index.html" title="mod pallet_referenda::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmarking/index.html" title="mod pallet_referenda::benchmarking">benchmarking</a></dt><dd>Democracy pallet benchmarking.</dd><dt><a class="mod" href="migration/index.html" title="mod pallet_referenda::migration">migration</a></dt><dd>Storage migrations for the referenda pallet.</dd><dt><a class="mod" href="pallet/index.html" title="mod pallet_referenda::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_referenda::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_referenda</code></dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.DecidingStatus.html" title="struct pallet_referenda::DecidingStatus">Deciding<wbr>Status</a></dt><dt><a class="struct" href="struct.Deposit.html" title="struct pallet_referenda::Deposit">Deposit</a></dt><dt><a class="struct" href="struct.ReferendumStatus.html" title="struct pallet_referenda::ReferendumStatus">Referendum<wbr>Status</a></dt><dd>Info regarding an ongoing referendum.</dd><dt><a class="struct" href="struct.StringLike.html" title="struct pallet_referenda::StringLike">String<wbr>Like</a></dt><dd>Helper structure to treat a <code>[u8; N]</code> array as a string.</dd><dt><a class="struct" href="struct.Track.html" title="struct pallet_referenda::Track">Track</a></dt><dd>Track groups the information of a voting track with its corresponding identifier</dd><dt><a class="struct" href="struct.Vec.html" title="struct pallet_referenda::Vec">Vec</a></dt><dd>A contiguous growable array type, written as <code>Vec&lt;T&gt;</code>, short for ‘vector’.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Curve.html" title="enum pallet_referenda::Curve">Curve</a></dt><dd>Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
+by <code>(Perbill, Perbill)</code>.</dd><dt><a class="enum" href="enum.ReferendumInfo.html" title="enum pallet_referenda::ReferendumInfo">Referendum<wbr>Info</a></dt><dd>Info regarding a referendum, present or past.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Get.html" title="trait pallet_referenda::Get">Get</a></dt><dd>A trait for querying a single value from a type.</dd><dt><a class="trait" href="trait.InsertSorted.html" title="trait pallet_referenda::InsertSorted">Insert<wbr>Sorted</a></dt><dt><a class="trait" href="trait.TracksInfo.html" title="trait pallet_referenda::TracksInfo">Tracks<wbr>Info</a></dt><dd>Information on the voting tracks.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BalanceOf.html" title="type pallet_referenda::BalanceOf">Balance<wbr>Of</a></dt><dt><a class="type" href="type.BlockNumberFor.html" title="type pallet_referenda::BlockNumberFor">Block<wbr>Number<wbr>For</a></dt><dt><a class="type" href="type.BoundedCallOf.html" title="type pallet_referenda::BoundedCallOf">Bounded<wbr>Call<wbr>Of</a></dt><dt><a class="type" href="type.CallOf.html" title="type pallet_referenda::CallOf">CallOf</a></dt><dt><a class="type" href="type.ConstTrackInfo.html" title="type pallet_referenda::ConstTrackInfo">Const<wbr>Track<wbr>Info</a></dt><dd>Detailed information about the configuration of a referenda track. Used for const querying.</dd><dt><a class="type" href="type.DecidingStatusOf.html" title="type pallet_referenda::DecidingStatusOf">Deciding<wbr>Status<wbr>Of</a></dt><dt><a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_referenda::NegativeImbalanceOf">Negative<wbr>Imbalance<wbr>Of</a></dt><dt><a class="type" href="type.PalletsOriginOf.html" title="type pallet_referenda::PalletsOriginOf">Pallets<wbr>Origin<wbr>Of</a></dt><dt><a class="type" href="type.ReferendumIndex.html" title="type pallet_referenda::ReferendumIndex">Referendum<wbr>Index</a></dt><dd>A referendum index.</dd><dt><a class="type" href="type.ReferendumInfoOf.html" title="type pallet_referenda::ReferendumInfoOf">Referendum<wbr>Info<wbr>Of</a></dt><dt><a class="type" href="type.ReferendumStatusOf.html" title="type pallet_referenda::ReferendumStatusOf">Referendum<wbr>Status<wbr>Of</a></dt><dt><a class="type" href="type.ScheduleAddressOf.html" title="type pallet_referenda::ScheduleAddressOf">Schedule<wbr>Address<wbr>Of</a></dt><dt><a class="type" href="type.TallyOf.html" title="type pallet_referenda::TallyOf">TallyOf</a></dt><dt><a class="type" href="type.TrackIdOf.html" title="type pallet_referenda::TrackIdOf">Track<wbr>IdOf</a></dt><dt><a class="type" href="type.TrackInfo.html" title="type pallet_referenda::TrackInfo">Track<wbr>Info</a></dt><dd>Detailed information about the configuration of a referenda track. Used for internal storage.</dd><dt><a class="type" href="type.TrackInfoOf.html" title="type pallet_referenda::TrackInfoOf">Track<wbr>Info<wbr>Of</a></dt><dt><a class="type" href="type.VotesOf.html" title="type pallet_referenda::VotesOf">VotesOf</a></dt></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"struct.Vec.html\" title=\"struct pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"struct.Vec.html\" title=\"struct pallet_referenda::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

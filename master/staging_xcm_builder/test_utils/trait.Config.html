@@ -1,0 +1,230 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The trait to parameterize the `XcmExecutor`."><title>Config in staging_xcm_builder::test_utils - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../staging_xcm_builder/index.html">staging_<wbr>xcm_<wbr>builder</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Config</a></h2><h3><a href="#required-associated-types">Required Associated Types</a></h3><ul class="block"><li><a href="#associatedtype.Aliasers" title="Aliasers">Aliasers</a></li><li><a href="#associatedtype.AssetClaims" title="AssetClaims">AssetClaims</a></li><li><a href="#associatedtype.AssetExchanger" title="AssetExchanger">AssetExchanger</a></li><li><a href="#associatedtype.AssetLocker" title="AssetLocker">AssetLocker</a></li><li><a href="#associatedtype.AssetTransactor" title="AssetTransactor">AssetTransactor</a></li><li><a href="#associatedtype.AssetTrap" title="AssetTrap">AssetTrap</a></li><li><a href="#associatedtype.Barrier" title="Barrier">Barrier</a></li><li><a href="#associatedtype.CallDispatcher" title="CallDispatcher">CallDispatcher</a></li><li><a href="#associatedtype.FeeManager" title="FeeManager">FeeManager</a></li><li><a href="#associatedtype.HrmpChannelAcceptedHandler" title="HrmpChannelAcceptedHandler">HrmpChannelAcceptedHandler</a></li><li><a href="#associatedtype.HrmpChannelClosingHandler" title="HrmpChannelClosingHandler">HrmpChannelClosingHandler</a></li><li><a href="#associatedtype.HrmpNewChannelOpenRequestHandler" title="HrmpNewChannelOpenRequestHandler">HrmpNewChannelOpenRequestHandler</a></li><li><a href="#associatedtype.IsReserve" title="IsReserve">IsReserve</a></li><li><a href="#associatedtype.IsTeleporter" title="IsTeleporter">IsTeleporter</a></li><li><a href="#associatedtype.MaxAssetsIntoHolding" title="MaxAssetsIntoHolding">MaxAssetsIntoHolding</a></li><li><a href="#associatedtype.MessageExporter" title="MessageExporter">MessageExporter</a></li><li><a href="#associatedtype.OriginConverter" title="OriginConverter">OriginConverter</a></li><li><a href="#associatedtype.PalletInstancesInfo" title="PalletInstancesInfo">PalletInstancesInfo</a></li><li><a href="#associatedtype.ResponseHandler" title="ResponseHandler">ResponseHandler</a></li><li><a href="#associatedtype.RuntimeCall" title="RuntimeCall">RuntimeCall</a></li><li><a href="#associatedtype.SafeCallFilter" title="SafeCallFilter">SafeCallFilter</a></li><li><a href="#associatedtype.SubscriptionService" title="SubscriptionService">SubscriptionService</a></li><li><a href="#associatedtype.Trader" title="Trader">Trader</a></li><li><a href="#associatedtype.TransactionalProcessor" title="TransactionalProcessor">TransactionalProcessor</a></li><li><a href="#associatedtype.UniversalAliases" title="UniversalAliases">UniversalAliases</a></li><li><a href="#associatedtype.UniversalLocation" title="UniversalLocation">UniversalLocation</a></li><li><a href="#associatedtype.Weigher" title="Weigher">Weigher</a></li><li><a href="#associatedtype.XcmEventEmitter" title="XcmEventEmitter">XcmEventEmitter</a></li><li><a href="#associatedtype.XcmRecorder" title="XcmRecorder">XcmRecorder</a></li><li><a href="#associatedtype.XcmSender" title="XcmSender">XcmSender</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2><a href="index.html">In staging_<wbr>xcm_<wbr>builder::<wbr>test_<wbr>utils</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">staging_xcm_builder</a>::<wbr><a href="index.html">test_utils</a></div><h1>Trait <span class="trait">Config</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub trait Config {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 30 associated items</span></summary>    type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;PostInfo = PostDispatchInfo&gt; + GetDispatchInfo;
+    type <a href="#associatedtype.XcmSender" class="associatedtype">XcmSender</a>: <a class="trait" href="trait.SendXcm.html" title="trait staging_xcm_builder::test_utils::SendXcm">SendXcm</a>;
+    type <a href="#associatedtype.XcmEventEmitter" class="associatedtype">XcmEventEmitter</a>: EventEmitter;
+    type <a href="#associatedtype.AssetTransactor" class="associatedtype">AssetTransactor</a>: <a class="trait" href="trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset">TransactAsset</a>;
+    type <a href="#associatedtype.OriginConverter" class="associatedtype">OriginConverter</a>: <a class="trait" href="trait.ConvertOrigin.html" title="trait staging_xcm_builder::test_utils::ConvertOrigin">ConvertOrigin</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a> as Dispatchable&gt;::RuntimeOrigin&gt;;
+    type <a href="#associatedtype.IsReserve" class="associatedtype">IsReserve</a>: ContainsPair&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;;
+    type <a href="#associatedtype.IsTeleporter" class="associatedtype">IsTeleporter</a>: ContainsPair&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;;
+    type <a href="#associatedtype.Aliasers" class="associatedtype">Aliasers</a>: ContainsPair&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;;
+    type <a href="#associatedtype.UniversalLocation" class="associatedtype">UniversalLocation</a>: Get&lt;<a class="enum" href="enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>&gt;;
+    type <a href="#associatedtype.Barrier" class="associatedtype">Barrier</a>: ShouldExecute;
+    type <a href="#associatedtype.Weigher" class="associatedtype">Weigher</a>: WeightBounds&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;;
+    type <a href="#associatedtype.Trader" class="associatedtype">Trader</a>: WeightTrader;
+    type <a href="#associatedtype.ResponseHandler" class="associatedtype">ResponseHandler</a>: <a class="trait" href="trait.OnResponse.html" title="trait staging_xcm_builder::test_utils::OnResponse">OnResponse</a>;
+    type <a href="#associatedtype.AssetTrap" class="associatedtype">AssetTrap</a>: DropAssets;
+    type <a href="#associatedtype.AssetLocker" class="associatedtype">AssetLocker</a>: <a class="trait" href="trait.AssetLock.html" title="trait staging_xcm_builder::test_utils::AssetLock">AssetLock</a>;
+    type <a href="#associatedtype.AssetExchanger" class="associatedtype">AssetExchanger</a>: <a class="trait" href="trait.AssetExchange.html" title="trait staging_xcm_builder::test_utils::AssetExchange">AssetExchange</a>;
+    type <a href="#associatedtype.AssetClaims" class="associatedtype">AssetClaims</a>: ClaimAssets;
+    type <a href="#associatedtype.SubscriptionService" class="associatedtype">SubscriptionService</a>: VersionChangeNotifier;
+    type <a href="#associatedtype.PalletInstancesInfo" class="associatedtype">PalletInstancesInfo</a>: PalletsInfoAccess;
+    type <a href="#associatedtype.MaxAssetsIntoHolding" class="associatedtype">MaxAssetsIntoHolding</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;;
+    type <a href="#associatedtype.FeeManager" class="associatedtype">FeeManager</a>: FeeManager;
+    type <a href="#associatedtype.MessageExporter" class="associatedtype">MessageExporter</a>: ExportXcm;
+    type <a href="#associatedtype.UniversalAliases" class="associatedtype">UniversalAliases</a>: Contains&lt;(<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>, <a class="enum" href="enum.Junction.html" title="enum staging_xcm_builder::test_utils::Junction">Junction</a>)&gt;;
+    type <a href="#associatedtype.CallDispatcher" class="associatedtype">CallDispatcher</a>: CallDispatcher&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;;
+    type <a href="#associatedtype.SafeCallFilter" class="associatedtype">SafeCallFilter</a>: Contains&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;;
+    type <a href="#associatedtype.TransactionalProcessor" class="associatedtype">TransactionalProcessor</a>: ProcessTransaction;
+    type <a href="#associatedtype.HrmpNewChannelOpenRequestHandler" class="associatedtype">HrmpNewChannelOpenRequestHandler</a>: HandleHrmpNewChannelOpenRequest;
+    type <a href="#associatedtype.HrmpChannelAcceptedHandler" class="associatedtype">HrmpChannelAcceptedHandler</a>: HandleHrmpChannelAccepted;
+    type <a href="#associatedtype.HrmpChannelClosingHandler" class="associatedtype">HrmpChannelClosingHandler</a>: HandleHrmpChannelClosing;
+    type <a href="#associatedtype.XcmRecorder" class="associatedtype">XcmRecorder</a>: RecordXcm;
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The trait to parameterize the <code>XcmExecutor</code>.</p>
+</div></details><h2 id="required-associated-types" class="section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="toggle" open><summary><section id="associatedtype.RuntimeCall" class="method"><h4 class="code-header">type <a href="#associatedtype.RuntimeCall" class="associatedtype">RuntimeCall</a>: Parameter + Dispatchable&lt;PostInfo = PostDispatchInfo&gt; + GetDispatchInfo</h4></section></summary><div class="docblock"><p>The outer call dispatch type.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.XcmSender" class="method"><h4 class="code-header">type <a href="#associatedtype.XcmSender" class="associatedtype">XcmSender</a>: <a class="trait" href="trait.SendXcm.html" title="trait staging_xcm_builder::test_utils::SendXcm">SendXcm</a></h4></section></summary><div class="docblock"><p>How to send an onward XCM message.</p>
+<p>The sender is tasked with returning the assets it needs to pay for delivery fees.
+Only one asset should be returned as delivery fees, any other will be ignored by
+the executor.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.XcmEventEmitter" class="method"><h4 class="code-header">type <a href="#associatedtype.XcmEventEmitter" class="associatedtype">XcmEventEmitter</a>: EventEmitter</h4></section></summary><div class="docblock"><p>How to emit XCM events.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetTransactor" class="method"><h4 class="code-header">type <a href="#associatedtype.AssetTransactor" class="associatedtype">AssetTransactor</a>: <a class="trait" href="trait.TransactAsset.html" title="trait staging_xcm_builder::test_utils::TransactAsset">TransactAsset</a></h4></section></summary><div class="docblock"><p>How to withdraw and deposit an asset.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.OriginConverter" class="method"><h4 class="code-header">type <a href="#associatedtype.OriginConverter" class="associatedtype">OriginConverter</a>: <a class="trait" href="trait.ConvertOrigin.html" title="trait staging_xcm_builder::test_utils::ConvertOrigin">ConvertOrigin</a>&lt;&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a> as Dispatchable&gt;::RuntimeOrigin&gt;</h4></section></summary><div class="docblock"><p>How to get a call origin from a <code>OriginKind</code> value.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.IsReserve" class="method"><h4 class="code-header">type <a href="#associatedtype.IsReserve" class="associatedtype">IsReserve</a>: ContainsPair&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;</h4></section></summary><div class="docblock"><p>Combinations of (Asset, Location) pairs which we trust as reserves.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.IsTeleporter" class="method"><h4 class="code-header">type <a href="#associatedtype.IsTeleporter" class="associatedtype">IsTeleporter</a>: ContainsPair&lt;<a class="struct" href="struct.Asset.html" title="struct staging_xcm_builder::test_utils::Asset">Asset</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;</h4></section></summary><div class="docblock"><p>Combinations of (Asset, Location) pairs which we trust as teleporters.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Aliasers" class="method"><h4 class="code-header">type <a href="#associatedtype.Aliasers" class="associatedtype">Aliasers</a>: ContainsPair&lt;<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>, <a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>&gt;</h4></section></summary><div class="docblock"><p>A list of (Origin, Target) pairs allowing a given Origin to be substituted with its
+corresponding Target pair.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.UniversalLocation" class="method"><h4 class="code-header">type <a href="#associatedtype.UniversalLocation" class="associatedtype">UniversalLocation</a>: Get&lt;<a class="enum" href="enum.Junctions.html" title="enum staging_xcm_builder::test_utils::Junctions">Junctions</a>&gt;</h4></section></summary><div class="docblock"><p>This chain’s Universal Location.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Barrier" class="method"><h4 class="code-header">type <a href="#associatedtype.Barrier" class="associatedtype">Barrier</a>: ShouldExecute</h4></section></summary><div class="docblock"><p>Whether we should execute the given XCM at all.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Weigher" class="method"><h4 class="code-header">type <a href="#associatedtype.Weigher" class="associatedtype">Weigher</a>: WeightBounds&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;</h4></section></summary><div class="docblock"><p>The means of determining an XCM message’s weight.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.Trader" class="method"><h4 class="code-header">type <a href="#associatedtype.Trader" class="associatedtype">Trader</a>: WeightTrader</h4></section></summary><div class="docblock"><p>The means of purchasing weight credit for XCM execution.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.ResponseHandler" class="method"><h4 class="code-header">type <a href="#associatedtype.ResponseHandler" class="associatedtype">ResponseHandler</a>: <a class="trait" href="trait.OnResponse.html" title="trait staging_xcm_builder::test_utils::OnResponse">OnResponse</a></h4></section></summary><div class="docblock"><p>What to do when a response of a query is found.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetTrap" class="method"><h4 class="code-header">type <a href="#associatedtype.AssetTrap" class="associatedtype">AssetTrap</a>: DropAssets</h4></section></summary><div class="docblock"><p>The general asset trap - handler for when assets are left in the Holding Register at the
+end of execution.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetLocker" class="method"><h4 class="code-header">type <a href="#associatedtype.AssetLocker" class="associatedtype">AssetLocker</a>: <a class="trait" href="trait.AssetLock.html" title="trait staging_xcm_builder::test_utils::AssetLock">AssetLock</a></h4></section></summary><div class="docblock"><p>Handler for asset locking.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetExchanger" class="method"><h4 class="code-header">type <a href="#associatedtype.AssetExchanger" class="associatedtype">AssetExchanger</a>: <a class="trait" href="trait.AssetExchange.html" title="trait staging_xcm_builder::test_utils::AssetExchange">AssetExchange</a></h4></section></summary><div class="docblock"><p>Handler for exchanging assets.</p>
+<p>This is used in the executor to swap the asset wanted for fees with the asset needed for
+delivery fees.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.AssetClaims" class="method"><h4 class="code-header">type <a href="#associatedtype.AssetClaims" class="associatedtype">AssetClaims</a>: ClaimAssets</h4></section></summary><div class="docblock"><p>The handler for when there is an instruction to claim assets.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SubscriptionService" class="method"><h4 class="code-header">type <a href="#associatedtype.SubscriptionService" class="associatedtype">SubscriptionService</a>: VersionChangeNotifier</h4></section></summary><div class="docblock"><p>How we handle version subscription requests.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.PalletInstancesInfo" class="method"><h4 class="code-header">type <a href="#associatedtype.PalletInstancesInfo" class="associatedtype">PalletInstancesInfo</a>: PalletsInfoAccess</h4></section></summary><div class="docblock"><p>Information on all pallets.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MaxAssetsIntoHolding" class="method"><h4 class="code-header">type <a href="#associatedtype.MaxAssetsIntoHolding" class="associatedtype">MaxAssetsIntoHolding</a>: Get&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</h4></section></summary><div class="docblock"><p>The maximum number of assets we target to have in the Holding Register at any one time.</p>
+<p>NOTE: In the worse case, the Holding Register may contain up to twice as many assets as this
+and any benchmarks should take that into account.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.FeeManager" class="method"><h4 class="code-header">type <a href="#associatedtype.FeeManager" class="associatedtype">FeeManager</a>: FeeManager</h4></section></summary><div class="docblock"><p>Configure the fees.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.MessageExporter" class="method"><h4 class="code-header">type <a href="#associatedtype.MessageExporter" class="associatedtype">MessageExporter</a>: ExportXcm</h4></section></summary><div class="docblock"><p>The method of exporting a message.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.UniversalAliases" class="method"><h4 class="code-header">type <a href="#associatedtype.UniversalAliases" class="associatedtype">UniversalAliases</a>: Contains&lt;(<a class="struct" href="struct.Location.html" title="struct staging_xcm_builder::test_utils::Location">Location</a>, <a class="enum" href="enum.Junction.html" title="enum staging_xcm_builder::test_utils::Junction">Junction</a>)&gt;</h4></section></summary><div class="docblock"><p>The origin locations and specific universal junctions to which they are allowed to elevate
+themselves.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.CallDispatcher" class="method"><h4 class="code-header">type <a href="#associatedtype.CallDispatcher" class="associatedtype">CallDispatcher</a>: CallDispatcher&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;</h4></section></summary><div class="docblock"><p>The call dispatcher used by XCM.</p>
+<p>XCM will use this to dispatch any calls. When no special call dispatcher is required,
+this can be set to the same type as <code>Self::Call</code>.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.SafeCallFilter" class="method"><h4 class="code-header">type <a href="#associatedtype.SafeCallFilter" class="associatedtype">SafeCallFilter</a>: Contains&lt;Self::<a class="associatedtype" href="trait.Config.html#associatedtype.RuntimeCall" title="type staging_xcm_builder::test_utils::Config::RuntimeCall">RuntimeCall</a>&gt;</h4></section></summary><div class="docblock"><p>The safe call filter for <code>Transact</code>.</p>
+<p>Use this type to explicitly whitelist calls that cannot undergo recursion. This is a
+temporary measure until we properly account for proof size weights for XCM instructions.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.TransactionalProcessor" class="method"><h4 class="code-header">type <a href="#associatedtype.TransactionalProcessor" class="associatedtype">TransactionalProcessor</a>: ProcessTransaction</h4></section></summary><div class="docblock"><p>Transactional processor for XCM instructions.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HrmpNewChannelOpenRequestHandler" class="method"><h4 class="code-header">type <a href="#associatedtype.HrmpNewChannelOpenRequestHandler" class="associatedtype">HrmpNewChannelOpenRequestHandler</a>: HandleHrmpNewChannelOpenRequest</h4></section></summary><div class="docblock"><p>Allows optional logic execution for the <code>HrmpNewChannelOpenRequest</code> XCM notification.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HrmpChannelAcceptedHandler" class="method"><h4 class="code-header">type <a href="#associatedtype.HrmpChannelAcceptedHandler" class="associatedtype">HrmpChannelAcceptedHandler</a>: HandleHrmpChannelAccepted</h4></section></summary><div class="docblock"><p>Allows optional logic execution for the <code>HrmpChannelAccepted</code> XCM notification.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.HrmpChannelClosingHandler" class="method"><h4 class="code-header">type <a href="#associatedtype.HrmpChannelClosingHandler" class="associatedtype">HrmpChannelClosingHandler</a>: HandleHrmpChannelClosing</h4></section></summary><div class="docblock"><p>Allows optional logic execution for the <code>HrmpChannelClosing</code> XCM notification.</p>
+</div></details><details class="toggle" open><summary><section id="associatedtype.XcmRecorder" class="method"><h4 class="code-header">type <a href="#associatedtype.XcmRecorder" class="associatedtype">XcmRecorder</a>: RecordXcm</h4></section></summary><div class="docblock"><p>Allows recording the last executed XCM (used by dry-run runtime APIs).</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../../trait.impl/staging_xcm_executor/config/trait.Config.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

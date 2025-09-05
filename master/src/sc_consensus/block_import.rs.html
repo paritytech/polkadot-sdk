@@ -1,0 +1,563 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/common/src/block_import.rs`."><title>block_import.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_consensus/</div>block_import.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// This program is free software: you can redistribute it and/or modify
+<a href=#7 id=7 data-nosnippet>7</a>// it under the terms of the GNU General Public License as published by
+<a href=#8 id=8 data-nosnippet>8</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#9 id=9 data-nosnippet>9</a>// (at your option) any later version.
+<a href=#10 id=10 data-nosnippet>10</a>
+<a href=#11 id=11 data-nosnippet>11</a>// This program is distributed in the hope that it will be useful,
+<a href=#12 id=12 data-nosnippet>12</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#13 id=13 data-nosnippet>13</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href=#14 id=14 data-nosnippet>14</a>// GNU General Public License for more details.
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a>// You should have received a copy of the GNU General Public License
+<a href=#17 id=17 data-nosnippet>17</a>// along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="doccomment">//! Block import helpers.
+<a href=#20 id=20 data-nosnippet>20</a>
+<a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>sp_runtime::{
+<a href=#23 id=23 data-nosnippet>23</a>	traits::{Block <span class="kw">as </span>BlockT, HashingFor, Header <span class="kw">as </span>HeaderT, NumberFor},
+<a href=#24 id=24 data-nosnippet>24</a>	DigestItem, Justification, Justifications,
+<a href=#25 id=25 data-nosnippet>25</a>};
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>std::{any::Any, borrow::Cow, collections::HashMap, sync::Arc};
+<a href=#27 id=27 data-nosnippet>27</a>
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>sp_consensus::{BlockOrigin, Error};
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// Block import result.
+<a href=#31 id=31 data-nosnippet>31</a></span><span class="attr">#[derive(Debug, PartialEq, Eq)]
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">pub enum </span>ImportResult {
+<a href=#33 id=33 data-nosnippet>33</a>	<span class="doccomment">/// Block imported.
+<a href=#34 id=34 data-nosnippet>34</a>	</span>Imported(ImportedAux),
+<a href=#35 id=35 data-nosnippet>35</a>	<span class="doccomment">/// Already in the blockchain.
+<a href=#36 id=36 data-nosnippet>36</a>	</span>AlreadyInChain,
+<a href=#37 id=37 data-nosnippet>37</a>	<span class="doccomment">/// Block or parent is known to be bad.
+<a href=#38 id=38 data-nosnippet>38</a>	</span>KnownBad,
+<a href=#39 id=39 data-nosnippet>39</a>	<span class="doccomment">/// Block parent is not in the chain.
+<a href=#40 id=40 data-nosnippet>40</a>	</span>UnknownParent,
+<a href=#41 id=41 data-nosnippet>41</a>	<span class="doccomment">/// Parent state is missing.
+<a href=#42 id=42 data-nosnippet>42</a>	</span>MissingState,
+<a href=#43 id=43 data-nosnippet>43</a>}
+<a href=#44 id=44 data-nosnippet>44</a>
+<a href=#45 id=45 data-nosnippet>45</a><span class="doccomment">/// Auxiliary data associated with an imported block result.
+<a href=#46 id=46 data-nosnippet>46</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+<a href=#47 id=47 data-nosnippet>47</a></span><span class="kw">pub struct </span>ImportedAux {
+<a href=#48 id=48 data-nosnippet>48</a>	<span class="doccomment">/// Only the header has been imported. Block body verification was skipped.
+<a href=#49 id=49 data-nosnippet>49</a>	</span><span class="kw">pub </span>header_only: bool,
+<a href=#50 id=50 data-nosnippet>50</a>	<span class="doccomment">/// Clear all pending justification requests.
+<a href=#51 id=51 data-nosnippet>51</a>	</span><span class="kw">pub </span>clear_justification_requests: bool,
+<a href=#52 id=52 data-nosnippet>52</a>	<span class="doccomment">/// Request a justification for the given block.
+<a href=#53 id=53 data-nosnippet>53</a>	</span><span class="kw">pub </span>needs_justification: bool,
+<a href=#54 id=54 data-nosnippet>54</a>	<span class="doccomment">/// Received a bad justification.
+<a href=#55 id=55 data-nosnippet>55</a>	</span><span class="kw">pub </span>bad_justification: bool,
+<a href=#56 id=56 data-nosnippet>56</a>	<span class="doccomment">/// Whether the block that was imported is the new best block.
+<a href=#57 id=57 data-nosnippet>57</a>	</span><span class="kw">pub </span>is_new_best: bool,
+<a href=#58 id=58 data-nosnippet>58</a>}
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="kw">impl </span>ImportResult {
+<a href=#61 id=61 data-nosnippet>61</a>	<span class="doccomment">/// Returns default value for `ImportResult::Imported` with
+<a href=#62 id=62 data-nosnippet>62</a>	/// `clear_justification_requests`, `needs_justification`,
+<a href=#63 id=63 data-nosnippet>63</a>	/// `bad_justification` set to false.
+<a href=#64 id=64 data-nosnippet>64</a>	</span><span class="kw">pub fn </span>imported(is_new_best: bool) -&gt; ImportResult {
+<a href=#65 id=65 data-nosnippet>65</a>		<span class="kw">let </span>aux = ImportedAux { is_new_best, ..Default::default() };
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>		ImportResult::Imported(aux)
+<a href=#68 id=68 data-nosnippet>68</a>	}
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="doccomment">/// Handles any necessary request for justifications (or clearing of pending requests) based on
+<a href=#71 id=71 data-nosnippet>71</a>	/// the outcome of this block import.
+<a href=#72 id=72 data-nosnippet>72</a>	</span><span class="kw">pub fn </span>handle_justification&lt;B&gt;(
+<a href=#73 id=73 data-nosnippet>73</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#74 id=74 data-nosnippet>74</a>		hash: <span class="kw-2">&amp;</span>B::Hash,
+<a href=#75 id=75 data-nosnippet>75</a>		number: NumberFor&lt;B&gt;,
+<a href=#76 id=76 data-nosnippet>76</a>		justification_sync_link: <span class="kw-2">&amp;</span><span class="kw">dyn </span>JustificationSyncLink&lt;B&gt;,
+<a href=#77 id=77 data-nosnippet>77</a>	) <span class="kw">where
+<a href=#78 id=78 data-nosnippet>78</a>		</span>B: BlockT,
+<a href=#79 id=79 data-nosnippet>79</a>	{
+<a href=#80 id=80 data-nosnippet>80</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#81 id=81 data-nosnippet>81</a>			ImportResult::Imported(aux) =&gt; {
+<a href=#82 id=82 data-nosnippet>82</a>				<span class="kw">if </span>aux.clear_justification_requests {
+<a href=#83 id=83 data-nosnippet>83</a>					justification_sync_link.clear_justification_requests();
+<a href=#84 id=84 data-nosnippet>84</a>				}
+<a href=#85 id=85 data-nosnippet>85</a>
+<a href=#86 id=86 data-nosnippet>86</a>				<span class="kw">if </span>aux.needs_justification {
+<a href=#87 id=87 data-nosnippet>87</a>					justification_sync_link.request_justification(hash, number);
+<a href=#88 id=88 data-nosnippet>88</a>				}
+<a href=#89 id=89 data-nosnippet>89</a>			},
+<a href=#90 id=90 data-nosnippet>90</a>			<span class="kw">_ </span>=&gt; {},
+<a href=#91 id=91 data-nosnippet>91</a>		}
+<a href=#92 id=92 data-nosnippet>92</a>	}
+<a href=#93 id=93 data-nosnippet>93</a>}
+<a href=#94 id=94 data-nosnippet>94</a>
+<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Fork choice strategy.
+<a href=#96 id=96 data-nosnippet>96</a></span><span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+<a href=#97 id=97 data-nosnippet>97</a></span><span class="kw">pub enum </span>ForkChoiceStrategy {
+<a href=#98 id=98 data-nosnippet>98</a>	<span class="doccomment">/// Longest chain fork choice.
+<a href=#99 id=99 data-nosnippet>99</a>	</span>LongestChain,
+<a href=#100 id=100 data-nosnippet>100</a>	<span class="doccomment">/// Custom fork choice rule, where true indicates the new block should be the best block.
+<a href=#101 id=101 data-nosnippet>101</a>	</span>Custom(bool),
+<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a><span class="doccomment">/// Data required to check validity of a Block.
+<a href=#105 id=105 data-nosnippet>105</a></span><span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
+<a href=#106 id=106 data-nosnippet>106</a></span><span class="kw">pub struct </span>BlockCheckParams&lt;Block: BlockT&gt; {
+<a href=#107 id=107 data-nosnippet>107</a>	<span class="doccomment">/// Hash of the block that we verify.
+<a href=#108 id=108 data-nosnippet>108</a>	</span><span class="kw">pub </span>hash: Block::Hash,
+<a href=#109 id=109 data-nosnippet>109</a>	<span class="doccomment">/// Block number of the block that we verify.
+<a href=#110 id=110 data-nosnippet>110</a>	</span><span class="kw">pub </span>number: NumberFor&lt;Block&gt;,
+<a href=#111 id=111 data-nosnippet>111</a>	<span class="doccomment">/// Parent hash of the block that we verify.
+<a href=#112 id=112 data-nosnippet>112</a>	</span><span class="kw">pub </span>parent_hash: Block::Hash,
+<a href=#113 id=113 data-nosnippet>113</a>	<span class="doccomment">/// Allow importing the block skipping state verification if parent state is missing.
+<a href=#114 id=114 data-nosnippet>114</a>	</span><span class="kw">pub </span>allow_missing_state: bool,
+<a href=#115 id=115 data-nosnippet>115</a>	<span class="doccomment">/// Allow importing the block if parent block is missing.
+<a href=#116 id=116 data-nosnippet>116</a>	</span><span class="kw">pub </span>allow_missing_parent: bool,
+<a href=#117 id=117 data-nosnippet>117</a>	<span class="doccomment">/// Re-validate existing block.
+<a href=#118 id=118 data-nosnippet>118</a>	</span><span class="kw">pub </span>import_existing: bool,
+<a href=#119 id=119 data-nosnippet>119</a>}
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a><span class="doccomment">/// Precomputed storage.
+<a href=#122 id=122 data-nosnippet>122</a></span><span class="kw">pub enum </span>StorageChanges&lt;Block: BlockT&gt; {
+<a href=#123 id=123 data-nosnippet>123</a>	<span class="doccomment">/// Changes coming from block execution.
+<a href=#124 id=124 data-nosnippet>124</a>	</span>Changes(sp_state_machine::StorageChanges&lt;HashingFor&lt;Block&gt;&gt;),
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Whole new state.
+<a href=#126 id=126 data-nosnippet>126</a>	</span>Import(ImportedState&lt;Block&gt;),
+<a href=#127 id=127 data-nosnippet>127</a>}
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a><span class="doccomment">/// Imported state data. A vector of key-value pairs that should form a trie.
+<a href=#130 id=130 data-nosnippet>130</a></span><span class="attr">#[derive(PartialEq, Eq, Clone)]
+<a href=#131 id=131 data-nosnippet>131</a></span><span class="kw">pub struct </span>ImportedState&lt;B: BlockT&gt; {
+<a href=#132 id=132 data-nosnippet>132</a>	<span class="doccomment">/// Target block hash.
+<a href=#133 id=133 data-nosnippet>133</a>	</span><span class="kw">pub </span>block: B::Hash,
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="doccomment">/// State keys and values.
+<a href=#135 id=135 data-nosnippet>135</a>	</span><span class="kw">pub </span>state: sp_state_machine::KeyValueStates,
+<a href=#136 id=136 data-nosnippet>136</a>}
+<a href=#137 id=137 data-nosnippet>137</a>
+<a href=#138 id=138 data-nosnippet>138</a><span class="kw">impl</span>&lt;B: BlockT&gt; std::fmt::Debug <span class="kw">for </span>ImportedState&lt;B&gt; {
+<a href=#139 id=139 data-nosnippet>139</a>	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+<a href=#140 id=140 data-nosnippet>140</a>		fmt.debug_struct(<span class="string">"ImportedState"</span>).field(<span class="string">"block"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.block).finish()
+<a href=#141 id=141 data-nosnippet>141</a>	}
+<a href=#142 id=142 data-nosnippet>142</a>}
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a><span class="doccomment">/// Defines how a new state is computed for a given imported block.
+<a href=#145 id=145 data-nosnippet>145</a></span><span class="kw">pub enum </span>StateAction&lt;Block: BlockT&gt; {
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Apply precomputed changes coming from block execution or state sync.
+<a href=#147 id=147 data-nosnippet>147</a>	</span>ApplyChanges(StorageChanges&lt;Block&gt;),
+<a href=#148 id=148 data-nosnippet>148</a>	<span class="doccomment">/// Execute block body (required) and compute state.
+<a href=#149 id=149 data-nosnippet>149</a>	</span>Execute,
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="doccomment">/// Execute block body if parent state is available and compute state.
+<a href=#151 id=151 data-nosnippet>151</a>	</span>ExecuteIfPossible,
+<a href=#152 id=152 data-nosnippet>152</a>	<span class="doccomment">/// Don't execute or import state.
+<a href=#153 id=153 data-nosnippet>153</a>	</span>Skip,
+<a href=#154 id=154 data-nosnippet>154</a>}
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a><span class="kw">impl</span>&lt;Block: BlockT&gt; StateAction&lt;Block&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="doccomment">/// Check if execution checks that require runtime calls should be skipped.
+<a href=#158 id=158 data-nosnippet>158</a>	</span><span class="kw">pub fn </span>skip_execution_checks(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#159 id=159 data-nosnippet>159</a>		<span class="kw">match </span><span class="self">self </span>{
+<a href=#160 id=160 data-nosnippet>160</a>			StateAction::ApplyChanges(<span class="kw">_</span>) |
+<a href=#161 id=161 data-nosnippet>161</a>			StateAction::Execute |
+<a href=#162 id=162 data-nosnippet>162</a>			StateAction::ExecuteIfPossible =&gt; <span class="bool-val">false</span>,
+<a href=#163 id=163 data-nosnippet>163</a>			StateAction::Skip =&gt; <span class="bool-val">true</span>,
+<a href=#164 id=164 data-nosnippet>164</a>		}
+<a href=#165 id=165 data-nosnippet>165</a>	}
+<a href=#166 id=166 data-nosnippet>166</a>}
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a><span class="kw">impl</span>&lt;Block: BlockT&gt; From&lt;StorageChanges&lt;Block&gt;&gt; <span class="kw">for </span>StateAction&lt;Block&gt; {
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="kw">fn </span>from(value: StorageChanges&lt;Block&gt;) -&gt; <span class="self">Self </span>{
+<a href=#170 id=170 data-nosnippet>170</a>		<span class="self">Self</span>::ApplyChanges(value)
+<a href=#171 id=171 data-nosnippet>171</a>	}
+<a href=#172 id=172 data-nosnippet>172</a>}
+<a href=#173 id=173 data-nosnippet>173</a>
+<a href=#174 id=174 data-nosnippet>174</a><span class="kw">impl</span>&lt;Block: BlockT&gt; From&lt;sp_state_machine::StorageChanges&lt;HashingFor&lt;Block&gt;&gt;&gt;
+<a href=#175 id=175 data-nosnippet>175</a>	<span class="kw">for </span>StateAction&lt;Block&gt;
+<a href=#176 id=176 data-nosnippet>176</a>{
+<a href=#177 id=177 data-nosnippet>177</a>	<span class="kw">fn </span>from(value: sp_state_machine::StorageChanges&lt;HashingFor&lt;Block&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#178 id=178 data-nosnippet>178</a>		<span class="self">Self</span>::ApplyChanges(StorageChanges::Changes(value))
+<a href=#179 id=179 data-nosnippet>179</a>	}
+<a href=#180 id=180 data-nosnippet>180</a>}
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a><span class="doccomment">/// Data required to import a Block.
+<a href=#183 id=183 data-nosnippet>183</a></span><span class="attr">#[non_exhaustive]
+<a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">pub struct </span>BlockImportParams&lt;Block: BlockT&gt; {
+<a href=#185 id=185 data-nosnippet>185</a>	<span class="doccomment">/// Origin of the Block
+<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">pub </span>origin: BlockOrigin,
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="doccomment">/// The header, without consensus post-digests applied. This should be in the same
+<a href=#188 id=188 data-nosnippet>188</a>	/// state as it comes out of the runtime.
+<a href=#189 id=189 data-nosnippet>189</a>	///
+<a href=#190 id=190 data-nosnippet>190</a>	/// Consensus engines which alter the header (by adding post-runtime digests)
+<a href=#191 id=191 data-nosnippet>191</a>	/// should strip those off in the initial verification process and pass them
+<a href=#192 id=192 data-nosnippet>192</a>	/// via the `post_digests` field. During block authorship, they should
+<a href=#193 id=193 data-nosnippet>193</a>	/// not be pushed to the header directly.
+<a href=#194 id=194 data-nosnippet>194</a>	///
+<a href=#195 id=195 data-nosnippet>195</a>	/// The reason for this distinction is so the header can be directly
+<a href=#196 id=196 data-nosnippet>196</a>	/// re-executed in a runtime that checks digest equivalence -- the
+<a href=#197 id=197 data-nosnippet>197</a>	/// post-runtime digests are pushed back on after.
+<a href=#198 id=198 data-nosnippet>198</a>	</span><span class="kw">pub </span>header: Block::Header,
+<a href=#199 id=199 data-nosnippet>199</a>	<span class="doccomment">/// Justification(s) provided for this block from the outside.
+<a href=#200 id=200 data-nosnippet>200</a>	</span><span class="kw">pub </span>justifications: <span class="prelude-ty">Option</span>&lt;Justifications&gt;,
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="doccomment">/// Digest items that have been added after the runtime for external
+<a href=#202 id=202 data-nosnippet>202</a>	/// work, like a consensus signature.
+<a href=#203 id=203 data-nosnippet>203</a>	</span><span class="kw">pub </span>post_digests: Vec&lt;DigestItem&gt;,
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="doccomment">/// The body of the block.
+<a href=#205 id=205 data-nosnippet>205</a>	</span><span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;Vec&lt;Block::Extrinsic&gt;&gt;,
+<a href=#206 id=206 data-nosnippet>206</a>	<span class="doccomment">/// Indexed transaction body of the block.
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub </span>indexed_body: <span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;,
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="doccomment">/// Specify how the new state is computed.
+<a href=#209 id=209 data-nosnippet>209</a>	</span><span class="kw">pub </span>state_action: StateAction&lt;Block&gt;,
+<a href=#210 id=210 data-nosnippet>210</a>	<span class="doccomment">/// Is this block finalized already?
+<a href=#211 id=211 data-nosnippet>211</a>	/// `true` implies instant finality.
+<a href=#212 id=212 data-nosnippet>212</a>	</span><span class="kw">pub </span>finalized: bool,
+<a href=#213 id=213 data-nosnippet>213</a>	<span class="doccomment">/// Intermediate values that are interpreted by block importers. Each block importer,
+<a href=#214 id=214 data-nosnippet>214</a>	/// upon handling a value, removes it from the intermediate list. The final block importer
+<a href=#215 id=215 data-nosnippet>215</a>	/// rejects block import if there are still intermediate values that remain unhandled.
+<a href=#216 id=216 data-nosnippet>216</a>	</span><span class="kw">pub </span>intermediates: HashMap&lt;Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;, Box&lt;<span class="kw">dyn </span>Any + Send&gt;&gt;,
+<a href=#217 id=217 data-nosnippet>217</a>	<span class="doccomment">/// Auxiliary consensus data produced by the block.
+<a href=#218 id=218 data-nosnippet>218</a>	/// Contains a list of key-value pairs. If values are `None`, the keys will be deleted. These
+<a href=#219 id=219 data-nosnippet>219</a>	/// changes will be applied to `AuxStore` database all as one batch, which is more efficient
+<a href=#220 id=220 data-nosnippet>220</a>	/// than updating `AuxStore` directly.
+<a href=#221 id=221 data-nosnippet>221</a>	</span><span class="kw">pub </span>auxiliary: Vec&lt;(Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;)&gt;,
+<a href=#222 id=222 data-nosnippet>222</a>	<span class="doccomment">/// Fork choice strategy of this import. This should only be set by a
+<a href=#223 id=223 data-nosnippet>223</a>	/// synchronous import, otherwise it may race against other imports.
+<a href=#224 id=224 data-nosnippet>224</a>	/// `None` indicates that the current verifier or importer cannot yet
+<a href=#225 id=225 data-nosnippet>225</a>	/// determine the fork choice value, and it expects subsequent importer
+<a href=#226 id=226 data-nosnippet>226</a>	/// to modify it. If `None` is passed all the way down to bottom block
+<a href=#227 id=227 data-nosnippet>227</a>	/// importer, the import fails with an `IncompletePipeline` error.
+<a href=#228 id=228 data-nosnippet>228</a>	</span><span class="kw">pub </span>fork_choice: <span class="prelude-ty">Option</span>&lt;ForkChoiceStrategy&gt;,
+<a href=#229 id=229 data-nosnippet>229</a>	<span class="doccomment">/// Re-validate existing block.
+<a href=#230 id=230 data-nosnippet>230</a>	</span><span class="kw">pub </span>import_existing: bool,
+<a href=#231 id=231 data-nosnippet>231</a>	<span class="doccomment">/// Whether to create "block gap" in case this block doesn't have parent.
+<a href=#232 id=232 data-nosnippet>232</a>	</span><span class="kw">pub </span>create_gap: bool,
+<a href=#233 id=233 data-nosnippet>233</a>	<span class="doccomment">/// Cached full header hash (with post-digests applied).
+<a href=#234 id=234 data-nosnippet>234</a>	</span><span class="kw">pub </span>post_hash: <span class="prelude-ty">Option</span>&lt;Block::Hash&gt;,
+<a href=#235 id=235 data-nosnippet>235</a>}
+<a href=#236 id=236 data-nosnippet>236</a>
+<a href=#237 id=237 data-nosnippet>237</a><span class="kw">impl</span>&lt;Block: BlockT&gt; BlockImportParams&lt;Block&gt; {
+<a href=#238 id=238 data-nosnippet>238</a>	<span class="doccomment">/// Create a new block import params.
+<a href=#239 id=239 data-nosnippet>239</a>	</span><span class="kw">pub fn </span>new(origin: BlockOrigin, header: Block::Header) -&gt; <span class="self">Self </span>{
+<a href=#240 id=240 data-nosnippet>240</a>		<span class="self">Self </span>{
+<a href=#241 id=241 data-nosnippet>241</a>			origin,
+<a href=#242 id=242 data-nosnippet>242</a>			header,
+<a href=#243 id=243 data-nosnippet>243</a>			justifications: <span class="prelude-val">None</span>,
+<a href=#244 id=244 data-nosnippet>244</a>			post_digests: Vec::new(),
+<a href=#245 id=245 data-nosnippet>245</a>			body: <span class="prelude-val">None</span>,
+<a href=#246 id=246 data-nosnippet>246</a>			indexed_body: <span class="prelude-val">None</span>,
+<a href=#247 id=247 data-nosnippet>247</a>			state_action: StateAction::Execute,
+<a href=#248 id=248 data-nosnippet>248</a>			finalized: <span class="bool-val">false</span>,
+<a href=#249 id=249 data-nosnippet>249</a>			intermediates: HashMap::new(),
+<a href=#250 id=250 data-nosnippet>250</a>			auxiliary: Vec::new(),
+<a href=#251 id=251 data-nosnippet>251</a>			fork_choice: <span class="prelude-val">None</span>,
+<a href=#252 id=252 data-nosnippet>252</a>			import_existing: <span class="bool-val">false</span>,
+<a href=#253 id=253 data-nosnippet>253</a>			create_gap: <span class="bool-val">true</span>,
+<a href=#254 id=254 data-nosnippet>254</a>			post_hash: <span class="prelude-val">None</span>,
+<a href=#255 id=255 data-nosnippet>255</a>		}
+<a href=#256 id=256 data-nosnippet>256</a>	}
+<a href=#257 id=257 data-nosnippet>257</a>
+<a href=#258 id=258 data-nosnippet>258</a>	<span class="doccomment">/// Get the full header hash (with post-digests applied).
+<a href=#259 id=259 data-nosnippet>259</a>	</span><span class="kw">pub fn </span>post_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Block::Hash {
+<a href=#260 id=260 data-nosnippet>260</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.post_hash {
+<a href=#261 id=261 data-nosnippet>261</a>			hash
+<a href=#262 id=262 data-nosnippet>262</a>		} <span class="kw">else </span>{
+<a href=#263 id=263 data-nosnippet>263</a>			<span class="self">self</span>.post_header().hash()
+<a href=#264 id=264 data-nosnippet>264</a>		}
+<a href=#265 id=265 data-nosnippet>265</a>	}
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="doccomment">/// Get the post header.
+<a href=#268 id=268 data-nosnippet>268</a>	</span><span class="kw">pub fn </span>post_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Block::Header {
+<a href=#269 id=269 data-nosnippet>269</a>		<span class="kw">if </span><span class="self">self</span>.post_digests.is_empty() {
+<a href=#270 id=270 data-nosnippet>270</a>			<span class="self">self</span>.header.clone()
+<a href=#271 id=271 data-nosnippet>271</a>		} <span class="kw">else </span>{
+<a href=#272 id=272 data-nosnippet>272</a>			<span class="kw">let </span><span class="kw-2">mut </span>hdr = <span class="self">self</span>.header.clone();
+<a href=#273 id=273 data-nosnippet>273</a>			<span class="kw">for </span>digest_item <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.post_digests {
+<a href=#274 id=274 data-nosnippet>274</a>				hdr.digest_mut().push(digest_item.clone());
+<a href=#275 id=275 data-nosnippet>275</a>			}
+<a href=#276 id=276 data-nosnippet>276</a>
+<a href=#277 id=277 data-nosnippet>277</a>			hdr
+<a href=#278 id=278 data-nosnippet>278</a>		}
+<a href=#279 id=279 data-nosnippet>279</a>	}
+<a href=#280 id=280 data-nosnippet>280</a>
+<a href=#281 id=281 data-nosnippet>281</a>	<span class="doccomment">/// Insert intermediate by given key.
+<a href=#282 id=282 data-nosnippet>282</a>	</span><span class="kw">pub fn </span>insert_intermediate&lt;T: <span class="lifetime">'static </span>+ Send&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8], value: T) {
+<a href=#283 id=283 data-nosnippet>283</a>		<span class="self">self</span>.intermediates.insert(Cow::from(key), Box::new(value));
+<a href=#284 id=284 data-nosnippet>284</a>	}
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>	<span class="doccomment">/// Remove and return intermediate by given key.
+<a href=#287 id=287 data-nosnippet>287</a>	</span><span class="kw">pub fn </span>remove_intermediate&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt; {
+<a href=#288 id=288 data-nosnippet>288</a>		<span class="kw">let </span>(k, v) = <span class="self">self</span>.intermediates.remove_entry(key).ok_or(Error::NoIntermediate)<span class="question-mark">?</span>;
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>		v.downcast::&lt;T&gt;().map(|v| <span class="kw-2">*</span>v).map_err(|v| {
+<a href=#291 id=291 data-nosnippet>291</a>			<span class="self">self</span>.intermediates.insert(k, v);
+<a href=#292 id=292 data-nosnippet>292</a>			Error::InvalidIntermediate
+<a href=#293 id=293 data-nosnippet>293</a>		})
+<a href=#294 id=294 data-nosnippet>294</a>	}
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>	<span class="doccomment">/// Get a reference to a given intermediate.
+<a href=#297 id=297 data-nosnippet>297</a>	</span><span class="kw">pub fn </span>get_intermediate&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>T, Error&gt; {
+<a href=#298 id=298 data-nosnippet>298</a>		<span class="self">self</span>.intermediates
+<a href=#299 id=299 data-nosnippet>299</a>			.get(key)
+<a href=#300 id=300 data-nosnippet>300</a>			.ok_or(Error::NoIntermediate)<span class="question-mark">?
+<a href=#301 id=301 data-nosnippet>301</a>			</span>.downcast_ref::&lt;T&gt;()
+<a href=#302 id=302 data-nosnippet>302</a>			.ok_or(Error::InvalidIntermediate)
+<a href=#303 id=303 data-nosnippet>303</a>	}
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>	<span class="doccomment">/// Get a mutable reference to a given intermediate.
+<a href=#306 id=306 data-nosnippet>306</a>	</span><span class="kw">pub fn </span>get_intermediate_mut&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>T, Error&gt; {
+<a href=#307 id=307 data-nosnippet>307</a>		<span class="self">self</span>.intermediates
+<a href=#308 id=308 data-nosnippet>308</a>			.get_mut(key)
+<a href=#309 id=309 data-nosnippet>309</a>			.ok_or(Error::NoIntermediate)<span class="question-mark">?
+<a href=#310 id=310 data-nosnippet>310</a>			</span>.downcast_mut::&lt;T&gt;()
+<a href=#311 id=311 data-nosnippet>311</a>			.ok_or(Error::InvalidIntermediate)
+<a href=#312 id=312 data-nosnippet>312</a>	}
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a>	<span class="doccomment">/// Check if this block contains state import action
+<a href=#315 id=315 data-nosnippet>315</a>	</span><span class="kw">pub fn </span>with_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#316 id=316 data-nosnippet>316</a>		<span class="macro">matches!</span>(<span class="self">self</span>.state_action, StateAction::ApplyChanges(StorageChanges::Import(<span class="kw">_</span>)))
+<a href=#317 id=317 data-nosnippet>317</a>	}
+<a href=#318 id=318 data-nosnippet>318</a>}
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a><span class="doccomment">/// Block import trait.
+<a href=#321 id=321 data-nosnippet>321</a></span><span class="attr">#[async_trait::async_trait]
+<a href=#322 id=322 data-nosnippet>322</a></span><span class="kw">pub trait </span>BlockImport&lt;B: BlockT&gt; {
+<a href=#323 id=323 data-nosnippet>323</a>	<span class="doccomment">/// The error type.
+<a href=#324 id=324 data-nosnippet>324</a>	</span><span class="kw">type </span>Error: std::error::Error + Send + <span class="lifetime">'static</span>;
+<a href=#325 id=325 data-nosnippet>325</a>
+<a href=#326 id=326 data-nosnippet>326</a>	<span class="doccomment">/// Check block preconditions.
+<a href=#327 id=327 data-nosnippet>327</a>	</span><span class="kw">async fn </span>check_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockCheckParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt;;
+<a href=#328 id=328 data-nosnippet>328</a>
+<a href=#329 id=329 data-nosnippet>329</a>	<span class="doccomment">/// Import a block.
+<a href=#330 id=330 data-nosnippet>330</a>	</span><span class="kw">async fn </span>import_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt;;
+<a href=#331 id=331 data-nosnippet>331</a>}
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a><span class="attr">#[async_trait::async_trait]
+<a href=#334 id=334 data-nosnippet>334</a></span><span class="kw">impl</span>&lt;B: BlockT&gt; BlockImport&lt;B&gt; <span class="kw">for </span><span class="kw">crate</span>::import_queue::BoxBlockImport&lt;B&gt; {
+<a href=#335 id=335 data-nosnippet>335</a>	<span class="kw">type </span>Error = sp_consensus::error::Error;
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>	<span class="doccomment">/// Check block preconditions.
+<a href=#338 id=338 data-nosnippet>338</a>	</span><span class="kw">async fn </span>check_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockCheckParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
+<a href=#339 id=339 data-nosnippet>339</a>		(<span class="kw-2">**</span><span class="self">self</span>).check_block(block).<span class="kw">await
+<a href=#340 id=340 data-nosnippet>340</a>	</span>}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>	<span class="doccomment">/// Import a block.
+<a href=#343 id=343 data-nosnippet>343</a>	</span><span class="kw">async fn </span>import_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
+<a href=#344 id=344 data-nosnippet>344</a>		(<span class="kw-2">**</span><span class="self">self</span>).import_block(block).<span class="kw">await
+<a href=#345 id=345 data-nosnippet>345</a>	</span>}
+<a href=#346 id=346 data-nosnippet>346</a>}
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a><span class="attr">#[async_trait::async_trait]
+<a href=#349 id=349 data-nosnippet>349</a></span><span class="kw">impl</span>&lt;B: BlockT, T, E: std::error::Error + Send + <span class="lifetime">'static</span>&gt; BlockImport&lt;B&gt; <span class="kw">for </span>Arc&lt;T&gt;
+<a href=#350 id=350 data-nosnippet>350</a><span class="kw">where
+<a href=#351 id=351 data-nosnippet>351</a>	for</span>&lt;<span class="lifetime">'r</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'r </span>T: BlockImport&lt;B, Error = E&gt;,
+<a href=#352 id=352 data-nosnippet>352</a>	T: Send + Sync,
+<a href=#353 id=353 data-nosnippet>353</a>{
+<a href=#354 id=354 data-nosnippet>354</a>	<span class="kw">type </span>Error = E;
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a>	<span class="kw">async fn </span>check_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockCheckParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
+<a href=#357 id=357 data-nosnippet>357</a>		(<span class="kw-2">&amp;**</span><span class="self">self</span>).check_block(block).<span class="kw">await
+<a href=#358 id=358 data-nosnippet>358</a>	</span>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>	<span class="kw">async fn </span>import_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: BlockImportParams&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
+<a href=#361 id=361 data-nosnippet>361</a>		(<span class="kw-2">&amp;**</span><span class="self">self</span>).import_block(block).<span class="kw">await
+<a href=#362 id=362 data-nosnippet>362</a>	</span>}
+<a href=#363 id=363 data-nosnippet>363</a>}
+<a href=#364 id=364 data-nosnippet>364</a>
+<a href=#365 id=365 data-nosnippet>365</a><span class="doccomment">/// Justification import trait
+<a href=#366 id=366 data-nosnippet>366</a></span><span class="attr">#[async_trait::async_trait]
+<a href=#367 id=367 data-nosnippet>367</a></span><span class="kw">pub trait </span>JustificationImport&lt;B: BlockT&gt; {
+<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">type </span>Error: std::error::Error + Send + <span class="lifetime">'static</span>;
+<a href=#369 id=369 data-nosnippet>369</a>
+<a href=#370 id=370 data-nosnippet>370</a>	<span class="doccomment">/// Called by the import queue when it is started. Returns a list of justifications to request
+<a href=#371 id=371 data-nosnippet>371</a>	/// from the network.
+<a href=#372 id=372 data-nosnippet>372</a>	</span><span class="kw">async fn </span>on_start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;(B::Hash, NumberFor&lt;B&gt;)&gt;;
+<a href=#373 id=373 data-nosnippet>373</a>
+<a href=#374 id=374 data-nosnippet>374</a>	<span class="doccomment">/// Import a Block justification and finalize the given block.
+<a href=#375 id=375 data-nosnippet>375</a>	</span><span class="kw">async fn </span>import_justification(
+<a href=#376 id=376 data-nosnippet>376</a>		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#377 id=377 data-nosnippet>377</a>		hash: B::Hash,
+<a href=#378 id=378 data-nosnippet>378</a>		number: NumberFor&lt;B&gt;,
+<a href=#379 id=379 data-nosnippet>379</a>		justification: Justification,
+<a href=#380 id=380 data-nosnippet>380</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
+<a href=#381 id=381 data-nosnippet>381</a>}
+<a href=#382 id=382 data-nosnippet>382</a>
+<a href=#383 id=383 data-nosnippet>383</a><span class="doccomment">/// Control the synchronization process of block justifications.
+<a href=#384 id=384 data-nosnippet>384</a>///
+<a href=#385 id=385 data-nosnippet>385</a>/// When importing blocks different consensus engines might require that
+<a href=#386 id=386 data-nosnippet>386</a>/// additional finality data is provided (i.e. a justification for the block).
+<a href=#387 id=387 data-nosnippet>387</a>/// This trait abstracts the required methods to issue those requests
+<a href=#388 id=388 data-nosnippet>388</a></span><span class="kw">pub trait </span>JustificationSyncLink&lt;B: BlockT&gt;: Send + Sync {
+<a href=#389 id=389 data-nosnippet>389</a>	<span class="doccomment">/// Request a justification for the given block.
+<a href=#390 id=390 data-nosnippet>390</a>	</span><span class="kw">fn </span>request_justification(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>B::Hash, number: NumberFor&lt;B&gt;);
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>	<span class="doccomment">/// Clear all pending justification requests.
+<a href=#393 id=393 data-nosnippet>393</a>	</span><span class="kw">fn </span>clear_justification_requests(<span class="kw-2">&amp;</span><span class="self">self</span>);
+<a href=#394 id=394 data-nosnippet>394</a>}
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a><span class="kw">impl</span>&lt;B: BlockT&gt; JustificationSyncLink&lt;B&gt; <span class="kw">for </span>() {
+<a href=#397 id=397 data-nosnippet>397</a>	<span class="kw">fn </span>request_justification(<span class="kw-2">&amp;</span><span class="self">self</span>, _hash: <span class="kw-2">&amp;</span>B::Hash, _number: NumberFor&lt;B&gt;) {}
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>	<span class="kw">fn </span>clear_justification_requests(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+<a href=#400 id=400 data-nosnippet>400</a>}
+<a href=#401 id=401 data-nosnippet>401</a>
+<a href=#402 id=402 data-nosnippet>402</a><span class="kw">impl</span>&lt;B: BlockT, L: JustificationSyncLink&lt;B&gt;&gt; JustificationSyncLink&lt;B&gt; <span class="kw">for </span>Arc&lt;L&gt; {
+<a href=#403 id=403 data-nosnippet>403</a>	<span class="kw">fn </span>request_justification(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>B::Hash, number: NumberFor&lt;B&gt;) {
+<a href=#404 id=404 data-nosnippet>404</a>		L::request_justification(<span class="self">self</span>, hash, number);
+<a href=#405 id=405 data-nosnippet>405</a>	}
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a>	<span class="kw">fn </span>clear_justification_requests(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#408 id=408 data-nosnippet>408</a>		L::clear_justification_requests(<span class="self">self</span>);
+<a href=#409 id=409 data-nosnippet>409</a>	}
+<a href=#410 id=410 data-nosnippet>410</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

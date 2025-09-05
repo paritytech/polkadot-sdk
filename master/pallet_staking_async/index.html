@@ -1,0 +1,315 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Staking Async Pallet"><title>pallet_staking_async - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_staking_async" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_staking_async/index.html">pallet_<wbr>staking_<wbr>async</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#staking-async-pallet" title="Staking Async Pallet">Staking Async Pallet</a><ul><li><a href="#user-interactions" title="User Interactions">User Interactions</a></li><li><a href="#session-and-era-rotation" title="Session and Era Rotation">Session and Era Rotation</a></li><li><a href="#exposure-collection" title="Exposure Collection">Exposure Collection</a></li><li><a href="#slashing-pipeline-and-withdrawal-restrictions" title="Slashing Pipeline and Withdrawal Restrictions">Slashing Pipeline and Withdrawal Restrictions</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_staking_async</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_staking_async/lib.rs.html#18-576">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="staking-async-pallet"><a class="doc-anchor" href="#staking-async-pallet">§</a>Staking Async Pallet</h2>
+<p>This pallet is a fork of the original <code>pallet-staking</code>, with a number of key differences:</p>
+<ul>
+<li>It no longer has access to a secure timestamp, previously used to calculate the duration of an
+era.</li>
+<li>It no longer has access to a pallet-session.</li>
+<li>It no longer has access to a pallet-authorship.</li>
+<li>It is capable of working with a multi-page <code>ElectionProvider``, aka. </code>pallet-election-provider-multi-block`.</li>
+</ul>
+<p>While <code>pallet-staking</code> was somewhat general-purpose, this pallet is absolutely NOT right from
+the get-go: It is designed to be used ONLY in Polkadot/Kusama AssetHub system parachains.</p>
+<p>The workings of this pallet can be divided into a number of subsystems, as follows.</p>
+<h3 id="user-interactions"><a class="doc-anchor" href="#user-interactions">§</a>User Interactions</h3>
+<p>TODO</p>
+<h3 id="session-and-era-rotation"><a class="doc-anchor" href="#session-and-era-rotation">§</a>Session and Era Rotation</h3>
+<p>TODO</p>
+<h3 id="exposure-collection"><a class="doc-anchor" href="#exposure-collection">§</a>Exposure Collection</h3>
+<p>TODO</p>
+<h3 id="slashing-pipeline-and-withdrawal-restrictions"><a class="doc-anchor" href="#slashing-pipeline-and-withdrawal-restrictions">§</a>Slashing Pipeline and Withdrawal Restrictions</h3>
+<p>This pallet implements a robust slashing mechanism that ensures the integrity of the staking
+system while preventing stakers from withdrawing funds that might still be subject to slashing.</p>
+<h4 id="overview-of-the-slashing-pipeline"><a class="doc-anchor" href="#overview-of-the-slashing-pipeline">§</a>Overview of the Slashing Pipeline</h4>
+<p>The slashing process consists of multiple phases:</p>
+<ol>
+<li><strong>Offence Reporting</strong>: Offences are reported from the relay chain through <code>on_new_offences</code></li>
+<li><strong>Queuing</strong>: Valid offences are added to the <code>OffenceQueue</code> for processing</li>
+<li><strong>Processing</strong>: Offences are processed incrementally over multiple blocks</li>
+<li><strong>Application</strong>: Slashes are either applied immediately or deferred based on configuration</li>
+</ol>
+<h4 id="phase-1-offence-reporting"><a class="doc-anchor" href="#phase-1-offence-reporting">§</a>Phase 1: Offence Reporting</h4>
+<p>Offences are reported from the relay chain (e.g., from BABE, GRANDPA, BEEFY, or parachain
+modules) through the <code>on_new_offences</code> function:</p>
+<div class="example-wrap"><pre class="language-text"><code>struct Offence {
+    offender: AccountId,        // The validator being slashed
+    reporters: Vec&lt;AccountId&gt;,  // Who reported the offence (may be empty)
+    slash_fraction: Perbill,    // Percentage of stake to slash
+}</code></pre></div>
+<p><strong>Reporting Deadlines</strong>:</p>
+<ul>
+<li>With deferred slashing: Offences must be reported within <code>SlashDeferDuration - 1</code> eras</li>
+<li>With immediate slashing: Offences can be reported up to <code>BondingDuration</code> eras old</li>
+</ul>
+<p>Example: If <code>SlashDeferDuration = 27</code> and current era is 100:</p>
+<ul>
+<li>Oldest reportable offence: Era 74 (100 - 26)</li>
+<li>Offences from era 73 or earlier are rejected</li>
+</ul>
+<h4 id="phase-2-queuing"><a class="doc-anchor" href="#phase-2-queuing">§</a>Phase 2: Queuing</h4>
+<p>When an offence passes validation, it’s added to the queue:</p>
+<ol>
+<li><strong>Storage</strong>: Added to <code>OffenceQueue</code>: <code>(EraIndex, AccountId) -&gt; OffenceRecord</code></li>
+<li><strong>Era Tracking</strong>: Era added to <code>OffenceQueueEras</code> (sorted vector of eras with offences)</li>
+<li><strong>Duplicate Handling</strong>: If an offence already exists for the same validator in the same era,
+only the higher slash fraction is kept</li>
+</ol>
+<h4 id="phase-3-processing"><a class="doc-anchor" href="#phase-3-processing">§</a>Phase 3: Processing</h4>
+<p>Offences are processed incrementally in <code>on_initialize</code> each block:</p>
+<div class="example-wrap"><pre class="language-text"><code>1. Load oldest offence from queue
+2. Move to `ProcessingOffence` storage
+3. For each exposure page (from last to first):
+   - Calculate slash for validator&#39;s own stake
+   - Calculate slash for each nominator (pro-rata based on exposure)
+   - Track total slash and reward amounts
+4. Once all pages processed, create `UnappliedSlash`</code></pre></div>
+<p><strong>Key Features</strong>:</p>
+<ul>
+<li><strong>Page-by-page processing</strong>: Large validator sets don’t overwhelm a single block</li>
+<li><strong>Pro-rata slashing</strong>: Nominators slashed proportionally to their stake</li>
+<li><strong>Reward calculation</strong>: A portion goes to reporters (if any)</li>
+</ul>
+<h4 id="phase-4-application"><a class="doc-anchor" href="#phase-4-application">§</a>Phase 4: Application</h4>
+<p>Based on <code>SlashDeferDuration</code>, slashes are either:</p>
+<p><strong>Immediate (SlashDeferDuration = 0)</strong>:</p>
+<ul>
+<li>Applied right away in the same block</li>
+<li>Funds deducted from staking ledger immediately</li>
+</ul>
+<p><strong>Deferred (SlashDeferDuration &gt; 0)</strong>:</p>
+<ul>
+<li>Stored in <code>UnappliedSlashes</code> for future application</li>
+<li>Applied at era: <code>offence_era + SlashDeferDuration</code></li>
+<li>Can be cancelled by governance before application</li>
+</ul>
+<h4 id="storage-items-involved"><a class="doc-anchor" href="#storage-items-involved">§</a>Storage Items Involved</h4>
+<ul>
+<li><code>OffenceQueue</code>: Pending offences to process</li>
+<li><code>OffenceQueueEras</code>: Sorted list of eras with offences</li>
+<li><code>ProcessingOffence</code>: Currently processing offence</li>
+<li><code>ValidatorSlashInEra</code>: Tracks highest slash per validator per era</li>
+<li><code>UnappliedSlashes</code>: Deferred slashes waiting for application</li>
+</ul>
+<h4 id="withdrawal-restrictions"><a class="doc-anchor" href="#withdrawal-restrictions">§</a>Withdrawal Restrictions</h4>
+<p>To maintain slashing guarantees, withdrawals are restricted:</p>
+<p><strong>Withdrawal Era Calculation</strong>:</p>
+<div class="example-wrap"><pre class="language-text"><code>earliest_era_to_withdraw = min(
+    active_era,
+    last_fully_processed_offence_era + BondingDuration
+)</code></pre></div>
+<p><strong>Example</strong>:</p>
+<ul>
+<li>Active era: 100</li>
+<li>Oldest unprocessed offence: Era 70</li>
+<li>BondingDuration: 28</li>
+<li>Withdrawal allowed only for chunks with era ≤ 97 (70 - 1 + 28)</li>
+</ul>
+<p><strong>Withdrawal Timeline Example with an Offence</strong>:</p>
+<div class="example-wrap"><pre class="language-text"><code>Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
+            |     |     |     |     |     |     |     |     |     |     |          |     |
+Unbond:     U
+Offence:    X
+Reported:               R
+Processed:              P (within next few blocks)
+Slash Applied:                                                                       S
+Withdraw:                                                                            ❌    ✓
+
+With BondingDuration = 28 and SlashDeferDuration = 27:
+- User unbonds in era 90
+- Offence occurs in era 90
+- Reported in era 92 (typically within 2 days, but reportable until Era 116)
+- Processed in era 92 (within next few blocks after reporting)
+- Slash deferred for 27 eras, applied at era 117 (90 + 27)
+- Cannot withdraw unbonded chunks until era 118 (90 + 28)
+
+The 28-era bonding duration ensures that any offences committed before or during
+unbonding have time to be reported, processed, and applied before funds can be
+withdrawn. This provides a window for governance to cancel slashes that may have
+resulted from software bugs.</code></pre></div>
+<p><strong>Key Restrictions</strong>:</p>
+<ol>
+<li>Cannot withdraw if previous era has unapplied slashes</li>
+<li>Cannot withdraw funds from eras with unprocessed offences</li>
+</ol>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_staking_async::weights::WeightInfo">WeightInfo</a>;</code></dt><dt id="reexport.StakingLedger"><code>pub use ledger::<a class="struct" href="ledger/struct.StakingLedger.html" title="struct pallet_staking_async::ledger::StakingLedger">StakingLedger</a>;</code></dt><dt id="reexport.UnlockChunk"><code>pub use ledger::<a class="struct" href="ledger/struct.UnlockChunk.html" title="struct pallet_staking_async::ledger::UnlockChunk">UnlockChunk</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="asset/index.html" title="mod pallet_staking_async::asset">asset</a></dt><dd>Contains all the interactions with <a href="trait.Config.html#associatedtype.Currency" title="associated type pallet_staking_async::Config::Currency"><code>Config::Currency</code></a> to manipulate the underlying staking
+asset.</dd><dt><a class="mod" href="benchmarking/index.html" title="mod pallet_staking_async::benchmarking">benchmarking</a></dt><dd>Staking pallet benchmarking.</dd><dt><a class="mod" href="config_preludes/index.html" title="mod pallet_staking_async::config_preludes">config_<wbr>preludes</a></dt><dd>Default implementations of <a href="trait.DefaultConfig.html" title="trait pallet_staking_async::DefaultConfig"><code>DefaultConfig</code></a>, which can be used to implement <a href="trait.Config.html" title="trait pallet_staking_async::Config"><code>Config</code></a>.</dd><dt><a class="mod" href="dispatchables/index.html" title="mod pallet_staking_async::dispatchables">dispatchables</a></dt><dd>Auto-generated docs-only module listing all defined dispatchables for this pallet.</dd><dt><a class="mod" href="election_size_tracker/index.html" title="mod pallet_staking_async::election_size_tracker">election_<wbr>size_<wbr>tracker</a></dt><dd>A static size tracker for the election snapshot data.</dd><dt><a class="mod" href="ledger/index.html" title="mod pallet_staking_async::ledger">ledger</a></dt><dd>A Ledger implementation for stakers.</dd><dt><a class="mod" href="session_rotation/index.html" title="mod pallet_staking_async::session_rotation">session_<wbr>rotation</a></dt><dd>Manages all era rotation logic based on session increments.</dd><dt><a class="mod" href="slashing/index.html" title="mod pallet_staking_async::slashing">slashing</a></dt><dd>A slashing implementation for NPoS systems.</dd><dt><a class="mod" href="storage_types/index.html" title="mod pallet_staking_async::storage_types">storage_<wbr>types</a></dt><dd>Auto-generated docs-only module listing all (public and private) defined storage types
+for this pallet.</dd><dt><a class="mod" href="testing_utils/index.html" title="mod pallet_staking_async::testing_utils">testing_<wbr>utils</a></dt><dd>Testing utils for staking. Provides some common functions to setup staking state, such as
+bonding validators, nominators, and generating different types of solutions.</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_staking_async::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_staking_async</code></dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.log.html" title="macro pallet_staking_async::log">log</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ActiveEraInfo.html" title="struct pallet_staking_async::ActiveEraInfo">Active<wbr>EraInfo</a></dt><dd>Information regarding the active era (era in used in session).</dd><dt><a class="struct" href="struct.AllStakers.html" title="struct pallet_staking_async::AllStakers">AllStakers</a></dt><dd>A utility struct that provides a way to check if a given account is a staker.</dd><dt><a class="struct" href="struct.BondedErasBound.html" title="struct pallet_staking_async::BondedErasBound">Bonded<wbr>Eras<wbr>Bound</a></dt><dd>Custom bound for <a href="type.BondedEras.html" title="type pallet_staking_async::BondedEras"><code>BondedEras</code></a> which is equal to <a href="trait.Config.html#associatedtype.BondingDuration" title="associated type pallet_staking_async::Config::BondingDuration"><code>Config::BondingDuration</code></a> + 1.</dd><dt><a class="struct" href="struct.BoundedExposurePage.html" title="struct pallet_staking_async::BoundedExposurePage">Bounded<wbr>Exposure<wbr>Page</a></dt><dd>A bounded wrapper for [<code>sp_staking::ExposurePage</code>].</dd><dt><a class="struct" href="struct.ClaimedRewardsBound.html" title="struct pallet_staking_async::ClaimedRewardsBound">Claimed<wbr>Rewards<wbr>Bound</a></dt><dt><a class="struct" href="struct.EraRewardPoints.html" title="struct pallet_staking_async::EraRewardPoints">EraReward<wbr>Points</a></dt><dd>Reward points of an era. Used to split era total payout between validators.</dd><dt><a class="struct" href="struct.Exposure.html" title="struct pallet_staking_async::Exposure">Exposure</a></dt><dd>A snapshot of the stake backing a single validator in the system.</dd><dt><a class="struct" href="struct.FixedNominationsQuota.html" title="struct pallet_staking_async::FixedNominationsQuota">Fixed<wbr>Nominations<wbr>Quota</a></dt><dd>A nomination quota that allows up to MAX nominations for all validators.</dd><dt><a class="struct" href="struct.GenesisConfig.html" title="struct pallet_staking_async::GenesisConfig">Genesis<wbr>Config</a></dt><dd>Can be used to configure the
+<a href="https://docs.substrate.io/build/genesis-configuration/">genesis state</a>
+of this pallet.</dd><dt><a class="struct" href="struct.IndividualExposure.html" title="struct pallet_staking_async::IndividualExposure">Individual<wbr>Exposure</a></dt><dd>The amount of exposure for an era that an individual nominator has (susceptible to slashing).</dd><dt><a class="struct" href="struct.Nominations.html" title="struct pallet_staking_async::Nominations">Nominations</a></dt><dd>A record of the nominations made by a specific account.</dd><dt><a class="struct" href="struct.PagedExposure.html" title="struct pallet_staking_async::PagedExposure">Paged<wbr>Exposure</a></dt><dd>Facade struct to encapsulate <code>PagedExposureMetadata</code> and a single page of <code>ExposurePage</code>.</dd><dt><a class="struct" href="struct.Pallet.html" title="struct pallet_staking_async::Pallet">Pallet</a></dt><dd>The <code>Pallet</code> struct, the main type that implements traits and standalone
+functions within the pallet.</dd><dt><a class="struct" href="struct.PlanningEraOffsetOf.html" title="struct pallet_staking_async::PlanningEraOffsetOf">Planning<wbr>EraOffset<wbr>Of</a></dt><dd>A smart type to determine the <a href="trait.Config.html#associatedtype.PlanningEraOffset" title="associated type pallet_staking_async::Config::PlanningEraOffset"><code>Config::PlanningEraOffset</code></a>, given:</dd><dt><a class="struct" href="struct.UnappliedSlash.html" title="struct pallet_staking_async::UnappliedSlash">Unapplied<wbr>Slash</a></dt><dd>A pending slash record. The value of the slash has been computed but not applied yet,
+rather deferred for several eras.</dd><dt><a class="struct" href="struct.UseNominatorsAndValidatorsMap.html" title="struct pallet_staking_async::UseNominatorsAndValidatorsMap">UseNominators<wbr>AndValidators<wbr>Map</a></dt><dd>A simple voter list implementation that does not require any additional pallets. Note, this
+does not provided nominators in sorted ordered. If you desire nominators in a sorted order take
+a look at [`pallet-bags-list].</dd><dt><a class="struct" href="struct.UseValidatorsMap.html" title="struct pallet_staking_async::UseValidatorsMap">UseValidators<wbr>Map</a></dt><dd>A simple sorted list implementation that does not require any additional pallets. Note, this
+does not provide validators in sorted order. If you desire nominators in a sorted order take
+a look at [<code>pallet-bags-list</code>].</dd><dt><a class="struct" href="struct.ValidatorPrefs.html" title="struct pallet_staking_async::ValidatorPrefs">Validator<wbr>Prefs</a></dt><dd>Preference of what happens regarding validation.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Call.html" title="enum pallet_staking_async::Call">Call</a></dt><dd>Contains a variant per dispatchable extrinsic that this pallet has.</dd><dt><a class="enum" href="enum.ConfigOp.html" title="enum pallet_staking_async::ConfigOp">Config<wbr>Op</a></dt><dd>Possible operations on the configuration values of this pallet.</dd><dt><a class="enum" href="enum.Error.html" title="enum pallet_staking_async::Error">Error</a></dt><dd>The <code>Error</code> enum of this pallet.</dd><dt><a class="enum" href="enum.Event.html" title="enum pallet_staking_async::Event">Event</a></dt><dd>The <code>Event</code> enum of this pallet</dd><dt><a class="enum" href="enum.Forcing.html" title="enum pallet_staking_async::Forcing">Forcing</a></dt><dd>Mode of era-forcing.</dd><dt><a class="enum" href="enum.HoldReason.html" title="enum pallet_staking_async::HoldReason">Hold<wbr>Reason</a></dt><dd>A reason for placing a hold on funds.</dd><dt><a class="enum" href="enum.PruningStep.html" title="enum pallet_staking_async::PruningStep">Pruning<wbr>Step</a></dt><dd>Represents the current step in the era pruning process</dd><dt><a class="enum" href="enum.RewardDestination.html" title="enum pallet_staking_async::RewardDestination">Reward<wbr>Destination</a></dt><dd>A destination account for payment.</dd><dt><a class="enum" href="enum.SnapshotStatus.html" title="enum pallet_staking_async::SnapshotStatus">Snapshot<wbr>Status</a></dt><dd>Status of a paged snapshot progress.</dd><dt><a class="enum" href="enum.StakerStatus.html" title="enum pallet_staking_async::StakerStatus">Staker<wbr>Status</a></dt><dd>Representation of the status of a staker.</dd><dt><a class="enum" href="enum.UnexpectedKind.html" title="enum pallet_staking_async::UnexpectedKind">Unexpected<wbr>Kind</a></dt><dd>Represents unexpected or invariant-breaking conditions encountered during execution.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Config.html" title="trait pallet_staking_async::Config">Config</a></dt><dd>Configuration trait of this pallet.</dd><dt><a class="trait" href="trait.DefaultConfig.html" title="trait pallet_staking_async::DefaultConfig">Default<wbr>Config</a></dt><dd>Based on <a href="trait.Config.html" title="trait pallet_staking_async::Config"><code>Config</code></a>. Auto-generated by
+<a href="../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>#[pallet::config(with_default)]</code></a>.
+Can be used in tandem with
+<a href="%60frame_support::register_default_config%60"><code>#[register_default_config]</code></a> and
+<a href="../frame_support_procedural/attr.derive_impl.html" title="attr frame_support_procedural::derive_impl"><code>#[derive_impl]</code></a> to derive test config traits
+based on existing pallet config traits in a safe and developer-friendly way.</dd><dt><a class="trait" href="trait.EraPayout.html" title="trait pallet_staking_async::EraPayout">EraPayout</a></dt><dd>Handler for determining how much of a balance should be paid out on the current era.</dd><dt><a class="trait" href="trait.NominationsQuota.html" title="trait pallet_staking_async::NominationsQuota">Nominations<wbr>Quota</a></dt><dd>Something that defines the maximum number of nominations per nominator based on a curve.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.ActiveEra.html" title="type pallet_staking_async::ActiveEra">Active<wbr>Era</a></dt><dd>The active era information, it holds index and start.</dd><dt><a class="type" href="type.BalanceOf.html" title="type pallet_staking_async::BalanceOf">Balance<wbr>Of</a></dt><dd>The balance type of this pallet.</dd><dt><a class="type" href="type.Bonded.html" title="type pallet_staking_async::Bonded">Bonded</a></dt><dd>Map from all locked “stash” accounts to the controller account.</dd><dt><a class="type" href="type.BondedEras.html" title="type pallet_staking_async::BondedEras">Bonded<wbr>Eras</a></dt><dd>A mapping from still-bonded eras to the first session index of that era.</dd><dt><a class="type" href="type.BoundedExposuresOf.html" title="type pallet_staking_async::BoundedExposuresOf">Bounded<wbr>Exposures<wbr>Of</a></dt><dd>Alias for a bounded set of exposures behind a validator, parameterized by this pallet’s
+election provider.</dd><dt><a class="type" href="type.CanceledSlashPayout.html" title="type pallet_staking_async::CanceledSlashPayout">Canceled<wbr>Slash<wbr>Payout</a></dt><dd>The amount of currency given to reporters of a slash event which was
+canceled by extraordinary circumstances (e.g. governance).</dd><dt><a class="type" href="type.CancelledSlashes.html" title="type pallet_staking_async::CancelledSlashes">Cancelled<wbr>Slashes</a></dt><dd>Cancelled slashes by era and validator with maximum slash fraction to be cancelled.</dd><dt><a class="type" href="type.ChillThreshold.html" title="type pallet_staking_async::ChillThreshold">Chill<wbr>Threshold</a></dt><dd>The threshold for when users can start calling <code>chill_other</code> for other validators /
+nominators. The threshold is compared to the actual number of validators / nominators
+(<code>CountFor*</code>) in the system compared to the configured max (<code>Max*Count</code>).</dd><dt><a class="type" href="type.ClaimedRewards.html" title="type pallet_staking_async::ClaimedRewards">Claimed<wbr>Rewards</a></dt><dd>History of claimed paged rewards by era and validator.</dd><dt><a class="type" href="type.CurrentEra.html" title="type pallet_staking_async::CurrentEra">Current<wbr>Era</a></dt><dd>The current planned era index.</dd><dt><a class="type" href="type.ElectableStashes.html" title="type pallet_staking_async::ElectableStashes">Electable<wbr>Stashes</a></dt><dd>A bounded list of the “electable” stashes that resulted from a successful election.</dd><dt><a class="type" href="type.EraPruningState.html" title="type pallet_staking_async::EraPruningState">EraPruning<wbr>State</a></dt><dd>Tracks the current step of era pruning process for each era being lazily pruned.</dd><dt><a class="type" href="type.ErasRewardPoints.html" title="type pallet_staking_async::ErasRewardPoints">Eras<wbr>Reward<wbr>Points</a></dt><dd>Rewards for the last <a href="trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking_async::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.
+If reward hasn’t been set or has been removed then 0 reward is returned.</dd><dt><a class="type" href="type.ErasStakersOverview.html" title="type pallet_staking_async::ErasStakersOverview">Eras<wbr>Stakers<wbr>Overview</a></dt><dd>Summary of validator exposure at a given era.</dd><dt><a class="type" href="type.ErasStakersPaged.html" title="type pallet_staking_async::ErasStakersPaged">Eras<wbr>Stakers<wbr>Paged</a></dt><dd>Paginated exposure of a validator at given era.</dd><dt><a class="type" href="type.ErasTotalStake.html" title="type pallet_staking_async::ErasTotalStake">Eras<wbr>Total<wbr>Stake</a></dt><dd>The total amount staked for the last <a href="trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking_async::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.
+If total hasn’t been set or has been removed then 0 stake is returned.</dd><dt><a class="type" href="type.ErasValidatorPrefs.html" title="type pallet_staking_async::ErasValidatorPrefs">Eras<wbr>Validator<wbr>Prefs</a></dt><dd>Exposure of validator at era with the preferences of validators.</dd><dt><a class="type" href="type.ErasValidatorReward.html" title="type pallet_staking_async::ErasValidatorReward">Eras<wbr>Validator<wbr>Reward</a></dt><dd>The total validator era payout for the last <a href="trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking_async::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras.</dd><dt><a class="type" href="type.ForceEra.html" title="type pallet_staking_async::ForceEra">Force<wbr>Era</a></dt><dd>Mode of era forcing.</dd><dt><a class="type" href="type.Invulnerables.html" title="type pallet_staking_async::Invulnerables">Invulnerables</a></dt><dd>Any validators that may never be slashed or forcibly kicked. It’s a Vec since they’re
+easy to initialize and the performance hit is minimal (we expect no more than four
+invulnerables) and restricted to testnets.</dd><dt><a class="type" href="type.Ledger.html" title="type pallet_staking_async::Ledger">Ledger</a></dt><dd>Map from all (unlocked) “controller” accounts to the info regarding the staking.</dd><dt><a class="type" href="type.MaxNominationsOf.html" title="type pallet_staking_async::MaxNominationsOf">MaxNominations<wbr>Of</a></dt><dd>Maximum number of nominations per nominator.</dd><dt><a class="type" href="type.MaxNominatorsCount.html" title="type pallet_staking_async::MaxNominatorsCount">MaxNominators<wbr>Count</a></dt><dd>The maximum nominator count before we stop allowing new validators to join.</dd><dt><a class="type" href="type.MaxStakedRewards.html" title="type pallet_staking_async::MaxStakedRewards">MaxStaked<wbr>Rewards</a></dt><dd>Maximum staked rewards, i.e. the percentage of the era inflation that
+is used for stake rewards.
+See <a href="./index.html#era-payout">Era payout</a>.</dd><dt><a class="type" href="type.MaxValidatorsCount.html" title="type pallet_staking_async::MaxValidatorsCount">MaxValidators<wbr>Count</a></dt><dd>The maximum validator count before we stop allowing new validators to join.</dd><dt><a class="type" href="type.MaxWinnersOf.html" title="type pallet_staking_async::MaxWinnersOf">MaxWinners<wbr>Of</a></dt><dd>Alias for the maximum number of winners (aka. active validators), as defined in by this pallet’s
+config.</dd><dt><a class="type" href="type.MaxWinnersPerPageOf.html" title="type pallet_staking_async::MaxWinnersPerPageOf">MaxWinners<wbr>PerPage<wbr>Of</a></dt><dd>Alias for the maximum number of winners per page, as expected by the election provider.</dd><dt><a class="type" href="type.MinCommission.html" title="type pallet_staking_async::MinCommission">MinCommission</a></dt><dd>The minimum amount of commission that validators can set.</dd><dt><a class="type" href="type.MinNominatorBond.html" title="type pallet_staking_async::MinNominatorBond">MinNominator<wbr>Bond</a></dt><dd>The minimum active bond to become and maintain the role of a nominator.</dd><dt><a class="type" href="type.MinValidatorBond.html" title="type pallet_staking_async::MinValidatorBond">MinValidator<wbr>Bond</a></dt><dd>The minimum active bond to become and maintain the role of a validator.</dd><dt><a class="type" href="type.MinimumActiveStake.html" title="type pallet_staking_async::MinimumActiveStake">Minimum<wbr>Active<wbr>Stake</a></dt><dd>The minimum active nominator stake of the last successful election.</dd><dt><a class="type" href="type.Module.html" title="type pallet_staking_async::Module">Module</a><wbr><span class="stab deprecated" title="">Deprecated</span></dt><dd>Type alias to <code>Pallet</code>, to be used by <code>construct_runtime</code>.</dd><dt><a class="type" href="type.NegativeImbalanceOf.html" title="type pallet_staking_async::NegativeImbalanceOf">Negative<wbr>Imbalance<wbr>Of</a></dt><dt><a class="type" href="type.NextElectionPage.html" title="type pallet_staking_async::NextElectionPage">Next<wbr>Election<wbr>Page</a></dt><dd>Keeps track of an ongoing multi-page election solution request.</dd><dt><a class="type" href="type.Nominators.html" title="type pallet_staking_async::Nominators">Nominators</a></dt><dd>The map from nominator stash key to their nomination preferences, namely the validators that
+they wish to support.</dd><dt><a class="type" href="type.OffenceQueue.html" title="type pallet_staking_async::OffenceQueue">Offence<wbr>Queue</a></dt><dd>Stores reported offences in a queue until they are processed in subsequent blocks.</dd><dt><a class="type" href="type.OffenceQueueEras.html" title="type pallet_staking_async::OffenceQueueEras">Offence<wbr>Queue<wbr>Eras</a></dt><dd>Tracks the eras that contain offences in <code>OffenceQueue</code>, sorted from <strong>earliest to latest</strong>.</dd><dt><a class="type" href="type.Payee.html" title="type pallet_staking_async::Payee">Payee</a></dt><dd>Where the reward payment should be made. Keyed by stash.</dd><dt><a class="type" href="type.ProcessingOffence.html" title="type pallet_staking_async::ProcessingOffence">Processing<wbr>Offence</a></dt><dd>Tracks the currently processed offence record from the <code>OffenceQueue</code>.</dd><dt><a class="type" href="type.RewardPoint.html" title="type pallet_staking_async::RewardPoint">Reward<wbr>Point</a></dt><dd>Counter for the number of “reward” points earned by a given validator.</dd><dt><a class="type" href="type.SlashRewardFraction.html" title="type pallet_staking_async::SlashRewardFraction">Slash<wbr>Reward<wbr>Fraction</a></dt><dd>The percentage of the slash that is distributed to reporters.</dd><dt><a class="type" href="type.UnappliedSlashes.html" title="type pallet_staking_async::UnappliedSlashes">Unapplied<wbr>Slashes</a></dt><dd>All unapplied slashes that are queued for later.</dd><dt><a class="type" href="type.ValidatorCount.html" title="type pallet_staking_async::ValidatorCount">Validator<wbr>Count</a></dt><dd>The ideal number of active validators.</dd><dt><a class="type" href="type.ValidatorSlashInEra.html" title="type pallet_staking_async::ValidatorSlashInEra">Validator<wbr>Slash<wbr>InEra</a></dt><dd>All slashing events on validators, mapped by era to the highest slash proportion
+and slash value of the era.</dd><dt><a class="type" href="type.Validators.html" title="type pallet_staking_async::Validators">Validators</a></dt><dd>The map from (wannabe) validator stash key to the preferences of that validator.</dd><dt><a class="type" href="type.VirtualStakers.html" title="type pallet_staking_async::VirtualStakers">Virtual<wbr>Stakers</a></dt><dd>Stakers whose funds are managed by other pallets.</dd><dt><a class="type" href="type.VoterSnapshotStatus.html" title="type pallet_staking_async::VoterSnapshotStatus">Voter<wbr>Snapshot<wbr>Status</a></dt><dd>Voter snapshot progress status.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Drain<'_, T>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/drain/struct.Drain.html\" title=\"struct alloc::vec::drain::Drain\">Drain</a>&lt;'_, T, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/drain/struct.Drain.html\" title=\"struct alloc::vec::drain::Drain\">Drain</a>&lt;'_, T, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","IterMut<'_, T>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/core/slice/iter/struct.IterMut.html\" title=\"struct core::slice::iter::IterMut\">IterMut</a>&lt;'a, T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;'a, T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/core/slice/iter/struct.IterMut.html\" title=\"struct core::slice::iter::IterMut\">IterMut</a>&lt;'a, T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = <a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.reference.html\">&amp;'a mut T</a>;</div>","KeyPrefixIterator<(Key1, Key2)>":"<h3>Notable traits for <code>KeyPrefixIterator&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for KeyPrefixIterator&lt;T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","KeyPrefixIterator<<Key as HasKeyPrefix<KP>>::Suffix>":"<h3>Notable traits for <code>KeyPrefixIterator&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for KeyPrefixIterator&lt;T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","KeyPrefixIterator<<Key as KeyGenerator>::Key>":"<h3>Notable traits for <code>KeyPrefixIterator&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for KeyPrefixIterator&lt;T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","KeyPrefixIterator<Key2>":"<h3>Notable traits for <code>KeyPrefixIterator&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for KeyPrefixIterator&lt;T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","KeyPrefixIterator<Key>":"<h3>Notable traits for <code>KeyPrefixIterator&lt;T&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for KeyPrefixIterator&lt;T&gt;</div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(<Key as HasKeyPrefix<KP>>::Suffix, Value)>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(<Key as KeyGenerator>::Key, Value)>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(Key, Value), OnRemovalCounterUpdate<Prefix>>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(Key, Value)>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(Key1, Key2, Value)>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<(Key2, Value)>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<Value, OnRemovalCounterUpdate<Prefix>>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","PrefixIterator<Value>":"<h3>Notable traits for <code>PrefixIterator&lt;T, OnRemoval&gt;</code></h3><pre><code><div class=\"where\">impl&lt;T, OnRemoval&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html\" title=\"trait core::iter::traits::iterator::Iterator\">Iterator</a> for PrefixIterator&lt;T, OnRemoval&gt;<div class=\"where\">where\n    OnRemoval: PrefixIteratorOnRemoval,</div></div><div class=\"where\">    type <a href=\"https://doc.rust-lang.org/1.88.0/core/iter/traits/iterator/trait.Iterator.html#associatedtype.Item\" class=\"associatedtype\">Item</a> = T;</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

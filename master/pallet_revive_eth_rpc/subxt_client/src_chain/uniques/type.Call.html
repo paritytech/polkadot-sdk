@@ -1,0 +1,277 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::uniques - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.approve_transfer" title="approve_transfer">approve_transfer</a></li><li><a href="#variant.burn" title="burn">burn</a></li><li><a href="#variant.buy_item" title="buy_item">buy_item</a></li><li><a href="#variant.cancel_approval" title="cancel_approval">cancel_approval</a></li><li><a href="#variant.clear_attribute" title="clear_attribute">clear_attribute</a></li><li><a href="#variant.clear_collection_metadata" title="clear_collection_metadata">clear_collection_metadata</a></li><li><a href="#variant.clear_metadata" title="clear_metadata">clear_metadata</a></li><li><a href="#variant.create" title="create">create</a></li><li><a href="#variant.destroy" title="destroy">destroy</a></li><li><a href="#variant.force_create" title="force_create">force_create</a></li><li><a href="#variant.force_item_status" title="force_item_status">force_item_status</a></li><li><a href="#variant.freeze" title="freeze">freeze</a></li><li><a href="#variant.freeze_collection" title="freeze_collection">freeze_collection</a></li><li><a href="#variant.mint" title="mint">mint</a></li><li><a href="#variant.redeposit" title="redeposit">redeposit</a></li><li><a href="#variant.set_accept_ownership" title="set_accept_ownership">set_accept_ownership</a></li><li><a href="#variant.set_attribute" title="set_attribute">set_attribute</a></li><li><a href="#variant.set_collection_max_supply" title="set_collection_max_supply">set_collection_max_supply</a></li><li><a href="#variant.set_collection_metadata" title="set_collection_metadata">set_collection_metadata</a></li><li><a href="#variant.set_metadata" title="set_metadata">set_metadata</a></li><li><a href="#variant.set_price" title="set_price">set_price</a></li><li><a href="#variant.set_team" title="set_team">set_team</a></li><li><a href="#variant.thaw" title="thaw">thaw</a></li><li><a href="#variant.thaw_collection" title="thaw_collection">thaw_collection</a></li><li><a href="#variant.transfer" title="transfer">transfer</a></li><li><a href="#variant.transfer_ownership" title="transfer_ownership">transfer_ownership</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>uniques</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">uniques</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/pallet_uniques/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_uniques::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 variants</span></summary>    create {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    force_create {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        free_holding: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    destroy {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        witness: <a class="struct" href="../runtime_types/pallet_uniques/types/struct.DestroyWitness.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_uniques::types::DestroyWitness">DestroyWitness</a>,
+    },
+    mint {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    burn {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        check_owner: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;,
+    },
+    transfer {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        dest: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    redeposit {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    freeze {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    thaw {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    freeze_collection {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    thaw_collection {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    transfer_ownership {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        new_owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    set_team {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        issuer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        freezer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    approve_transfer {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        delegate: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    cancel_approval {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        maybe_check_delegate: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;,
+    },
+    force_item_status {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        issuer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        freezer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        free_holding: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+        is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    set_attribute {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        maybe_item: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        key: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        value: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    clear_attribute {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        maybe_item: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        key: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    set_metadata {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        data: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    clear_metadata {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_collection_metadata {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        data: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a>,
+    },
+    clear_collection_metadata {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_accept_ownership {
+        maybe_collection: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    set_collection_max_supply {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_supply: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_price {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        price: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+        whitelisted_buyer: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;,
+    },
+    buy_item {
+        collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        bid_price: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.create" class="variant"><a href="#variant.create" class="anchor">§</a><h3 class="code-header">create</h3></section><div class="sub-variant" id="variant.create.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.create.field.collection" class="section-header"><a href="#variant.create.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.create.field.admin" class="section-header"><a href="#variant.create.field.admin" class="anchor field">§</a><code>admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.force_create" class="variant"><a href="#variant.force_create" class="anchor">§</a><h3 class="code-header">force_create</h3></section><div class="sub-variant" id="variant.force_create.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.force_create.field.collection" class="section-header"><a href="#variant.force_create.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.force_create.field.owner" class="section-header"><a href="#variant.force_create.field.owner" class="anchor field">§</a><code>owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_create.field.free_holding" class="section-header"><a href="#variant.force_create.field.free_holding" class="anchor field">§</a><code>free_holding: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.destroy" class="variant"><a href="#variant.destroy" class="anchor">§</a><h3 class="code-header">destroy</h3></section><div class="sub-variant" id="variant.destroy.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.destroy.field.collection" class="section-header"><a href="#variant.destroy.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.destroy.field.witness" class="section-header"><a href="#variant.destroy.field.witness" class="anchor field">§</a><code>witness: <a class="struct" href="../runtime_types/pallet_uniques/types/struct.DestroyWitness.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_uniques::types::DestroyWitness">DestroyWitness</a></code></span></div></div><section id="variant.mint" class="variant"><a href="#variant.mint" class="anchor">§</a><h3 class="code-header">mint</h3></section><div class="sub-variant" id="variant.mint.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.mint.field.collection" class="section-header"><a href="#variant.mint.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.mint.field.item" class="section-header"><a href="#variant.mint.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.mint.field.owner" class="section-header"><a href="#variant.mint.field.owner" class="anchor field">§</a><code>owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.burn" class="variant"><a href="#variant.burn" class="anchor">§</a><h3 class="code-header">burn</h3></section><div class="sub-variant" id="variant.burn.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.burn.field.collection" class="section-header"><a href="#variant.burn.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.burn.field.item" class="section-header"><a href="#variant.burn.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.burn.field.check_owner" class="section-header"><a href="#variant.burn.field.check_owner" class="anchor field">§</a><code>check_owner: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;</code></span></div></div><section id="variant.transfer" class="variant"><a href="#variant.transfer" class="anchor">§</a><h3 class="code-header">transfer</h3></section><div class="sub-variant" id="variant.transfer.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.transfer.field.collection" class="section-header"><a href="#variant.transfer.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.transfer.field.item" class="section-header"><a href="#variant.transfer.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.transfer.field.dest" class="section-header"><a href="#variant.transfer.field.dest" class="anchor field">§</a><code>dest: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.redeposit" class="variant"><a href="#variant.redeposit" class="anchor">§</a><h3 class="code-header">redeposit</h3></section><div class="sub-variant" id="variant.redeposit.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.redeposit.field.collection" class="section-header"><a href="#variant.redeposit.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.redeposit.field.items" class="section-header"><a href="#variant.redeposit.field.items" class="anchor field">§</a><code>items: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.freeze" class="variant"><a href="#variant.freeze" class="anchor">§</a><h3 class="code-header">freeze</h3></section><div class="sub-variant" id="variant.freeze.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.freeze.field.collection" class="section-header"><a href="#variant.freeze.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.freeze.field.item" class="section-header"><a href="#variant.freeze.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.thaw" class="variant"><a href="#variant.thaw" class="anchor">§</a><h3 class="code-header">thaw</h3></section><div class="sub-variant" id="variant.thaw.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.thaw.field.collection" class="section-header"><a href="#variant.thaw.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.thaw.field.item" class="section-header"><a href="#variant.thaw.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.freeze_collection" class="variant"><a href="#variant.freeze_collection" class="anchor">§</a><h3 class="code-header">freeze_collection</h3></section><div class="sub-variant" id="variant.freeze_collection.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.freeze_collection.field.collection" class="section-header"><a href="#variant.freeze_collection.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.thaw_collection" class="variant"><a href="#variant.thaw_collection" class="anchor">§</a><h3 class="code-header">thaw_collection</h3></section><div class="sub-variant" id="variant.thaw_collection.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.thaw_collection.field.collection" class="section-header"><a href="#variant.thaw_collection.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.transfer_ownership" class="variant"><a href="#variant.transfer_ownership" class="anchor">§</a><h3 class="code-header">transfer_ownership</h3></section><div class="sub-variant" id="variant.transfer_ownership.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.transfer_ownership.field.collection" class="section-header"><a href="#variant.transfer_ownership.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.transfer_ownership.field.new_owner" class="section-header"><a href="#variant.transfer_ownership.field.new_owner" class="anchor field">§</a><code>new_owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.set_team" class="variant"><a href="#variant.set_team" class="anchor">§</a><h3 class="code-header">set_team</h3></section><div class="sub-variant" id="variant.set_team.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_team.field.collection" class="section-header"><a href="#variant.set_team.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_team.field.issuer" class="section-header"><a href="#variant.set_team.field.issuer" class="anchor field">§</a><code>issuer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_team.field.admin" class="section-header"><a href="#variant.set_team.field.admin" class="anchor field">§</a><code>admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_team.field.freezer" class="section-header"><a href="#variant.set_team.field.freezer" class="anchor field">§</a><code>freezer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.approve_transfer" class="variant"><a href="#variant.approve_transfer" class="anchor">§</a><h3 class="code-header">approve_transfer</h3></section><div class="sub-variant" id="variant.approve_transfer.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.approve_transfer.field.collection" class="section-header"><a href="#variant.approve_transfer.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.approve_transfer.field.item" class="section-header"><a href="#variant.approve_transfer.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.approve_transfer.field.delegate" class="section-header"><a href="#variant.approve_transfer.field.delegate" class="anchor field">§</a><code>delegate: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.cancel_approval" class="variant"><a href="#variant.cancel_approval" class="anchor">§</a><h3 class="code-header">cancel_approval</h3></section><div class="sub-variant" id="variant.cancel_approval.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.cancel_approval.field.collection" class="section-header"><a href="#variant.cancel_approval.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.cancel_approval.field.item" class="section-header"><a href="#variant.cancel_approval.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.cancel_approval.field.maybe_check_delegate" class="section-header"><a href="#variant.cancel_approval.field.maybe_check_delegate" class="anchor field">§</a><code>maybe_check_delegate: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;</code></span></div></div><section id="variant.force_item_status" class="variant"><a href="#variant.force_item_status" class="anchor">§</a><h3 class="code-header">force_item_status</h3></section><div class="sub-variant" id="variant.force_item_status.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.force_item_status.field.collection" class="section-header"><a href="#variant.force_item_status.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.owner" class="section-header"><a href="#variant.force_item_status.field.owner" class="anchor field">§</a><code>owner: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.issuer" class="section-header"><a href="#variant.force_item_status.field.issuer" class="anchor field">§</a><code>issuer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.admin" class="section-header"><a href="#variant.force_item_status.field.admin" class="anchor field">§</a><code>admin: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.freezer" class="section-header"><a href="#variant.force_item_status.field.freezer" class="anchor field">§</a><code>freezer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.free_holding" class="section-header"><a href="#variant.force_item_status.field.free_holding" class="anchor field">§</a><code>free_holding: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div><div class="sub-variant-field"><span id="variant.force_item_status.field.is_frozen" class="section-header"><a href="#variant.force_item_status.field.is_frozen" class="anchor field">§</a><code>is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.set_attribute" class="variant"><a href="#variant.set_attribute" class="anchor">§</a><h3 class="code-header">set_attribute</h3></section><div class="sub-variant" id="variant.set_attribute.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_attribute.field.collection" class="section-header"><a href="#variant.set_attribute.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_attribute.field.maybe_item" class="section-header"><a href="#variant.set_attribute.field.maybe_item" class="anchor field">§</a><code>maybe_item: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_attribute.field.key" class="section-header"><a href="#variant.set_attribute.field.key" class="anchor field">§</a><code>key: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_attribute.field.value" class="section-header"><a href="#variant.set_attribute.field.value" class="anchor field">§</a><code>value: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.clear_attribute" class="variant"><a href="#variant.clear_attribute" class="anchor">§</a><h3 class="code-header">clear_attribute</h3></section><div class="sub-variant" id="variant.clear_attribute.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.clear_attribute.field.collection" class="section-header"><a href="#variant.clear_attribute.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.clear_attribute.field.maybe_item" class="section-header"><a href="#variant.clear_attribute.field.maybe_item" class="anchor field">§</a><code>maybe_item: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.clear_attribute.field.key" class="section-header"><a href="#variant.clear_attribute.field.key" class="anchor field">§</a><code>key: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.set_metadata" class="variant"><a href="#variant.set_metadata" class="anchor">§</a><h3 class="code-header">set_metadata</h3></section><div class="sub-variant" id="variant.set_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_metadata.field.collection" class="section-header"><a href="#variant.set_metadata.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_metadata.field.item" class="section-header"><a href="#variant.set_metadata.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_metadata.field.data" class="section-header"><a href="#variant.set_metadata.field.data" class="anchor field">§</a><code>data: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_metadata.field.is_frozen" class="section-header"><a href="#variant.set_metadata.field.is_frozen" class="anchor field">§</a><code>is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.clear_metadata" class="variant"><a href="#variant.clear_metadata" class="anchor">§</a><h3 class="code-header">clear_metadata</h3></section><div class="sub-variant" id="variant.clear_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.clear_metadata.field.collection" class="section-header"><a href="#variant.clear_metadata.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.clear_metadata.field.item" class="section-header"><a href="#variant.clear_metadata.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_collection_metadata" class="variant"><a href="#variant.set_collection_metadata" class="anchor">§</a><h3 class="code-header">set_collection_metadata</h3></section><div class="sub-variant" id="variant.set_collection_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_collection_metadata.field.collection" class="section-header"><a href="#variant.set_collection_metadata.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_collection_metadata.field.data" class="section-header"><a href="#variant.set_collection_metadata.field.data" class="anchor field">§</a><code>data: <a class="struct" href="../runtime_types/bounded_collections/bounded_vec/struct.BoundedVec.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::bounded_collections::bounded_vec::BoundedVec">BoundedVec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_collection_metadata.field.is_frozen" class="section-header"><a href="#variant.set_collection_metadata.field.is_frozen" class="anchor field">§</a><code>is_frozen: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.bool.html">bool</a></code></span></div></div><section id="variant.clear_collection_metadata" class="variant"><a href="#variant.clear_collection_metadata" class="anchor">§</a><h3 class="code-header">clear_collection_metadata</h3></section><div class="sub-variant" id="variant.clear_collection_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.clear_collection_metadata.field.collection" class="section-header"><a href="#variant.clear_collection_metadata.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_accept_ownership" class="variant"><a href="#variant.set_accept_ownership" class="anchor">§</a><h3 class="code-header">set_accept_ownership</h3></section><div class="sub-variant" id="variant.set_accept_ownership.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_accept_ownership.field.maybe_collection" class="section-header"><a href="#variant.set_accept_ownership.field.maybe_collection" class="anchor field">§</a><code>maybe_collection: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.set_collection_max_supply" class="variant"><a href="#variant.set_collection_max_supply" class="anchor">§</a><h3 class="code-header">set_collection_max_supply</h3></section><div class="sub-variant" id="variant.set_collection_max_supply.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_collection_max_supply.field.collection" class="section-header"><a href="#variant.set_collection_max_supply.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_collection_max_supply.field.max_supply" class="section-header"><a href="#variant.set_collection_max_supply.field.max_supply" class="anchor field">§</a><code>max_supply: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_price" class="variant"><a href="#variant.set_price" class="anchor">§</a><h3 class="code-header">set_price</h3></section><div class="sub-variant" id="variant.set_price.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_price.field.collection" class="section-header"><a href="#variant.set_price.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_price.field.item" class="section-header"><a href="#variant.set_price.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_price.field.price" class="section-header"><a href="#variant.set_price.field.price" class="anchor field">§</a><code>price: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_price.field.whitelisted_buyer" class="section-header"><a href="#variant.set_price.field.whitelisted_buyer" class="anchor field">§</a><code>whitelisted_buyer: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;&gt;</code></span></div></div><section id="variant.buy_item" class="variant"><a href="#variant.buy_item" class="anchor">§</a><h3 class="code-header">buy_item</h3></section><div class="sub-variant" id="variant.buy_item.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.buy_item.field.collection" class="section-header"><a href="#variant.buy_item.field.collection" class="anchor field">§</a><code>collection: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.buy_item.field.item" class="section-header"><a href="#variant.buy_item.field.item" class="anchor field">§</a><code>item: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.buy_item.field.bid_price" class="section-header"><a href="#variant.buy_item.field.bid_price" class="anchor field">§</a><code>bid_price: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_uniques/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::uniques::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

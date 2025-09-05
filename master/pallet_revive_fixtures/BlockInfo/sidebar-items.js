@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlockInfoCalls"],"struct":["basefeeCall","basefeeReturn","blockNumberCall","blockNumberReturn","chainidCall","chainidReturn","coinbaseCall","coinbaseReturn","difficultyCall","difficultyReturn","gaslimitCall","gaslimitReturn","timestampCall","timestampReturn"]};

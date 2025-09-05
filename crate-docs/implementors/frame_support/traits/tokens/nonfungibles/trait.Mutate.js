@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"pallet_uniques":[["impl&lt;T: <a class=\"trait\" href=\"pallet_uniques/pallet/trait.Config.html\" title=\"trait pallet_uniques::pallet::Config\">Config</a>&lt;I&gt;, I: 'static&gt; <a class=\"trait\" href=\"frame_support/traits/tokens/nonfungibles/trait.Mutate.html\" title=\"trait frame_support::traits::tokens::nonfungibles::Mutate\">Mutate</a>&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"pallet_uniques/pallet/struct.Pallet.html\" title=\"struct pallet_uniques::pallet::Pallet\">Pallet</a>&lt;T, I&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

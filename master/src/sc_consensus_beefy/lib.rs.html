@@ -1,0 +1,967 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">sc_consensus_beefy/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file is part of Substrate.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a>// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#4 id=4 data-nosnippet>4</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a>// This program is free software: you can redistribute it and/or modify
+<a href=#7 id=7 data-nosnippet>7</a>// it under the terms of the GNU General Public License as published by
+<a href=#8 id=8 data-nosnippet>8</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#9 id=9 data-nosnippet>9</a>// (at your option) any later version.
+<a href=#10 id=10 data-nosnippet>10</a>
+<a href=#11 id=11 data-nosnippet>11</a>// This program is distributed in the hope that it will be useful,
+<a href=#12 id=12 data-nosnippet>12</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#13 id=13 data-nosnippet>13</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href=#14 id=14 data-nosnippet>14</a>// GNU General Public License for more details.
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a>// You should have received a copy of the GNU General Public License
+<a href=#17 id=17 data-nosnippet>17</a>// along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+<a href=#18 id=18 data-nosnippet>18</a>
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">use crate</span>::{
+<a href=#20 id=20 data-nosnippet>20</a>	communication::{
+<a href=#21 id=21 data-nosnippet>21</a>		notification::{
+<a href=#22 id=22 data-nosnippet>22</a>			BeefyBestBlockSender, BeefyBestBlockStream, BeefyVersionedFinalityProofSender,
+<a href=#23 id=23 data-nosnippet>23</a>			BeefyVersionedFinalityProofStream,
+<a href=#24 id=24 data-nosnippet>24</a>		},
+<a href=#25 id=25 data-nosnippet>25</a>		peers::KnownPeers,
+<a href=#26 id=26 data-nosnippet>26</a>		request_response::{
+<a href=#27 id=27 data-nosnippet>27</a>			outgoing_requests_engine::OnDemandJustificationsEngine, BeefyJustifsRequestHandler,
+<a href=#28 id=28 data-nosnippet>28</a>		},
+<a href=#29 id=29 data-nosnippet>29</a>	},
+<a href=#30 id=30 data-nosnippet>30</a>	error::Error,
+<a href=#31 id=31 data-nosnippet>31</a>	import::BeefyBlockImport,
+<a href=#32 id=32 data-nosnippet>32</a>	metrics::register_metrics,
+<a href=#33 id=33 data-nosnippet>33</a>};
+<a href=#34 id=34 data-nosnippet>34</a><span class="kw">use </span>futures::{stream::Fuse, FutureExt, StreamExt};
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">use </span>log::{debug, error, info, trace, warn};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>parking_lot::Mutex;
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>prometheus_endpoint::Registry;
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sc_client_api::{Backend, BlockBackend, BlockchainEvents, FinalityNotification, Finalizer};
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>sc_consensus::BlockImport;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sc_network::{NetworkRequest, NotificationService, ProtocolName};
+<a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>sc_network_gossip::{GossipEngine, Network <span class="kw">as </span>GossipNetwork, Syncing <span class="kw">as </span>GossipSyncing};
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span>sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">use </span>sp_api::ProvideRuntimeApi;
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">use </span>sp_blockchain::{Backend <span class="kw">as </span>BlockchainBackend, HeaderBackend};
+<a href=#45 id=45 data-nosnippet>45</a><span class="kw">use </span>sp_consensus::{Error <span class="kw">as </span>ConsensusError, SyncOracle};
+<a href=#46 id=46 data-nosnippet>46</a><span class="kw">use </span>sp_consensus_beefy::{
+<a href=#47 id=47 data-nosnippet>47</a>	AuthorityIdBound, BeefyApi, ConsensusLog, PayloadProvider, ValidatorSet, BEEFY_ENGINE_ID,
+<a href=#48 id=48 data-nosnippet>48</a>};
+<a href=#49 id=49 data-nosnippet>49</a><span class="kw">use </span>sp_keystore::KeystorePtr;
+<a href=#50 id=50 data-nosnippet>50</a><span class="kw">use </span>sp_runtime::traits::{Block, Header <span class="kw">as </span>HeaderT, NumberFor, Zero};
+<a href=#51 id=51 data-nosnippet>51</a><span class="kw">use </span>std::{
+<a href=#52 id=52 data-nosnippet>52</a>	collections::{BTreeMap, VecDeque},
+<a href=#53 id=53 data-nosnippet>53</a>	future::Future,
+<a href=#54 id=54 data-nosnippet>54</a>	marker::PhantomData,
+<a href=#55 id=55 data-nosnippet>55</a>	pin::Pin,
+<a href=#56 id=56 data-nosnippet>56</a>	sync::Arc,
+<a href=#57 id=57 data-nosnippet>57</a>	time::Duration,
+<a href=#58 id=58 data-nosnippet>58</a>};
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="kw">mod </span>aux_schema;
+<a href=#61 id=61 data-nosnippet>61</a><span class="kw">mod </span>error;
+<a href=#62 id=62 data-nosnippet>62</a><span class="kw">mod </span>keystore;
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">mod </span>metrics;
+<a href=#64 id=64 data-nosnippet>64</a><span class="kw">mod </span>round;
+<a href=#65 id=65 data-nosnippet>65</a><span class="kw">mod </span>worker;
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a><span class="kw">pub mod </span>communication;
+<a href=#68 id=68 data-nosnippet>68</a><span class="kw">pub mod </span>import;
+<a href=#69 id=69 data-nosnippet>69</a><span class="kw">pub mod </span>justification;
+<a href=#70 id=70 data-nosnippet>70</a>
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">use crate</span>::{
+<a href=#72 id=72 data-nosnippet>72</a>	communication::gossip::GossipValidator,
+<a href=#73 id=73 data-nosnippet>73</a>	fisherman::Fisherman,
+<a href=#74 id=74 data-nosnippet>74</a>	justification::BeefyVersionedFinalityProof,
+<a href=#75 id=75 data-nosnippet>75</a>	keystore::BeefyKeystore,
+<a href=#76 id=76 data-nosnippet>76</a>	metrics::VoterMetrics,
+<a href=#77 id=77 data-nosnippet>77</a>	round::Rounds,
+<a href=#78 id=78 data-nosnippet>78</a>	worker::{BeefyWorker, PersistedState},
+<a href=#79 id=79 data-nosnippet>79</a>};
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub use </span>communication::beefy_protocol_name::{
+<a href=#81 id=81 data-nosnippet>81</a>	gossip_protocol_name, justifications_protocol_name <span class="kw">as </span>justifs_protocol_name,
+<a href=#82 id=82 data-nosnippet>82</a>};
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">use </span>sp_runtime::generic::OpaqueDigestItemId;
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a><span class="kw">mod </span>fisherman;
+<a href=#86 id=86 data-nosnippet>86</a><span class="attr">#[cfg(test)]
+<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">mod </span>tests;
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"beefy"</span>;
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a><span class="kw">const </span>HEADER_SYNC_DELAY: Duration = Duration::from_secs(<span class="number">60</span>);
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a><span class="kw">type </span>FinalityNotifications&lt;Block&gt; =
+<a href=#94 id=94 data-nosnippet>94</a>	sc_utils::mpsc::TracingUnboundedReceiver&lt;UnpinnedFinalityNotification&lt;Block&gt;&gt;;
+<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// A convenience BEEFY client trait that defines all the type bounds a BEEFY client
+<a href=#96 id=96 data-nosnippet>96</a>/// has to satisfy. Ideally that should actually be a trait alias. Unfortunately as
+<a href=#97 id=97 data-nosnippet>97</a>/// of today, Rust does not allow a type alias to be used as a trait bound. Tracking
+<a href=#98 id=98 data-nosnippet>98</a>/// issue is &lt;https://github.com/rust-lang/rust/issues/41517&gt;.
+<a href=#99 id=99 data-nosnippet>99</a></span><span class="kw">pub trait </span>Client&lt;B, BE&gt;:
+<a href=#100 id=100 data-nosnippet>100</a>	BlockchainEvents&lt;B&gt; + HeaderBackend&lt;B&gt; + Finalizer&lt;B, BE&gt; + Send + Sync
+<a href=#101 id=101 data-nosnippet>101</a><span class="kw">where
+<a href=#102 id=102 data-nosnippet>102</a>	</span>B: Block,
+<a href=#103 id=103 data-nosnippet>103</a>	BE: Backend&lt;B&gt;,
+<a href=#104 id=104 data-nosnippet>104</a>{
+<a href=#105 id=105 data-nosnippet>105</a>	<span class="comment">// empty
+<a href=#106 id=106 data-nosnippet>106</a></span>}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a><span class="kw">impl</span>&lt;B, BE, T&gt; Client&lt;B, BE&gt; <span class="kw">for </span>T
+<a href=#109 id=109 data-nosnippet>109</a><span class="kw">where
+<a href=#110 id=110 data-nosnippet>110</a>	</span>B: Block,
+<a href=#111 id=111 data-nosnippet>111</a>	BE: Backend&lt;B&gt;,
+<a href=#112 id=112 data-nosnippet>112</a>	T: BlockchainEvents&lt;B&gt;
+<a href=#113 id=113 data-nosnippet>113</a>		+ HeaderBackend&lt;B&gt;
+<a href=#114 id=114 data-nosnippet>114</a>		+ Finalizer&lt;B, BE&gt;
+<a href=#115 id=115 data-nosnippet>115</a>		+ ProvideRuntimeApi&lt;B&gt;
+<a href=#116 id=116 data-nosnippet>116</a>		+ Send
+<a href=#117 id=117 data-nosnippet>117</a>		+ Sync,
+<a href=#118 id=118 data-nosnippet>118</a>{
+<a href=#119 id=119 data-nosnippet>119</a>	<span class="comment">// empty
+<a href=#120 id=120 data-nosnippet>120</a></span>}
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a><span class="doccomment">/// Links between the block importer, the background voter and the RPC layer,
+<a href=#123 id=123 data-nosnippet>123</a>/// to be used by the voter.
+<a href=#124 id=124 data-nosnippet>124</a></span><span class="attr">#[derive(Clone)]
+<a href=#125 id=125 data-nosnippet>125</a></span><span class="kw">pub struct </span>BeefyVoterLinks&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
+<a href=#126 id=126 data-nosnippet>126</a>	<span class="comment">// BlockImport -&gt; Voter links
+<a href=#127 id=127 data-nosnippet>127</a>	</span><span class="doccomment">/// Stream of BEEFY signed commitments from block import to voter.
+<a href=#128 id=128 data-nosnippet>128</a>	</span><span class="kw">pub </span>from_block_import_justif_stream: BeefyVersionedFinalityProofStream&lt;B, AuthorityId&gt;,
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>	<span class="comment">// Voter -&gt; RPC links
+<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="doccomment">/// Sends BEEFY signed commitments from voter to RPC.
+<a href=#132 id=132 data-nosnippet>132</a>	</span><span class="kw">pub </span>to_rpc_justif_sender: BeefyVersionedFinalityProofSender&lt;B, AuthorityId&gt;,
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="doccomment">/// Sends BEEFY best block hashes from voter to RPC.
+<a href=#134 id=134 data-nosnippet>134</a>	</span><span class="kw">pub </span>to_rpc_best_block_sender: BeefyBestBlockSender&lt;B&gt;,
+<a href=#135 id=135 data-nosnippet>135</a>}
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a><span class="doccomment">/// Links used by the BEEFY RPC layer, from the BEEFY background voter.
+<a href=#138 id=138 data-nosnippet>138</a></span><span class="attr">#[derive(Clone)]
+<a href=#139 id=139 data-nosnippet>139</a></span><span class="kw">pub struct </span>BeefyRPCLinks&lt;B: Block, AuthorityId: AuthorityIdBound&gt; {
+<a href=#140 id=140 data-nosnippet>140</a>	<span class="doccomment">/// Stream of signed commitments coming from the voter.
+<a href=#141 id=141 data-nosnippet>141</a>	</span><span class="kw">pub </span>from_voter_justif_stream: BeefyVersionedFinalityProofStream&lt;B, AuthorityId&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>	<span class="doccomment">/// Stream of BEEFY best block hashes coming from the voter.
+<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">pub </span>from_voter_best_beefy_stream: BeefyBestBlockStream&lt;B&gt;,
+<a href=#144 id=144 data-nosnippet>144</a>}
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a><span class="doccomment">/// Make block importer and link half necessary to tie the background voter to it.
+<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">pub fn </span>beefy_block_import_and_links&lt;B, BE, RuntimeApi, I, AuthorityId: AuthorityIdBound&gt;(
+<a href=#148 id=148 data-nosnippet>148</a>	wrapped_block_import: I,
+<a href=#149 id=149 data-nosnippet>149</a>	backend: Arc&lt;BE&gt;,
+<a href=#150 id=150 data-nosnippet>150</a>	runtime: Arc&lt;RuntimeApi&gt;,
+<a href=#151 id=151 data-nosnippet>151</a>	prometheus_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+<a href=#152 id=152 data-nosnippet>152</a>) -&gt; (
+<a href=#153 id=153 data-nosnippet>153</a>	BeefyBlockImport&lt;B, BE, RuntimeApi, I, AuthorityId&gt;,
+<a href=#154 id=154 data-nosnippet>154</a>	BeefyVoterLinks&lt;B, AuthorityId&gt;,
+<a href=#155 id=155 data-nosnippet>155</a>	BeefyRPCLinks&lt;B, AuthorityId&gt;,
+<a href=#156 id=156 data-nosnippet>156</a>)
+<a href=#157 id=157 data-nosnippet>157</a><span class="kw">where
+<a href=#158 id=158 data-nosnippet>158</a>	</span>B: Block,
+<a href=#159 id=159 data-nosnippet>159</a>	BE: Backend&lt;B&gt;,
+<a href=#160 id=160 data-nosnippet>160</a>	I: BlockImport&lt;B, Error = ConsensusError&gt; + Send + Sync,
+<a href=#161 id=161 data-nosnippet>161</a>	RuntimeApi: ProvideRuntimeApi&lt;B&gt; + Send + Sync,
+<a href=#162 id=162 data-nosnippet>162</a>	RuntimeApi::Api: BeefyApi&lt;B, AuthorityId&gt;,
+<a href=#163 id=163 data-nosnippet>163</a>	AuthorityId: AuthorityIdBound,
+<a href=#164 id=164 data-nosnippet>164</a>{
+<a href=#165 id=165 data-nosnippet>165</a>	<span class="comment">// Voter -&gt; RPC links
+<a href=#166 id=166 data-nosnippet>166</a>	</span><span class="kw">let </span>(to_rpc_justif_sender, from_voter_justif_stream) =
+<a href=#167 id=167 data-nosnippet>167</a>		BeefyVersionedFinalityProofStream::&lt;B, AuthorityId&gt;::channel();
+<a href=#168 id=168 data-nosnippet>168</a>	<span class="kw">let </span>(to_rpc_best_block_sender, from_voter_best_beefy_stream) =
+<a href=#169 id=169 data-nosnippet>169</a>		BeefyBestBlockStream::&lt;B&gt;::channel();
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a>	<span class="comment">// BlockImport -&gt; Voter links
+<a href=#172 id=172 data-nosnippet>172</a>	</span><span class="kw">let </span>(to_voter_justif_sender, from_block_import_justif_stream) =
+<a href=#173 id=173 data-nosnippet>173</a>		BeefyVersionedFinalityProofStream::&lt;B, AuthorityId&gt;::channel();
+<a href=#174 id=174 data-nosnippet>174</a>	<span class="kw">let </span>metrics = register_metrics(prometheus_registry);
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a>	<span class="comment">// BlockImport
+<a href=#177 id=177 data-nosnippet>177</a>	</span><span class="kw">let </span>import = BeefyBlockImport::new(
+<a href=#178 id=178 data-nosnippet>178</a>		backend,
+<a href=#179 id=179 data-nosnippet>179</a>		runtime,
+<a href=#180 id=180 data-nosnippet>180</a>		wrapped_block_import,
+<a href=#181 id=181 data-nosnippet>181</a>		to_voter_justif_sender,
+<a href=#182 id=182 data-nosnippet>182</a>		metrics,
+<a href=#183 id=183 data-nosnippet>183</a>	);
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="kw">let </span>voter_links = BeefyVoterLinks {
+<a href=#185 id=185 data-nosnippet>185</a>		from_block_import_justif_stream,
+<a href=#186 id=186 data-nosnippet>186</a>		to_rpc_justif_sender,
+<a href=#187 id=187 data-nosnippet>187</a>		to_rpc_best_block_sender,
+<a href=#188 id=188 data-nosnippet>188</a>	};
+<a href=#189 id=189 data-nosnippet>189</a>	<span class="kw">let </span>rpc_links = BeefyRPCLinks { from_voter_best_beefy_stream, from_voter_justif_stream };
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a>	(import, voter_links, rpc_links)
+<a href=#192 id=192 data-nosnippet>192</a>}
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a><span class="doccomment">/// BEEFY gadget network parameters.
+<a href=#195 id=195 data-nosnippet>195</a></span><span class="kw">pub struct </span>BeefyNetworkParams&lt;B: Block, N, S&gt; {
+<a href=#196 id=196 data-nosnippet>196</a>	<span class="doccomment">/// Network implementing gossip, requests and sync-oracle.
+<a href=#197 id=197 data-nosnippet>197</a>	</span><span class="kw">pub </span>network: Arc&lt;N&gt;,
+<a href=#198 id=198 data-nosnippet>198</a>	<span class="doccomment">/// Syncing service implementing a sync oracle and an event stream for peers.
+<a href=#199 id=199 data-nosnippet>199</a>	</span><span class="kw">pub </span>sync: Arc&lt;S&gt;,
+<a href=#200 id=200 data-nosnippet>200</a>	<span class="doccomment">/// Handle for receiving notification events.
+<a href=#201 id=201 data-nosnippet>201</a>	</span><span class="kw">pub </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="doccomment">/// Chain specific BEEFY gossip protocol name. See
+<a href=#203 id=203 data-nosnippet>203</a>	/// [`communication::beefy_protocol_name::gossip_protocol_name`].
+<a href=#204 id=204 data-nosnippet>204</a>	</span><span class="kw">pub </span>gossip_protocol_name: ProtocolName,
+<a href=#205 id=205 data-nosnippet>205</a>	<span class="doccomment">/// Chain specific BEEFY on-demand justifications protocol name. See
+<a href=#206 id=206 data-nosnippet>206</a>	/// [`communication::beefy_protocol_name::justifications_protocol_name`].
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">pub </span>justifications_protocol_name: ProtocolName,
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>	<span class="kw">pub </span>_phantom: PhantomData&lt;B&gt;,
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="doccomment">/// BEEFY gadget initialization parameters.
+<a href=#213 id=213 data-nosnippet>213</a></span><span class="kw">pub struct </span>BeefyParams&lt;B: Block, BE, C, N, P, R, S, AuthorityId: AuthorityIdBound&gt; {
+<a href=#214 id=214 data-nosnippet>214</a>	<span class="doccomment">/// BEEFY client
+<a href=#215 id=215 data-nosnippet>215</a>	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
+<a href=#216 id=216 data-nosnippet>216</a>	<span class="doccomment">/// Client Backend
+<a href=#217 id=217 data-nosnippet>217</a>	</span><span class="kw">pub </span>backend: Arc&lt;BE&gt;,
+<a href=#218 id=218 data-nosnippet>218</a>	<span class="doccomment">/// BEEFY Payload provider
+<a href=#219 id=219 data-nosnippet>219</a>	</span><span class="kw">pub </span>payload_provider: P,
+<a href=#220 id=220 data-nosnippet>220</a>	<span class="doccomment">/// Runtime Api Provider
+<a href=#221 id=221 data-nosnippet>221</a>	</span><span class="kw">pub </span>runtime: Arc&lt;R&gt;,
+<a href=#222 id=222 data-nosnippet>222</a>	<span class="doccomment">/// Local key store
+<a href=#223 id=223 data-nosnippet>223</a>	</span><span class="kw">pub </span>key_store: <span class="prelude-ty">Option</span>&lt;KeystorePtr&gt;,
+<a href=#224 id=224 data-nosnippet>224</a>	<span class="doccomment">/// BEEFY voter network params
+<a href=#225 id=225 data-nosnippet>225</a>	</span><span class="kw">pub </span>network_params: BeefyNetworkParams&lt;B, N, S&gt;,
+<a href=#226 id=226 data-nosnippet>226</a>	<span class="doccomment">/// Minimal delta between blocks, BEEFY should vote for
+<a href=#227 id=227 data-nosnippet>227</a>	</span><span class="kw">pub </span>min_block_delta: u32,
+<a href=#228 id=228 data-nosnippet>228</a>	<span class="doccomment">/// Prometheus metric registry
+<a href=#229 id=229 data-nosnippet>229</a>	</span><span class="kw">pub </span>prometheus_registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+<a href=#230 id=230 data-nosnippet>230</a>	<span class="doccomment">/// Links between the block importer, the background voter and the RPC layer.
+<a href=#231 id=231 data-nosnippet>231</a>	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B, AuthorityId&gt;,
+<a href=#232 id=232 data-nosnippet>232</a>	<span class="doccomment">/// Handler for incoming BEEFY justifications requests from a remote peer.
+<a href=#233 id=233 data-nosnippet>233</a>	</span><span class="kw">pub </span>on_demand_justifications_handler: BeefyJustifsRequestHandler&lt;B, C&gt;,
+<a href=#234 id=234 data-nosnippet>234</a>	<span class="doccomment">/// Whether running under "Authority" role.
+<a href=#235 id=235 data-nosnippet>235</a>	</span><span class="kw">pub </span>is_authority: bool,
+<a href=#236 id=236 data-nosnippet>236</a>}
+<a href=#237 id=237 data-nosnippet>237</a><span class="doccomment">/// Helper object holding BEEFY worker communication/gossip components.
+<a href=#238 id=238 data-nosnippet>238</a>///
+<a href=#239 id=239 data-nosnippet>239</a>/// These are created once, but will be reused if worker is restarted/reinitialized.
+<a href=#240 id=240 data-nosnippet>240</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyComms&lt;B: Block, N, AuthorityId: AuthorityIdBound&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>	<span class="kw">pub </span>gossip_engine: GossipEngine&lt;B&gt;,
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="kw">pub </span>gossip_validator: Arc&lt;GossipValidator&lt;B, N, AuthorityId&gt;&gt;,
+<a href=#243 id=243 data-nosnippet>243</a>	<span class="kw">pub </span>on_demand_justifications: OnDemandJustificationsEngine&lt;B, AuthorityId&gt;,
+<a href=#244 id=244 data-nosnippet>244</a>}
+<a href=#245 id=245 data-nosnippet>245</a>
+<a href=#246 id=246 data-nosnippet>246</a><span class="doccomment">/// Helper builder object for building [worker::BeefyWorker].
+<a href=#247 id=247 data-nosnippet>247</a>///
+<a href=#248 id=248 data-nosnippet>248</a>/// It has to do it in two steps: initialization and build, because the first step can sleep waiting
+<a href=#249 id=249 data-nosnippet>249</a>/// for certain chain and backend conditions, and while sleeping we still need to pump the
+<a href=#250 id=250 data-nosnippet>250</a>/// GossipEngine. Once initialization is done, the GossipEngine (and other pieces) are added to get
+<a href=#251 id=251 data-nosnippet>251</a>/// the complete [worker::BeefyWorker] object.
+<a href=#252 id=252 data-nosnippet>252</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BeefyWorkerBuilder&lt;B: Block, BE, RuntimeApi, AuthorityId: AuthorityIdBound&gt; {
+<a href=#253 id=253 data-nosnippet>253</a>	<span class="comment">// utilities
+<a href=#254 id=254 data-nosnippet>254</a>	</span>backend: Arc&lt;BE&gt;,
+<a href=#255 id=255 data-nosnippet>255</a>	runtime: Arc&lt;RuntimeApi&gt;,
+<a href=#256 id=256 data-nosnippet>256</a>	key_store: BeefyKeystore&lt;AuthorityId&gt;,
+<a href=#257 id=257 data-nosnippet>257</a>	<span class="comment">// voter metrics
+<a href=#258 id=258 data-nosnippet>258</a>	</span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+<a href=#259 id=259 data-nosnippet>259</a>	persisted_state: PersistedState&lt;B, AuthorityId&gt;,
+<a href=#260 id=260 data-nosnippet>260</a>}
+<a href=#261 id=261 data-nosnippet>261</a>
+<a href=#262 id=262 data-nosnippet>262</a><span class="kw">impl</span>&lt;B, BE, R, AuthorityId&gt; BeefyWorkerBuilder&lt;B, BE, R, AuthorityId&gt;
+<a href=#263 id=263 data-nosnippet>263</a><span class="kw">where
+<a href=#264 id=264 data-nosnippet>264</a>	</span>B: Block + codec::Codec,
+<a href=#265 id=265 data-nosnippet>265</a>	BE: Backend&lt;B&gt;,
+<a href=#266 id=266 data-nosnippet>266</a>	R: ProvideRuntimeApi&lt;B&gt;,
+<a href=#267 id=267 data-nosnippet>267</a>	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+<a href=#268 id=268 data-nosnippet>268</a>	AuthorityId: AuthorityIdBound,
+<a href=#269 id=269 data-nosnippet>269</a>{
+<a href=#270 id=270 data-nosnippet>270</a>	<span class="doccomment">/// This will wait for the chain to enable BEEFY (if not yet enabled) and also wait for the
+<a href=#271 id=271 data-nosnippet>271</a>	/// backend to sync all headers required by the voter to build a contiguous chain of mandatory
+<a href=#272 id=272 data-nosnippet>272</a>	/// justifications. Then it builds the initial voter state using a combination of previously
+<a href=#273 id=273 data-nosnippet>273</a>	/// persisted state in AUX DB and latest chain information/progress.
+<a href=#274 id=274 data-nosnippet>274</a>	///
+<a href=#275 id=275 data-nosnippet>275</a>	/// Returns a sane `BeefyWorkerBuilder` that can build the `BeefyWorker`.
+<a href=#276 id=276 data-nosnippet>276</a>	</span><span class="kw">pub async fn </span>async_initialize&lt;N&gt;(
+<a href=#277 id=277 data-nosnippet>277</a>		backend: Arc&lt;BE&gt;,
+<a href=#278 id=278 data-nosnippet>278</a>		runtime: Arc&lt;R&gt;,
+<a href=#279 id=279 data-nosnippet>279</a>		key_store: BeefyKeystore&lt;AuthorityId&gt;,
+<a href=#280 id=280 data-nosnippet>280</a>		metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+<a href=#281 id=281 data-nosnippet>281</a>		min_block_delta: u32,
+<a href=#282 id=282 data-nosnippet>282</a>		gossip_validator: Arc&lt;GossipValidator&lt;B, N, AuthorityId&gt;&gt;,
+<a href=#283 id=283 data-nosnippet>283</a>		finality_notifications: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
+<a href=#284 id=284 data-nosnippet>284</a>		is_authority: bool,
+<a href=#285 id=285 data-nosnippet>285</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+<a href=#286 id=286 data-nosnippet>286</a>		<span class="comment">// Wait for BEEFY pallet to be active before starting voter.
+<a href=#287 id=287 data-nosnippet>287</a>		</span><span class="kw">let </span>(beefy_genesis, best_grandpa) =
+<a href=#288 id=288 data-nosnippet>288</a>			wait_for_runtime_pallet(<span class="kw-2">&amp;*</span>runtime, finality_notifications).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>		<span class="kw">let </span>persisted_state = <span class="self">Self</span>::load_or_init_state(
+<a href=#291 id=291 data-nosnippet>291</a>			beefy_genesis,
+<a href=#292 id=292 data-nosnippet>292</a>			best_grandpa,
+<a href=#293 id=293 data-nosnippet>293</a>			min_block_delta,
+<a href=#294 id=294 data-nosnippet>294</a>			backend.clone(),
+<a href=#295 id=295 data-nosnippet>295</a>			runtime.clone(),
+<a href=#296 id=296 data-nosnippet>296</a>			<span class="kw-2">&amp;</span>key_store,
+<a href=#297 id=297 data-nosnippet>297</a>			<span class="kw-2">&amp;</span>metrics,
+<a href=#298 id=298 data-nosnippet>298</a>			is_authority,
+<a href=#299 id=299 data-nosnippet>299</a>		)
+<a href=#300 id=300 data-nosnippet>300</a>		.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#301 id=301 data-nosnippet>301</a>		<span class="comment">// Update the gossip validator with the right starting round and set id.
+<a href=#302 id=302 data-nosnippet>302</a>		</span>persisted_state
+<a href=#303 id=303 data-nosnippet>303</a>			.gossip_filter_config()
+<a href=#304 id=304 data-nosnippet>304</a>			.map(|f| gossip_validator.update_filter(f))<span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>
+<a href=#306 id=306 data-nosnippet>306</a>		<span class="prelude-val">Ok</span>(BeefyWorkerBuilder { backend, runtime, key_store, metrics, persisted_state })
+<a href=#307 id=307 data-nosnippet>307</a>	}
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a>	<span class="doccomment">/// Takes rest of missing pieces as params and builds the `BeefyWorker`.
+<a href=#310 id=310 data-nosnippet>310</a>	</span><span class="kw">pub fn </span>build&lt;P, S, N&gt;(
+<a href=#311 id=311 data-nosnippet>311</a>		<span class="self">self</span>,
+<a href=#312 id=312 data-nosnippet>312</a>		payload_provider: P,
+<a href=#313 id=313 data-nosnippet>313</a>		sync: Arc&lt;S&gt;,
+<a href=#314 id=314 data-nosnippet>314</a>		comms: BeefyComms&lt;B, N, AuthorityId&gt;,
+<a href=#315 id=315 data-nosnippet>315</a>		links: BeefyVoterLinks&lt;B, AuthorityId&gt;,
+<a href=#316 id=316 data-nosnippet>316</a>		pending_justifications: BTreeMap&lt;NumberFor&lt;B&gt;, BeefyVersionedFinalityProof&lt;B, AuthorityId&gt;&gt;,
+<a href=#317 id=317 data-nosnippet>317</a>		is_authority: bool,
+<a href=#318 id=318 data-nosnippet>318</a>	) -&gt; BeefyWorker&lt;B, BE, P, R, S, N, AuthorityId&gt; {
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>key_store = Arc::new(<span class="self">self</span>.key_store);
+<a href=#320 id=320 data-nosnippet>320</a>		BeefyWorker {
+<a href=#321 id=321 data-nosnippet>321</a>			backend: <span class="self">self</span>.backend.clone(),
+<a href=#322 id=322 data-nosnippet>322</a>			runtime: <span class="self">self</span>.runtime.clone(),
+<a href=#323 id=323 data-nosnippet>323</a>			key_store: key_store.clone(),
+<a href=#324 id=324 data-nosnippet>324</a>			payload_provider,
+<a href=#325 id=325 data-nosnippet>325</a>			sync,
+<a href=#326 id=326 data-nosnippet>326</a>			fisherman: Arc::new(Fisherman::new(<span class="self">self</span>.backend, <span class="self">self</span>.runtime, key_store)),
+<a href=#327 id=327 data-nosnippet>327</a>			metrics: <span class="self">self</span>.metrics,
+<a href=#328 id=328 data-nosnippet>328</a>			persisted_state: <span class="self">self</span>.persisted_state,
+<a href=#329 id=329 data-nosnippet>329</a>			comms,
+<a href=#330 id=330 data-nosnippet>330</a>			links,
+<a href=#331 id=331 data-nosnippet>331</a>			pending_justifications,
+<a href=#332 id=332 data-nosnippet>332</a>			is_authority,
+<a href=#333 id=333 data-nosnippet>333</a>		}
+<a href=#334 id=334 data-nosnippet>334</a>	}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a>	<span class="comment">// If no persisted state present, walk back the chain from first GRANDPA notification to either:
+<a href=#337 id=337 data-nosnippet>337</a>	//  - latest BEEFY finalized block, or if none found on the way,
+<a href=#338 id=338 data-nosnippet>338</a>	//  - BEEFY pallet genesis;
+<a href=#339 id=339 data-nosnippet>339</a>	// Enqueue any BEEFY mandatory blocks (session boundaries) found on the way, for voter to
+<a href=#340 id=340 data-nosnippet>340</a>	// finalize.
+<a href=#341 id=341 data-nosnippet>341</a>	</span><span class="kw">async fn </span>init_state(
+<a href=#342 id=342 data-nosnippet>342</a>		beefy_genesis: NumberFor&lt;B&gt;,
+<a href=#343 id=343 data-nosnippet>343</a>		best_grandpa: &lt;B <span class="kw">as </span>Block&gt;::Header,
+<a href=#344 id=344 data-nosnippet>344</a>		min_block_delta: u32,
+<a href=#345 id=345 data-nosnippet>345</a>		backend: Arc&lt;BE&gt;,
+<a href=#346 id=346 data-nosnippet>346</a>		runtime: Arc&lt;R&gt;,
+<a href=#347 id=347 data-nosnippet>347</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B, AuthorityId&gt;, Error&gt; {
+<a href=#348 id=348 data-nosnippet>348</a>		<span class="kw">let </span>blockchain = backend.blockchain();
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>		<span class="kw">let </span>beefy_genesis = runtime
+<a href=#351 id=351 data-nosnippet>351</a>			.runtime_api()
+<a href=#352 id=352 data-nosnippet>352</a>			.beefy_genesis(best_grandpa.hash())
+<a href=#353 id=353 data-nosnippet>353</a>			.ok()
+<a href=#354 id=354 data-nosnippet>354</a>			.flatten()
+<a href=#355 id=355 data-nosnippet>355</a>			.filter(|genesis| <span class="kw-2">*</span>genesis == beefy_genesis)
+<a href=#356 id=356 data-nosnippet>356</a>			.ok_or_else(|| Error::Backend(<span class="string">"BEEFY pallet expected to be active."</span>.into()))<span class="question-mark">?</span>;
+<a href=#357 id=357 data-nosnippet>357</a>		<span class="comment">// Walk back the imported blocks and initialize voter either, at the last block with
+<a href=#358 id=358 data-nosnippet>358</a>		// a BEEFY justification, or at pallet genesis block; voter will resume from there.
+<a href=#359 id=359 data-nosnippet>359</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>sessions = VecDeque::new();
+<a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">let </span><span class="kw-2">mut </span>header = best_grandpa.clone();
+<a href=#361 id=361 data-nosnippet>361</a>		<span class="kw">let </span>state = <span class="kw">loop </span>{
+<a href=#362 id=362 data-nosnippet>362</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="bool-val">true</span>) = blockchain
+<a href=#363 id=363 data-nosnippet>363</a>				.justifications(header.hash())
+<a href=#364 id=364 data-nosnippet>364</a>				.ok()
+<a href=#365 id=365 data-nosnippet>365</a>				.flatten()
+<a href=#366 id=366 data-nosnippet>366</a>				.map(|justifs| justifs.get(BEEFY_ENGINE_ID).is_some())
+<a href=#367 id=367 data-nosnippet>367</a>			{
+<a href=#368 id=368 data-nosnippet>368</a>				<span class="macro">debug!</span>(
+<a href=#369 id=369 data-nosnippet>369</a>					target: LOG_TARGET,
+<a href=#370 id=370 data-nosnippet>370</a>					<span class="string">"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}."</span>,
+<a href=#371 id=371 data-nosnippet>371</a>					<span class="kw-2">*</span>header.number()
+<a href=#372 id=372 data-nosnippet>372</a>				);
+<a href=#373 id=373 data-nosnippet>373</a>				<span class="kw">let </span>best_beefy = <span class="kw-2">*</span>header.number();
+<a href=#374 id=374 data-nosnippet>374</a>				<span class="comment">// If no session boundaries detected so far, just initialize new rounds here.
+<a href=#375 id=375 data-nosnippet>375</a>				</span><span class="kw">if </span>sessions.is_empty() {
+<a href=#376 id=376 data-nosnippet>376</a>					<span class="kw">let </span>active_set =
+<a href=#377 id=377 data-nosnippet>377</a>						expect_validator_set(runtime.as_ref(), backend.as_ref(), <span class="kw-2">&amp;</span>header).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#378 id=378 data-nosnippet>378</a>					<span class="kw">let </span><span class="kw-2">mut </span>rounds = Rounds::new(best_beefy, active_set);
+<a href=#379 id=379 data-nosnippet>379</a>					<span class="comment">// Mark the round as already finalized.
+<a href=#380 id=380 data-nosnippet>380</a>					</span>rounds.conclude(best_beefy);
+<a href=#381 id=381 data-nosnippet>381</a>					sessions.push_front(rounds);
+<a href=#382 id=382 data-nosnippet>382</a>				}
+<a href=#383 id=383 data-nosnippet>383</a>				<span class="kw">let </span>state = PersistedState::checked_new(
+<a href=#384 id=384 data-nosnippet>384</a>					best_grandpa,
+<a href=#385 id=385 data-nosnippet>385</a>					best_beefy,
+<a href=#386 id=386 data-nosnippet>386</a>					sessions,
+<a href=#387 id=387 data-nosnippet>387</a>					min_block_delta,
+<a href=#388 id=388 data-nosnippet>388</a>					beefy_genesis,
+<a href=#389 id=389 data-nosnippet>389</a>				)
+<a href=#390 id=390 data-nosnippet>390</a>				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?</span>;
+<a href=#391 id=391 data-nosnippet>391</a>				<span class="kw">break </span>state;
+<a href=#392 id=392 data-nosnippet>392</a>			}
+<a href=#393 id=393 data-nosnippet>393</a>
+<a href=#394 id=394 data-nosnippet>394</a>			<span class="kw">if </span><span class="kw-2">*</span>header.number() == beefy_genesis {
+<a href=#395 id=395 data-nosnippet>395</a>				<span class="comment">// We've reached BEEFY genesis, initialize voter here.
+<a href=#396 id=396 data-nosnippet>396</a>				</span><span class="kw">let </span>genesis_set =
+<a href=#397 id=397 data-nosnippet>397</a>					expect_validator_set(runtime.as_ref(), backend.as_ref(), <span class="kw-2">&amp;</span>header).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#398 id=398 data-nosnippet>398</a>				<span class="macro">info!</span>(
+<a href=#399 id=399 data-nosnippet>399</a>					target: LOG_TARGET,
+<a href=#400 id=400 data-nosnippet>400</a>					<span class="string">"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
+<a href=#401 id=401 data-nosnippet>401</a>					Starting voting rounds at block {:?}, genesis validator set {:?}."</span>,
+<a href=#402 id=402 data-nosnippet>402</a>					beefy_genesis,
+<a href=#403 id=403 data-nosnippet>403</a>					genesis_set,
+<a href=#404 id=404 data-nosnippet>404</a>				);
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>				sessions.push_front(Rounds::new(beefy_genesis, genesis_set));
+<a href=#407 id=407 data-nosnippet>407</a>				<span class="kw">break </span>PersistedState::checked_new(
+<a href=#408 id=408 data-nosnippet>408</a>					best_grandpa,
+<a href=#409 id=409 data-nosnippet>409</a>					Zero::zero(),
+<a href=#410 id=410 data-nosnippet>410</a>					sessions,
+<a href=#411 id=411 data-nosnippet>411</a>					min_block_delta,
+<a href=#412 id=412 data-nosnippet>412</a>					beefy_genesis,
+<a href=#413 id=413 data-nosnippet>413</a>				)
+<a href=#414 id=414 data-nosnippet>414</a>				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?</span>;
+<a href=#415 id=415 data-nosnippet>415</a>			}
+<a href=#416 id=416 data-nosnippet>416</a>
+<a href=#417 id=417 data-nosnippet>417</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
+<a href=#418 id=418 data-nosnippet>418</a>				<span class="macro">debug!</span>(
+<a href=#419 id=419 data-nosnippet>419</a>					target: LOG_TARGET,
+<a href=#420 id=420 data-nosnippet>420</a>					<span class="string">"🥩 Marking block {:?} as BEEFY Mandatory."</span>,
+<a href=#421 id=421 data-nosnippet>421</a>					<span class="kw-2">*</span>header.number()
+<a href=#422 id=422 data-nosnippet>422</a>				);
+<a href=#423 id=423 data-nosnippet>423</a>				sessions.push_front(Rounds::new(<span class="kw-2">*</span>header.number(), active));
+<a href=#424 id=424 data-nosnippet>424</a>			}
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>			<span class="comment">// Move up the chain.
+<a href=#427 id=427 data-nosnippet>427</a>			</span>header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#428 id=428 data-nosnippet>428</a>		};
+<a href=#429 id=429 data-nosnippet>429</a>
+<a href=#430 id=430 data-nosnippet>430</a>		aux_schema::write_current_version(backend.as_ref())<span class="question-mark">?</span>;
+<a href=#431 id=431 data-nosnippet>431</a>		aux_schema::write_voter_state(backend.as_ref(), <span class="kw-2">&amp;</span>state)<span class="question-mark">?</span>;
+<a href=#432 id=432 data-nosnippet>432</a>		<span class="prelude-val">Ok</span>(state)
+<a href=#433 id=433 data-nosnippet>433</a>	}
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>	<span class="kw">async fn </span>load_or_init_state(
+<a href=#436 id=436 data-nosnippet>436</a>		beefy_genesis: NumberFor&lt;B&gt;,
+<a href=#437 id=437 data-nosnippet>437</a>		best_grandpa: &lt;B <span class="kw">as </span>Block&gt;::Header,
+<a href=#438 id=438 data-nosnippet>438</a>		min_block_delta: u32,
+<a href=#439 id=439 data-nosnippet>439</a>		backend: Arc&lt;BE&gt;,
+<a href=#440 id=440 data-nosnippet>440</a>		runtime: Arc&lt;R&gt;,
+<a href=#441 id=441 data-nosnippet>441</a>		key_store: <span class="kw-2">&amp;</span>BeefyKeystore&lt;AuthorityId&gt;,
+<a href=#442 id=442 data-nosnippet>442</a>		metrics: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
+<a href=#443 id=443 data-nosnippet>443</a>		is_authority: bool,
+<a href=#444 id=444 data-nosnippet>444</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;PersistedState&lt;B, AuthorityId&gt;, Error&gt; {
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="comment">// Initialize voter state from AUX DB if compatible.
+<a href=#446 id=446 data-nosnippet>446</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>state) = <span class="kw">crate</span>::aux_schema::load_persistent(backend.as_ref())<span class="question-mark">?
+<a href=#447 id=447 data-nosnippet>447</a>			</span><span class="comment">// Verify state pallet genesis matches runtime.
+<a href=#448 id=448 data-nosnippet>448</a>			</span>.filter(|state| state.pallet_genesis() == beefy_genesis)
+<a href=#449 id=449 data-nosnippet>449</a>		{
+<a href=#450 id=450 data-nosnippet>450</a>			<span class="comment">// Overwrite persisted state with current best GRANDPA block.
+<a href=#451 id=451 data-nosnippet>451</a>			</span>state.set_best_grandpa(best_grandpa.clone());
+<a href=#452 id=452 data-nosnippet>452</a>			<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
+<a href=#453 id=453 data-nosnippet>453</a>			</span>state.set_min_block_delta(min_block_delta);
+<a href=#454 id=454 data-nosnippet>454</a>			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Loading BEEFY voter state from db."</span>);
+<a href=#455 id=455 data-nosnippet>455</a>			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Loaded state: {:?}."</span>, state);
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a>			<span class="comment">// Make sure that all the headers that we need have been synced.
+<a href=#458 id=458 data-nosnippet>458</a>			</span><span class="kw">let </span><span class="kw-2">mut </span>new_sessions = <span class="macro">vec!</span>[];
+<a href=#459 id=459 data-nosnippet>459</a>			<span class="kw">let </span><span class="kw-2">mut </span>header = best_grandpa.clone();
+<a href=#460 id=460 data-nosnippet>460</a>			<span class="kw">while </span><span class="kw-2">*</span>header.number() &gt; state.best_beefy() {
+<a href=#461 id=461 data-nosnippet>461</a>				<span class="kw">if </span>state.voting_oracle().can_add_session(<span class="kw-2">*</span>header.number()) {
+<a href=#462 id=462 data-nosnippet>462</a>					<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
+<a href=#463 id=463 data-nosnippet>463</a>						new_sessions.push((active, <span class="kw-2">*</span>header.number()));
+<a href=#464 id=464 data-nosnippet>464</a>					}
+<a href=#465 id=465 data-nosnippet>465</a>				}
+<a href=#466 id=466 data-nosnippet>466</a>				header =
+<a href=#467 id=467 data-nosnippet>467</a>					wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#468 id=468 data-nosnippet>468</a>			}
+<a href=#469 id=469 data-nosnippet>469</a>
+<a href=#470 id=470 data-nosnippet>470</a>			<span class="comment">// Make sure we didn't miss any sessions during node restart.
+<a href=#471 id=471 data-nosnippet>471</a>			</span><span class="kw">for </span>(validator_set, new_session_start) <span class="kw">in </span>new_sessions.drain(..).rev() {
+<a href=#472 id=472 data-nosnippet>472</a>				<span class="macro">debug!</span>(
+<a href=#473 id=473 data-nosnippet>473</a>					target: LOG_TARGET,
+<a href=#474 id=474 data-nosnippet>474</a>					<span class="string">"🥩 Handling missed BEEFY session after node restart: {:?}."</span>,
+<a href=#475 id=475 data-nosnippet>475</a>					new_session_start
+<a href=#476 id=476 data-nosnippet>476</a>				);
+<a href=#477 id=477 data-nosnippet>477</a>				state.init_session_at(
+<a href=#478 id=478 data-nosnippet>478</a>					new_session_start,
+<a href=#479 id=479 data-nosnippet>479</a>					validator_set,
+<a href=#480 id=480 data-nosnippet>480</a>					key_store,
+<a href=#481 id=481 data-nosnippet>481</a>					metrics,
+<a href=#482 id=482 data-nosnippet>482</a>					is_authority,
+<a href=#483 id=483 data-nosnippet>483</a>				);
+<a href=#484 id=484 data-nosnippet>484</a>			}
+<a href=#485 id=485 data-nosnippet>485</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(state);
+<a href=#486 id=486 data-nosnippet>486</a>		}
+<a href=#487 id=487 data-nosnippet>487</a>
+<a href=#488 id=488 data-nosnippet>488</a>		<span class="comment">// No valid voter-state persisted, re-initialize from pallet genesis.
+<a href=#489 id=489 data-nosnippet>489</a>		</span><span class="self">Self</span>::init_state(beefy_genesis, best_grandpa, min_block_delta, backend, runtime).<span class="kw">await
+<a href=#490 id=490 data-nosnippet>490</a>	</span>}
+<a href=#491 id=491 data-nosnippet>491</a>}
+<a href=#492 id=492 data-nosnippet>492</a>
+<a href=#493 id=493 data-nosnippet>493</a><span class="doccomment">/// Finality notification for consumption by BEEFY worker.
+<a href=#494 id=494 data-nosnippet>494</a>/// This is a stripped down version of `sc_client_api::FinalityNotification` which does not keep
+<a href=#495 id=495 data-nosnippet>495</a>/// blocks pinned.
+<a href=#496 id=496 data-nosnippet>496</a></span><span class="kw">struct </span>UnpinnedFinalityNotification&lt;B: Block&gt; {
+<a href=#497 id=497 data-nosnippet>497</a>	<span class="doccomment">/// Finalized block header hash.
+<a href=#498 id=498 data-nosnippet>498</a>	</span><span class="kw">pub </span>hash: B::Hash,
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="doccomment">/// Finalized block header.
+<a href=#500 id=500 data-nosnippet>500</a>	</span><span class="kw">pub </span>header: B::Header,
+<a href=#501 id=501 data-nosnippet>501</a>	<span class="doccomment">/// Path from the old finalized to new finalized parent (implicitly finalized blocks).
+<a href=#502 id=502 data-nosnippet>502</a>	///
+<a href=#503 id=503 data-nosnippet>503</a>	/// This maps to the range `(old_finalized, new_finalized)`.
+<a href=#504 id=504 data-nosnippet>504</a>	</span><span class="kw">pub </span>tree_route: Arc&lt;[B::Hash]&gt;,
+<a href=#505 id=505 data-nosnippet>505</a>}
+<a href=#506 id=506 data-nosnippet>506</a>
+<a href=#507 id=507 data-nosnippet>507</a><span class="kw">impl</span>&lt;B: Block&gt; From&lt;FinalityNotification&lt;B&gt;&gt; <span class="kw">for </span>UnpinnedFinalityNotification&lt;B&gt; {
+<a href=#508 id=508 data-nosnippet>508</a>	<span class="kw">fn </span>from(value: FinalityNotification&lt;B&gt;) -&gt; <span class="self">Self </span>{
+<a href=#509 id=509 data-nosnippet>509</a>		UnpinnedFinalityNotification {
+<a href=#510 id=510 data-nosnippet>510</a>			hash: value.hash,
+<a href=#511 id=511 data-nosnippet>511</a>			header: value.header,
+<a href=#512 id=512 data-nosnippet>512</a>			tree_route: value.tree_route,
+<a href=#513 id=513 data-nosnippet>513</a>		}
+<a href=#514 id=514 data-nosnippet>514</a>	}
+<a href=#515 id=515 data-nosnippet>515</a>}
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a><span class="doccomment">/// Start the BEEFY gadget.
+<a href=#518 id=518 data-nosnippet>518</a>///
+<a href=#519 id=519 data-nosnippet>519</a>/// This is a thin shim around running and awaiting a BEEFY worker.
+<a href=#520 id=520 data-nosnippet>520</a></span><span class="kw">pub async fn </span>start_beefy_gadget&lt;B, BE, C, N, P, R, S, AuthorityId&gt;(
+<a href=#521 id=521 data-nosnippet>521</a>	beefy_params: BeefyParams&lt;B, BE, C, N, P, R, S, AuthorityId&gt;,
+<a href=#522 id=522 data-nosnippet>522</a>) <span class="kw">where
+<a href=#523 id=523 data-nosnippet>523</a>	</span>B: Block,
+<a href=#524 id=524 data-nosnippet>524</a>	BE: Backend&lt;B&gt;,
+<a href=#525 id=525 data-nosnippet>525</a>	C: Client&lt;B, BE&gt; + BlockBackend&lt;B&gt;,
+<a href=#526 id=526 data-nosnippet>526</a>	P: PayloadProvider&lt;B&gt; + Clone,
+<a href=#527 id=527 data-nosnippet>527</a>	R: ProvideRuntimeApi&lt;B&gt;,
+<a href=#528 id=528 data-nosnippet>528</a>	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+<a href=#529 id=529 data-nosnippet>529</a>	N: GossipNetwork&lt;B&gt; + NetworkRequest + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#530 id=530 data-nosnippet>530</a>	S: GossipSyncing&lt;B&gt; + SyncOracle + <span class="lifetime">'static</span>,
+<a href=#531 id=531 data-nosnippet>531</a>	AuthorityId: AuthorityIdBound,
+<a href=#532 id=532 data-nosnippet>532</a>{
+<a href=#533 id=533 data-nosnippet>533</a>	<span class="kw">let </span>BeefyParams {
+<a href=#534 id=534 data-nosnippet>534</a>		client,
+<a href=#535 id=535 data-nosnippet>535</a>		backend,
+<a href=#536 id=536 data-nosnippet>536</a>		payload_provider,
+<a href=#537 id=537 data-nosnippet>537</a>		runtime,
+<a href=#538 id=538 data-nosnippet>538</a>		key_store,
+<a href=#539 id=539 data-nosnippet>539</a>		network_params,
+<a href=#540 id=540 data-nosnippet>540</a>		min_block_delta,
+<a href=#541 id=541 data-nosnippet>541</a>		prometheus_registry,
+<a href=#542 id=542 data-nosnippet>542</a>		links,
+<a href=#543 id=543 data-nosnippet>543</a>		<span class="kw-2">mut </span>on_demand_justifications_handler,
+<a href=#544 id=544 data-nosnippet>544</a>		is_authority,
+<a href=#545 id=545 data-nosnippet>545</a>	} = beefy_params;
+<a href=#546 id=546 data-nosnippet>546</a>
+<a href=#547 id=547 data-nosnippet>547</a>	<span class="kw">let </span>BeefyNetworkParams {
+<a href=#548 id=548 data-nosnippet>548</a>		network,
+<a href=#549 id=549 data-nosnippet>549</a>		sync,
+<a href=#550 id=550 data-nosnippet>550</a>		notification_service,
+<a href=#551 id=551 data-nosnippet>551</a>		gossip_protocol_name,
+<a href=#552 id=552 data-nosnippet>552</a>		justifications_protocol_name,
+<a href=#553 id=553 data-nosnippet>553</a>		..
+<a href=#554 id=554 data-nosnippet>554</a>	} = network_params;
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>	<span class="kw">let </span>metrics = register_metrics(prometheus_registry.clone());
+<a href=#557 id=557 data-nosnippet>557</a>
+<a href=#558 id=558 data-nosnippet>558</a>	<span class="kw">let </span><span class="kw-2">mut </span>block_import_justif = links.from_block_import_justif_stream.subscribe(<span class="number">100_000</span>).fuse();
+<a href=#559 id=559 data-nosnippet>559</a>
+<a href=#560 id=560 data-nosnippet>560</a>	<span class="comment">// Subscribe to finality notifications and justifications before waiting for runtime pallet and
+<a href=#561 id=561 data-nosnippet>561</a>	// reuse the streams, so we don't miss notifications while waiting for pallet to be available.
+<a href=#562 id=562 data-nosnippet>562</a>	</span><span class="kw">let </span>finality_notifications = client.finality_notification_stream();
+<a href=#563 id=563 data-nosnippet>563</a>	<span class="kw">let </span>(<span class="kw-2">mut </span>transformer, <span class="kw-2">mut </span>finality_notifications) =
+<a href=#564 id=564 data-nosnippet>564</a>		finality_notification_transformer_future(finality_notifications);
+<a href=#565 id=565 data-nosnippet>565</a>
+<a href=#566 id=566 data-nosnippet>566</a>	<span class="kw">let </span>known_peers = Arc::new(Mutex::new(KnownPeers::new()));
+<a href=#567 id=567 data-nosnippet>567</a>	<span class="comment">// Default votes filter is to discard everything.
+<a href=#568 id=568 data-nosnippet>568</a>	// Validator is updated later with correct starting round and set id.
+<a href=#569 id=569 data-nosnippet>569</a>	</span><span class="kw">let </span>gossip_validator =
+<a href=#570 id=570 data-nosnippet>570</a>		communication::gossip::GossipValidator::new(known_peers.clone(), network.clone());
+<a href=#571 id=571 data-nosnippet>571</a>	<span class="kw">let </span>gossip_validator = Arc::new(gossip_validator);
+<a href=#572 id=572 data-nosnippet>572</a>	<span class="kw">let </span>gossip_engine = GossipEngine::new(
+<a href=#573 id=573 data-nosnippet>573</a>		network.clone(),
+<a href=#574 id=574 data-nosnippet>574</a>		sync.clone(),
+<a href=#575 id=575 data-nosnippet>575</a>		notification_service,
+<a href=#576 id=576 data-nosnippet>576</a>		gossip_protocol_name.clone(),
+<a href=#577 id=577 data-nosnippet>577</a>		gossip_validator.clone(),
+<a href=#578 id=578 data-nosnippet>578</a>		<span class="prelude-val">None</span>,
+<a href=#579 id=579 data-nosnippet>579</a>	);
+<a href=#580 id=580 data-nosnippet>580</a>
+<a href=#581 id=581 data-nosnippet>581</a>	<span class="comment">// The `GossipValidator` adds and removes known peers based on valid votes and network
+<a href=#582 id=582 data-nosnippet>582</a>	// events.
+<a href=#583 id=583 data-nosnippet>583</a>	</span><span class="kw">let </span>on_demand_justifications = OnDemandJustificationsEngine::new(
+<a href=#584 id=584 data-nosnippet>584</a>		network.clone(),
+<a href=#585 id=585 data-nosnippet>585</a>		justifications_protocol_name.clone(),
+<a href=#586 id=586 data-nosnippet>586</a>		known_peers,
+<a href=#587 id=587 data-nosnippet>587</a>		prometheus_registry.clone(),
+<a href=#588 id=588 data-nosnippet>588</a>	);
+<a href=#589 id=589 data-nosnippet>589</a>	<span class="kw">let </span><span class="kw-2">mut </span>beefy_comms = BeefyComms { gossip_engine, gossip_validator, on_demand_justifications };
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>	<span class="comment">// We re-create and re-run the worker in this loop in order to quickly reinit and resume after
+<a href=#592 id=592 data-nosnippet>592</a>	// select recoverable errors.
+<a href=#593 id=593 data-nosnippet>593</a>	</span><span class="kw">loop </span>{
+<a href=#594 id=594 data-nosnippet>594</a>		<span class="comment">// Make sure to pump gossip engine while waiting for initialization conditions.
+<a href=#595 id=595 data-nosnippet>595</a>		</span><span class="kw">let </span>worker_builder = <span class="macro">futures::select!</span> {
+<a href=#596 id=596 data-nosnippet>596</a>			builder_init_result = BeefyWorkerBuilder::async_initialize(
+<a href=#597 id=597 data-nosnippet>597</a>				backend.clone(),
+<a href=#598 id=598 data-nosnippet>598</a>				runtime.clone(),
+<a href=#599 id=599 data-nosnippet>599</a>				key_store.clone().into(),
+<a href=#600 id=600 data-nosnippet>600</a>				metrics.clone(),
+<a href=#601 id=601 data-nosnippet>601</a>				min_block_delta,
+<a href=#602 id=602 data-nosnippet>602</a>				beefy_comms.gossip_validator.clone(),
+<a href=#603 id=603 data-nosnippet>603</a>				<span class="kw-2">&amp;mut </span>finality_notifications,
+<a href=#604 id=604 data-nosnippet>604</a>				is_authority,
+<a href=#605 id=605 data-nosnippet>605</a>			).fuse() =&gt; {
+<a href=#606 id=606 data-nosnippet>606</a>				<span class="kw">match </span>builder_init_result {
+<a href=#607 id=607 data-nosnippet>607</a>					<span class="prelude-val">Ok</span>(builder) =&gt; builder,
+<a href=#608 id=608 data-nosnippet>608</a>					<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#609 id=609 data-nosnippet>609</a>						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, e);
+<a href=#610 id=610 data-nosnippet>610</a>						<span class="kw">return
+<a href=#611 id=611 data-nosnippet>611</a>					</span>},
+<a href=#612 id=612 data-nosnippet>612</a>				}
+<a href=#613 id=613 data-nosnippet>613</a>			},
+<a href=#614 id=614 data-nosnippet>614</a>			<span class="comment">// Pump gossip engine.
+<a href=#615 id=615 data-nosnippet>615</a>			</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine =&gt; {
+<a href=#616 id=616 data-nosnippet>616</a>				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Gossip engine has unexpectedly terminated."</span>);
+<a href=#617 id=617 data-nosnippet>617</a>				<span class="kw">return
+<a href=#618 id=618 data-nosnippet>618</a>			</span>},
+<a href=#619 id=619 data-nosnippet>619</a>			<span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>transformer =&gt; {
+<a href=#620 id=620 data-nosnippet>620</a>				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Finality notification transformer task has unexpectedly terminated."</span>);
+<a href=#621 id=621 data-nosnippet>621</a>				<span class="kw">return
+<a href=#622 id=622 data-nosnippet>622</a>			</span>},
+<a href=#623 id=623 data-nosnippet>623</a>		};
+<a href=#624 id=624 data-nosnippet>624</a>
+<a href=#625 id=625 data-nosnippet>625</a>		<span class="kw">let </span>worker = worker_builder.build(
+<a href=#626 id=626 data-nosnippet>626</a>			payload_provider.clone(),
+<a href=#627 id=627 data-nosnippet>627</a>			sync.clone(),
+<a href=#628 id=628 data-nosnippet>628</a>			beefy_comms,
+<a href=#629 id=629 data-nosnippet>629</a>			links.clone(),
+<a href=#630 id=630 data-nosnippet>630</a>			BTreeMap::new(),
+<a href=#631 id=631 data-nosnippet>631</a>			is_authority,
+<a href=#632 id=632 data-nosnippet>632</a>		);
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a>		<span class="macro">futures::select!</span> {
+<a href=#635 id=635 data-nosnippet>635</a>			result = worker.run(<span class="kw-2">&amp;mut </span>block_import_justif, <span class="kw-2">&amp;mut </span>finality_notifications).fuse() =&gt; {
+<a href=#636 id=636 data-nosnippet>636</a>				<span class="kw">match </span>result {
+<a href=#637 id=637 data-nosnippet>637</a>					(error::Error::ConsensusReset, reuse_comms) =&gt; {
+<a href=#638 id=638 data-nosnippet>638</a>						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Restarting voter."</span>, error::Error::ConsensusReset);
+<a href=#639 id=639 data-nosnippet>639</a>						beefy_comms = reuse_comms;
+<a href=#640 id=640 data-nosnippet>640</a>						<span class="kw">continue</span>;
+<a href=#641 id=641 data-nosnippet>641</a>					},
+<a href=#642 id=642 data-nosnippet>642</a>					(err, <span class="kw">_</span>) =&gt; {
+<a href=#643 id=643 data-nosnippet>643</a>						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, err)
+<a href=#644 id=644 data-nosnippet>644</a>					}
+<a href=#645 id=645 data-nosnippet>645</a>				}
+<a href=#646 id=646 data-nosnippet>646</a>			},
+<a href=#647 id=647 data-nosnippet>647</a>			odj_handler_error = on_demand_justifications_handler.run().fuse() =&gt; {
+<a href=#648 id=648 data-nosnippet>648</a>				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_error)
+<a href=#649 id=649 data-nosnippet>649</a>			},
+<a href=#650 id=650 data-nosnippet>650</a>			<span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>transformer =&gt; {
+<a href=#651 id=651 data-nosnippet>651</a>				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Finality notification transformer task has unexpectedly terminated."</span>);
+<a href=#652 id=652 data-nosnippet>652</a>			}
+<a href=#653 id=653 data-nosnippet>653</a>		}
+<a href=#654 id=654 data-nosnippet>654</a>		<span class="kw">return</span>;
+<a href=#655 id=655 data-nosnippet>655</a>	}
+<a href=#656 id=656 data-nosnippet>656</a>}
+<a href=#657 id=657 data-nosnippet>657</a>
+<a href=#658 id=658 data-nosnippet>658</a><span class="doccomment">/// Produce a future that transformes finality notifications into a struct that does not keep blocks
+<a href=#659 id=659 data-nosnippet>659</a>/// pinned.
+<a href=#660 id=660 data-nosnippet>660</a></span><span class="kw">fn </span>finality_notification_transformer_future&lt;B&gt;(
+<a href=#661 id=661 data-nosnippet>661</a>	<span class="kw-2">mut </span>finality_notifications: sc_client_api::FinalityNotifications&lt;B&gt;,
+<a href=#662 id=662 data-nosnippet>662</a>) -&gt; (
+<a href=#663 id=663 data-nosnippet>663</a>	Pin&lt;Box&lt;futures::future::Fuse&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + Sized&gt;&gt;&gt;,
+<a href=#664 id=664 data-nosnippet>664</a>	Fuse&lt;TracingUnboundedReceiver&lt;UnpinnedFinalityNotification&lt;B&gt;&gt;&gt;,
+<a href=#665 id=665 data-nosnippet>665</a>)
+<a href=#666 id=666 data-nosnippet>666</a><span class="kw">where
+<a href=#667 id=667 data-nosnippet>667</a>	</span>B: Block,
+<a href=#668 id=668 data-nosnippet>668</a>{
+<a href=#669 id=669 data-nosnippet>669</a>	<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"beefy-notification-transformer-channel"</span>, <span class="number">10000</span>);
+<a href=#670 id=670 data-nosnippet>670</a>	<span class="kw">let </span>transformer_fut = <span class="kw">async move </span>{
+<a href=#671 id=671 data-nosnippet>671</a>		<span class="kw">while let </span><span class="prelude-val">Some</span>(notification) = finality_notifications.next().<span class="kw">await </span>{
+<a href=#672 id=672 data-nosnippet>672</a>			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Transforming grandpa notification. #{}({:?})"</span>, notification.header.number(), notification.hash);
+<a href=#673 id=673 data-nosnippet>673</a>			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tx.unbounded_send(UnpinnedFinalityNotification::from(notification)) {
+<a href=#674 id=674 data-nosnippet>674</a>				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Unable to send transformed notification. Shutting down. err = {}"</span>, err);
+<a href=#675 id=675 data-nosnippet>675</a>				<span class="kw">return
+<a href=#676 id=676 data-nosnippet>676</a>			</span>};
+<a href=#677 id=677 data-nosnippet>677</a>		}
+<a href=#678 id=678 data-nosnippet>678</a>	};
+<a href=#679 id=679 data-nosnippet>679</a>	(Box::pin(transformer_fut.fuse()), rx.fuse())
+<a href=#680 id=680 data-nosnippet>680</a>}
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a><span class="doccomment">/// Waits until the parent header of `current` is available and returns it.
+<a href=#683 id=683 data-nosnippet>683</a>///
+<a href=#684 id=684 data-nosnippet>684</a>/// When the node uses GRANDPA warp sync it initially downloads only the mandatory GRANDPA headers.
+<a href=#685 id=685 data-nosnippet>685</a>/// The rest of the headers (gap sync) are lazily downloaded later. But the BEEFY voter also needs
+<a href=#686 id=686 data-nosnippet>686</a>/// the headers in range `[beefy_genesis..=best_grandpa]` to be available. This helper method
+<a href=#687 id=687 data-nosnippet>687</a>/// enables us to wait until these headers have been synced.
+<a href=#688 id=688 data-nosnippet>688</a></span><span class="kw">async fn </span>wait_for_parent_header&lt;B, BC&gt;(
+<a href=#689 id=689 data-nosnippet>689</a>	blockchain: <span class="kw-2">&amp;</span>BC,
+<a href=#690 id=690 data-nosnippet>690</a>	current: &lt;B <span class="kw">as </span>Block&gt;::Header,
+<a href=#691 id=691 data-nosnippet>691</a>	delay: Duration,
+<a href=#692 id=692 data-nosnippet>692</a>) -&gt; <span class="prelude-ty">Result</span>&lt;&lt;B <span class="kw">as </span>Block&gt;::Header, Error&gt;
+<a href=#693 id=693 data-nosnippet>693</a><span class="kw">where
+<a href=#694 id=694 data-nosnippet>694</a>	</span>B: Block,
+<a href=#695 id=695 data-nosnippet>695</a>	BC: BlockchainBackend&lt;B&gt;,
+<a href=#696 id=696 data-nosnippet>696</a>{
+<a href=#697 id=697 data-nosnippet>697</a>	<span class="kw">if </span><span class="kw-2">*</span>current.number() == Zero::zero() {
+<a href=#698 id=698 data-nosnippet>698</a>		<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"header {} is Genesis, there is no parent for it"</span>, current.hash());
+<a href=#699 id=699 data-nosnippet>699</a>		<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, msg);
+<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(msg));
+<a href=#701 id=701 data-nosnippet>701</a>	}
+<a href=#702 id=702 data-nosnippet>702</a>	<span class="kw">loop </span>{
+<a href=#703 id=703 data-nosnippet>703</a>		<span class="kw">match </span>blockchain
+<a href=#704 id=704 data-nosnippet>704</a>			.header(<span class="kw-2">*</span>current.parent_hash())
+<a href=#705 id=705 data-nosnippet>705</a>			.map_err(|e| Error::Backend(e.to_string()))<span class="question-mark">?
+<a href=#706 id=706 data-nosnippet>706</a>		</span>{
+<a href=#707 id=707 data-nosnippet>707</a>			<span class="prelude-val">Some</span>(parent) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(parent),
+<a href=#708 id=708 data-nosnippet>708</a>			<span class="prelude-val">None </span>=&gt; {
+<a href=#709 id=709 data-nosnippet>709</a>				<span class="macro">info!</span>(
+<a href=#710 id=710 data-nosnippet>710</a>					target: LOG_TARGET,
+<a href=#711 id=711 data-nosnippet>711</a>					<span class="string">"🥩 Parent of header number {} not found. \
+<a href=#712 id=712 data-nosnippet>712</a>					BEEFY gadget waiting for header sync to finish ..."</span>,
+<a href=#713 id=713 data-nosnippet>713</a>					current.number()
+<a href=#714 id=714 data-nosnippet>714</a>				);
+<a href=#715 id=715 data-nosnippet>715</a>				tokio::time::sleep(delay).<span class="kw">await</span>;
+<a href=#716 id=716 data-nosnippet>716</a>			},
+<a href=#717 id=717 data-nosnippet>717</a>		}
+<a href=#718 id=718 data-nosnippet>718</a>	}
+<a href=#719 id=719 data-nosnippet>719</a>}
+<a href=#720 id=720 data-nosnippet>720</a>
+<a href=#721 id=721 data-nosnippet>721</a><span class="doccomment">/// Wait for BEEFY runtime pallet to be available, return active validator set.
+<a href=#722 id=722 data-nosnippet>722</a>/// Should be called only once during worker initialization.
+<a href=#723 id=723 data-nosnippet>723</a></span><span class="kw">async fn </span>wait_for_runtime_pallet&lt;B, R, AuthorityId: AuthorityIdBound&gt;(
+<a href=#724 id=724 data-nosnippet>724</a>	runtime: <span class="kw-2">&amp;</span>R,
+<a href=#725 id=725 data-nosnippet>725</a>	finality: <span class="kw-2">&amp;mut </span>Fuse&lt;FinalityNotifications&lt;B&gt;&gt;,
+<a href=#726 id=726 data-nosnippet>726</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(NumberFor&lt;B&gt;, &lt;B <span class="kw">as </span>Block&gt;::Header), Error&gt;
+<a href=#727 id=727 data-nosnippet>727</a><span class="kw">where
+<a href=#728 id=728 data-nosnippet>728</a>	</span>B: Block,
+<a href=#729 id=729 data-nosnippet>729</a>	R: ProvideRuntimeApi&lt;B&gt;,
+<a href=#730 id=730 data-nosnippet>730</a>	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+<a href=#731 id=731 data-nosnippet>731</a>{
+<a href=#732 id=732 data-nosnippet>732</a>	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"🥩 BEEFY gadget waiting for BEEFY pallet to become available..."</span>);
+<a href=#733 id=733 data-nosnippet>733</a>	<span class="kw">loop </span>{
+<a href=#734 id=734 data-nosnippet>734</a>		<span class="kw">let </span>notif = finality.next().<span class="kw">await</span>.ok_or_else(|| {
+<a href=#735 id=735 data-nosnippet>735</a>			<span class="kw">let </span>err_msg = <span class="string">"🥩 Finality stream has unexpectedly terminated."</span>.into();
+<a href=#736 id=736 data-nosnippet>736</a>			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, err_msg);
+<a href=#737 id=737 data-nosnippet>737</a>			Error::Backend(err_msg)
+<a href=#738 id=738 data-nosnippet>738</a>		})<span class="question-mark">?</span>;
+<a href=#739 id=739 data-nosnippet>739</a>		<span class="kw">let </span>at = notif.header.hash();
+<a href=#740 id=740 data-nosnippet>740</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(start) = runtime.runtime_api().beefy_genesis(at).ok().flatten() {
+<a href=#741 id=741 data-nosnippet>741</a>			<span class="kw">if </span><span class="kw-2">*</span>notif.header.number() &gt;= start {
+<a href=#742 id=742 data-nosnippet>742</a>				<span class="comment">// Beefy pallet available, return header for best grandpa at the time.
+<a href=#743 id=743 data-nosnippet>743</a>				</span><span class="macro">info!</span>(
+<a href=#744 id=744 data-nosnippet>744</a>					target: LOG_TARGET,
+<a href=#745 id=745 data-nosnippet>745</a>					<span class="string">"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}"</span>,
+<a href=#746 id=746 data-nosnippet>746</a>					notif.header.number(), start
+<a href=#747 id=747 data-nosnippet>747</a>				);
+<a href=#748 id=748 data-nosnippet>748</a>				<span class="kw">return </span><span class="prelude-val">Ok</span>((start, notif.header));
+<a href=#749 id=749 data-nosnippet>749</a>			}
+<a href=#750 id=750 data-nosnippet>750</a>		}
+<a href=#751 id=751 data-nosnippet>751</a>	}
+<a href=#752 id=752 data-nosnippet>752</a>}
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a><span class="doccomment">/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
+<a href=#755 id=755 data-nosnippet>755</a>/// back to walk up the chain looking the validator set enactment in header digests.
+<a href=#756 id=756 data-nosnippet>756</a>///
+<a href=#757 id=757 data-nosnippet>757</a>/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
+<a href=#758 id=758 data-nosnippet>758</a>/// been synced yet (as it happens when warp syncing when headers are synced in the background).
+<a href=#759 id=759 data-nosnippet>759</a></span><span class="kw">async fn </span>expect_validator_set&lt;B, BE, R, AuthorityId: AuthorityIdBound&gt;(
+<a href=#760 id=760 data-nosnippet>760</a>	runtime: <span class="kw-2">&amp;</span>R,
+<a href=#761 id=761 data-nosnippet>761</a>	backend: <span class="kw-2">&amp;</span>BE,
+<a href=#762 id=762 data-nosnippet>762</a>	at_header: <span class="kw-2">&amp;</span>B::Header,
+<a href=#763 id=763 data-nosnippet>763</a>) -&gt; <span class="prelude-ty">Result</span>&lt;ValidatorSet&lt;AuthorityId&gt;, Error&gt;
+<a href=#764 id=764 data-nosnippet>764</a><span class="kw">where
+<a href=#765 id=765 data-nosnippet>765</a>	</span>B: Block,
+<a href=#766 id=766 data-nosnippet>766</a>	BE: Backend&lt;B&gt;,
+<a href=#767 id=767 data-nosnippet>767</a>	R: ProvideRuntimeApi&lt;B&gt;,
+<a href=#768 id=768 data-nosnippet>768</a>	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
+<a href=#769 id=769 data-nosnippet>769</a>{
+<a href=#770 id=770 data-nosnippet>770</a>	<span class="kw">let </span>blockchain = backend.blockchain();
+<a href=#771 id=771 data-nosnippet>771</a>	<span class="comment">// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
+<a href=#772 id=772 data-nosnippet>772</a>	// header digests.
+<a href=#773 id=773 data-nosnippet>773</a>	</span><span class="macro">debug!</span>(
+<a href=#774 id=774 data-nosnippet>774</a>		target: LOG_TARGET,
+<a href=#775 id=775 data-nosnippet>775</a>		<span class="string">"🥩 Trying to find validator set active at header(number {:?}, hash {:?})"</span>,
+<a href=#776 id=776 data-nosnippet>776</a>		at_header.number(),
+<a href=#777 id=777 data-nosnippet>777</a>		at_header.hash()
+<a href=#778 id=778 data-nosnippet>778</a>	);
+<a href=#779 id=779 data-nosnippet>779</a>	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
+<a href=#780 id=780 data-nosnippet>780</a>	<span class="kw">loop </span>{
+<a href=#781 id=781 data-nosnippet>781</a>		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Looking for auth set change at block number: {:?}"</span>, <span class="kw-2">*</span>header.number());
+<a href=#782 id=782 data-nosnippet>782</a>		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(header.hash()) {
+<a href=#783 id=783 data-nosnippet>783</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(active);
+<a href=#784 id=784 data-nosnippet>784</a>		} <span class="kw">else </span>{
+<a href=#785 id=785 data-nosnippet>785</a>			<span class="kw">match </span>find_authorities_change::&lt;B, AuthorityId&gt;(<span class="kw-2">&amp;</span>header) {
+<a href=#786 id=786 data-nosnippet>786</a>				<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(active),
+<a href=#787 id=787 data-nosnippet>787</a>				<span class="comment">// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
+<a href=#788 id=788 data-nosnippet>788</a>				// there.
+<a href=#789 id=789 data-nosnippet>789</a>				</span><span class="prelude-val">None </span>=&gt;
+<a href=#790 id=790 data-nosnippet>790</a>					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)
+<a href=#791 id=791 data-nosnippet>791</a>						.<span class="kw">await
+<a href=#792 id=792 data-nosnippet>792</a>						</span>.map_err(|e| Error::Backend(e.to_string()))<span class="question-mark">?</span>,
+<a href=#793 id=793 data-nosnippet>793</a>			}
+<a href=#794 id=794 data-nosnippet>794</a>		}
+<a href=#795 id=795 data-nosnippet>795</a>	}
+<a href=#796 id=796 data-nosnippet>796</a>}
+<a href=#797 id=797 data-nosnippet>797</a>
+<a href=#798 id=798 data-nosnippet>798</a><span class="doccomment">/// Scan the `header` digest log for a BEEFY validator set change. Return either the new
+<a href=#799 id=799 data-nosnippet>799</a>/// validator set or `None` in case no validator set change has been signaled.
+<a href=#800 id=800 data-nosnippet>800</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>find_authorities_change&lt;B, AuthorityId&gt;(
+<a href=#801 id=801 data-nosnippet>801</a>	header: <span class="kw-2">&amp;</span>B::Header,
+<a href=#802 id=802 data-nosnippet>802</a>) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorSet&lt;AuthorityId&gt;&gt;
+<a href=#803 id=803 data-nosnippet>803</a><span class="kw">where
+<a href=#804 id=804 data-nosnippet>804</a>	</span>B: Block,
+<a href=#805 id=805 data-nosnippet>805</a>	AuthorityId: AuthorityIdBound,
+<a href=#806 id=806 data-nosnippet>806</a>{
+<a href=#807 id=807 data-nosnippet>807</a>	<span class="kw">let </span>id = OpaqueDigestItemId::Consensus(<span class="kw-2">&amp;</span>BEEFY_ENGINE_ID);
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a>	<span class="kw">let </span>filter = |log: ConsensusLog&lt;AuthorityId&gt;| <span class="kw">match </span>log {
+<a href=#810 id=810 data-nosnippet>810</a>		ConsensusLog::AuthoritiesChange(validator_set) =&gt; <span class="prelude-val">Some</span>(validator_set),
+<a href=#811 id=811 data-nosnippet>811</a>		<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#812 id=812 data-nosnippet>812</a>	};
+<a href=#813 id=813 data-nosnippet>813</a>	header.digest().convert_first(|l| l.try_to(id).and_then(filter))
+<a href=#814 id=814 data-nosnippet>814</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

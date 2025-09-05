@@ -1,0 +1,209 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Manages all era rotation logic based on session increments."><title>pallet_staking_async::session_rotation - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking_async" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_staking_async/index.html">pallet_<wbr>staking_<wbr>async</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module session_<wbr>rotation</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#lifecycle" title="Lifecycle:">Lifecycle:</a><ul><li><a href="#idle-sessions" title="Idle Sessions">Idle Sessions</a></li><li><a href="#planning-new-era-session" title="Planning New Era Session">Planning New Era Session</a></li><li><a href="#era-rotation-session" title="Era Rotation Session">Era Rotation Session</a></li><li><a href="#example-flow-of-a-happy-path" title="Example Flow of a happy path">Example Flow of a happy path</a></li></ul></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>staking_<wbr>async</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_staking_async</a></div><h1>Module <span>session_rotation</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_staking_async/session_rotation.rs.html#18-1090">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Manages all era rotation logic based on session increments.</p>
+<h2 id="lifecycle"><a class="doc-anchor" href="#lifecycle">§</a>Lifecycle:</h2>
+<p>When a session ends in RC, a session report is sent to AH with the ending session index. Given
+there are 6 sessions per Era, and we configure the PlanningEraOffset to be 1, the following
+happens.</p>
+<h3 id="idle-sessions"><a class="doc-anchor" href="#idle-sessions">§</a>Idle Sessions</h3>
+<p>In the happy path, first 3 sessions are idle. Nothing much happens in these sessions.</p>
+<h3 id="planning-new-era-session"><a class="doc-anchor" href="#planning-new-era-session">§</a>Planning New Era Session</h3>
+<p>In the happy path, <code>planning new era</code> session is initiated when 3rd session ends and the 4th
+starts in the active era.</p>
+<p><strong>Triggers</strong></p>
+<ol>
+<li><code>SessionProgress == SessionsPerEra - PlanningEraOffset</code></li>
+<li>Forcing is set to <code>ForceNew</code> or <code>ForceAlways</code></li>
+</ol>
+<p><strong>Actions</strong></p>
+<ol>
+<li>Triggers the election process,</li>
+<li>Updates the CurrentEra.</li>
+</ol>
+<p><strong>SkipIf</strong>
+CurrentEra = ActiveEra + 1 // this implies planning session has already been triggered.</p>
+<p><strong>FollowUp</strong>
+When the election process is over, we send the new validator set, with the CurrentEra index
+as the id of the validator set.</p>
+<h3 id="era-rotation-session"><a class="doc-anchor" href="#era-rotation-session">§</a>Era Rotation Session</h3>
+<p>In the happy path, this happens when the 5th session ends and the 6th starts in the active era.</p>
+<p><strong>Triggers</strong>
+When we receive an activation timestamp from RC.</p>
+<p><strong>Assertions</strong></p>
+<ol>
+<li>CurrentEra must be ActiveEra + 1.</li>
+<li>Id of the activation timestamp same as CurrentEra.</li>
+</ol>
+<p><strong>Actions</strong></p>
+<ul>
+<li>Finalize the currently active era.</li>
+<li>Increment ActiveEra by 1.</li>
+<li>Cleanup the old era information.</li>
+</ul>
+<p><strong>Exceptional Scenarios</strong></p>
+<ul>
+<li>Delay in exporting validator set: Triggered in a session later than 7th.</li>
+<li>Forcing Era: May triggered in a session earlier than 7th.</li>
+</ul>
+<h3 id="example-flow-of-a-happy-path"><a class="doc-anchor" href="#example-flow-of-a-happy-path">§</a>Example Flow of a happy path</h3>
+<ul>
+<li>end 0, start 1, plan 2</li>
+<li>end 1, start 2, plan 3</li>
+<li>end 2, start 3, plan 4</li>
+<li>end 3, start 4, plan 5 // <code>Plan new era</code> session. Current Era++. Trigger Election.</li>
+<li>**** Somewhere here: Election set is sent to RC, keyed with Current Era</li>
+<li>end 4, start 5, plan 6 // RC::session receives and queues this set.</li>
+<li>end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.</li>
+</ul>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Eras.html" title="struct pallet_staking_async::session_rotation::Eras">Eras</a></dt><dd>A handler for all era-based storage items.</dd><dt><a class="struct" href="struct.Rotator.html" title="struct pallet_staking_async::session_rotation::Rotator">Rotator</a></dt><dd>Manages session rotation logic.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

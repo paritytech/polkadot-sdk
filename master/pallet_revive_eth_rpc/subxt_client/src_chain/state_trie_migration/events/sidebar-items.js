@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["halted","migrated","slashed"],"struct":["AutoMigrationFinished","Halted","Migrated","Slashed"]};

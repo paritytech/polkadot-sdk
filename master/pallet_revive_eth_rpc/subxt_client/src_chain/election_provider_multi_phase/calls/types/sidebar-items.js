@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["set_emergency_election_result","set_minimum_untrusted_score","submit","submit_unsigned"],"struct":["GovernanceFallback","SetEmergencyElectionResult","SetMinimumUntrustedScore","Submit","SubmitUnsigned"]};

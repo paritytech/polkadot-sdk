@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Parachain runtime mock."><title>pallet_contracts_mock_network::parachain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts_mock_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../pallet_contracts_mock_network/index.html">pallet_<wbr>contracts_<wbr>mock_<wbr>network</a><span class="version">3.0.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module parachain</a></h2><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate pallet_<wbr>contracts_<wbr>mock_<wbr>network</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">pallet_contracts_mock_network</a></div><h1>Module <span>parachain</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/pallet_contracts_mock_network/parachain.rs.html#17-353">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Parachain runtime mock.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ApprovalDeposit.html" title="struct pallet_contracts_mock_network::parachain::ApprovalDeposit">Approval<wbr>Deposit</a></dt><dt><a class="struct" href="struct.AssetAccountDeposit.html" title="struct pallet_contracts_mock_network::parachain::AssetAccountDeposit">Asset<wbr>Account<wbr>Deposit</a></dt><dt><a class="struct" href="struct.AssetDeposit.html" title="struct pallet_contracts_mock_network::parachain::AssetDeposit">Asset<wbr>Deposit</a></dt><dt><a class="struct" href="struct.AssetsStringLimit.html" title="struct pallet_contracts_mock_network::parachain::AssetsStringLimit">Assets<wbr>String<wbr>Limit</a></dt><dt><a class="struct" href="struct.CheckingAccount.html" title="struct pallet_contracts_mock_network::parachain::CheckingAccount">Checking<wbr>Account</a></dt><dt><a class="struct" href="struct.ExistentialDeposit.html" title="struct pallet_contracts_mock_network::parachain::ExistentialDeposit">Existential<wbr>Deposit</a></dt><dt><a class="struct" href="struct.ForeignPrefix.html" title="struct pallet_contracts_mock_network::parachain::ForeignPrefix">Foreign<wbr>Prefix</a></dt><dt><a class="struct" href="struct.FromLocationToAsset.html" title="struct pallet_contracts_mock_network::parachain::FromLocationToAsset">From<wbr>Location<wbr>ToAsset</a></dt><dt><a class="struct" href="struct.KsmLocation.html" title="struct pallet_contracts_mock_network::parachain::KsmLocation">KsmLocation</a></dt><dt><a class="struct" href="struct.MaxAssetsIntoHolding.html" title="struct pallet_contracts_mock_network::parachain::MaxAssetsIntoHolding">MaxAssets<wbr>Into<wbr>Holding</a></dt><dt><a class="struct" href="struct.MaxInstructions.html" title="struct pallet_contracts_mock_network::parachain::MaxInstructions">MaxInstructions</a></dt><dt><a class="struct" href="struct.MaxLocks.html" title="struct pallet_contracts_mock_network::parachain::MaxLocks">MaxLocks</a></dt><dt><a class="struct" href="struct.MaxReserves.html" title="struct pallet_contracts_mock_network::parachain::MaxReserves">MaxReserves</a></dt><dt><a class="struct" href="struct.MetadataDepositBase.html" title="struct pallet_contracts_mock_network::parachain::MetadataDepositBase">Metadata<wbr>Deposit<wbr>Base</a></dt><dt><a class="struct" href="struct.MetadataDepositPerByte.html" title="struct pallet_contracts_mock_network::parachain::MetadataDepositPerByte">Metadata<wbr>Deposit<wbr>PerByte</a></dt><dt><a class="struct" href="struct.NftCollectionOne.html" title="struct pallet_contracts_mock_network::parachain::NftCollectionOne">NftCollection<wbr>One</a></dt><dt><a class="struct" href="struct.NftCollectionOneForRelay.html" title="struct pallet_contracts_mock_network::parachain::NftCollectionOneForRelay">NftCollection<wbr>OneFor<wbr>Relay</a></dt><dt><a class="struct" href="struct.PalletInfo.html" title="struct pallet_contracts_mock_network::parachain::PalletInfo">Pallet<wbr>Info</a></dt><dd>Provides an implementation of <code>PalletInfo</code> to provide information
+about the pallet setup in the runtime.</dd><dt><a class="struct" href="struct.ParentRelay.html" title="struct pallet_contracts_mock_network::parachain::ParentRelay">Parent<wbr>Relay</a></dt><dt><a class="struct" href="struct.RelayNativeAsset.html" title="struct pallet_contracts_mock_network::parachain::RelayNativeAsset">Relay<wbr>Native<wbr>Asset</a></dt><dt><a class="struct" href="struct.RelayNativeAssetForRelay.html" title="struct pallet_contracts_mock_network::parachain::RelayNativeAssetForRelay">Relay<wbr>Native<wbr>Asset<wbr>ForRelay</a></dt><dt><a class="struct" href="struct.RelayNetwork.html" title="struct pallet_contracts_mock_network::parachain::RelayNetwork">Relay<wbr>Network</a></dt><dt><a class="struct" href="struct.RemoveItemsLimit.html" title="struct pallet_contracts_mock_network::parachain::RemoveItemsLimit">Remove<wbr>Items<wbr>Limit</a></dt><dt><a class="struct" href="struct.ReservedDmpWeight.html" title="struct pallet_contracts_mock_network::parachain::ReservedDmpWeight">Reserved<wbr>DmpWeight</a></dt><dt><a class="struct" href="struct.ReservedXcmpWeight.html" title="struct pallet_contracts_mock_network::parachain::ReservedXcmpWeight">Reserved<wbr>Xcmp<wbr>Weight</a></dt><dt><a class="struct" href="struct.Runtime.html" title="struct pallet_contracts_mock_network::parachain::Runtime">Runtime</a></dt><dt><a class="struct" href="struct.RuntimeGenesisConfig.html" title="struct pallet_contracts_mock_network::parachain::RuntimeGenesisConfig">Runtime<wbr>Genesis<wbr>Config</a></dt><dt><a class="struct" href="struct.RuntimeOrigin.html" title="struct pallet_contracts_mock_network::parachain::RuntimeOrigin">Runtime<wbr>Origin</a></dt><dd>The runtime origin type representing the origin of a call.</dd><dt><a class="struct" href="struct.ThisParachain.html" title="struct pallet_contracts_mock_network::parachain::ThisParachain">This<wbr>Parachain</a></dt><dt><a class="struct" href="struct.TokenLocation.html" title="struct pallet_contracts_mock_network::parachain::TokenLocation">Token<wbr>Location</a></dt><dt><a class="struct" href="struct.TokensPerSecondPerMegabyte.html" title="struct pallet_contracts_mock_network::parachain::TokensPerSecondPerMegabyte">Tokens<wbr>PerSecond<wbr>PerMegabyte</a></dt><dt><a class="struct" href="struct.TrustedLockPairs.html" title="struct pallet_contracts_mock_network::parachain::TrustedLockPairs">Trusted<wbr>Lock<wbr>Pairs</a></dt><dt><a class="struct" href="struct.TrustedLockerCase.html" title="struct pallet_contracts_mock_network::parachain::TrustedLockerCase">Trusted<wbr>Locker<wbr>Case</a></dt><dt><a class="struct" href="struct.UniversalLocation.html" title="struct pallet_contracts_mock_network::parachain::UniversalLocation">Universal<wbr>Location</a></dt><dt><a class="struct" href="struct.XcmConfig.html" title="struct pallet_contracts_mock_network::parachain::XcmConfig">XcmConfig</a></dt><dt><a class="struct" href="struct.XcmInstructionWeight.html" title="struct pallet_contracts_mock_network::parachain::XcmInstructionWeight">XcmInstruction<wbr>Weight</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.OriginCaller.html" title="enum pallet_contracts_mock_network::parachain::OriginCaller">Origin<wbr>Caller</a></dt><dt><a class="enum" href="enum.RuntimeCall.html" title="enum pallet_contracts_mock_network::parachain::RuntimeCall">Runtime<wbr>Call</a></dt><dd>The aggregated runtime call type.</dd><dt><a class="enum" href="enum.RuntimeError.html" title="enum pallet_contracts_mock_network::parachain::RuntimeError">Runtime<wbr>Error</a></dt><dt><a class="enum" href="enum.RuntimeEvent.html" title="enum pallet_contracts_mock_network::parachain::RuntimeEvent">Runtime<wbr>Event</a></dt><dt><a class="enum" href="enum.RuntimeFreezeReason.html" title="enum pallet_contracts_mock_network::parachain::RuntimeFreezeReason">Runtime<wbr>Freeze<wbr>Reason</a></dt><dd>A reason for placing a freeze on funds.</dd><dt><a class="enum" href="enum.RuntimeHoldReason.html" title="enum pallet_contracts_mock_network::parachain::RuntimeHoldReason">Runtime<wbr>Hold<wbr>Reason</a></dt><dd>A reason for placing a hold on funds.</dd><dt><a class="enum" href="enum.RuntimeLockId.html" title="enum pallet_contracts_mock_network::parachain::RuntimeLockId">Runtime<wbr>Lock<wbr>Id</a></dt><dd>An identifier for each lock placed on funds.</dd><dt><a class="enum" href="enum.RuntimeSlashReason.html" title="enum pallet_contracts_mock_network::parachain::RuntimeSlashReason">Runtime<wbr>Slash<wbr>Reason</a></dt><dd>A reason for slashing funds.</dd><dt><a class="enum" href="enum.RuntimeTask.html" title="enum pallet_contracts_mock_network::parachain::RuntimeTask">Runtime<wbr>Task</a></dt><dd>An aggregation of all <code>Task</code> enums across all pallets included in the current runtime.</dd><dt><a class="enum" href="enum.RuntimeViewFunction.html" title="enum pallet_contracts_mock_network::parachain::RuntimeViewFunction">Runtime<wbr>View<wbr>Function</a></dt><dd>Runtime query type.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.estimate_fee_for_weight.html" title="fn pallet_contracts_mock_network::parachain::estimate_fee_for_weight">estimate_<wbr>fee_<wbr>for_<wbr>weight</a></dt><dt><a class="fn" href="fn.estimate_message_fee.html" title="fn pallet_contracts_mock_network::parachain::estimate_message_fee">estimate_<wbr>message_<wbr>fee</a></dt><dt><a class="fn" href="fn.estimate_weight.html" title="fn pallet_contracts_mock_network::parachain::estimate_weight">estimate_<wbr>weight</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AllPalletsWithSystem.html" title="type pallet_contracts_mock_network::parachain::AllPalletsWithSystem">AllPallets<wbr>With<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.</dd><dt><a class="type" href="type.AllPalletsWithoutSystem.html" title="type pallet_contracts_mock_network::parachain::AllPalletsWithoutSystem">AllPallets<wbr>Without<wbr>System</a></dt><dd>All pallets included in the runtime as a nested tuple of types.
+Excludes the System pallet.</dd><dt><a class="type" href="type.AssetTransactors.html" title="type pallet_contracts_mock_network::parachain::AssetTransactors">Asset<wbr>Transactors</a></dt><dd>Means for transacting assets on this chain</dd><dt><a class="type" href="type.Assets.html" title="type pallet_contracts_mock_network::parachain::Assets">Assets</a></dt><dt><a class="type" href="type.AssetsConfig.html" title="type pallet_contracts_mock_network::parachain::AssetsConfig">Assets<wbr>Config</a></dt><dt><a class="type" href="type.Balances.html" title="type pallet_contracts_mock_network::parachain::Balances">Balances</a></dt><dt><a class="type" href="type.BalancesConfig.html" title="type pallet_contracts_mock_network::parachain::BalancesConfig">Balances<wbr>Config</a></dt><dt><a class="type" href="type.Barrier.html" title="type pallet_contracts_mock_network::parachain::Barrier">Barrier</a></dt><dt><a class="type" href="type.Contracts.html" title="type pallet_contracts_mock_network::parachain::Contracts">Contracts</a></dt><dt><a class="type" href="type.ForeignAssetsTransactor.html" title="type pallet_contracts_mock_network::parachain::ForeignAssetsTransactor">Foreign<wbr>Assets<wbr>Transactor</a></dt><dt><a class="type" href="type.LocalBalancesTransactor.html" title="type pallet_contracts_mock_network::parachain::LocalBalancesTransactor">Local<wbr>Balances<wbr>Transactor</a></dt><dt><a class="type" href="type.LocalOriginToLocation.html" title="type pallet_contracts_mock_network::parachain::LocalOriginToLocation">Local<wbr>Origin<wbr>ToLocation</a></dt><dt><a class="type" href="type.MsgQueue.html" title="type pallet_contracts_mock_network::parachain::MsgQueue">MsgQueue</a></dt><dt><a class="type" href="type.PolkadotXcm.html" title="type pallet_contracts_mock_network::parachain::PolkadotXcm">Polkadot<wbr>Xcm</a></dt><dt><a class="type" href="type.PolkadotXcmConfig.html" title="type pallet_contracts_mock_network::parachain::PolkadotXcmConfig">Polkadot<wbr>XcmConfig</a></dt><dt><a class="type" href="type.SovereignAccountOf.html" title="type pallet_contracts_mock_network::parachain::SovereignAccountOf">Sovereign<wbr>Account<wbr>Of</a></dt><dt><a class="type" href="type.System.html" title="type pallet_contracts_mock_network::parachain::System">System</a></dt><dt><a class="type" href="type.SystemConfig.html" title="type pallet_contracts_mock_network::parachain::SystemConfig">System<wbr>Config</a></dt><dt><a class="type" href="type.Timestamp.html" title="type pallet_contracts_mock_network::parachain::Timestamp">Timestamp</a></dt><dt><a class="type" href="type.TrustedReserves.html" title="type pallet_contracts_mock_network::parachain::TrustedReserves">Trusted<wbr>Reserves</a></dt><dt><a class="type" href="type.TrustedTeleporters.html" title="type pallet_contracts_mock_network::parachain::TrustedTeleporters">Trusted<wbr>Teleporters</a></dt><dt><a class="type" href="type.XcmOriginToCallOrigin.html" title="type pallet_contracts_mock_network::parachain::XcmOriginToCallOrigin">XcmOrigin<wbr>ToCall<wbr>Origin</a></dt><dt><a class="type" href="type.XcmRouter.html" title="type pallet_contracts_mock_network::parachain::XcmRouter">XcmRouter</a></dt></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

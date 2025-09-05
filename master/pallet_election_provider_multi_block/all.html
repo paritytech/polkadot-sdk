@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_election_provider_multi_block" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_election_provider_multi_block/index.html">pallet_<wbr>election_<wbr>provider_<wbr>multi_<wbr>block</a><span class="version">0.9.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="struct.CleanRound.html">CleanRound</a></li><li><a href="struct.Continue.html">Continue</a></li><li><a href="struct.GetDone.html">GetDone</a></li><li><a href="struct.GetSigned.html">GetSigned</a></li><li><a href="struct.IfSolutionQueuedElse.html">IfSolutionQueuedElse</a></li><li><a href="struct.InitiateEmergencyPhase.html">InitiateEmergencyPhase</a></li><li><a href="pallet/struct.Pallet.html">pallet::Pallet</a></li><li><a href="pallet/storage_types/struct.CurrentPhase.html">pallet::storage_types::CurrentPhase</a></li><li><a href="pallet/storage_types/struct.DesiredTargets.html">pallet::storage_types::DesiredTargets</a></li><li><a href="pallet/storage_types/struct.PagedTargetSnapshot.html">pallet::storage_types::PagedTargetSnapshot</a></li><li><a href="pallet/storage_types/struct.PagedTargetSnapshotHash.html">pallet::storage_types::PagedTargetSnapshotHash</a></li><li><a href="pallet/storage_types/struct.PagedVoterSnapshot.html">pallet::storage_types::PagedVoterSnapshot</a></li><li><a href="pallet/storage_types/struct.PagedVoterSnapshotHash.html">pallet::storage_types::PagedVoterSnapshotHash</a></li><li><a href="pallet/storage_types/struct.Round.html">pallet::storage_types::Round</a></li><li><a href="signed/struct.SubmissionMetadata.html">signed::SubmissionMetadata</a></li><li><a href="signed/pallet/struct.DepositForViewFunction.html">signed::pallet::DepositForViewFunction</a></li><li><a href="signed/pallet/struct.Pallet.html">signed::pallet::Pallet</a></li><li><a href="signed/pallet/storage_types/struct.Invulnerables.html">signed::pallet::storage_types::Invulnerables</a></li><li><a href="signed/pallet/storage_types/struct.SortedScores.html">signed::pallet::storage_types::SortedScores</a></li><li><a href="signed/pallet/storage_types/struct.SubmissionMetadataStorage.html">signed::pallet::storage_types::SubmissionMetadataStorage</a></li><li><a href="signed/pallet/storage_types/struct.SubmissionStorage.html">signed::pallet::storage_types::SubmissionStorage</a></li><li><a href="types/struct.ElectionResult.html">types::ElectionResult</a></li><li><a href="types/struct.ElectionScore.html">types::ElectionScore</a></li><li><a href="types/struct.MaxFlattenedVoters.html">types::MaxFlattenedVoters</a></li><li><a href="types/struct.PagedRawSolution.html">types::PagedRawSolution</a></li><li><a href="unsigned/struct.Pallet.html">unsigned::Pallet</a></li><li><a href="unsigned/miner/struct.BaseMiner.html">unsigned::miner::BaseMiner</a></li><li><a href="unsigned/miner/struct.MaxWinnersFinal.html">unsigned::miner::MaxWinnersFinal</a></li><li><a href="unsigned/miner/struct.MineInput.html">unsigned::miner::MineInput</a></li><li><a href="unsigned/miner/struct.OffchainWorkerMiner.html">unsigned::miner::OffchainWorkerMiner</a></li><li><a href="verifier/struct.GenesisConfig.html">verifier::GenesisConfig</a></li><li><a href="verifier/struct.Pallet.html">verifier::Pallet</a></li><li><a href="verifier/struct.QueuedSolution.html">verifier::QueuedSolution</a></li><li><a href="verifier/storage_types/struct.MinimumScore.html">verifier::storage_types::MinimumScore</a></li><li><a href="verifier/storage_types/struct.QueuedSolutionBackings.html">verifier::storage_types::QueuedSolutionBackings</a></li><li><a href="verifier/storage_types/struct.QueuedSolutionScore.html">verifier::storage_types::QueuedSolutionScore</a></li><li><a href="verifier/storage_types/struct.QueuedSolutionX.html">verifier::storage_types::QueuedSolutionX</a></li><li><a href="verifier/storage_types/struct.QueuedSolutionY.html">verifier::storage_types::QueuedSolutionY</a></li><li><a href="verifier/storage_types/struct.QueuedValidVariant.html">verifier::storage_types::QueuedValidVariant</a></li><li><a href="verifier/storage_types/struct.StatusStorage.html">verifier::storage_types::StatusStorage</a></li><li><a href="weights/kusama/struct.MultiBlockSignedWeightInfo.html">weights::kusama::MultiBlockSignedWeightInfo</a></li><li><a href="weights/kusama/struct.MultiBlockUnsignedWeightInfo.html">weights::kusama::MultiBlockUnsignedWeightInfo</a></li><li><a href="weights/kusama/struct.MultiBlockVerifierWeightInfo.html">weights::kusama::MultiBlockVerifierWeightInfo</a></li><li><a href="weights/kusama/struct.MultiBlockWeightInfo.html">weights::kusama::MultiBlockWeightInfo</a></li><li><a href="weights/polkadot/struct.MultiBlockSignedWeightInfo.html">weights::polkadot::MultiBlockSignedWeightInfo</a></li><li><a href="weights/polkadot/struct.MultiBlockUnsignedWeightInfo.html">weights::polkadot::MultiBlockUnsignedWeightInfo</a></li><li><a href="weights/polkadot/struct.MultiBlockVerifierWeightInfo.html">weights::polkadot::MultiBlockVerifierWeightInfo</a></li><li><a href="weights/polkadot/struct.MultiBlockWeightInfo.html">weights::polkadot::MultiBlockWeightInfo</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="enum.AdminOperation.html">AdminOperation</a></li><li><a href="enum.ElectionError.html">ElectionError</a></li><li><a href="pallet/enum.Call.html">pallet::Call</a></li><li><a href="pallet/enum.CommonError.html">pallet::CommonError</a></li><li><a href="pallet/enum.Error.html">pallet::Error</a></li><li><a href="pallet/enum.Event.html">pallet::Event</a></li><li><a href="signed/pallet/enum.Call.html">signed::pallet::Call</a></li><li><a href="signed/pallet/enum.Error.html">signed::pallet::Error</a></li><li><a href="signed/pallet/enum.Event.html">signed::pallet::Event</a></li><li><a href="signed/pallet/enum.HoldReason.html">signed::pallet::HoldReason</a></li><li><a href="types/enum.Phase.html">types::Phase</a></li><li><a href="unsigned/enum.Call.html">unsigned::Call</a></li><li><a href="unsigned/miner/enum.MinerError.html">unsigned::miner::MinerError</a></li><li><a href="unsigned/miner/enum.OffchainMinerError.html">unsigned::miner::OffchainMinerError</a></li><li><a href="unsigned/miner/enum.SnapshotType.html">unsigned::miner::SnapshotType</a></li><li><a href="verifier/enum.Call.html">verifier::Call</a></li><li><a href="verifier/enum.Event.html">verifier::Event</a></li><li><a href="verifier/enum.FeasibilityError.html">verifier::FeasibilityError</a></li><li><a href="verifier/enum.Status.html">verifier::Status</a></li><li><a href="verifier/enum.VerificationResult.html">verifier::VerificationResult</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="trait.OnRoundRotation.html">OnRoundRotation</a></li><li><a href="pallet/trait.Config.html">pallet::Config</a></li><li><a href="signed/trait.CalculateBaseDeposit.html">signed::CalculateBaseDeposit</a></li><li><a href="signed/trait.CalculatePageDeposit.html">signed::CalculatePageDeposit</a></li><li><a href="signed/pallet/trait.Config.html">signed::pallet::Config</a></li><li><a href="types/trait.NposSolution.html">types::NposSolution</a></li><li><a href="types/trait.PadSolutionPages.html">types::PadSolutionPages</a></li><li><a href="types/trait.Pagify.html">types::Pagify</a></li><li><a href="unsigned/trait.Config.html">unsigned::Config</a></li><li><a href="unsigned/miner/trait.MinerConfig.html">unsigned::miner::MinerConfig</a></li><li><a href="verifier/trait.AsynchronousVerifier.html">verifier::AsynchronousVerifier</a></li><li><a href="verifier/trait.Config.html">verifier::Config</a></li><li><a href="verifier/trait.SolutionDataProvider.html">verifier::SolutionDataProvider</a></li><li><a href="verifier/trait.Verifier.html">verifier::Verifier</a></li><li><a href="weights/traits/pallet_election_provider_multi_block/trait.WeightInfo.html">weights::traits::pallet_election_provider_multi_block::WeightInfo</a></li><li><a href="weights/traits/pallet_election_provider_multi_block_signed/trait.WeightInfo.html">weights::traits::pallet_election_provider_multi_block_signed::WeightInfo</a></li><li><a href="weights/traits/pallet_election_provider_multi_block_unsigned/trait.WeightInfo.html">weights::traits::pallet_election_provider_multi_block_unsigned::WeightInfo</a></li><li><a href="weights/traits/pallet_election_provider_multi_block_verifier/trait.WeightInfo.html">weights::traits::pallet_election_provider_multi_block_verifier::WeightInfo</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.log.html">log</a></li><li><a href="macro.miner_log.html">miner_log</a></li><li><a href="macro.sublog.html">sublog</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="pallet/dispatchables/fn.manage.html">pallet::dispatchables::manage</a></li><li><a href="signed/pallet/dispatchables/fn.bail.html">signed::pallet::dispatchables::bail</a></li><li><a href="signed/pallet/dispatchables/fn.clear_old_round_data.html">signed::pallet::dispatchables::clear_old_round_data</a></li><li><a href="signed/pallet/dispatchables/fn.register.html">signed::pallet::dispatchables::register</a></li><li><a href="signed/pallet/dispatchables/fn.set_invulnerables.html">signed::pallet::dispatchables::set_invulnerables</a></li><li><a href="signed/pallet/dispatchables/fn.submit_page.html">signed::pallet::dispatchables::submit_page</a></li><li><a href="unsigned/dispatchables/fn.submit_unsigned.html">unsigned::dispatchables::submit_unsigned</a></li><li><a href="verifier/fn.feasibility_check_page_inner_with_snapshot.html">verifier::feasibility_check_page_inner_with_snapshot</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="type.ProceedRegardlessOf.html">ProceedRegardlessOf</a></li><li><a href="type.RevertToSignedIfNotQueuedOf.html">RevertToSignedIfNotQueuedOf</a></li><li><a href="pallet/type.CurrentPhase.html">pallet::CurrentPhase</a></li><li><a href="pallet/type.DesiredTargets.html">pallet::DesiredTargets</a></li><li><a href="pallet/type.Module.html">pallet::Module</a></li><li><a href="pallet/type.PagedTargetSnapshot.html">pallet::PagedTargetSnapshot</a></li><li><a href="pallet/type.PagedTargetSnapshotHash.html">pallet::PagedTargetSnapshotHash</a></li><li><a href="pallet/type.PagedVoterSnapshot.html">pallet::PagedVoterSnapshot</a></li><li><a href="pallet/type.PagedVoterSnapshotHash.html">pallet::PagedVoterSnapshotHash</a></li><li><a href="pallet/type.Round.html">pallet::Round</a></li><li><a href="signed/pallet/type.Invulnerables.html">signed::pallet::Invulnerables</a></li><li><a href="signed/pallet/type.Module.html">signed::pallet::Module</a></li><li><a href="signed/pallet/type.SortedScores.html">signed::pallet::SortedScores</a></li><li><a href="types/type.AllVoterPagesFlattenedOf.html">types::AllVoterPagesFlattenedOf</a></li><li><a href="types/type.AllVoterPagesOf.html">types::AllVoterPagesOf</a></li><li><a href="types/type.AssignmentOf.html">types::AssignmentOf</a></li><li><a href="types/type.FallbackErrorOf.html">types::FallbackErrorOf</a></li><li><a href="types/type.PageIndex.html">types::PageIndex</a></li><li><a href="types/type.SolutionAccuracyOf.html">types::SolutionAccuracyOf</a></li><li><a href="types/type.SolutionOf.html">types::SolutionOf</a></li><li><a href="types/type.SolutionTargetIndexOf.html">types::SolutionTargetIndexOf</a></li><li><a href="types/type.SolutionVoterIndexOf.html">types::SolutionVoterIndexOf</a></li><li><a href="types/type.VoterOf.html">types::VoterOf</a></li><li><a href="types/type.VoterPageOf.html">types::VoterPageOf</a></li><li><a href="unsigned/type.Module.html">unsigned::Module</a></li><li><a href="unsigned/miner/type.FullSupportsOfMiner.html">unsigned::miner::FullSupportsOfMiner</a></li><li><a href="unsigned/miner/type.PageSupportsOfMiner.html">unsigned::miner::PageSupportsOfMiner</a></li><li><a href="verifier/type.Module.html">verifier::Module</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="constant.LOG_PREFIX.html">LOG_PREFIX</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

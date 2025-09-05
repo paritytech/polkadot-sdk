@@ -1,0 +1,246 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="How to enable metadata hash verification in the runtime."><title>polkadot_sdk_docs::guides::enable_metadata_hash - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module enable_metadata_hash</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">enable_metadata_hash</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/enable_metadata_hash.rs.html#1-88">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>How to enable metadata hash verification in the runtime.</p>
+<h2 id="enable-metadata-hash-verification"><a class="doc-anchor" href="#enable-metadata-hash-verification">§</a>Enable metadata hash verification</h2>
+<p>This guide will teach you how to enable the metadata hash verification in your runtime.</p>
+<h3 id="what-is-metadata-hash-verification"><a class="doc-anchor" href="#what-is-metadata-hash-verification">§</a>What is metadata hash verification?</h3>
+<p>Each FRAME based runtime exposes metadata about itself. This metadata is used by consumers of
+the runtime to interpret the state, to construct transactions etc. Part of this metadata are the
+type information. These type information can be used to e.g. decode storage entries or to decode
+a transaction. So, the metadata is quite useful for wallets to interact with a FRAME based
+chain. Online wallets can fetch the metadata directly from any node of the chain they are
+connected to, but offline wallets can not do this. So, for the offline wallet to have access to
+the metadata it needs to be transferred and stored on the device. The problem is that the
+metadata has a size of several hundreds of kilobytes, which takes quite a while to transfer to
+these offline wallets and the internal storage of these devices is also not big enough to store
+the metadata for one or more networks. The next problem is that the offline wallet/user can not
+trust the metadata to be correct. It is very important for the metadata to be correct or
+otherwise an attacker could change them in a way that the offline wallet decodes a transaction
+in a different way than what it will be decoded to on chain. So, the user may signs an incorrect
+transaction leading to unexpecting behavior.</p>
+<p>The metadata hash verification circumvents the issues of the huge metadata and the need to trust
+some metadata blob to be correct. To generate a hash for the metadata, the metadata is chunked,
+these chunks are put into a merkle tree and then the root of this merkle tree is the “metadata
+hash”. For a more technical explanation on how it works, see
+<a href="https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html">RFC78</a>. At compile
+time the metadata hash is generated and “backed” into the runtime. This makes it extremely cheap
+for the runtime to verify on chain that the metadata hash is correct. By having the runtime
+verify the hash on chain, the user also doesn’t need to trust the offchain metadata. If the
+metadata hash doesn’t match the on chain metadata hash the transaction will be rejected. The
+metadata hash itself is added to the data of the transaction that is signed, this means the
+actual hash does not appear in the transaction. On chain the same procedure is repeated with the
+metadata hash that is known by the runtime and if the metadata hash doesn’t match the signature
+verification will fail. As the metadata hash is actually the root of a merkle tree, the offline
+wallet can get proofs of individual types to decode a transaction. This means that the offline
+wallet does not require the entire metadata to be present on the device.</p>
+<h3 id="integrating-metadata-hash-verification-into-your-runtime"><a class="doc-anchor" href="#integrating-metadata-hash-verification-into-your-runtime">§</a>Integrating metadata hash verification into your runtime</h3>
+<p>The integration of the metadata hash verification is split into two parts, first the actual
+integration into the runtime and secondly the enabling of the metadata hash generation at
+compile time.</p>
+<h4 id="runtime-integration"><a class="doc-anchor" href="#runtime-integration">§</a>Runtime integration</h4>
+<p>From the runtime side only the
+<a href="../../../frame_metadata_hash_extension/struct.CheckMetadataHash.html" title="struct frame_metadata_hash_extension::CheckMetadataHash"><code>CheckMetadataHash</code></a> needs to be added to the
+list of signed extension:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub type </span>SignedExtra = (
+	frame_system::CheckNonZeroSender&lt;Runtime&gt;,
+	frame_system::CheckSpecVersion&lt;Runtime&gt;,
+	frame_system::CheckTxVersion&lt;Runtime&gt;,
+	frame_system::CheckGenesis&lt;Runtime&gt;,
+	frame_system::CheckEra&lt;Runtime&gt;,
+	frame_system::CheckNonce&lt;Runtime&gt;,
+	frame_system::CheckWeight&lt;Runtime&gt;,
+	pallet_transaction_payment::ChargeTransactionPayment&lt;Runtime&gt;,
+	cumulus_primitives_storage_weight_reclaim::StorageWeightReclaim&lt;Runtime&gt;,
+	frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
+);</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong></p>
+<p>Adding the signed extension changes the encoding of the transaction and adds one extra byte
+per transaction!</p>
+</blockquote>
+<p>This signed extension will make sure to decode the requested <code>mode</code> and will add the metadata
+hash to the signed data depending on the requested <code>mode</code>. The <code>mode</code> gives the user/wallet
+control over deciding if the metadata hash should be verified or not. The metadata hash itself
+is drawn from the <code>RUNTIME_METADATA_HASH</code> environment variable. If the environment variable is
+not set, any transaction that requires the metadata hash is rejected with the error
+<code>CannotLookup</code>. This is a security measurement to prevent including invalid transactions.</p>
+<div class="warning">
+<p>The extension does not work with the native runtime, because the
+<code>RUNTIME_METADATA_HASH</code> environment variable is not set when building the
+<code>frame-metadata-hash-extension</code> crate.</p>
+</div>
+<h4 id="enable-metadata-hash-generation"><a class="doc-anchor" href="#enable-metadata-hash-generation">§</a>Enable metadata hash generation</h4>
+<p>The metadata hash generation needs to be enabled when building the wasm binary. The
+<code>substrate-wasm-builder</code> supports this out of the box:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, feature = <span class="string">"metadata-hash"</span>))]
+</span><span class="kw">fn </span>main() {
+	substrate_wasm_builder::WasmBuilder::init_with_defaults()
+		.enable_metadata_hash(<span class="string">"UNIT"</span>, <span class="number">12</span>)
+		.build();
+}</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong></p>
+<p>The <code>metadata-hash</code> feature needs to be enabled for the <code>substrate-wasm-builder</code> to enable the
+code for being able to generate the metadata hash. It is also recommended to put the metadata
+hash generation behind a feature in the runtime as shown above. The reason behind is that it
+adds a lot of code which increases the compile time and the generation itself also increases
+the compile time. Thus, it is recommended to enable the feature only when the metadata hash is
+required (e.g. for an on-chain build).</p>
+</blockquote>
+<p>The two parameters to <code>enable_metadata_hash</code> are the token symbol and the number of decimals of
+the primary token of the chain. These information are included for the wallets to show token
+related operations in a more user friendly way.</p>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

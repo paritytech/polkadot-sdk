@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ENDOWMENT"],"fn":["development_config_genesis","get_preset","preset_names"]};

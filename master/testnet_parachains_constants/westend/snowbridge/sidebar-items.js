@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FRONTEND_PALLET_INDEX","INBOUND_QUEUE_PALLET_INDEX_V1","INBOUND_QUEUE_PALLET_INDEX_V2"],"struct":["AssetHubParaId","EthereumLocation","EthereumNetwork"]};

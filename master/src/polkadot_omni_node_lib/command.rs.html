@@ -1,0 +1,544 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-omni-node/lib/src/command.rs`."><title>command.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_omni_node_lib" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_omni_node_lib/</div>command.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Cumulus.
+<a href=#3 id=3 data-nosnippet>3</a>// SPDX-License-Identifier: Apache-2.0
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a>// Licensed under the Apache License, Version 2.0 (the "License");
+<a href=#6 id=6 data-nosnippet>6</a>// you may not use this file except in compliance with the License.
+<a href=#7 id=7 data-nosnippet>7</a>// You may obtain a copy of the License at
+<a href=#8 id=8 data-nosnippet>8</a>//
+<a href=#9 id=9 data-nosnippet>9</a>// 	http://www.apache.org/licenses/LICENSE-2.0
+<a href=#10 id=10 data-nosnippet>10</a>//
+<a href=#11 id=11 data-nosnippet>11</a>// Unless required by applicable law or agreed to in writing, software
+<a href=#12 id=12 data-nosnippet>12</a>// distributed under the License is distributed on an "AS IS" BASIS,
+<a href=#13 id=13 data-nosnippet>13</a>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+<a href=#14 id=14 data-nosnippet>14</a>// See the License for the specific language governing permissions and
+<a href=#15 id=15 data-nosnippet>15</a>// limitations under the License.
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">use crate</span>::{
+<a href=#18 id=18 data-nosnippet>18</a>	cli::{Cli, RelayChainCli, Subcommand},
+<a href=#19 id=19 data-nosnippet>19</a>	common::{
+<a href=#20 id=20 data-nosnippet>20</a>		chain_spec::LoadSpec,
+<a href=#21 id=21 data-nosnippet>21</a>		runtime::{
+<a href=#22 id=22 data-nosnippet>22</a>			AuraConsensusId, Consensus, Runtime, RuntimeResolver <span class="kw">as </span>RuntimeResolverT,
+<a href=#23 id=23 data-nosnippet>23</a>			RuntimeResolver,
+<a href=#24 id=24 data-nosnippet>24</a>		},
+<a href=#25 id=25 data-nosnippet>25</a>		types::Block,
+<a href=#26 id=26 data-nosnippet>26</a>		NodeBlock, NodeExtraArgs,
+<a href=#27 id=27 data-nosnippet>27</a>	},
+<a href=#28 id=28 data-nosnippet>28</a>	extra_subcommand::DefaultExtraSubcommands,
+<a href=#29 id=29 data-nosnippet>29</a>	fake_runtime_api,
+<a href=#30 id=30 data-nosnippet>30</a>	nodes::DynNodeSpecExt,
+<a href=#31 id=31 data-nosnippet>31</a>	runtime::BlockNumber,
+<a href=#32 id=32 data-nosnippet>32</a>};
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>clap::{CommandFactory, FromArgMatches};
+<a href=#34 id=34 data-nosnippet>34</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">use </span>cumulus_client_service::storage_proof_size::HostFunctions <span class="kw">as </span>ReclaimHostFunctions;
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>log::info;
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sc_cli::{CliConfiguration, <span class="prelude-ty">Result</span>, SubstrateCli};
+<a href=#39 id=39 data-nosnippet>39</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#40 id=40 data-nosnippet>40</a></span><span class="kw">use </span>sp_runtime::traits::HashingFor;
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">const </span>DEFAULT_DEV_BLOCK_TIME_MS: u64 = <span class="number">3000</span>;
+<a href=#43 id=43 data-nosnippet>43</a>
+<a href=#44 id=44 data-nosnippet>44</a><span class="doccomment">/// Structure that can be used in order to provide customizers for different functionalities of the
+<a href=#45 id=45 data-nosnippet>45</a>/// node binary that is being built using this library.
+<a href=#46 id=46 data-nosnippet>46</a></span><span class="kw">pub struct </span>RunConfig {
+<a href=#47 id=47 data-nosnippet>47</a>	<span class="doccomment">/// A custom chain spec loader.
+<a href=#48 id=48 data-nosnippet>48</a>	</span><span class="kw">pub </span>chain_spec_loader: Box&lt;<span class="kw">dyn </span>LoadSpec&gt;,
+<a href=#49 id=49 data-nosnippet>49</a>	<span class="doccomment">/// A custom runtime resolver.
+<a href=#50 id=50 data-nosnippet>50</a>	</span><span class="kw">pub </span>runtime_resolver: Box&lt;<span class="kw">dyn </span>RuntimeResolver&gt;,
+<a href=#51 id=51 data-nosnippet>51</a>}
+<a href=#52 id=52 data-nosnippet>52</a>
+<a href=#53 id=53 data-nosnippet>53</a><span class="kw">impl </span>RunConfig {
+<a href=#54 id=54 data-nosnippet>54</a>	<span class="doccomment">/// Creates a new `RunConfig` instance.
+<a href=#55 id=55 data-nosnippet>55</a>	</span><span class="kw">pub fn </span>new(
+<a href=#56 id=56 data-nosnippet>56</a>		runtime_resolver: Box&lt;<span class="kw">dyn </span>RuntimeResolver&gt;,
+<a href=#57 id=57 data-nosnippet>57</a>		chain_spec_loader: Box&lt;<span class="kw">dyn </span>LoadSpec&gt;,
+<a href=#58 id=58 data-nosnippet>58</a>	) -&gt; <span class="self">Self </span>{
+<a href=#59 id=59 data-nosnippet>59</a>		RunConfig { runtime_resolver, chain_spec_loader }
+<a href=#60 id=60 data-nosnippet>60</a>	}
+<a href=#61 id=61 data-nosnippet>61</a>}
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">pub fn </span>new_aura_node_spec&lt;Block&gt;(
+<a href=#64 id=64 data-nosnippet>64</a>	aura_id: AuraConsensusId,
+<a href=#65 id=65 data-nosnippet>65</a>	extra_args: <span class="kw-2">&amp;</span>NodeExtraArgs,
+<a href=#66 id=66 data-nosnippet>66</a>) -&gt; Box&lt;<span class="kw">dyn </span>DynNodeSpecExt&gt;
+<a href=#67 id=67 data-nosnippet>67</a><span class="kw">where
+<a href=#68 id=68 data-nosnippet>68</a>	</span>Block: NodeBlock,
+<a href=#69 id=69 data-nosnippet>69</a>{
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="kw">match </span>aura_id {
+<a href=#71 id=71 data-nosnippet>71</a>		AuraConsensusId::Sr25519 =&gt; <span class="kw">crate</span>::nodes::aura::new_aura_node_spec::&lt;
+<a href=#72 id=72 data-nosnippet>72</a>			Block,
+<a href=#73 id=73 data-nosnippet>73</a>			fake_runtime_api::aura_sr25519::RuntimeApi,
+<a href=#74 id=74 data-nosnippet>74</a>			sp_consensus_aura::sr25519::AuthorityId,
+<a href=#75 id=75 data-nosnippet>75</a>		&gt;(extra_args),
+<a href=#76 id=76 data-nosnippet>76</a>		AuraConsensusId::Ed25519 =&gt; <span class="kw">crate</span>::nodes::aura::new_aura_node_spec::&lt;
+<a href=#77 id=77 data-nosnippet>77</a>			Block,
+<a href=#78 id=78 data-nosnippet>78</a>			fake_runtime_api::aura_ed25519::RuntimeApi,
+<a href=#79 id=79 data-nosnippet>79</a>			sp_consensus_aura::ed25519::AuthorityId,
+<a href=#80 id=80 data-nosnippet>80</a>		&gt;(extra_args),
+<a href=#81 id=81 data-nosnippet>81</a>	}
+<a href=#82 id=82 data-nosnippet>82</a>}
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">fn </span>new_node_spec(
+<a href=#85 id=85 data-nosnippet>85</a>	config: <span class="kw-2">&amp;</span>sc_service::Configuration,
+<a href=#86 id=86 data-nosnippet>86</a>	runtime_resolver: <span class="kw-2">&amp;</span>Box&lt;<span class="kw">dyn </span>RuntimeResolverT&gt;,
+<a href=#87 id=87 data-nosnippet>87</a>	extra_args: <span class="kw-2">&amp;</span>NodeExtraArgs,
+<a href=#88 id=88 data-nosnippet>88</a>) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>DynNodeSpecExt&gt;, sc_cli::Error&gt; {
+<a href=#89 id=89 data-nosnippet>89</a>	<span class="kw">let </span>runtime = runtime_resolver.runtime(config.chain_spec.as_ref())<span class="question-mark">?</span>;
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a>	<span class="prelude-val">Ok</span>(<span class="kw">match </span>runtime {
+<a href=#92 id=92 data-nosnippet>92</a>		Runtime::Omni(block_number, consensus) =&gt; <span class="kw">match </span>(block_number, consensus) {
+<a href=#93 id=93 data-nosnippet>93</a>			(BlockNumber::U32, Consensus::Aura(aura_id)) =&gt;
+<a href=#94 id=94 data-nosnippet>94</a>				new_aura_node_spec::&lt;Block&lt;u32&gt;&gt;(aura_id, extra_args),
+<a href=#95 id=95 data-nosnippet>95</a>			(BlockNumber::U64, Consensus::Aura(aura_id)) =&gt;
+<a href=#96 id=96 data-nosnippet>96</a>				new_aura_node_spec::&lt;Block&lt;u64&gt;&gt;(aura_id, extra_args),
+<a href=#97 id=97 data-nosnippet>97</a>		},
+<a href=#98 id=98 data-nosnippet>98</a>	})
+<a href=#99 id=99 data-nosnippet>99</a>}
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a><span class="doccomment">/// Parse command line arguments into service configuration.
+<a href=#102 id=102 data-nosnippet>102</a></span><span class="kw">pub fn </span>run&lt;CliConfig: <span class="kw">crate</span>::cli::CliConfig&gt;(cmd_config: RunConfig) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#103 id=103 data-nosnippet>103</a>	run_with_custom_cli::&lt;CliConfig, DefaultExtraSubcommands&gt;(cmd_config)
+<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="doccomment">/// Parse command‑line arguments into service configuration and inject an
+<a href=#107 id=107 data-nosnippet>107</a>/// optional extra sub‑command.
+<a href=#108 id=108 data-nosnippet>108</a>///
+<a href=#109 id=109 data-nosnippet>109</a>/// `run_with_custom_cli` builds the base CLI for the node binary, then asks the
+<a href=#110 id=110 data-nosnippet>110</a>/// `Extra` type for an optional extra sub‑command.
+<a href=#111 id=111 data-nosnippet>111</a>///
+<a href=#112 id=112 data-nosnippet>112</a>/// When the user actually invokes that extra sub‑command,
+<a href=#113 id=113 data-nosnippet>113</a>/// `Extra::from_arg_matches` returns a parsed value which is immediately passed
+<a href=#114 id=114 data-nosnippet>114</a>/// to `extra.handle(&amp;cfg)` and the process exits.  Otherwise control falls
+<a href=#115 id=115 data-nosnippet>115</a>/// through to the normal node‑startup / utility sub‑command match.
+<a href=#116 id=116 data-nosnippet>116</a>///
+<a href=#117 id=117 data-nosnippet>117</a>/// # Type Parameters
+<a href=#118 id=118 data-nosnippet>118</a>/// * `CliConfig` – customization trait supplying user‑facing info (name, description, version) for
+<a href=#119 id=119 data-nosnippet>119</a>///   the binary.
+<a href=#120 id=120 data-nosnippet>120</a>/// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
+<a href=#121 id=121 data-nosnippet>121</a>///   should not expose any extra subcommands.
+<a href=#122 id=122 data-nosnippet>122</a></span><span class="kw">pub fn </span>run_with_custom_cli&lt;CliConfig, ExtraSubcommand&gt;(cmd_config: RunConfig) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+<a href=#123 id=123 data-nosnippet>123</a><span class="kw">where
+<a href=#124 id=124 data-nosnippet>124</a>	</span>CliConfig: <span class="kw">crate</span>::cli::CliConfig,
+<a href=#125 id=125 data-nosnippet>125</a>	ExtraSubcommand: <span class="kw">crate</span>::extra_subcommand::ExtraSubcommand,
+<a href=#126 id=126 data-nosnippet>126</a>{
+<a href=#127 id=127 data-nosnippet>127</a>	<span class="kw">let </span>cli_command = Cli::&lt;CliConfig&gt;::command();
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="kw">let </span>cli_command = ExtraSubcommand::augment_subcommands(cli_command);
+<a href=#129 id=129 data-nosnippet>129</a>	<span class="kw">let </span>cli_command = Cli::&lt;CliConfig&gt;::setup_command(cli_command);
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a>	<span class="comment">// Get matches for all CLI, including extra args.
+<a href=#132 id=132 data-nosnippet>132</a>	</span><span class="kw">let </span>matches = cli_command.get_matches();
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="comment">// Parse only the part corresponding to the extra args.
+<a href=#135 id=135 data-nosnippet>135</a>	</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(extra) = ExtraSubcommand::from_arg_matches(<span class="kw-2">&amp;</span>matches) {
+<a href=#136 id=136 data-nosnippet>136</a>		<span class="comment">// Handle the extra, and return - subcommands are self contained,
+<a href=#137 id=137 data-nosnippet>137</a>		// no need to handle the rest of the CLI or node running.
+<a href=#138 id=138 data-nosnippet>138</a>		</span>extra.handle(<span class="kw-2">&amp;</span>cmd_config)<span class="question-mark">?</span>;
+<a href=#139 id=139 data-nosnippet>139</a>		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
+<a href=#140 id=140 data-nosnippet>140</a>	}
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>	<span class="comment">// If matching on the extra subcommands fails, match on the rest of the node CLI as usual.
+<a href=#143 id=143 data-nosnippet>143</a>	</span><span class="kw">let </span><span class="kw-2">mut </span>cli =
+<a href=#144 id=144 data-nosnippet>144</a>		Cli::&lt;CliConfig&gt;::from_arg_matches(<span class="kw-2">&amp;</span>matches).map_err(|e| sc_cli::Error::Cli(e.into()))<span class="question-mark">?</span>;
+<a href=#145 id=145 data-nosnippet>145</a>	cli.chain_spec_loader = <span class="prelude-val">Some</span>(cmd_config.chain_spec_loader);
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>	<span class="attr">#[allow(deprecated)]
+<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">match </span><span class="kw-2">&amp;</span>cli.subcommand {
+<a href=#149 id=149 data-nosnippet>149</a>		<span class="prelude-val">Some</span>(Subcommand::BuildSpec(cmd)) =&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#151 id=151 data-nosnippet>151</a>			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
+<a href=#152 id=152 data-nosnippet>152</a>		},
+<a href=#153 id=153 data-nosnippet>153</a>		<span class="prelude-val">Some</span>(Subcommand::CheckBlock(cmd)) =&gt; {
+<a href=#154 id=154 data-nosnippet>154</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#155 id=155 data-nosnippet>155</a>			runner.async_run(|config| {
+<a href=#156 id=156 data-nosnippet>156</a>				<span class="kw">let </span>node =
+<a href=#157 id=157 data-nosnippet>157</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#158 id=158 data-nosnippet>158</a>				node.prepare_check_block_cmd(config, cmd)
+<a href=#159 id=159 data-nosnippet>159</a>			})
+<a href=#160 id=160 data-nosnippet>160</a>		},
+<a href=#161 id=161 data-nosnippet>161</a>		<span class="prelude-val">Some</span>(Subcommand::ExportBlocks(cmd)) =&gt; {
+<a href=#162 id=162 data-nosnippet>162</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#163 id=163 data-nosnippet>163</a>			runner.async_run(|config| {
+<a href=#164 id=164 data-nosnippet>164</a>				<span class="kw">let </span>node =
+<a href=#165 id=165 data-nosnippet>165</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#166 id=166 data-nosnippet>166</a>				node.prepare_export_blocks_cmd(config, cmd)
+<a href=#167 id=167 data-nosnippet>167</a>			})
+<a href=#168 id=168 data-nosnippet>168</a>		},
+<a href=#169 id=169 data-nosnippet>169</a>		<span class="prelude-val">Some</span>(Subcommand::ExportState(cmd)) =&gt; {
+<a href=#170 id=170 data-nosnippet>170</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#171 id=171 data-nosnippet>171</a>			runner.async_run(|config| {
+<a href=#172 id=172 data-nosnippet>172</a>				<span class="kw">let </span>node =
+<a href=#173 id=173 data-nosnippet>173</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#174 id=174 data-nosnippet>174</a>				node.prepare_export_state_cmd(config, cmd)
+<a href=#175 id=175 data-nosnippet>175</a>			})
+<a href=#176 id=176 data-nosnippet>176</a>		},
+<a href=#177 id=177 data-nosnippet>177</a>		<span class="prelude-val">Some</span>(Subcommand::ImportBlocks(cmd)) =&gt; {
+<a href=#178 id=178 data-nosnippet>178</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#179 id=179 data-nosnippet>179</a>			runner.async_run(|config| {
+<a href=#180 id=180 data-nosnippet>180</a>				<span class="kw">let </span>node =
+<a href=#181 id=181 data-nosnippet>181</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#182 id=182 data-nosnippet>182</a>				node.prepare_import_blocks_cmd(config, cmd)
+<a href=#183 id=183 data-nosnippet>183</a>			})
+<a href=#184 id=184 data-nosnippet>184</a>		},
+<a href=#185 id=185 data-nosnippet>185</a>		<span class="prelude-val">Some</span>(Subcommand::Revert(cmd)) =&gt; {
+<a href=#186 id=186 data-nosnippet>186</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#187 id=187 data-nosnippet>187</a>			runner.async_run(|config| {
+<a href=#188 id=188 data-nosnippet>188</a>				<span class="kw">let </span>node =
+<a href=#189 id=189 data-nosnippet>189</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#190 id=190 data-nosnippet>190</a>				node.prepare_revert_cmd(config, cmd)
+<a href=#191 id=191 data-nosnippet>191</a>			})
+<a href=#192 id=192 data-nosnippet>192</a>		},
+<a href=#193 id=193 data-nosnippet>193</a>		<span class="prelude-val">Some</span>(Subcommand::ChainSpecBuilder(cmd)) =&gt;
+<a href=#194 id=194 data-nosnippet>194</a>			cmd.run().map_err(|err| sc_cli::Error::Application(err.into())),
+<a href=#195 id=195 data-nosnippet>195</a>
+<a href=#196 id=196 data-nosnippet>196</a>		<span class="prelude-val">Some</span>(Subcommand::PurgeChain(cmd)) =&gt; {
+<a href=#197 id=197 data-nosnippet>197</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#198 id=198 data-nosnippet>198</a>			<span class="kw">let </span>polkadot_cli =
+<a href=#199 id=199 data-nosnippet>199</a>				RelayChainCli::&lt;CliConfig&gt;::new(runner.config(), cli.relay_chain_args.iter());
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a>			runner.sync_run(|config| {
+<a href=#202 id=202 data-nosnippet>202</a>				<span class="kw">let </span>polkadot_config = SubstrateCli::create_configuration(
+<a href=#203 id=203 data-nosnippet>203</a>					<span class="kw-2">&amp;</span>polkadot_cli,
+<a href=#204 id=204 data-nosnippet>204</a>					<span class="kw-2">&amp;</span>polkadot_cli,
+<a href=#205 id=205 data-nosnippet>205</a>					config.tokio_handle.clone(),
+<a href=#206 id=206 data-nosnippet>206</a>				)
+<a href=#207 id=207 data-nosnippet>207</a>				.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
+<a href=#208 id=208 data-nosnippet>208</a>
+<a href=#209 id=209 data-nosnippet>209</a>				cmd.run(config, polkadot_config)
+<a href=#210 id=210 data-nosnippet>210</a>			})
+<a href=#211 id=211 data-nosnippet>211</a>		},
+<a href=#212 id=212 data-nosnippet>212</a>		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisHead(cmd)) =&gt; {
+<a href=#213 id=213 data-nosnippet>213</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#214 id=214 data-nosnippet>214</a>			runner.sync_run(|config| {
+<a href=#215 id=215 data-nosnippet>215</a>				<span class="kw">let </span>node =
+<a href=#216 id=216 data-nosnippet>216</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#217 id=217 data-nosnippet>217</a>				node.run_export_genesis_head_cmd(config, cmd)
+<a href=#218 id=218 data-nosnippet>218</a>			})
+<a href=#219 id=219 data-nosnippet>219</a>		},
+<a href=#220 id=220 data-nosnippet>220</a>		<span class="prelude-val">Some</span>(Subcommand::ExportGenesisWasm(cmd)) =&gt; {
+<a href=#221 id=221 data-nosnippet>221</a>			<span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#222 id=222 data-nosnippet>222</a>			runner.sync_run(|_config| {
+<a href=#223 id=223 data-nosnippet>223</a>				<span class="kw">let </span>spec = cli.load_spec(<span class="kw-2">&amp;</span>cmd.shared_params.chain.clone().unwrap_or_default())<span class="question-mark">?</span>;
+<a href=#224 id=224 data-nosnippet>224</a>				cmd.run(<span class="kw-2">&amp;*</span>spec)
+<a href=#225 id=225 data-nosnippet>225</a>			})
+<a href=#226 id=226 data-nosnippet>226</a>		},
+<a href=#227 id=227 data-nosnippet>227</a>		<span class="prelude-val">Some</span>(Subcommand::Benchmark(cmd)) =&gt; {
+<a href=#228 id=228 data-nosnippet>228</a>			<span class="comment">// Switch on the concrete benchmark sub-command-
+<a href=#229 id=229 data-nosnippet>229</a>			</span><span class="kw">match </span>cmd {
+<a href=#230 id=230 data-nosnippet>230</a>				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#231 id=231 data-nosnippet>231</a>				</span>BenchmarkCmd::Pallet(cmd) =&gt; {
+<a href=#232 id=232 data-nosnippet>232</a>					<span class="kw">let </span>chain = cmd
+<a href=#233 id=233 data-nosnippet>233</a>						.shared_params
+<a href=#234 id=234 data-nosnippet>234</a>						.chain
+<a href=#235 id=235 data-nosnippet>235</a>						.as_ref()
+<a href=#236 id=236 data-nosnippet>236</a>						.map(|chain| cli.load_spec(<span class="kw-2">&amp;</span>chain))
+<a href=#237 id=237 data-nosnippet>237</a>						.transpose()<span class="question-mark">?</span>;
+<a href=#238 id=238 data-nosnippet>238</a>					cmd.run_with_spec::&lt;HashingFor&lt;Block&lt;u32&gt;&gt;, ReclaimHostFunctions&gt;(chain)
+<a href=#239 id=239 data-nosnippet>239</a>				},
+<a href=#240 id=240 data-nosnippet>240</a>				BenchmarkCmd::Block(cmd) =&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>					<span class="comment">// The command needs the full node configuration because it uses the node
+<a href=#242 id=242 data-nosnippet>242</a>					// client and the database source, which in its turn has a dependency on the
+<a href=#243 id=243 data-nosnippet>243</a>					// chain spec, given via the `--chain` flag.
+<a href=#244 id=244 data-nosnippet>244</a>					</span><span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#245 id=245 data-nosnippet>245</a>					runner.sync_run(|config| {
+<a href=#246 id=246 data-nosnippet>246</a>						<span class="kw">let </span>node = new_node_spec(
+<a href=#247 id=247 data-nosnippet>247</a>							<span class="kw-2">&amp;</span>config,
+<a href=#248 id=248 data-nosnippet>248</a>							<span class="kw-2">&amp;</span>cmd_config.runtime_resolver,
+<a href=#249 id=249 data-nosnippet>249</a>							<span class="kw-2">&amp;</span>cli.node_extra_args(),
+<a href=#250 id=250 data-nosnippet>250</a>						)<span class="question-mark">?</span>;
+<a href=#251 id=251 data-nosnippet>251</a>						node.run_benchmark_block_cmd(config, cmd)
+<a href=#252 id=252 data-nosnippet>252</a>					})
+<a href=#253 id=253 data-nosnippet>253</a>				},
+<a href=#254 id=254 data-nosnippet>254</a>				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#255 id=255 data-nosnippet>255</a>				</span>BenchmarkCmd::Storage(cmd) =&gt; {
+<a href=#256 id=256 data-nosnippet>256</a>					<span class="comment">// The command needs the full node configuration because it uses the node
+<a href=#257 id=257 data-nosnippet>257</a>					// client and the database API, storage and shared_trie_cache. It requires
+<a href=#258 id=258 data-nosnippet>258</a>					// the `--chain` flag to be passed.
+<a href=#259 id=259 data-nosnippet>259</a>					</span><span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#260 id=260 data-nosnippet>260</a>					runner.sync_run(|config| {
+<a href=#261 id=261 data-nosnippet>261</a>						<span class="kw">let </span>node = new_node_spec(
+<a href=#262 id=262 data-nosnippet>262</a>							<span class="kw-2">&amp;</span>config,
+<a href=#263 id=263 data-nosnippet>263</a>							<span class="kw-2">&amp;</span>cmd_config.runtime_resolver,
+<a href=#264 id=264 data-nosnippet>264</a>							<span class="kw-2">&amp;</span>cli.node_extra_args(),
+<a href=#265 id=265 data-nosnippet>265</a>						)<span class="question-mark">?</span>;
+<a href=#266 id=266 data-nosnippet>266</a>						node.run_benchmark_storage_cmd(config, cmd)
+<a href=#267 id=267 data-nosnippet>267</a>					})
+<a href=#268 id=268 data-nosnippet>268</a>				},
+<a href=#269 id=269 data-nosnippet>269</a>				BenchmarkCmd::Machine(cmd) =&gt; {
+<a href=#270 id=270 data-nosnippet>270</a>					<span class="comment">// The command needs the full node configuration, and implicitly a chain
+<a href=#271 id=271 data-nosnippet>271</a>					// spec to be passed, even if it doesn't use it directly. The `--chain` flag is
+<a href=#272 id=272 data-nosnippet>272</a>					// relevant in determining the database path, which is used for the disk
+<a href=#273 id=273 data-nosnippet>273</a>					// benchmark.
+<a href=#274 id=274 data-nosnippet>274</a>					//
+<a href=#275 id=275 data-nosnippet>275</a>					// TODO: change `machine` subcommand to take instead a disk path we want to
+<a href=#276 id=276 data-nosnippet>276</a>					// benchmark?.
+<a href=#277 id=277 data-nosnippet>277</a>					</span><span class="kw">let </span>runner = cli.create_runner(cmd)<span class="question-mark">?</span>;
+<a href=#278 id=278 data-nosnippet>278</a>					runner.sync_run(|config| cmd.run(<span class="kw-2">&amp;</span>config, SUBSTRATE_REFERENCE_HARDWARE.clone()))
+<a href=#279 id=279 data-nosnippet>279</a>				},
+<a href=#280 id=280 data-nosnippet>280</a>				<span class="attr">#[allow(unreachable_patterns)]
+<a href=#281 id=281 data-nosnippet>281</a>				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Benchmarking sub-command unsupported or compilation feature missing. \
+<a href=#282 id=282 data-nosnippet>282</a>					Make sure to compile omni-node with --features=runtime-benchmarks \
+<a href=#283 id=283 data-nosnippet>283</a>					to enable all supported benchmarks."
+<a href=#284 id=284 data-nosnippet>284</a>					</span>.into()),
+<a href=#285 id=285 data-nosnippet>285</a>			}
+<a href=#286 id=286 data-nosnippet>286</a>		},
+<a href=#287 id=287 data-nosnippet>287</a>		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
+<a href=#288 id=288 data-nosnippet>288</a>		<span class="prelude-val">None </span>=&gt; {
+<a href=#289 id=289 data-nosnippet>289</a>			<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run.normalize())<span class="question-mark">?</span>;
+<a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">let </span>polkadot_cli =
+<a href=#291 id=291 data-nosnippet>291</a>				RelayChainCli::&lt;CliConfig&gt;::new(runner.config(), cli.relay_chain_args.iter());
+<a href=#292 id=292 data-nosnippet>292</a>			<span class="kw">let </span>collator_options = cli.run.collator_options();
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a>			<span class="kw">if </span>cli.experimental_use_slot_based {
+<a href=#295 id=295 data-nosnippet>295</a>				<span class="macro">log::warn!</span>(
+<a href=#296 id=296 data-nosnippet>296</a>					<span class="string">"Deprecated: The flag --experimental-use-slot-based is no longer \
+<a href=#297 id=297 data-nosnippet>297</a>				supported. Please use --authoring slot-based instead. This feature will be removed \
+<a href=#298 id=298 data-nosnippet>298</a>				after May 2025."
+<a href=#299 id=299 data-nosnippet>299</a>				</span>);
+<a href=#300 id=300 data-nosnippet>300</a>			}
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a>			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
+<a href=#303 id=303 data-nosnippet>303</a>				<span class="kw">let </span>node_spec =
+<a href=#304 id=304 data-nosnippet>304</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>cli.node_extra_args())<span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>
+<a href=#306 id=306 data-nosnippet>306</a>				<span class="kw">if </span>cli.run.base.is_dev()<span class="question-mark">? </span>{
+<a href=#307 id=307 data-nosnippet>307</a>					<span class="comment">// Set default dev block time to 3000ms if not set.
+<a href=#308 id=308 data-nosnippet>308</a>					// TODO: take block time from AURA config if set.
+<a href=#309 id=309 data-nosnippet>309</a>					</span><span class="kw">let </span>dev_block_time = cli.dev_block_time.unwrap_or(DEFAULT_DEV_BLOCK_TIME_MS);
+<a href=#310 id=310 data-nosnippet>310</a>					<span class="kw">return </span>node_spec
+<a href=#311 id=311 data-nosnippet>311</a>						.start_manual_seal_node(config, dev_block_time)
+<a href=#312 id=312 data-nosnippet>312</a>						.map_err(Into::into);
+<a href=#313 id=313 data-nosnippet>313</a>				}
+<a href=#314 id=314 data-nosnippet>314</a>
+<a href=#315 id=315 data-nosnippet>315</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(dev_block_time) = cli.dev_block_time {
+<a href=#316 id=316 data-nosnippet>316</a>					<span class="kw">return </span>node_spec
+<a href=#317 id=317 data-nosnippet>317</a>						.start_manual_seal_node(config, dev_block_time)
+<a href=#318 id=318 data-nosnippet>318</a>						.map_err(Into::into);
+<a href=#319 id=319 data-nosnippet>319</a>				}
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a>				<span class="comment">// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
+<a href=#322 id=322 data-nosnippet>322</a>				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
+<a href=#323 id=323 data-nosnippet>323</a>				// that both file paths exist, the node will exit, as the user must decide (by
+<a href=#324 id=324 data-nosnippet>324</a>				// deleting one path) the information that they want to use as their DB.
+<a href=#325 id=325 data-nosnippet>325</a>				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
+<a href=#326 id=326 data-nosnippet>326</a>					<span class="string">"asset-hub-polkadot" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemint"</span>),
+<a href=#327 id=327 data-nosnippet>327</a>					<span class="string">"asset-hub-kusama" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemine"</span>),
+<a href=#328 id=328 data-nosnippet>328</a>					<span class="string">"asset-hub-westend" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"westmint"</span>),
+<a href=#329 id=329 data-nosnippet>329</a>					<span class="string">"asset-hub-rococo" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"rockmine"</span>),
+<a href=#330 id=330 data-nosnippet>330</a>					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#331 id=331 data-nosnippet>331</a>				};
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(old_name) = old_name {
+<a href=#334 id=334 data-nosnippet>334</a>					<span class="kw">let </span>new_path = config.base_path.config_dir(config.chain_spec.id());
+<a href=#335 id=335 data-nosnippet>335</a>					<span class="kw">let </span>old_path = config.base_path.config_dir(old_name);
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>					<span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
+<a href=#338 id=338 data-nosnippet>338</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#339 id=339 data-nosnippet>339</a>							<span class="string">"Found legacy {} path {} and new Asset Hub path {}. \
+<a href=#340 id=340 data-nosnippet>340</a>							Delete one path such that only one exists."</span>,
+<a href=#341 id=341 data-nosnippet>341</a>							old_name,
+<a href=#342 id=342 data-nosnippet>342</a>							old_path.display(),
+<a href=#343 id=343 data-nosnippet>343</a>							new_path.display()
+<a href=#344 id=344 data-nosnippet>344</a>						)
+<a href=#345 id=345 data-nosnippet>345</a>						.into());
+<a href=#346 id=346 data-nosnippet>346</a>					}
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a>					<span class="kw">if </span>old_path.exists() {
+<a href=#349 id=349 data-nosnippet>349</a>						std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
+<a href=#350 id=350 data-nosnippet>350</a>						<span class="macro">info!</span>(
+<a href=#351 id=351 data-nosnippet>351</a>							<span class="string">"{} was renamed to Asset Hub. The filepath with associated data on disk \
+<a href=#352 id=352 data-nosnippet>352</a>							has been renamed from {} to {}."</span>,
+<a href=#353 id=353 data-nosnippet>353</a>							old_name,
+<a href=#354 id=354 data-nosnippet>354</a>							old_path.display(),
+<a href=#355 id=355 data-nosnippet>355</a>							new_path.display()
+<a href=#356 id=356 data-nosnippet>356</a>						);
+<a href=#357 id=357 data-nosnippet>357</a>					}
+<a href=#358 id=358 data-nosnippet>358</a>				}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks)
+<a href=#361 id=361 data-nosnippet>361</a>					.then(|| {
+<a href=#362 id=362 data-nosnippet>362</a>						config.database.path().map(|database_path| {
+<a href=#363 id=363 data-nosnippet>363</a>							<span class="kw">let _ </span>= std::fs::create_dir_all(database_path);
+<a href=#364 id=364 data-nosnippet>364</a>							sc_sysinfo::gather_hwbench(
+<a href=#365 id=365 data-nosnippet>365</a>								<span class="prelude-val">Some</span>(database_path),
+<a href=#366 id=366 data-nosnippet>366</a>								<span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE,
+<a href=#367 id=367 data-nosnippet>367</a>							)
+<a href=#368 id=368 data-nosnippet>368</a>						})
+<a href=#369 id=369 data-nosnippet>369</a>					})
+<a href=#370 id=370 data-nosnippet>370</a>					.flatten();
+<a href=#371 id=371 data-nosnippet>371</a>				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
+<a href=#372 id=372 data-nosnippet>372</a>				<span class="kw">let </span>polkadot_config =
+<a href=#373 id=373 data-nosnippet>373</a>					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
+<a href=#374 id=374 data-nosnippet>374</a>						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
+<a href=#375 id=375 data-nosnippet>375</a>
+<a href=#376 id=376 data-nosnippet>376</a>				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>				node_spec
+<a href=#379 id=379 data-nosnippet>379</a>					.start_node(
+<a href=#380 id=380 data-nosnippet>380</a>						config,
+<a href=#381 id=381 data-nosnippet>381</a>						polkadot_config,
+<a href=#382 id=382 data-nosnippet>382</a>						collator_options,
+<a href=#383 id=383 data-nosnippet>383</a>						hwbench,
+<a href=#384 id=384 data-nosnippet>384</a>						cli.node_extra_args(),
+<a href=#385 id=385 data-nosnippet>385</a>					)
+<a href=#386 id=386 data-nosnippet>386</a>					.<span class="kw">await
+<a href=#387 id=387 data-nosnippet>387</a>					</span>.map_err(Into::into)
+<a href=#388 id=388 data-nosnippet>388</a>			})
+<a href=#389 id=389 data-nosnippet>389</a>		},
+<a href=#390 id=390 data-nosnippet>390</a>	}
+<a href=#391 id=391 data-nosnippet>391</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

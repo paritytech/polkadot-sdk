@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Substrate Asset Conversion pallet"><title>pallet_asset_conversion - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_asset_conversion" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_asset_conversion/index.html">pallet_<wbr>asset_<wbr>conversion</a><span class="version">10.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#substrate-asset-conversion-pallet" title="Substrate Asset Conversion pallet">Substrate Asset Conversion pallet</a><ul><li><a href="#overview" title="Overview">Overview</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>pallet_asset_conversion</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_asset_conversion/lib.rs.html#18-1329">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="substrate-asset-conversion-pallet"><a class="doc-anchor" href="#substrate-asset-conversion-pallet">§</a>Substrate Asset Conversion pallet</h2>
+<p>Substrate Asset Conversion pallet based on the <a href="https://github.com/Uniswap/v2-core">Uniswap V2</a> logic.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>This pallet allows you to:</p>
+<ul>
+<li><a href="pallet/struct.Pallet.html#method.create_pool" title="associated function pallet_asset_conversion::pallet::Pallet::create_pool">create a liquidity pool</a> for 2 assets</li>
+<li><a href="pallet/struct.Pallet.html#method.add_liquidity" title="associated function pallet_asset_conversion::pallet::Pallet::add_liquidity">provide the liquidity</a> and receive back an LP token</li>
+<li><a href="pallet/struct.Pallet.html#method.remove_liquidity" title="associated function pallet_asset_conversion::pallet::Pallet::remove_liquidity">exchange the LP token back to assets</a></li>
+<li><a href="pallet/struct.Pallet.html#method.swap_exact_tokens_for_tokens" title="associated function pallet_asset_conversion::pallet::Pallet::swap_exact_tokens_for_tokens">swap a specific amount of assets for another</a> if
+there is a pool created, or</li>
+<li><a href="pallet/struct.Pallet.html#method.swap_tokens_for_exact_tokens" title="associated function pallet_asset_conversion::pallet::Pallet::swap_tokens_for_exact_tokens">swap some assets for a specific amount of
+another</a>.</li>
+<li><a href="trait.AssetConversionApi.html#method.quote_price_exact_tokens_for_tokens" title="method pallet_asset_conversion::AssetConversionApi::quote_price_exact_tokens_for_tokens">query for an exchange price</a> via
+a runtime call endpoint</li>
+<li><a href="trait.AssetConversionApi.html#method.get_reserves" title="method pallet_asset_conversion::AssetConversionApi::get_reserves">query the size of a liquidity pool</a> via a runtime api
+endpoint.</li>
+</ul>
+<p>The <code>quote_price_exact_tokens_for_tokens</code> and <code>quote_price_tokens_for_exact_tokens</code> functions
+both take a path parameter of the route to take. If you want to swap from native asset to
+non-native asset 1, you would pass in a path of <code>[DOT, 1]</code> or <code>[1, DOT]</code>. If you want to swap
+from non-native asset 1 to non-native asset 2, you would pass in a path of <code>[1, DOT, 2]</code>.</p>
+<p>(For an example of configuring this pallet to use <code>Location</code> as an asset id, see the
+cumulus repo).</p>
+<p>Here is an example <code>state_call</code> that asks for a quote of a pool of native versus asset 1:</p>
+<div class="example-wrap"><pre class="language-text"><code>curl -sS -H &quot;Content-Type: application/json&quot; -d \
+&#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_call&quot;, &quot;params&quot;: [&quot;AssetConversionApi_quote_price_tokens_for_exact_tokens&quot;, &quot;0x0101000000000000000000000011000000000000000000&quot;]}&#39; \
+http://localhost:9933/</code></pre></div>
+<p>(This can be run against the kitchen sync node in the <code>node</code> folder of this repo.)</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.WeightInfo"><code>pub use weights::<a class="trait" href="weights/trait.WeightInfo.html" title="trait pallet_asset_conversion::weights::WeightInfo">WeightInfo</a>;</code></dt><dt><code>pub use <a class="mod" href="pallet/index.html" title="mod pallet_asset_conversion::pallet">pallet</a>::*;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="pallet/index.html" title="mod pallet_asset_conversion::pallet">pallet</a></dt><dd>The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</dd><dt><a class="mod" href="weights/index.html" title="mod pallet_asset_conversion::weights">weights</a></dt><dd>Autogenerated weights for <code>pallet_asset_conversion</code></dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro._runtime_benchmarks_enabled.html" title="macro pallet_asset_conversion::_runtime_benchmarks_enabled">_runtime_<wbr>benchmarks_<wbr>enabled</a></dt><dt><a class="macro" href="macro.runtime_benchmarks_enabled.html" title="macro pallet_asset_conversion::runtime_benchmarks_enabled">runtime_<wbr>benchmarks_<wbr>enabled</a></dt><dd>Enable/disable the given code depending on
+<code>feature = "runtime-benchmarks"</code>
+being enabled for the crate or not.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.AccountIdConverter.html" title="struct pallet_asset_conversion::AccountIdConverter">Account<wbr>IdConverter</a></dt><dd><code>PoolId</code> to <code>AccountId</code> conversion.</dd><dt><a class="struct" href="struct.AccountIdConverterNoSeed.html" title="struct pallet_asset_conversion::AccountIdConverterNoSeed">Account<wbr>IdConverter<wbr>NoSeed</a></dt><dd><code>PoolId</code> to <code>AccountId</code> conversion without an addition arguments to the seed.</dd><dt><a class="struct" href="struct.Ascending.html" title="struct pallet_asset_conversion::Ascending">Ascending</a></dt><dd>Pool locator where the <code>PoolId</code> is a tuple of <code>AssetKind</code>s arranged in ascending order.</dd><dt><a class="struct" href="struct.Chain.html" title="struct pallet_asset_conversion::Chain">Chain</a></dt><dd>Pool locator that chains the <code>First</code> and <code>Second</code> implementations of <a href="trait.PoolLocator.html" title="trait pallet_asset_conversion::PoolLocator"><code>PoolLocator</code></a>.</dd><dt><a class="struct" href="struct.NativeOrWithIdFactory.html" title="struct pallet_asset_conversion::NativeOrWithIdFactory">Native<wbr>OrWith<wbr>IdFactory</a></dt><dd>Factory for creating a valid asset pairs with [<code>NativeOrWithId::Native</code>] always leading in the
+pair.</dd><dt><a class="struct" href="struct.PoolInfo.html" title="struct pallet_asset_conversion::PoolInfo">Pool<wbr>Info</a></dt><dd>Stores the lp_token asset id a particular pool has been assigned.</dd><dt><a class="struct" href="struct.WithFirstAsset.html" title="struct pallet_asset_conversion::WithFirstAsset">With<wbr>First<wbr>Asset</a></dt><dd>Pool locator that mandates the inclusion of the specified <code>FirstAsset</code> in every asset pair.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.AssetConversionApi.html" title="trait pallet_asset_conversion::AssetConversionApi">Asset<wbr>Conversion<wbr>Api</a></dt><dd>This runtime api allows people to query the size of the liquidity pools
+and quote prices for swaps.</dd><dt><a class="trait" href="trait.BenchmarkHelper.html" title="trait pallet_asset_conversion::BenchmarkHelper">Benchmark<wbr>Helper</a></dt><dd>Benchmark Helper</dd><dt><a class="trait" href="trait.PoolLocator.html" title="trait pallet_asset_conversion::PoolLocator">Pool<wbr>Locator</a></dt><dd>Provides means to resolve the <code>PoolId</code> and <code>AccountId</code> from a pair of assets.</dd><dt><a class="trait" href="trait.QuotePrice.html" title="trait pallet_asset_conversion::QuotePrice">Quote<wbr>Price</a></dt><dd>Trait providing methods to quote swap prices between asset classes.</dd><dt><a class="trait" href="trait.Swap.html" title="trait pallet_asset_conversion::Swap">Swap</a></dt><dd>Trait for providing methods to swap between the various asset classes.</dd><dt><a class="trait" href="trait.SwapCredit.html" title="trait pallet_asset_conversion::SwapCredit">Swap<wbr>Credit</a></dt><dd>Trait providing methods to swap between the various asset classes.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.BalancePath.html" title="type pallet_asset_conversion::BalancePath">Balance<wbr>Path</a></dt><dd>Represents a swap path with associated asset amounts indicating how much of the asset needs to
+be deposited to get the following asset’s amount withdrawn (this is inclusive of fees).</dd><dt><a class="type" href="type.CreditOf.html" title="type pallet_asset_conversion::CreditOf">Credit<wbr>Of</a></dt><dd>Credit of <a href="pallet/trait.Config.html#associatedtype.Assets" title="associated type pallet_asset_conversion::pallet::Config::Assets">Config::Assets</a>.</dd></dl><script type="text/json" id="notable-traits-data">{"&'static [u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&<Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","&mut <Vec<T, A> as Index<I>>::Output":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T, A> as IntoIterator>::IntoIter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoDeserializer<'de, E>>::Deserializer":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","<Vec<T> as IntoParallelIterator>::Iter":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

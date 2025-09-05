@@ -1,0 +1,573 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/collators/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cumulus_client_consensus_aura/collators/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<a href=#2 id=2 data-nosnippet>2</a>// This file is part of Cumulus.
+<a href=#3 id=3 data-nosnippet>3</a>// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a>// Cumulus is free software: you can redistribute it and/or modify
+<a href=#6 id=6 data-nosnippet>6</a>// it under the terms of the GNU General Public License as published by
+<a href=#7 id=7 data-nosnippet>7</a>// the Free Software Foundation, either version 3 of the License, or
+<a href=#8 id=8 data-nosnippet>8</a>// (at your option) any later version.
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a>// Cumulus is distributed in the hope that it will be useful,
+<a href=#11 id=11 data-nosnippet>11</a>// but WITHOUT ANY WARRANTY; without even the implied warranty of
+<a href=#12 id=12 data-nosnippet>12</a>// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+<a href=#13 id=13 data-nosnippet>13</a>// GNU General Public License for more details.
+<a href=#14 id=14 data-nosnippet>14</a>
+<a href=#15 id=15 data-nosnippet>15</a>// You should have received a copy of the GNU General Public License
+<a href=#16 id=16 data-nosnippet>16</a>// along with Cumulus. If not, see &lt;https://www.gnu.org/licenses/&gt;.
+<a href=#17 id=17 data-nosnippet>17</a>
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="doccomment">//! Stock, pure Aura collators.
+<a href=#19 id=19 data-nosnippet>19</a>//!
+<a href=#20 id=20 data-nosnippet>20</a>//! This includes the [`basic`] collator, which only builds on top of the most recently
+<a href=#21 id=21 data-nosnippet>21</a>//! included parachain block, as well as the [`lookahead`] collator, which prospectively
+<a href=#22 id=22 data-nosnippet>22</a>//! builds on parachain blocks which have not yet been included in the relay chain.
+<a href=#23 id=23 data-nosnippet>23</a>
+<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">use </span><span class="kw">crate</span>::collator::SlotClaim;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>codec::Codec;
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>cumulus_client_consensus_common::{<span class="self">self </span><span class="kw">as </span>consensus_common, ParentSearchParams};
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>cumulus_primitives_core::{relay_chain::Header <span class="kw">as </span>RelayHeader, BlockT};
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use </span>cumulus_relay_chain_interface::RelayChainInterface;
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>polkadot_node_subsystem::messages::RuntimeApiRequest;
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>polkadot_primitives::{
+<a href=#33 id=33 data-nosnippet>33</a>	Hash <span class="kw">as </span>RelayHash, Id <span class="kw">as </span>ParaId, OccupiedCoreAssumption, ValidationCodeHash,
+<a href=#34 id=34 data-nosnippet>34</a>	DEFAULT_SCHEDULING_LOOKAHEAD,
+<a href=#35 id=35 data-nosnippet>35</a>};
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">use </span>sc_consensus_aura::{standalone <span class="kw">as </span>aura_internal, AuraApi};
+<a href=#37 id=37 data-nosnippet>37</a><span class="kw">use </span>sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
+<a href=#38 id=38 data-nosnippet>38</a><span class="kw">use </span>sp_core::Pair;
+<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span>sp_keystore::KeystorePtr;
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>sp_timestamp::Timestamp;
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="kw">pub mod </span>basic;
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">pub mod </span>lookahead;
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">pub mod </span>slot_based;
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a><span class="comment">// This is an arbitrary value which is likely guaranteed to exceed any reasonable
+<a href=#47 id=47 data-nosnippet>47</a>// limit, as it would correspond to 30 non-included blocks.
+<a href=#48 id=48 data-nosnippet>48</a>//
+<a href=#49 id=49 data-nosnippet>49</a>// Since we only search for parent blocks which have already been imported,
+<a href=#50 id=50 data-nosnippet>50</a>// we can guarantee that all imported blocks respect the unincluded segment
+<a href=#51 id=51 data-nosnippet>51</a>// rules specified by the parachain's runtime and thus will never be too deep. This is just an extra
+<a href=#52 id=52 data-nosnippet>52</a>// sanity check.
+<a href=#53 id=53 data-nosnippet>53</a></span><span class="kw">const </span>PARENT_SEARCH_DEPTH: usize = <span class="number">30</span>;
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a><span class="doccomment">/// Check the `local_validation_code_hash` against the validation code hash in the relay chain
+<a href=#56 id=56 data-nosnippet>56</a>/// state.
+<a href=#57 id=57 data-nosnippet>57</a>///
+<a href=#58 id=58 data-nosnippet>58</a>/// If the code hashes do not match, it prints a warning.
+<a href=#59 id=59 data-nosnippet>59</a></span><span class="kw">async fn </span>check_validation_code_or_log(
+<a href=#60 id=60 data-nosnippet>60</a>	local_validation_code_hash: <span class="kw-2">&amp;</span>ValidationCodeHash,
+<a href=#61 id=61 data-nosnippet>61</a>	para_id: ParaId,
+<a href=#62 id=62 data-nosnippet>62</a>	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+<a href=#63 id=63 data-nosnippet>63</a>	relay_parent: RelayHash,
+<a href=#64 id=64 data-nosnippet>64</a>) {
+<a href=#65 id=65 data-nosnippet>65</a>	<span class="kw">let </span>state_validation_code_hash = <span class="kw">match </span>relay_client
+<a href=#66 id=66 data-nosnippet>66</a>		.validation_code_hash(relay_parent, para_id, OccupiedCoreAssumption::Included)
+<a href=#67 id=67 data-nosnippet>67</a>		.<span class="kw">await
+<a href=#68 id=68 data-nosnippet>68</a>	</span>{
+<a href=#69 id=69 data-nosnippet>69</a>		<span class="prelude-val">Ok</span>(hash) =&gt; hash,
+<a href=#70 id=70 data-nosnippet>70</a>		<span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#71 id=71 data-nosnippet>71</a>			<span class="macro">tracing::debug!</span>(
+<a href=#72 id=72 data-nosnippet>72</a>				target: <span class="kw">super</span>::LOG_TARGET,
+<a href=#73 id=73 data-nosnippet>73</a>				%error,
+<a href=#74 id=74 data-nosnippet>74</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#75 id=75 data-nosnippet>75</a>				%para_id,
+<a href=#76 id=76 data-nosnippet>76</a>				<span class="string">"Failed to fetch validation code hash"</span>,
+<a href=#77 id=77 data-nosnippet>77</a>			);
+<a href=#78 id=78 data-nosnippet>78</a>			<span class="kw">return
+<a href=#79 id=79 data-nosnippet>79</a>		</span>},
+<a href=#80 id=80 data-nosnippet>80</a>	};
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>	<span class="kw">match </span>state_validation_code_hash {
+<a href=#83 id=83 data-nosnippet>83</a>		<span class="prelude-val">Some</span>(state) =&gt;
+<a href=#84 id=84 data-nosnippet>84</a>			<span class="kw">if </span>state != <span class="kw-2">*</span>local_validation_code_hash {
+<a href=#85 id=85 data-nosnippet>85</a>				<span class="macro">tracing::warn!</span>(
+<a href=#86 id=86 data-nosnippet>86</a>					target: <span class="kw">super</span>::LOG_TARGET,
+<a href=#87 id=87 data-nosnippet>87</a>					%para_id,
+<a href=#88 id=88 data-nosnippet>88</a>					<span class="question-mark">?</span>relay_parent,
+<a href=#89 id=89 data-nosnippet>89</a>					<span class="question-mark">?</span>local_validation_code_hash,
+<a href=#90 id=90 data-nosnippet>90</a>					relay_validation_code_hash = <span class="question-mark">?</span>state,
+<a href=#91 id=91 data-nosnippet>91</a>					<span class="string">"Parachain code doesn't match validation code stored in the relay chain state."</span>,
+<a href=#92 id=92 data-nosnippet>92</a>				);
+<a href=#93 id=93 data-nosnippet>93</a>			},
+<a href=#94 id=94 data-nosnippet>94</a>		<span class="prelude-val">None </span>=&gt; {
+<a href=#95 id=95 data-nosnippet>95</a>			<span class="macro">tracing::warn!</span>(
+<a href=#96 id=96 data-nosnippet>96</a>				target: <span class="kw">super</span>::LOG_TARGET,
+<a href=#97 id=97 data-nosnippet>97</a>				%para_id,
+<a href=#98 id=98 data-nosnippet>98</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#99 id=99 data-nosnippet>99</a>				<span class="string">"Could not find validation code for parachain in the relay chain state."</span>,
+<a href=#100 id=100 data-nosnippet>100</a>			);
+<a href=#101 id=101 data-nosnippet>101</a>		},
+<a href=#102 id=102 data-nosnippet>102</a>	}
+<a href=#103 id=103 data-nosnippet>103</a>}
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a><span class="doccomment">/// Fetch scheduling lookahead at given relay parent.
+<a href=#106 id=106 data-nosnippet>106</a></span><span class="kw">async fn </span>scheduling_lookahead(
+<a href=#107 id=107 data-nosnippet>107</a>	relay_parent: RelayHash,
+<a href=#108 id=108 data-nosnippet>108</a>	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+<a href=#109 id=109 data-nosnippet>109</a>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+<a href=#110 id=110 data-nosnippet>110</a>	<span class="kw">let </span>runtime_api_version = relay_client
+<a href=#111 id=111 data-nosnippet>111</a>		.version(relay_parent)
+<a href=#112 id=112 data-nosnippet>112</a>		.<span class="kw">await
+<a href=#113 id=113 data-nosnippet>113</a>		</span>.map_err(|e| {
+<a href=#114 id=114 data-nosnippet>114</a>			<span class="macro">tracing::error!</span>(
+<a href=#115 id=115 data-nosnippet>115</a>				target: <span class="kw">super</span>::LOG_TARGET,
+<a href=#116 id=116 data-nosnippet>116</a>				error = <span class="question-mark">?</span>e,
+<a href=#117 id=117 data-nosnippet>117</a>				<span class="string">"Failed to fetch relay chain runtime version."</span>,
+<a href=#118 id=118 data-nosnippet>118</a>			)
+<a href=#119 id=119 data-nosnippet>119</a>		})
+<a href=#120 id=120 data-nosnippet>120</a>		.ok()<span class="question-mark">?</span>;
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a>	<span class="kw">let </span>parachain_host_runtime_api_version = runtime_api_version
+<a href=#123 id=123 data-nosnippet>123</a>		.api_version(
+<a href=#124 id=124 data-nosnippet>124</a>			<span class="kw-2">&amp;</span>&lt;<span class="kw">dyn </span>polkadot_primitives::runtime_api::ParachainHost&lt;polkadot_primitives::Block&gt;&gt;::ID,
+<a href=#125 id=125 data-nosnippet>125</a>		)
+<a href=#126 id=126 data-nosnippet>126</a>		.unwrap_or_default();
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>	<span class="kw">if </span>parachain_host_runtime_api_version &lt;
+<a href=#129 id=129 data-nosnippet>129</a>		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
+<a href=#130 id=130 data-nosnippet>130</a>	{
+<a href=#131 id=131 data-nosnippet>131</a>		<span class="kw">return </span><span class="prelude-val">None
+<a href=#132 id=132 data-nosnippet>132</a>	</span>}
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>	<span class="kw">match </span>relay_client.scheduling_lookahead(relay_parent).<span class="kw">await </span>{
+<a href=#135 id=135 data-nosnippet>135</a>		<span class="prelude-val">Ok</span>(scheduling_lookahead) =&gt; <span class="prelude-val">Some</span>(scheduling_lookahead),
+<a href=#136 id=136 data-nosnippet>136</a>		<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#137 id=137 data-nosnippet>137</a>			<span class="macro">tracing::error!</span>(
+<a href=#138 id=138 data-nosnippet>138</a>				target: <span class="kw">crate</span>::LOG_TARGET,
+<a href=#139 id=139 data-nosnippet>139</a>				<span class="question-mark">?</span>err,
+<a href=#140 id=140 data-nosnippet>140</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#141 id=141 data-nosnippet>141</a>				<span class="string">"Failed to fetch scheduling lookahead from relay chain"</span>,
+<a href=#142 id=142 data-nosnippet>142</a>			);
+<a href=#143 id=143 data-nosnippet>143</a>			<span class="prelude-val">None
+<a href=#144 id=144 data-nosnippet>144</a>		</span>},
+<a href=#145 id=145 data-nosnippet>145</a>	}
+<a href=#146 id=146 data-nosnippet>146</a>}
+<a href=#147 id=147 data-nosnippet>147</a>
+<a href=#148 id=148 data-nosnippet>148</a><span class="comment">// Returns the claim queue at the given relay parent.
+<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">async fn </span>claim_queue_at(
+<a href=#150 id=150 data-nosnippet>150</a>	relay_parent: RelayHash,
+<a href=#151 id=151 data-nosnippet>151</a>	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+<a href=#152 id=152 data-nosnippet>152</a>) -&gt; ClaimQueueSnapshot {
+<a href=#153 id=153 data-nosnippet>153</a>	<span class="comment">// Get `ClaimQueue` from runtime
+<a href=#154 id=154 data-nosnippet>154</a>	</span><span class="kw">match </span>relay_client.claim_queue(relay_parent).<span class="kw">await </span>{
+<a href=#155 id=155 data-nosnippet>155</a>		<span class="prelude-val">Ok</span>(claim_queue) =&gt; claim_queue.into(),
+<a href=#156 id=156 data-nosnippet>156</a>		<span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>			<span class="macro">tracing::error!</span>(
+<a href=#158 id=158 data-nosnippet>158</a>				target: <span class="kw">crate</span>::LOG_TARGET,
+<a href=#159 id=159 data-nosnippet>159</a>				<span class="question-mark">?</span>error,
+<a href=#160 id=160 data-nosnippet>160</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#161 id=161 data-nosnippet>161</a>				<span class="string">"Failed to query claim queue runtime API"</span>,
+<a href=#162 id=162 data-nosnippet>162</a>			);
+<a href=#163 id=163 data-nosnippet>163</a>			Default::default()
+<a href=#164 id=164 data-nosnippet>164</a>		},
+<a href=#165 id=165 data-nosnippet>165</a>	}
+<a href=#166 id=166 data-nosnippet>166</a>}
+<a href=#167 id=167 data-nosnippet>167</a>
+<a href=#168 id=168 data-nosnippet>168</a><span class="comment">// Checks if we own the slot at the given block and whether there
+<a href=#169 id=169 data-nosnippet>169</a>// is space in the unincluded segment.
+<a href=#170 id=170 data-nosnippet>170</a></span><span class="kw">async fn </span>can_build_upon&lt;Block: BlockT, Client, P&gt;(
+<a href=#171 id=171 data-nosnippet>171</a>	para_slot: Slot,
+<a href=#172 id=172 data-nosnippet>172</a>	relay_slot: Slot,
+<a href=#173 id=173 data-nosnippet>173</a>	timestamp: Timestamp,
+<a href=#174 id=174 data-nosnippet>174</a>	parent_hash: Block::Hash,
+<a href=#175 id=175 data-nosnippet>175</a>	included_block: Block::Hash,
+<a href=#176 id=176 data-nosnippet>176</a>	client: <span class="kw-2">&amp;</span>Client,
+<a href=#177 id=177 data-nosnippet>177</a>	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
+<a href=#178 id=178 data-nosnippet>178</a>) -&gt; <span class="prelude-ty">Option</span>&lt;SlotClaim&lt;P::Public&gt;&gt;
+<a href=#179 id=179 data-nosnippet>179</a><span class="kw">where
+<a href=#180 id=180 data-nosnippet>180</a>	</span>Client: ProvideRuntimeApi&lt;Block&gt;,
+<a href=#181 id=181 data-nosnippet>181</a>	Client::Api: AuraApi&lt;Block, P::Public&gt; + AuraUnincludedSegmentApi&lt;Block&gt; + ApiExt&lt;Block&gt;,
+<a href=#182 id=182 data-nosnippet>182</a>	P: Pair,
+<a href=#183 id=183 data-nosnippet>183</a>	P::Public: Codec,
+<a href=#184 id=184 data-nosnippet>184</a>	P::Signature: Codec,
+<a href=#185 id=185 data-nosnippet>185</a>{
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">let </span>runtime_api = client.runtime_api();
+<a href=#187 id=187 data-nosnippet>187</a>	<span class="kw">let </span>authorities = runtime_api.authorities(parent_hash).ok()<span class="question-mark">?</span>;
+<a href=#188 id=188 data-nosnippet>188</a>	<span class="kw">let </span>author_pub = aura_internal::claim_slot::&lt;P&gt;(para_slot, <span class="kw-2">&amp;</span>authorities, keystore).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>	<span class="comment">// This function is typically called when we want to build block N. At that point, the
+<a href=#191 id=191 data-nosnippet>191</a>	// unincluded segment in the runtime is unaware of the hash of block N-1. If the unincluded
+<a href=#192 id=192 data-nosnippet>192</a>	// segment in the runtime is full, but block N-1 is the included block, the unincluded segment
+<a href=#193 id=193 data-nosnippet>193</a>	// should have length 0 and we can build. Since the hash is not available to the runtime
+<a href=#194 id=194 data-nosnippet>194</a>	// however, we need this extra check here.
+<a href=#195 id=195 data-nosnippet>195</a>	</span><span class="kw">if </span>parent_hash == included_block {
+<a href=#196 id=196 data-nosnippet>196</a>		<span class="kw">return </span><span class="prelude-val">Some</span>(SlotClaim::unchecked::&lt;P&gt;(author_pub, para_slot, timestamp));
+<a href=#197 id=197 data-nosnippet>197</a>	}
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>	<span class="kw">let </span>api_version = runtime_api
+<a href=#200 id=200 data-nosnippet>200</a>		.api_version::&lt;<span class="kw">dyn </span>AuraUnincludedSegmentApi&lt;Block&gt;&gt;(parent_hash)
+<a href=#201 id=201 data-nosnippet>201</a>		.ok()
+<a href=#202 id=202 data-nosnippet>202</a>		.flatten()<span class="question-mark">?</span>;
+<a href=#203 id=203 data-nosnippet>203</a>
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="kw">let </span>slot = <span class="kw">if </span>api_version &gt; <span class="number">1 </span>{ relay_slot } <span class="kw">else </span>{ para_slot };
+<a href=#205 id=205 data-nosnippet>205</a>
+<a href=#206 id=206 data-nosnippet>206</a>	runtime_api
+<a href=#207 id=207 data-nosnippet>207</a>		.can_build_upon(parent_hash, included_block, slot)
+<a href=#208 id=208 data-nosnippet>208</a>		.ok()<span class="question-mark">?
+<a href=#209 id=209 data-nosnippet>209</a>		</span>.then(|| SlotClaim::unchecked::&lt;P&gt;(author_pub, para_slot, timestamp))
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="doccomment">/// Use [`cumulus_client_consensus_common::find_potential_parents`] to find parachain blocks that
+<a href=#213 id=213 data-nosnippet>213</a>/// we can build on. Once a list of potential parents is retrieved, return the last one of the
+<a href=#214 id=214 data-nosnippet>214</a>/// longest chain.
+<a href=#215 id=215 data-nosnippet>215</a></span><span class="kw">async fn </span>find_parent&lt;Block&gt;(
+<a href=#216 id=216 data-nosnippet>216</a>	relay_parent: RelayHash,
+<a href=#217 id=217 data-nosnippet>217</a>	para_id: ParaId,
+<a href=#218 id=218 data-nosnippet>218</a>	para_backend: <span class="kw-2">&amp;</span><span class="kw">impl </span>sc_client_api::Backend&lt;Block&gt;,
+<a href=#219 id=219 data-nosnippet>219</a>	relay_client: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelayChainInterface,
+<a href=#220 id=220 data-nosnippet>220</a>) -&gt; <span class="prelude-ty">Option</span>&lt;(&lt;Block <span class="kw">as </span>BlockT&gt;::Header, consensus_common::PotentialParent&lt;Block&gt;)&gt;
+<a href=#221 id=221 data-nosnippet>221</a><span class="kw">where
+<a href=#222 id=222 data-nosnippet>222</a>	</span>Block: BlockT,
+<a href=#223 id=223 data-nosnippet>223</a>{
+<a href=#224 id=224 data-nosnippet>224</a>	<span class="kw">let </span>parent_search_params = ParentSearchParams {
+<a href=#225 id=225 data-nosnippet>225</a>		relay_parent,
+<a href=#226 id=226 data-nosnippet>226</a>		para_id,
+<a href=#227 id=227 data-nosnippet>227</a>		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
+<a href=#228 id=228 data-nosnippet>228</a>			.<span class="kw">await
+<a href=#229 id=229 data-nosnippet>229</a>			</span>.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+<a href=#230 id=230 data-nosnippet>230</a>			.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize,
+<a href=#231 id=231 data-nosnippet>231</a>		max_depth: PARENT_SEARCH_DEPTH,
+<a href=#232 id=232 data-nosnippet>232</a>		ignore_alternative_branches: <span class="bool-val">true</span>,
+<a href=#233 id=233 data-nosnippet>233</a>	};
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a>	<span class="kw">let </span>potential_parents = cumulus_client_consensus_common::find_potential_parents::&lt;Block&gt;(
+<a href=#236 id=236 data-nosnippet>236</a>		parent_search_params,
+<a href=#237 id=237 data-nosnippet>237</a>		para_backend,
+<a href=#238 id=238 data-nosnippet>238</a>		relay_client,
+<a href=#239 id=239 data-nosnippet>239</a>	)
+<a href=#240 id=240 data-nosnippet>240</a>	.<span class="kw">await</span>;
+<a href=#241 id=241 data-nosnippet>241</a>
+<a href=#242 id=242 data-nosnippet>242</a>	<span class="kw">let </span>potential_parents = <span class="kw">match </span>potential_parents {
+<a href=#243 id=243 data-nosnippet>243</a>		<span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#244 id=244 data-nosnippet>244</a>			<span class="macro">tracing::error!</span>(
+<a href=#245 id=245 data-nosnippet>245</a>				target: <span class="kw">crate</span>::LOG_TARGET,
+<a href=#246 id=246 data-nosnippet>246</a>				<span class="question-mark">?</span>relay_parent,
+<a href=#247 id=247 data-nosnippet>247</a>				err = <span class="question-mark">?</span>e,
+<a href=#248 id=248 data-nosnippet>248</a>				<span class="string">"Could not fetch potential parents to build upon"
+<a href=#249 id=249 data-nosnippet>249</a>			</span>);
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a>			<span class="kw">return </span><span class="prelude-val">None
+<a href=#252 id=252 data-nosnippet>252</a>		</span>},
+<a href=#253 id=253 data-nosnippet>253</a>		<span class="prelude-val">Ok</span>(x) =&gt; x,
+<a href=#254 id=254 data-nosnippet>254</a>	};
+<a href=#255 id=255 data-nosnippet>255</a>
+<a href=#256 id=256 data-nosnippet>256</a>	<span class="kw">let </span>included_block = potential_parents.iter().find(|x| x.depth == <span class="number">0</span>)<span class="question-mark">?</span>.header.clone();
+<a href=#257 id=257 data-nosnippet>257</a>	potential_parents
+<a href=#258 id=258 data-nosnippet>258</a>		.into_iter()
+<a href=#259 id=259 data-nosnippet>259</a>		.max_by_key(|a| a.depth)
+<a href=#260 id=260 data-nosnippet>260</a>		.map(|parent| (included_block, parent))
+<a href=#261 id=261 data-nosnippet>261</a>}
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a><span class="attr">#[cfg(test)]
+<a href=#264 id=264 data-nosnippet>264</a></span><span class="kw">mod </span>tests {
+<a href=#265 id=265 data-nosnippet>265</a>	<span class="kw">use </span><span class="kw">crate</span>::collators::can_build_upon;
+<a href=#266 id=266 data-nosnippet>266</a>	<span class="kw">use </span>codec::Encode;
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="kw">use </span>cumulus_primitives_aura::Slot;
+<a href=#268 id=268 data-nosnippet>268</a>	<span class="kw">use </span>cumulus_primitives_core::BlockT;
+<a href=#269 id=269 data-nosnippet>269</a>	<span class="kw">use </span>cumulus_relay_chain_interface::PHash;
+<a href=#270 id=270 data-nosnippet>270</a>	<span class="kw">use </span>cumulus_test_client::{
+<a href=#271 id=271 data-nosnippet>271</a>		runtime::{Block, Hash},
+<a href=#272 id=272 data-nosnippet>272</a>		Client, DefaultTestClientBuilderExt, InitBlockBuilder, TestClientBuilder,
+<a href=#273 id=273 data-nosnippet>273</a>		TestClientBuilderExt,
+<a href=#274 id=274 data-nosnippet>274</a>	};
+<a href=#275 id=275 data-nosnippet>275</a>	<span class="kw">use </span>cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+<a href=#276 id=276 data-nosnippet>276</a>	<span class="kw">use </span>polkadot_primitives::HeadData;
+<a href=#277 id=277 data-nosnippet>277</a>	<span class="kw">use </span>sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
+<a href=#278 id=278 data-nosnippet>278</a>	<span class="kw">use </span>sp_consensus::BlockOrigin;
+<a href=#279 id=279 data-nosnippet>279</a>	<span class="kw">use </span>sp_keystore::{Keystore, KeystorePtr};
+<a href=#280 id=280 data-nosnippet>280</a>	<span class="kw">use </span>sp_timestamp::Timestamp;
+<a href=#281 id=281 data-nosnippet>281</a>	<span class="kw">use </span>std::sync::Arc;
+<a href=#282 id=282 data-nosnippet>282</a>
+<a href=#283 id=283 data-nosnippet>283</a>	<span class="kw">async fn </span>import_block&lt;I: BlockImport&lt;Block&gt;&gt;(
+<a href=#284 id=284 data-nosnippet>284</a>		importer: <span class="kw-2">&amp;</span>I,
+<a href=#285 id=285 data-nosnippet>285</a>		block: Block,
+<a href=#286 id=286 data-nosnippet>286</a>		origin: BlockOrigin,
+<a href=#287 id=287 data-nosnippet>287</a>		import_as_best: bool,
+<a href=#288 id=288 data-nosnippet>288</a>	) {
+<a href=#289 id=289 data-nosnippet>289</a>		<span class="kw">let </span>(header, body) = block.deconstruct();
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>		<span class="kw">let </span><span class="kw-2">mut </span>block_import_params = BlockImportParams::new(origin, header);
+<a href=#292 id=292 data-nosnippet>292</a>		block_import_params.fork_choice = <span class="prelude-val">Some</span>(ForkChoiceStrategy::Custom(import_as_best));
+<a href=#293 id=293 data-nosnippet>293</a>		block_import_params.body = <span class="prelude-val">Some</span>(body);
+<a href=#294 id=294 data-nosnippet>294</a>		importer.import_block(block_import_params).<span class="kw">await</span>.unwrap();
+<a href=#295 id=295 data-nosnippet>295</a>	}
+<a href=#296 id=296 data-nosnippet>296</a>
+<a href=#297 id=297 data-nosnippet>297</a>	<span class="kw">fn </span>sproof_with_parent_by_hash(client: <span class="kw-2">&amp;</span>Client, hash: PHash) -&gt; RelayStateSproofBuilder {
+<a href=#298 id=298 data-nosnippet>298</a>		<span class="kw">let </span>header = client.header(hash).ok().flatten().expect(<span class="string">"No header for parent block"</span>);
+<a href=#299 id=299 data-nosnippet>299</a>		<span class="kw">let </span>included = HeadData(header.encode());
+<a href=#300 id=300 data-nosnippet>300</a>		<span class="kw">let </span><span class="kw-2">mut </span>builder = RelayStateSproofBuilder::default();
+<a href=#301 id=301 data-nosnippet>301</a>		builder.para_id = cumulus_test_client::runtime::PARACHAIN_ID.into();
+<a href=#302 id=302 data-nosnippet>302</a>		builder.included_para_head = <span class="prelude-val">Some</span>(included);
+<a href=#303 id=303 data-nosnippet>303</a>
+<a href=#304 id=304 data-nosnippet>304</a>		builder
+<a href=#305 id=305 data-nosnippet>305</a>	}
+<a href=#306 id=306 data-nosnippet>306</a>	<span class="kw">async fn </span>build_and_import_block(client: <span class="kw-2">&amp;</span>Client, included: Hash) -&gt; Block {
+<a href=#307 id=307 data-nosnippet>307</a>		<span class="kw">let </span>sproof = sproof_with_parent_by_hash(client, included);
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a>		<span class="kw">let </span>block_builder = client.init_block_builder(<span class="prelude-val">None</span>, sproof).block_builder;
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>		<span class="kw">let </span>block = block_builder.build().unwrap().block;
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>		<span class="kw">let </span>origin = BlockOrigin::NetworkInitialSync;
+<a href=#314 id=314 data-nosnippet>314</a>		import_block(client, block.clone(), origin, <span class="bool-val">true</span>).<span class="kw">await</span>;
+<a href=#315 id=315 data-nosnippet>315</a>		block
+<a href=#316 id=316 data-nosnippet>316</a>	}
+<a href=#317 id=317 data-nosnippet>317</a>
+<a href=#318 id=318 data-nosnippet>318</a>	<span class="kw">fn </span>set_up_components() -&gt; (Arc&lt;Client&gt;, KeystorePtr) {
+<a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>keystore = Arc::new(sp_keystore::testing::MemoryKeystore::new()) <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt;;
+<a href=#320 id=320 data-nosnippet>320</a>		<span class="kw">for </span>key <span class="kw">in </span>sp_keyring::Sr25519Keyring::iter() {
+<a href=#321 id=321 data-nosnippet>321</a>			Keystore::sr25519_generate_new(
+<a href=#322 id=322 data-nosnippet>322</a>				<span class="kw-2">&amp;*</span>keystore,
+<a href=#323 id=323 data-nosnippet>323</a>				sp_application_crypto::key_types::AURA,
+<a href=#324 id=324 data-nosnippet>324</a>				<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>key.to_seed()),
+<a href=#325 id=325 data-nosnippet>325</a>			)
+<a href=#326 id=326 data-nosnippet>326</a>			.expect(<span class="string">"Can insert key into MemoryKeyStore"</span>);
+<a href=#327 id=327 data-nosnippet>327</a>		}
+<a href=#328 id=328 data-nosnippet>328</a>		(Arc::new(TestClientBuilder::new().build()), keystore)
+<a href=#329 id=329 data-nosnippet>329</a>	}
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a>	<span class="doccomment">/// This tests a special scenario where the unincluded segment in the runtime
+<a href=#332 id=332 data-nosnippet>332</a>	/// is full. We are calling `can_build_upon`, passing the last built block as the
+<a href=#333 id=333 data-nosnippet>333</a>	/// included one. In the runtime we will not find the hash of the included block in the
+<a href=#334 id=334 data-nosnippet>334</a>	/// unincluded segment. The `can_build_upon` runtime API would therefore return `false`, but
+<a href=#335 id=335 data-nosnippet>335</a>	/// we are ensuring on the node side that we are are always able to build on the included block.
+<a href=#336 id=336 data-nosnippet>336</a>	</span><span class="attr">#[tokio::test]
+<a href=#337 id=337 data-nosnippet>337</a>	</span><span class="kw">async fn </span>test_can_build_upon() {
+<a href=#338 id=338 data-nosnippet>338</a>		<span class="kw">let </span>(client, keystore) = set_up_components();
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>		<span class="kw">let </span>genesis_hash = client.chain_info().genesis_hash;
+<a href=#341 id=341 data-nosnippet>341</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_hash = genesis_hash;
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a>		<span class="comment">// Fill up the unincluded segment tracker in the runtime.
+<a href=#344 id=344 data-nosnippet>344</a>		</span><span class="kw">while </span>can_build_upon::&lt;<span class="kw">_</span>, <span class="kw">_</span>, sp_consensus_aura::sr25519::AuthorityPair&gt;(
+<a href=#345 id=345 data-nosnippet>345</a>			Slot::from(u64::MAX),
+<a href=#346 id=346 data-nosnippet>346</a>			Slot::from(u64::MAX),
+<a href=#347 id=347 data-nosnippet>347</a>			Timestamp::default(),
+<a href=#348 id=348 data-nosnippet>348</a>			last_hash,
+<a href=#349 id=349 data-nosnippet>349</a>			genesis_hash,
+<a href=#350 id=350 data-nosnippet>350</a>			<span class="kw-2">&amp;*</span>client,
+<a href=#351 id=351 data-nosnippet>351</a>			<span class="kw-2">&amp;</span>keystore,
+<a href=#352 id=352 data-nosnippet>352</a>		)
+<a href=#353 id=353 data-nosnippet>353</a>		.<span class="kw">await
+<a href=#354 id=354 data-nosnippet>354</a>		</span>.is_some()
+<a href=#355 id=355 data-nosnippet>355</a>		{
+<a href=#356 id=356 data-nosnippet>356</a>			<span class="kw">let </span>block = build_and_import_block(<span class="kw-2">&amp;</span>client, genesis_hash).<span class="kw">await</span>;
+<a href=#357 id=357 data-nosnippet>357</a>			last_hash = block.header().hash();
+<a href=#358 id=358 data-nosnippet>358</a>		}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>		<span class="comment">// Blocks were built with the genesis hash set as included block.
+<a href=#361 id=361 data-nosnippet>361</a>		// We call `can_build_upon` with the last built block as the included block.
+<a href=#362 id=362 data-nosnippet>362</a>		</span><span class="kw">let </span>result = can_build_upon::&lt;<span class="kw">_</span>, <span class="kw">_</span>, sp_consensus_aura::sr25519::AuthorityPair&gt;(
+<a href=#363 id=363 data-nosnippet>363</a>			Slot::from(u64::MAX),
+<a href=#364 id=364 data-nosnippet>364</a>			Slot::from(u64::MAX),
+<a href=#365 id=365 data-nosnippet>365</a>			Timestamp::default(),
+<a href=#366 id=366 data-nosnippet>366</a>			last_hash,
+<a href=#367 id=367 data-nosnippet>367</a>			last_hash,
+<a href=#368 id=368 data-nosnippet>368</a>			<span class="kw-2">&amp;*</span>client,
+<a href=#369 id=369 data-nosnippet>369</a>			<span class="kw-2">&amp;</span>keystore,
+<a href=#370 id=370 data-nosnippet>370</a>		)
+<a href=#371 id=371 data-nosnippet>371</a>		.<span class="kw">await</span>;
+<a href=#372 id=372 data-nosnippet>372</a>		<span class="macro">assert!</span>(result.is_some());
+<a href=#373 id=373 data-nosnippet>373</a>	}
+<a href=#374 id=374 data-nosnippet>374</a>}
+<a href=#375 id=375 data-nosnippet>375</a>
+<a href=#376 id=376 data-nosnippet>376</a><span class="doccomment">/// Holds a relay parent and its descendants.
+<a href=#377 id=377 data-nosnippet>377</a></span><span class="kw">pub struct </span>RelayParentData {
+<a href=#378 id=378 data-nosnippet>378</a>	<span class="doccomment">/// The relay parent block header
+<a href=#379 id=379 data-nosnippet>379</a>	</span>relay_parent: RelayHeader,
+<a href=#380 id=380 data-nosnippet>380</a>	<span class="doccomment">/// Ordered collection of descendant block headers, from oldest to newest
+<a href=#381 id=381 data-nosnippet>381</a>	</span>descendants: Vec&lt;RelayHeader&gt;,
+<a href=#382 id=382 data-nosnippet>382</a>}
+<a href=#383 id=383 data-nosnippet>383</a>
+<a href=#384 id=384 data-nosnippet>384</a><span class="kw">impl </span>RelayParentData {
+<a href=#385 id=385 data-nosnippet>385</a>	<span class="doccomment">/// Creates a new instance with the given relay parent and no descendants.
+<a href=#386 id=386 data-nosnippet>386</a>	</span><span class="kw">pub fn </span>new(relay_parent: RelayHeader) -&gt; <span class="self">Self </span>{
+<a href=#387 id=387 data-nosnippet>387</a>		<span class="self">Self </span>{ relay_parent, descendants: Default::default() }
+<a href=#388 id=388 data-nosnippet>388</a>	}
+<a href=#389 id=389 data-nosnippet>389</a>
+<a href=#390 id=390 data-nosnippet>390</a>	<span class="doccomment">/// Creates a new instance with the given relay parent and descendants.
+<a href=#391 id=391 data-nosnippet>391</a>	</span><span class="kw">pub fn </span>new_with_descendants(relay_parent: RelayHeader, descendants: Vec&lt;RelayHeader&gt;) -&gt; <span class="self">Self </span>{
+<a href=#392 id=392 data-nosnippet>392</a>		<span class="self">Self </span>{ relay_parent, descendants }
+<a href=#393 id=393 data-nosnippet>393</a>	}
+<a href=#394 id=394 data-nosnippet>394</a>
+<a href=#395 id=395 data-nosnippet>395</a>	<span class="doccomment">/// Returns a reference to the relay parent header.
+<a href=#396 id=396 data-nosnippet>396</a>	</span><span class="kw">pub fn </span>relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>RelayHeader {
+<a href=#397 id=397 data-nosnippet>397</a>		<span class="kw-2">&amp;</span><span class="self">self</span>.relay_parent
+<a href=#398 id=398 data-nosnippet>398</a>	}
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>	<span class="doccomment">/// Returns the number of descendants.
+<a href=#401 id=401 data-nosnippet>401</a>	</span><span class="attr">#[cfg(test)]
+<a href=#402 id=402 data-nosnippet>402</a>	</span><span class="kw">pub fn </span>descendants_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#403 id=403 data-nosnippet>403</a>		<span class="self">self</span>.descendants.len()
+<a href=#404 id=404 data-nosnippet>404</a>	}
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>	<span class="doccomment">/// Consumes the structure and returns a vector containing the relay parent followed by its
+<a href=#407 id=407 data-nosnippet>407</a>	/// descendants in chronological order. The resulting list should be provided to the parachain
+<a href=#408 id=408 data-nosnippet>408</a>	/// inherent data.
+<a href=#409 id=409 data-nosnippet>409</a>	</span><span class="kw">pub fn </span>into_inherent_descendant_list(<span class="self">self</span>) -&gt; Vec&lt;RelayHeader&gt; {
+<a href=#410 id=410 data-nosnippet>410</a>		<span class="kw">let </span><span class="self">Self </span>{ relay_parent, <span class="kw-2">mut </span>descendants } = <span class="self">self</span>;
+<a href=#411 id=411 data-nosnippet>411</a>
+<a href=#412 id=412 data-nosnippet>412</a>		<span class="kw">if </span>descendants.is_empty() {
+<a href=#413 id=413 data-nosnippet>413</a>			<span class="kw">return </span>Default::default()
+<a href=#414 id=414 data-nosnippet>414</a>		}
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span><span class="kw-2">mut </span>result = <span class="macro">vec!</span>[relay_parent];
+<a href=#417 id=417 data-nosnippet>417</a>		result.append(<span class="kw-2">&amp;mut </span>descendants);
+<a href=#418 id=418 data-nosnippet>418</a>		result
+<a href=#419 id=419 data-nosnippet>419</a>	}
+<a href=#420 id=420 data-nosnippet>420</a>}</code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

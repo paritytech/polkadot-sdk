@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The traits for sets of `fungible` tokens and any associated types."><title>polkadot_sdk_frame::token::tokens::fungibles - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../polkadot_sdk_frame/index.html">polkadot_<wbr>sdk_<wbr>frame</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module fungibles</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>frame::<wbr>token::<wbr>tokens</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">polkadot_sdk_frame</a>::<wbr><a href="../../index.html">token</a>::<wbr><a href="../index.html">tokens</a></div><h1>Module <span>fungibles</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The traits for <em>sets</em> of <a href="../../fungible/index.html" title="mod polkadot_sdk_frame::token::fungible"><code>fungible</code></a> tokens and any
+associated types.</p>
+<p>Individual tokens in the <code>fungibles</code> set may be used when a <code>fungible</code> trait is expected using
+<a href="../../fungible/struct.ItemOf.html" title="struct polkadot_sdk_frame::token::fungible::ItemOf"><code>crate::traits::tokens::fungible::ItemOf</code></a>.</p>
+<p>Also see the <a href="../../../../polkadot_sdk_docs/reference_docs/frame_tokens/index.html"><code>frame_tokens</code></a> reference docs for more information about the place of
+<code>fungible</code> traits in Substrate.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="approvals/index.html" title="mod polkadot_sdk_frame::token::tokens::fungibles::approvals">approvals</a></dt><dd>Inspect and Mutate traits for Asset approvals</dd><dt><a class="mod" href="freeze/index.html" title="mod polkadot_sdk_frame::token::tokens::fungibles::freeze">freeze</a></dt><dd>The traits for putting freezes within a single fungible token class.</dd><dt><a class="mod" href="hold/index.html" title="mod polkadot_sdk_frame::token::tokens::fungibles::hold">hold</a></dt><dd>The traits for putting holds within a single fungible token class.</dd><dt><a class="mod" href="metadata/index.html" title="mod polkadot_sdk_frame::token::tokens::fungibles::metadata">metadata</a></dt><dd>Inspect and Mutate traits for Asset metadata</dd><dt><a class="mod" href="roles/index.html" title="mod polkadot_sdk_frame::token::tokens::fungibles::roles">roles</a></dt><dd>Inspect traits for Asset roles</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.DecreaseIssuance.html" title="struct polkadot_sdk_frame::token::tokens::fungibles::DecreaseIssuance">Decrease<wbr>Issuance</a></dt><dd>Simple handler for an imbalance drop which decreases the total issuance of the system by the
+imbalance amount. Used for leftover credit.</dd><dt><a class="struct" href="struct.Dust.html" title="struct polkadot_sdk_frame::token::tokens::fungibles::Dust">Dust</a></dt><dd>Special dust type which can be type-safely converted into a <code>Credit</code>.</dd><dt><a class="struct" href="struct.Imbalance.html" title="struct polkadot_sdk_frame::token::tokens::fungibles::Imbalance">Imbalance</a></dt><dd>An imbalance in the system, representing a divergence of recorded token supply from the sum of
+the balances of all accounts. This is <code>must_use</code> in order to ensure it gets handled (placing
+into an account, settling from an account or altering the supply).</dd><dt><a class="struct" href="struct.IncreaseIssuance.html" title="struct polkadot_sdk_frame::token::tokens::fungibles::IncreaseIssuance">Increase<wbr>Issuance</a></dt><dd>Simple handler for an imbalance drop which increases the total issuance of the system by the
+imbalance amount. Used for leftover debt.</dd><dt><a class="struct" href="struct.UnionOf.html" title="struct polkadot_sdk_frame::token::tokens::fungibles::UnionOf">UnionOf</a></dt><dd>Type to combine two <code>fungibles::*</code> implementations into one union <code>fungibles::*</code> implementation.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Balanced.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Balanced">Balanced</a></dt><dd>A fungible token class where any creation and deletion of tokens is semi-explicit and where the
+total supply is maintained automatically.</dd><dt><a class="trait" href="trait.BalancedHold.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::BalancedHold">Balanced<wbr>Hold</a></dt><dd>Trait for slashing a fungible asset which can be place on hold.</dd><dt><a class="trait" href="trait.Create.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Create">Create</a></dt><dd>Trait for providing the ability to create new fungible assets.</dd><dt><a class="trait" href="trait.Destroy.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Destroy">Destroy</a></dt><dd>Trait for providing the ability to destroy existing fungible assets.</dd><dt><a class="trait" href="trait.HandleImbalanceDrop.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::HandleImbalanceDrop">Handle<wbr>Imbalance<wbr>Drop</a></dt><dd>Handler for when an imbalance gets dropped. This could handle either a credit (negative) or
+debt (positive) imbalance.</dd><dt><a class="trait" href="trait.Inspect.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Inspect">Inspect</a></dt><dd>Trait for providing balance-inspection access to a set of named fungible assets.</dd><dt><a class="trait" href="trait.InspectEnumerable.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::InspectEnumerable">Inspect<wbr>Enumerable</a></dt><dd>Interface for enumerating assets in existence or owned by a given account.</dd><dt><a class="trait" href="trait.InspectFreeze.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::InspectFreeze">Inspect<wbr>Freeze</a></dt><dd>Trait for inspecting a fungible asset which can be frozen. Freezing is essentially setting a
+minimum balance below which the total balance (inclusive of any funds placed on hold) may not
+be normally allowed to drop. Generally, freezers will provide an “update” function such that
+if the total balance does drop below the limit, then the freezer can update their housekeeping
+accordingly.</dd><dt><a class="trait" href="trait.InspectHold.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::InspectHold">Inspect<wbr>Hold</a></dt><dd>Trait for inspecting a fungible asset whose accounts support partitioning and slashing.</dd><dt><a class="trait" href="trait.Mutate.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Mutate">Mutate</a></dt><dd>Trait for providing a basic fungible asset.</dd><dt><a class="trait" href="trait.MutateFreeze.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::MutateFreeze">Mutate<wbr>Freeze</a></dt><dd>Trait for introducing, altering and removing locks to freeze an account’s funds so they never
+go below a set minimum.</dd><dt><a class="trait" href="trait.MutateHold.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::MutateHold">Mutate<wbr>Hold</a></dt><dd>Trait for mutating a fungible asset which can be placed on hold.</dd><dt><a class="trait" href="trait.Refund.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Refund">Refund</a></dt><dd>Trait for refunding the existence deposit of a target asset account.</dd><dt><a class="trait" href="trait.Unbalanced.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::Unbalanced">Unbalanced</a></dt><dd>A fungible token class where the balance can be set arbitrarily.</dd><dt><a class="trait" href="trait.UnbalancedHold.html" title="trait polkadot_sdk_frame::token::tokens::fungibles::UnbalancedHold">Unbalanced<wbr>Hold</a></dt><dd>A fungible, holdable token class where the balance on hold can be set arbitrarily.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Credit.html" title="type polkadot_sdk_frame::token::tokens::fungibles::Credit">Credit</a></dt><dd>Imbalance implying that the total_issuance value is greater than the sum of all account
+balances.</dd><dt><a class="type" href="type.Debt.html" title="type polkadot_sdk_frame::token::tokens::fungibles::Debt">Debt</a></dt><dd>Imbalance implying that the total_issuance value is less than the sum of all account balances.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

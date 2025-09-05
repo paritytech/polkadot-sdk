@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["force_on_migration_end","set_mode","validator_set"]};

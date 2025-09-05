@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["agenda_incomplete","call_unavailable","canceled","dispatched","periodic_failed","permanently_overweight","retry_cancelled","retry_failed","retry_set","scheduled"],"struct":["AgendaIncomplete","CallUnavailable","Canceled","Dispatched","PeriodicFailed","PermanentlyOverweight","RetryCancelled","RetryFailed","RetrySet","Scheduled"]};

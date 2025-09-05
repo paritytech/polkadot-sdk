@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["account","consensus","currency","fee","locations","snowbridge","time","xcm_version"]};

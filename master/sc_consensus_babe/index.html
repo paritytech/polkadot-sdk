@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="BABE (Blind Assignment for Blockchain Extension)"><title>sc_consensus_babe - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sc_consensus_babe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sc_consensus_babe/index.html">sc_<wbr>consensus_<wbr>babe</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#babe-blind-assignment-for-blockchain-extension" title="BABE (Blind Assignment for Blockchain Extension)">BABE (Blind Assignment for Blockchain Extension)</a></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#statics" title="Statics">Statics</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>sc_consensus_babe</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/sc_consensus_babe/lib.rs.html#19-2007">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="babe-blind-assignment-for-blockchain-extension"><a class="doc-anchor" href="#babe-blind-assignment-for-blockchain-extension">§</a>BABE (Blind Assignment for Blockchain Extension)</h2>
+<p>BABE is a slot-based block production mechanism which uses a VRF PRNG to
+randomly perform the slot allocation. On every slot, all the authorities
+generate a new random number with the VRF function and if it is lower than a
+given threshold (which is proportional to their weight/stake) they have a
+right to produce a block. The proof of the VRF function execution will be
+used by other peer to validate the legitimacy of the slot claim.</p>
+<p>The engine is also responsible for collecting entropy on-chain which will be
+used to seed the given VRF PRNG. An epoch is a contiguous number of slots
+under which we will be using the same authority set. During an epoch all VRF
+outputs produced as a result of block production will be collected on an
+on-chain randomness pool. Epoch changes are announced one epoch in advance,
+i.e. when ending epoch N, we announce the parameters (randomness,
+authorities, etc.) for epoch N+2.</p>
+<p>Since the slot assignment is randomized, it is possible that a slot is
+assigned to multiple validators in which case we will have a temporary fork,
+or that a slot is assigned to no validator in which case no block is
+produced. Which means that block times are not deterministic.</p>
+<p>The protocol has a parameter <code>c</code> [0, 1] for which <code>1 - c</code> is the probability
+of a slot being empty. The choice of this parameter affects the security of
+the protocol relating to maximum tolerable network delays.</p>
+<p>In addition to the VRF-based slot assignment described above, which we will
+call primary slots, the engine also supports a deterministic secondary slot
+assignment. Primary slots take precedence over secondary slots, when
+authoring the node starts by trying to claim a primary slot and falls back
+to a secondary slot claim attempt. The secondary slot assignment is done
+by picking the authority at index:</p>
+<p><code>blake2_256(epoch_randomness ++ slot_number) % authorities_len</code>.</p>
+<p>The secondary slots supports either a <code>SecondaryPlain</code> or <code>SecondaryVRF</code>
+variant. Comparing with <code>SecondaryPlain</code> variant, the <code>SecondaryVRF</code> variant
+generates an additional VRF output. The output is not included in beacon
+randomness, but can be consumed by parachains.</p>
+<p>The fork choice rule is weight-based, where weight equals the number of
+primary blocks in the chain. We will pick the heaviest chain (more primary
+blocks) and will go with the longest one in case of a tie.</p>
+<p>An in-depth description and analysis of the protocol can be found here:
+<a href="https://research.web3.foundation/Polkadot/protocols/block-production/Babe">https://research.web3.foundation/Polkadot/protocols/block-production/Babe</a></p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.block_weight"><code>pub use aux_schema::<a class="fn" href="aux_schema/fn.load_block_weight.html" title="fn sc_consensus_babe::aux_schema::load_block_weight">load_block_weight</a> as block_weight;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="authorship/index.html" title="mod sc_consensus_babe::authorship">authorship</a></dt><dd>BABE authority selection and slot claiming.</dd><dt><a class="mod" href="aux_schema/index.html" title="mod sc_consensus_babe::aux_schema">aux_<wbr>schema</a></dt><dd>Schema for BABE epoch changes in the aux-db.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BabeBlockImport.html" title="struct sc_consensus_babe::BabeBlockImport">Babe<wbr>Block<wbr>Import</a></dt><dd>A block-import handler for BABE.</dd><dt><a class="struct" href="struct.BabeConfiguration.html" title="struct sc_consensus_babe::BabeConfiguration">Babe<wbr>Configuration</a></dt><dd>Configuration data used by the BABE consensus engine.</dd><dt><a class="struct" href="struct.BabeEpochConfiguration.html" title="struct sc_consensus_babe::BabeEpochConfiguration">Babe<wbr>Epoch<wbr>Configuration</a></dt><dd>Configuration data used by the BABE consensus engine that may change with epochs.</dd><dt><a class="struct" href="struct.BabeIntermediate.html" title="struct sc_consensus_babe::BabeIntermediate">Babe<wbr>Intermediate</a></dt><dd>Intermediate value passed to block importer.</dd><dt><a class="struct" href="struct.BabeLink.html" title="struct sc_consensus_babe::BabeLink">Babe<wbr>Link</a></dt><dd>State that must be shared between the import queue and the authoring logic.</dd><dt><a class="struct" href="struct.BabeParams.html" title="struct sc_consensus_babe::BabeParams">Babe<wbr>Params</a></dt><dd>Parameters for BABE.</dd><dt><a class="struct" href="struct.BabeVerifier.html" title="struct sc_consensus_babe::BabeVerifier">Babe<wbr>Verifier</a></dt><dd>A verifier for Babe blocks.</dd><dt><a class="struct" href="struct.BabeWorker.html" title="struct sc_consensus_babe::BabeWorker">Babe<wbr>Worker</a></dt><dd>Worker for Babe which implements <code>Future&lt;Output=()&gt;</code>. This must be polled.</dd><dt><a class="struct" href="struct.BabeWorkerHandle.html" title="struct sc_consensus_babe::BabeWorkerHandle">Babe<wbr>Worker<wbr>Handle</a></dt><dd>A handle to the BABE worker for issuing requests.</dd><dt><a class="struct" href="struct.Epoch.html" title="struct sc_consensus_babe::Epoch">Epoch</a></dt><dd>BABE epoch information</dd><dt><a class="struct" href="struct.ImportQueueParams.html" title="struct sc_consensus_babe::ImportQueueParams">Import<wbr>Queue<wbr>Params</a></dt><dd>Parameters passed to <a href="fn.import_queue.html" title="fn sc_consensus_babe::import_queue"><code>import_queue</code></a>.</dd><dt><a class="struct" href="struct.NextEpochDescriptor.html" title="struct sc_consensus_babe::NextEpochDescriptor">Next<wbr>Epoch<wbr>Descriptor</a></dt><dd>Information about the next epoch. This is broadcast in the first block
+of the epoch.</dd><dt><a class="struct" href="struct.PrimaryPreDigest.html" title="struct sc_consensus_babe::PrimaryPreDigest">Primary<wbr>PreDigest</a></dt><dd>Raw BABE primary slot assignment pre-digest.</dd><dt><a class="struct" href="struct.SecondaryPlainPreDigest.html" title="struct sc_consensus_babe::SecondaryPlainPreDigest">Secondary<wbr>Plain<wbr>PreDigest</a></dt><dd>BABE secondary slot assignment pre-digest.</dd><dt><a class="struct" href="struct.SlotProportion.html" title="struct sc_consensus_babe::SlotProportion">Slot<wbr>Proportion</a></dt><dd>A unit type wrapper to express the proportion of a slot.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.ConsensusLog.html" title="enum sc_consensus_babe::ConsensusLog">Consensus<wbr>Log</a></dt><dd>An consensus log item for BABE.</dd><dt><a class="enum" href="enum.Error.html" title="enum sc_consensus_babe::Error">Error</a></dt><dd>Errors encountered by the babe authorship task.</dd><dt><a class="enum" href="enum.NextConfigDescriptor.html" title="enum sc_consensus_babe::NextConfigDescriptor">Next<wbr>Config<wbr>Descriptor</a></dt><dd>Information about the next epoch config, if changed. This is broadcast in the first
+block of the epoch, and applies using the same rules as <code>NextEpochDescriptor</code>.</dd><dt><a class="enum" href="enum.PreDigest.html" title="enum sc_consensus_babe::PreDigest">PreDigest</a></dt><dd>A BABE pre-runtime digest. This contains all data required to validate a
+block and for the BABE runtime module. Slots can be assigned to a primary
+(VRF based) and to a secondary (slot number based).</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.BABE_ENGINE_ID.html" title="constant sc_consensus_babe::BABE_ENGINE_ID">BABE_<wbr>ENGINE_<wbr>ID</a></dt><dd>The <code>ConsensusEngineId</code> of BABE.</dd></dl><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><dl class="item-table"><dt><a class="static" href="static.INTERMEDIATE_KEY.html" title="static sc_consensus_babe::INTERMEDIATE_KEY">INTERMEDIATE_<wbr>KEY</a></dt><dd>Intermediate key for Babe engine.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.BabeApi.html" title="trait sc_consensus_babe::BabeApi">BabeApi</a></dt><dd>API necessary for block authorship with BABE.</dd><dt><a class="trait" href="trait.CompatibleDigestItem.html" title="trait sc_consensus_babe::CompatibleDigestItem">Compatible<wbr>Digest<wbr>Item</a></dt><dd>A digest item which is usable with BABE consensus.</dd><dt><a class="trait" href="trait.SyncOracle.html" title="trait sc_consensus_babe::SyncOracle">Sync<wbr>Oracle</a></dt><dd>An oracle for when major synchronization work is being undertaken.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.block_import.html" title="fn sc_consensus_babe::block_import">block_<wbr>import</a></dt><dd>Produce a BABE block-import object to be used later on in the construction of
+an import-queue.</dd><dt><a class="fn" href="fn.configuration.html" title="fn sc_consensus_babe::configuration">configuration</a></dt><dd>Read configuration from the runtime state at current best block.</dd><dt><a class="fn" href="fn.find_next_epoch_digest.html" title="fn sc_consensus_babe::find_next_epoch_digest">find_<wbr>next_<wbr>epoch_<wbr>digest</a></dt><dd>Extract the BABE epoch change digest from the given header, if it exists.</dd><dt><a class="fn" href="fn.find_pre_digest.html" title="fn sc_consensus_babe::find_pre_digest">find_<wbr>pre_<wbr>digest</a></dt><dd>Extract the BABE pre digest from the given header. Pre-runtime digests are
+mandatory, the function will return <code>Err</code> if none is found.</dd><dt><a class="fn" href="fn.import_queue.html" title="fn sc_consensus_babe::import_queue">import_<wbr>queue</a></dt><dd>Start an import queue for the BABE consensus algorithm.</dd><dt><a class="fn" href="fn.revert.html" title="fn sc_consensus_babe::revert">revert</a></dt><dd>Reverts protocol aux data to at most the last finalized block.
+In particular, epoch-changes and block weights announced after the revert
+point are removed.</dd><dt><a class="fn" href="fn.start_babe.html" title="fn sc_consensus_babe::start_babe">start_<wbr>babe</a></dt><dd>Start the babe worker.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AuthorityId.html" title="type sc_consensus_babe::AuthorityId">Authority<wbr>Id</a></dt><dd>A Babe authority identifier. Necessarily equivalent to the schnorrkel public key used in
+the main Babe module. If that ever changes, then this must, too.</dd><dt><a class="type" href="type.AuthorityPair.html" title="type sc_consensus_babe::AuthorityPair">Authority<wbr>Pair</a></dt><dd>A Babe authority keypair. Necessarily equivalent to the schnorrkel public key used in
+the main Babe module. If that ever changes, then this must, too.</dd><dt><a class="type" href="type.AuthoritySignature.html" title="type sc_consensus_babe::AuthoritySignature">Authority<wbr>Signature</a></dt><dd>A Babe authority signature.</dd><dt><a class="type" href="type.BabeAuthorityWeight.html" title="type sc_consensus_babe::BabeAuthorityWeight">Babe<wbr>Authority<wbr>Weight</a></dt><dd>The weight of an authority.</dd><dt><a class="type" href="type.BabeBlockWeight.html" title="type sc_consensus_babe::BabeBlockWeight">Babe<wbr>Block<wbr>Weight</a></dt><dd>The cumulative weight of a BABE block, i.e. sum of block weights starting
+at this block until the genesis block.</dd><dt><a class="type" href="type.Randomness.html" title="type sc_consensus_babe::Randomness">Randomness</a></dt><dd>Randomness type required by BABE operations.</dd></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","&mut [u8]":"<h3>Notable traits for <code>&amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for &amp;mut [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>]</div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive_fixtures" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive_fixtures/index.html">pallet_<wbr>revive_<wbr>fixtures</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="BlockInfo/struct.basefeeCall.html">BlockInfo::basefeeCall</a></li><li><a href="BlockInfo/struct.basefeeReturn.html">BlockInfo::basefeeReturn</a></li><li><a href="BlockInfo/struct.blockNumberCall.html">BlockInfo::blockNumberCall</a></li><li><a href="BlockInfo/struct.blockNumberReturn.html">BlockInfo::blockNumberReturn</a></li><li><a href="BlockInfo/struct.chainidCall.html">BlockInfo::chainidCall</a></li><li><a href="BlockInfo/struct.chainidReturn.html">BlockInfo::chainidReturn</a></li><li><a href="BlockInfo/struct.coinbaseCall.html">BlockInfo::coinbaseCall</a></li><li><a href="BlockInfo/struct.coinbaseReturn.html">BlockInfo::coinbaseReturn</a></li><li><a href="BlockInfo/struct.difficultyCall.html">BlockInfo::difficultyCall</a></li><li><a href="BlockInfo/struct.difficultyReturn.html">BlockInfo::difficultyReturn</a></li><li><a href="BlockInfo/struct.gaslimitCall.html">BlockInfo::gaslimitCall</a></li><li><a href="BlockInfo/struct.gaslimitReturn.html">BlockInfo::gaslimitReturn</a></li><li><a href="BlockInfo/struct.timestampCall.html">BlockInfo::timestampCall</a></li><li><a href="BlockInfo/struct.timestampReturn.html">BlockInfo::timestampReturn</a></li><li><a href="Callee/struct.echoCall.html">Callee::echoCall</a></li><li><a href="Callee/struct.echoReturn.html">Callee::echoReturn</a></li><li><a href="Callee/struct.invalidCall.html">Callee::invalidCall</a></li><li><a href="Callee/struct.invalidReturn.html">Callee::invalidReturn</a></li><li><a href="Callee/struct.revertCall.html">Callee::revertCall</a></li><li><a href="Callee/struct.revertReturn.html">Callee::revertReturn</a></li><li><a href="Callee/struct.stopCall.html">Callee::stopCall</a></li><li><a href="Callee/struct.stopReturn.html">Callee::stopReturn</a></li><li><a href="Callee/struct.storeCall.html">Callee::storeCall</a></li><li><a href="Callee/struct.storeReturn.html">Callee::storeReturn</a></li><li><a href="Callee/struct.storedCall.html">Callee::storedCall</a></li><li><a href="Callee/struct.storedReturn.html">Callee::storedReturn</a></li><li><a href="Callee/struct.whoSenderCall.html">Callee::whoSenderCall</a></li><li><a href="Callee/struct.whoSenderReturn.html">Callee::whoSenderReturn</a></li><li><a href="Caller/struct.create2Call.html">Caller::create2Call</a></li><li><a href="Caller/struct.create2Return.html">Caller::create2Return</a></li><li><a href="Caller/struct.createCall.html">Caller::createCall</a></li><li><a href="Caller/struct.createReturn.html">Caller::createReturn</a></li><li><a href="Caller/struct.delegateCall.html">Caller::delegateCall</a></li><li><a href="Caller/struct.delegateReturn.html">Caller::delegateReturn</a></li><li><a href="Caller/struct.normalCall.html">Caller::normalCall</a></li><li><a href="Caller/struct.normalReturn.html">Caller::normalReturn</a></li><li><a href="Caller/struct.staticCallCall.html">Caller::staticCallCall</a></li><li><a href="Caller/struct.staticCallReturn.html">Caller::staticCallReturn</a></li><li><a href="Fibonacci/struct.fibCall.html">Fibonacci::fibCall</a></li><li><a href="Fibonacci/struct.fibReturn.html">Fibonacci::fibReturn</a></li><li><a href="Host/struct.balanceCall.html">Host::balanceCall</a></li><li><a href="Host/struct.balanceReturn.html">Host::balanceReturn</a></li><li><a href="Host/struct.blockhashCall.html">Host::blockhashCall</a></li><li><a href="Host/struct.blockhashReturn.html">Host::blockhashReturn</a></li><li><a href="Host/struct.extcodecopyCall.html">Host::extcodecopyCall</a></li><li><a href="Host/struct.extcodecopyReturn.html">Host::extcodecopyReturn</a></li><li><a href="Host/struct.extcodehashCall.html">Host::extcodehashCall</a></li><li><a href="Host/struct.extcodehashReturn.html">Host::extcodehashReturn</a></li><li><a href="Host/struct.extcodesizeCall.html">Host::extcodesizeCall</a></li><li><a href="Host/struct.extcodesizeReturn.html">Host::extcodesizeReturn</a></li><li><a href="Host/struct.log0Call.html">Host::log0Call</a></li><li><a href="Host/struct.log0Return.html">Host::log0Return</a></li><li><a href="Host/struct.log1Call.html">Host::log1Call</a></li><li><a href="Host/struct.log1Return.html">Host::log1Return</a></li><li><a href="Host/struct.log2Call.html">Host::log2Call</a></li><li><a href="Host/struct.log2Return.html">Host::log2Return</a></li><li><a href="Host/struct.log3Call.html">Host::log3Call</a></li><li><a href="Host/struct.log3Return.html">Host::log3Return</a></li><li><a href="Host/struct.log4Call.html">Host::log4Call</a></li><li><a href="Host/struct.log4Return.html">Host::log4Return</a></li><li><a href="Host/struct.selfbalanceCall.html">Host::selfbalanceCall</a></li><li><a href="Host/struct.selfbalanceReturn.html">Host::selfbalanceReturn</a></li><li><a href="Host/struct.selfdestructCall.html">Host::selfdestructCall</a></li><li><a href="Host/struct.selfdestructReturn.html">Host::selfdestructReturn</a></li><li><a href="Host/struct.sloadCall.html">Host::sloadCall</a></li><li><a href="Host/struct.sloadReturn.html">Host::sloadReturn</a></li><li><a href="Host/struct.sstoreCall.html">Host::sstoreCall</a></li><li><a href="Host/struct.sstoreReturn.html">Host::sstoreReturn</a></li><li><a href="Host/struct.tloadCall.html">Host::tloadCall</a></li><li><a href="Host/struct.tloadReturn.html">Host::tloadReturn</a></li><li><a href="Host/struct.tstoreCall.html">Host::tstoreCall</a></li><li><a href="Host/struct.tstoreReturn.html">Host::tstoreReturn</a></li><li><a href="System/struct.addressFuncCall.html">System::addressFuncCall</a></li><li><a href="System/struct.addressFuncReturn.html">System::addressFuncReturn</a></li><li><a href="System/struct.calldatacopyCall.html">System::calldatacopyCall</a></li><li><a href="System/struct.calldatacopyReturn.html">System::calldatacopyReturn</a></li><li><a href="System/struct.calldataloadCall.html">System::calldataloadCall</a></li><li><a href="System/struct.calldataloadReturn.html">System::calldataloadReturn</a></li><li><a href="System/struct.calldatasizeCall.html">System::calldatasizeCall</a></li><li><a href="System/struct.calldatasizeReturn.html">System::calldatasizeReturn</a></li><li><a href="System/struct.callerCall.html">System::callerCall</a></li><li><a href="System/struct.callerReturn.html">System::callerReturn</a></li><li><a href="System/struct.callvalueCall.html">System::callvalueCall</a></li><li><a href="System/struct.callvalueReturn.html">System::callvalueReturn</a></li><li><a href="System/struct.codecopyCall.html">System::codecopyCall</a></li><li><a href="System/struct.codecopyReturn.html">System::codecopyReturn</a></li><li><a href="System/struct.codesizeCall.html">System::codesizeCall</a></li><li><a href="System/struct.codesizeReturn.html">System::codesizeReturn</a></li><li><a href="System/struct.gasCall.html">System::gasCall</a></li><li><a href="System/struct.gasReturn.html">System::gasReturn</a></li><li><a href="System/struct.keccak256FuncCall.html">System::keccak256FuncCall</a></li><li><a href="System/struct.keccak256FuncReturn.html">System::keccak256FuncReturn</a></li><li><a href="System/struct.returndatacopyCall.html">System::returndatacopyCall</a></li><li><a href="System/struct.returndatacopyReturn.html">System::returndatacopyReturn</a></li><li><a href="System/struct.returndatasizeCall.html">System::returndatasizeCall</a></li><li><a href="System/struct.returndatasizeReturn.html">System::returndatasizeReturn</a></li><li><a href="TransactionInfo/struct.blobhashCall.html">TransactionInfo::blobhashCall</a></li><li><a href="TransactionInfo/struct.blobhashReturn.html">TransactionInfo::blobhashReturn</a></li><li><a href="TransactionInfo/struct.gaspriceCall.html">TransactionInfo::gaspriceCall</a></li><li><a href="TransactionInfo/struct.gaspriceReturn.html">TransactionInfo::gaspriceReturn</a></li><li><a href="TransactionInfo/struct.originCall.html">TransactionInfo::originCall</a></li><li><a href="TransactionInfo/struct.originReturn.html">TransactionInfo::originReturn</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="BlockInfo/enum.BlockInfoCalls.html">BlockInfo::BlockInfoCalls</a></li><li><a href="Callee/enum.CalleeCalls.html">Callee::CalleeCalls</a></li><li><a href="Caller/enum.CallerCalls.html">Caller::CallerCalls</a></li><li><a href="Fibonacci/enum.FibonacciCalls.html">Fibonacci::FibonacciCalls</a></li><li><a href="enum.FixtureType.html">FixtureType</a></li><li><a href="Host/enum.HostCalls.html">Host::HostCalls</a></li><li><a href="System/enum.SystemCalls.html">System::SystemCalls</a></li><li><a href="TransactionInfo/enum.TransactionInfoCalls.html">TransactionInfo::TransactionInfoCalls</a></li></ul><h3 id="macros">Macros</h3><ul class="all-items"><li><a href="macro.fixture.html">fixture</a></li><li><a href="macro.fixture_resolc.html">fixture_resolc</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="bench/fn.dummy_unique.html">bench::dummy_unique</a></li><li><a href="fn.compile_module.html">compile_module</a></li><li><a href="fn.compile_module_with_type.html">compile_module_with_type</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="bench/constant.DUMMY.html">bench::DUMMY</a></li><li><a href="bench/constant.NOOP.html">bench::NOOP</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

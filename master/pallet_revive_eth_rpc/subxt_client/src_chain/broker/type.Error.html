@@ -1,0 +1,192 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Error` type in crate `pallet_revive_eth_rpc`."><title>Error in pallet_revive_eth_rpc::subxt_client::src_chain::broker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Error</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AlreadyExpired" title="AlreadyExpired">AlreadyExpired</a></li><li><a href="#variant.AssignmentNotFound" title="AssignmentNotFound">AssignmentNotFound</a></li><li><a href="#variant.AutoRenewalNotEnabled" title="AutoRenewalNotEnabled">AutoRenewalNotEnabled</a></li><li><a href="#variant.CompletePivot" title="CompletePivot">CompletePivot</a></li><li><a href="#variant.CorruptWorkplan" title="CorruptWorkplan">CorruptWorkplan</a></li><li><a href="#variant.CreditPurchaseTooSmall" title="CreditPurchaseTooSmall">CreditPurchaseTooSmall</a></li><li><a href="#variant.ExteriorPivot" title="ExteriorPivot">ExteriorPivot</a></li><li><a href="#variant.IncompleteAssignment" title="IncompleteAssignment">IncompleteAssignment</a></li><li><a href="#variant.InvalidConfig" title="InvalidConfig">InvalidConfig</a></li><li><a href="#variant.LeaseNotFound" title="LeaseNotFound">LeaseNotFound</a></li><li><a href="#variant.NoClaimTimeslices" title="NoClaimTimeslices">NoClaimTimeslices</a></li><li><a href="#variant.NoHistory" title="NoHistory">NoHistory</a></li><li><a href="#variant.NoPermission" title="NoPermission">NoPermission</a></li><li><a href="#variant.NoSales" title="NoSales">NoSales</a></li><li><a href="#variant.NonTaskAutoRenewal" title="NonTaskAutoRenewal">NonTaskAutoRenewal</a></li><li><a href="#variant.NotAllowed" title="NotAllowed">NotAllowed</a></li><li><a href="#variant.NotOwner" title="NotOwner">NotOwner</a></li><li><a href="#variant.NothingToDo" title="NothingToDo">NothingToDo</a></li><li><a href="#variant.Overpriced" title="Overpriced">Overpriced</a></li><li><a href="#variant.PivotTooEarly" title="PivotTooEarly">PivotTooEarly</a></li><li><a href="#variant.PivotTooLate" title="PivotTooLate">PivotTooLate</a></li><li><a href="#variant.SoldOut" title="SoldOut">SoldOut</a></li><li><a href="#variant.SovereignAccountNotFound" title="SovereignAccountNotFound">SovereignAccountNotFound</a></li><li><a href="#variant.StillValid" title="StillValid">StillValid</a></li><li><a href="#variant.TooEarly" title="TooEarly">TooEarly</a></li><li><a href="#variant.TooManyAutoRenewals" title="TooManyAutoRenewals">TooManyAutoRenewals</a></li><li><a href="#variant.TooManyLeases" title="TooManyLeases">TooManyLeases</a></li><li><a href="#variant.TooManyReservations" title="TooManyReservations">TooManyReservations</a></li><li><a href="#variant.Unavailable" title="Unavailable">Unavailable</a></li><li><a href="#variant.Uninitialized" title="Uninitialized">Uninitialized</a></li><li><a href="#variant.UnknownContribution" title="UnknownContribution">UnknownContribution</a></li><li><a href="#variant.UnknownRegion" title="UnknownRegion">UnknownRegion</a></li><li><a href="#variant.UnknownRenewal" title="UnknownRenewal">UnknownRenewal</a></li><li><a href="#variant.UnknownReservation" title="UnknownReservation">UnknownReservation</a></li><li><a href="#variant.UnknownRevenue" title="UnknownRevenue">UnknownRevenue</a></li><li><a href="#variant.VoidPivot" title="VoidPivot">VoidPivot</a></li><li><a href="#variant.WrongTime" title="WrongTime">WrongTime</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>broker</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">broker</a></div><h1>Type Alias <span class="type">Error</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Error = <a class="enum" href="../runtime_types/pallet_broker/pallet/enum.Error.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_broker::pallet::Error">Error</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Error {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 37 variants</span></summary>    UnknownRegion,
+    NotOwner,
+    PivotTooLate,
+    PivotTooEarly,
+    ExteriorPivot,
+    VoidPivot,
+    CompletePivot,
+    CorruptWorkplan,
+    NoSales,
+    Overpriced,
+    Unavailable,
+    SoldOut,
+    WrongTime,
+    NotAllowed,
+    Uninitialized,
+    TooEarly,
+    NothingToDo,
+    TooManyReservations,
+    TooManyLeases,
+    LeaseNotFound,
+    UnknownRevenue,
+    UnknownContribution,
+    IncompleteAssignment,
+    StillValid,
+    NoHistory,
+    UnknownReservation,
+    UnknownRenewal,
+    AlreadyExpired,
+    InvalidConfig,
+    NoClaimTimeslices,
+    NoPermission,
+    TooManyAutoRenewals,
+    NonTaskAutoRenewal,
+    SovereignAccountNotFound,
+    AutoRenewalNotEnabled,
+    AssignmentNotFound,
+    CreditPurchaseTooSmall,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.UnknownRegion" class="variant"><a href="#variant.UnknownRegion" class="anchor">§</a><h3 class="code-header">UnknownRegion</h3></section><section id="variant.NotOwner" class="variant"><a href="#variant.NotOwner" class="anchor">§</a><h3 class="code-header">NotOwner</h3></section><section id="variant.PivotTooLate" class="variant"><a href="#variant.PivotTooLate" class="anchor">§</a><h3 class="code-header">PivotTooLate</h3></section><section id="variant.PivotTooEarly" class="variant"><a href="#variant.PivotTooEarly" class="anchor">§</a><h3 class="code-header">PivotTooEarly</h3></section><section id="variant.ExteriorPivot" class="variant"><a href="#variant.ExteriorPivot" class="anchor">§</a><h3 class="code-header">ExteriorPivot</h3></section><section id="variant.VoidPivot" class="variant"><a href="#variant.VoidPivot" class="anchor">§</a><h3 class="code-header">VoidPivot</h3></section><section id="variant.CompletePivot" class="variant"><a href="#variant.CompletePivot" class="anchor">§</a><h3 class="code-header">CompletePivot</h3></section><section id="variant.CorruptWorkplan" class="variant"><a href="#variant.CorruptWorkplan" class="anchor">§</a><h3 class="code-header">CorruptWorkplan</h3></section><section id="variant.NoSales" class="variant"><a href="#variant.NoSales" class="anchor">§</a><h3 class="code-header">NoSales</h3></section><section id="variant.Overpriced" class="variant"><a href="#variant.Overpriced" class="anchor">§</a><h3 class="code-header">Overpriced</h3></section><section id="variant.Unavailable" class="variant"><a href="#variant.Unavailable" class="anchor">§</a><h3 class="code-header">Unavailable</h3></section><section id="variant.SoldOut" class="variant"><a href="#variant.SoldOut" class="anchor">§</a><h3 class="code-header">SoldOut</h3></section><section id="variant.WrongTime" class="variant"><a href="#variant.WrongTime" class="anchor">§</a><h3 class="code-header">WrongTime</h3></section><section id="variant.NotAllowed" class="variant"><a href="#variant.NotAllowed" class="anchor">§</a><h3 class="code-header">NotAllowed</h3></section><section id="variant.Uninitialized" class="variant"><a href="#variant.Uninitialized" class="anchor">§</a><h3 class="code-header">Uninitialized</h3></section><section id="variant.TooEarly" class="variant"><a href="#variant.TooEarly" class="anchor">§</a><h3 class="code-header">TooEarly</h3></section><section id="variant.NothingToDo" class="variant"><a href="#variant.NothingToDo" class="anchor">§</a><h3 class="code-header">NothingToDo</h3></section><section id="variant.TooManyReservations" class="variant"><a href="#variant.TooManyReservations" class="anchor">§</a><h3 class="code-header">TooManyReservations</h3></section><section id="variant.TooManyLeases" class="variant"><a href="#variant.TooManyLeases" class="anchor">§</a><h3 class="code-header">TooManyLeases</h3></section><section id="variant.LeaseNotFound" class="variant"><a href="#variant.LeaseNotFound" class="anchor">§</a><h3 class="code-header">LeaseNotFound</h3></section><section id="variant.UnknownRevenue" class="variant"><a href="#variant.UnknownRevenue" class="anchor">§</a><h3 class="code-header">UnknownRevenue</h3></section><section id="variant.UnknownContribution" class="variant"><a href="#variant.UnknownContribution" class="anchor">§</a><h3 class="code-header">UnknownContribution</h3></section><section id="variant.IncompleteAssignment" class="variant"><a href="#variant.IncompleteAssignment" class="anchor">§</a><h3 class="code-header">IncompleteAssignment</h3></section><section id="variant.StillValid" class="variant"><a href="#variant.StillValid" class="anchor">§</a><h3 class="code-header">StillValid</h3></section><section id="variant.NoHistory" class="variant"><a href="#variant.NoHistory" class="anchor">§</a><h3 class="code-header">NoHistory</h3></section><section id="variant.UnknownReservation" class="variant"><a href="#variant.UnknownReservation" class="anchor">§</a><h3 class="code-header">UnknownReservation</h3></section><section id="variant.UnknownRenewal" class="variant"><a href="#variant.UnknownRenewal" class="anchor">§</a><h3 class="code-header">UnknownRenewal</h3></section><section id="variant.AlreadyExpired" class="variant"><a href="#variant.AlreadyExpired" class="anchor">§</a><h3 class="code-header">AlreadyExpired</h3></section><section id="variant.InvalidConfig" class="variant"><a href="#variant.InvalidConfig" class="anchor">§</a><h3 class="code-header">InvalidConfig</h3></section><section id="variant.NoClaimTimeslices" class="variant"><a href="#variant.NoClaimTimeslices" class="anchor">§</a><h3 class="code-header">NoClaimTimeslices</h3></section><section id="variant.NoPermission" class="variant"><a href="#variant.NoPermission" class="anchor">§</a><h3 class="code-header">NoPermission</h3></section><section id="variant.TooManyAutoRenewals" class="variant"><a href="#variant.TooManyAutoRenewals" class="anchor">§</a><h3 class="code-header">TooManyAutoRenewals</h3></section><section id="variant.NonTaskAutoRenewal" class="variant"><a href="#variant.NonTaskAutoRenewal" class="anchor">§</a><h3 class="code-header">NonTaskAutoRenewal</h3></section><section id="variant.SovereignAccountNotFound" class="variant"><a href="#variant.SovereignAccountNotFound" class="anchor">§</a><h3 class="code-header">SovereignAccountNotFound</h3></section><section id="variant.AutoRenewalNotEnabled" class="variant"><a href="#variant.AutoRenewalNotEnabled" class="anchor">§</a><h3 class="code-header">AutoRenewalNotEnabled</h3></section><section id="variant.AssignmentNotFound" class="variant"><a href="#variant.AssignmentNotFound" class="anchor">§</a><h3 class="code-header">AssignmentNotFound</h3></section><section id="variant.CreditPurchaseTooSmall" class="variant"><a href="#variant.CreditPurchaseTooSmall" class="anchor">§</a><h3 class="code-header">CreditPurchaseTooSmall</h3></section></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_broker/pallet/enum.Error.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::broker::Error" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

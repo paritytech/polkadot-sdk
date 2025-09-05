@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Error` type in crate `pallet_revive_eth_rpc`."><title>Error in pallet_revive_eth_rpc::subxt_client::src_chain::nfts - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Error</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AlreadyClaimed" title="AlreadyClaimed">AlreadyClaimed</a></li><li><a href="#variant.AlreadyExists" title="AlreadyExists">AlreadyExists</a></li><li><a href="#variant.ApprovalExpired" title="ApprovalExpired">ApprovalExpired</a></li><li><a href="#variant.AttributeNotFound" title="AttributeNotFound">AttributeNotFound</a></li><li><a href="#variant.BadWitness" title="BadWitness">BadWitness</a></li><li><a href="#variant.BidTooLow" title="BidTooLow">BidTooLow</a></li><li><a href="#variant.CollectionIdInUse" title="CollectionIdInUse">CollectionIdInUse</a></li><li><a href="#variant.CollectionNotEmpty" title="CollectionNotEmpty">CollectionNotEmpty</a></li><li><a href="#variant.DeadlineExpired" title="DeadlineExpired">DeadlineExpired</a></li><li><a href="#variant.InconsistentItemConfig" title="InconsistentItemConfig">InconsistentItemConfig</a></li><li><a href="#variant.IncorrectData" title="IncorrectData">IncorrectData</a></li><li><a href="#variant.IncorrectMetadata" title="IncorrectMetadata">IncorrectMetadata</a></li><li><a href="#variant.ItemLocked" title="ItemLocked">ItemLocked</a></li><li><a href="#variant.ItemsNonTransferable" title="ItemsNonTransferable">ItemsNonTransferable</a></li><li><a href="#variant.LockedCollectionAttributes" title="LockedCollectionAttributes">LockedCollectionAttributes</a></li><li><a href="#variant.LockedCollectionMetadata" title="LockedCollectionMetadata">LockedCollectionMetadata</a></li><li><a href="#variant.LockedItemAttributes" title="LockedItemAttributes">LockedItemAttributes</a></li><li><a href="#variant.LockedItemMetadata" title="LockedItemMetadata">LockedItemMetadata</a></li><li><a href="#variant.MaxAttributesLimitReached" title="MaxAttributesLimitReached">MaxAttributesLimitReached</a></li><li><a href="#variant.MaxSupplyLocked" title="MaxSupplyLocked">MaxSupplyLocked</a></li><li><a href="#variant.MaxSupplyReached" title="MaxSupplyReached">MaxSupplyReached</a></li><li><a href="#variant.MaxSupplyTooSmall" title="MaxSupplyTooSmall">MaxSupplyTooSmall</a></li><li><a href="#variant.MetadataNotFound" title="MetadataNotFound">MetadataNotFound</a></li><li><a href="#variant.MethodDisabled" title="MethodDisabled">MethodDisabled</a></li><li><a href="#variant.MintEnded" title="MintEnded">MintEnded</a></li><li><a href="#variant.MintNotStarted" title="MintNotStarted">MintNotStarted</a></li><li><a href="#variant.NoConfig" title="NoConfig">NoConfig</a></li><li><a href="#variant.NoPermission" title="NoPermission">NoPermission</a></li><li><a href="#variant.NotDelegate" title="NotDelegate">NotDelegate</a></li><li><a href="#variant.NotForSale" title="NotForSale">NotForSale</a></li><li><a href="#variant.ReachedApprovalLimit" title="ReachedApprovalLimit">ReachedApprovalLimit</a></li><li><a href="#variant.RolesNotCleared" title="RolesNotCleared">RolesNotCleared</a></li><li><a href="#variant.Unaccepted" title="Unaccepted">Unaccepted</a></li><li><a href="#variant.Unapproved" title="Unapproved">Unapproved</a></li><li><a href="#variant.UnknownCollection" title="UnknownCollection">UnknownCollection</a></li><li><a href="#variant.UnknownItem" title="UnknownItem">UnknownItem</a></li><li><a href="#variant.UnknownSwap" title="UnknownSwap">UnknownSwap</a></li><li><a href="#variant.WitnessRequired" title="WitnessRequired">WitnessRequired</a></li><li><a href="#variant.WrongDelegate" title="WrongDelegate">WrongDelegate</a></li><li><a href="#variant.WrongDuration" title="WrongDuration">WrongDuration</a></li><li><a href="#variant.WrongNamespace" title="WrongNamespace">WrongNamespace</a></li><li><a href="#variant.WrongOrigin" title="WrongOrigin">WrongOrigin</a></li><li><a href="#variant.WrongOwner" title="WrongOwner">WrongOwner</a></li><li><a href="#variant.WrongSetting" title="WrongSetting">WrongSetting</a></li><li><a href="#variant.WrongSignature" title="WrongSignature">WrongSignature</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>nfts</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">nfts</a></div><h1>Type Alias <span class="type">Error</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Error = <a class="enum" href="../runtime_types/pallet_nfts/pallet/enum.Error.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nfts::pallet::Error">Error</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Error {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 45 variants</span></summary>    NoPermission,
+    UnknownCollection,
+    AlreadyExists,
+    ApprovalExpired,
+    WrongOwner,
+    BadWitness,
+    CollectionIdInUse,
+    ItemsNonTransferable,
+    NotDelegate,
+    WrongDelegate,
+    Unapproved,
+    Unaccepted,
+    ItemLocked,
+    LockedItemAttributes,
+    LockedCollectionAttributes,
+    LockedItemMetadata,
+    LockedCollectionMetadata,
+    MaxSupplyReached,
+    MaxSupplyLocked,
+    MaxSupplyTooSmall,
+    UnknownItem,
+    UnknownSwap,
+    MetadataNotFound,
+    AttributeNotFound,
+    NotForSale,
+    BidTooLow,
+    ReachedApprovalLimit,
+    DeadlineExpired,
+    WrongDuration,
+    MethodDisabled,
+    WrongSetting,
+    InconsistentItemConfig,
+    NoConfig,
+    RolesNotCleared,
+    MintNotStarted,
+    MintEnded,
+    AlreadyClaimed,
+    IncorrectData,
+    WrongOrigin,
+    WrongSignature,
+    IncorrectMetadata,
+    MaxAttributesLimitReached,
+    WrongNamespace,
+    CollectionNotEmpty,
+    WitnessRequired,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.NoPermission" class="variant"><a href="#variant.NoPermission" class="anchor">§</a><h3 class="code-header">NoPermission</h3></section><section id="variant.UnknownCollection" class="variant"><a href="#variant.UnknownCollection" class="anchor">§</a><h3 class="code-header">UnknownCollection</h3></section><section id="variant.AlreadyExists" class="variant"><a href="#variant.AlreadyExists" class="anchor">§</a><h3 class="code-header">AlreadyExists</h3></section><section id="variant.ApprovalExpired" class="variant"><a href="#variant.ApprovalExpired" class="anchor">§</a><h3 class="code-header">ApprovalExpired</h3></section><section id="variant.WrongOwner" class="variant"><a href="#variant.WrongOwner" class="anchor">§</a><h3 class="code-header">WrongOwner</h3></section><section id="variant.BadWitness" class="variant"><a href="#variant.BadWitness" class="anchor">§</a><h3 class="code-header">BadWitness</h3></section><section id="variant.CollectionIdInUse" class="variant"><a href="#variant.CollectionIdInUse" class="anchor">§</a><h3 class="code-header">CollectionIdInUse</h3></section><section id="variant.ItemsNonTransferable" class="variant"><a href="#variant.ItemsNonTransferable" class="anchor">§</a><h3 class="code-header">ItemsNonTransferable</h3></section><section id="variant.NotDelegate" class="variant"><a href="#variant.NotDelegate" class="anchor">§</a><h3 class="code-header">NotDelegate</h3></section><section id="variant.WrongDelegate" class="variant"><a href="#variant.WrongDelegate" class="anchor">§</a><h3 class="code-header">WrongDelegate</h3></section><section id="variant.Unapproved" class="variant"><a href="#variant.Unapproved" class="anchor">§</a><h3 class="code-header">Unapproved</h3></section><section id="variant.Unaccepted" class="variant"><a href="#variant.Unaccepted" class="anchor">§</a><h3 class="code-header">Unaccepted</h3></section><section id="variant.ItemLocked" class="variant"><a href="#variant.ItemLocked" class="anchor">§</a><h3 class="code-header">ItemLocked</h3></section><section id="variant.LockedItemAttributes" class="variant"><a href="#variant.LockedItemAttributes" class="anchor">§</a><h3 class="code-header">LockedItemAttributes</h3></section><section id="variant.LockedCollectionAttributes" class="variant"><a href="#variant.LockedCollectionAttributes" class="anchor">§</a><h3 class="code-header">LockedCollectionAttributes</h3></section><section id="variant.LockedItemMetadata" class="variant"><a href="#variant.LockedItemMetadata" class="anchor">§</a><h3 class="code-header">LockedItemMetadata</h3></section><section id="variant.LockedCollectionMetadata" class="variant"><a href="#variant.LockedCollectionMetadata" class="anchor">§</a><h3 class="code-header">LockedCollectionMetadata</h3></section><section id="variant.MaxSupplyReached" class="variant"><a href="#variant.MaxSupplyReached" class="anchor">§</a><h3 class="code-header">MaxSupplyReached</h3></section><section id="variant.MaxSupplyLocked" class="variant"><a href="#variant.MaxSupplyLocked" class="anchor">§</a><h3 class="code-header">MaxSupplyLocked</h3></section><section id="variant.MaxSupplyTooSmall" class="variant"><a href="#variant.MaxSupplyTooSmall" class="anchor">§</a><h3 class="code-header">MaxSupplyTooSmall</h3></section><section id="variant.UnknownItem" class="variant"><a href="#variant.UnknownItem" class="anchor">§</a><h3 class="code-header">UnknownItem</h3></section><section id="variant.UnknownSwap" class="variant"><a href="#variant.UnknownSwap" class="anchor">§</a><h3 class="code-header">UnknownSwap</h3></section><section id="variant.MetadataNotFound" class="variant"><a href="#variant.MetadataNotFound" class="anchor">§</a><h3 class="code-header">MetadataNotFound</h3></section><section id="variant.AttributeNotFound" class="variant"><a href="#variant.AttributeNotFound" class="anchor">§</a><h3 class="code-header">AttributeNotFound</h3></section><section id="variant.NotForSale" class="variant"><a href="#variant.NotForSale" class="anchor">§</a><h3 class="code-header">NotForSale</h3></section><section id="variant.BidTooLow" class="variant"><a href="#variant.BidTooLow" class="anchor">§</a><h3 class="code-header">BidTooLow</h3></section><section id="variant.ReachedApprovalLimit" class="variant"><a href="#variant.ReachedApprovalLimit" class="anchor">§</a><h3 class="code-header">ReachedApprovalLimit</h3></section><section id="variant.DeadlineExpired" class="variant"><a href="#variant.DeadlineExpired" class="anchor">§</a><h3 class="code-header">DeadlineExpired</h3></section><section id="variant.WrongDuration" class="variant"><a href="#variant.WrongDuration" class="anchor">§</a><h3 class="code-header">WrongDuration</h3></section><section id="variant.MethodDisabled" class="variant"><a href="#variant.MethodDisabled" class="anchor">§</a><h3 class="code-header">MethodDisabled</h3></section><section id="variant.WrongSetting" class="variant"><a href="#variant.WrongSetting" class="anchor">§</a><h3 class="code-header">WrongSetting</h3></section><section id="variant.InconsistentItemConfig" class="variant"><a href="#variant.InconsistentItemConfig" class="anchor">§</a><h3 class="code-header">InconsistentItemConfig</h3></section><section id="variant.NoConfig" class="variant"><a href="#variant.NoConfig" class="anchor">§</a><h3 class="code-header">NoConfig</h3></section><section id="variant.RolesNotCleared" class="variant"><a href="#variant.RolesNotCleared" class="anchor">§</a><h3 class="code-header">RolesNotCleared</h3></section><section id="variant.MintNotStarted" class="variant"><a href="#variant.MintNotStarted" class="anchor">§</a><h3 class="code-header">MintNotStarted</h3></section><section id="variant.MintEnded" class="variant"><a href="#variant.MintEnded" class="anchor">§</a><h3 class="code-header">MintEnded</h3></section><section id="variant.AlreadyClaimed" class="variant"><a href="#variant.AlreadyClaimed" class="anchor">§</a><h3 class="code-header">AlreadyClaimed</h3></section><section id="variant.IncorrectData" class="variant"><a href="#variant.IncorrectData" class="anchor">§</a><h3 class="code-header">IncorrectData</h3></section><section id="variant.WrongOrigin" class="variant"><a href="#variant.WrongOrigin" class="anchor">§</a><h3 class="code-header">WrongOrigin</h3></section><section id="variant.WrongSignature" class="variant"><a href="#variant.WrongSignature" class="anchor">§</a><h3 class="code-header">WrongSignature</h3></section><section id="variant.IncorrectMetadata" class="variant"><a href="#variant.IncorrectMetadata" class="anchor">§</a><h3 class="code-header">IncorrectMetadata</h3></section><section id="variant.MaxAttributesLimitReached" class="variant"><a href="#variant.MaxAttributesLimitReached" class="anchor">§</a><h3 class="code-header">MaxAttributesLimitReached</h3></section><section id="variant.WrongNamespace" class="variant"><a href="#variant.WrongNamespace" class="anchor">§</a><h3 class="code-header">WrongNamespace</h3></section><section id="variant.CollectionNotEmpty" class="variant"><a href="#variant.CollectionNotEmpty" class="anchor">§</a><h3 class="code-header">CollectionNotEmpty</h3></section><section id="variant.WitnessRequired" class="variant"><a href="#variant.WitnessRequired" class="anchor">§</a><h3 class="code-header">WitnessRequired</h3></section></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_nfts/pallet/enum.Error.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::nfts::Error" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

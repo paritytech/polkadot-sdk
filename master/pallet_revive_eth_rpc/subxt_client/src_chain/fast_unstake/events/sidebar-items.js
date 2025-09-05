@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["batch_checked","batch_finished","slashed","unstaked"],"struct":["BatchChecked","BatchFinished","InternalError","Slashed","Unstaked"]};

@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives that may be used at (bridges) runtime level."><title>bp_runtime - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_runtime/index.html">bp_<wbr>runtime</a><span class="version">0.7.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>bp_runtime</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/bp_runtime/lib.rs.html#17-542">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives that may be used at (bridges) runtime level.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.paste"><code>pub use sp_runtime::<a class="mod" href="https://docs.rs/paste/1.0.15/paste/index.html" title="mod paste">paste</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="extensions/index.html" title="mod bp_runtime::extensions">extensions</a></dt><dd>Primitives that may be used for creating signed extensions for indirect runtimes.</dd><dt><a class="mod" href="messages/index.html" title="mod bp_runtime::messages">messages</a></dt><dd>Primitives that may be used by different message delivery and dispatch mechanisms.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.decl_bridge_finality_runtime_apis.html" title="macro bp_runtime::decl_bridge_finality_runtime_apis">decl_<wbr>bridge_<wbr>finality_<wbr>runtime_<wbr>apis</a></dt><dd>Convenience macro that declares bridge finality runtime apis and related constants for a chain.
+This includes:</dd><dt><a class="macro" href="macro.decl_bridge_messages_runtime_apis.html" title="macro bp_runtime::decl_bridge_messages_runtime_apis">decl_<wbr>bridge_<wbr>messages_<wbr>runtime_<wbr>apis</a></dt><dd>Convenience macro that declares bridge messages runtime apis and related constants for a chain.
+This includes:</dd><dt><a class="macro" href="macro.decl_bridge_runtime_apis.html" title="macro bp_runtime::decl_bridge_runtime_apis">decl_<wbr>bridge_<wbr>runtime_<wbr>apis</a></dt><dd>Convenience macro that declares bridge finality runtime apis, bridge messages runtime apis
+and related constants for a chain.
+The name of the chain has to be specified in snake case (e.g. <code>bridge_hub_polkadot</code>).</dd><dt><a class="macro" href="macro.generate_static_str_provider.html" title="macro bp_runtime::generate_static_str_provider">generate_<wbr>static_<wbr>str_<wbr>provider</a></dt><dd>A macro that generates <code>StaticStrProvider</code> with the string set to its stringified argument.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BoundedStorageValue.html" title="struct bp_runtime::BoundedStorageValue">Bounded<wbr>Storage<wbr>Value</a></dt><dd>A bounded runtime storage value.</dd><dt><a class="struct" href="struct.HeaderId.html" title="struct bp_runtime::HeaderId">Header<wbr>Id</a></dt><dd>Generic header Id.</dd><dt><a class="struct" href="struct.ParachainIdOf.html" title="struct bp_runtime::ParachainIdOf">Parachain<wbr>IdOf</a></dt><dd>Adapter for <code>Get&lt;u32&gt;</code> to access <code>PARACHAIN_ID</code> from <code>trait Parachain</code></dd><dt><a class="struct" href="struct.PreComputedSize.html" title="struct bp_runtime::PreComputedSize">PreComputed<wbr>Size</a></dt><dd>Pre-computed size.</dd><dt><a class="struct" href="struct.StorageProofChecker.html" title="struct bp_runtime::StorageProofChecker">Storage<wbr>Proof<wbr>Checker</a></dt><dd>This struct is used to read storage values from a subset of a Merklized database. The “proof”
+is a subset of the nodes in the Merkle structure of the database, so that it provides
+authentication against a known Merkle root as well as the values in the
+database themselves.</dd><dt><a class="struct" href="struct.UnverifiedStorageProofParams.html" title="struct bp_runtime::UnverifiedStorageProofParams">Unverified<wbr>Storage<wbr>Proof<wbr>Params</a></dt><dd>Storage values size requirements.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.BasicOperatingMode.html" title="enum bp_runtime::BasicOperatingMode">Basic<wbr>Operating<wbr>Mode</a></dt><dd>Basic operating modes for a bridges module (Normal/Halted).</dd><dt><a class="enum" href="enum.EncodedOrDecodedCall.html" title="enum bp_runtime::EncodedOrDecodedCall">Encoded<wbr>OrDecoded<wbr>Call</a></dt><dd>Chain call, that is either SCALE-encoded, or decoded.</dd><dt><a class="enum" href="enum.OwnedBridgeModuleError.html" title="enum bp_runtime::OwnedBridgeModuleError">Owned<wbr>Bridge<wbr>Module<wbr>Error</a></dt><dd>Error generated by the <code>OwnedBridgeModule</code> trait.</dd><dt><a class="enum" href="enum.StorageProofError.html" title="enum bp_runtime::StorageProofError">Storage<wbr>Proof<wbr>Error</a></dt><dd>Errors that can occur when interacting with <code>UnverifiedStorageProof</code> and <code>VerifiedStorageProof</code>.</dd><dt><a class="enum" href="enum.TransactionEra.html" title="enum bp_runtime::TransactionEra">Transaction<wbr>Era</a></dt><dd>Era of specific transaction.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.NO_INSTANCE_ID.html" title="constant bp_runtime::NO_INSTANCE_ID">NO_<wbr>INSTANCE_<wbr>ID</a></dt><dd>Use this when something must be shared among all instances.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Chain.html" title="trait bp_runtime::Chain">Chain</a></dt><dd>Minimal Substrate-based chain representation that may be used from no_std environment.</dd><dt><a class="trait" href="trait.HeaderIdProvider.html" title="trait bp_runtime::HeaderIdProvider">Header<wbr>IdProvider</a></dt><dd>Generic header id provider.</dd><dt><a class="trait" href="trait.OperatingMode.html" title="trait bp_runtime::OperatingMode">Operating<wbr>Mode</a></dt><dd>Operating mode for a bridge module.</dd><dt><a class="trait" href="trait.OwnedBridgeModule.html" title="trait bp_runtime::OwnedBridgeModule">Owned<wbr>Bridge<wbr>Module</a></dt><dd>Bridge module that has owner and operating mode</dd><dt><a class="trait" href="trait.Parachain.html" title="trait bp_runtime::Parachain">Parachain</a></dt><dd>Minimal parachain representation that may be used from no_std environment.</dd><dt><a class="trait" href="trait.RangeInclusiveExt.html" title="trait bp_runtime::RangeInclusiveExt">Range<wbr>Inclusive<wbr>Ext</a></dt><dd>A trait defining helper methods for <code>RangeInclusive</code> (start..=end)</dd><dt><a class="trait" href="trait.Size.html" title="trait bp_runtime::Size">Size</a></dt><dd>Anything that has size.</dd><dt><a class="trait" href="trait.StaticStrProvider.html" title="trait bp_runtime::StaticStrProvider">Static<wbr>StrProvider</a></dt><dd>Trait that provides a static <code>str</code>.</dd><dt><a class="trait" href="trait.StorageDoubleMapKeyProvider.html" title="trait bp_runtime::StorageDoubleMapKeyProvider">Storage<wbr>Double<wbr>MapKey<wbr>Provider</a></dt><dd>Can be used to access the runtime storage key of a <code>StorageDoubleMap</code>.</dd><dt><a class="trait" href="trait.StorageMapKeyProvider.html" title="trait bp_runtime::StorageMapKeyProvider">Storage<wbr>MapKey<wbr>Provider</a></dt><dd>Can be use to access the runtime storage key of a <code>StorageMap</code>.</dd><dt><a class="trait" href="trait.UnderlyingChainProvider.html" title="trait bp_runtime::UnderlyingChainProvider">Underlying<wbr>Chain<wbr>Provider</a></dt><dd>A trait that provides the type of the underlying chain.</dd><dt><a class="trait" href="trait.WeightExtraOps.html" title="trait bp_runtime::WeightExtraOps">Weight<wbr>Extra<wbr>Ops</a></dt><dd>All extra operations with weights that we need in bridges.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.craft_valid_storage_proof.html" title="fn bp_runtime::craft_valid_storage_proof">craft_<wbr>valid_<wbr>storage_<wbr>proof</a></dt><dd>Return valid storage proof and state root.</dd><dt><a class="fn" href="fn.grow_storage_proof.html" title="fn bp_runtime::grow_storage_proof">grow_<wbr>storage_<wbr>proof</a></dt><dd>Insert values in the provided trie at common-prefix keys in order to inflate the resulting
+storage proof.</dd><dt><a class="fn" href="fn.grow_storage_value.html" title="fn bp_runtime::grow_storage_value">grow_<wbr>storage_<wbr>value</a></dt><dd>Add extra data to the storage value so that it’ll be of given size.</dd><dt><a class="fn" href="fn.raw_storage_proof_size.html" title="fn bp_runtime::raw_storage_proof_size">raw_<wbr>storage_<wbr>proof_<wbr>size</a></dt><dd>Calculates size for <code>RawStorageProof</code>.</dd><dt><a class="fn" href="fn.record_all_trie_keys.html" title="fn bp_runtime::record_all_trie_keys">record_<wbr>all_<wbr>trie_<wbr>keys</a></dt><dd>Record all keys for a given root.</dd><dt><a class="fn" href="fn.storage_map_final_key.html" title="fn bp_runtime::storage_map_final_key">storage_<wbr>map_<wbr>final_<wbr>key</a></dt><dd>This is a copy of the
+<code>frame_support::storage::generator::StorageMap::storage_map_final_key</code> for maps based
+on selected hasher.</dd><dt><a class="fn" href="fn.storage_value_final_key.html" title="fn bp_runtime::storage_value_final_key">storage_<wbr>value_<wbr>final_<wbr>key</a></dt><dd>Returns the storage prefix for a specific pallet name and storage name.</dd><dt><a class="fn" href="fn.storage_value_key.html" title="fn bp_runtime::storage_value_key">storage_<wbr>value_<wbr>key</a></dt><dd>This is how a storage key of storage value is computed.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountIdOf.html" title="type bp_runtime::AccountIdOf">Account<wbr>IdOf</a></dt><dd>Account id type used by the chain.</dd><dt><a class="type" href="type.AccountPublicOf.html" title="type bp_runtime::AccountPublicOf">Account<wbr>Public<wbr>Of</a></dt><dd>Account public type used by the chain.</dd><dt><a class="type" href="type.BalanceOf.html" title="type bp_runtime::BalanceOf">Balance<wbr>Of</a></dt><dd>Balance type used by the chain.</dd><dt><a class="type" href="type.BlockNumberOf.html" title="type bp_runtime::BlockNumberOf">Block<wbr>Number<wbr>Of</a></dt><dd>Block number used by the chain.</dd><dt><a class="type" href="type.ChainId.html" title="type bp_runtime::ChainId">ChainId</a></dt><dd>Unique identifier of the chain.</dd><dt><a class="type" href="type.HashOf.html" title="type bp_runtime::HashOf">HashOf</a></dt><dd>Hash type used by the chain.</dd><dt><a class="type" href="type.HasherOf.html" title="type bp_runtime::HasherOf">Hasher<wbr>Of</a></dt><dd>Hasher type used by the chain.</dd><dt><a class="type" href="type.HeaderIdOf.html" title="type bp_runtime::HeaderIdOf">Header<wbr>IdOf</a></dt><dd>Header id used by the chain.</dd><dt><a class="type" href="type.HeaderOf.html" title="type bp_runtime::HeaderOf">Header<wbr>Of</a></dt><dd>Header type used by the chain.</dd><dt><a class="type" href="type.NonceOf.html" title="type bp_runtime::NonceOf">NonceOf</a></dt><dd>Transaction nonce type used by the chain.</dd><dt><a class="type" href="type.RawStorageProof.html" title="type bp_runtime::RawStorageProof">RawStorage<wbr>Proof</a></dt><dd>Raw storage proof type (just raw trie nodes).</dd><dt><a class="type" href="type.SignatureOf.html" title="type bp_runtime::SignatureOf">Signature<wbr>Of</a></dt><dd>Signature type used by the chain.</dd><dt><a class="type" href="type.TransactionEraOf.html" title="type bp_runtime::TransactionEraOf">Transaction<wbr>EraOf</a></dt><dd>Transaction era used by the chain.</dd><dt><a class="type" href="type.UnderlyingChainOf.html" title="type bp_runtime::UnderlyingChainOf">Underlying<wbr>Chain<wbr>Of</a></dt><dd>Underlying chain type.</dd></dl><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>","Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

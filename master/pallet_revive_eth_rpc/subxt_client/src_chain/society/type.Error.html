@@ -1,0 +1,188 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Error` type in crate `pallet_revive_eth_rpc`."><title>Error in pallet_revive_eth_rpc::subxt_client::src_chain::society - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Error</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AlreadyBid" title="AlreadyBid">AlreadyBid</a></li><li><a href="#variant.AlreadyCandidate" title="AlreadyCandidate">AlreadyCandidate</a></li><li><a href="#variant.AlreadyElevated" title="AlreadyElevated">AlreadyElevated</a></li><li><a href="#variant.AlreadyFounded" title="AlreadyFounded">AlreadyFounded</a></li><li><a href="#variant.AlreadyMember" title="AlreadyMember">AlreadyMember</a></li><li><a href="#variant.AlreadyPunished" title="AlreadyPunished">AlreadyPunished</a></li><li><a href="#variant.AlreadyVouching" title="AlreadyVouching">AlreadyVouching</a></li><li><a href="#variant.Approved" title="Approved">Approved</a></li><li><a href="#variant.Expired" title="Expired">Expired</a></li><li><a href="#variant.Founder" title="Founder">Founder</a></li><li><a href="#variant.Head" title="Head">Head</a></li><li><a href="#variant.InProgress" title="InProgress">InProgress</a></li><li><a href="#variant.InsufficientFunds" title="InsufficientFunds">InsufficientFunds</a></li><li><a href="#variant.InsufficientPot" title="InsufficientPot">InsufficientPot</a></li><li><a href="#variant.MaxMembers" title="MaxMembers">MaxMembers</a></li><li><a href="#variant.NoDefender" title="NoDefender">NoDefender</a></li><li><a href="#variant.NoDeposit" title="NoDeposit">NoDeposit</a></li><li><a href="#variant.NoPayout" title="NoPayout">NoPayout</a></li><li><a href="#variant.NoVotes" title="NoVotes">NoVotes</a></li><li><a href="#variant.NotApproved" title="NotApproved">NotApproved</a></li><li><a href="#variant.NotBidder" title="NotBidder">NotBidder</a></li><li><a href="#variant.NotCandidate" title="NotCandidate">NotCandidate</a></li><li><a href="#variant.NotFounder" title="NotFounder">NotFounder</a></li><li><a href="#variant.NotGroup" title="NotGroup">NotGroup</a></li><li><a href="#variant.NotHead" title="NotHead">NotHead</a></li><li><a href="#variant.NotMember" title="NotMember">NotMember</a></li><li><a href="#variant.NotRejected" title="NotRejected">NotRejected</a></li><li><a href="#variant.NotSuspended" title="NotSuspended">NotSuspended</a></li><li><a href="#variant.NotVouchingOnBidder" title="NotVouchingOnBidder">NotVouchingOnBidder</a></li><li><a href="#variant.Rejected" title="Rejected">Rejected</a></li><li><a href="#variant.Suspended" title="Suspended">Suspended</a></li><li><a href="#variant.TooEarly" title="TooEarly">TooEarly</a></li><li><a href="#variant.Voted" title="Voted">Voted</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>society</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">society</a></div><h1>Type Alias <span class="type">Error</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Error = <a class="enum" href="../runtime_types/pallet_society/pallet/enum.Error.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_society::pallet::Error">Error</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Error {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 33 variants</span></summary>    NotMember,
+    AlreadyMember,
+    Suspended,
+    NotSuspended,
+    NoPayout,
+    AlreadyFounded,
+    InsufficientPot,
+    AlreadyVouching,
+    NotVouchingOnBidder,
+    Head,
+    Founder,
+    AlreadyBid,
+    AlreadyCandidate,
+    NotCandidate,
+    MaxMembers,
+    NotFounder,
+    NotHead,
+    NotApproved,
+    NotRejected,
+    Approved,
+    Rejected,
+    InProgress,
+    TooEarly,
+    Voted,
+    Expired,
+    NotBidder,
+    NoDefender,
+    NotGroup,
+    AlreadyElevated,
+    AlreadyPunished,
+    InsufficientFunds,
+    NoVotes,
+    NoDeposit,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.NotMember" class="variant"><a href="#variant.NotMember" class="anchor">§</a><h3 class="code-header">NotMember</h3></section><section id="variant.AlreadyMember" class="variant"><a href="#variant.AlreadyMember" class="anchor">§</a><h3 class="code-header">AlreadyMember</h3></section><section id="variant.Suspended" class="variant"><a href="#variant.Suspended" class="anchor">§</a><h3 class="code-header">Suspended</h3></section><section id="variant.NotSuspended" class="variant"><a href="#variant.NotSuspended" class="anchor">§</a><h3 class="code-header">NotSuspended</h3></section><section id="variant.NoPayout" class="variant"><a href="#variant.NoPayout" class="anchor">§</a><h3 class="code-header">NoPayout</h3></section><section id="variant.AlreadyFounded" class="variant"><a href="#variant.AlreadyFounded" class="anchor">§</a><h3 class="code-header">AlreadyFounded</h3></section><section id="variant.InsufficientPot" class="variant"><a href="#variant.InsufficientPot" class="anchor">§</a><h3 class="code-header">InsufficientPot</h3></section><section id="variant.AlreadyVouching" class="variant"><a href="#variant.AlreadyVouching" class="anchor">§</a><h3 class="code-header">AlreadyVouching</h3></section><section id="variant.NotVouchingOnBidder" class="variant"><a href="#variant.NotVouchingOnBidder" class="anchor">§</a><h3 class="code-header">NotVouchingOnBidder</h3></section><section id="variant.Head" class="variant"><a href="#variant.Head" class="anchor">§</a><h3 class="code-header">Head</h3></section><section id="variant.Founder" class="variant"><a href="#variant.Founder" class="anchor">§</a><h3 class="code-header">Founder</h3></section><section id="variant.AlreadyBid" class="variant"><a href="#variant.AlreadyBid" class="anchor">§</a><h3 class="code-header">AlreadyBid</h3></section><section id="variant.AlreadyCandidate" class="variant"><a href="#variant.AlreadyCandidate" class="anchor">§</a><h3 class="code-header">AlreadyCandidate</h3></section><section id="variant.NotCandidate" class="variant"><a href="#variant.NotCandidate" class="anchor">§</a><h3 class="code-header">NotCandidate</h3></section><section id="variant.MaxMembers" class="variant"><a href="#variant.MaxMembers" class="anchor">§</a><h3 class="code-header">MaxMembers</h3></section><section id="variant.NotFounder" class="variant"><a href="#variant.NotFounder" class="anchor">§</a><h3 class="code-header">NotFounder</h3></section><section id="variant.NotHead" class="variant"><a href="#variant.NotHead" class="anchor">§</a><h3 class="code-header">NotHead</h3></section><section id="variant.NotApproved" class="variant"><a href="#variant.NotApproved" class="anchor">§</a><h3 class="code-header">NotApproved</h3></section><section id="variant.NotRejected" class="variant"><a href="#variant.NotRejected" class="anchor">§</a><h3 class="code-header">NotRejected</h3></section><section id="variant.Approved" class="variant"><a href="#variant.Approved" class="anchor">§</a><h3 class="code-header">Approved</h3></section><section id="variant.Rejected" class="variant"><a href="#variant.Rejected" class="anchor">§</a><h3 class="code-header">Rejected</h3></section><section id="variant.InProgress" class="variant"><a href="#variant.InProgress" class="anchor">§</a><h3 class="code-header">InProgress</h3></section><section id="variant.TooEarly" class="variant"><a href="#variant.TooEarly" class="anchor">§</a><h3 class="code-header">TooEarly</h3></section><section id="variant.Voted" class="variant"><a href="#variant.Voted" class="anchor">§</a><h3 class="code-header">Voted</h3></section><section id="variant.Expired" class="variant"><a href="#variant.Expired" class="anchor">§</a><h3 class="code-header">Expired</h3></section><section id="variant.NotBidder" class="variant"><a href="#variant.NotBidder" class="anchor">§</a><h3 class="code-header">NotBidder</h3></section><section id="variant.NoDefender" class="variant"><a href="#variant.NoDefender" class="anchor">§</a><h3 class="code-header">NoDefender</h3></section><section id="variant.NotGroup" class="variant"><a href="#variant.NotGroup" class="anchor">§</a><h3 class="code-header">NotGroup</h3></section><section id="variant.AlreadyElevated" class="variant"><a href="#variant.AlreadyElevated" class="anchor">§</a><h3 class="code-header">AlreadyElevated</h3></section><section id="variant.AlreadyPunished" class="variant"><a href="#variant.AlreadyPunished" class="anchor">§</a><h3 class="code-header">AlreadyPunished</h3></section><section id="variant.InsufficientFunds" class="variant"><a href="#variant.InsufficientFunds" class="anchor">§</a><h3 class="code-header">InsufficientFunds</h3></section><section id="variant.NoVotes" class="variant"><a href="#variant.NoVotes" class="anchor">§</a><h3 class="code-header">NoVotes</h3></section><section id="variant.NoDeposit" class="variant"><a href="#variant.NoDeposit" class="anchor">§</a><h3 class="code-header">NoDeposit</h3></section></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_society/pallet/enum.Error.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::society::Error" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

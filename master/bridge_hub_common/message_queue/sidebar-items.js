@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregateMessageOrigin"],"struct":["BridgeHubDualMessageRouter","BridgeHubMessageRouter","NarrowOriginToSibling","ParaIdToSibling"]};

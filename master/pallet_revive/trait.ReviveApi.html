@@ -1,0 +1,378 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The API used to dry-run contract interactions."><title>ReviveApi in pallet_revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="pallet_revive" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../pallet_revive/index.html">pallet_<wbr>revive</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Revive<wbr>Api</a></h2><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.address" title="address">address</a></li><li><a href="#method.balance" title="balance">balance</a></li><li><a href="#method.block_author" title="block_author">block_author</a></li><li><a href="#method.block_gas_limit" title="block_gas_limit">block_gas_limit</a></li><li><a href="#method.call" title="call">call</a></li><li><a href="#method.code" title="code">code</a></li><li><a href="#method.eth_transact" title="eth_transact">eth_transact</a></li><li><a href="#method.gas_price" title="gas_price">gas_price</a></li><li><a href="#method.get_storage" title="get_storage">get_storage</a></li><li><a href="#method.get_storage_var_key" title="get_storage_var_key">get_storage_var_key</a></li><li><a href="#method.instantiate" title="instantiate">instantiate</a></li><li><a href="#method.nonce" title="nonce">nonce</a></li><li><a href="#method.runtime_pallets_address" title="runtime_pallets_address">runtime_pallets_address</a></li><li><a href="#method.trace_block" title="trace_block">trace_block</a></li><li><a href="#method.trace_call" title="trace_call">trace_call</a></li><li><a href="#method.trace_tx" title="trace_tx">trace_tx</a></li><li><a href="#method.upload_code" title="upload_code">upload_code</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block trait-implementation"><li><a href="#impl-RuntimeApiInfo-for-dyn+ReviveApi%3CBlock,+AccountId,+Balance,+Nonce,+BlockNumber%3E" title="RuntimeApiInfo">RuntimeApiInfo</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate pallet_<wbr>revive</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">pallet_revive</a></div><h1>Trait <span class="trait">ReviveApi</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/pallet_revive/lib.rs.html#1787-1904">Source</a> </span></div><pre class="rust item-decl"><code>pub trait ReviveApi&lt;Block: BlockT, AccountId, Balance, Nonce, BlockNumber&gt;: Core&lt;Block&gt;<div class="where">where
+    AccountId: Codec,
+    Balance: Codec,
+    Nonce: Codec,
+    BlockNumber: Codec,</div>{
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 17 methods</span></summary>    // Provided methods
+    fn <a href="#method.block_gas_limit" class="fn">block_gas_limit</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.balance" class="fn">balance</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.gas_price" class="fn">gas_price</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.nonce" class="fn">nonce</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Nonce, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.call" class="fn">call</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        origin: AccountId,
+        dest: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+        value: Balance,
+        gas_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>&gt;,
+        storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+        input_data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">ContractResult</a>&lt;<a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">ExecReturnValue</a>, Balance&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.instantiate" class="fn">instantiate</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        origin: AccountId,
+        value: Balance,
+        gas_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>&gt;,
+        storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+        code: <a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a>,
+        data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        salt: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">ContractResult</a>&lt;<a class="struct" href="struct.InstantiateReturnValue.html" title="struct pallet_revive::InstantiateReturnValue">InstantiateReturnValue</a>, Balance&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.eth_transact" class="fn">eth_transact</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        tx: <a class="struct" href="evm/struct.GenericTransaction.html" title="struct pallet_revive::evm::GenericTransaction">GenericTransaction</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.EthTransactInfo.html" title="struct pallet_revive::EthTransactInfo">EthTransactInfo</a>&lt;Balance&gt;, <a class="enum" href="enum.EthTransactError.html" title="enum pallet_revive::EthTransactError">EthTransactError</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.upload_code" class="fn">upload_code</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        origin: AccountId,
+        code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+        storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.CodeUploadResult.html" title="type pallet_revive::CodeUploadResult">CodeUploadResult</a>&lt;Balance&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.get_storage" class="fn">get_storage</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+        key: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>],
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorageResult</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.get_storage_var_key" class="fn">get_storage_var_key</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+        key: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorageResult</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.trace_block" class="fn">trace_block</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        block: Block,
+        config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>, <a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.trace_tx" class="fn">trace_tx</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        block: Block,
+        tx_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.trace_call" class="fn">trace_call</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        tx: <a class="struct" href="evm/struct.GenericTransaction.html" title="struct pallet_revive::evm::GenericTransaction">GenericTransaction</a>,
+        config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>, <a class="enum" href="enum.EthTransactError.html" title="enum pallet_revive::EthTransactError">EthTransactError</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.block_author" class="fn">block_author</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.address" class="fn">address</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        account_id: AccountId,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.runtime_pallets_address" class="fn">runtime_pallets_address</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.code" class="fn">code</a>(
+        &amp;self,
+        __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+        address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, ApiError&gt; { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The API used to dry-run contract interactions.</p>
+</div></details><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.block_gas_limit" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.block_gas_limit" class="fn">block_gas_limit</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the block gas limit.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.balance" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.balance" class="fn">balance</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the free balance of the given <code>[H160]</code> address, using EVM decimals.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.gas_price" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.gas_price" class="fn">gas_price</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.U256.html" title="struct pallet_revive::U256">U256</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the gas price.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.nonce" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.nonce" class="fn">nonce</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Nonce, ApiError&gt;</h4></section></summary><div class="docblock"><p>Returns the nonce of the given <code>[H160]</code> address.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.call" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.call" class="fn">call</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    origin: AccountId,
+    dest: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    value: Balance,
+    gas_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>&gt;,
+    storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+    input_data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">ContractResult</a>&lt;<a class="struct" href="struct.ExecReturnValue.html" title="struct pallet_revive::ExecReturnValue">ExecReturnValue</a>, Balance&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Perform a call from a specified account to a given contract.</p>
+<p>See <a href="pallet/struct.Pallet.html#method.bare_call" title="associated function pallet_revive::pallet::Pallet::bare_call"><code>crate::Pallet::bare_call</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.instantiate" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.instantiate" class="fn">instantiate</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    origin: AccountId,
+    value: Balance,
+    gas_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.Weight.html" title="struct pallet_revive::Weight">Weight</a>&gt;,
+    storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+    code: <a class="enum" href="enum.Code.html" title="enum pallet_revive::Code">Code</a>,
+    data: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    salt: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;[<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>]&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.ContractResult.html" title="struct pallet_revive::ContractResult">ContractResult</a>&lt;<a class="struct" href="struct.InstantiateReturnValue.html" title="struct pallet_revive::InstantiateReturnValue">InstantiateReturnValue</a>, Balance&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Instantiate a new contract.</p>
+<p>See <code>[crate::Pallet::bare_instantiate]</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.eth_transact" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.eth_transact" class="fn">eth_transact</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    tx: <a class="struct" href="evm/struct.GenericTransaction.html" title="struct pallet_revive::evm::GenericTransaction">GenericTransaction</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.EthTransactInfo.html" title="struct pallet_revive::EthTransactInfo">EthTransactInfo</a>&lt;Balance&gt;, <a class="enum" href="enum.EthTransactError.html" title="enum pallet_revive::EthTransactError">EthTransactError</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Perform an Ethereum call.</p>
+<p>See <a href="pallet/struct.Pallet.html#method.dry_run_eth_transact" title="associated function pallet_revive::pallet::Pallet::dry_run_eth_transact"><code>crate::Pallet::dry_run_eth_transact</code></a></p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.upload_code" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.upload_code" class="fn">upload_code</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    origin: AccountId,
+    code: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    storage_deposit_limit: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Balance&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.CodeUploadResult.html" title="type pallet_revive::CodeUploadResult">CodeUploadResult</a>&lt;Balance&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Upload new code without instantiating a contract from it.</p>
+<p>See <a href="pallet/struct.Pallet.html#method.bare_upload_code" title="associated function pallet_revive::pallet::Pallet::bare_upload_code"><code>crate::Pallet::bare_upload_code</code></a>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_storage" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.get_storage" class="fn">get_storage</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    key: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">32</a>],
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorageResult</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Query a given storage key in a given contract.</p>
+<p>Returns <code>Ok(Some(Vec&lt;u8&gt;))</code> if the storage value exists under the given key in the
+specified account and <code>Ok(None)</code> if it doesn’t. If the account specified by the address
+doesn’t exist, or doesn’t have a contract then <code>Err</code> is returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.get_storage_var_key" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.get_storage_var_key" class="fn">get_storage_var_key</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+    key: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="type" href="type.GetStorageResult.html" title="type pallet_revive::GetStorageResult">GetStorageResult</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Query a given variable-sized storage key in a given contract.</p>
+<p>Returns <code>Ok(Some(Vec&lt;u8&gt;))</code> if the storage value exists under the given key in the
+specified account and <code>Ok(None)</code> if it doesn’t. If the account specified by the address
+doesn’t exist, or doesn’t have a contract then <code>Err</code> is returned.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.trace_block" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.trace_block" class="fn">trace_block</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    block: Block,
+    config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>, <a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>)&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Traces the execution of an entire block and returns call traces.</p>
+<p>This is intended to be called through <code>state_call</code> to replay the block from the
+parent block.</p>
+<p>See eth-rpc <code>debug_traceBlockByNumber</code> for usage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.trace_tx" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.trace_tx" class="fn">trace_tx</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    block: Block,
+    tx_index: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Traces the execution of a specific transaction within a block.</p>
+<p>This is intended to be called through <code>state_call</code> to replay the block from the
+parent hash up to the transaction.</p>
+<p>See eth-rpc <code>debug_traceTransaction</code> for usage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.trace_call" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.trace_call" class="fn">trace_call</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    tx: <a class="struct" href="evm/struct.GenericTransaction.html" title="struct pallet_revive::evm::GenericTransaction">GenericTransaction</a>,
+    config: <a class="enum" href="evm/enum.TracerType.html" title="enum pallet_revive::evm::TracerType">TracerType</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="evm/enum.Trace.html" title="enum pallet_revive::evm::Trace">Trace</a>, <a class="enum" href="enum.EthTransactError.html" title="enum pallet_revive::EthTransactError">EthTransactError</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>Dry run and return the trace of the given call.</p>
+<p>See eth-rpc <code>debug_traceCall</code> for usage.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.block_author" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.block_author" class="fn">block_author</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>The address of the validator that produced the current block.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.address" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.address" class="fn">address</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    account_id: AccountId,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>Get the H160 address associated to this account id</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.runtime_pallets_address" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.runtime_pallets_address" class="fn">runtime_pallets_address</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>, ApiError&gt;</h4></section></summary><div class="docblock"><p>The address used to call the runtime’s pallets dispatchables</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.code" class="method"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><h4 class="code-header">fn <a href="#method.code" class="fn">code</a>(
+    &amp;self,
+    __runtime_api_at_param__: &lt;Block as BlockT&gt;::Hash,
+    address: <a class="struct" href="struct.H160.html" title="struct pallet_revive::H160">H160</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;, ApiError&gt;</h4></section></summary><div class="docblock"><p>The code at the specified address taking pre-compiles into account.</p>
+</div></details></div><h2 id="trait-implementations" class="section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimeApiInfo-for-dyn+ReviveApi%3CBlock,+AccountId,+Balance,+Nonce,+BlockNumber%3E" class="impl"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><a href="#impl-RuntimeApiInfo-for-dyn+ReviveApi%3CBlock,+AccountId,+Balance,+Nonce,+BlockNumber%3E" class="anchor">§</a><h3 class="code-header">impl&lt;Block: BlockT, AccountId, Balance, Nonce, BlockNumber&gt; RuntimeApiInfo for dyn <a class="trait" href="trait.ReviveApi.html" title="trait pallet_revive::ReviveApi">ReviveApi</a>&lt;Block, AccountId, Balance, Nonce, BlockNumber&gt;</h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedconstant.ID" class="associatedconstant trait-impl"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><a href="#associatedconstant.ID" class="anchor">§</a><h4 class="code-header">const <a class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.array.html">8</a>]</h4></section></summary><div class='docblock'>The identifier of the runtime api.</div></details><details class="toggle" open><summary><section id="associatedconstant.VERSION" class="associatedconstant trait-impl"><a class="src rightside" href="../src/pallet_revive/lib.rs.html#1784-1905">Source</a><a href="#associatedconstant.VERSION" class="anchor">§</a><h4 class="code-header">const <a class="constant">VERSION</a>: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a> = 1u32</h4></section></summary><div class='docblock'>The version of the runtime api.</div></details></div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/pallet_revive/trait.ReviveApi.js" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

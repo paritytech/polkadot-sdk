@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `src_chain` mod in crate `pallet_revive_eth_rpc`."><title>pallet_revive_eth_rpc::subxt_client::src_chain - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module src_<wbr>chain</a></h2><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#statics" title="Statics">Statics</a></li><li><a href="#functions" title="Functions">Functions</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../index.html">subxt_client</a></div><h1>Module <span>src_chain</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="alliance/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::alliance">alliance</a></dt><dt><a class="mod" href="alliance_motion/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::alliance_motion">alliance_<wbr>motion</a></dt><dt><a class="mod" href="asset_conversion/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::asset_conversion">asset_<wbr>conversion</a></dt><dt><a class="mod" href="asset_conversion_migration/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::asset_conversion_migration">asset_<wbr>conversion_<wbr>migration</a></dt><dt><a class="mod" href="asset_conversion_tx_payment/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::asset_conversion_tx_payment">asset_<wbr>conversion_<wbr>tx_<wbr>payment</a></dt><dt><a class="mod" href="asset_rate/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::asset_rate">asset_<wbr>rate</a></dt><dt><a class="mod" href="asset_rewards/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::asset_rewards">asset_<wbr>rewards</a></dt><dt><a class="mod" href="assets/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets">assets</a></dt><dt><a class="mod" href="assets_freezer/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::assets_freezer">assets_<wbr>freezer</a></dt><dt><a class="mod" href="authority_discovery/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::authority_discovery">authority_<wbr>discovery</a></dt><dt><a class="mod" href="authorship/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::authorship">authorship</a></dt><dt><a class="mod" href="babe/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::babe">babe</a></dt><dt><a class="mod" href="balances/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::balances">balances</a></dt><dt><a class="mod" href="beefy/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::beefy">beefy</a></dt><dt><a class="mod" href="bounties/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::bounties">bounties</a></dt><dt><a class="mod" href="broker/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::broker">broker</a></dt><dt><a class="mod" href="child_bounties/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::child_bounties">child_<wbr>bounties</a></dt><dt><a class="mod" href="contracts/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::contracts">contracts</a></dt><dt><a class="mod" href="conviction_voting/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::conviction_voting">conviction_<wbr>voting</a></dt><dt><a class="mod" href="core_fellowship/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::core_fellowship">core_<wbr>fellowship</a></dt><dt><a class="mod" href="council/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::council">council</a></dt><dt><a class="mod" href="delegated_staking/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::delegated_staking">delegated_<wbr>staking</a></dt><dt><a class="mod" href="democracy/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::democracy">democracy</a></dt><dt><a class="mod" href="election_provider_multi_phase/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::election_provider_multi_phase">election_<wbr>provider_<wbr>multi_<wbr>phase</a></dt><dt><a class="mod" href="elections/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::elections">elections</a></dt><dt><a class="mod" href="fast_unstake/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::fast_unstake">fast_<wbr>unstake</a></dt><dt><a class="mod" href="glutton/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::glutton">glutton</a></dt><dt><a class="mod" href="grandpa/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::grandpa">grandpa</a></dt><dt><a class="mod" href="historical/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::historical">historical</a></dt><dt><a class="mod" href="identity/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::identity">identity</a></dt><dt><a class="mod" href="im_online/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::im_online">im_<wbr>online</a></dt><dt><a class="mod" href="indices/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::indices">indices</a></dt><dt><a class="mod" href="lottery/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::lottery">lottery</a></dt><dt><a class="mod" href="message_queue/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::message_queue">message_<wbr>queue</a></dt><dt><a class="mod" href="meta_tx/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::meta_tx">meta_tx</a></dt><dt><a class="mod" href="mixnet/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::mixnet">mixnet</a></dt><dt><a class="mod" href="mmr/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::mmr">mmr</a></dt><dt><a class="mod" href="mmr_leaf/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::mmr_leaf">mmr_<wbr>leaf</a></dt><dt><a class="mod" href="multi_block_migrations/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::multi_block_migrations">multi_<wbr>block_<wbr>migrations</a></dt><dt><a class="mod" href="multisig/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::multisig">multisig</a></dt><dt><a class="mod" href="nft_fractionalization/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::nft_fractionalization">nft_<wbr>fractionalization</a></dt><dt><a class="mod" href="nfts/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::nfts">nfts</a></dt><dt><a class="mod" href="nis/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::nis">nis</a></dt><dt><a class="mod" href="nomination_pools/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::nomination_pools">nomination_<wbr>pools</a></dt><dt><a class="mod" href="offences/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::offences">offences</a></dt><dt><a class="mod" href="pallet_example_mbms/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::pallet_example_mbms">pallet_<wbr>example_<wbr>mbms</a></dt><dt><a class="mod" href="parameters/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::parameters">parameters</a></dt><dt><a class="mod" href="pool_assets/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::pool_assets">pool_<wbr>assets</a></dt><dt><a class="mod" href="pov/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::pov">pov</a></dt><dt><a class="mod" href="preimage/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::preimage">preimage</a></dt><dt><a class="mod" href="proxy/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::proxy">proxy</a></dt><dt><a class="mod" href="randomness_collective_flip/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::randomness_collective_flip">randomness_<wbr>collective_<wbr>flip</a></dt><dt><a class="mod" href="ranked_collective/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::ranked_collective">ranked_<wbr>collective</a></dt><dt><a class="mod" href="ranked_polls/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::ranked_polls">ranked_<wbr>polls</a></dt><dt><a class="mod" href="recovery/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::recovery">recovery</a></dt><dt><a class="mod" href="referenda/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::referenda">referenda</a></dt><dt><a class="mod" href="remark/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::remark">remark</a></dt><dt><a class="mod" href="revive/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::revive">revive</a></dt><dt><a class="mod" href="root_testing/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::root_testing">root_<wbr>testing</a></dt><dt><a class="mod" href="runtime_apis/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::runtime_apis">runtime_<wbr>apis</a></dt><dt><a class="mod" href="runtime_types/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types">runtime_<wbr>types</a></dt><dt><a class="mod" href="safe_mode/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::safe_mode">safe_<wbr>mode</a></dt><dt><a class="mod" href="salary/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::salary">salary</a></dt><dt><a class="mod" href="scheduler/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::scheduler">scheduler</a></dt><dt><a class="mod" href="session/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::session">session</a></dt><dt><a class="mod" href="skip_feeless_payment/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::skip_feeless_payment">skip_<wbr>feeless_<wbr>payment</a></dt><dt><a class="mod" href="society/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::society">society</a></dt><dt><a class="mod" href="staking/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::staking">staking</a></dt><dt><a class="mod" href="state_trie_migration/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::state_trie_migration">state_<wbr>trie_<wbr>migration</a></dt><dt><a class="mod" href="statement/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::statement">statement</a></dt><dt><a class="mod" href="sudo/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::sudo">sudo</a></dt><dt><a class="mod" href="system/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::system">system</a></dt><dt><a class="mod" href="tasks_example/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::tasks_example">tasks_<wbr>example</a></dt><dt><a class="mod" href="technical_committee/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::technical_committee">technical_<wbr>committee</a></dt><dt><a class="mod" href="technical_membership/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::technical_membership">technical_<wbr>membership</a></dt><dt><a class="mod" href="timestamp/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::timestamp">timestamp</a></dt><dt><a class="mod" href="tips/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::tips">tips</a></dt><dt><a class="mod" href="transaction_payment/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::transaction_payment">transaction_<wbr>payment</a></dt><dt><a class="mod" href="transaction_storage/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::transaction_storage">transaction_<wbr>storage</a></dt><dt><a class="mod" href="treasury/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::treasury">treasury</a></dt><dt><a class="mod" href="tx_pause/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::tx_pause">tx_<wbr>pause</a></dt><dt><a class="mod" href="uniques/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::uniques">uniques</a></dt><dt><a class="mod" href="utility/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::utility">utility</a></dt><dt><a class="mod" href="verify_signature/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::verify_signature">verify_<wbr>signature</a></dt><dt><a class="mod" href="vesting/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::vesting">vesting</a></dt><dt><a class="mod" href="voter_list/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::voter_list">voter_<wbr>list</a></dt><dt><a class="mod" href="whitelist/index.html" title="mod pallet_revive_eth_rpc::subxt_client::src_chain::whitelist">whitelist</a></dt></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.ConstantsApi.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::ConstantsApi">Constants<wbr>Api</a></dt><dt><a class="struct" href="struct.CustomValuesApi.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::CustomValuesApi">Custom<wbr>Values<wbr>Api</a></dt><dt><a class="struct" href="struct.StorageApi.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::StorageApi">Storage<wbr>Api</a></dt><dt><a class="struct" href="struct.TransactionApi.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::TransactionApi">Transaction<wbr>Api</a></dt><dt><a class="struct" href="struct.ViewFunctionsApi.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::ViewFunctionsApi">View<wbr>Functions<wbr>Api</a></dt></dl><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><dl class="item-table"><dt><a class="static" href="static.PALLETS.html" title="static pallet_revive_eth_rpc::subxt_client::src_chain::PALLETS">PALLETS</a></dt><dt><a class="static" href="static.RUNTIME_APIS.html" title="static pallet_revive_eth_rpc::subxt_client::src_chain::RUNTIME_APIS">RUNTIME_<wbr>APIS</a></dt></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.apis.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::apis">apis</a></dt><dt><a class="fn" href="fn.constants.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::constants">constants</a></dt><dt><a class="fn" href="fn.custom.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::custom">custom</a></dt><dt><a class="fn" href="fn.is_codegen_valid_for.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::is_codegen_valid_for">is_<wbr>codegen_<wbr>valid_<wbr>for</a></dt><dd>check whether the metadata provided is aligned with this statically generated code.</dd><dt><a class="fn" href="fn.storage.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::storage">storage</a></dt><dt><a class="fn" href="fn.tx.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::tx">tx</a></dt><dt><a class="fn" href="fn.view_functions.html" title="fn pallet_revive_eth_rpc::subxt_client::src_chain::view_functions">view_<wbr>functions</a></dt></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Call.html" title="type pallet_revive_eth_rpc::subxt_client::src_chain::Call">Call</a></dt><dd>The outer extrinsic enum.</dd><dt><a class="type" href="type.DispatchError.html" title="type pallet_revive_eth_rpc::subxt_client::src_chain::DispatchError">Dispatch<wbr>Error</a></dt><dd>The error type that is returned when there is a runtime issue.</dd><dt><a class="type" href="type.Error.html" title="type pallet_revive_eth_rpc::subxt_client::src_chain::Error">Error</a></dt><dd>The outer error enum represents the DispatchError’s Module variant.</dd><dt><a class="type" href="type.Event.html" title="type pallet_revive_eth_rpc::subxt_client::src_chain::Event">Event</a></dt><dd>The outer event enum.</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

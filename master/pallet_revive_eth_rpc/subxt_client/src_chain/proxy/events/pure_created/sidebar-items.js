@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"type":["At","DisambiguationIndex","ExtrinsicIndex","ProxyType","Pure","Who"]};

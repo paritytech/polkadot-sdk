@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="List of all items in this crate"><title>List of all items in this crate</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="chain_spec_guide_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod sys"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../chain_spec_guide_runtime/index.html">chain_spec_guide_runtime</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Aliases</a></li></ul></section></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../chain_spec_guide_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><h1>List of all items</h1><h3 id="structs">Structs</h3><ul class="all-items"><li><a href="pallets/struct.FooStruct.html">pallets::FooStruct</a></li><li><a href="pallets/struct.SomeFooData1.html">pallets::SomeFooData1</a></li><li><a href="pallets/struct.SomeFooData2.html">pallets::SomeFooData2</a></li><li><a href="pallets/pallet_bar/struct.GenesisConfig.html">pallets::pallet_bar::GenesisConfig</a></li><li><a href="pallets/pallet_bar/struct.Pallet.html">pallets::pallet_bar::Pallet</a></li><li><a href="pallets/pallet_bar/storage_types/struct.InitialAccount.html">pallets::pallet_bar::storage_types::InitialAccount</a></li><li><a href="pallets/pallet_foo/struct.GenesisConfig.html">pallets::pallet_foo::GenesisConfig</a></li><li><a href="pallets/pallet_foo/struct.Pallet.html">pallets::pallet_foo::Pallet</a></li><li><a href="pallets/pallet_foo/storage_types/struct.ProcessedEnumValue.html">pallets::pallet_foo::storage_types::ProcessedEnumValue</a></li><li><a href="pallets/pallet_foo/storage_types/struct.SomeInteger.html">pallets::pallet_foo::storage_types::SomeInteger</a></li><li><a href="runtime/struct.PalletInfo.html">runtime::PalletInfo</a></li><li><a href="runtime/struct.Runtime.html">runtime::Runtime</a></li><li><a href="runtime/struct.RuntimeApi.html">runtime::RuntimeApi</a></li><li><a href="runtime/struct.RuntimeApiImpl.html">runtime::RuntimeApiImpl</a></li><li><a href="runtime/struct.RuntimeGenesisConfig.html">runtime::RuntimeGenesisConfig</a></li><li><a href="runtime/struct.RuntimeOrigin.html">runtime::RuntimeOrigin</a></li><li><a href="runtime/struct.Version.html">runtime::Version</a></li></ul><h3 id="enums">Enums</h3><ul class="all-items"><li><a href="pallets/enum.FooEnum.html">pallets::FooEnum</a></li><li><a href="pallets/pallet_bar/enum.Call.html">pallets::pallet_bar::Call</a></li><li><a href="pallets/pallet_foo/enum.Call.html">pallets::pallet_foo::Call</a></li><li><a href="runtime/enum.OriginCaller.html">runtime::OriginCaller</a></li><li><a href="runtime/enum.RuntimeCall.html">runtime::RuntimeCall</a></li><li><a href="runtime/enum.RuntimeError.html">runtime::RuntimeError</a></li><li><a href="runtime/enum.RuntimeEvent.html">runtime::RuntimeEvent</a></li><li><a href="runtime/enum.RuntimeTask.html">runtime::RuntimeTask</a></li></ul><h3 id="traits">Traits</h3><ul class="all-items"><li><a href="pallets/pallet_bar/trait.Config.html">pallets::pallet_bar::Config</a></li><li><a href="pallets/pallet_foo/trait.Config.html">pallets::pallet_foo::Config</a></li></ul><h3 id="functions">Functions</h3><ul class="all-items"><li><a href="presets/fn.get_builtin_preset.html">presets::get_builtin_preset</a></li><li><a href="runtime/api/fn.dispatch.html">runtime::api::dispatch</a></li></ul><h3 id="types">Type Aliases</h3><ul class="all-items"><li><a href="pallets/pallet_bar/type.Module.html">pallets::pallet_bar::Module</a></li><li><a href="pallets/pallet_foo/type.Module.html">pallets::pallet_foo::Module</a></li><li><a href="pallets/pallet_foo/type.ProcessedEnumValue.html">pallets::pallet_foo::ProcessedEnumValue</a></li><li><a href="pallets/pallet_foo/type.SomeInteger.html">pallets::pallet_foo::SomeInteger</a></li><li><a href="runtime/type.AllPalletsWithSystem.html">runtime::AllPalletsWithSystem</a></li><li><a href="runtime/type.AllPalletsWithoutSystem.html">runtime::AllPalletsWithoutSystem</a></li><li><a href="runtime/type.Bar.html">runtime::Bar</a></li><li><a href="runtime/type.BarConfig.html">runtime::BarConfig</a></li><li><a href="runtime/type.Foo.html">runtime::Foo</a></li><li><a href="runtime/type.FooConfig.html">runtime::FooConfig</a></li><li><a href="runtime/type.System.html">runtime::System</a></li><li><a href="runtime/type.SystemConfig.html">runtime::SystemConfig</a></li></ul><h3 id="constants">Constants</h3><ul class="all-items"><li><a href="presets/constant.PRESET_1.html">presets::PRESET_1</a></li><li><a href="presets/constant.PRESET_2.html">presets::PRESET_2</a></li><li><a href="presets/constant.PRESET_3.html">presets::PRESET_3</a></li><li><a href="presets/constant.PRESET_4.html">presets::PRESET_4</a></li><li><a href="presets/constant.PRESET_INVALID.html">presets::PRESET_INVALID</a></li><li><a href="runtime/constant.RUNTIME_API_VERSIONS.html">runtime::RUNTIME_API_VERSIONS</a></li><li><a href="runtime/constant.VERSION.html">runtime::VERSION</a></li><li><a href="runtime/constant.WASM_BINARY.html">runtime::WASM_BINARY</a></li><li><a href="runtime/constant.WASM_BINARY_BLOATY.html">runtime::WASM_BINARY_BLOATY</a></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

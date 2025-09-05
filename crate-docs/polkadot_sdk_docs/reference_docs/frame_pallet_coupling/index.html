@@ -1,0 +1,351 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the different ways through which multiple `frame` pallets can be combined to work together."><title>polkadot_sdk_docs::reference_docs::frame_pallet_coupling - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+data-theme="ayu"
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			link.textContent = header.textContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && header.textContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module frame_pallet_coupling</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">frame_pallet_coupling</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/frame_pallet_coupling.rs.html#1-296">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the different ways through which multiple <a href="../../../frame/index.html" title="mod frame"><code>frame</code></a> pallets can be combined to work
+together.</p>
+<h2 id="frame-pallet-coupling"><a href="#frame-pallet-coupling">FRAME Pallet Coupling</a></h2>
+<p>This reference document explains how FRAME pallets can be combined to interact together.</p>
+<p>It is suggested to re-read <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>, notably the information
+around <a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>frame::pallet_macros::config</code></a>. Recall that:</p>
+<blockquote>
+<p>Configuration trait of a pallet: It allows a pallet to receive types at a later
+point from the runtime that wishes to contain it. It allows the pallet to be parameterized
+over both types and values.</p>
+</blockquote>
+<h3 id="context-background"><a href="#context-background">Context, Background</a></h3>
+<p>FRAME pallets, as per described in <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a> are:</p>
+<blockquote>
+<p>A pallet is a unit of encapsulated logic. It has a clearly defined responsibility and can be
+linked to other pallets.</p>
+</blockquote>
+<p>That is to say:</p>
+<ul>
+<li><em>encapsulated</em>: Ideally, a FRAME pallet contains encapsulated logic which has clear
+boundaries. It is generally a bad idea to build a single monolithic pallet that does multiple
+things, such as handling currencies, identities and staking all at the same time.</li>
+<li><em>linked to other pallets</em>: But, adhering extensively to the above also hinders the ability to
+write useful applications. Pallets often need to work with each other, communicate and use
+each other’s functionalities.</li>
+</ul>
+<p>The broad principle that allows pallets to be linked together is the same way through which a
+pallet uses its <code>Config</code> trait to receive types and values from the runtime that contains it.</p>
+<p>There are generally two ways to achieve this:</p>
+<ol>
+<li>Tight coupling pallets</li>
+<li>Loose coupling pallets</li>
+</ol>
+<p>To explain the difference between the two, consider two pallets, <code>A</code> and <code>B</code>. In both cases, <code>A</code>
+wants to use some functionality exposed by <code>B</code>.</p>
+<p>When tightly coupling pallets, <code>A</code> can only exist in a runtime if <code>B</code> is also present in the
+same runtime. That is, <code>A</code> is expressing that can only work if <code>B</code> is present.</p>
+<p>This translates to the following Rust code:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">trait </span>Pallet_B_Config {}
+<span class="kw">trait </span>Pallet_A_Config: Pallet_B_Config {}</code></pre></div>
+<p>Contrary, when pallets are loosely coupled, <code>A</code> expresses that some functionality, expressed via
+a trait <code>F</code>, needs to be fulfilled. This trait is then implemented by <code>B</code>, and the two pallets
+are linked together at the runtime level. This means that <code>A</code> only relies on the implementation
+of <code>F</code>, which may be <code>B</code>, or another implementation of <code>F</code>.</p>
+<p>This translates to the following Rust code:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">trait </span>F {}
+<span class="kw">trait </span>Pallet_A_Config {
+   <span class="kw">type </span>F: F;
+}
+<span class="comment">// Pallet_B will implement and fulfill `F`.</span></code></pre></div>
+<h3 id="example"><a href="#example">Example</a></h3>
+<p>Consider the following example, in which <code>pallet-foo</code> needs another pallet to provide the block
+author to it, and <code>pallet-author</code> which has access to this information.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet]
+</span><span class="kw">pub mod </span>pallet_foo {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">fn </span>do_stuff_with_author() {
+			<span class="comment">// needs block author here
+		</span>}
+	}
+}</code></pre></div>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[frame::pallet]
+</span><span class="kw">pub mod </span>pallet_author {
+	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+	<span class="attr">#[pallet::config]
+	</span><span class="kw">pub trait </span>Config: frame_system::Config {}
+
+	<span class="attr">#[pallet::pallet]
+	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
+
+	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+		<span class="kw">pub fn </span>author() -&gt; T::AccountId {
+			<span class="macro">todo!</span>(<span class="string">&quot;somehow has access to the block author and can return it here&quot;</span>)
+		}
+	}
+}</code></pre></div>
+<h4 id="tight-coupling-pallets"><a href="#tight-coupling-pallets">Tight Coupling Pallets</a></h4>
+<p>To tightly couple <code>pallet-foo</code> and <code>pallet-author</code>, we use Rust’s supertrait system. When a
+pallet makes its own <code>trait Config</code> be bounded by another pallet’s <code>trait Config</code>, it is
+expressing two things:</p>
+<ol>
+<li>that it can only exist in a runtime if the other pallet is also present.</li>
+<li>that it can use the other pallet’s functionality.</li>
+</ol>
+<p><code>pallet-foo</code>’s <code>Config</code> would then look like:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::config]
+</span><span class="kw">pub trait </span>Config: frame_system::Config + pallet_author::Config {}</code></pre></div>
+<p>And <code>pallet-foo</code> can use the method exposed by <code>pallet_author::Pallet</code> directly:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="comment">// anywhere in `pallet-foo`, we can call into `pallet-author` directly, namely because
+	// `T: pallet_author::Config`
+	</span><span class="kw">fn </span>do_stuff_with_author() {
+		<span class="kw">let _ </span>= pallet_author::Pallet::&lt;T&gt;::author();
+	}
+}</code></pre></div>
+<h4 id="loosely--coupling-pallets"><a href="#loosely--coupling-pallets">Loosely  Coupling Pallets</a></h4>
+<p>If <code>pallet-foo</code> wants to <em>not</em> rely on <code>pallet-author</code> directly, it can leverage its
+<code>Config</code>’s associated types. First, we need a trait to express the functionality that
+<code>pallet-foo</code> wants to obtain:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub trait </span>AuthorProvider&lt;AccountId&gt; {
+	<span class="kw">fn </span>author() -&gt; AccountId;
+}</code></pre></div>
+<blockquote>
+<p>We sometimes refer to such traits that help two pallets interact as “glue traits”.</p>
+</blockquote>
+<p>Next, <code>pallet-foo</code> states that it needs this trait to be provided to it, at the runtime level,
+via an associated type:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::config]
+</span><span class="kw">pub trait </span>Config: frame_system::Config {
+	<span class="doccomment">/// This pallet relies on the existence of something that implements [`AuthorProvider`],
+	/// which may or may not be `pallet-author`.
+	</span><span class="kw">type </span>AuthorProvider: AuthorProvider&lt;<span class="self">Self</span>::AccountId&gt;;
+}</code></pre></div>
+<p>Then, <code>pallet-foo</code> can use this trait to obtain the block author, without knowing where it comes
+from:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+	<span class="kw">fn </span>do_stuff_with_author() {
+		<span class="kw">let _ </span>= T::AuthorProvider::author();
+	}
+}</code></pre></div>
+<p>Then, if <code>pallet-author</code> implements this glue-trait:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;T: pallet_author::Config&gt; AuthorProvider&lt;T::AccountId&gt; <span class="kw">for </span>pallet_author::Pallet&lt;T&gt; {
+	<span class="kw">fn </span>author() -&gt; T::AccountId {
+		pallet_author::Pallet::&lt;T&gt;::author()
+	}
+}</code></pre></div>
+<p>And upon the creation of the runtime, the two pallets are linked together as such:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>pallet_foo_loose::Config <span class="kw">for </span>Runtime {
+	<span class="kw">type </span>AuthorProvider = pallet_author::Pallet&lt;Runtime&gt;;
+	<span class="comment">// which is also equivalent to
+	// type AuthorProvider = PalletAuthor;
+</span>}</code></pre></div>
+<p>Crucially, when using loose coupling, we gain the flexibility of providing different
+implementations of <code>AuthorProvider</code>, such that different users of a <code>pallet-foo</code> can use
+different ones, without any code change being needed. For example, in the code snippets of this
+module, you can fund <a href="struct.OtherAuthorProvider.html" title="struct polkadot_sdk_docs::reference_docs::frame_pallet_coupling::OtherAuthorProvider"><code>OtherAuthorProvider</code></a> which is an alternative implementation of
+<a href="trait.AuthorProvider.html" title="trait polkadot_sdk_docs::reference_docs::frame_pallet_coupling::AuthorProvider"><code>AuthorProvider</code></a>.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;AccountId&gt; AuthorProvider&lt;AccountId&gt; <span class="kw">for </span>OtherAuthorProvider {
+	<span class="kw">fn </span>author() -&gt; AccountId {
+		<span class="macro">todo!</span>(<span class="string">&quot;somehow get the block author here&quot;</span>)
+	}
+}</code></pre></div>
+<p>A common pattern in polkadot-sdk is to provide an implementation of such glu traits for the unit
+type as a “default/test behavior”.</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl</span>&lt;AccountId&gt; AuthorProvider&lt;AccountId&gt; <span class="kw">for </span>() {
+	<span class="kw">fn </span>author() -&gt; AccountId {
+		<span class="macro">todo!</span>(<span class="string">&quot;somehow get the block author here&quot;</span>)
+	}
+}</code></pre></div>
+<h3 id="frame-system"><a href="#frame-system">Frame System</a></h3>
+<p>With the above information in context, we can conclude that <strong><code>frame_system</code> is a special pallet
+that is tightly coupled with every other pallet</strong>. This is because it provides the fundamental
+system functionality that every pallet needs, such as some types like
+<a href="../../../frame_system/pallet/trait.Config.html#associatedtype.AccountId" title="associated type frame_system::pallet::Config::AccountId"><code>frame::prelude::frame_system::Config::AccountId</code></a>,
+<a href="../../../frame_system/pallet/trait.Config.html#associatedtype.Hash" title="associated type frame_system::pallet::Config::Hash"><code>frame::prelude::frame_system::Config::Hash</code></a>, and some functionality such as block number,
+etc.</p>
+<h3 id="recap"><a href="#recap">Recap</a></h3>
+<p>To recap, consider the following rules of thumb:</p>
+<ul>
+<li>In all cases, try and break down big pallets apart with clear boundaries of responsibility. In
+general, it is easier to argue about multiple pallet if they only communicate together via a
+known trait, rather than having access to all of each others public items, such as storage and
+dispatchables.</li>
+<li>If a group of pallets are meant to work together, and but are not foreseen to be generalized,
+or used by others, consider tightly coupling pallets, <em>if it simplifies the development</em>.</li>
+<li>If a pallet needs a functionality provided by another pallet, but multiple implementations can
+be foreseen, consider loosely coupling pallets.</li>
+</ul>
+<p>For example, all pallets in <code>polkadot-sdk</code> that needed to work with currencies could have been
+tightly coupled with <a href="../../../pallet_balances/index.html" title="mod pallet_balances"><code>pallet_balances</code></a>. But, <code>polkadot-sdk</code> also provides <a href="../../../pallet_assets/index.html" title="mod pallet_assets"><code>pallet_assets</code></a>
+(and more implementations by the community), therefore all pallets use traits to loosely couple
+with balances or assets pallet. More on this in <a href="../frame_currency/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_currency"><code>crate::reference_docs::frame_currency</code></a>.</p>
+<h3 id="further-references"><a href="#further-references">Further References</a></h3>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=0eNGZpNkJk4">https://www.youtube.com/watch?v=0eNGZpNkJk4</a></li>
+<li><a href="https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits">https://substrate.stackexchange.com/questions/922/pallet-loose-couplingtight-coupling-and-missing-traits</a></li>
+</ul>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet_author/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling::pallet_author">pallet_author</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_foo/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling::pallet_foo">pallet_foo</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_foo_loose/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling::pallet_foo_loose">pallet_foo_loose</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_foo_tight/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling::pallet_foo_tight">pallet_foo_tight</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="runtime/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_pallet_coupling::runtime">runtime</a></div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.OtherAuthorProvider.html" title="struct polkadot_sdk_docs::reference_docs::frame_pallet_coupling::OtherAuthorProvider">OtherAuthorProvider</a></div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.AuthorProvider.html" title="trait polkadot_sdk_docs::reference_docs::frame_pallet_coupling::AuthorProvider">AuthorProvider</a></div><div class="desc docblock-short">Abstraction over “something that can provide the block author”.</div></li></ul></section></div></main></body></html>

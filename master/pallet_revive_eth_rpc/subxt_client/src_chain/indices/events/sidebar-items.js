@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["deposit_poked","index_assigned","index_freed","index_frozen"],"struct":["DepositPoked","IndexAssigned","IndexFreed","IndexFrozen"]};

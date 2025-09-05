@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Admin","Bytes","CanCreate","CanDestroy","CanUpdate","CheckOrigin","CheckState","ConfigValue","DeriveAndReportId","DeriveStrategyThenCreate","NoParams","Owner","WithConfig","Witness"],"trait":["AsCanUpdate","ConfigValueMarker","WithConfigValue"],"type":["AutoId","ChangeOwnerFrom","IfOwnedBy","PredefinedId","WithWitness"]};

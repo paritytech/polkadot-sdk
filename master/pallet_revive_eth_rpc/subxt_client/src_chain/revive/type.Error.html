@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Error` type in crate `pallet_revive_eth_rpc`."><title>Error in pallet_revive_eth_rpc::subxt_client::src_chain::revive - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Error</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.AccountAlreadyMapped" title="AccountAlreadyMapped">AccountAlreadyMapped</a></li><li><a href="#variant.AccountUnmapped" title="AccountUnmapped">AccountUnmapped</a></li><li><a href="#variant.BalanceConversionFailed" title="BalanceConversionFailed">BalanceConversionFailed</a></li><li><a href="#variant.BasicBlockTooLarge" title="BasicBlockTooLarge">BasicBlockTooLarge</a></li><li><a href="#variant.BlobTooLarge" title="BlobTooLarge">BlobTooLarge</a></li><li><a href="#variant.CallDataTooLarge" title="CallDataTooLarge">CallDataTooLarge</a></li><li><a href="#variant.CannotAddSelfAsDelegateDependency" title="CannotAddSelfAsDelegateDependency">CannotAddSelfAsDelegateDependency</a></li><li><a href="#variant.CodeInUse" title="CodeInUse">CodeInUse</a></li><li><a href="#variant.CodeInfoNotFound" title="CodeInfoNotFound">CodeInfoNotFound</a></li><li><a href="#variant.CodeNotFound" title="CodeNotFound">CodeNotFound</a></li><li><a href="#variant.CodeRejected" title="CodeRejected">CodeRejected</a></li><li><a href="#variant.ContractNotFound" title="ContractNotFound">ContractNotFound</a></li><li><a href="#variant.ContractReverted" title="ContractReverted">ContractReverted</a></li><li><a href="#variant.ContractTrapped" title="ContractTrapped">ContractTrapped</a></li><li><a href="#variant.DecodingFailed" title="DecodingFailed">DecodingFailed</a></li><li><a href="#variant.DelegateDependencyAlreadyExists" title="DelegateDependencyAlreadyExists">DelegateDependencyAlreadyExists</a></li><li><a href="#variant.DelegateDependencyNotFound" title="DelegateDependencyNotFound">DelegateDependencyNotFound</a></li><li><a href="#variant.DuplicateContract" title="DuplicateContract">DuplicateContract</a></li><li><a href="#variant.ExecutionFailed" title="ExecutionFailed">ExecutionFailed</a></li><li><a href="#variant.InputForwarded" title="InputForwarded">InputForwarded</a></li><li><a href="#variant.InvalidCallFlags" title="InvalidCallFlags">InvalidCallFlags</a></li><li><a href="#variant.InvalidGenericTransaction" title="InvalidGenericTransaction">InvalidGenericTransaction</a></li><li><a href="#variant.InvalidImmutableAccess" title="InvalidImmutableAccess">InvalidImmutableAccess</a></li><li><a href="#variant.InvalidInstruction" title="InvalidInstruction">InvalidInstruction</a></li><li><a href="#variant.InvalidSchedule" title="InvalidSchedule">InvalidSchedule</a></li><li><a href="#variant.InvalidStorageFlags" title="InvalidStorageFlags">InvalidStorageFlags</a></li><li><a href="#variant.InvalidSyscall" title="InvalidSyscall">InvalidSyscall</a></li><li><a href="#variant.MaxCallDepthReached" title="MaxCallDepthReached">MaxCallDepthReached</a></li><li><a href="#variant.MaxDelegateDependenciesReached" title="MaxDelegateDependenciesReached">MaxDelegateDependenciesReached</a></li><li><a href="#variant.OutOfBounds" title="OutOfBounds">OutOfBounds</a></li><li><a href="#variant.OutOfGas" title="OutOfGas">OutOfGas</a></li><li><a href="#variant.OutOfTransientStorage" title="OutOfTransientStorage">OutOfTransientStorage</a></li><li><a href="#variant.ReenteredPallet" title="ReenteredPallet">ReenteredPallet</a></li><li><a href="#variant.ReentranceDenied" title="ReentranceDenied">ReentranceDenied</a></li><li><a href="#variant.RefcountOverOrUnderflow" title="RefcountOverOrUnderflow">RefcountOverOrUnderflow</a></li><li><a href="#variant.ReturnDataTooLarge" title="ReturnDataTooLarge">ReturnDataTooLarge</a></li><li><a href="#variant.StateChangeDenied" title="StateChangeDenied">StateChangeDenied</a></li><li><a href="#variant.StaticMemoryTooLarge" title="StaticMemoryTooLarge">StaticMemoryTooLarge</a></li><li><a href="#variant.StorageDepositLimitExhausted" title="StorageDepositLimitExhausted">StorageDepositLimitExhausted</a></li><li><a href="#variant.StorageDepositNotEnoughFunds" title="StorageDepositNotEnoughFunds">StorageDepositNotEnoughFunds</a></li><li><a href="#variant.TerminatedInConstructor" title="TerminatedInConstructor">TerminatedInConstructor</a></li><li><a href="#variant.TerminatedWhileReentrant" title="TerminatedWhileReentrant">TerminatedWhileReentrant</a></li><li><a href="#variant.TooManyTopics" title="TooManyTopics">TooManyTopics</a></li><li><a href="#variant.TransferFailed" title="TransferFailed">TransferFailed</a></li><li><a href="#variant.UnsupportedPrecompileAddress" title="UnsupportedPrecompileAddress">UnsupportedPrecompileAddress</a></li><li><a href="#variant.ValueTooLarge" title="ValueTooLarge">ValueTooLarge</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>revive</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">revive</a></div><h1>Type Alias <span class="type">Error</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Error = <a class="enum" href="../runtime_types/pallet_revive/pallet/enum.Error.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_revive::pallet::Error">Error</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Error {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 46 variants</span></summary>    InvalidSchedule,
+    InvalidCallFlags,
+    OutOfGas,
+    TransferFailed,
+    MaxCallDepthReached,
+    ContractNotFound,
+    CodeNotFound,
+    CodeInfoNotFound,
+    OutOfBounds,
+    DecodingFailed,
+    ContractTrapped,
+    ValueTooLarge,
+    TerminatedWhileReentrant,
+    InputForwarded,
+    TooManyTopics,
+    DuplicateContract,
+    TerminatedInConstructor,
+    ReentranceDenied,
+    ReenteredPallet,
+    StateChangeDenied,
+    StorageDepositNotEnoughFunds,
+    StorageDepositLimitExhausted,
+    CodeInUse,
+    ContractReverted,
+    CodeRejected,
+    BlobTooLarge,
+    StaticMemoryTooLarge,
+    BasicBlockTooLarge,
+    InvalidInstruction,
+    MaxDelegateDependenciesReached,
+    DelegateDependencyNotFound,
+    DelegateDependencyAlreadyExists,
+    CannotAddSelfAsDelegateDependency,
+    OutOfTransientStorage,
+    InvalidSyscall,
+    InvalidStorageFlags,
+    ExecutionFailed,
+    BalanceConversionFailed,
+    InvalidImmutableAccess,
+    AccountUnmapped,
+    AccountAlreadyMapped,
+    InvalidGenericTransaction,
+    RefcountOverOrUnderflow,
+    UnsupportedPrecompileAddress,
+    CallDataTooLarge,
+    ReturnDataTooLarge,
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.InvalidSchedule" class="variant"><a href="#variant.InvalidSchedule" class="anchor">§</a><h3 class="code-header">InvalidSchedule</h3></section><section id="variant.InvalidCallFlags" class="variant"><a href="#variant.InvalidCallFlags" class="anchor">§</a><h3 class="code-header">InvalidCallFlags</h3></section><section id="variant.OutOfGas" class="variant"><a href="#variant.OutOfGas" class="anchor">§</a><h3 class="code-header">OutOfGas</h3></section><section id="variant.TransferFailed" class="variant"><a href="#variant.TransferFailed" class="anchor">§</a><h3 class="code-header">TransferFailed</h3></section><section id="variant.MaxCallDepthReached" class="variant"><a href="#variant.MaxCallDepthReached" class="anchor">§</a><h3 class="code-header">MaxCallDepthReached</h3></section><section id="variant.ContractNotFound" class="variant"><a href="#variant.ContractNotFound" class="anchor">§</a><h3 class="code-header">ContractNotFound</h3></section><section id="variant.CodeNotFound" class="variant"><a href="#variant.CodeNotFound" class="anchor">§</a><h3 class="code-header">CodeNotFound</h3></section><section id="variant.CodeInfoNotFound" class="variant"><a href="#variant.CodeInfoNotFound" class="anchor">§</a><h3 class="code-header">CodeInfoNotFound</h3></section><section id="variant.OutOfBounds" class="variant"><a href="#variant.OutOfBounds" class="anchor">§</a><h3 class="code-header">OutOfBounds</h3></section><section id="variant.DecodingFailed" class="variant"><a href="#variant.DecodingFailed" class="anchor">§</a><h3 class="code-header">DecodingFailed</h3></section><section id="variant.ContractTrapped" class="variant"><a href="#variant.ContractTrapped" class="anchor">§</a><h3 class="code-header">ContractTrapped</h3></section><section id="variant.ValueTooLarge" class="variant"><a href="#variant.ValueTooLarge" class="anchor">§</a><h3 class="code-header">ValueTooLarge</h3></section><section id="variant.TerminatedWhileReentrant" class="variant"><a href="#variant.TerminatedWhileReentrant" class="anchor">§</a><h3 class="code-header">TerminatedWhileReentrant</h3></section><section id="variant.InputForwarded" class="variant"><a href="#variant.InputForwarded" class="anchor">§</a><h3 class="code-header">InputForwarded</h3></section><section id="variant.TooManyTopics" class="variant"><a href="#variant.TooManyTopics" class="anchor">§</a><h3 class="code-header">TooManyTopics</h3></section><section id="variant.DuplicateContract" class="variant"><a href="#variant.DuplicateContract" class="anchor">§</a><h3 class="code-header">DuplicateContract</h3></section><section id="variant.TerminatedInConstructor" class="variant"><a href="#variant.TerminatedInConstructor" class="anchor">§</a><h3 class="code-header">TerminatedInConstructor</h3></section><section id="variant.ReentranceDenied" class="variant"><a href="#variant.ReentranceDenied" class="anchor">§</a><h3 class="code-header">ReentranceDenied</h3></section><section id="variant.ReenteredPallet" class="variant"><a href="#variant.ReenteredPallet" class="anchor">§</a><h3 class="code-header">ReenteredPallet</h3></section><section id="variant.StateChangeDenied" class="variant"><a href="#variant.StateChangeDenied" class="anchor">§</a><h3 class="code-header">StateChangeDenied</h3></section><section id="variant.StorageDepositNotEnoughFunds" class="variant"><a href="#variant.StorageDepositNotEnoughFunds" class="anchor">§</a><h3 class="code-header">StorageDepositNotEnoughFunds</h3></section><section id="variant.StorageDepositLimitExhausted" class="variant"><a href="#variant.StorageDepositLimitExhausted" class="anchor">§</a><h3 class="code-header">StorageDepositLimitExhausted</h3></section><section id="variant.CodeInUse" class="variant"><a href="#variant.CodeInUse" class="anchor">§</a><h3 class="code-header">CodeInUse</h3></section><section id="variant.ContractReverted" class="variant"><a href="#variant.ContractReverted" class="anchor">§</a><h3 class="code-header">ContractReverted</h3></section><section id="variant.CodeRejected" class="variant"><a href="#variant.CodeRejected" class="anchor">§</a><h3 class="code-header">CodeRejected</h3></section><section id="variant.BlobTooLarge" class="variant"><a href="#variant.BlobTooLarge" class="anchor">§</a><h3 class="code-header">BlobTooLarge</h3></section><section id="variant.StaticMemoryTooLarge" class="variant"><a href="#variant.StaticMemoryTooLarge" class="anchor">§</a><h3 class="code-header">StaticMemoryTooLarge</h3></section><section id="variant.BasicBlockTooLarge" class="variant"><a href="#variant.BasicBlockTooLarge" class="anchor">§</a><h3 class="code-header">BasicBlockTooLarge</h3></section><section id="variant.InvalidInstruction" class="variant"><a href="#variant.InvalidInstruction" class="anchor">§</a><h3 class="code-header">InvalidInstruction</h3></section><section id="variant.MaxDelegateDependenciesReached" class="variant"><a href="#variant.MaxDelegateDependenciesReached" class="anchor">§</a><h3 class="code-header">MaxDelegateDependenciesReached</h3></section><section id="variant.DelegateDependencyNotFound" class="variant"><a href="#variant.DelegateDependencyNotFound" class="anchor">§</a><h3 class="code-header">DelegateDependencyNotFound</h3></section><section id="variant.DelegateDependencyAlreadyExists" class="variant"><a href="#variant.DelegateDependencyAlreadyExists" class="anchor">§</a><h3 class="code-header">DelegateDependencyAlreadyExists</h3></section><section id="variant.CannotAddSelfAsDelegateDependency" class="variant"><a href="#variant.CannotAddSelfAsDelegateDependency" class="anchor">§</a><h3 class="code-header">CannotAddSelfAsDelegateDependency</h3></section><section id="variant.OutOfTransientStorage" class="variant"><a href="#variant.OutOfTransientStorage" class="anchor">§</a><h3 class="code-header">OutOfTransientStorage</h3></section><section id="variant.InvalidSyscall" class="variant"><a href="#variant.InvalidSyscall" class="anchor">§</a><h3 class="code-header">InvalidSyscall</h3></section><section id="variant.InvalidStorageFlags" class="variant"><a href="#variant.InvalidStorageFlags" class="anchor">§</a><h3 class="code-header">InvalidStorageFlags</h3></section><section id="variant.ExecutionFailed" class="variant"><a href="#variant.ExecutionFailed" class="anchor">§</a><h3 class="code-header">ExecutionFailed</h3></section><section id="variant.BalanceConversionFailed" class="variant"><a href="#variant.BalanceConversionFailed" class="anchor">§</a><h3 class="code-header">BalanceConversionFailed</h3></section><section id="variant.InvalidImmutableAccess" class="variant"><a href="#variant.InvalidImmutableAccess" class="anchor">§</a><h3 class="code-header">InvalidImmutableAccess</h3></section><section id="variant.AccountUnmapped" class="variant"><a href="#variant.AccountUnmapped" class="anchor">§</a><h3 class="code-header">AccountUnmapped</h3></section><section id="variant.AccountAlreadyMapped" class="variant"><a href="#variant.AccountAlreadyMapped" class="anchor">§</a><h3 class="code-header">AccountAlreadyMapped</h3></section><section id="variant.InvalidGenericTransaction" class="variant"><a href="#variant.InvalidGenericTransaction" class="anchor">§</a><h3 class="code-header">InvalidGenericTransaction</h3></section><section id="variant.RefcountOverOrUnderflow" class="variant"><a href="#variant.RefcountOverOrUnderflow" class="anchor">§</a><h3 class="code-header">RefcountOverOrUnderflow</h3></section><section id="variant.UnsupportedPrecompileAddress" class="variant"><a href="#variant.UnsupportedPrecompileAddress" class="anchor">§</a><h3 class="code-header">UnsupportedPrecompileAddress</h3></section><section id="variant.CallDataTooLarge" class="variant"><a href="#variant.CallDataTooLarge" class="anchor">§</a><h3 class="code-header">CallDataTooLarge</h3></section><section id="variant.ReturnDataTooLarge" class="variant"><a href="#variant.ReturnDataTooLarge" class="anchor">§</a><h3 class="code-header">ReturnDataTooLarge</h3></section></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_revive/pallet/enum.Error.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::revive::Error" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

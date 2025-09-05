@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `Call` type in crate `pallet_revive_eth_rpc`."><title>Call in pallet_revive_eth_rpc::subxt_client::src_chain::nomination_pools - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="pallet_revive_eth_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc type"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../pallet_revive_eth_rpc/index.html">pallet_<wbr>revive_<wbr>eth_<wbr>rpc</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Call</a></h2><h3><a href="#aliased-type">Aliased Type</a></h3><h3><a href="#variants">Variants</a></h3><ul class="block variant"><li><a href="#variant.adjust_pool_deposit" title="adjust_pool_deposit">adjust_pool_deposit</a></li><li><a href="#variant.apply_slash" title="apply_slash">apply_slash</a></li><li><a href="#variant.bond_extra" title="bond_extra">bond_extra</a></li><li><a href="#variant.bond_extra_other" title="bond_extra_other">bond_extra_other</a></li><li><a href="#variant.chill" title="chill">chill</a></li><li><a href="#variant.claim_commission" title="claim_commission">claim_commission</a></li><li><a href="#variant.claim_payout" title="claim_payout">claim_payout</a></li><li><a href="#variant.claim_payout_other" title="claim_payout_other">claim_payout_other</a></li><li><a href="#variant.create" title="create">create</a></li><li><a href="#variant.create_with_pool_id" title="create_with_pool_id">create_with_pool_id</a></li><li><a href="#variant.join" title="join">join</a></li><li><a href="#variant.migrate_delegation" title="migrate_delegation">migrate_delegation</a></li><li><a href="#variant.migrate_pool_to_delegate_stake" title="migrate_pool_to_delegate_stake">migrate_pool_to_delegate_stake</a></li><li><a href="#variant.nominate" title="nominate">nominate</a></li><li><a href="#variant.pool_withdraw_unbonded" title="pool_withdraw_unbonded">pool_withdraw_unbonded</a></li><li><a href="#variant.set_claim_permission" title="set_claim_permission">set_claim_permission</a></li><li><a href="#variant.set_commission" title="set_commission">set_commission</a></li><li><a href="#variant.set_commission_change_rate" title="set_commission_change_rate">set_commission_change_rate</a></li><li><a href="#variant.set_commission_claim_permission" title="set_commission_claim_permission">set_commission_claim_permission</a></li><li><a href="#variant.set_commission_max" title="set_commission_max">set_commission_max</a></li><li><a href="#variant.set_configs" title="set_configs">set_configs</a></li><li><a href="#variant.set_metadata" title="set_metadata">set_metadata</a></li><li><a href="#variant.set_state" title="set_state">set_state</a></li><li><a href="#variant.unbond" title="unbond">unbond</a></li><li><a href="#variant.update_roles" title="update_roles">update_roles</a></li><li><a href="#variant.withdraw_unbonded" title="withdraw_unbonded">withdraw_unbonded</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In pallet_<wbr>revive_<wbr>eth_<wbr>rpc::<wbr>subxt_<wbr>client::<wbr>src_<wbr>chain::<wbr>nomination_<wbr>pools</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">pallet_revive_eth_rpc</a>::<wbr><a href="../../index.html">subxt_client</a>::<wbr><a href="../index.html">src_chain</a>::<wbr><a href="index.html">nomination_pools</a></div><h1>Type Alias <span class="type">Call</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../../src/pallet_revive_eth_rpc/subxt_client.rs.html#22-66">Source</a> </span></div><pre class="rust item-decl"><code>pub type Call = <a class="enum" href="../runtime_types/pallet_nomination_pools/pallet/enum.Call.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::pallet::Call">Call</a>;</code></pre><h2 id="aliased-type" class="section-header">Aliased Type<a href="#aliased-type" class="anchor">§</a></h2><pre class="rust item-decl"><code>enum Call {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 26 variants</span></summary>    join {
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    bond_extra {
+        extra: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.BondExtra.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::BondExtra">BondExtra</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    claim_payout,
+    unbond {
+        member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        unbonding_points: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+    },
+    pool_withdraw_unbonded {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    withdraw_unbonded {
+        member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    create {
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        root: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        nominator: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        bouncer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    create_with_pool_id {
+        amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>,
+        root: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        nominator: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        bouncer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    nominate {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        validators: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;,
+    },
+    set_state {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        state: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.PoolState.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::PoolState">PoolState</a>,
+    },
+    set_metadata {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        metadata: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;,
+    },
+    set_configs {
+        min_join_bond: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+        min_create_bond: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+        max_pools: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        max_members: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        max_members_per_pool: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        global_max_commission: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>&gt;,
+    },
+    update_roles {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        new_root: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;,
+        new_nominator: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;,
+        new_bouncer: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;,
+    },
+    chill {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    bond_extra_other {
+        member: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+        extra: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.BondExtra.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::BondExtra">BondExtra</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;,
+    },
+    set_claim_permission {
+        permission: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ClaimPermission.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ClaimPermission">ClaimPermission</a>,
+    },
+    claim_payout_other {
+        other: AccountId32,
+    },
+    set_commission {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        new_commission: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>, AccountId32)&gt;,
+    },
+    set_commission_max {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        max_commission: <a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>,
+    },
+    set_commission_change_rate {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        change_rate: <a class="struct" href="../runtime_types/pallet_nomination_pools/struct.CommissionChangeRate.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::CommissionChangeRate">CommissionChangeRate</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    claim_commission {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    adjust_pool_deposit {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+    set_commission_claim_permission {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+        permission: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../runtime_types/pallet_nomination_pools/enum.CommissionClaimPermission.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::CommissionClaimPermission">CommissionClaimPermission</a>&lt;AccountId32&gt;&gt;,
+    },
+    apply_slash {
+        member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    migrate_delegation {
+        member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;,
+    },
+    migrate_pool_to_delegate_stake {
+        pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>,
+    },
+</details>}</code></pre><h2 id="variants" class="variants section-header">Variants<a href="#variants" class="anchor">§</a></h2><div class="variants"><section id="variant.join" class="variant"><a href="#variant.join" class="anchor">§</a><h3 class="code-header">join</h3></section><div class="sub-variant" id="variant.join.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.join.field.amount" class="section-header"><a href="#variant.join.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.join.field.pool_id" class="section-header"><a href="#variant.join.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.bond_extra" class="variant"><a href="#variant.bond_extra" class="anchor">§</a><h3 class="code-header">bond_extra</h3></section><div class="sub-variant" id="variant.bond_extra.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.bond_extra.field.extra" class="section-header"><a href="#variant.bond_extra.field.extra" class="anchor field">§</a><code>extra: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.BondExtra.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::BondExtra">BondExtra</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.claim_payout" class="variant"><a href="#variant.claim_payout" class="anchor">§</a><h3 class="code-header">claim_payout</h3></section><section id="variant.unbond" class="variant"><a href="#variant.unbond" class="anchor">§</a><h3 class="code-header">unbond</h3></section><div class="sub-variant" id="variant.unbond.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.unbond.field.member_account" class="section-header"><a href="#variant.unbond.field.member_account" class="anchor field">§</a><code>member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.unbond.field.unbonding_points" class="section-header"><a href="#variant.unbond.field.unbonding_points" class="anchor field">§</a><code>unbonding_points: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div></div><section id="variant.pool_withdraw_unbonded" class="variant"><a href="#variant.pool_withdraw_unbonded" class="anchor">§</a><h3 class="code-header">pool_withdraw_unbonded</h3></section><div class="sub-variant" id="variant.pool_withdraw_unbonded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.pool_withdraw_unbonded.field.pool_id" class="section-header"><a href="#variant.pool_withdraw_unbonded.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.pool_withdraw_unbonded.field.num_slashing_spans" class="section-header"><a href="#variant.pool_withdraw_unbonded.field.num_slashing_spans" class="anchor field">§</a><code>num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.withdraw_unbonded" class="variant"><a href="#variant.withdraw_unbonded" class="anchor">§</a><h3 class="code-header">withdraw_unbonded</h3></section><div class="sub-variant" id="variant.withdraw_unbonded.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.withdraw_unbonded.field.member_account" class="section-header"><a href="#variant.withdraw_unbonded.field.member_account" class="anchor field">§</a><code>member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.withdraw_unbonded.field.num_slashing_spans" class="section-header"><a href="#variant.withdraw_unbonded.field.num_slashing_spans" class="anchor field">§</a><code>num_slashing_spans: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.create" class="variant"><a href="#variant.create" class="anchor">§</a><h3 class="code-header">create</h3></section><div class="sub-variant" id="variant.create.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.create.field.amount" class="section-header"><a href="#variant.create.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.create.field.root" class="section-header"><a href="#variant.create.field.root" class="anchor field">§</a><code>root: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.create.field.nominator" class="section-header"><a href="#variant.create.field.nominator" class="anchor field">§</a><code>nominator: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.create.field.bouncer" class="section-header"><a href="#variant.create.field.bouncer" class="anchor field">§</a><code>bouncer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.create_with_pool_id" class="variant"><a href="#variant.create_with_pool_id" class="anchor">§</a><h3 class="code-header">create_with_pool_id</h3></section><div class="sub-variant" id="variant.create_with_pool_id.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.create_with_pool_id.field.amount" class="section-header"><a href="#variant.create_with_pool_id.field.amount" class="anchor field">§</a><code>amount: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a></code></span></div><div class="sub-variant-field"><span id="variant.create_with_pool_id.field.root" class="section-header"><a href="#variant.create_with_pool_id.field.root" class="anchor field">§</a><code>root: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.create_with_pool_id.field.nominator" class="section-header"><a href="#variant.create_with_pool_id.field.nominator" class="anchor field">§</a><code>nominator: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.create_with_pool_id.field.bouncer" class="section-header"><a href="#variant.create_with_pool_id.field.bouncer" class="anchor field">§</a><code>bouncer: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.create_with_pool_id.field.pool_id" class="section-header"><a href="#variant.create_with_pool_id.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.nominate" class="variant"><a href="#variant.nominate" class="anchor">§</a><h3 class="code-header">nominate</h3></section><div class="sub-variant" id="variant.nominate.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.nominate.field.pool_id" class="section-header"><a href="#variant.nominate.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.nominate.field.validators" class="section-header"><a href="#variant.nominate.field.validators" class="anchor field">§</a><code>validators: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;AccountId32&gt;</code></span></div></div><section id="variant.set_state" class="variant"><a href="#variant.set_state" class="anchor">§</a><h3 class="code-header">set_state</h3></section><div class="sub-variant" id="variant.set_state.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_state.field.pool_id" class="section-header"><a href="#variant.set_state.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_state.field.state" class="section-header"><a href="#variant.set_state.field.state" class="anchor field">§</a><code>state: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.PoolState.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::PoolState">PoolState</a></code></span></div></div><section id="variant.set_metadata" class="variant"><a href="#variant.set_metadata" class="anchor">§</a><h3 class="code-header">set_metadata</h3></section><div class="sub-variant" id="variant.set_metadata.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_metadata.field.pool_id" class="section-header"><a href="#variant.set_metadata.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_metadata.field.metadata" class="section-header"><a href="#variant.set_metadata.field.metadata" class="anchor field">§</a><code>metadata: <a class="struct" href="https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u8.html">u8</a>&gt;</code></span></div></div><section id="variant.set_configs" class="variant"><a href="#variant.set_configs" class="anchor">§</a><h3 class="code-header">set_configs</h3></section><div class="sub-variant" id="variant.set_configs.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_configs.field.min_join_bond" class="section-header"><a href="#variant.set_configs.field.min_join_bond" class="anchor field">§</a><code>min_join_bond: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_configs.field.min_create_bond" class="section-header"><a href="#variant.set_configs.field.min_create_bond" class="anchor field">§</a><code>min_create_bond: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_configs.field.max_pools" class="section-header"><a href="#variant.set_configs.field.max_pools" class="anchor field">§</a><code>max_pools: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_configs.field.max_members" class="section-header"><a href="#variant.set_configs.field.max_members" class="anchor field">§</a><code>max_members: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_configs.field.max_members_per_pool" class="section-header"><a href="#variant.set_configs.field.max_members_per_pool" class="anchor field">§</a><code>max_members_per_pool: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.set_configs.field.global_max_commission" class="section-header"><a href="#variant.set_configs.field.global_max_commission" class="anchor field">§</a><code>global_max_commission: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;<a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>&gt;</code></span></div></div><section id="variant.update_roles" class="variant"><a href="#variant.update_roles" class="anchor">§</a><h3 class="code-header">update_roles</h3></section><div class="sub-variant" id="variant.update_roles.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.update_roles.field.pool_id" class="section-header"><a href="#variant.update_roles.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.update_roles.field.new_root" class="section-header"><a href="#variant.update_roles.field.new_root" class="anchor field">§</a><code>new_root: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;</code></span></div><div class="sub-variant-field"><span id="variant.update_roles.field.new_nominator" class="section-header"><a href="#variant.update_roles.field.new_nominator" class="anchor field">§</a><code>new_nominator: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;</code></span></div><div class="sub-variant-field"><span id="variant.update_roles.field.new_bouncer" class="section-header"><a href="#variant.update_roles.field.new_bouncer" class="anchor field">§</a><code>new_bouncer: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ConfigOp.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ConfigOp">ConfigOp</a>&lt;AccountId32&gt;</code></span></div></div><section id="variant.chill" class="variant"><a href="#variant.chill" class="anchor">§</a><h3 class="code-header">chill</h3></section><div class="sub-variant" id="variant.chill.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.chill.field.pool_id" class="section-header"><a href="#variant.chill.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.bond_extra_other" class="variant"><a href="#variant.bond_extra_other" class="anchor">§</a><h3 class="code-header">bond_extra_other</h3></section><div class="sub-variant" id="variant.bond_extra_other.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.bond_extra_other.field.member" class="section-header"><a href="#variant.bond_extra_other.field.member" class="anchor field">§</a><code>member: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div><div class="sub-variant-field"><span id="variant.bond_extra_other.field.extra" class="section-header"><a href="#variant.bond_extra_other.field.extra" class="anchor field">§</a><code>extra: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.BondExtra.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::BondExtra">BondExtra</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u128.html">u128</a>&gt;</code></span></div></div><section id="variant.set_claim_permission" class="variant"><a href="#variant.set_claim_permission" class="anchor">§</a><h3 class="code-header">set_claim_permission</h3></section><div class="sub-variant" id="variant.set_claim_permission.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_claim_permission.field.permission" class="section-header"><a href="#variant.set_claim_permission.field.permission" class="anchor field">§</a><code>permission: <a class="enum" href="../runtime_types/pallet_nomination_pools/enum.ClaimPermission.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::ClaimPermission">ClaimPermission</a></code></span></div></div><section id="variant.claim_payout_other" class="variant"><a href="#variant.claim_payout_other" class="anchor">§</a><h3 class="code-header">claim_payout_other</h3></section><div class="sub-variant" id="variant.claim_payout_other.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.claim_payout_other.field.other" class="section-header"><a href="#variant.claim_payout_other.field.other" class="anchor field">§</a><code>other: AccountId32</code></span></div></div><section id="variant.set_commission" class="variant"><a href="#variant.set_commission" class="anchor">§</a><h3 class="code-header">set_commission</h3></section><div class="sub-variant" id="variant.set_commission.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_commission.field.pool_id" class="section-header"><a href="#variant.set_commission.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_commission.field.new_commission" class="section-header"><a href="#variant.set_commission.field.new_commission" class="anchor field">§</a><code>new_commission: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a>, AccountId32)&gt;</code></span></div></div><section id="variant.set_commission_max" class="variant"><a href="#variant.set_commission_max" class="anchor">§</a><h3 class="code-header">set_commission_max</h3></section><div class="sub-variant" id="variant.set_commission_max.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_commission_max.field.pool_id" class="section-header"><a href="#variant.set_commission_max.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_commission_max.field.max_commission" class="section-header"><a href="#variant.set_commission_max.field.max_commission" class="anchor field">§</a><code>max_commission: <a class="struct" href="../runtime_types/sp_arithmetic/per_things/struct.Perbill.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::sp_arithmetic::per_things::Perbill">Perbill</a></code></span></div></div><section id="variant.set_commission_change_rate" class="variant"><a href="#variant.set_commission_change_rate" class="anchor">§</a><h3 class="code-header">set_commission_change_rate</h3></section><div class="sub-variant" id="variant.set_commission_change_rate.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_commission_change_rate.field.pool_id" class="section-header"><a href="#variant.set_commission_change_rate.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_commission_change_rate.field.change_rate" class="section-header"><a href="#variant.set_commission_change_rate.field.change_rate" class="anchor field">§</a><code>change_rate: <a class="struct" href="../runtime_types/pallet_nomination_pools/struct.CommissionChangeRate.html" title="struct pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::CommissionChangeRate">CommissionChangeRate</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.claim_commission" class="variant"><a href="#variant.claim_commission" class="anchor">§</a><h3 class="code-header">claim_commission</h3></section><div class="sub-variant" id="variant.claim_commission.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.claim_commission.field.pool_id" class="section-header"><a href="#variant.claim_commission.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.adjust_pool_deposit" class="variant"><a href="#variant.adjust_pool_deposit" class="anchor">§</a><h3 class="code-header">adjust_pool_deposit</h3></section><div class="sub-variant" id="variant.adjust_pool_deposit.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.adjust_pool_deposit.field.pool_id" class="section-header"><a href="#variant.adjust_pool_deposit.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.set_commission_claim_permission" class="variant"><a href="#variant.set_commission_claim_permission" class="anchor">§</a><h3 class="code-header">set_commission_claim_permission</h3></section><div class="sub-variant" id="variant.set_commission_claim_permission.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.set_commission_claim_permission.field.pool_id" class="section-header"><a href="#variant.set_commission_claim_permission.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div><div class="sub-variant-field"><span id="variant.set_commission_claim_permission.field.permission" class="section-header"><a href="#variant.set_commission_claim_permission.field.permission" class="anchor field">§</a><code>permission: <a class="enum" href="https://doc.rust-lang.org/1.88.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="enum" href="../runtime_types/pallet_nomination_pools/enum.CommissionClaimPermission.html" title="enum pallet_revive_eth_rpc::subxt_client::src_chain::runtime_types::pallet_nomination_pools::CommissionClaimPermission">CommissionClaimPermission</a>&lt;AccountId32&gt;&gt;</code></span></div></div><section id="variant.apply_slash" class="variant"><a href="#variant.apply_slash" class="anchor">§</a><h3 class="code-header">apply_slash</h3></section><div class="sub-variant" id="variant.apply_slash.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.apply_slash.field.member_account" class="section-header"><a href="#variant.apply_slash.field.member_account" class="anchor field">§</a><code>member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.migrate_delegation" class="variant"><a href="#variant.migrate_delegation" class="anchor">§</a><h3 class="code-header">migrate_delegation</h3></section><div class="sub-variant" id="variant.migrate_delegation.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.migrate_delegation.field.member_account" class="section-header"><a href="#variant.migrate_delegation.field.member_account" class="anchor field">§</a><code>member_account: MultiAddress&lt;AccountId32, <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a>&gt;</code></span></div></div><section id="variant.migrate_pool_to_delegate_stake" class="variant"><a href="#variant.migrate_pool_to_delegate_stake" class="anchor">§</a><h3 class="code-header">migrate_pool_to_delegate_stake</h3></section><div class="sub-variant" id="variant.migrate_pool_to_delegate_stake.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.migrate_pool_to_delegate_stake.field.pool_id" class="section-header"><a href="#variant.migrate_pool_to_delegate_stake.field.pool_id" class="anchor field">§</a><code>pool_id: <a class="primitive" href="https://doc.rust-lang.org/1.88.0/std/primitive.u32.html">u32</a></code></span></div></div></div><script src="../../../../type.impl/pallet_revive_eth_rpc/subxt_client/src_chain/runtime_types/pallet_nomination_pools/pallet/enum.Call.js" data-self-path="pallet_revive_eth_rpc::subxt_client::src_chain::nomination_pools::Call" async></script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Polkadot Bulletin Chain primitives."><title>bp_polkadot_bulletin - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="bp_polkadot_bulletin" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../bp_polkadot_bulletin/index.html">bp_<wbr>polkadot_<wbr>bulletin</a><span class="version">0.4.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>bp_polkadot_bulletin</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/bp_polkadot_bulletin/lib.rs.html#17-228">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Polkadot Bulletin Chain primitives.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.BlockLength.html" title="struct bp_polkadot_bulletin::BlockLength">Block<wbr>Length</a></dt><dd>Maximal block length at Polkadot Bulletin chain.</dd><dt><a class="struct" href="struct.BlockWeights.html" title="struct bp_polkadot_bulletin::BlockWeights">Block<wbr>Weights</a></dt><dd>We allow for 2 seconds of compute with a 6 second average block time.</dd><dt><a class="struct" href="struct.PolkadotBulletin.html" title="struct bp_polkadot_bulletin::PolkadotBulletin">Polkadot<wbr>Bulletin</a></dt><dd>Polkadot Bulletin Chain declaration.</dd><dt><a class="struct" href="struct.TransactionExtension.html" title="struct bp_polkadot_bulletin::TransactionExtension">Transaction<wbr>Extension</a></dt><dd>Transaction extension, used by Polkadot Bulletin.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.AVERAGE_HEADER_SIZE.html" title="constant bp_polkadot_bulletin::AVERAGE_HEADER_SIZE">AVERAGE_<wbr>HEADER_<wbr>SIZE</a></dt><dd>Average header size in <code>votes_ancestries</code> field of justification on Polkadot-like
+chains.</dd><dt><a class="constant" href="constant.BEST_FINALIZED_POLKADOT_BULLETIN_HEADER_METHOD.html" title="constant bp_polkadot_bulletin::BEST_FINALIZED_POLKADOT_BULLETIN_HEADER_METHOD">BEST_<wbr>FINALIZED_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>HEADER_<wbr>METHOD</a></dt><dd>Name of the <code>&lt;ThisChain&gt;FinalityApi::best_finalized</code> runtime method.</dd><dt><a class="constant" href="constant.EXTRA_STORAGE_PROOF_SIZE.html" title="constant bp_polkadot_bulletin::EXTRA_STORAGE_PROOF_SIZE">EXTRA_<wbr>STORAGE_<wbr>PROOF_<wbr>SIZE</a></dt><dd>Number of extra bytes (excluding size of storage value itself) of storage proof, built at
+Polkadot-like chain. This mostly depends on number of entries in the storage trie.
+Some reserve is reserved to account future chain growth.</dd><dt><a class="constant" href="constant.FREE_HEADERS_INTERVAL_FOR_POLKADOT_BULLETIN_METHOD.html" title="constant bp_polkadot_bulletin::FREE_HEADERS_INTERVAL_FOR_POLKADOT_BULLETIN_METHOD">FREE_<wbr>HEADERS_<wbr>INTERVAL_<wbr>FOR_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>METHOD</a></dt><dd>Name of the <code>&lt;ThisChain&gt;FinalityApi::free_headers_interval</code> runtime method.</dd><dt><a class="constant" href="constant.FROM_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD.html" title="constant bp_polkadot_bulletin::FROM_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD">FROM_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>MESSAGE_<wbr>DETAILS_<wbr>METHOD</a></dt><dd>Name of the <code>From&lt;ThisChain&gt;InboundLaneApi::message_details</code> runtime method.</dd><dt><a class="constant" href="constant.MAX_AUTHORITIES_COUNT.html" title="constant bp_polkadot_bulletin::MAX_AUTHORITIES_COUNT">MAX_<wbr>AUTHORITIES_<wbr>COUNT</a></dt><dd>Maximal number of GRANDPA authorities at Polkadot Bulletin chain.</dd><dt><a class="constant" href="constant.MAX_MANDATORY_HEADER_SIZE.html" title="constant bp_polkadot_bulletin::MAX_MANDATORY_HEADER_SIZE">MAX_<wbr>MANDATORY_<wbr>HEADER_<wbr>SIZE</a></dt><dd>Approximate maximal header size on Polkadot-like chains.</dd><dt><a class="constant" href="constant.MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX.html" title="constant bp_polkadot_bulletin::MAX_UNCONFIRMED_MESSAGES_IN_CONFIRMATION_TX">MAX_<wbr>UNCONFIRMED_<wbr>MESSAGES_<wbr>IN_<wbr>CONFIRMATION_<wbr>TX</a></dt><dd>Maximal number of unconfirmed messages at inbound lane for Cumulus-based parachains.</dd><dt><a class="constant" href="constant.MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX.html" title="constant bp_polkadot_bulletin::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX">MAX_<wbr>UNREWARDED_<wbr>RELAYERS_<wbr>IN_<wbr>CONFIRMATION_<wbr>TX</a></dt><dd>Maximal number of unrewarded relayer entries at inbound lane for Cumulus-based parachains.</dd><dt><a class="constant" href="constant.POLKADOT_BULLETIN_SYNCED_HEADERS_GRANDPA_INFO_METHOD.html" title="constant bp_polkadot_bulletin::POLKADOT_BULLETIN_SYNCED_HEADERS_GRANDPA_INFO_METHOD">POLKADOT_<wbr>BULLETIN_<wbr>SYNCED_<wbr>HEADERS_<wbr>GRANDPA_<wbr>INFO_<wbr>METHOD</a></dt><dd>Name of the <code>&lt;ThisChain&gt;FinalityApi::accepted_&lt;consensus&gt;_finality_proofs</code>
+runtime method.</dd><dt><a class="constant" href="constant.REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY.html" title="constant bp_polkadot_bulletin::REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY">REASONABLE_<wbr>HEADERS_<wbr>IN_<wbr>JUSTIFICATION_<wbr>ANCESTRY</a></dt><dd>Reasonable number of headers in the <code>votes_ancestries</code> on Polkadot-like chains.</dd><dt><a class="constant" href="constant.TO_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD.html" title="constant bp_polkadot_bulletin::TO_POLKADOT_BULLETIN_MESSAGE_DETAILS_METHOD">TO_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>MESSAGE_<wbr>DETAILS_<wbr>METHOD</a></dt><dd>Name of the <code>To&lt;ThisChain&gt;OutboundLaneApi::message_details</code> runtime method.</dd><dt><a class="constant" href="constant.WITH_POLKADOT_BULLETIN_GRANDPA_PALLET_NAME.html" title="constant bp_polkadot_bulletin::WITH_POLKADOT_BULLETIN_GRANDPA_PALLET_NAME">WITH_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>GRANDPA_<wbr>PALLET_<wbr>NAME</a></dt><dd>Name of the With-Polkadot Bulletin chain GRANDPA pallet instance that is deployed at bridged
+chains.</dd><dt><a class="constant" href="constant.WITH_POLKADOT_BULLETIN_MESSAGES_PALLET_NAME.html" title="constant bp_polkadot_bulletin::WITH_POLKADOT_BULLETIN_MESSAGES_PALLET_NAME">WITH_<wbr>POLKADOT_<wbr>BULLETIN_<wbr>MESSAGES_<wbr>PALLET_<wbr>NAME</a></dt><dd>Name of the With-Polkadot Bulletin chain messages pallet instance that is deployed at bridged
+chains.</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.FromPolkadotBulletinInboundLaneApi.html" title="trait bp_polkadot_bulletin::FromPolkadotBulletinInboundLaneApi">From<wbr>Polkadot<wbr>Bulletin<wbr>Inbound<wbr>Lane<wbr>Api</a></dt><dd>Inbound message lane API for messages sent by this chain.</dd><dt><a class="trait" href="trait.PolkadotBulletinFinalityApi.html" title="trait bp_polkadot_bulletin::PolkadotBulletinFinalityApi">Polkadot<wbr>Bulletin<wbr>Finality<wbr>Api</a></dt><dd>API for querying information about the finalized chain headers.</dd><dt><a class="trait" href="trait.ToPolkadotBulletinOutboundLaneApi.html" title="trait bp_polkadot_bulletin::ToPolkadotBulletinOutboundLaneApi">ToPolkadot<wbr>Bulletin<wbr>Outbound<wbr>Lane<wbr>Api</a></dt><dd>Outbound message lane API for messages that are sent to this chain.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.AccountAddress.html" title="type bp_polkadot_bulletin::AccountAddress">Account<wbr>Address</a></dt><dd>Address of account on Polkadot-like chains.</dd><dt><a class="type" href="type.AccountId.html" title="type bp_polkadot_bulletin::AccountId">Account<wbr>Id</a></dt><dd>Id of account on Polkadot-like chains.</dd><dt><a class="type" href="type.Balance.html" title="type bp_polkadot_bulletin::Balance">Balance</a></dt><dd>The balance of an account on Polkadot-like chain.</dd><dt><a class="type" href="type.Block.html" title="type bp_polkadot_bulletin::Block">Block</a></dt><dd>Block type of Polkadot-like chains.</dd><dt><a class="type" href="type.BlockNumber.html" title="type bp_polkadot_bulletin::BlockNumber">Block<wbr>Number</a></dt><dd>Block number type used in Polkadot-like chains.</dd><dt><a class="type" href="type.Hash.html" title="type bp_polkadot_bulletin::Hash">Hash</a></dt><dd>Hash type used in Polkadot-like chains.</dd><dt><a class="type" href="type.Hasher.html" title="type bp_polkadot_bulletin::Hasher">Hasher</a></dt><dd>The type of object that can produce hashes on Polkadot-like chains.</dd><dt><a class="type" href="type.Header.html" title="type bp_polkadot_bulletin::Header">Header</a></dt><dd>The header type used by Polkadot-like chains.</dd><dt><a class="type" href="type.Nonce.html" title="type bp_polkadot_bulletin::Nonce">Nonce</a></dt><dd>Nonce of a transaction on the Polkadot-like chains.</dd><dt><a class="type" href="type.Signature.html" title="type bp_polkadot_bulletin::Signature">Signature</a></dt><dd>Signature type used by Polkadot-like chains.</dd><dt><a class="type" href="type.SignedBlock.html" title="type bp_polkadot_bulletin::SignedBlock">Signed<wbr>Block</a></dt><dd>Polkadot-like block signed with a Justification.</dd><dt><a class="type" href="type.TransactionExtensionSchema.html" title="type bp_polkadot_bulletin::TransactionExtensionSchema">Transaction<wbr>Extension<wbr>Schema</a></dt><dd>Signed extension schema, used by Polkadot Bulletin.</dd><dt><a class="type" href="type.UncheckedExtrinsic.html" title="type bp_polkadot_bulletin::UncheckedExtrinsic">Unchecked<wbr>Extrinsic</a></dt><dd>Unchecked Extrinsic type.</dd><dt><a class="type" href="type.ValidateSigned.html" title="type bp_polkadot_bulletin::ValidateSigned">Validate<wbr>Signed</a></dt><dd>This signed extension is used to ensure that the chain transactions are signed by proper</dd></dl><script type="text/json" id="notable-traits-data">{"Vec<u8>":"<h3>Notable traits for <code><a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;</code></h3><pre><code><div class=\"where\">impl&lt;A&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"https://doc.rust-lang.org/1.88.0/alloc/vec/struct.Vec.html\" title=\"struct alloc::vec::Vec\">Vec</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.88.0/std/primitive.u8.html\">u8</a>, A&gt;<div class=\"where\">where\n    A: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/alloc/trait.Allocator.html\" title=\"trait core::alloc::Allocator\">Allocator</a>,</div></div>"}</script></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

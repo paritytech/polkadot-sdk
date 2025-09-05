@@ -1,0 +1,339 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The `polkadot-omni-node` and its related binaries."><title>polkadot_sdk_docs::reference_docs::omni_node - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><script id="default-settings" 
+data-use_system_theme="false"
+data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.com/favicon.ico"><script>
+	function createToC() {
+		let sidebar = document.querySelector(".sidebar");
+		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
+		console.log(`detected polkadot_sdk_docs: headers: ${headers.length}`);
+
+		let toc = document.createElement("div");
+		toc.classList.add("sidebar-table-of-contents");
+		toc.appendChild(document.createElement("h2").appendChild(document.createTextNode("Table of Contents")).parentNode);
+
+		let modules = document.querySelectorAll("main .item-table a.mod");
+
+		// the first two headers are always junk
+		headers.forEach(header => {
+			let link = document.createElement("a");
+			link.href = "#" + header.id;
+			const headerTextContent = header.textContent.replace("§", "")
+			link.textContent = headerTextContent;
+			link.className = header.tagName.toLowerCase();
+
+			toc.appendChild(link);
+
+			if (header.id == "modules" && headerTextContent == "Modules") {
+				modules.forEach(module => {
+					let link = document.createElement("a");
+					link.href = module.href;
+					link.textContent = module.textContent;
+					link.className = "h3";
+
+					toc.appendChild(link);
+				});
+			}
+		});
+
+		// insert toc as the second child in sidebar
+		let sidebar_children = sidebar.children;
+		if (sidebar_children.length > 1) {
+			sidebar.insertBefore(toc, sidebar_children[1]);
+		} else {
+			sidebar.appendChild(toc);
+		}
+	}
+
+	function hideSidebarElements() {
+		// Create the 'Expand for More' button
+		var expandButton = document.createElement('button');
+		expandButton.innerText = 'Expand More Items';
+		expandButton.classList.add('expand-button');
+
+		// Insert the button at the top of the sidebar or before the '.sidebar-elems'
+		var sidebarElems = document.querySelector('.sidebar-elems');
+		sidebarElems.parentNode.insertBefore(expandButton, sidebarElems);
+
+		// Initially hide the '.sidebar-elems'
+		sidebarElems.style.display = 'none';
+
+		// Add click event listener to the button
+		expandButton.addEventListener('click', function () {
+			// Toggle the display of the '.sidebar-elems'
+			if (sidebarElems.style.display === 'none') {
+				sidebarElems.style.display = 'block';
+				expandButton.innerText = 'Collapse';
+			} else {
+				sidebarElems.style.display = 'none';
+				expandButton.innerText = 'Expand for More';
+			}
+		});
+	}
+
+	window.addEventListener("DOMContentLoaded", (event) => {
+		// if the crate is one that starts with `polkadot_sdk_docs`
+		let crate_name = document.querySelector("#main-content > div > h1 > a:nth-child(1)");
+		if (!crate_name.textContent.startsWith("polkadot_sdk_docs")) {
+			console.log("skipping -- not `polkadot_sdk_docs`");
+			return;
+		} else {
+			// insert class 'sdk-docs' to the body, so it enables the custom css rules.
+			document.body.classList.add("sdk-docs");
+		}
+
+		createToC();
+		hideSidebarElements();
+
+		console.log("updating page based on being `polkadot_sdk_docs` crate");
+	});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+
+<style>
+	body.sdk-docs {
+		nav.side-bar {
+			width: 300px;
+		}
+
+		.sidebar-table-of-contents {
+			margin-bottom: 1em;
+			padding: 0.5em;
+		}
+
+		.sidebar-table-of-contents a {
+			display: block;
+			margin: 0.2em 0;
+		}
+
+		.sidebar-table-of-contents .h2 {
+			font-weight: bold;
+			margin-left: 0;
+		}
+
+		.sidebar-table-of-contents .h3 {
+			margin-left: 1em;
+		}
+
+		.sidebar-table-of-contents .h4 {
+			margin-left: 2em;
+		}
+
+		.sidebar h2.location {
+			display: none;
+		}
+
+		.sidebar-elems {
+			display: none;
+		}
+
+		/* Center the 'Expand for More' button */
+		.expand-button {
+			display: inline-block;
+			/* Use inline-block for sizing */
+			margin: 10px auto;
+			/* Auto margins for horizontal centering */
+			padding: 5px 10px;
+			background-color: #007bff;
+			color: white;
+			text-align: center;
+			cursor: pointer;
+			border: none;
+			border-radius: 5px;
+			width: auto;
+			/* Centering the button within its parent container */
+			position: relative;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+	}
+</style>
+
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/docs/images/Polkadot_Logo_Horizontal_Pink_White.png" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_<wbr>sdk_<wbr>docs</a><span class="version">0.0.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module omni_<wbr>node</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#omni-node" title="(Omni) Node">(Omni) Node</a><ul><li><a href="#node--runtime-interdependence" title="Node &#60;&#62; Runtime Interdependence">Node &lt;&gt; Runtime Interdependence</a></li><li><a href="#types-of-nodes" title="Types of Nodes">Types of Nodes</a></li><li><a href="#omnitools-user-journey" title="OmniTools: User Journey">OmniTools: User Journey</a></li><li><a href="#appendix" title="Appendix">Appendix</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In polkadot_<wbr>sdk_<wbr>docs::<wbr>reference_<wbr>docs</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a></div><h1>Module <span>omni_node</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/omni_node.rs.html#1-201">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The <a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a> and its related binaries.</p>
+<h2 id="omni-node"><a class="doc-anchor" href="#omni-node">§</a>(Omni) Node</h2>
+<p>This reference doc elaborates on what a Polkadot-SDK/Substrate node software is, and what
+various ways exist to run one.</p>
+<p>The node software, as denoted in <a href="../wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>, is everything in
+a blockchain other than the WASM runtime. It contains common components such as the database,
+networking, RPC server and consensus. Substrate-based nodes are native binaries that are
+compiled down from the Rust source code. The <code>node</code> folder in any of the <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>templates</code></a> are
+examples of this source.</p>
+<blockquote>
+<p>Note: A typical node also contains a lot of other tools (exposed as subcommands) that are
+useful for operating a blockchain, such as the ones noted in
+<a href="../../../polkadot_omni_node_lib/cli/struct.Cli.html#structfield.subcommand" title="field polkadot_omni_node_lib::cli::Cli::subcommand"><code>polkadot_omni_node_lib::cli::Cli::subcommand</code></a>.</p>
+</blockquote>
+<h3 id="node--runtime-interdependence"><a class="doc-anchor" href="#node--runtime-interdependence">§</a>Node &lt;&gt; Runtime Interdependence</h3>
+<p>While in principle the node can be mostly independent of the runtime, for various reasons, such
+as the <a href="../wasm_meta_protocol/index.html#native-runtime" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol">native runtime</a>, the node and
+runtime were historically tightly linked together. Another reason is that the node and the
+runtime need to be in agreement about which consensus algorithm they use, as described
+<a href="#consensus-engine">below</a>.</p>
+<p>Specifically, the node relied on the existence of a linked runtime, and <em>could only reliably run
+that runtime</em>. This is why if you look at any of the <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>templates</code></a>, they are all composed of a
+node, and a runtime.</p>
+<p>Moreover, the code and API of each of these nodes was historically very advanced, and tailored
+towards those who wish to customize many of the node components at depth.</p>
+<blockquote>
+<p>The notorious <code>service.rs</code> in any node template is a good example of this.</p>
+</blockquote>
+<p>A <a href="https://github.com/paritytech/polkadot-sdk/issues/62">trend</a> has already been undergoing in
+order to de-couple the node and the runtime for a long time. The north star of this effort is
+twofold :</p>
+<ol>
+<li>develop what can be described as an “omni-node”: A node that can run most runtimes.</li>
+<li>provide a cleaner abstraction for creating a custom node.</li>
+</ol>
+<p>While a single omni-node running <em>all possible runtimes</em> is not feasible, the
+<a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a> is an attempt at creating the former, and the <a href="../../../polkadot_omni_node_lib/index.html" title="mod polkadot_omni_node_lib"><code>polkadot_omni_node_lib</code></a>
+is the latter.</p>
+<blockquote>
+<p>Note: The OmniNodes are mainly focused on the development needs of <strong>Polkadot
+parachains ONLY</strong>, not (Substrate) solo-chains. For the time being, solo-chains are not
+supported by the OmniNodes. This might change in the future.</p>
+</blockquote>
+<h3 id="types-of-nodes"><a class="doc-anchor" href="#types-of-nodes">§</a>Types of Nodes</h3>
+<p>With the emergence of the OmniNodes, let’s look at the various Node options available to a
+builder.</p>
+<h4 id="polkadot-omni-node"><a class="doc-anchor" href="#polkadot-omni-node">§</a><a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a></h4>
+<p><a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a> is a white-labeled binary, released as a part of Polkadot SDK that is
+capable of meeting the needs of most Polkadot parachains.</p>
+<p>It can act as the collator of a parachain in production, with all the related auxillary
+functionalities that a normal collator node has: RPC server, archiving state, etc. Moreover, it
+can also run the wasm blob of the parachain locally for testing and development.</p>
+<h4 id="polkadot_omni_node_lib"><a class="doc-anchor" href="#polkadot_omni_node_lib">§</a><a href="../../../polkadot_omni_node_lib/index.html" title="mod polkadot_omni_node_lib"><code>polkadot_omni_node_lib</code></a></h4>
+<p><a href="../../../polkadot_omni_node_lib/index.html" title="mod polkadot_omni_node_lib"><code>polkadot_omni_node_lib</code></a> is the library version of the above, which can be used to create a
+fresh parachain node, with a some limited configuration options using a lean API.</p>
+<h4 id="old-school-nodes"><a class="doc-anchor" href="#old-school-nodes">§</a>Old School Nodes</h4>
+<p>The existing node architecture, as seen in the <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>templates</code></a>, is still available for those who
+want to have full control over the node software.</p>
+<h4 id="summary"><a class="doc-anchor" href="#summary">§</a>Summary</h4>
+<p>We can summarize the choices for the node software of any given user of Polkadot-SDK, wishing to
+deploy a parachain into 3 categories:</p>
+<ol>
+<li><strong>Use the <a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a></strong>: This is the easiest way to get started, and is the most
+likely to be the best choice for most users.
+<ul>
+<li>can run almost any runtime with <a href="../../../polkadot_omni_node_lib/cli/struct.Cli.html#structfield.dev_block_time" title="field polkadot_omni_node_lib::cli::Cli::dev_block_time"><code>--dev-block-time</code></a></li>
+</ul>
+</li>
+<li><strong>Use the <a href="../../../polkadot_omni_node_lib/index.html" title="mod polkadot_omni_node_lib"><code>polkadot_omni_node_lib</code></a></strong>: This is the best choice for those who want to have
+slightly more control over the node software, such as embedding a custom chain-spec.</li>
+<li><strong>Use the old school nodes</strong>: This is the best choice for those who want to have full control
+over the node software, such as changing the consensus engine, altering the transaction pool,
+and so on.</li>
+</ol>
+<h3 id="omnitools-user-journey"><a class="doc-anchor" href="#omnitools-user-journey">§</a><em>OmniTools</em>: User Journey</h3>
+<p>All in all, the user journey of a team/builder, in the OmniNode world is as follows:</p>
+<ul>
+<li>The <a href="../../polkadot_sdk/templates/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::templates"><code>templates</code></a>, most notably the <a href="https://github.com/paritytech/polkadot-sdk-parachain-template"><code>parachain-template</code></a> is the canonical starting point.
+That being said, the node code of the templates (which may be eventually
+removed/feature-gated) is no longer of relevance. The only focus is in the runtime, and
+obtaining a <code>.wasm</code> file. References:
+<ul>
+<li><a href="../../guides/your_first_pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet"><code>crate::guides::your_first_pallet</code></a></li>
+<li><a href="../../guides/your_first_runtime/index.html" title="mod polkadot_sdk_docs::guides::your_first_runtime"><code>crate::guides::your_first_runtime</code></a></li>
+</ul>
+</li>
+<li>If need be, the weights of the runtime need to be updated using <code>frame-omni-bencher</code>.
+References:
+<ul>
+<li><a href="../frame_benchmarking_weight/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_benchmarking_weight"><code>crate::reference_docs::frame_benchmarking_weight</code></a></li>
+</ul>
+</li>
+<li>Next, <a href="https://crates.io/crates/staging-chain-spec-builder"><code>chain-spec-builder</code></a> is used to generate a <code>chain_spec.json</code>, either for development,
+or for production. References:
+<ul>
+<li><a href="../chain_spec_genesis/index.html" title="mod polkadot_sdk_docs::reference_docs::chain_spec_genesis"><code>crate::reference_docs::chain_spec_genesis</code></a></li>
+</ul>
+</li>
+<li>For local development, the following options are available:
+<ul>
+<li><code>polkadot-omni-node</code> (notably, with <a href="../../../polkadot_omni_node_lib/cli/struct.Cli.html#structfield.dev_block_time" title="field polkadot_omni_node_lib::cli::Cli::dev_block_time"><code>--dev-block-time</code></a>). References:
+<ul>
+<li><a href="../../guides/your_first_node/index.html" title="mod polkadot_sdk_docs::guides::your_first_node"><code>crate::guides::your_first_node</code></a></li>
+</ul>
+</li>
+<li>External tools such as <code>chopsticks</code>, <code>zombienet</code>.
+<ul>
+<li>See the <code>README.md</code> file of the <code>polkadot-sdk-parachain-template</code>.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>For production <code>polkadot-omni-node</code> can be used out of the box.</li>
+<li>For further customization <a href="../../../polkadot_omni_node_lib/index.html" title="mod polkadot_omni_node_lib"><code>polkadot_omni_node_lib</code></a> can be used.</li>
+</ul>
+<h3 id="appendix"><a class="doc-anchor" href="#appendix">§</a>Appendix</h3>
+<p>This section describes how the interdependence between the node and the runtime is related to
+the consensus engine. This information is useful for those who want to understand the
+historical context of the node and the runtime.</p>
+<h4 id="consensus-engine"><a class="doc-anchor" href="#consensus-engine">§</a>Consensus Engine</h4>
+<p>In any given substrate-based chain, both the node and the runtime will have their own
+opinion/information about what consensus engine is going to be used.</p>
+<p>In practice, the majority of the implementation of any consensus engine is in the node side, but
+the runtime also typically needs to expose a custom runtime-api to enable the particular
+consensus engine to work, and that particular runtime-api is implemented by a pallet
+corresponding to that consensus engine.</p>
+<p>For example, taking a snippet from <a href="../../../solochain_template_runtime/index.html" title="mod solochain_template_runtime"><code>solochain_template_runtime</code></a>, the runtime has to provide
+this additional runtime-api (compared to <a href="../../../minimal_template_runtime/index.html" title="mod minimal_template_runtime"><code>minimal_template_runtime</code></a>), if the node software is
+configured to use the Aura consensus engine:</p>
+<div class="example-wrap"><pre class="language-text"><code>impl sp_consensus_aura::AuraApi&lt;Block, AuraId&gt; for Runtime {
+    fn slot_duration() -&gt; sp_consensus_aura::SlotDuration {
+        ...
+    }
+    fn authorities() -&gt; Vec&lt;AuraId&gt; {
+        ...
+    }
+}</code></pre></div>
+<p>For simplicity, we can break down “consensus” into two main parts:</p>
+<ul>
+<li>Block Authoring: Deciding who gets to produce the next block.</li>
+<li>Finality: Deciding when a block is considered final.</li>
+</ul>
+<p>For block authoring, there are a number of options:</p>
+<ul>
+<li><a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a>: Useful for testing, where any node can produce a block at any
+time. This is often combined with a fixed interval at which a block is produced.</li>
+<li><a href="../../../sc_consensus_aura/index.html" title="mod sc_consensus_aura"><code>sc_consensus_aura</code></a>/<a href="../../../pallet_aura/index.html" title="mod pallet_aura"><code>pallet_aura</code></a>: A simple round-robin block authoring mechanism.</li>
+<li><a href="../../../sc_consensus_babe/index.html" title="mod sc_consensus_babe"><code>sc_consensus_babe</code></a>/<a href="../../../pallet_babe/index.html" title="mod pallet_babe"><code>pallet_babe</code></a>: A more advanced block authoring mechanism, capable of
+anonymizing the next block author.</li>
+<li><a href="../../../sc_consensus_pow/index.html" title="mod sc_consensus_pow"><code>sc_consensus_pow</code></a>: Proof of Work block authoring.</li>
+</ul>
+<p>For finality, there is one main option shipped with polkadot-sdk:</p>
+<ul>
+<li><a href="../../../sc_consensus_grandpa/index.html" title="mod sc_consensus_grandpa"><code>sc_consensus_grandpa</code></a>/<a href="../../../pallet_grandpa/index.html" title="mod pallet_grandpa"><code>pallet_grandpa</code></a>: A finality gadget that uses a voting mechanism to
+decide when a block</li>
+</ul>
+<p><strong>The most important lesson here is that the node and the runtime must have matching consensus
+components.</strong></p>
+<h4 id="consequences-for-omninode"><a class="doc-anchor" href="#consequences-for-omninode">§</a>Consequences for OmniNode</h4>
+<p>The consequence of the above is that anyone using the OmniNode must also be aware of the
+consensus system used in the runtime, and be aware if it is matching that of the OmniNode or
+not. For the time being, <a href="https://crates.io/crates/polkadot-omni-node"><code>polkadot-omni-node</code></a> only supports:</p>
+<ul>
+<li>Parachain-based Aura consensus, with 6s async-backing block-time, and before full elastic
+scaling). <a href="../../../polkadot_omni_node_lib/cli/struct.Cli.html#structfield.experimental_use_slot_based" title="field polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based"><code>polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based</code></a> for fixed factor
+scaling (a step</li>
+<li>Ability to run any runtime with <a href="../../../polkadot_omni_node_lib/cli/struct.Cli.html#structfield.dev_block_time" title="field polkadot_omni_node_lib::cli::Cli::dev_block_time"><code>--dev-block-time</code></a> flag. This uses
+<a href="../../../sc_consensus_manual_seal/index.html" title="mod sc_consensus_manual_seal"><code>sc_consensus_manual_seal</code></a> under the hood, and has no restrictions on the runtime’s
+consensus.</li>
+</ul>
+<p><a href="https://github.com/paritytech/polkadot-sdk/issues/5565">This</a> future improvement to OmniNode
+aims to make such checks automatic.</p>
+<h4 id="runtime-conventions"><a class="doc-anchor" href="#runtime-conventions">§</a>Runtime conventions</h4>
+<p>The Omni Node needs to make some assumptions about the runtime. During startup, the node fetches
+the runtime metadata and asserts that the runtime represents a compatible parachain.
+The checks are best effort and will generate warning level logs in the Omni Node log file on
+failure.</p>
+<p>The list of checks may evolve in the future and for now only few rules are implemented:</p>
+<ul>
+<li>runtimes must define a type for <a href="https://docs.rs/cumulus-pallet-parachain-system/latest/cumulus_pallet_parachain_system/"><code>cumulus-pallet-parachain-system</code></a>, which is recommended to
+be named as <code>ParachainSystem</code>.</li>
+<li>runtimes must define a type for <a href="https://docs.rs/frame-system/latest/frame_system/"><code>frame-system</code></a> pallet, which is recommended to be named as
+<code>System</code>. The configured <a href="https://docs.rs/frame-system/latest/frame_system/pallet/storage_types/struct.Number.html"><code>block number</code></a> here will be used by Omni Node to configure AURA
+accordingly.</li>
+</ul>
+</div></details></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
+
+
+</body></html>

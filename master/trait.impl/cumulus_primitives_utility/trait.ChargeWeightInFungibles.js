@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["parachains_common",[["impl&lt;CurrencyBalance, Runtime, WeightToFee, BalanceConverter, AssetInstance&gt; <a class=\"trait\" href=\"cumulus_primitives_utility/trait.ChargeWeightInFungibles.html\" title=\"trait cumulus_primitives_utility::ChargeWeightInFungibles\">ChargeWeightInFungibles</a>&lt;&lt;Runtime as Config&gt;::AccountId, Pallet&lt;Runtime, AssetInstance&gt;&gt; for <a class=\"struct\" href=\"parachains_common/xcm_config/struct.AssetFeeAsExistentialDepositMultiplier.html\" title=\"struct parachains_common::xcm_config::AssetFeeAsExistentialDepositMultiplier\">AssetFeeAsExistentialDepositMultiplier</a>&lt;Runtime, WeightToFee, BalanceConverter, AssetInstance&gt;<div class=\"where\">where\n    Runtime: Config&lt;AssetInstance&gt;,\n    WeightToFee: WeightToFee&lt;Balance = CurrencyBalance&gt;,\n    BalanceConverter: ConversionToAssetBalance&lt;CurrencyBalance, &lt;Runtime as Config&lt;AssetInstance&gt;&gt;::AssetId, &lt;Runtime as Config&lt;AssetInstance&gt;&gt;::Balance&gt;,\n    &lt;BalanceConverter as ConversionToAssetBalance&lt;CurrencyBalance, &lt;Runtime as Config&lt;AssetInstance&gt;&gt;::AssetId, &lt;Runtime as Config&lt;AssetInstance&gt;&gt;::Balance&gt;&gt;::Error: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/core/fmt/trait.Debug.html\" title=\"trait core::fmt::Debug\">Debug</a>,</div>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1341]}
