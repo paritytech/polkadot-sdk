@@ -18,31 +18,18 @@
 //! The pallet-revive ETH block hash specific integration test suite.
 
 use crate::{
-	evm::block_hash::{EventLog, TransactionDetails},
+	evm::Block,
 	test_utils::{builder::Contract, deposit_limit, ALICE},
 	tests::{assert_ok, builder, Contracts, ExtBuilder, RuntimeOrigin, Test},
-	BalanceWithDust, Code, Config, EthBlock, EthereumBlock, InflightEthTransactions,
-	InflightEthTxEvents, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned, Weight, H256,
+	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderIR, EthereumBlock,
+	EthereumBlockBuilder, Pallet, ReceiptGasInfo, ReceiptInfoData, TransactionSigned,
 };
 
 use frame_support::traits::{fungible::Mutate, Hooks};
 use pallet_revive_fixtures::compile_module;
 
-impl PartialEq for EventLog {
-	// Dont care about the contract address, since eth instantiate cannot expose it.
-	fn eq(&self, other: &Self) -> bool {
-		self.data == other.data && self.topics == other.topics
-	}
-}
-
-impl PartialEq for TransactionDetails {
-	// Ignore the weight since its subject to change.
-	fn eq(&self, other: &Self) -> bool {
-		self.transaction_encoded == other.transaction_encoded &&
-			self.logs == other.logs &&
-			self.success == other.success
-	}
-}
+use alloy_consensus::RlpEncodableReceipt;
+use alloy_core::primitives::{FixedBytes, Log as AlloyLog};
 
 #[test]
 fn on_initialize_clears_storage() {
@@ -51,30 +38,12 @@ fn on_initialize_clears_storage() {
 		ReceiptInfoData::<Test>::put(receipt_data.clone());
 		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
 
-		let event = EventLog { contract: Default::default(), data: vec![1], topics: vec![] };
-		InflightEthTxEvents::<Test>::put(vec![event.clone()]);
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event.clone()]);
-
-		let transactions = vec![TransactionDetails {
-			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
-				.signed_payload(),
-			logs: vec![event.clone()],
-			success: true,
-			gas_used: Weight::zero(),
-		}];
-
-		InflightEthTransactions::<Test>::put(transactions.clone());
-		assert_eq!(InflightEthTransactions::<Test>::get(), transactions.clone());
-
 		let block = EthBlock { number: 1.into(), ..Default::default() };
 		EthereumBlock::<Test>::put(block.clone());
 		assert_eq!(EthereumBlock::<Test>::get(), block);
 
 		Contracts::on_initialize(0);
 
-		// The events and tx info is killed on the finalized hook.
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![event]);
-		assert_eq!(InflightEthTransactions::<Test>::get(), transactions);
 		// RPC queried storage is cleared out.
 		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
@@ -103,28 +72,28 @@ fn transactions_are_captured() {
 		// Instantiate with code is not captured.
 		assert_ok!(builder::instantiate_with_code(gas_binary).value(1).build());
 
-		let transactions = InflightEthTransactions::<Test>::get();
-		let expected = vec![
-			TransactionDetails {
-				transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
-					.signed_payload(),
-				logs: vec![],
-				success: true,
-				gas_used: Weight::zero(),
-			},
-			TransactionDetails {
-				transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
-					.signed_payload(),
-				logs: vec![],
-				success: true,
-				gas_used: Weight::zero(),
-			},
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		// Only 2 transactions were captured.
+		assert_eq!(block_builder.gas_info.len(), 2);
+
+		let expected_payloads = vec![
+			// Signed payload of eth_call.
+			TransactionSigned::TransactionLegacySigned(Default::default()).signed_payload(),
+			// Signed payload of eth_instantiate_with_code.
+			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
 		];
-		assert_eq!(transactions, expected);
+		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
+
+		// Double check the trie root hash.
+		let builder = EthereumBlockBuilder::from_ir(block_builder);
+		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
+		// Builder is killed on finalize.
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		assert_eq!(block_builder.gas_info.len(), 0);
 	});
 }
 
@@ -145,33 +114,67 @@ fn events_are_captured() {
 
 		// Bare call must not be captured.
 		builder::bare_instantiate(Code::Existing(code_hash)).build_and_unwrap_contract();
+
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
 
 		// Capture the EthInstantiate.
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 		assert_ok!(builder::eth_instantiate_with_code(binary).value(balance).build());
-		// Events are cleared out by storing the transaction.
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
 
-		let transactions = InflightEthTransactions::<Test>::get();
-		let expected = vec![TransactionDetails {
-			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
-				.signed_payload(),
-			logs: vec![EventLog {
-				data: vec![1, 2, 3, 4],
-				topics: vec![H256::repeat_byte(42)],
-				contract: Default::default(),
-			}],
-			success: true,
-			gas_used: Weight::zero(),
-		}];
+		// The contract address is not exposed by the `eth_instantiate_with_code` call.
+		// Instead, extract the address from the frame system's last event.
+		let events = frame_system::Pallet::<Test>::events();
+		let contract = events
+			.into_iter()
+			.filter_map(|event_record| match event_record.event {
+				crate::tests::RuntimeEvent::Contracts(crate::Event::Instantiated {
+					contract,
+					..
+				}) => Some(contract),
+				_ => None,
+			})
+			.last()
+			.expect("Contract address must be found from events");
 
-		assert_eq!(transactions, expected);
+		let expected_payloads = vec![
+			// Signed payload of eth_instantiate_with_code.
+			TransactionSigned::Transaction4844Signed(Default::default()).signed_payload(),
+		];
+		let expected_tx_root = Block::compute_trie_root(&expected_payloads);
+		const EXPECTED_GAS: u64 = 6345452;
+
+		let logs = vec![AlloyLog::new_unchecked(
+			contract.0.into(),
+			vec![FixedBytes::from([42u8; 32])],
+			vec![1, 2, 3, 4].into(),
+		)];
+		let receipt = alloy_consensus::Receipt {
+			status: true.into(),
+			cumulative_gas_used: EXPECTED_GAS,
+			logs,
+		};
+
+		let receipt_bloom = receipt.bloom_slow();
+		// Receipt starts with encoded tx type which is 3 for 4844 transactions.
+		let mut encoded_receipt = vec![3];
+		receipt.rlp_encode_with_bloom(&receipt_bloom, &mut encoded_receipt);
+		let expected_receipt_root = Block::compute_trie_root(&[encoded_receipt]);
+
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		// 1 transaction captured.
+		assert_eq!(block_builder.gas_info.len(), 1);
+		assert_eq!(block_builder.gas_info, vec![ReceiptGasInfo { gas_used: EXPECTED_GAS.into() }]);
+
+		let builder = EthereumBlockBuilder::from_ir(block_builder);
+		let tx_root = builder.transaction_root_builder.unwrap().finish();
+		assert_eq!(tx_root, expected_tx_root.0.into());
+
+		let receipt_root = builder.receipts_root_builder.unwrap().finish();
+		assert_eq!(receipt_root, expected_receipt_root.0.into());
 
 		Contracts::on_finalize(0);
 
-		assert_eq!(InflightEthTransactions::<Test>::get(), vec![]);
-		assert_eq!(InflightEthTxEvents::<Test>::get(), vec![]);
+		let block_builder = EthBlockBuilderIR::<Test>::get();
+		assert_eq!(block_builder.gas_info.len(), 0);
 	});
 }

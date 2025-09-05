@@ -13135,6 +13135,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
+ "alloy-rlp",
  "array-bytes 6.2.2",
  "assert_matches",
  "derive_more 0.99.17",

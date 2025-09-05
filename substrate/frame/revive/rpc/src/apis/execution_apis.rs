@@ -153,7 +153,7 @@ pub trait EthRpc {
 	/// Submits a raw transaction. For EIP-4844 transactions, the raw form must be the network form.
 	/// This means it includes the blobs, KZG commitments, and KZG proofs.
 	#[method(name = "eth_sendRawTransaction")]
-	async fn send_raw_transaction(&self, transaction: Bytes) -> RpcResult<H256>;
+	async fn send_raw_transaction(&self, transaction: TransactionSigned) -> RpcResult<H256>;
 
 	/// Signs and submits a transaction.
 	#[method(name = "eth_sendTransaction")]
