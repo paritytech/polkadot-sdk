@@ -13012,6 +13012,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-remote-proxy"
+version = "1.0.0"
+dependencies = [
+ "cumulus-pallet-parachain-system",
+ "cumulus-primitives-core",
+ "pallet-balances",
+ "pallet-proxy",
+ "pallet-utility",
+ "parity-scale-codec",
+ "polkadot-sdk-frame",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-state-machine 0.35.0",
+ "sp-trie 29.0.0",
+]
+
+[[package]]
 name = "pallet-revive"
 version = "0.1.0"
 dependencies = [
@@ -27133,6 +27150,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-recovery",
  "pallet-referenda",
+ "pallet-remote-proxy",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
