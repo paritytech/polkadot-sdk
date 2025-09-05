@@ -521,7 +521,6 @@ fn instantiate_unique_trie_id() {
 	});
 }
 
- #[test]
 #[test]
 fn instantiate_unique_trie_id2() {
     let (factory_binary, factory_code_hash) = compile_module("self_destruct_factory").unwrap();
