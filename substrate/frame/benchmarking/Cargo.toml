@@ -37,10 +37,10 @@ static_assertions = { workspace = true, default-features = true }
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
 rusty-fork = { workspace = true }
-sc-client-db = { workspace = true, default-features = false }
-sp-externalities = { workspace = true, default-features = false }
+sc-client-db = { default-features = false, workspace = true }
+sp-externalities = { default-features = false, workspace = true }
 sp-keystore = { default-features = true, workspace = true }
-sp-state-machine = { workspace = true, default-features = false }
+sp-state-machine = { default-features = false, workspace = true }
 
 [features]
 default = ["std"]

@@ -873,17 +873,23 @@ fn transfer_relay_token() {
 			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
 		));
 
-		let beneficiary = VersionedLocation::from(Location::new(
+		let beneficiary = Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
-		));
+		);
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(destination),
-			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedXcm::from(
+				Xcm::<()>::builder_unsafe()
+					.deposit_asset(AllCounted(1), beneficiary)
+					.build()
+			)),
 			Unlimited,
 		));
 
@@ -2229,17 +2235,23 @@ fn register_pna_in_v5_while_transfer_in_v4_should_work() {
 			[GlobalConsensus(Ethereum { chain_id: SEPOLIA_ID })],
 		));
 
-		let beneficiary = VersionedLocation::V4(Location::new(
+		let beneficiary = Location::new(
 			0,
 			[AccountKey20 { network: None, key: ETHEREUM_DESTINATION_ADDRESS.into() }],
-		));
+		);
 
-		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::limited_reserve_transfer_assets(
+		assert_ok!(<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::transfer_assets_using_type_and_then(
 			RuntimeOrigin::signed(AssetHubWestendSender::get()),
 			Box::new(destination),
-			Box::new(beneficiary),
 			Box::new(versioned_assets),
-			0,
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedAssetId::V4(AssetId(Location::parent()))),
+			Box::new(TransferType::LocalReserve),
+			Box::new(VersionedXcm::V4(
+				Xcm::<()>::builder_unsafe()
+					.deposit_asset(WildAsset::AllCounted(1), beneficiary)
+					.build()
+			)),
 			Unlimited,
 		));
 
