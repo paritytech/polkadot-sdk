@@ -221,6 +221,7 @@ where
 			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
 				.await
 				.iter_claims_at_depth_for_para(0, params.para_id)
+				.next()
 			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,

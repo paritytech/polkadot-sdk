@@ -132,7 +132,7 @@ fn init_block_builder(
 		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
 	}
 
-	let aura_pre_digest = Digest {
+	let pre_digests = Digest {
 		logs: extra_pre_digests
 			.unwrap_or_default()
 			.into_iter()
@@ -150,7 +150,7 @@ fn init_block_builder(
 		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
 			ignored_nodes.unwrap_or_default(),
 		)))
-		.with_inherent_digests(aura_pre_digest)
+		.with_inherent_digests(pre_digests)
 		.build()
 		.expect("Creates new block builder for test runtime");
 
