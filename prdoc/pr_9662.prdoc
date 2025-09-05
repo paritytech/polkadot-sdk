@@ -1,0 +1,11 @@
+title: Removes deprecated collator-related code in cumulus
+doc:
+- audience: Node Dev
+  description: Removes deprecated collator-related code in cumulus.
+crates:
+- name: cumulus-client-collator
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: cumulus-test-service
+  bump: major
