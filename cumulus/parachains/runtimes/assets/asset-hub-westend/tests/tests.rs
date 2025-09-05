@@ -22,16 +22,18 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	governance,
 	xcm_config::{
-		bridging, CheckingAccount, LocationToAccountId, StakingPot,
+		self, bridging, AssetTransactors, CheckingAccount, DerivativeNftsMinter,
+		LocationToAccountId, NftsPalletLocation, NftsTransactor, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
-		WestendLocation, XcmConfig,
+		UniquesTransactor, WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, XcmpQueue,
+	AllPalletsWithoutSystem, Assets, Balances, Block, DerivativeNftCollections, DerivativeNfts,
+	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
+	MetadataDepositPerByte, Nfts, OriginCaller, ParachainSystem, PolkadotXcm, Revive, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance,
+	TrustBackedAssetsInstance, Uniques, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -55,12 +57,16 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
+use pallet_nfts::{
+	asset_ops::{Collection as NftsCollection, Item as NftsItem},
+	ItemSetting as NftsItemSetting,
+};
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
 	Code, DepositLimit,
 };
 use pallet_revive_fixtures::compile_module;
-use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
+use pallet_uniques::{asset_ops::Item as UniquesItem, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
@@ -74,10 +80,7 @@ use xcm::{
 	},
 	VersionedXcm,
 };
-use xcm_builder::{
-	unique_instances::UniqueInstancesAdapter as NewNftAdapter, MatchInClassInstances, NoChecking,
-	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
-};
+use xcm_builder::{NoChecking, NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter};
 use xcm_executor::traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
@@ -522,7 +525,7 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 		});
 }
 
-fn test_nft_asset_transactor_works<T: TransactAsset>() {
+fn test_uniques_asset_transactor_works<T: TransactAsset>() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
@@ -592,13 +595,13 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 
 			// The token is withdrawn
 			assert_eq!(
-				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				UniquesItem::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
 				Err(pallet_uniques::Error::<Runtime>::UnknownItem.into()),
 			);
 
 			// But the attribute data is preserved as the pallet-uniques works that way.
 			assert_eq!(
-				Item::<Uniques>::inspect(
+				UniquesItem::<Uniques>::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(attr_key.as_slice()))
 				),
@@ -616,13 +619,13 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 
 			// The token is deposited
 			assert_eq!(
-				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				UniquesItem::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
 				Ok(alice.clone()),
 			);
 
 			// The attribute data is the same
 			assert_eq!(
-				Item::<Uniques>::inspect(
+				UniquesItem::<Uniques>::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(attr_key.as_slice()))
 				),
@@ -645,13 +648,13 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 
 			// The token's owner has changed
 			assert_eq!(
-				Item::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
+				UniquesItem::<Uniques>::inspect(&(collection_id, item_id), Owner::default()),
 				Ok(bob.clone()),
 			);
 
 			// The attribute data is the same
 			assert_eq!(
-				Item::<Uniques>::inspect(
+				UniquesItem::<Uniques>::inspect(
 					&(collection_id, item_id),
 					Bytes(Attribute(attr_key.as_slice()))
 				),
@@ -661,8 +664,8 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 }
 
 #[test]
-fn test_new_nft_config_works_as_the_old_one() {
-	type OldNftTransactor = OldNftAdapter<
+fn test_new_xcm_uniques_config_works_as_the_old_one() {
+	type OldUniquesTransactor = OldNftAdapter<
 		Uniques,
 		UniquesConvertedConcreteId,
 		LocationToAccountId,
@@ -671,15 +674,408 @@ fn test_new_nft_config_works_as_the_old_one() {
 		CheckingAccount,
 	>;
 
-	type NewNftTransactor = NewNftAdapter<
-		AccountId,
-		LocationToAccountId,
-		MatchInClassInstances<UniquesConvertedConcreteId>,
-		Item<Uniques>,
-	>;
+	test_uniques_asset_transactor_works::<OldUniquesTransactor>();
+	test_uniques_asset_transactor_works::<UniquesTransactor>();
 
-	test_nft_asset_transactor_works::<OldNftTransactor>();
-	test_nft_asset_transactor_works::<NewNftTransactor>();
+	// It also works in the context of all other transactors
+	test_uniques_asset_transactor_works::<AssetTransactors>();
+}
+
+fn test_nfts_asset_transactor_works_helper<T: TransactAsset>() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let collection_id = 0;
+			let item_id = 101;
+
+			let alice = AccountId::from(ALICE);
+			let bob = AccountId::from(BOB);
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+			assert_ok!(Balances::mint_into(&alice, 2 * UNITS));
+
+			assert_ok!(Nfts::create(
+				RuntimeHelper::origin_of(alice.clone()),
+				MultiAddress::Id(alice.clone()),
+				pallet_nfts::CollectionConfigFor::<Runtime> {
+					mint_settings: pallet_nfts::MintSettings {
+						// When `UnlockMetadata` is enabled, pallet-nfts clears the metadata when an
+						// NFT is burned. This test also makes sure that an NFT metadata won't
+						// be cleared during transfer.
+						default_item_settings: pallet_nfts::ItemSettings::from_enabled(
+							NftsItemSetting::Transferable | NftsItemSetting::UnlockedMetadata
+						),
+						..Default::default()
+					},
+					..Default::default()
+				},
+			));
+
+			assert_ok!(Nfts::mint(
+				RuntimeHelper::origin_of(alice.clone()),
+				collection_id,
+				item_id,
+				MultiAddress::Id(bob.clone()),
+				Default::default(),
+			));
+
+			let item_metadata = b"item-metadata-value".to_vec();
+
+			assert_ok!(Nfts::set_metadata(
+				RuntimeHelper::origin_of(alice.clone()),
+				collection_id,
+				item_id,
+				item_metadata.clone().try_into().unwrap(),
+			));
+
+			let collection_location = NftsPalletLocation::get()
+				.appended_with(GeneralIndex(collection_id.into()))
+				.unwrap();
+			let item_asset: Asset =
+				(collection_location, AssetInstance::Index(item_id.into())).into();
+
+			let alice_account_location: Location = alice.clone().into();
+			let bob_account_location: Location = bob.clone().into();
+
+			// Can't deposit the token that isn't withdrawn
+			assert_noop!(
+				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Alice isn't the owner, she can't withdraw the token
+			assert_noop!(
+				T::withdraw_asset(&item_asset, &alice_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Bob, the owner, can withdraw the token
+			assert_ok!(T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx),));
+
+			// The token is withdrawn (`NftsTransactor` stashes it under the Treasury account)
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Owner::default()),
+				Ok(governance::TreasuryAccount::get()),
+			);
+
+			// The metadata is preserved.
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Bytes::default()),
+				Ok(item_metadata.clone()),
+			);
+
+			// Can't withdraw the already withdrawn token
+			assert_noop!(
+				T::withdraw_asset(&item_asset, &bob_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Deposit the token to alice
+			assert_ok!(T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx)));
+
+			// The token is deposited
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Owner::default()),
+				Ok(alice.clone()),
+			);
+
+			// The metadata is the same
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Bytes::default()),
+				Ok(item_metadata.clone()),
+			);
+
+			// Can't deposit the token twice
+			assert_noop!(
+				T::deposit_asset(&item_asset, &alice_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Transfer the token directly
+			assert_ok!(T::transfer_asset(
+				&item_asset,
+				&alice_account_location,
+				&bob_account_location,
+				&ctx,
+			));
+
+			// The token's owner has changed
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Owner::default()),
+				Ok(bob.clone()),
+			);
+
+			// The metadata is the same
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&(collection_id, item_id), Bytes::default()),
+				Ok(item_metadata),
+			);
+		});
+}
+
+#[test]
+fn test_nfts_asset_transactor_works() {
+	test_nfts_asset_transactor_works_helper::<NftsTransactor>();
+
+	// `NftsTransactor` also works in the context of all other transactors
+	test_nfts_asset_transactor_works_helper::<AssetTransactors>();
+}
+
+fn test_derivative_nfts_work_helper<T: TransactAsset>() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+		)])
+		.build()
+		.execute_with(|| {
+			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+
+			let alice = AccountId::from(ALICE);
+			let bob = AccountId::from(BOB);
+			let alice_account_location: Location = alice.clone().into();
+			let bob_account_location: Location = bob.clone().into();
+
+			let another_chain_id = 9090;
+			let another_chain_location = Location::new(1, [Parachain(another_chain_id)]);
+			let another_chain_sov_account =
+				LocationToAccountId::convert_location(&another_chain_location).unwrap();
+
+			let foreign_collection_id: [u8; 32] = [0xA; 32];
+			let foreign_item_id = 42;
+
+			let foreign_collection_asset_id: AssetId = another_chain_location
+				.appended_with(GeneralKey { length: 32, data: foreign_collection_id })
+				.unwrap()
+				.into();
+
+			let foreign_nft_asset_tuple: xcm_builder::unique_instances::NonFungibleAsset = (foreign_collection_asset_id.clone(), AssetInstance::Index(foreign_item_id));
+			let foreign_nft_asset: Asset =foreign_nft_asset_tuple.clone().into();
+
+			// A token of an unregistered NFT collection can't be deposited.
+			assert_noop!(
+				T::deposit_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)),
+
+				// "DerivativeNotFound" is about the non-found derivative collection for minting the derivative NFT
+				XcmError::FailedToTransactAsset("DerivativeNotFound"),
+			);
+
+			// A token of an unregistered NFT collection can't be withdrawn.
+			assert_noop!(
+				T::withdraw_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)),
+				XcmError::AssetNotFound
+			);
+
+			// A token of an unregistered NFT collection can't be withdrawn.
+			assert_noop!(
+				T::transfer_asset(&foreign_nft_asset, &alice_account_location, &bob_account_location, &ctx),
+				XcmError::AssetNotFound
+			);
+
+			// A regular user can't register a derivative NFT collection
+			// NOTE: this might change in the future
+			assert_noop!(
+				DerivativeNftCollections::create_derivative(
+					RuntimeOrigin::signed(alice.clone()),
+					foreign_collection_asset_id.clone()
+				),
+				sp_runtime::DispatchError::BadOrigin
+			);
+
+			let another_chain_balance_before =
+				Balances::free_balance(another_chain_sov_account.clone());
+
+			assert_ok!(DerivativeNftCollections::create_derivative(
+				OriginCaller::Origins(governance::pallet_custom_origins::Origin::GeneralAdmin)
+					.into(),
+				foreign_collection_asset_id.clone()
+			));
+
+			let derivative_collection_id =
+				DerivativeNftCollections::original_to_derivative(&foreign_collection_asset_id)
+					.unwrap();
+
+			assert_eq!(
+				NftsCollection::<Nfts>::inspect(&derivative_collection_id, Owner::default()),
+				Ok(another_chain_sov_account.clone())
+			);
+
+			let another_chain_balance_after =
+				Balances::free_balance(another_chain_sov_account.clone());
+
+			// No deposits should be deducted from the sovereign account (it is the owner of the
+			// derivative collection)
+			assert_eq!(another_chain_balance_before, another_chain_balance_after);
+
+			// No one can destroy a derivative NFT collection
+			// NOTE: this might change in the future
+			assert_noop!(
+				DerivativeNftCollections::destroy_derivative(
+					OriginCaller::Origins(governance::pallet_custom_origins::Origin::GeneralAdmin)
+						.into(),
+					foreign_collection_asset_id.clone()
+				),
+				sp_runtime::DispatchError::BadOrigin
+			);
+
+			// The derivative NFT hasn't been created yet, it can't be withdrawn
+			assert_noop!(
+				T::withdraw_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)),
+				XcmError::AssetNotFound
+			);
+
+			// The derivative NFT hasn't been created yet, it can't be transferred
+			assert_noop!(
+				T::transfer_asset(&foreign_nft_asset, &alice_account_location,&bob_account_location, &ctx),
+				XcmError::AssetNotFound
+			);
+
+			let alice_balance_before = Balances::free_balance(alice.clone());
+
+			// The derivative collection is registered.
+			// It is now possible to deposit a derivative NFT within it.
+			assert_ok!(T::deposit_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)));
+
+			let alice_balance_after = Balances::free_balance(alice.clone());
+
+			// No deposits should be deducted from Alice
+			// (she is the owner of the derivative NFT)
+			assert_eq!(alice_balance_before, alice_balance_after);
+
+			let derivative_item_full_id = DerivativeNfts::original_to_derivative(
+				&foreign_nft_asset_tuple,
+			)
+			.expect("the derivative NFT must be present inside the DerivativeNfts pallet-derivatives instance");
+
+			assert_eq!(derivative_collection_id, derivative_item_full_id.0);
+
+			let derivative_collection_local_xcm_id = NftsPalletLocation::get()
+				.appended_with(GeneralIndex(derivative_collection_id.into()))
+				.unwrap();
+			let derivative_nft_local_xcm_id: Asset = (derivative_collection_local_xcm_id, AssetInstance::Index(derivative_item_full_id.1.into())).into();
+
+			// Can't deposit the token that isn't withdrawn
+			assert_noop!(
+				T::deposit_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Can't deposit the derivative token while identifying it as a local token
+			// (i.e., as though it were a regular pallet-nfts token).
+			// Such a *local* token doesn't exist.
+			assert_noop!(
+				T::deposit_asset(&derivative_nft_local_xcm_id, &alice_account_location, Some(&ctx)),
+
+				// "DerivativeNotFound" is about the non-found derivative collection for minting the derivative NFT
+				// The `DerivativeNftsMinter` is executed after `NftsTransactor`, it always tries to mint a derivative NFT.
+				// It always tries to get the corresponding derivative collection for it
+				// (i.e., get the registered derivative collection for the given `AssetId`).
+				// It will fail to do so since the `derivative_collection_id` collection doesn't have its own registered derivative collection
+				// (i.e., there can be no "derivative-derivative" collection)
+				XcmError::FailedToTransactAsset("DerivativeNotFound"),
+			);
+
+			// Bob isn't the owner, he can't withdraw the token
+			assert_noop!(
+				T::withdraw_asset(&foreign_nft_asset, &bob_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Can't withdraw the derivative token while identifying it as a local token
+			// (i.e., as though it were a regular pallet-nfts token).
+			// Such a *local* token doesn't exist.
+			//
+			// Even the current owner, Alice, can't do that.
+			assert_noop!(
+				T::withdraw_asset(&derivative_nft_local_xcm_id, &alice_account_location, Some(&ctx)),
+				XcmError::AssetNotFound,
+			);
+
+			// Alice, the owner, can withdraw the token
+			assert_ok!(T::withdraw_asset(
+				&foreign_nft_asset,
+				&alice_account_location,
+				Some(&ctx),
+			));
+
+			// The token is withdrawn (`NftsTransactor` stashes it under the Treasury account)
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&derivative_item_full_id, Owner::default()),
+				Ok(governance::TreasuryAccount::get()),
+			);
+
+			// Can't withdraw the already withdrawn token
+			assert_noop!(
+				T::withdraw_asset(&foreign_nft_asset, &alice_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Deposit the token to Bob
+			assert_ok!(T::deposit_asset(
+				&foreign_nft_asset,
+				&bob_account_location,
+				Some(&ctx)
+			));
+
+			// The token is deposited
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&derivative_item_full_id, Owner::default()),
+				Ok(bob.clone()),
+			);
+
+			// Can't deposit the token twice
+			assert_noop!(
+				T::deposit_asset(&foreign_nft_asset, &bob_account_location, Some(&ctx)),
+				XcmError::FailedToTransactAsset("NoPermission")
+			);
+
+			// Can't transfer the derivative token while identifying it as a local token
+			// (i.e., as though it were a regular pallet-nfts token).
+			// Such a *local* token doesn't exist.
+			//
+			// Even the current owner, Bob, can't do that.
+			assert_noop!(
+				T::transfer_asset(
+					&derivative_nft_local_xcm_id,
+					&bob_account_location,
+					&alice_account_location,
+					&ctx,
+				),
+				XcmError::AssetNotFound
+			);
+
+			// Transfer the token directly
+			assert_ok!(T::transfer_asset(
+				&foreign_nft_asset,
+				&bob_account_location,
+				&alice_account_location,
+				&ctx,
+			));
+
+			// The token's owner has changed
+			assert_eq!(
+				NftsItem::<Nfts>::inspect(&derivative_item_full_id, Owner::default()),
+				Ok(alice.clone()),
+			);
+		});
+}
+
+#[test]
+fn test_derivative_nfts_work() {
+	test_derivative_nfts_work_helper::<(NftsTransactor, DerivativeNftsMinter)>();
+
+	// The Nfts transactors work in the context of all other transactors
+	test_derivative_nfts_work_helper::<AssetTransactors>();
 }
 
 #[test]

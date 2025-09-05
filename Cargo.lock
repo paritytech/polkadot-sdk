@@ -1346,6 +1346,7 @@ dependencies = [
  "pallet-collator-selection",
  "pallet-conviction-voting",
  "pallet-delegated-staking",
+ "pallet-derivatives",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
  "pallet-indices",
@@ -12663,6 +12664,7 @@ dependencies = [
 name = "pallet-nfts"
 version = "22.0.0"
 dependencies = [
+ "derive-where",
  "enumflags2",
  "frame-benchmarking",
  "frame-support",

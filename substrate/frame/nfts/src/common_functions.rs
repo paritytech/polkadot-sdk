@@ -67,6 +67,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Self::deposit_event(Event::NextCollectionIdIncremented { next_id });
 	}
 
+	pub(crate) fn get_next_collection_id() -> Result<T::CollectionId, Error<T, I>> {
+		NextCollectionId::<T, I>::get()
+			.or(T::CollectionId::initial_value())
+			.ok_or(Error::<T, I>::UnknownCollection)
+	}
+
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn set_next_id(id: T::CollectionId) {
 		NextCollectionId::<T, I>::set(Some(id));
