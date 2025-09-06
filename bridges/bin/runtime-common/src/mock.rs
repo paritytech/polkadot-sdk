@@ -104,7 +104,7 @@ frame_support::construct_runtime! {
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Utility: pallet_utility,
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, HoldReason},
 		BridgeRelayers: pallet_bridge_relayers::{Pallet, Call, Storage, Event<T>},
 		BridgeGrandpa: pallet_bridge_grandpa::{Pallet, Call, Storage, Event<T>},
 		BridgeParachains: pallet_bridge_parachains::{Pallet, Call, Storage, Event<T>},

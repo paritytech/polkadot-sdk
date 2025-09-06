@@ -124,6 +124,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = FixedFee<TX_FEE, Balance>;
 	type LengthToFee = NoFee<Balance>;
 	type FeeMultiplierUpdate = ();
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 construct_runtime!(

@@ -35,7 +35,9 @@ use frame_support::{
 	weights::{IdentityFee, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use pallet_transaction_payment::{ChargeTransactionPayment, FungibleAdapter, Multiplier};
+use pallet_transaction_payment::{
+	ChargeTransactionPayment, FungibleAdapter, HoldReason as PaymentHoldReason, Multiplier,
+};
 use scale_info::TypeInfo;
 use sp_core::{hexdisplay::HexDisplay, sr25519::Pair as SrPair, Pair};
 use sp_io;
@@ -74,10 +76,17 @@ pub enum TestId {
 	Foo,
 	Bar,
 	Baz,
+	TxPayment,
 }
 
 impl VariantCount for TestId {
 	const VARIANT_COUNT: u32 = 3;
+}
+
+impl From<PaymentHoldReason> for TestId {
+	fn from(_reason: PaymentHoldReason) -> Self {
+		Self::TxPayment
+	}
 }
 
 pub(crate) type AccountId = <Test as frame_system::Config>::AccountId;
@@ -112,6 +121,7 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
+	type RuntimeHoldReason = TestId;
 }
 
 parameter_types! {

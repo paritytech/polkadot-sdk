@@ -232,6 +232,7 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = ConstUint<1>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<ConstFeeMultiplierInner>;
 	type OnChargeTransaction = OnChargeTransaction;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl mock_pallet::Config for Test {}

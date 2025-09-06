@@ -84,6 +84,8 @@ mod payment;
 mod types;
 pub mod weights;
 
+pub const LOG_TARGET: &str = "runtime::txpayment";
+
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
@@ -340,6 +342,8 @@ pub mod pallet {
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
 			type WeightInfo = ();
+			#[inject_runtime_type]
+			type RuntimeHoldReason = ();
 		}
 	}
 
@@ -396,6 +400,17 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Overarching hold reason.
+		#[pallet::no_default_bounds]
+		type RuntimeHoldReason: From<HoldReason>;
+	}
+
+	/// A reason for the pallet to hold some balance.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Balance to put on hold pre-dispatch to pay the transaction fees.
+		Payment,
 	}
 
 	#[pallet::type_value]
