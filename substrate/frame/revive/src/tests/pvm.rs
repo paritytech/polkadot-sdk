@@ -4914,3 +4914,23 @@ fn return_data_limit_is_enforced() {
 		}
 	});
 }
+
+#[test]
+fn get_storage_keys_works() {
+	let (code, _code_hash) = compile_module("storage_keys").unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		// Not a contract
+		let keys = Pallet::<Test>::get_storage_keys(ALICE_ADDR);
+		assert_eq!(keys, None);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// The storage_keys contract creates 3 storage keys during deployment
+		let keys = Pallet::<Test>::get_storage_keys(addr).unwrap();
+		assert_eq!(keys.len(), 3);
+	});
+}
