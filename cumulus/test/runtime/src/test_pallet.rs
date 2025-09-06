@@ -25,7 +25,7 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::vec;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, weights::constants::WEIGHT_REF_TIME_PER_SECOND};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -38,8 +38,29 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TestMap<T: Config> = StorageMap<_, Twox64Concat, u32, (), ValueQuery>;
 
+	/// Flag to indicate if a 1s weight should be registered in the next `on_initialize`.
+	#[pallet::storage]
+	pub type ScheduleWeightRegistration<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
+			if ScheduleWeightRegistration::<T>::get() {
+				let weight_to_register = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0);
+
+				let left_weight = frame_system::Pallet::<T>::block_weight_left();
+
+				if left_weight.can_consume(weight_to_register) {
+					tracing::info!("Consuming 1s of weight :)");
+					// We have enough capacity, consume the flag and register the weight
+					ScheduleWeightRegistration::<T>::kill();
+					return weight_to_register
+				}
+			}
+
+			Weight::zero()
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -103,6 +124,13 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn remove_value_from_map(_: OriginFor<T>, key: u32) -> DispatchResult {
 			TestMap::<T>::remove(key);
+			Ok(())
+		}
+
+		/// Schedule a 1 second weight registration in the next `on_initialize`.
+		#[pallet::weight(0)]
+		pub fn schedule_weight_registration(_: OriginFor<T>) -> DispatchResult {
+			ScheduleWeightRegistration::<T>::set(true);
 			Ok(())
 		}
 	}

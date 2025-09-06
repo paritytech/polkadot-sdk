@@ -5109,6 +5109,7 @@ dependencies = [
  "sp-version",
  "staging-parachain-info",
  "substrate-wasm-builder",
+ "tracing",
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ workspace = true
 codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde_json = { workspace = true }
+tracing = { workspace = true }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -93,6 +94,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"tracing/std"
 ]
 increment-spec-version = []
 # A runtime which expects to build behind the relay chain tip.

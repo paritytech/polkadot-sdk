@@ -7,7 +7,7 @@ use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier}
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
-use std::{cmp::max, collections::HashMap, ops::Range};
+use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -24,6 +24,15 @@ use zombienet_sdk::subxt::{
 	utils::H256,
 	Config, OnlineClient, PolkadotConfig,
 };
+
+/// Specifies which block should occupy a full core.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BlockToCheck {
+	/// The exact block hash provided should occupy a full core.
+	Exact(H256),
+	/// The parent of the block that should occupy a full core.
+	Parent(H256),
+}
 
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
@@ -690,42 +699,27 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
-/// Checks if the given `block_hash` is the only block in a core.
-///
-/// Assumes that the given block
+/// Checks if the specified block occupies a full core.
 pub async fn ensure_is_only_block_in_core(
 	para_client: &OnlineClient<PolkadotConfig>,
-	block_hash: H256,
+	block_to_check: BlockToCheck,
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
-	let block = blocks.at(block_hash).await?;
-	let core_info = find_core_info(&block)?;
 
-	let parent = para_client.blocks().at(block.header().parent_hash).await?;
+	let (block_hash, is_parent) = match block_to_check {
+		BlockToCheck::Exact(block_hash) => (block_hash, false),
+		BlockToCheck::Parent(block_hash) => (block_hash, true),
+	};
 
-	// Genesis is for sure on a different core :)
-	if parent.number() != 0 {
-		let parent_core_info = find_core_info(&parent)?;
-
-		if core_info == parent_core_info {
-			return Err(anyhow::anyhow!(
-				"Not first block in core, found in block {}",
-				block.number()
-			))
-		}
-	}
-
-	let chain_of_blocks = loop {
+	let mut chain_of_blocks = loop {
 		// Start with the latest best block.
-		let mut current_block =
-			std::sync::Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+		let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
 
 		let mut chain_of_blocks = vec![];
 
 		while current_block.hash() != block_hash {
 			chain_of_blocks.push(current_block.clone());
-			current_block =
-				std::sync::Arc::new(blocks.at(current_block.header().parent_hash).await?);
+			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
 
 			if current_block.number() == 0 {
 				return Err(anyhow::anyhow!(
@@ -740,6 +734,26 @@ pub async fn ensure_is_only_block_in_core(
 			break chain_of_blocks
 		}
 	};
+
+	// If the input was the parent block, we have the actual block we are interested in as last
+	// member of `chain_of_blocks`.
+	let block = blocks
+		.at(if is_parent { chain_of_blocks.pop().unwrap().hash() } else { block_hash })
+		.await?;
+	let core_info = find_core_info(&block)?;
+	let parent = blocks.at(block.header().parent_hash).await?;
+
+	// Genesis is for sure on a different core :)
+	if parent.number() != 0 {
+		let parent_core_info = find_core_info(&parent)?;
+
+		if core_info == parent_core_info {
+			return Err(anyhow::anyhow!(
+				"Not first block in core, found in block {}",
+				block.number()
+			))
+		}
+	}
 
 	// The last block `CoreInfo` must be different or it shares the core with the block we are
 	// interested in.

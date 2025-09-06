@@ -148,7 +148,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, PostDispatchInfoOf},
 	transaction_validity::TransactionValidityError,
 };
-use sp_weights::{RuntimeDbWeight, Weight};
+use sp_weights::{RuntimeDbWeight, Weight, WeightMeter};
 
 #[cfg(any(feature = "std", test))]
 use sp_io::TestExternalities;
@@ -2386,6 +2386,13 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	/// Returns the weight left for the block.
+	pub fn block_weight_left() -> WeightMeter {
+		let left_weight =
+			T::BlockWeights::get().max_block.saturating_sub(BlockWeight::<T>::get().total());
+		WeightMeter::with_limit(left_weight)
 	}
 }
 

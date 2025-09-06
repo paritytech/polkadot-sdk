@@ -20,7 +20,7 @@ use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
 use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 	ensure_is_only_block_in_core, find_core_info,
-	submit_extrinsic_and_wait_for_finalization_success,
+	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 use polkadot_primitives::Id as ParaId;
@@ -85,7 +85,7 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("First transaction finalized");
 
-	ensure_is_only_block_in_core(&para_client, block_hash).await?;
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
 	// Create a transaction that uses more than the allowed POV size per block.
 	let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
@@ -98,7 +98,18 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("Second transaction finalized");
 
-	ensure_is_only_block_in_core(&para_client, block_hash).await?;
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+	let third_call = create_schedule_weight_registration_call();
+	let sudo_third_call = create_sudo_call(third_call);
+
+	log::info!("Sending third transaction to schedule weight registration");
+	let block_hash =
+		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_third_call, &alice)
+			.await?;
+	log::info!("Third transaction finalized, weight registration scheduled for next block");
+
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Parent(block_hash)).await?;
 
 	Ok(())
 }
@@ -127,6 +138,15 @@ fn create_utility_with_weight_call(ref_time: u64, proof_size: u64) -> DynamicPay
 /// Creates a `pallet-sudo` `sudo` call wrapping the inner call
 fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
+}
+
+/// Creates a `test-pallet` `schedule_weight_registration` call
+fn create_schedule_weight_registration_call() -> DynamicPayload {
+	zombienet_sdk::subxt::tx::dynamic(
+		"TestPallet",
+		"schedule_weight_registration",
+		vec![] as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
+	)
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
@@ -163,7 +183,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_args(vec![
 					("--authoring").into(),
 					("slot-based").into(),
-					("-lparachain=debug,aura=trace").into(),
+					("-lparachain=debug,aura=trace,runtime=trace").into(),
 				])
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))

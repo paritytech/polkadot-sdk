@@ -22,7 +22,7 @@ use cumulus_zombienet_sdk_helpers::{
 	assert_finality_lag, assert_para_throughput, create_assign_core_call,
 	ensure_is_only_block_in_core, find_core_info,
 	submit_extrinsic_and_wait_for_finalization_success,
-	submit_unsigned_extrinsic_and_wait_for_finalization_success,
+	submit_unsigned_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -123,7 +123,7 @@ async fn pov_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("Apply authorized upgrade transaction finalized in block: {:?}", block_hash);
 
-	ensure_is_only_block_in_core(&para_client, block_hash).await?;
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
 	//TODO: Verify that the runtime upgrade block is also using a full core.
 
