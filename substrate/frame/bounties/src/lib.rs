@@ -148,9 +148,9 @@ pub struct Bounty<AccountId, Balance, BlockNumber> {
 	/// The deposit of curator.
 	pub curator_deposit: Balance,
 	/// The amount held on deposit (reserved) for making this proposal.
-	bond: Balance,
+	pub bond: Balance,
 	/// The status of this bounty.
-	status: BountyStatus<AccountId, BlockNumber>,
+	pub status: BountyStatus<AccountId, BlockNumber>,
 }
 
 impl<AccountId: PartialEq + Clone + Ord, Balance, BlockNumber: Clone>
