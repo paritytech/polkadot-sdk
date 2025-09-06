@@ -57,7 +57,11 @@ use sc_telemetry::TelemetryWorkerHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_beefy::ecdsa_crypto;
 use sp_runtime::traits::Block as BlockT;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 
 /// Polkadot node service initialization parameters.
 pub struct NewFullParams<OverseerGenerator: OverseerGen> {
@@ -90,6 +94,10 @@ pub struct NewFullParams<OverseerGenerator: OverseerGen> {
 	#[allow(dead_code)]
 	pub malus_finality_delay: Option<u32>,
 	pub hwbench: Option<sc_sysinfo::HwBench>,
+	/// Set of invulnerable AH collator `PeerId`s
+	pub invulnerable_ah_collators: HashSet<polkadot_node_network_protocol::PeerId>,
+	/// Override for `HOLD_OFF_DURATION` constant .
+	pub collator_protocol_hold_off: Option<Duration>,
 }
 
 /// Completely built polkadot node service.
@@ -199,6 +207,8 @@ where
 					prepare_workers_soft_max_num,
 					prepare_workers_hard_max_num,
 					keep_finalized_for,
+					invulnerable_ah_collators,
+					collator_protocol_hold_off,
 				},
 			overseer_connector,
 			partial_components:
@@ -440,6 +450,8 @@ where
 				dispute_coordinator_config,
 				chain_selection_config,
 				fetch_chunks_threshold,
+				invulnerable_ah_collators,
+				collator_protocol_hold_off,
 			})
 		};
 
