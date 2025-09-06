@@ -673,7 +673,7 @@ impl<B: BlockT> WarpSyncProvider<B> for TestWarpSyncProvider<B> {
 	) -> Result<VerificationResult<B>, Box<dyn std::error::Error + Send + Sync>> {
 		let EncodedProof(encoded) = proof;
 		let header = B::Header::decode(&mut encoded.as_slice()).unwrap();
-		Ok(VerificationResult::Complete(0, Default::default(), header, Default::default()))
+		Ok(VerificationResult::Complete(0, Default::default(), header))
 	}
 	fn current_authorities(&self) -> AuthorityList {
 		Default::default()
@@ -918,6 +918,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			state_request_protocol_name: state_request_protocol_config.name.clone(),
 			block_downloader: block_relay_params.downloader,
 			min_peers_to_start_warp_sync: None,
+			block_pruning_enabled: false,
 		};
 		// Initialize syncing strategy.
 		let syncing_strategy = Box::new(

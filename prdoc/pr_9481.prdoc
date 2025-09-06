@@ -1,0 +1,12 @@
+title: 'feat(sync): skip gap sync if block pruning is enabled'
+doc:
+- audience: Node Operator
+  description: |-
+    If block pruning is enabled, this indicates that the user probably does not care about historical data. In this case there is no reason to sync historical blocks, so gap sync can be skipped.
+crates:
+- name: sc-client-db
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-service
+  bump: patch

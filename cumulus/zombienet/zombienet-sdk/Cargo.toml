@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 env_logger = { workspace = true }
+hex = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }

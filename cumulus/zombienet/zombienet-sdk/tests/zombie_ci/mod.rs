@@ -12,3 +12,4 @@ mod rpc_collator_build_blocks;
 mod runtime_upgrade;
 mod statement_store;
 mod sync_blocks;
+mod warp_sync_from_pruned_node;
