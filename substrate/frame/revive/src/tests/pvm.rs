@@ -1847,6 +1847,7 @@ fn call_runtime_reentrancy_guarded() {
 			gas_limit: GAS_LIMIT / 3,
 			storage_deposit_limit: deposit_limit::<Test>(),
 			data: vec![],
+			storage_deposit_payer: None
 		})
 		.encode();
 
