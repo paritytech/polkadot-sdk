@@ -21,7 +21,7 @@ use revm::{
 	interpreter::{
 		gas as revm_gas,
 		interpreter_action::InterpreterAction,
-		interpreter_types::{Jumps, LoopControl, RuntimeFlag, StackTr},
+		interpreter_types::{Jumps, LoopControl, StackTr},
 		InstructionResult, Interpreter,
 	},
 	primitives::{Bytes, U256},
@@ -126,7 +126,6 @@ pub fn ret<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-140: REVERT instruction
 pub fn revert<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, BYZANTIUM);
 	return_inner(context.interpreter, InstructionResult::Revert);
 }
 
@@ -137,6 +136,7 @@ pub fn stop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// Invalid opcode. This opcode halts the execution.
 pub fn invalid<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	context.interpreter.extend.gas_meter_mut().consume_all();
 	context.interpreter.halt(InstructionResult::InvalidFEOpcode);
 }
 

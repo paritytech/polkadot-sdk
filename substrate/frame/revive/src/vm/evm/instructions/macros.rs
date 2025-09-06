@@ -129,16 +129,17 @@ use revm::interpreter::gas::{MemoryExtensionResult, MemoryGas};
 /// https://docs.rs/revm/latest/revm/interpreter/struct.Gas.html#method.record_memory_expansion
 pub fn record_memory_expansion<E: Ext>(
 	memory: &mut MemoryGas,
-	ext: &mut E,
+	_ext: &mut E,
 	new_len: usize,
 ) -> MemoryExtensionResult {
-	let Some(additional_cost) = memory.record_new_len(new_len) else {
+	let Some(_additional_cost) = memory.record_new_len(new_len) else {
 		return MemoryExtensionResult::Same;
 	};
 
-	if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
-		return MemoryExtensionResult::OutOfGas;
-	}
+	// TODO: Commented this for now so that extending memory will not cost any gas.
+	// if ext.gas_meter_mut().charge_evm_gas(additional_cost).is_err() {
+	// 	return MemoryExtensionResult::OutOfGas;
+	// }
 
 	MemoryExtensionResult::Extended
 }

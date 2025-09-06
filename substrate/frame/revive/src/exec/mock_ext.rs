@@ -16,9 +16,11 @@
 // limitations under the License.
 
 #![cfg(test)]
-
 use crate::{
-	exec::{AccountIdOf, ExecError, Ext, Key, Origin, PrecompileExt, PrecompileWithInfoExt},
+	exec::{
+		AccountIdOf, DispatchResult, ExecError, Ext, Key, Origin, PrecompileExt,
+		PrecompileWithInfoExt,
+	},
 	gas::GasMeter,
 	precompiles::Diff,
 	storage::{ContractInfo, WriteOutcome},
@@ -249,6 +251,10 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
+	}
+
+	fn selfdestruct(&mut self, _beneficiary: &H160) -> DispatchResult {
+		panic!("MockExt::selfdestruct")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
