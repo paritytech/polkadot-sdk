@@ -302,7 +302,7 @@
 //! ```
 //!
 //! For scalability, a bound is maintained on the number of unbonding sub pools (see
-//! [`TotalUnbondingPools`]). An unbonding pool is removed once its older than `current_era -
+//! [`TotalUnbondingPools`]). An unbonding pool is removed once its older than `active_era -
 //! TotalUnbondingPools`. An unbonding pool is merged into the unbonded pool with
 //!
 //! ```text
@@ -312,9 +312,9 @@
 //!
 //! This scheme "averages" out the points value in the unbonded pool.
 //!
-//! Once a members `unbonding_era` is older than `current_era -
+//! Once a members `unbonding_era` is older than `active_era -
 //! [sp_staking::StakingInterface::bonding_duration]`, it can can cash it's points out of the
-//! corresponding unbonding pool. If it's `unbonding_era` is older than `current_era -
+//! corresponding unbonding pool. If it's `unbonding_era` is older than `active_era -
 //! TotalUnbondingPools`, it can cash it's points from the unbonded pool.
 //!
 //! **Relevant extrinsics:**
@@ -672,13 +672,13 @@ impl<T: Config> PoolMember<T> {
 	/// Infallible, noop if no unbonding eras exist.
 	fn withdraw_unlocked(
 		&mut self,
-		current_era: EraIndex,
+		active_era: EraIndex,
 	) -> BoundedBTreeMap<EraIndex, BalanceOf<T>, T::MaxUnbonding> {
 		// NOTE: if only drain-filter was stable..
 		let mut removed_points =
 			BoundedBTreeMap::<EraIndex, BalanceOf<T>, T::MaxUnbonding>::default();
 		self.unbonding_eras.retain(|e, p| {
-			if *e > current_era {
+			if *e > active_era {
 				true
 			} else {
 				removed_points
@@ -1593,7 +1593,7 @@ impl<T: Config> UnbondPool<T> {
 pub struct SubPools<T: Config> {
 	/// A general, era agnostic pool of funds that have fully unbonded. The pools
 	/// of `Self::with_era` will lazily be merged into into this pool if they are
-	/// older then `current_era - TotalUnbondingPools`.
+	/// older then `active_era - TotalUnbondingPools`.
 	pub no_era: UnbondPool<T>,
 	/// Map of era in which a pool becomes unbonded in => unbond pools.
 	pub with_era: BoundedBTreeMap<EraIndex, UnbondPool<T>, TotalUnbondingPools<T>>,
@@ -1604,12 +1604,12 @@ impl<T: Config> SubPools<T> {
 	///
 	/// This is often used whilst getting the sub-pool from storage, thus it consumes and returns
 	/// `Self` for ergonomic purposes.
-	fn maybe_merge_pools(mut self, current_era: EraIndex) -> Self {
+	fn maybe_merge_pools(mut self, active_era: EraIndex) -> Self {
 		// Ex: if `TotalUnbondingPools` is 5 and current era is 10, we only want to retain pools
 		// 6..=10. Note that in the first few eras where `checked_sub` is `None`, we don't remove
 		// anything.
 		if let Some(newest_era_to_remove) =
-			current_era.checked_sub(T::PostUnbondingPoolsWindow::get())
+			active_era.checked_sub(T::PostUnbondingPoolsWindow::get())
 		{
 			self.with_era.retain(|k, v| {
 				if *k > newest_era_to_remove {
@@ -2300,8 +2300,8 @@ pub mod pallet {
 				&mut reward_pool,
 			)?;
 
-			let current_era = T::StakeAdapter::current_era();
-			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(current_era);
+			let active_era = T::StakeAdapter::active_era();
+			let unbond_era = T::StakeAdapter::bonding_duration().saturating_add(active_era);
 
 			// Unbond in the actual underlying nominator.
 			let unbonding_balance = bonded_pool.dissolve(unbonding_points);
@@ -2310,7 +2310,7 @@ pub mod pallet {
 			// Note that we lazily create the unbonding pools here if they don't already exist
 			let mut sub_pools = SubPoolsStorage::<T>::get(member.pool_id)
 				.unwrap_or_default()
-				.maybe_merge_pools(current_era);
+				.maybe_merge_pools(active_era);
 
 			// Update the unbond pool associated with the current era with the unbonded funds. Note
 			// that we lazily create the unbond pool if it does not yet exist.
@@ -2420,7 +2420,7 @@ pub mod pallet {
 
 			let mut member =
 				PoolMembers::<T>::get(&member_account).ok_or(Error::<T>::PoolMemberNotFound)?;
-			let current_era = T::StakeAdapter::current_era();
+			let active_era = T::StakeAdapter::active_era();
 
 			let bonded_pool = BondedPool::<T>::get(member.pool_id)
 				.defensive_ok_or::<Error<T>>(DefensiveError::PoolNotFound.into())?;
@@ -2448,7 +2448,7 @@ pub mod pallet {
 			let pool_account = bonded_pool.bonded_account();
 
 			// NOTE: must do this after we have done the `ok_to_withdraw_unbonded_other_with` check.
-			let withdrawn_points = member.withdraw_unlocked(current_era);
+			let withdrawn_points = member.withdraw_unlocked(active_era);
 			ensure!(!withdrawn_points.is_empty(), Error::<T>::CannotWithdrawAny);
 
 			// Before calculating the `balance_to_unbond`, we call withdraw unbonded to ensure the

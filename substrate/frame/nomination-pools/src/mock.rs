@@ -49,7 +49,7 @@ pub fn default_reward_account() -> AccountId {
 
 parameter_types! {
 	pub static MinJoinBondConfig: Balance = 2;
-	pub static CurrentEra: EraIndex = 0;
+	pub static ActiveEra: EraIndex = 0;
 	pub static BondingDuration: EraIndex = 3;
 	pub storage BondedBalanceMap: BTreeMap<AccountId, Balance> = Default::default();
 	// map from a user to a vec of eras and amounts being unlocked in each era.
@@ -100,8 +100,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	fn current_era() -> EraIndex {
-		CurrentEra::get()
+	fn active_era() -> EraIndex {
+		ActiveEra::get()
 	}
 
 	fn bonding_duration() -> EraIndex {
@@ -132,7 +132,7 @@ impl sp_staking::StakingInterface for StakingMock {
 		*x.get_mut(who).unwrap() = x.get_mut(who).unwrap().saturating_sub(amount);
 		BondedBalanceMap::set(&x);
 
-		let era = Self::current_era();
+		let era = Self::active_era();
 		let unlocking_at = era + Self::bonding_duration();
 		let mut y = UnbondingBalanceMap::get();
 		y.entry(*who).or_insert(Default::default()).push((unlocking_at, amount));
@@ -161,9 +161,9 @@ impl sp_staking::StakingInterface for StakingMock {
 		let staker_map = unbonding_map.get_mut(&who).ok_or("Nothing to unbond")?;
 		let unlocking_before = unlocking(&staker_map);
 
-		let current_era = Self::current_era();
+		let active_era = Self::active_era();
 
-		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > current_era);
+		staker_map.retain(|(unlocking_at, _amount)| *unlocking_at > active_era);
 
 		// if there was a withdrawal, notify the pallet.
 		let withdraw_amount = unlocking_before.saturating_sub(unlocking(&staker_map));
@@ -231,7 +231,15 @@ impl sp_staking::StakingInterface for StakingMock {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(_era: EraIndex) {
+	fn set_active_era(_era: EraIndex, _start: Option<u64>) {
+		unimplemented!("method currently not used in testing")
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn activate_next_era(
+		_era_duration_in_session: sp_staking::SessionIndex,
+		_era_duration_in_millis: u64,
+	) {
 		unimplemented!("method currently not used in testing")
 	}
 

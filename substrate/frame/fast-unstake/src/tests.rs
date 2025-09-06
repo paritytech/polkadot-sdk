@@ -230,7 +230,7 @@ mod on_idle {
 	fn early_exit() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// set up Queue item
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -249,7 +249,7 @@ mod on_idle {
 	fn if_head_not_set_one_random_fetched_from_queue() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// given
 			// reserved balance prior to registering for fast unstake.
@@ -324,7 +324,7 @@ mod on_idle {
 	fn successful_multi_queue() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register multi accounts for fast unstake
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -378,7 +378,7 @@ mod on_idle {
 	fn successful_unstake() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register for fast unstake
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -418,7 +418,7 @@ mod on_idle {
 	fn successful_unstake_all_eras_per_block() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			Balances::make_free_balance_be(&2, 100);
 
@@ -461,7 +461,7 @@ mod on_idle {
 		ExtBuilder::default().build_and_execute(|| {
 			// put 1 era per block
 			ErasToCheckPerBlock::<T>::put(1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register for fast unstake
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -539,7 +539,7 @@ mod on_idle {
 		ExtBuilder::default().build_and_execute(|| {
 			// given
 			ErasToCheckPerBlock::<T>::put(1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register for fast unstake
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -582,7 +582,7 @@ mod on_idle {
 			);
 
 			// when: a new era happens right before one is free.
-			CurrentEra::<T>::put(CurrentEra::<T>::get().unwrap() + 1);
+			set_active_era(<Staking as StakingInterface>::active_era() + 1);
 			ExtBuilder::register_stakers_for_era(CurrentEra::<T>::get().unwrap());
 
 			// then
@@ -620,7 +620,7 @@ mod on_idle {
 		ExtBuilder::default().build_and_execute(|| {
 			// give: put 1 era per block
 			ErasToCheckPerBlock::<T>::put(1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register for fast unstake
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -668,7 +668,7 @@ mod on_idle {
 
 			// then we register a new era.
 			Ongoing::set(false);
-			CurrentEra::<T>::put(CurrentEra::<T>::get().unwrap() + 1);
+			set_active_era(<Staking as StakingInterface>::active_era() + 1);
 			ExtBuilder::register_stakers_for_era(CurrentEra::<T>::get().unwrap());
 
 			// then we can progress again, but notice that the new era that had to be checked.
@@ -716,7 +716,7 @@ mod on_idle {
 	fn exposed_nominator_cannot_unstake() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// create an exposed nominator in era 1
 			let exposed = 666;
@@ -760,7 +760,7 @@ mod on_idle {
 			// same as the previous check, but we check 2 eras per block, and we make the exposed be
 			// exposed in era 0, so that it is detected halfway in a check era.
 			ErasToCheckPerBlock::<T>::put(2);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// create an exposed nominator in era 0
 			let exposed = 666;
@@ -794,7 +794,7 @@ mod on_idle {
 	fn validators_cannot_bail() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// a validator switches role and register...
 			assert_ok!(Staking::nominate(
@@ -831,7 +831,7 @@ mod on_idle {
 	fn unexposed_validator_can_fast_unstake() {
 		ExtBuilder::default().build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// create a new validator that 100% not exposed.
 			Balances::make_free_balance_be(&42, 100 + Deposit::get());
@@ -872,7 +872,7 @@ mod batched {
 	fn single_block_batched_successful() {
 		ExtBuilder::default().batch(3).build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(BondingDuration::get() + 1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(3)));
@@ -923,7 +923,7 @@ mod batched {
 	fn multi_block_batched_successful() {
 		ExtBuilder::default().batch(3).build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(2);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(3)));
@@ -989,7 +989,7 @@ mod batched {
 	fn multi_block_batched_some_fail() {
 		ExtBuilder::default().batch(4).build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(2);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register two good ones.
 			assert_ok!(FastUnstake::register_fast_unstake(RuntimeOrigin::signed(1)));
@@ -1054,7 +1054,7 @@ mod batched {
 	fn multi_block_batched_all_fail_early_exit() {
 		ExtBuilder::default().batch(2).build_and_execute(|| {
 			ErasToCheckPerBlock::<T>::put(1);
-			CurrentEra::<T>::put(BondingDuration::get());
+			set_active_era(BondingDuration::get());
 
 			// register two bad ones.
 			create_exposed_nominator(666, 3);
