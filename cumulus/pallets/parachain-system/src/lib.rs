@@ -114,7 +114,7 @@ pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
 pub use pallet::*;
 
-const LOG_TARGET: &str = "parachain-system";
+const LOG_TARGET: &str = "runtime::parachain-system";
 
 /// Something that can check the associated relay block number.
 ///

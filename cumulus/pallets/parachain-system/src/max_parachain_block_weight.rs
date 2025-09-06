@@ -25,6 +25,7 @@ use frame_support::{
 	pallet_prelude::{
 		InvalidTransaction, TransactionSource, TransactionValidityError, ValidTransaction,
 	},
+	traits::PreInherents,
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use polkadot_primitives::MAX_POV_SIZE;
@@ -32,8 +33,10 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf, TransactionExtension},
-	DispatchResult,
+	Digest, DispatchResult,
 };
+
+const LOG_TARGET: &str = "runtime::parachain-system::block-weight";
 
 #[derive(Debug, Encode, Decode, Clone, Copy, TypeInfo)]
 pub enum BlockWeightMode {
@@ -67,6 +70,10 @@ impl MaxParachainBlockWeight {
 	/// Returns the calculated maximum weight, or a conservative default if no core info is found
 	/// or if an error occurs during calculation.
 	pub fn get<T: Config>(target_blocks: u32) -> Weight {
+		let digest = frame_system::Pallet::<T>::digest();
+		let target_block_weight =
+			Self::target_block_weight_with_digest::<T>(target_blocks, &digest);
+
 		// If we are in `on_initialize` or at applying the inherents, we should
 		// allow the full core weight.
 		if !frame_system::Pallet::<T>::inherents_applied() {
@@ -90,7 +97,10 @@ impl MaxParachainBlockWeight {
 
 	fn target_block_weight<T: Config>(target_blocks: u32) -> Weight {
 		let digest = frame_system::Pallet::<T>::digest();
+		Self::target_block_weight_with_digest::<T>(target_blocks, &digest)
+	}
 
+	fn target_block_weight_with_digest<T: Config>(target_blocks: u32, digest: &Digest) -> Weight {
 		let Some(core_info) = CumulusDigestItem::find_core_info(&digest) else {
 			return Self::FULL_CORE_WEIGHT;
 		};
@@ -112,6 +122,55 @@ impl MaxParachainBlockWeight {
 		let proof_size_per_block = total_pov_size.saturating_div(target_blocks as u64);
 
 		Weight::from_parts(ref_time_per_block, proof_size_per_block)
+	}
+}
+
+/// Is this the first block in a core?
+fn is_first_block_in_core<T: Config>() -> bool {
+	let digest = frame_system::Pallet::<T>::digest();
+	CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0)
+}
+
+/// Is the `BlockWeight` already above the target block weight?
+fn block_weight_over_target_block_weight<T: Config, TargetBlockRate: Get<u32>>() -> bool {
+	let target_block_weight =
+		MaxParachainBlockWeight::target_block_weight::<T>(TargetBlockRate::get());
+
+	frame_system::Pallet::<T>::block_weight_left()
+		.consumed()
+		.any_gt(target_block_weight)
+}
+
+pub struct DynamicMaxBlockWeightPreInherent<T, TargetBlockRate>(
+	core::marker::PhantomData<(T, TargetBlockRate)>,
+);
+
+impl<T, TargetBlockRate> PreInherents for DynamicMaxBlockWeightPreInherent<T, TargetBlockRate>
+where
+	T: Config,
+	TargetBlockRate: Get<u32>,
+{
+	fn pre_inherents() {
+		if block_weight_over_target_block_weight::<T, TargetBlockRate>() {
+			let is_first_block_in_core = is_first_block_in_core::<T>();
+
+			if !is_first_block_in_core {
+				log::error!(
+					target: LOG_TARGET,
+					"Inherent block logic took longer than the target block weight, THIS IS A BUG!!!",
+				);
+			} else {
+				log::debug!(
+					target: LOG_TARGET,
+					"Inherent block logic took longer than the target block weight, going to use the full core",
+				);
+			}
+
+			crate::BlockWeightMode::<T>::put(BlockWeightMode::FullCore);
+
+			// Inform the node that this block uses the full core.
+			frame_system::Pallet::<T>::deposit_log(CumulusDigestItem::UseFullCore.to_digest_item());
+		}
 	}
 }
 
@@ -139,11 +198,6 @@ where
 		info: &DispatchInfo,
 		len: usize,
 	) -> Result<(), TransactionValidityError> {
-		let digest = frame_system::Pallet::<T>::digest();
-
-		let is_first_block_on_core =
-			CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0);
-
 		if frame_system::Pallet::<T>::inherents_applied() {
 			let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
 
@@ -157,20 +211,37 @@ where
 					BlockWeightMode::FullCore => {},
 					BlockWeightMode::PotentialFullCore { first_transaction_index } |
 					BlockWeightMode::FractionOfCore { first_transaction_index } => {
-						let potential =
+						let is_potential =
 							matches!(current_mode, BlockWeightMode::PotentialFullCore { .. });
 						debug_assert!(
-							!potential,
+							!is_potential,
 							"`PotentialFullCore` should resolve to `FullCore` or `FractionOfCore` after applying a transaction.",
 						);
 
-						if info
+						let block_weight_over_limit = first_transaction_index == extrinsic_index
+							&& block_weight_over_target_block_weight::<T, TargetBlockRate>();
+
+						// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
+						if block_weight_over_limit {
+							*mode = Some(BlockWeightMode::FullCore);
+
+							// Inform the node that this block uses the full core.
+							frame_system::Pallet::<T>::deposit_log(
+								CumulusDigestItem::UseFullCore.to_digest_item(),
+							);
+
+							log::error!(
+								target: LOG_TARGET,
+								"Inherent block logic took longer than the target block weight, \
+								`DynamicMaxBlockWeightPreInherent` not registered as `PreInherents` hook!",
+							);
+						} else if info
 							.total_weight()
 							// The extrinsic lengths counts towards the POV size
 							.saturating_add(Weight::from_parts(0, len as u64))
 							.any_gt(MaxParachainBlockWeight::target_block_weight::<T>(
 								TargetBlockRate::get(),
-							)) && is_first_block_on_core
+							)) && is_first_block_in_core::<T>()
 						{
 							if extrinsic_index.saturating_sub(first_transaction_index) < 10 {
 								*mode = Some(BlockWeightMode::PotentialFullCore {
@@ -179,7 +250,7 @@ where
 							} else {
 								return Err(InvalidTransaction::ExhaustsResources)
 							}
-						} else if potential {
+						} else if is_potential {
 							*mode =
 								Some(BlockWeightMode::FractionOfCore { first_transaction_index });
 						}
