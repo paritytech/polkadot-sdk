@@ -40,21 +40,23 @@ pub use polkadot_node_metrics::{metrics, Metronome};
 use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
+use bitvec::vec::BitVec;
+
 use polkadot_primitives::{
 	async_backing::{BackingState, Constraints},
 	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures,
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, ValidatorSignature,
+	SessionInfo, Signed, SignedAvailabilityBitfield, SigningContext, ValidationCode,
+	ValidationCodeHash, ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;
 use sp_core::ByteArray;
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, HashMap, VecDeque},
 	time::Duration,
 };
 use thiserror::Error;
@@ -98,6 +100,10 @@ mod determine_new_blocks;
 
 mod controlled_validator_indices;
 pub use controlled_validator_indices::ControlledValidatorIndices;
+use polkadot_node_subsystem_types::{
+	messages::{Ancestors, ProspectiveParachainsMessage},
+	ActivatedLeaf,
+};
 
 #[cfg(test)]
 mod tests;
@@ -139,6 +145,10 @@ pub enum Error {
 	/// Data that are supposed to be there a not there
 	#[error("Data are not available")]
 	DataNotAvailable,
+	/// Attempted to get backable candidates from prospective parachains but the request was
+	/// canceled.
+	#[error("failed to get backable candidates from prospective parachains")]
+	CanceledBackableCandidates(#[source] oneshot::Canceled),
 }
 
 impl From<OverseerError> for Error {
@@ -384,7 +394,7 @@ pub fn signing_key_and_index<'a>(
 ) -> Option<(ValidatorId, ValidatorIndex)> {
 	for (i, v) in validators.into_iter().enumerate() {
 		if keystore.has_keys(&[(v.to_raw_vec(), ValidatorId::ID)]) {
-			return Some((v.clone(), ValidatorIndex(i as _)))
+			return Some((v.clone(), ValidatorIndex(i as _)));
 		}
 	}
 	None
@@ -441,7 +451,7 @@ pub fn choose_random_subset_with_rng<T, F: FnMut(&T) -> bool, R: rand::Rng>(
 
 	if i >= min || v.len() <= i {
 		v.truncate(i);
-		return
+		return;
 	}
 
 	v[i..].shuffle(rng);
@@ -541,4 +551,174 @@ impl Validator {
 	) -> Result<Option<Signed<Payload, RealPayload>>, KeystoreError> {
 		Signed::sign(&keystore, payload, &self.signing_context, self.index, &self.key)
 	}
+}
+
+/// Requests backable candidates from Prospective Parachains subsystem
+/// based on core states.
+pub async fn request_backable_candidates(
+	availability_cores: &[CoreState],
+	bitfields: Option<&[SignedAvailabilityBitfield]>,
+	relay_parent: &ActivatedLeaf,
+	sender: &mut impl overseer::SubsystemSender<ProspectiveParachainsMessage>,
+) -> Result<HashMap<ParaId, Vec<(CandidateHash, Hash)>>, Error> {
+	let block_number_under_construction = relay_parent.number + 1;
+
+	// Record how many cores are scheduled for each paraid. Use a BTreeMap because
+	// we'll need to iterate through them.
+	let mut scheduled_cores_per_para: BTreeMap<ParaId, usize> = BTreeMap::new();
+	// The on-chain ancestors of a para present in availability-cores.
+	let mut ancestors: HashMap<ParaId, Ancestors> =
+		HashMap::with_capacity(availability_cores.len());
+
+	for (core_idx, core) in availability_cores.iter().enumerate() {
+		let core_idx = CoreIndex(core_idx as u32);
+		match core {
+			CoreState::Scheduled(scheduled_core) => {
+				*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
+			},
+			CoreState::Occupied(occupied_core) => {
+				let is_available = match bitfields {
+					Some(bitfields) => {
+						// If bitfields are provided, check if the core is available.
+						bitfields_indicate_availability(
+							core_idx.0 as usize,
+							bitfields,
+							&occupied_core.availability,
+						)
+					},
+					None => {
+						gum::debug!(
+							target: LOG_TARGET,
+							leaf_hash = ?relay_parent.hash,
+							?core_idx,
+							"No availability bitfields provided, assuming core is available"
+						);
+						true
+					},
+				};
+
+				if is_available {
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
+
+					if let Some(ref scheduled_core) = occupied_core.next_up_on_available {
+						// Request a new backable candidate for the newly scheduled para id.
+						*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
+					}
+				} else if occupied_core.time_out_at <= block_number_under_construction {
+					// Timed out before being available.
+
+					if let Some(ref scheduled_core) = occupied_core.next_up_on_time_out {
+						// Candidate's availability timed out, practically same as scheduled.
+						*scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(0) += 1;
+					}
+				} else {
+					// Not timed out and not available.
+					ancestors
+						.entry(occupied_core.para_id())
+						.or_default()
+						.insert(occupied_core.candidate_hash);
+				}
+			},
+			CoreState::Free => continue,
+		};
+	}
+
+	let mut selected_candidates: HashMap<ParaId, Vec<(CandidateHash, Hash)>> =
+		HashMap::with_capacity(scheduled_cores_per_para.len());
+
+	for (para_id, core_count) in scheduled_cores_per_para {
+		let para_ancestors = ancestors.remove(&para_id).unwrap_or_default();
+
+		let response = get_backable_candidates(
+			relay_parent.hash,
+			para_id,
+			para_ancestors,
+			core_count as u32,
+			sender,
+		)
+		.await?;
+
+		if response.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				leaf_hash = ?relay_parent.hash,
+				?para_id,
+				"No backable candidate returned by prospective parachains",
+			);
+			continue;
+		}
+
+		selected_candidates.insert(para_id, response);
+	}
+
+	Ok(selected_candidates)
+}
+
+/// The availability bitfield for a given core.
+pub type CoreAvailability = BitVec<u8, bitvec::order::Lsb0>;
+
+/// The availability bitfield for a given core is the transpose
+/// of a set of signed availability bitfields. It goes like this:
+///
+/// - construct a transverse slice along `core_idx`
+/// - bitwise-or it with the availability slice
+/// - count the 1 bits, compare to the total length; true on 2/3+
+fn bitfields_indicate_availability(
+	core_idx: usize,
+	bitfields: &[SignedAvailabilityBitfield],
+	availability: &CoreAvailability,
+) -> bool {
+	let mut availability = availability.clone();
+	let availability_len = availability.len();
+
+	for bitfield in bitfields {
+		let validator_idx = bitfield.validator_index().0 as usize;
+		match availability.get_mut(validator_idx) {
+			None => {
+				// in principle, this function might return a `Result<bool, Error>` so that we can
+				// more clearly express this error condition however, in practice, that would just
+				// push off an error-handling routine which would look a whole lot like this one.
+				// simpler to just handle the error internally here.
+				gum::warn!(
+					target: LOG_TARGET,
+					validator_idx = %validator_idx,
+					availability_len = %availability_len,
+					"attempted to set a transverse bit at idx {} which is greater than bitfield size {}",
+					validator_idx,
+					availability_len,
+				);
+
+				return false;
+			},
+			Some(mut bit_mut) => *bit_mut |= bitfield.payload().0[core_idx],
+		}
+	}
+
+	3 * availability.count_ones() >= 2 * availability.len()
+}
+
+/// Requests backable candidates from Prospective Parachains based on
+/// the given ancestors in the fragment chain. The ancestors may not be ordered.
+async fn get_backable_candidates(
+	relay_parent: Hash,
+	para_id: ParaId,
+	ancestors: Ancestors,
+	count: u32,
+	sender: &mut impl overseer::SubsystemSender<ProspectiveParachainsMessage>,
+) -> Result<Vec<(CandidateHash, Hash)>, Error> {
+	let (tx, rx) = oneshot::channel();
+	sender
+		.send_message(ProspectiveParachainsMessage::GetBackableCandidates(
+			relay_parent,
+			para_id,
+			count,
+			ancestors,
+			tx,
+		))
+		.await;
+
+	rx.await.map_err(Error::CanceledBackableCandidates)
 }

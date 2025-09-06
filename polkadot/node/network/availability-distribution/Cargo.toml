@@ -21,6 +21,7 @@ required-features = ["subsystem-benchmarks"]
 codec = { features = ["std"], workspace = true, default-features = true }
 fatality = { workspace = true }
 futures = { workspace = true }
+futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 polkadot-erasure-coding = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }

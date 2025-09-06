@@ -36,14 +36,17 @@ use polkadot_node_subsystem::{
 };
 use polkadot_primitives::{
 	AuthorityDiscoveryId, BlakeTwo256, CandidateHash, ChunkIndex, GroupIndex, Hash, HashT,
-	OccupiedCore, SessionIndex,
+	SessionIndex,
 };
 use sc_network::ProtocolName;
 
 use crate::{
 	error::{FatalError, Result},
 	metrics::{Metrics, FAILED, SUCCEEDED},
-	requester::session_cache::{BadValidators, SessionInfo},
+	requester::{
+		session_cache::{BadValidators, SessionInfo},
+		CoreInfo,
+	},
 	LOG_TARGET,
 };
 
@@ -145,7 +148,7 @@ impl FetchTaskConfig {
 	/// The result of this function can be passed into [`FetchTask::start`].
 	pub fn new(
 		leaf: Hash,
-		core: &OccupiedCore,
+		core: &CoreInfo,
 		sender: mpsc::Sender<FromFetchTask>,
 		metrics: Metrics,
 		session_info: &SessionInfo,
@@ -157,7 +160,7 @@ impl FetchTaskConfig {
 
 		// Don't run tasks for our backing group:
 		if session_info.our_group == Some(core.group_responsible) {
-			return FetchTaskConfig { live_in, prepared_running: None }
+			return FetchTaskConfig { live_in, prepared_running: None };
 		}
 
 		let prepared_running = RunningTask {
@@ -170,8 +173,8 @@ impl FetchTaskConfig {
 				candidate_hash: core.candidate_hash,
 				index: session_info.our_index,
 			},
-			erasure_root: core.candidate_descriptor.erasure_root(),
-			relay_parent: core.candidate_descriptor.relay_parent(),
+			erasure_root: core.erasure_root,
+			relay_parent: core.relay_parent,
 			metrics,
 			sender,
 			chunk_index,
@@ -284,11 +287,11 @@ impl RunningTask {
 						"Node seems to be shutting down, canceling fetch task"
 					);
 					self.metrics.on_fetch(FAILED);
-					return
+					return;
 				},
 				Err(TaskError::PeerError) => {
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 
@@ -306,20 +309,20 @@ impl RunningTask {
 						"Validator did not have our chunk"
 					);
 					bad_validators.push(validator);
-					continue
+					continue;
 				},
 			};
 
 			// Data genuine?
 			if !self.validate_chunk(&validator, &chunk, self.chunk_index) {
 				bad_validators.push(validator);
-				continue
+				continue;
 			}
 
 			// Ok, let's store it and be happy:
 			self.store_chunk(chunk).await;
 			succeeded = true;
-			break
+			break;
 		}
 		if succeeded {
 			self.metrics.on_fetch(SUCCEEDED);
@@ -483,7 +486,7 @@ impl RunningTask {
 				expected_chunk_index = ?expected_chunk_index,
 				"Validator sent the wrong chunk",
 			);
-			return false
+			return false;
 		}
 		let anticipated_hash =
 			match branch_hash(&self.erasure_root, chunk.proof(), chunk.index.0 as usize) {
@@ -496,13 +499,13 @@ impl RunningTask {
 						error = ?e,
 						"Failed to calculate chunk merkle proof",
 					);
-					return false
+					return false;
 				},
 			};
 		let erasure_chunk_hash = BlakeTwo256::hash(&chunk.chunk);
 		if anticipated_hash != erasure_chunk_hash {
 			gum::warn!(target: LOG_TARGET, origin = ?validator,  "Received chunk does not match merkle tree");
-			return false
+			return false;
 		}
 		true
 	}
