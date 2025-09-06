@@ -424,6 +424,8 @@ pub mod pallet {
 		TooManyChildBounties,
 		/// The parent bounty value is not enough to add new child-bounty.
 		InsufficientBountyValue,
+		/// The preimage does not exist.
+		PreimageNotExist,
 	}
 
 	#[pallet::event]
@@ -580,6 +582,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let max_amount = T::SpendOrigin::ensure_origin(origin)?;
 			let curator = T::Lookup::lookup(curator)?;
+			ensure!(T::Preimages::len(&hash).is_some(), Error::<T, I>::PreimageNotExist);
 
 			let native_amount = T::BalanceConverter::from_asset_balance(value, *asset_kind.clone())
 				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
@@ -657,6 +660,7 @@ pub mod pallet {
 			hash: T::Hash,
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
+			ensure!(T::Preimages::len(&hash).is_some(), Error::<T, I>::PreimageNotExist);
 
 			let (asset_kind, parent_value, _, _, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, None)

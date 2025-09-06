@@ -167,21 +167,24 @@ fn fund_bounty_fails() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given
 		let asset_kind = 1;
+		let value = 50;
 		let curator = 4;
 		let hash = note_preimage(1);
 
 		// When/Then
+		let invalid_origin = RuntimeOrigin::none();
 		assert_noop!(
-			Bounties::fund_bounty(RuntimeOrigin::none(), Box::new(asset_kind), 50, curator, hash),
+			Bounties::fund_bounty(invalid_origin, Box::new(asset_kind), value, curator, hash),
 			BadOrigin
 		);
 
 		// When/Then
+		let invalid_origin = RuntimeOrigin::signed(0);
 		assert_noop!(
 			Bounties::fund_bounty(
-				RuntimeOrigin::signed(0),
+				invalid_origin,
 				Box::new(asset_kind),
-				50,
+				value,
 				curator,
 				hash
 			),
@@ -189,17 +192,25 @@ fn fund_bounty_fails() {
 		);
 
 		// When/Then
+		let invalid_value = 1;
 		assert_noop!(
-			Bounties::fund_bounty(RuntimeOrigin::root(), Box::new(asset_kind), 1, curator, hash),
+			Bounties::fund_bounty(
+				RuntimeOrigin::root(),
+				Box::new(asset_kind),
+				invalid_value,
+				curator,
+				hash
+			),
 			Error::<Test>::InvalidValue
 		);
 
 		// When/Then
+		let invalid_value = 11;
 		assert_noop!(
 			Bounties::fund_bounty(
 				RuntimeOrigin::signed(10), // max spending of 10
 				Box::new(asset_kind),
-				11,
+				invalid_value,
 				curator,
 				hash
 			),
@@ -207,9 +218,29 @@ fn fund_bounty_fails() {
 		);
 
 		// When/Then
-		SpendLimit::set(50);
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		assert_noop!(
-			Bounties::fund_bounty(RuntimeOrigin::root(), Box::new(asset_kind), 51, curator, hash),
+			Bounties::fund_bounty(
+				RuntimeOrigin::root(),
+				Box::new(asset_kind),
+				value,
+				curator,
+				invalid_hash
+			),
+			Error::<Test>::PreimageNotExist
+		);
+
+		// When/Then
+		SpendLimit::set(50);
+		let invalid_value = 51;
+		assert_noop!(
+			Bounties::fund_bounty(
+				RuntimeOrigin::root(),
+				Box::new(asset_kind),
+				invalid_value,
+				curator,
+				hash
+			),
 			Error::<Test>::InsufficientPermission
 		);
 	});
@@ -332,9 +363,10 @@ fn fund_child_bounty_fails() {
 		let s = create_active_parent_bounty();
 
 		// When/Then
+		let invalid_origin = RuntimeOrigin::none();
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::none(),
+				invalid_origin,
 				s.parent_bounty_id,
 				s.child_value,
 				Some(s.child_curator),
@@ -344,10 +376,11 @@ fn fund_child_bounty_fails() {
 		);
 
 		// When/Then
+		let invalid_parent_index = 2;
 		assert_noop!(
 			Bounties::fund_child_bounty(
 				RuntimeOrigin::signed(s.curator),
-				2,
+				invalid_parent_index,
 				s.child_value,
 				None,
 				s.hash
@@ -356,11 +389,12 @@ fn fund_child_bounty_fails() {
 		);
 
 		// When/Then
+		let invalid_value = 0;
 		assert_noop!(
 			Bounties::fund_child_bounty(
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
-				0,
+				invalid_value,
 				None,
 				s.hash
 			),
@@ -368,9 +402,23 @@ fn fund_child_bounty_fails() {
 		);
 
 		// When/Then
+		let invalid_hash: <Test as frame_system::Config>::Hash = [1u8; 32].into();
 		assert_noop!(
 			Bounties::fund_child_bounty(
-				RuntimeOrigin::signed(1),
+				RuntimeOrigin::signed(s.curator),
+				s.parent_bounty_id,
+				s.child_value,
+				None,
+				invalid_hash
+			),
+			Error::<Test>::PreimageNotExist
+		);
+
+		// When/Then
+		let invalid_origin = RuntimeOrigin::signed(1);
+		assert_noop!(
+			Bounties::fund_child_bounty(
+				invalid_origin,
 				s.parent_bounty_id,
 				s.child_value,
 				None,
@@ -380,11 +428,12 @@ fn fund_child_bounty_fails() {
 		);
 
 		// When/Then
+		let invalid_value = s.value + 1;
 		assert_noop!(
 			Bounties::fund_child_bounty(
 				RuntimeOrigin::signed(s.curator),
 				s.parent_bounty_id,
-				s.value + 1,
+				invalid_value,
 				None,
 				s.hash
 			),
