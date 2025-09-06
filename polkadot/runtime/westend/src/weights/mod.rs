@@ -32,7 +32,6 @@ pub mod pallet_meta_tx;
 pub mod pallet_migrations;
 pub mod pallet_mmr;
 pub mod pallet_multisig;
-pub mod pallet_nomination_pools;
 pub mod pallet_parameters;
 pub mod pallet_preimage;
 pub mod pallet_proxy;
