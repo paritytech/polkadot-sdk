@@ -20,10 +20,10 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 hex-literal = { optional = true, workspace = true, default-features = true }
-log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, workspace = true, default-features = true }
 serde_json = { optional = true, workspace = true, default-features = true }
+tracing = { workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
@@ -54,9 +54,9 @@ default = ["std"]
 fuzzing = ["hex-literal", "pallet-timestamp", "serde", "serde_json", "sp-io"]
 std = [
 	"codec/std",
+	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"pallet-timestamp/std",
 	"scale-info/std",
 	"serde",
@@ -69,7 +69,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	'frame-benchmarking/std',
+	"tracing/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
