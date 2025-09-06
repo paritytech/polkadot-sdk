@@ -1,0 +1,12 @@
+title: '[pallet-revive] Migrate `to_account_id` from host function to pre-compile'
+doc:
+- audience: Runtime Dev
+  description: Moves the unstable host function `to_account_id` to the 
+    `System` pre-compile.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: major
