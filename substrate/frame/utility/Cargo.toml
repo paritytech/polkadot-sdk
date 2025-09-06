@@ -24,6 +24,7 @@ scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+impl-trait-for-tuples = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
