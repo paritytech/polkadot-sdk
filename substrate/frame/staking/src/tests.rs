@@ -502,7 +502,7 @@ fn staking_should_work() {
 			}
 		);
 		// e.g. it cannot reserve more than 500 that it has free from the total 2000
-		assert_noop!(Balances::reserve(&3, 501), BalancesError::<Test, _>::LiquidityRestrictions);
+		assert_noop!(Balances::reserve(&3, 501), DispatchError::ConsumerRemaining);
 		assert_ok!(Balances::reserve(&3, 409));
 	});
 }
