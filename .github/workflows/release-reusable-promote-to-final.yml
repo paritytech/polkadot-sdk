@@ -66,6 +66,7 @@ jobs:
 
             # TODO: add package_type input here as well and use it below
             fetch_debian_package_from_s3 polkadot
+            fetch_rpm_package_from_s3 polkadot
           else
             fetch_release_artifacts_from_s3 "$PACKAGE" "$TARGET"
           fi
