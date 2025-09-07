@@ -14,8 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
-use codec::Encode;
-use frame_support::{assert_ok, sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
+use frame_support::{sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
 use xcm_executor::traits::ConvertLocation;
 
 #[test]

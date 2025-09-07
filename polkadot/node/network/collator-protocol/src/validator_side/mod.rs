@@ -52,10 +52,9 @@ use polkadot_node_subsystem_util::{
 	request_claim_queue, request_node_features, request_session_index_for_child,
 };
 use polkadot_primitives::{
-	node_features,
-	vstaging::{CandidateDescriptorV2, CandidateDescriptorVersion},
-	CandidateHash, CollatorId, CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, SessionIndex,
+	node_features, CandidateDescriptorV2, CandidateDescriptorVersion, CandidateHash, CollatorId,
+	CoreIndex, Hash, HeadData, Id as ParaId, OccupiedCoreAssumption, PersistedValidationData,
+	SessionIndex,
 };
 
 use super::{modify_reputation, tick_stream, LOG_TARGET};
@@ -570,7 +569,7 @@ fn collator_peer_id(
 
 async fn disconnect_peer(sender: &mut impl overseer::CollatorProtocolSenderTrait, peer_id: PeerId) {
 	sender
-		.send_message(NetworkBridgeTxMessage::DisconnectPeer(peer_id, PeerSet::Collation))
+		.send_message(NetworkBridgeTxMessage::DisconnectPeers(vec![peer_id], PeerSet::Collation))
 		.await
 }
 

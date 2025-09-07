@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/fast-unstake) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
@@ -39,7 +39,7 @@
 //! *Being exposed with validator* from the point of view of the staking system means earning
 //! rewards with the validator, and also being at the risk of slashing with the validator. This is
 //! equivalent to the "Active Nominator" role explained in
-//! [here](https://polkadot.network/blog/staking-update-february-2022/).
+//! [here](https://polkadot.com/blog/staking-update-february-2022/).
 //!
 //! Stakers who are certain about NOT being exposed can register themselves with
 //! [`Pallet::register_fast_unstake`]. This will chill, fully unbond the staker and place them
@@ -174,6 +174,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;
@@ -408,7 +409,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::control())]
 		pub fn control(origin: OriginFor<T>, eras_to_check: EraIndex) -> DispatchResult {
-			let _ = T::ControlOrigin::ensure_origin(origin)?;
+			T::ControlOrigin::ensure_origin(origin)?;
 			ensure!(eras_to_check <= T::MaxErasToCheckPerBlock::get(), Error::<T>::CallNotAllowed);
 			ErasToCheckPerBlock::<T>::put(eras_to_check);
 			Ok(())

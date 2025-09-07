@@ -41,7 +41,7 @@ use bridge_runtime_common::extensions::{
 	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector, ParaId};
+use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
@@ -64,7 +64,7 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{ConstBool, ConstU32, ConstU64, ConstU8, Get, TransformOrigin},
-	weights::{ConstantMultiplier, Weight, WeightToFee as _},
+	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
 use frame_system::{
@@ -120,13 +120,16 @@ pub type BlockId = generic::BlockId<Block>;
 pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 	Runtime,
 	(
-		frame_system::CheckNonZeroSender<Runtime>,
-		frame_system::CheckSpecVersion<Runtime>,
-		frame_system::CheckTxVersion<Runtime>,
-		frame_system::CheckGenesis<Runtime>,
-		frame_system::CheckEra<Runtime>,
-		frame_system::CheckNonce<Runtime>,
-		frame_system::CheckWeight<Runtime>,
+		(
+			frame_system::AuthorizeCall<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			frame_system::CheckWeight<Runtime>,
+		),
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 		BridgeRejectObsoleteHeadersAndMessages,
 		(bridge_to_rococo_config::OnBridgeHubWestendRefundBridgeHubRococoMessages,),
@@ -174,6 +177,7 @@ pub type Migrations = (
 		ConstU32<BRIDGE_HUB_ID>,
 		ConstU32<ASSET_HUB_ID>,
 	>,
+	snowbridge_pallet_system::migration::FeePerGasMigrationV0ToV1<Runtime>,
 	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
@@ -239,7 +243,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_017_001,
+	spec_version: 1_019_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -385,7 +389,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<0>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -488,6 +492,8 @@ impl pallet_session::Config for Runtime {
 	type Keys = SessionKeys;
 	type DisablingStrategy = ();
 	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_aura::Config for Runtime {
@@ -670,6 +676,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			0
+		}
+	}
+
 	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
 		fn can_build_upon(
 			included_hash: <Block as BlockT>::Hash,
@@ -813,21 +825,11 @@ impl_runtime_apis! {
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let latest_asset_id: Result<AssetId, ()> = asset.clone().try_into();
-			match latest_asset_id {
-				Ok(asset_id) if asset_id.0 == xcm_config::WestendLocation::get() => {
-					// for native token
-					Ok(WeightToFee::weight_to_fee(&weight))
-				},
-				Ok(asset_id) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset_id, "query_weight_to_asset_fee - unhandled asset_id!");
-					Err(XcmPaymentApiError::AssetNotFound)
-				},
-				Err(_) => {
-					tracing::trace!(target: "xcm::xcm_runtime_apis", ?asset, "query_weight_to_asset_fee - failed to convert asset!");
-					Err(XcmPaymentApiError::VersionedConversionFailed)
-				}
-			}
+			use crate::xcm_config::XcmConfig;
+
+			type Trader = <XcmConfig as xcm_executor::Config>::Trader;
+
+			PolkadotXcm::query_weight_to_asset_fee::<Trader>(weight, asset)
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -888,12 +890,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
 		fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
 			ParachainSystem::collect_collation_info(header)
-		}
-	}
-
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
 		}
 	}
 
@@ -1051,16 +1047,28 @@ impl_runtime_apis! {
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
 
+			use xcm::latest::prelude::*;
+			use xcm_config::WestendLocation;
+			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
+			parameter_types! {
+				pub ExistentialDepositAsset: Option<Asset> = Some((
+					WestendLocation::get(),
+					ExistentialDeposit::get()
+				).into());
+			}
+
 			use pallet_xcm::benchmarking::Pallet as PalletXcmExtrinsicsBenchmark;
 			impl pallet_xcm::benchmarking::Config for Runtime {
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem,
+					>;
 
 				fn reachable_dest() -> Option<Location> {
-					Some(Parent.into())
+					Some(AssetHubLocation::get())
 				}
 
 				fn teleportable_asset_and_dest() -> Option<(Asset, Location)> {
@@ -1068,9 +1076,9 @@ impl_runtime_apis! {
 					Some((
 						Asset {
 							fun: Fungible(ExistentialDeposit::get()),
-							id: AssetId(Parent.into())
+							id: AssetId(WestendLocation::get())
 						},
-						Parent.into(),
+						AssetHubLocation::get(),
 					))
 				}
 
@@ -1083,8 +1091,8 @@ impl_runtime_apis! {
 				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// BH only supports teleports to system parachain.
 					// Relay/native token can be teleported between BH and Relay.
-					let native_location = Parent.into();
-					let dest = Parent.into();
+					let native_location = WestendLocation::get();
+					let dest = AssetHubLocation::get();
 					pallet_xcm::benchmarking::helpers::native_teleport_as_asset_transfer::<Runtime>(
 						native_location,
 						dest
@@ -1099,26 +1107,18 @@ impl_runtime_apis! {
 				}
 			}
 
-			use xcm::latest::prelude::*;
-			use xcm_config::WestendLocation;
-
-			parameter_types! {
-				pub ExistentialDepositAsset: Option<Asset> = Some((
-					WestendLocation::get(),
-					ExistentialDeposit::get()
-				).into());
-			}
-
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
-				type DeliveryHelper = cumulus_primitives_utility::ToParentDeliveryHelper<
-					xcm_config::XcmConfig,
-					ExistentialDepositAsset,
-					xcm_config::PriceForParentDelivery,
-				>;
+				type DeliveryHelper = polkadot_runtime_common::xcm_sender::ToParachainDeliveryHelper<
+						xcm_config::XcmConfig,
+						ExistentialDepositAsset,
+						PriceForSiblingParachainDelivery,
+						AssetHubParaId,
+						ParachainSystem,
+					>;
 				fn valid_destination() -> Result<Location, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 				fn worst_case_holding(_depositable_count: u32) -> Assets {
 					// just assets according to relay chain.
@@ -1133,8 +1133,8 @@ impl_runtime_apis! {
 			}
 
 			parameter_types! {
-				pub const TrustedTeleporter: Option<(Location, Asset)> = Some((
-					WestendLocation::get(),
+				pub TrustedTeleporter: Option<(Location, Asset)> = Some((
+					AssetHubLocation::get(),
 					Asset { fun: Fungible(UNITS), id: AssetId(WestendLocation::get()) },
 				));
 				pub const CheckedAccount: Option<(AccountId, xcm_builder::MintLocation)> = None;
@@ -1173,25 +1173,25 @@ impl_runtime_apis! {
 				}
 
 				fn transact_origin_and_runtime_call() -> Result<(Location, RuntimeCall), BenchmarkError> {
-					Ok((WestendLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
+					Ok((AssetHubLocation::get(), frame_system::Call::remark_with_event { remark: vec![] }.into()))
 				}
 
 				fn subscribe_origin() -> Result<Location, BenchmarkError> {
-					Ok(WestendLocation::get())
+					Ok(AssetHubLocation::get())
 				}
 
 				fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError> {
-					let origin = WestendLocation::get();
+					let origin = AssetHubLocation::get();
 					let assets: Assets = (AssetId(WestendLocation::get()), 1_000 * UNITS).into();
 					let ticket = Location { parents: 0, interior: Here };
 					Ok((origin, ticket, assets))
 				}
 
-				fn fee_asset() -> Result<Asset, BenchmarkError> {
-					Ok(Asset {
+				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
 						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000_000 * UNITS),
-					})
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}
 
 				fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError> {
@@ -1264,7 +1264,11 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					Err(BenchmarkError::Skip)
+					// Any location can alias to an internal location.
+					// Here parachain 1000 aliases to an internal account.
+					let origin = Location::new(1, [Parachain(1000)]);
+					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
+					Ok((origin, target))
 				}
 			}
 
@@ -1430,6 +1434,12 @@ impl_runtime_apis! {
 			genesis_config_presets::preset_names()
 		}
 	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
@@ -1453,13 +1463,16 @@ mod tests {
 		sp_io::TestExternalities::default().execute_with(|| {
 			frame_system::BlockHash::<Runtime>::insert(BlockNumber::zero(), Hash::default());
 			let payload: TxExtension = (
-				frame_system::CheckNonZeroSender::new(),
-				frame_system::CheckSpecVersion::new(),
-				frame_system::CheckTxVersion::new(),
-				frame_system::CheckGenesis::new(),
-				frame_system::CheckEra::from(Era::Immortal),
-				frame_system::CheckNonce::from(10),
-				frame_system::CheckWeight::new(),
+				(
+					frame_system::AuthorizeCall::<Runtime>::new(),
+					frame_system::CheckNonZeroSender::new(),
+					frame_system::CheckSpecVersion::new(),
+					frame_system::CheckTxVersion::new(),
+					frame_system::CheckGenesis::new(),
+					frame_system::CheckEra::from(Era::Immortal),
+					frame_system::CheckNonce::from(10),
+					frame_system::CheckWeight::new(),
+				),
 				pallet_transaction_payment::ChargeTransactionPayment::from(10),
 				BridgeRejectObsoleteHeadersAndMessages,
 				(

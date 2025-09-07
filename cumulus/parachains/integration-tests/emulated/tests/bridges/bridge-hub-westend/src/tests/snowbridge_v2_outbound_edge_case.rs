@@ -1,9 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use frame_support::assert_noop;
-use snowbridge_core::AssetMetadata;
-use sp_runtime::DispatchError::BadOrigin;
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,7 +12,7 @@ use sp_runtime::DispatchError::BadOrigin;
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 use crate::{
 	imports::*,
 	tests::{
@@ -24,6 +21,10 @@ use crate::{
 		usdt_at_ah_westend,
 	},
 };
+use emulated_integration_tests_common::snowbridge::{SEPOLIA_ID, WETH};
+use frame_support::assert_noop;
+use snowbridge_core::AssetMetadata;
+use sp_runtime::DispatchError::BadOrigin;
 use xcm::v5::AssetTransferFilter;
 
 #[test]
@@ -66,6 +67,7 @@ fn register_penpal_a_asset_from_penpal_b_will_fail() {
 			EthereumSystemFrontendCall::RegisterToken {
 				asset_id: Box::new(VersionedLocation::from(penpal_a_asset_at_asset_hub)),
 				metadata: Default::default(),
+				fee_asset: remote_fee_asset_on_ethereum.clone(),
 			},
 		);
 
@@ -145,7 +147,7 @@ fn export_from_non_system_parachain_will_fail() {
 				WithdrawAsset(relay_fee_asset.clone().into()),
 				BuyExecution { fees: relay_fee_asset.clone(), weight_limit: Unlimited },
 				ExportMessage {
-					network: Ethereum { chain_id: CHAIN_ID },
+					network: Ethereum { chain_id: SEPOLIA_ID },
 					destination: Here,
 					xcm: Xcm(vec![
 						AliasOrigin(penpal_location),
@@ -180,6 +182,9 @@ pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
+		let fees_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				// The owner is Alice, while AssetHubWestendReceiver is Bob, so it should fail
@@ -189,7 +194,8 @@ pub fn register_usdt_not_from_owner_on_asset_hub_will_fail() {
 					name: "usdt".as_bytes().to_vec().try_into().unwrap(),
 					symbol: "usdt".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 6,
-				}
+				},
+				fees_asset
 			),
 			BadOrigin
 		);
@@ -204,6 +210,9 @@ pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
 
+		let fees_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
 		assert_noop!(
 			<AssetHubWestend as AssetHubWestendPallet>::SnowbridgeSystemFrontend::register_token(
 				RuntimeOrigin::signed(AssetHubWestendSender::get()),
@@ -213,6 +222,7 @@ pub fn register_relay_token_from_asset_hub_user_origin_will_fail() {
 					symbol: "wnd".as_bytes().to_vec().try_into().unwrap(),
 					decimals: 12,
 				},
+				fees_asset
 			),
 			BadOrigin
 		);

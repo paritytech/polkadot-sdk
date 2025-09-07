@@ -19,14 +19,17 @@ use super::{
 };
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Everything, Nothing},
+	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
-	ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
+	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
 };
+
+// Re-export
+pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
 
 parameter_types! {
 	pub const WestendLocation: Location = Location::parent();
@@ -38,6 +41,8 @@ parameter_types! {
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
 /// bias the kind of local `Origin` it will become.
 pub type XcmOriginToTransactDispatchOrigin = (
+	// Governance location can gain root.
+	LocationAsSuperuser<Equals<GovernanceLocation>, RuntimeOrigin>,
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain which they control.
@@ -71,7 +76,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = (); // balances not supported
 	type IsTeleporter = (); // balances not supported
 	type UniversalLocation = UniversalLocation;
-	type Barrier = AllowExplicitUnpaidExecutionFrom<JustTheParent>;
+	type Barrier = AllowExplicitUnpaidExecutionFrom<(JustTheParent, Equals<GovernanceLocation>)>;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>; // balances not supported
 	type Trader = (); // balances not supported
 	type ResponseHandler = (); // Don't handle responses for now.

@@ -141,30 +141,36 @@ utilizes [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-chec
 
 Cadence: every 3 months for new `stable` releases and monthly for existing `stables`. Responsible: Release Team.
 
-### Steps to execute a new stable release
+### Steps to execute a new stable binary release
 
 From the main Polkadot-sdk repository in the paritytech org:
 
 1. On the cut-off date, create a new branch with the name `satbleYYMM`
-using [Branch-off stable flow](/.github/workflows/release-10_branchoff-stable.yml)
-2. Create a new rc tag from the stable branch using [RC Automation flow](/.github/workflows/release-11_rc-automation.yml)
+  using combined [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+2. Create a new rc tag from the stable branch using combined
+   [Branch-off stable/tag rc flow](/.github/workflows/release-10_branchoff-stable.yml)
+
+ℹ️ These first two steps can be done all in one if there are no extra actions (like crates release) are needed
+to be done in between.
+In case of a crates release: when it is done, the changes done by the Parity-Publish needs to be revereted and
+merged back to the stable branch via a PR as the direct pushes are restricted. When this is done,
+the new RC tag can be created using the flow from above.
 
 From the forked Polkadot-sdk repository in the [paritytech-release org](https://github.com/paritytech-release/polkadot-sdk/actions):
 
 1. Sync the forks before continuing with the release using
 [Sync the forked repo with the upstream](https://github.com/paritytech-release/polkadot-sdk/actions/workflows/fork-sync-action.yml)
-2. To build binaries trigger [Release - Build node release candidate](/.github/workflows/release-20_build-rc.yml)
-3. When an rc build is ready to trigger [Release - Publish draft](/.github/workflows/release-30_publish_release_draft.yml)
-to create a new release draft for the upcoming rc
+2. To build binaries or testnet runtimes and to create a release draft in the github
+trigger [Release - Combined Builds Flow](/.github/workflows/release-22_combined-rc-runtime-builds-release-draft.yml)
+3. Repeat steps 1 and 2 to prepare a new rc if there are any changes were pushed to release branch
 4. When the release is finalized and ready to go, publish crates using `parity-publish` tool and push changes
 to the release branch
-5. Repeat steps 1-3 to prepare the rc
-6. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
+5. Trigger [Release - Promote RC to final candidate on S3](/.github/workflows/release-31_promote-rc-to-final.yml)
 to have it as a final rc on the S3
-7. Publish deb package for the `polakdot` binary using
-[Release - Publish polakdot deb package](/.github/workflows/release-40_publish-deb-package.yml)
-8. Adjust the release draft and publish release on the GitHub.
-9. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
+6. Publish deb package for the `polkadot` binary using
+[Release - Publish Polkadot deb package](/.github/workflows/release-40_publish-deb-package.yml)
+7. Adjust the release draft and publish release on GitHub.
+8. Publish docker images using [Release - Publish Docker Image](/.github/workflows/release-50_publish-docker.yml)
 
 From the main Polkadot-sdk repository in the paritytech org:
 
@@ -177,17 +183,7 @@ in the repo with the actual release dates.
 
 Cadence: every month. Responsible: Developer
 
-Describes how developers should merge bug and security fixes.
-
-### Steps
-
-1. Developer opens a Pull Request with a bug or security fix.
-2. The Pull Request is marked as priority fix.
-3. Audit happens with priority.
-4. It is merged into `master`.
-5. Dev adds the `A4-needs-backport` label.
-6. It is automatically back-ported to `stable` and merged by a release engineer.
-7. The fix will be released in the next *Stable patch* release. In urgent cases, a release can happen earlier.
+Backporting rules can be found in the [BACKPORT.md](/docs/BACKPORT.md)
 
 The release itself is similar to [the new stable release](#steps-to-execute-a-new-stable-release) process without
 the branching-off step, as the branch already exists and depending on the patch

@@ -25,10 +25,9 @@ harness = false
 [dependencies]
 bip39 = { workspace = true, default-features = false, features = ["alloc"] }
 bitflags = { workspace = true }
-bounded-collections = { workspace = true }
+bounded-collections = { workspace = true, features = ["scale-codec"] }
 bs58 = { optional = true, workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-dyn-clonable = { optional = true, workspace = true }
 futures = { optional = true, workspace = true }
 hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
@@ -60,16 +59,22 @@ libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
-sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
 secp256k1 = { features = ["alloc", "recovery"], optional = true, workspace = true }
 
 # bls crypto
+sha2 = { optional = true, workspace = true }
 w3f-bls = { optional = true, workspace = true }
+
 # bandersnatch crypto
 ark-vrf = { optional = true, workspace = true, features = ["bandersnatch", "ring"] }
+
+[target.'cfg(not(substrate_runtime))'.dependencies]
+sp-externalities = { workspace = true, default-features = false }
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
+dyn-clone = "1.0.17"
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
@@ -86,10 +91,9 @@ std = [
 	"bounded-collections/std",
 	"bs58/std",
 	"codec/std",
-	"dyn-clonable",
 	"ed25519-zebra/std",
 	"full_crypto",
-	"futures",
+	"futures/std",
 	"futures/thread-pool",
 	"hash-db/std",
 	"hash256-std-hasher/std",
@@ -110,10 +114,10 @@ std = [
 	"secp256k1/global-context",
 	"secp256k1/std",
 	"serde/std",
+	"sha2?/std",
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
-	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
@@ -143,13 +147,12 @@ serde = [
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
 	"blake2",
-	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
 # be subject to significant changes.
-bls-experimental = ["w3f-bls"]
+bls-experimental = ["sha2", "w3f-bls"]
 
 # This feature adds Bandersnatch crypto primitives.
 # It should not be used in production since the implementation and interface may still

@@ -144,6 +144,7 @@ pub mod pallet {
 			+ From<Call<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ From<frame_system::Call<Self>>;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight information for extrinsics in this pallet.
@@ -830,6 +831,7 @@ impl<T: Config<I>, I: 'static> Polling<T::Tally> for Pallet<T, I> {
 			in_queue: false,
 			alarm: None,
 		};
+
 		Self::ensure_alarm_at(&mut status, index, sp_runtime::traits::Bounded::max_value());
 		ReferendumInfoFor::<T, I>::insert(index, ReferendumInfo::Ongoing(status));
 		Ok(index)

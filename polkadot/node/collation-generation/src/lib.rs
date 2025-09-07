@@ -25,8 +25,8 @@
 //!   * Determine if the para is scheduled on any core by fetching the `availability_cores` Runtime
 //!     API.
 //!   * Use the Runtime API subsystem to fetch the full validation data.
-//!   * Invoke the `collator`, and use its outputs to produce a [`CandidateReceipt`], signed with
-//!     the configuration's `key`.
+//!   * Invoke the `collator`, and use its outputs to produce a
+//!     [`polkadot_primitives::CandidateReceiptV2`], signed with the configuration's `key`.
 //!   * Dispatch a [`CollatorProtocolMessage::DistributeCollation`]`(receipt, pov)`.
 
 #![deny(missing_docs)]
@@ -44,22 +44,15 @@ use polkadot_node_subsystem::{
 	SubsystemContext, SubsystemError, SubsystemResult, SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	request_claim_queue, request_node_features, request_persisted_validation_data,
-	request_session_index_for_child, request_validation_code_hash, request_validators,
-	runtime::ClaimQueueSnapshot,
+	request_claim_queue, request_persisted_validation_data, request_session_index_for_child,
+	request_validation_code_hash, request_validators, runtime::ClaimQueueSnapshot,
 };
 use polkadot_primitives::{
-	collator_signature_payload,
-	node_features::FeatureIndex,
-	vstaging::{
-		transpose_claim_queue, CandidateDescriptorV2, CandidateReceiptV2 as CandidateReceipt,
-		ClaimQueueOffset, CommittedCandidateReceiptV2, TransposedClaimQueue,
-	},
-	CandidateCommitments, CandidateDescriptor, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	OccupiedCoreAssumption, PersistedValidationData, SessionIndex, ValidationCodeHash,
+	transpose_claim_queue, CandidateCommitments, CandidateDescriptorV2,
+	CommittedCandidateReceiptV2, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	PersistedValidationData, SessionIndex, TransposedClaimQueue, ValidationCodeHash,
 };
 use schnellru::{ByLength, LruMap};
-use sp_core::crypto::Pair;
 use std::{collections::HashSet, sync::Arc};
 
 mod error;
@@ -232,11 +225,9 @@ impl CollationGenerationSubsystem {
 
 		construct_and_distribute_receipt(
 			collation,
-			config.key.clone(),
 			ctx.sender(),
 			result_sender,
 			&mut self.metrics,
-			session_info.v2_receipts,
 			&transpose_claim_queue(claim_queue),
 		)
 		.await?;
@@ -373,11 +364,8 @@ impl CollationGenerationSubsystem {
 					let mut commitments = CandidateCommitments::default();
 					commitments.upward_messages = collation.upward_messages.clone();
 
-					let (cs_index, cq_offset) = match commitments.core_selector() {
-						// Use the CoreSelector's index if provided.
-						Ok(Some((sel, off))) => (sel.0 as usize, off),
-						// Fallback to the sequential index if no CoreSelector is provided.
-						Ok(None) => (i, ClaimQueueOffset(0)),
+					let ump_signals = match commitments.ump_signals() {
+						Ok(signals) => signals,
 						Err(err) => {
 							gum::debug!(
 								target: LOG_TARGET,
@@ -389,9 +377,14 @@ impl CollationGenerationSubsystem {
 						},
 					};
 
+					let (cs_index, cq_offset) = ump_signals
+						.core_selector()
+						.map(|(cs_index, cq_offset)| (cs_index.0 as usize, cq_offset.0 as usize))
+						.unwrap_or((i, 0));
+
 					// Identify the cores to build collations on using the given claim queue offset.
 					let cores_to_build_on = claim_queue
-						.iter_claims_at_depth(cq_offset.0 as usize)
+						.iter_claims_at_depth(cq_offset)
 						.filter_map(|(core_idx, para_id)| {
 							(para_id == task_config.para_id).then_some(core_idx)
 						})
@@ -402,7 +395,7 @@ impl CollationGenerationSubsystem {
 							target: LOG_TARGET,
 							?para_id,
 							"no core is assigned to para at depth {}",
-							cq_offset.0,
+							cq_offset,
 						);
 						return
 					}
@@ -442,11 +435,9 @@ impl CollationGenerationSubsystem {
 							core_index: descriptor_core_index,
 							session_index,
 						},
-						task_config.key.clone(),
 						&mut task_sender,
 						result_sender,
 						&metrics,
-						session_info.v2_receipts,
 						&transposed_claim_queue,
 					)
 					.await
@@ -485,7 +476,6 @@ impl<Context> CollationGenerationSubsystem {
 
 #[derive(Clone)]
 struct PerSessionInfo {
-	v2_receipts: bool,
 	n_validators: usize,
 }
 
@@ -509,16 +499,7 @@ impl SessionInfoCache {
 		let n_validators =
 			request_validators(relay_parent, &mut sender.clone()).await.await??.len();
 
-		let node_features =
-			request_node_features(relay_parent, session_index, sender).await.await??;
-
-		let info = PerSessionInfo {
-			v2_receipts: node_features
-				.get(FeatureIndex::CandidateReceiptV2 as usize)
-				.map(|b| *b)
-				.unwrap_or(false),
-			n_validators,
-		};
+		let info = PerSessionInfo { n_validators };
 		self.0.insert(session_index, info);
 		Ok(self.0.get(&session_index).expect("Just inserted").clone())
 	}
@@ -539,11 +520,9 @@ struct PreparedCollation {
 /// which is distributed to validators.
 async fn construct_and_distribute_receipt(
 	collation: PreparedCollation,
-	key: CollatorPair,
 	sender: &mut impl overseer::CollationGenerationSenderTrait,
 	result_sender: Option<oneshot::Sender<CollationSecondedSignal>>,
 	metrics: &Metrics,
-	v2_receipts: bool,
 	transposed_claim_queue: &TransposedClaimQueue,
 ) -> Result<()> {
 	let PreparedCollation {
@@ -580,14 +559,6 @@ async fn construct_and_distribute_receipt(
 
 	let pov_hash = pov.hash();
 
-	let signature_payload = collator_signature_payload(
-		&relay_parent,
-		&para_id,
-		&persisted_validation_data_hash,
-		&pov_hash,
-		&validation_code_hash,
-	);
-
 	let erasure_root = erasure_root(n_validators, validation_data, pov.clone())?;
 
 	let commitments = CandidateCommitments {
@@ -599,7 +570,7 @@ async fn construct_and_distribute_receipt(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	let receipt = if v2_receipts {
+	let receipt = {
 		let ccr = CommittedCandidateReceiptV2 {
 			descriptor: CandidateDescriptorV2::new(
 				para_id,
@@ -612,38 +583,13 @@ async fn construct_and_distribute_receipt(
 				commitments.head_data.hash(),
 				validation_code_hash,
 			),
-			commitments,
+			commitments: commitments.clone(),
 		};
 
-		ccr.check_core_index(&transposed_claim_queue)
+		ccr.parse_ump_signals(&transposed_claim_queue)
 			.map_err(Error::CandidateReceiptCheck)?;
 
 		ccr.to_plain()
-	} else {
-		if commitments.core_selector().map_err(Error::CandidateReceiptCheck)?.is_some() {
-			gum::warn!(
-				target: LOG_TARGET,
-				?pov_hash,
-				?relay_parent,
-				para_id = %para_id,
-				"Candidate commitments contain UMP signal without v2 receipts being enabled.",
-			);
-		}
-		CandidateReceipt {
-			commitments_hash: commitments.hash(),
-			descriptor: CandidateDescriptor {
-				signature: key.sign(&signature_payload),
-				para_id,
-				relay_parent,
-				collator: key.public(),
-				persisted_validation_data_hash,
-				pov_hash,
-				erasure_root,
-				para_head: commitments.head_data.hash(),
-				validation_code_hash,
-			}
-			.into(),
-		}
 	};
 
 	gum::debug!(
@@ -653,8 +599,15 @@ async fn construct_and_distribute_receipt(
 		?relay_parent,
 		para_id = %para_id,
 		?core_index,
-		"candidate is generated",
+		"Candidate generated",
 	);
+	gum::trace!(
+		target: LOG_TARGET,
+		?commitments,
+		candidate_hash = ?receipt.hash(),
+		"Candidate commitments",
+	);
+
 	metrics.on_collation_generated();
 
 	sender

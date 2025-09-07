@@ -37,17 +37,15 @@ use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterfa
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{ClaimQueueOffset, CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
-use polkadot_primitives::{
-	vstaging::DEFAULT_CLAIM_QUEUE_OFFSET, CollatorPair, Id as ParaId, OccupiedCoreAssumption,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
-use crate::{collator as collator_util, export_pov_to_path};
+use crate::{collator as collator_util, collators::claim_queue_at, export_pov_to_path};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
@@ -220,17 +218,11 @@ where
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.relay_client,
-				ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET),
-			)
-			.await
-			.get(0)
-			{
-				*core_index
-			} else {
+			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
+				.await
+				.iter_claims_at_depth_for_para(0, params.para_id)
+				.next()
+			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
@@ -303,7 +295,7 @@ where
 					relay_slot,
 					timestamp,
 					block_hash,
-					included_block,
+					included_block.hash(),
 					para_client,
 					&keystore,
 				))
@@ -399,7 +391,16 @@ where
 					)
 					.await
 				{
-					Ok(Some((collation, block_data, new_block_hash))) => {
+					Ok(Some((collation, block_data))) => {
+						let Some(new_block_header) =
+							block_data.blocks().first().map(|b| b.header().clone())
+						else {
+							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
+							break
+						};
+
+						let new_block_hash = new_block_header.hash();
+
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
@@ -409,7 +410,7 @@ where
 								export_pov.clone(),
 								collation.proof_of_validity.clone().into_compressed(),
 								new_block_hash,
-								*block_data.header().number(),
+								*new_block_header.number(),
 								parent_header.clone(),
 								*relay_parent_header.state_root(),
 								*relay_parent_header.number(),
@@ -439,7 +440,7 @@ where
 							.await;
 
 						parent_hash = new_block_hash;
-						parent_header = block_data.into_header();
+						parent_header = new_block_header;
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");

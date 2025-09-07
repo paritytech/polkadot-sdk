@@ -9,7 +9,7 @@
 //!
 //! We suggest the following reading sequence:
 //!
-//! - Start by learning about the the [`polkadot_sdk`], its structure and context.
+//! - Start by learning about [`polkadot_sdk`], its structure and context.
 //! - Then, head over to the [`guides`]. This modules contains in-depth guides about the most
 //!   important user-journeys of the Polkadot SDK.
 //! 	- Whilst reading the guides, you might find back-links to [`reference_docs`].

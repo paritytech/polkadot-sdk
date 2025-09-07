@@ -228,6 +228,24 @@ mod imbalances {
 			}
 		}
 	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for NegativeImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_sub(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::BurnedDebt { amount });
+		}
+	}
+
+	impl<T: Config<I>, I: 'static> fungible::HandleImbalanceDrop<T::Balance>
+		for PositiveImbalance<T, I>
+	{
+		fn handle(amount: T::Balance) {
+			<super::TotalIssuance<T, I>>::mutate(|v| *v = v.saturating_add(amount));
+			Pallet::<T, I>::deposit_event(Event::<T, I>::MintedCredit { amount });
+		}
+	}
 }
 
 impl<T: Config<I>, I: 'static> Currency<T::AccountId> for Pallet<T, I>
@@ -379,6 +397,7 @@ where
 
 		let result = match Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _is_new| -> Result<(Self::NegativeImbalance, Self::Balance), DispatchError> {
 				// Best value is the most amount we can slash following liveness rules.
 				let ed = T::ExistentialDeposit::get();
@@ -416,6 +435,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				ensure!(!is_new, Error::<T, I>::DeadAccount);
 				account.free = account.free.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
@@ -441,6 +461,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, is_new| -> Result<Self::PositiveImbalance, DispatchError> {
 				let ed = T::ExistentialDeposit::get();
 				ensure!(value >= ed || !is_new, Error::<T, I>::ExistentialDeposit);
@@ -474,6 +495,7 @@ where
 
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account, _| -> Result<Self::NegativeImbalance, DispatchError> {
 				let new_free_account =
 					account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
@@ -501,6 +523,7 @@ where
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		Self::try_mutate_account_handling_dust(
 			who,
+			false,
 			|account,
 			 is_new|
 			 -> Result<SignedImbalance<Self::Balance, Self::PositiveImbalance>, DispatchError> {
@@ -558,7 +581,7 @@ where
 			return Ok(())
 		}
 
-		Self::try_mutate_account_handling_dust(who, |account, _| -> DispatchResult {
+		Self::try_mutate_account_handling_dust(who, false, |account, _| -> DispatchResult {
 			account.free =
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
@@ -583,7 +606,7 @@ where
 			return value
 		}
 
-		let actual = match Self::mutate_account_handling_dust(who, |account| {
+		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = cmp::min(account.reserved, value);
 			account.reserved -= actual;
 			// defensive only: this can never fail since total issuance which is at least
@@ -622,7 +645,7 @@ where
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
 		//   account is attempted to be illegally destroyed.
 
-		match Self::mutate_account_handling_dust(who, |account| {
+		match Self::mutate_account_handling_dust(who, false, |account| {
 			let actual = value.min(account.reserved);
 			account.reserved.saturating_reduce(actual);
 

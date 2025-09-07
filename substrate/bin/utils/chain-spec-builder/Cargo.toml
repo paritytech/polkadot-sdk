@@ -38,6 +38,7 @@ sp-tracing = { workspace = true, default-features = true }
 [dev-dependencies]
 cmd_lib = { workspace = true }
 docify = { workspace = true }
+pretty_assertions = { workspace = true }
 substrate-test-runtime = { workspace = true }
 
 [features]

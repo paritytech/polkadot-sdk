@@ -129,6 +129,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	traits::{
+		fungible::{hold::Mutate as HoldMutate, Inspect, Mutate},
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
 		OneSessionHandler, ValidatorRegistration, ValidatorSet,
 	},
@@ -403,6 +404,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A stable ID for a validator.
@@ -413,6 +415,10 @@ pub mod pallet {
 			+ TryFrom<Self::AccountId>;
 
 		/// A conversion from account ID to validator ID.
+		///
+		/// It is also a means to check that an account id is eligible to set session keys, through
+		/// being associated with a validator id. To disable this check, use
+		/// [`sp_runtime::traits::ConvertInto`].
 		///
 		/// Its cost must be at most one storage read.
 		type ValidatorIdOf: Convert<Self::AccountId, Option<Self::ValidatorId>>;
@@ -439,6 +445,16 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// The currency type for placing holds when setting keys.
+		type Currency: Mutate<Self::AccountId>
+			+ HoldMutate<Self::AccountId, Reason: From<HoldReason>>;
+
+		/// The amount to be held when setting keys.
+		#[pallet::constant]
+		type KeyDeposit: Get<
+			<<Self as Config>::Currency as Inspect<<Self as frame_system::Config>::AccountId>>::Balance,
+		>;
 	}
 
 	#[pallet::genesis_config]
@@ -515,6 +531,14 @@ pub mod pallet {
 		}
 	}
 
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		// Funds are held when settings keys
+		#[codec(index = 0)]
+		Keys,
+	}
+
 	/// The current set of validators.
 	#[pallet::storage]
 	pub type Validators<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
@@ -557,6 +581,9 @@ pub mod pallet {
 		/// New session has happened. Note that the argument is the session index, not the
 		/// block number as the type might suggest.
 		NewSession { session_index: SessionIndex },
+		/// The `NewSession` event in the current block also implies a new validator set to be
+		/// queued.
+		NewQueued,
 		/// Validator has been disabled.
 		ValidatorDisabled { validator: T::ValidatorId },
 		/// Validator has been re-enabled.
@@ -641,6 +668,25 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl<T: Config> Pallet<T> {
+		/// Mint enough funds into `who`, such that they can pay the session key setting deposit.
+		///
+		/// Meant to be used if any pallet's benchmarking code wishes to set session keys, and wants
+		/// to make sure it will succeed.
+		pub fn ensure_can_pay_key_deposit(who: &T::AccountId) -> Result<(), DispatchError> {
+			use frame_support::traits::tokens::{Fortitude, Preservation};
+			let deposit = T::KeyDeposit::get();
+			let has = T::Currency::reducible_balance(who, Preservation::Protect, Fortitude::Force);
+			if let Some(deficit) = deposit.checked_sub(&has) {
+				T::Currency::mint_into(who, deficit.max(T::Currency::minimum_balance()))
+					.map(|_inc| ())
+			} else {
+				Ok(())
+			}
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -685,7 +731,7 @@ impl<T: Config> Pallet<T> {
 		if changed {
 			log!(trace, "resetting disabled validators");
 			// reset disabled validators if active set was changed
-			DisabledValidators::<T>::take();
+			DisabledValidators::<T>::kill();
 		}
 
 		// Increment session index.
@@ -707,6 +753,7 @@ impl<T: Config> Pallet<T> {
 				// NOTE: as per the documentation on `OnSessionEnding`, we consider
 				// the validator set as having changed even if the validators are the
 				// same as before, as underlying economic conditions may have changed.
+				Self::deposit_event(Event::<T>::NewQueued);
 				(validators, true)
 			} else {
 				(Validators::<T>::get(), false)
@@ -732,14 +779,19 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			};
-			let queued_amalgamated = next_validators
-				.into_iter()
-				.filter_map(|a| {
-					let k = Self::load_keys(&a)?;
-					check_next_changed(&k);
-					Some((a, k))
-				})
-				.collect::<Vec<_>>();
+			let queued_amalgamated =
+				next_validators
+					.into_iter()
+					.filter_map(|a| {
+						let k =
+							Self::load_keys(&a).or_else(|| {
+								log!(warn, "failed to load session key for {:?}, skipping for next session, maybe you need to set session keys for them?", a);
+								None
+							})?;
+						check_next_changed(&k);
+						Some((a, k))
+					})
+					.collect::<Vec<_>>();
 
 			(queued_amalgamated, changed)
 		};
@@ -813,8 +865,17 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
 		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+
 		let old_keys = Self::inner_set_keys(&who, keys)?;
+
+		// Place deposit on hold if this is a new registration (i.e. old_keys is None).
+		// The hold call itself will return an error if funds are insufficient.
 		if old_keys.is_none() {
+			let deposit = T::KeyDeposit::get();
+			if !deposit.is_zero() {
+				T::Currency::hold(&HoldReason::Keys.into(), account, deposit)?;
+			}
+
 			let assertion = frame_system::Pallet::<T>::inc_consumers(account).is_ok();
 			debug_assert!(assertion, "can_inc_consumer() returned true; no change since; qed");
 		}
@@ -875,12 +936,20 @@ impl<T: Config> Pallet<T> {
 			let key_data = old_keys.get_raw(*id);
 			Self::clear_key_owner(*id, key_data);
 		}
+
+		// Use release_all to handle the case where the exact amount might not be available
+		let _ = T::Currency::release_all(
+			&HoldReason::Keys.into(),
+			account,
+			frame_support::traits::tokens::Precision::BestEffort,
+		);
+
 		frame_system::Pallet::<T>::dec_consumers(account);
 
 		Ok(())
 	}
 
-	fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
+	pub fn load_keys(v: &T::ValidatorId) -> Option<T::Keys> {
 		NextKeys::<T>::get(v)
 	}
 
@@ -936,7 +1005,7 @@ impl<T: Config> Pallet<T> {
 				Err(index) => {
 					log!(trace, "disabling validator {:?}", i);
 					Self::deposit_event(Event::ValidatorDisabled {
-						validator: Validators::<T>::get()[index as usize].clone(),
+						validator: Validators::<T>::get()[i as usize].clone(),
 					});
 					disabled.insert(index, (i, severity));
 					T::SessionHandler::on_disabled(i);
@@ -953,19 +1022,6 @@ impl<T: Config> Pallet<T> {
 		Self::disable_index_with_severity(i, default_severity)
 	}
 
-	/// Disable the validator identified by `c`. (If using with the staking pallet,
-	/// this would be their *stash* account.)
-	///
-	/// Returns `false` either if the validator could not be found or it was already
-	/// disabled.
-	pub fn disable(c: &T::ValidatorId) -> bool {
-		Validators::<T>::get()
-			.iter()
-			.position(|i| i == c)
-			.map(|i| Self::disable_index(i as u32))
-			.unwrap_or(false)
-	}
-
 	/// Re-enable the validator of index `i`, returns `false` if the validator was not disabled.
 	pub fn reenable_index(i: u32) -> bool {
 		if i >= Validators::<T>::decode_len().defensive_unwrap_or(0) as u32 {
@@ -976,7 +1032,7 @@ impl<T: Config> Pallet<T> {
 			if let Ok(index) = disabled.binary_search_by_key(&i, |(index, _)| *index) {
 				log!(trace, "reenabling validator {:?}", i);
 				Self::deposit_event(Event::ValidatorReenabled {
-					validator: Validators::<T>::get()[index as usize].clone(),
+					validator: Validators::<T>::get()[i as usize].clone(),
 				});
 				disabled.remove(index);
 				return true;
@@ -994,9 +1050,15 @@ impl<T: Config> Pallet<T> {
 	/// Report an offence for the given validator and let disabling strategy decide
 	/// what changes to disabled validators should be made.
 	pub fn report_offence(validator: T::ValidatorId, severity: OffenceSeverity) {
-		log!(trace, "reporting offence for {:?} with {:?}", validator, severity);
 		let decision =
 			T::DisablingStrategy::decision(&validator, severity, &DisabledValidators::<T>::get());
+		log!(
+			debug,
+			"reporting offence for {:?} with {:?}, decision: {:?}",
+			validator,
+			severity,
+			decision
+		);
 
 		// Disable
 		if let Some(offender_idx) = decision.disable {

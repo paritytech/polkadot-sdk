@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-trait = { workspace = true, optional = true }
 bitvec = { features = ["alloc"], workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
@@ -30,6 +31,10 @@ polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio-util = { workspace = true }
+# This should have really been a dev-dependency but clippy is complaining that it's not used with
+# experimental-collator-protocol disabled, while the rust compiler claims that having optional
+# dev-dependencies is not possible.
+tokio = { features = ["macros"], workspace = true, default-features = true, optional = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -47,4 +52,4 @@ polkadot-primitives-test-helpers = { workspace = true }
 
 [features]
 default = []
-experimental-collator-protocol = []
+experimental-collator-protocol = ["async-trait", "tokio"]

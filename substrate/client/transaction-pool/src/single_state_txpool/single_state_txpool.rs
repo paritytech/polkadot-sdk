@@ -27,10 +27,13 @@ use crate::{
 	common::{
 		enactment_state::{EnactmentAction, EnactmentState},
 		error,
-		log_xt::log_xt_trace,
+		tracing_log_xt::log_xt_trace,
 	},
-	graph::{self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator},
-	ReadyIteratorFor, LOG_TARGET,
+	graph::{
+		self, base_pool::TimedTransactionSource, EventHandler, ExtrinsicHash, IsValidator,
+		RawExtrinsicFor,
+	},
+	ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
 };
 use async_trait::async_trait;
 use futures::{channel::oneshot, future, prelude::*, Future, FutureExt};
@@ -48,7 +51,7 @@ use sp_runtime::{
 	traits::{
 		AtLeast32Bit, Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion, Zero,
 	},
-	transaction_validity::TransactionValidityError,
+	transaction_validity::{TransactionTag as Tag, TransactionValidityError},
 };
 use std::{
 	collections::{HashMap, HashSet},
@@ -57,6 +60,7 @@ use std::{
 	time::Instant,
 };
 use tokio::select;
+use tracing::{trace, warn};
 
 /// Basic implementation of transaction pool that can be customized by providing PoolApi.
 pub struct BasicPool<PoolApi, Block>
@@ -96,7 +100,11 @@ impl<T, Block: BlockT> ReadyPoll<T, Block> {
 		while idx < self.pollers.len() {
 			if self.pollers[idx].0 <= number {
 				let poller_sender = self.pollers.swap_remove(idx);
-				log::trace!(target: LOG_TARGET, "Sending ready signal at block {}", number);
+				trace!(
+					target: LOG_TARGET,
+					?number,
+					"Sending ready signal."
+				);
 				let _ = poller_sender.1.send(iterator_factory());
 			} else {
 				idx += 1;
@@ -278,7 +286,7 @@ where
 		let number = self.api.resolve_block_number(at);
 		let at = HashAndNumber { hash: at, number: number? };
 		Ok(pool
-			.submit_at(&at, xts)
+			.submit_at(&at, xts, ValidateTransactionPriority::Submitted)
 			.await
 			.into_iter()
 			.map(|result| result.map(|outcome| outcome.hash()))
@@ -326,7 +334,7 @@ where
 		.map(|mut outcome| outcome.expect_watcher().into_stream().boxed())
 	}
 
-	fn report_invalid(
+	async fn report_invalid(
 		&self,
 		_at: Option<<Self::Block as BlockT>::Hash>,
 		invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
@@ -373,14 +381,18 @@ where
 		}
 
 		if self.ready_poll.lock().updated_at() >= at {
-			log::trace!(target: LOG_TARGET, "Transaction pool already processed block  #{}", at);
+			trace!(
+				target: LOG_TARGET,
+				?at,
+				"Transaction pool already processed block."
+			);
 			let iterator: ReadyIteratorFor<PoolApi> = Box::new(self.pool.validated_pool().ready());
 			return iterator
 		}
 
 		let result = self.ready_poll.lock().add(at).map(|received| {
-			received.unwrap_or_else(|e| {
-				log::warn!(target: LOG_TARGET, "Error receiving pending set: {:?}", e);
+			received.unwrap_or_else(|error| {
+				warn!(target: LOG_TARGET,  ?error, "Error receiving pending set.");
 				Box::new(std::iter::empty())
 			})
 		});
@@ -582,7 +594,7 @@ impl<N: Clone + Copy + AtLeast32Bit> RevalidationStatus<N> {
 	}
 }
 
-/// Prune the known txs for the given block.
+/// Prune the known txs from the given pool for the given block.
 ///
 /// Returns the hashes of all transactions included in given block.
 pub async fn prune_known_txs_for_block<
@@ -593,33 +605,38 @@ pub async fn prune_known_txs_for_block<
 	at: &HashAndNumber<Block>,
 	api: &Api,
 	pool: &graph::Pool<Api, L>,
+	extrinsics: Option<Vec<RawExtrinsicFor<Api>>>,
+	known_provides_tags: Option<Arc<HashMap<ExtrinsicHash<Api>, Vec<Tag>>>>,
 ) -> Vec<ExtrinsicHash<Api>> {
-	let extrinsics = api
-		.block_body(at.hash)
-		.await
-		.unwrap_or_else(|e| {
-			log::warn!(target: LOG_TARGET, "Prune known transactions: error request: {}", e);
-			None
-		})
-		.unwrap_or_default();
+	let extrinsics = match extrinsics {
+		Some(xts) => xts,
+		None => api
+			.block_body(at.hash)
+			.await
+			.unwrap_or_else(|error| {
+				warn!(target: LOG_TARGET, ?error, "Prune known transactions: error request.");
+				None
+			})
+			.unwrap_or_default(),
+	};
 
 	let hashes = extrinsics.iter().map(|tx| pool.hash_of(tx)).collect::<Vec<_>>();
 
 	let header = match api.block_header(at.hash) {
 		Ok(Some(h)) => h,
 		Ok(None) => {
-			log::trace!(target: LOG_TARGET, "Could not find header for {:?}.", at.hash);
+			trace!(target: LOG_TARGET, hash = ?at.hash, "Could not find header.");
 			return hashes
 		},
-		Err(e) => {
-			log::trace!(target: LOG_TARGET, "Error retrieving header for {:?}: {}", at.hash, e);
+		Err(error) => {
+			trace!(target: LOG_TARGET, hash = ?at.hash,  ?error, "Error retrieving header.");
 			return hashes
 		},
 	};
 
-	log_xt_trace!(target: LOG_TARGET, &hashes, "[{:?}] Pruning transaction.");
+	log_xt_trace!(target: LOG_TARGET, &hashes, "Pruning transaction.");
 
-	pool.prune(at, *header.parent_hash(), &extrinsics).await;
+	pool.prune(at, *header.parent_hash(), &extrinsics, known_provides_tags).await;
 	hashes
 }
 
@@ -632,18 +649,14 @@ where
 	/// (that have already been enacted) and resubmits transactions that were
 	/// retracted.
 	async fn handle_enactment(&self, tree_route: TreeRoute<Block>) {
-		log::trace!(target: LOG_TARGET, "handle_enactment tree_route: {tree_route:?}");
+		trace!(target: LOG_TARGET, ?tree_route, "handle_enactment tree_route.");
 		let pool = self.pool.clone();
 		let api = self.api.clone();
 
 		let hash_and_number = match tree_route.last() {
 			Some(hash_and_number) => hash_and_number,
 			None => {
-				log::warn!(
-					target: LOG_TARGET,
-					"Skipping ChainEvent - no last block in tree route {:?}",
-					tree_route,
-				);
+				warn!(target: LOG_TARGET, ?tree_route, "Skipping ChainEvent - no last block in tree route.");
 				return
 			},
 		};
@@ -669,7 +682,10 @@ where
 		}
 
 		future::join_all(
-			tree_route.enacted().iter().map(|h| prune_known_txs_for_block(h, &*api, &*pool)),
+			tree_route
+				.enacted()
+				.iter()
+				.map(|h| prune_known_txs_for_block(h, &*api, &*pool, None, None)),
 		)
 		.await
 		.into_iter()
@@ -689,8 +705,8 @@ where
 				let block_transactions = api
 					.block_body(hash)
 					.await
-					.unwrap_or_else(|e| {
-						log::warn!(target: LOG_TARGET, "Failed to fetch block body: {}", e);
+					.unwrap_or_else(|error| {
+						warn!(target: LOG_TARGET, ?error, "Failed to fetch block body.");
 						None
 					})
 					.unwrap_or_default()
@@ -708,12 +724,7 @@ where
 						resubmitted_to_report += 1;
 
 						if !contains {
-							log::trace!(
-								target: LOG_TARGET,
-								"[{:?}]: Resubmitting from retracted block {:?}",
-								tx_hash,
-								hash,
-							);
+							trace!(target: LOG_TARGET, ?tx_hash, ?hash, "Resubmitting from retracted block.");
 							Some((
 								// These transactions are coming from retracted blocks, we should
 								// simply consider them external.
@@ -731,7 +742,12 @@ where
 				});
 			}
 
-			pool.resubmit_at(&hash_and_number, resubmit_transactions).await;
+			pool.resubmit_at(
+				&hash_and_number,
+				resubmit_transactions,
+				ValidateTransactionPriority::Submitted,
+			)
+			.await;
 		}
 
 		let extra_pool = pool.clone();
@@ -776,8 +792,8 @@ where
 				.update(&event, &compute_tree_route, &block_id_to_number);
 
 		match result {
-			Err(msg) => {
-				log::trace!(target: LOG_TARGET, "{msg}");
+			Err(error) => {
+				trace!(target: LOG_TARGET, %error, "enactment state update");
 				self.enactment_state.lock().force_update(&event);
 			},
 			Ok(EnactmentAction::Skip) => return,
@@ -788,19 +804,21 @@ where
 		};
 
 		if let ChainEvent::Finalized { hash, tree_route } = event {
-			log::trace!(
+			trace!(
 				target: LOG_TARGET,
-				"on-finalized enacted: {tree_route:?}, previously finalized: \
-				{prev_finalized_block:?}",
+				?tree_route,
+				?prev_finalized_block,
+				"on-finalized enacted"
 			);
 
 			for hash in tree_route.iter().chain(std::iter::once(&hash)) {
-				if let Err(e) = self.pool.validated_pool().on_block_finalized(*hash).await {
-					log::warn!(
+				if let Err(error) = self.pool.validated_pool().on_block_finalized(*hash).await {
+					warn!(
 						target: LOG_TARGET,
-						"Error occurred while attempting to notify watchers about finalization {}: {}",
-						hash, e
-					)
+						?hash,
+						?error,
+						"Error occurred while attempting to notify watchers about finalization"
+					);
 				}
 			}
 		}

@@ -22,8 +22,8 @@
 #![warn(unused_extern_crates)]
 
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, run, runtime::DefaultRuntimeResolver, CliConfig as CliConfigT,
-	RunConfig, NODE_VERSION,
+	chain_spec::DiskChainSpecLoader, extra_subcommand::NoExtraSubcommand, run_with_custom_cli,
+	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
 
 struct CliConfig;
@@ -49,7 +49,6 @@ impl CliConfigT for CliConfig {
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
-
 	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
-	Ok(run::<CliConfig>(config)?)
+	Ok(run_with_custom_cli::<CliConfig, NoExtraSubcommand>(config)?)
 }

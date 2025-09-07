@@ -49,17 +49,13 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_babe::{self, ParentBlockRandomness};
 use polkadot_primitives::{
-	effective_minimum_backing_votes,
-	node_features::FeatureIndex,
-	vstaging::{
-		BackedCandidate, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt,
-		InherentData as ParachainsInherentData, ScrapedOnChainVotes,
-	},
-	CandidateHash, CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex,
-	DisputeStatementSet, HeadData, MultiDisputeStatementSet, SessionIndex,
-	SignedAvailabilityBitfields, SigningContext, UncheckedSignedAvailabilityBitfield,
-	UncheckedSignedAvailabilityBitfields, ValidatorId, ValidatorIndex, ValidityAttestation,
-	PARACHAINS_INHERENT_IDENTIFIER,
+	effective_minimum_backing_votes, node_features::FeatureIndex, BackedCandidate,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CheckedDisputeStatementSet, CheckedMultiDisputeStatementSet, CoreIndex, DisputeStatementSet,
+	HeadData, InherentData as ParachainsInherentData, MultiDisputeStatementSet,
+	ScrapedOnChainVotes, SessionIndex, SignedAvailabilityBitfields, SigningContext,
+	UncheckedSignedAvailabilityBitfield, UncheckedSignedAvailabilityBitfields, ValidatorId,
+	ValidatorIndex, ValidityAttestation, PARACHAINS_INHERENT_IDENTIFIER,
 };
 use rand::{seq::SliceRandom, SeedableRng};
 use scale_info::TypeInfo;
@@ -981,13 +977,21 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 	allowed_relay_parents: &AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>,
 	allow_v2_receipts: bool,
 ) -> bool {
-	if candidate.descriptor().version() == CandidateDescriptorVersion::V1 {
-		return true
+	let descriptor_version = candidate.descriptor().version();
+
+	if descriptor_version == CandidateDescriptorVersion::Unknown {
+		log::debug!(
+			target: LOG_TARGET,
+			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
 	}
 
 	// It is mandatory to filter these before calling `filter_unchained_candidates` to ensure
-	// any v1 descendants of v2 candidates are dropped.
-	if !allow_v2_receipts {
+	// any we drop any descendants of the dropped v2 candidates.
+	if descriptor_version == CandidateDescriptorVersion::V2 && !allow_v2_receipts {
 		log::debug!(
 			target: LOG_TARGET,
 			"V2 candidate descriptors not allowed. Dropping candidate {:?} for paraid {:?}.",
@@ -995,6 +999,35 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 			candidate.descriptor().para_id()
 		);
 		return false
+	}
+
+	// Get the claim queue snapshot at the candidate relay parent.
+	let Some((rp_info, _)) =
+		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
+	else {
+		log::debug!(
+			target: LOG_TARGET,
+			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
+			candidate.descriptor().relay_parent(),
+			candidate.candidate().hash(),
+		);
+		return false
+	};
+
+	if let Err(err) = candidate.candidate().parse_ump_signals(&rp_info.claim_queue) {
+		log::debug!(
+			target: LOG_TARGET,
+			"UMP signal check failed: {:?}. Dropping candidate {:?} for paraid {:?}.",
+			err,
+			candidate.candidate().hash(),
+			candidate.descriptor().para_id()
+		);
+		return false
+	}
+
+	if descriptor_version == CandidateDescriptorVersion::V1 {
+		// Nothing more to check for v1 descriptors.
+		return true
 	}
 
 	let Some(session_index) = candidate.descriptor().session_index() else {
@@ -1020,31 +1053,6 @@ fn sanitize_backed_candidate_v2<T: crate::inclusion::Config>(
 		return false
 	}
 
-	// Get the claim queue snapshot at the candidate relay parent.
-	let Some((rp_info, _)) =
-		allowed_relay_parents.acquire_info(candidate.descriptor().relay_parent(), None)
-	else {
-		log::debug!(
-			target: LOG_TARGET,
-			"Relay parent {:?} for candidate {:?} is not in the allowed relay parents.",
-			candidate.descriptor().relay_parent(),
-			candidate.candidate().hash(),
-		);
-		return false
-	};
-
-	// Check validity of `core_index`.
-	if let Err(err) = candidate.candidate().check_core_index(&rp_info.claim_queue) {
-		log::debug!(
-			target: LOG_TARGET,
-			"Dropping candidate {:?} for paraid {:?}, {:?}",
-			candidate.candidate().hash(),
-			candidate.descriptor().para_id(),
-			err,
-		);
-
-		return false
-	}
 	true
 }
 
@@ -1316,15 +1324,23 @@ fn filter_backed_statements_from_disabled_validators<
 		// The indices of statements from disabled validators in `BackedCandidate`. We have to drop
 		// these.
 		let indices_to_drop = disabled_indices.clone() & &validator_indices;
+
+		// Remove the corresponding votes from `validity_votes`
+		for idx in indices_to_drop.iter_ones().rev() {
+			// Map the index in `indices_to_drop` (which is an index into the validator group)
+			// to the index in the validity votes vector, which might have less number of votes,
+			// than validators assigned to the group.
+			//
+			// For each index `idx` in `indices_to_drop`, the corresponding index in the
+			// validity votes vector is the number of `1` bits in `validator_indices` before `idx`.
+			let mapped_idx = validator_indices[..idx].count_ones();
+			bc.validity_votes_mut().remove(mapped_idx);
+		}
+
 		// Apply the bitmask to drop the disabled validator from `validator_indices`
 		validator_indices &= !disabled_indices;
 		// Update the backed candidate
 		bc.set_validator_indices_and_core_index(validator_indices, maybe_injected_core_index);
-
-		// Remove the corresponding votes from `validity_votes`
-		for idx in indices_to_drop.iter_ones().rev() {
-			bc.validity_votes_mut().remove(idx);
-		}
 
 		// By filtering votes we might render the candidate invalid and cause a failure in
 		// [`process_candidates`]. To avoid this we have to perform a sanity check here. If there

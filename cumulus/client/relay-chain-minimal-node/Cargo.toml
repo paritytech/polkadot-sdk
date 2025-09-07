@@ -38,11 +38,13 @@ sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 # cumulus deps
+cumulus-client-bootnodes = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-rpc-interface = { workspace = true, default-features = true }
 
 array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 tracing = { workspace = true, default-features = true }

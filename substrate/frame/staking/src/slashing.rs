@@ -57,6 +57,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
+	pallet_prelude::DecodeWithMemTracking,
 	traits::{Defensive, DefensiveSaturating, Imbalance, OnUnbalanced},
 };
 use scale_info::TypeInfo;
@@ -74,12 +75,11 @@ const REWARD_F1: Perbill = Perbill::from_percent(50);
 pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
-#[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) struct SlashingSpan {
-	pub(crate) index: SpanIndex,
-	pub(crate) start: EraIndex,
-	pub(crate) length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
+#[derive(Encode, Decode, Clone, TypeInfo, RuntimeDebug, PartialEq, Eq)]
+pub struct SlashingSpan {
+	pub index: SpanIndex,
+	pub start: EraIndex,
+	pub length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
 }
 
 impl SlashingSpan {
@@ -89,18 +89,18 @@ impl SlashingSpan {
 }
 
 /// An encoding of all of a nominator's slashing spans.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, TypeInfo, RuntimeDebug, PartialEq, Eq)]
 pub struct SlashingSpans {
 	// the index of the current slashing span of the nominator. different for
 	// every stash, resets when the account hits free balance 0.
-	span_index: SpanIndex,
+	pub span_index: SpanIndex,
 	// the start era of the most recent (ongoing) slashing span.
-	last_start: EraIndex,
+	pub last_start: EraIndex,
 	// the last era at which a non-zero slash occurred.
-	last_nonzero_slash: EraIndex,
+	pub last_nonzero_slash: EraIndex,
 	// all prior slashing spans' start indices, in reverse order (most recent first)
 	// encoded as offsets relative to the slashing span after it.
-	prior: Vec<EraIndex>,
+	pub prior: Vec<EraIndex>,
 }
 
 impl SlashingSpans {
@@ -187,10 +187,21 @@ impl SlashingSpans {
 }
 
 /// A slashing-span record for a particular stash.
-#[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
-pub(crate) struct SpanRecord<Balance> {
-	slashed: Balance,
-	paid_out: Balance,
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Default,
+	TypeInfo,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	RuntimeDebug,
+)]
+pub struct SpanRecord<Balance> {
+	pub slashed: Balance,
+	pub paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {

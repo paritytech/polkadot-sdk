@@ -34,6 +34,7 @@ pallet-staking-reward-curve = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+sp-staking = { workspace = true }
 
 [features]
 default = ["std"]
@@ -47,6 +48,7 @@ std = [
 	"rand/std",
 	"sp-runtime/std",
 	"sp-session/std",
+	"sp-staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -54,7 +56,9 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]

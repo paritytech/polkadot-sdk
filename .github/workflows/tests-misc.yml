@@ -64,9 +64,9 @@ jobs:
       - name: script
         run: |
           cd substrate/frame/examples/offchain-worker/
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
           cd ../basic
-          forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
+          RUSTFLAGS="--cfg substrate_runtime" forklift cargo build --locked --target=wasm32-unknown-unknown --no-default-features
 
   test-frame-ui:
     timeout-minutes: 60
@@ -140,7 +140,10 @@ jobs:
           ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
 
       - name: script
+        shell: bash
         run: |
+          # Fail the step if any command in a pipeline errors out.
+          set -euo pipefail 
           ARTIFACTS_DIR=./artifacts
           BENCH_TRIE_READ=::trie::read::small
           BENCH_NODE_IMPORT=::node::import::sr25519::transfer_keep_alive::paritydb::small
@@ -359,7 +362,7 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@1ccc07ccd54b6048295516a3eb89b192c35057dc # master from 12.09.2024
       - name: Install rust ${{ env.RUST_VERSION }}
-        uses: actions-rust-lang/setup-rust-toolchain@9399c7bb15d4c7d47b27263d024f0a4978346ba4 # v1.11.0
+        uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
         with:
           cache: false
           toolchain: ${{ env.RUST_VERSION }}
@@ -367,6 +370,21 @@ jobs:
           components: cargo, clippy, rust-docs, rust-src, rustfmt, rustc, rust-std
       - name: Install protobuf
         run: brew install protobuf
+      - name: install solc
+        run: brew install solidity
+      - name: Install resolc
+        run: |
+          VERSION="0.3.0"
+          ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
+          echo "Downloading resolc v$VERSION from $ASSET_URL"
+          curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
+          chmod +x $HOME/.cargo/bin/resolc
+          xattr -c $HOME/.cargo/bin/resolc
+          resolc --version
+      - name: Install llvm
+        run: |
+          brew install llvm@20
+          brew link llvm@20
       - name: cargo info
         run: |
           echo "######## rustup show ########"
@@ -403,3 +421,4 @@ jobs:
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
+

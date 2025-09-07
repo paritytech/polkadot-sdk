@@ -19,20 +19,23 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["from", "try_into"] }
 environmental = { workspace = true }
+ethereum-standards = { workspace = true }
 ethereum-types = { workspace = true, features = ["codec", "rlp", "serialize"] }
 hex-literal = { workspace = true }
+humantime-serde = { optional = true, workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 num-bigint = { workspace = true }
 num-integer = { workspace = true }
 num-traits = { workspace = true }
 paste = { workspace = true }
-polkavm = { version = "0.21.0", default-features = false }
-polkavm-common = { version = "0.21.0", default-features = false, optional = true }
+polkavm = { version = "0.27.0", default-features = false }
+polkavm-common = { version = "0.27.0", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
+revm = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
@@ -56,8 +59,6 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 subxt-signer = { workspace = true, optional = true, features = ["unstable-eth"] }
-xcm = { workspace = true }
-xcm-builder = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -74,7 +75,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 pallet-utility = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
-xcm-builder = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -86,6 +86,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"humantime-serde",
 	"log/std",
 	"num-bigint/std",
 	"num-integer/std",
@@ -95,9 +96,10 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
-	"polkavm-common?/std",
+	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
+	"revm/std",
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
@@ -114,8 +116,6 @@ std = [
 	"sp-keystore/std",
 	"sp-runtime/std",
 	"subxt-signer",
-	"xcm-builder/std",
-	"xcm/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -127,15 +127,12 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"polkavm-common/alloc",
 	"rand",
 	"rand_pcg",
 	"sp-consensus-aura",
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

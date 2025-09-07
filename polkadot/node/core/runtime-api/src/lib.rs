@@ -191,6 +191,9 @@ where
 				.cache_scheduling_lookahead(session_index, scheduling_lookahead),
 			ValidationCodeBombLimit(session_index, limit) =>
 				self.requests_cache.cache_validation_code_bomb_limit(session_index, limit),
+			ParaIds(session_index, para_ids) => {
+				self.requests_cache.cache_para_ids(session_index, para_ids);
+			},
 		}
 	}
 
@@ -366,6 +369,15 @@ where
 					None
 				} else {
 					Some(Request::ValidationCodeBombLimit(index, sender))
+				}
+			},
+			Request::ParaIds(index, sender) => {
+				if let Some(value) = self.requests_cache.para_ids(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::ParaIds(index, sender))
 				}
 			},
 		}
@@ -699,6 +711,13 @@ where
 			ValidationCodeBombLimit,
 			validation_code_bomb_limit(),
 			ver = Request::VALIDATION_CODE_BOMB_LIMIT_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::ParaIds(index, sender) => query!(
+			ParaIds,
+			para_ids(),
+			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
 		),

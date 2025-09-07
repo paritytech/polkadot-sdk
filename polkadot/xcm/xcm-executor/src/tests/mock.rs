@@ -44,7 +44,9 @@ pub fn instantiate_executor(
 ) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
-	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone(), Weight::MAX)
+		.unwrap()
+		.weight_of();
 	vm.message_weight = weight;
 	(vm, weight)
 }
@@ -54,6 +56,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
@@ -87,11 +91,11 @@ impl GetDispatchInfo for TestCall {
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
 impl<C> WeightBounds<C> for TestWeigher {
-	fn weight(_message: &mut Xcm<C>) -> Result<Weight, ()> {
+	fn weight(_message: &mut Xcm<C>, _weight_limit: Weight) -> Result<Weight, InstructionError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 
-	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 }
@@ -130,6 +134,14 @@ impl TransactAsset for TestAssetTransactor {
 		who: &Location,
 		_context: Option<&XcmContext>,
 	) -> Result<(), XcmError> {
+		if let Fungibility::Fungible(amount) = what.fun {
+			// fail if below the configured existential deposit
+			if amount < ExistentialDeposit::get() {
+				return Err(XcmError::FailedToTransactAsset(
+					sp_runtime::TokenError::BelowMinimum.into(),
+				));
+			}
+		}
 		add_asset(who.clone(), what.clone());
 		Ok(())
 	}

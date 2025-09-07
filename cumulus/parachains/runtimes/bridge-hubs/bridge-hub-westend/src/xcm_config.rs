@@ -19,7 +19,7 @@ use super::{
 	ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason,
 	RuntimeOrigin, TransactionByteFee, WeightToFee, XcmOverBridgeHubRococo, XcmpQueue,
 };
-use crate::bridge_to_ethereum_config::{AssetHubLocation, SnowbridgeFrontendLocation};
+use crate::bridge_to_ethereum_config::SnowbridgeFrontendLocation;
 use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
 	parameter_types,
@@ -40,26 +40,27 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use snowbridge_runtime_common::XcmExportFeeToSibling;
 use sp_runtime::traits::AccountIdConversion;
-use sp_std::marker::PhantomData;
-use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
+use testnet_parachains_constants::westend::{
+	locations::AssetHubLocation, snowbridge::EthereumNetwork,
+};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
 	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
-	FrameTransactionalProcessor, FungibleAdapter, HandleFee, HashedDescription, IsConcrete,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
+	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{
-	traits::{FeeManager, FeeReason, FeeReason::Export},
-	XcmExecutor,
-};
+use xcm_executor::XcmExecutor;
+
+// Re-export
+pub use testnet_parachains_constants::westend::locations::GovernanceLocation;
 
 parameter_types! {
 	pub const RootLocation: Location = Location::here();
@@ -72,7 +73,6 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
-	pub const GovernanceLocation: Location = Location::parent();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -109,6 +109,8 @@ pub type FungibleTransactor = FungibleAdapter<
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
 /// biases the kind of local `Origin` it will become.
 pub type XcmOriginToTransactDispatchOrigin = (
+	// Governance location can gain root.
+	LocationAsSuperuser<Equals<GovernanceLocation>, RuntimeOrigin>,
 	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
 	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
 	// foreign chains who want to have a local sovereign account on this chain which they control.
@@ -165,6 +167,7 @@ pub type Barrier = TrailingSetTopicAsId<
 						ParentOrParentsPlurality,
 						Equals<RelayTreasuryLocation>,
 						Equals<SnowbridgeFrontendLocation>,
+						Equals<GovernanceLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<ParentRelayOrSiblingParachains>,
@@ -230,19 +233,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	type FeeManager = XcmFeeManagerFromComponentsBridgeHub<
+	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		(
-			XcmExportFeeToSibling<
-				bp_westend::Balance,
-				AccountId,
-				WestendLocation,
-				EthereumNetwork,
-				Self::AssetTransactor,
-				crate::EthereumOutboundQueue,
-			>,
-			SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
-		),
+		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
 	>;
 	type MessageExporter = (
 		XcmOverBridgeHubRococo,
@@ -324,26 +317,4 @@ impl pallet_xcm::Config for Runtime {
 impl cumulus_pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-}
-
-pub struct XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, HandleFee>(
-	PhantomData<(WaivedLocations, HandleFee)>,
-);
-impl<WaivedLocations: Contains<Location>, FeeHandler: HandleFee> FeeManager
-	for XcmFeeManagerFromComponentsBridgeHub<WaivedLocations, FeeHandler>
-{
-	fn is_waived(origin: Option<&Location>, fee_reason: FeeReason) -> bool {
-		let Some(loc) = origin else { return false };
-		if let Export { network, destination: Here } = fee_reason {
-			if network == EthereumNetwork::get().into() {
-				return false
-			}
-		}
-		WaivedLocations::contains(loc)
-	}
-
-	fn handle_fee(fee: Assets, context: Option<&XcmContext>, reason: FeeReason) {
-		tracing::trace!(target: "xcm::handle_fee", ?fee, ?context, ?reason, "FeeManager handle_fee");
-		FeeHandler::handle_fee(fee, context, reason);
-	}
 }

@@ -17,6 +17,7 @@ use crate::Pallet as OutboundQueue;
 #[benchmarks(
 	where
 		<T as Config>::MaxMessagePayloadSize: Get<u32>,
+		<T as frame_system::Config>::AccountId: From<[u8; 32]>,
 )]
 mod benchmarks {
 	use super::*;

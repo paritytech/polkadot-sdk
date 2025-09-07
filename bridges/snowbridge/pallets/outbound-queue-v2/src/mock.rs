@@ -9,15 +9,14 @@ use frame_support::{
 	BoundedVec,
 };
 
-use codec::{DecodeWithMemTracking, Encode, MaxEncodedLen};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_core::{
 	gwei, meth,
 	pricing::{PricingParameters, Rewards},
 	AgentId, AgentIdOf, ParaId,
 };
 use snowbridge_outbound_queue_primitives::{v2::*, Log, Proof, VerificationError, Verifier};
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -101,33 +100,6 @@ parameter_types! {
 
 pub const DOT: u128 = 10_000_000_000;
 
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	DecodeWithMemTracking,
-	Encode,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-	}
-}
-
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -140,7 +112,7 @@ impl crate::Config for Test {
 	type Balance = u128;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
-	type RewardPayment = ();
+	type RewardPayment = MockRewardLedger;
 	type EthereumNetwork = EthereumNetwork;
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = DefaultMyRewardKind;

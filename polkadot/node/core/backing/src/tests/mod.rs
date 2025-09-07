@@ -27,13 +27,12 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	vstaging::{CoreState, MutateDescriptorV2, OccupiedCore},
-	BlockNumber, CandidateDescriptor, GroupRotationInfo, HeadData, Header, PersistedValidationData,
-	ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	BlockNumber, CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
+	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_collator, dummy_collator_signature,
-	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys,
+	dummy_committed_candidate_receipt_v2, dummy_hash, validator_pubkeys, CandidateDescriptor,
 };
 use polkadot_statement_table::v2::Misbehavior;
 use sp_application_crypto::AppCrypto;

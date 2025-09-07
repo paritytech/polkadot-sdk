@@ -1,0 +1,8 @@
+title: 'Add `poll_index` to conviction-voting `Voted` and `VoteRemoved` events'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR includes `poll_index` field to the `Voted` and `VoteRemoved` events to aid the identification of which referendum a voter voted
+crates:
+- name: pallet-conviction-voting
+  bump: major

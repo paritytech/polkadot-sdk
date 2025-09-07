@@ -23,6 +23,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+pallet-asset-conversion = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 snowbridge-core = { workspace = true }
 sp-core = { workspace = true }
@@ -36,6 +37,7 @@ xcm-executor = { workspace = true }
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
+sp-keyring = { workspace = true }
 
 [features]
 default = ["std"]
@@ -45,10 +47,12 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-asset-conversion/std",
 	"scale-info/std",
 	"snowbridge-core/std",
 	"sp-core/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"tracing/std",
@@ -59,6 +63,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
@@ -69,6 +74,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-asset-conversion/try-runtime",
 	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

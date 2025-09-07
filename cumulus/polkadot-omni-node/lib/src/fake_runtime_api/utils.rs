@@ -15,7 +15,7 @@
 // limitations under the License.
 
 pub(crate) mod imports {
-	pub use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
+	pub use cumulus_primitives_core::ParaId;
 	pub use parachains_common::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 	pub use sp_runtime::{
@@ -55,6 +55,12 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn metadata_versions() -> Vec<u32> {
+					unimplemented!()
+				}
+			}
+
+			impl cumulus_primitives_core::RelayParentOffsetApi<$block> for $runtime {
+				fn relay_parent_offset() -> u32 {
 					unimplemented!()
 				}
 			}
@@ -163,12 +169,11 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			impl cumulus_primitives_core::GetCoreSelectorApi<$block> for $runtime {
-				fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
+			impl cumulus_primitives_core::GetParachainInfo<$block> for $runtime {
+				fn parachain_id() -> ParaId {
 					unimplemented!()
 				}
 			}
-
 			#[cfg(feature = "try-runtime")]
 			impl frame_try_runtime::TryRuntime<$block> for $runtime {
 				fn on_runtime_upgrade(
@@ -224,6 +229,15 @@ macro_rules! impl_node_runtime_apis {
 				}
 
 				fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
+					unimplemented!()
+				}
+			}
+
+			impl sp_statement_store::runtime_api::ValidateStatement<$block> for $runtime {
+				fn validate_statement(
+					_source: sp_statement_store::runtime_api::StatementSource,
+					_statement: sp_statement_store::Statement,
+				) -> Result<sp_statement_store::runtime_api::ValidStatement, sp_statement_store::runtime_api::InvalidStatement> {
 					unimplemented!()
 				}
 			}

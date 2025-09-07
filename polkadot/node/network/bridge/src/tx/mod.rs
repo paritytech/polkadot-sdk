@@ -174,17 +174,19 @@ where
 				network_service.report_peer(peer, rep);
 			}
 		},
-		NetworkBridgeTxMessage::DisconnectPeer(peer, peer_set) => {
+		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) => {
 			gum::trace!(
 				target: LOG_TARGET,
-				action = "DisconnectPeer",
-				?peer,
+				action = "DisconnectPeers",
+				?peers,
 				peer_set = ?peer_set,
 			);
 
 			// [`NetworkService`] keeps track of the protocols by their main name.
 			let protocol = peerset_protocol_names.get_main_name(peer_set);
-			network_service.disconnect_peer(peer, protocol);
+			for peer in peers {
+				network_service.disconnect_peer(peer, protocol.clone());
+			}
 		},
 		NetworkBridgeTxMessage::SendValidationMessage(peers, msg) => {
 			gum::trace!(

@@ -30,7 +30,6 @@ pallet-xcm = { workspace = true }
 xcm = { workspace = true }
 xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
-xcm-runtime-apis = { workspace = true }
 
 # Bridges
 pallet-bridge-messages = { workspace = true }
@@ -58,3 +57,4 @@ snowbridge-pallet-inbound-queue-v2 = { workspace = true }
 snowbridge-pallet-outbound-queue = { workspace = true }
 snowbridge-pallet-outbound-queue-v2 = { workspace = true }
 snowbridge-pallet-system = { workspace = true }
+snowbridge-pallet-system-v2 = { workspace = true }

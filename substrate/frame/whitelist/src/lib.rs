@@ -59,6 +59,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -167,7 +168,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::UnavailablePreImage)?;
 
 			let call = <T as Config>::RuntimeCall::decode_all_with_depth_limit(
-				frame::deps::sp_api::MAX_EXTRINSIC_DEPTH,
+				frame::deps::frame_support::MAX_EXTRINSIC_DEPTH,
 				&mut &call[..],
 			)
 			.map_err(|_| Error::<T>::UndecodableCall)?;

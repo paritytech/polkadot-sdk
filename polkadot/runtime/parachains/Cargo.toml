@@ -47,6 +47,9 @@ pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-timestamp = { workspace = true }
 
+# only used in benchmarking
+frame-election-provider-support = { workspace = true, optional = true }
+
 polkadot-primitives = { workspace = true }
 xcm = { workspace = true }
 xcm-executor = { workspace = true }
@@ -80,6 +83,7 @@ std = [
 	"bitvec/std",
 	"codec/std",
 	"frame-benchmarking?/std",
+	"frame-election-provider-support?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -118,6 +122,7 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
 	"frame-support-test/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
@@ -126,6 +131,7 @@ runtime-benchmarks = [
 	"pallet-broker/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -139,6 +145,7 @@ runtime-benchmarks = [
 	"xcm/runtime-benchmarks",
 ]
 try-runtime = [
+	"frame-election-provider-support?/try-runtime",
 	"frame-support-test/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",

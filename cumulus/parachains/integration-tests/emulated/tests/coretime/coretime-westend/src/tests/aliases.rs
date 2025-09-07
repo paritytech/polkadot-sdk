@@ -18,7 +18,7 @@
 use crate::imports::*;
 use coretime_westend_emulated_chain::coretime_westend_runtime::xcm_config::XcmConfig;
 use emulated_integration_tests_common::{macros::AccountId, test_cross_chain_alias};
-use frame_support::{traits::ContainsPair, BoundedVec};
+use frame_support::traits::ContainsPair;
 use xcm::latest::Junctions::*;
 
 const ALLOWED: bool = true;

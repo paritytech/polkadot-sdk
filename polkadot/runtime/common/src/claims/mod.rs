@@ -174,6 +174,12 @@ impl<'de> Deserialize<'de> for EthereumAddress {
 	}
 }
 
+impl AsRef<[u8]> for EthereumAddress {
+	fn as_ref(&self) -> &[u8] {
+		&self.0[..]
+	}
+}
+
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, TypeInfo, MaxEncodedLen)]
 pub struct EcdsaSignature(pub [u8; 65]);
 
@@ -202,6 +208,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type VestingSchedule: VestingSchedule<Self::AccountId, Moment = BlockNumberFor<Self>>;
 		#[pallet::constant]

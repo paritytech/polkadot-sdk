@@ -1,0 +1,7 @@
+title: 'Structured Logging for transaction pool'
+doc:
+- audience: Node Dev
+  description: Replacement of log crate with tracing crate for structured logging in transaction pool.
+crates:
+- name: sc-transaction-pool
+  bump: minor
