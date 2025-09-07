@@ -258,7 +258,9 @@ fn lock_should_work_reserve() {
 				<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath),
 				TokenError::Frozen
 			);
-			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
+			// We can use frozen balance for reserves
+			assert_ok!(Balances::reserve(&1, 9));
+			assert_noop!(Balances::reserve(&1, 1), DispatchError::ConsumerRemaining,);
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
@@ -332,7 +334,9 @@ fn lock_should_work_tx_fee() {
 				<Balances as Currency<_>>::transfer(&1, &2, 1, AllowDeath),
 				TokenError::Frozen
 			);
-			assert_noop!(Balances::reserve(&1, 1), Error::<Test>::LiquidityRestrictions,);
+			// We can use frozen balance for reserves
+			assert_ok!(Balances::reserve(&1, 9));
+			assert_noop!(Balances::reserve(&1, 1), DispatchError::ConsumerRemaining,);
 			assert!(ChargeTransactionPayment::<Test>::validate_and_prepare(
 				ChargeTransactionPayment::from(1),
 				Some(1).into(),
