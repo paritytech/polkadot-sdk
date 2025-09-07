@@ -281,8 +281,7 @@ fn lock_should_work_reserve() {
 }
 
 #[test]
-fn reserve_should_work_for_usable_balance() {
-	frame_support::__private::sp_tracing::init_for_tests();
+fn reserve_should_work_for_frozen_balance() {
 	ExtBuilder::default()
 		.existential_deposit(1)
 		.monied(true)
@@ -1318,8 +1317,14 @@ fn reserve_must_succeed_if_can_reserve_does() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 1);
 		let _ = Balances::deposit_creating(&2, 2);
+		let _ = Balances::deposit_creating(&3, 3);
 		assert!(Balances::can_reserve(&1, 1) == Balances::reserve(&1, 1).is_ok());
 		assert!(Balances::can_reserve(&2, 1) == Balances::reserve(&2, 1).is_ok());
+
+		// Ensure that we can reserve as long (free + reserved) remains above
+		// the maximum of frozen balance.
+		Balances::set_lock(ID_1, &3, 2, WithdrawReasons::RESERVE);
+		assert!((Balances::can_reserve(&3, 2) == Balances::reserve(&3, 2).is_ok()) == true);
 	});
 }
 
