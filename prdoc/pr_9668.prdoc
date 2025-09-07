@@ -1,0 +1,28 @@
+title: '`client::network::discovery`: small clean-up'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+    1) remove duplicated import
+    2) condense the optional field into the `Option` making a tuple
+
+    ## Integration
+
+    Seems like not affecting integrations.
+
+    ## Review Notes
+
+    In `DiscoveryBehaviour` fields `next_kad_random_query` and `duration_to_next_kad` condensed into the single field `next_kad_random_query_with_duration` of type `Option((_, _))`.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [ ] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+        T17-primitives
+
+    You can remove the "Checklist" section once all have been checked. Thank you for your contribution!
+crates:
+- name: sc-network
+  bump: major
