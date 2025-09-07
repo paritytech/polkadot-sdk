@@ -241,7 +241,7 @@ jobs:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: ${{ env.ARTIFACTS_PATH }}
 
-  build-polkadot-deb-package:
+  build-polkadot-deb-and-rpm-package:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
     needs: [build-rc]
     runs-on: ubuntu-latest
@@ -281,10 +281,17 @@ jobs:
         VERSION=$(get_polkadot_node_version_from_code)
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
 
+    - name: Build polkadot rpm package
+      shell: bash
+      run: |
+        . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
+        VERSION=$(get_polkadot_node_version_from_code)
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh ${{ inputs.package }} ${VERSION}
+
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
       with:
-        subject-path: target/production/*.deb
+        subject-path: release-artifacts/polkadot/*.{deb,rpm}
 
     - name: Upload ${{inputs.package }} artifacts
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
@@ -295,7 +302,7 @@ jobs:
 
   upload-polkadot-artifacts-to-s3:
     if: ${{ inputs.package == 'polkadot' && inputs.target == 'x86_64-unknown-linux-gnu' }}
-    needs: [build-polkadot-deb-package]
+    needs: [build-polkadot-deb-and-rpm-package]
     uses: ./.github/workflows/release-reusable-s3-upload.yml
     with:
       package: ${{ inputs.package }}

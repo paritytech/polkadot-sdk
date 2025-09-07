@@ -14,10 +14,7 @@ on:
       package_type:
         description: Type of package to publish (deb or rpm)
         required: true
-        type: choice
-        options:
-          - 'deb'
-          - 'rpm'
+        type: string 
       aws_repo_base_path:
         description: Base S3 path for package repositories
         required: true
@@ -26,6 +23,23 @@ on:
         description: CloudFront Distribution ID for cache invalidation
         required: true
         type: string
+    secrets:
+      upstream_content_sync_app_key:
+        required: true
+      aws_release_access_key_id:
+        required: true
+      aws_release_secret_access_key:
+        required: true
+      pgp_kms_key:
+        required: true
+      pgp_kms_hash:
+        required: true
+      aws_default_region:
+        required: true
+      aws_access_key_id:
+        required: true
+      aws_secret_access_key:
+        required: true
  
 jobs:
   check-synchronization:
@@ -42,6 +56,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+
+      - name: Validate package type
+        if: ${{ inputs.package_type != 'deb' && inputs.package_type != 'rpm' }}
+        run: |
+          echo "Error: package_type must be either 'deb' or 'rpm'"
+          exit 1
 
       - name: Validate inputs
         id: validate_inputs
@@ -74,18 +94,14 @@ jobs:
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             fetch_debian_package_from_s3 polkadot
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO: implement fetch_rpm_package_from_s3 polkadot
-            # TODO: also one possibility - implement fetch_package with package as an input and remove if from here
-          else
-            echo "Error: Unsupported package_type: ${{ inputs.package_type }}"
-            exit 1
+            fetch_rpm_package_from_s3 polkadot
           fi
 
       - name: Upload artifacts for later jobs
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: release-artifacts
-          path: release-artifacts/*
+          path: release-artifacts/polkadot/*.${{ inputs.package_type }}
 
   publish-package:
     runs-on: ubuntu-latest
@@ -97,6 +113,7 @@ jobs:
       LOCAL_REPO_PATH: ${{ github.workspace }}/${{ inputs.package_type }}
       NODE_VERSION: ${{ needs.fetch-artifacts-from-s3.outputs.NODE_VERSION }}
 
+    # We are gonna use the same key both for rpm and deb packages - maybe logic of the key is not ready to be used for RPM at this moment
     steps:
       - name: Install pgpkms for artifact signing
         run: |
@@ -123,11 +140,19 @@ jobs:
           name: release-artifacts
           path: release-artifacts
 
+      # For LOCAL_REPO_PATH use "./deb" or "./rpm" depending on package type
+      # FOR AWS_REPO_PATH use "s3://releases-package-repos/deb" or "s3://releases-package-repos/rpm/" depending on package type
+      # ☝️ this is done in env section above
+      # TODO: check if "/" after rpm is problematic - it would be great that our format is the same, found here: https://github.com/paritytech/cleanroom/commit/6fdec6d0ce41121ad67152b7bb6f944bbdae9f03#diff-bf10049fb0c22a74f58b04cf2d2f80010eefbe62828492fff235c667d7275793L19
       - name: Setup local repo
+        if: ${{ inputs.package_type == 'deb' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y reprepro
-          which reprepro
+
+          if [[ "${{ inputs.package_type }}" == "deb" ]]; then
+            sudo apt-get install -y reprepro
+            which reprepro
+          fi
 
           # Configure reprepro to use pgpkms for signing
           sed -i "s|^SignWith:.*|SignWith: ! ${PGPKMS_REPREPRO_PATH}|" ${{ github.workspace }}/.github/scripts/release/distributions
@@ -145,21 +170,20 @@ jobs:
           mkdir -p "$LOCAL_REPO_PATH"
           # Sync database and configuration files
           aws s3 sync "$AWS_REPO_PATH/db" "$LOCAL_REPO_PATH/db" || true # `|| true` to avoid failing if dir doesn't exist yet
-          aws s3 sync "$AWS_REPO_PATH/conf" "$LOCAL_REPO_PATH/conf" || true # conf might not exist for RPM
 
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             aws s3 sync "$AWS_REPO_PATH/pool" "$LOCAL_REPO_PATH/pool" || true
             aws s3 sync "$AWS_REPO_PATH/dists" "$LOCAL_REPO_PATH/dists" || true
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO: maybe this if will not be needed at all because the step will look the same for both package types
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           fi
 
       - name: Add package to local repo
         env:
           PGP_KMS_KEY:  ${{ secrets.pgp_kms_key }}
           PGP_KMS_HASH:  ${{ secrets.pgp_kms_hash }}
-          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_release_access_key_id }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_release_secret_access_key }}
+          AWS_ACCESS_KEY_ID:  ${{ secrets.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_secret_access_key }}
         run: |
           if [[ "${{ inputs.package_type }}" == "deb" ]]; then
             # Find the downloaded .deb artifact
@@ -169,10 +193,54 @@ jobs:
               exit 1
             fi
             echo "Found DEB package: $debname"
+            echo "Local repo path $LOCAL_REPO_PATH"
+            echo "AWS default region $AWS_DEFAULT_REGION"
+
             # Add the package to the local Debian repository
             reprepro -b "$LOCAL_REPO_PATH" includedeb "${{ inputs.distribution }}" "$debname"
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO: Implement RPM package addition - if there is a way to add both packages the same way, this if will not be needed
+            # Find the downloaded .rpm artifact
+            rpmname=$(find release-artifacts/ -name 'polkadot_*.rpm' -print -quit)
+            if [ -z "$rpmname" ]; then
+              echo "Error: RPM package artifact not found in release-artifacts/"
+              exit 1
+            fi
+            echo "Found RPM package: $rpmname"
+
+            # Copy the RPM to the correct directory, create the repo
+            cp "$rpmname" "$LOCAL_REPO_PATH/"
+            chmod 644 "$LOCAL_REPO_PATH"/*.rpm
+
+            # Ensure directory permissions are correct
+            chmod 755 "$LOCAL_REPO_PATH"
+
+            # Create RPM macros file
+            # TODO: original 2nd line of rpmmacros was %_gpg_path /home/polkadot/.gnupg and not %_gpg_path /home/nonroot/.gnupg
+            # Create a temporary directory for rpm macros
+            TEMP_DIR=$(mktemp -d)
+            cp "${{ github.workspace }}/.github/workflows/rpmmacros" "${TEMP_DIR}/rpmmacros"
+            chmod 644 "${TEMP_DIR}/rpmmacros"  # Make readable by all users
+
+            rpm_filename=$(basename "$rpmname")
+            echo "Signing RPM package: $rpm_filename"
+
+            # Run inside podman with corrected permissions
+            # https://github.com/paritytech/cleanroom/issues/35
+            # User changed to root:root from originally line like -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent"
+            podman run \
+                -v "/run/user/$(id -u)/gnupg/S.gpg-agent:/home/nonroot/.gnupg/S.gpg-agent:ro" \
+                -v "${LOCAL_REPO_PATH}:/rpm:rw" \
+                -v "${TEMP_DIR}/rpmmacros:/etc/rpm/macros.sign:ro" \
+                --user root:root \
+                --rm \
+                docker.io/paritytech/rpm \
+                /bin/bash -c 'cd /rpm && rpm --addsign polkadot_*.rpm'
+
+            # Cleanup
+            rm -rf "${TEMP_DIR}"
+            
+            echo "Creating a repo"
+            createrepo --update "$LOCAL_REPO_PATH"
           fi
 
       - name: Upload updated repo to S3
@@ -184,11 +252,13 @@ jobs:
             # For Debian, pool and dists directories need public-read ACL
             aws s3 sync "$LOCAL_REPO_PATH/pool" "$AWS_REPO_PATH/pool" --acl public-read
             aws s3 sync "$LOCAL_REPO_PATH/dists" "$AWS_REPO_PATH/dists" --acl public-read
+
+            aws s3 sync "$LOCAL_REPO_PATH/db" "$AWS_REPO_PATH/db"
+            aws s3 sync "$LOCAL_REPO_PATH/conf" "$AWS_REPO_PATH/conf" || true # conf might not exist for RPM, so allow failure
+
           elif [[ "${{ inputs.package_type }}" == "rpm" ]]; then
-            # TODO
+            aws s3 sync "$LOCAL_REPO_PATH" "$AWS_REPO_PATH" --acl public-read
           fi
-          aws s3 sync "$LOCAL_REPO_PATH/db" "$AWS_REPO_PATH/db"
-          aws s3 sync "$LOCAL_REPO_PATH/conf" "$AWS_REPO_PATH/conf" || true # conf might not exist for RPM, so allow failure
 
           # Invalidate CloudFront cache to serve latest files
           aws cloudfront create-invalidation --distribution-id ${{ inputs.cloudfront_distribution_id }} --paths '/${{ inputs.package_type }}/*'
