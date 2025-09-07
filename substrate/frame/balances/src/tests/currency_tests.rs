@@ -1321,7 +1321,7 @@ fn reserve_must_succeed_if_can_reserve_does() {
 		// Ensure that we can reserve as long (free + reserved) remains above
 		// the maximum of frozen balance.
 		Balances::set_lock(ID_1, &3, 2, WithdrawReasons::RESERVE);
-		assert!((Balances::can_reserve(&3, 2) == Balances::reserve(&3, 2).is_ok()) == true);
+		assert_eq!(Balances::can_reserve(&3, 2), Balances::reserve(&3, 2).is_ok());
 	});
 }
 
