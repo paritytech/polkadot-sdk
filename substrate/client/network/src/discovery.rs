@@ -64,8 +64,8 @@ use libp2p::{
 		self,
 		store::{MemoryStore, MemoryStoreConfig, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
-		Event, GetClosestPeersError, GetClosestPeersOk, GetProvidersError, GetProvidersOk,
-		GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
+		GetClosestPeersError, GetClosestPeersOk, GetProvidersError, GetProvidersOk, GetRecordOk,
+		PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
 	},
 	mdns::{self, tokio::Behaviour as TokioMdns},
 	multiaddr::Protocol,
@@ -273,12 +273,11 @@ impl DiscoveryConfig {
 			permanent_addresses,
 			ephemeral_addresses: HashMap::new(),
 			kademlia: Toggle::from(kademlia),
-			next_kad_random_query: if dht_random_walk {
-				Some(Delay::new(Duration::new(0, 0)))
+			next_kad_random_query_with_duration: if dht_random_walk {
+				Some((Delay::new(Duration::new(0, 0)), Duration::from_secs(1)))
 			} else {
 				None
 			},
-			duration_to_next_kad: Duration::from_secs(1),
 			pending_events: VecDeque::new(),
 			local_peer_id,
 			num_connections: 0,
@@ -320,11 +319,11 @@ pub struct DiscoveryBehaviour {
 	kademlia: Toggle<Kademlia<MemoryStore>>,
 	/// Discovers nodes on the local network.
 	mdns: Toggle<TokioMdns>,
-	/// Stream that fires when we need to perform the next random Kademlia query. `None` if
-	/// random walking is disabled.
-	next_kad_random_query: Option<Delay>,
-	/// After `next_kad_random_query` triggers, the next one triggers after this duration.
-	duration_to_next_kad: Duration,
+	/// Stream that fires when we need to perform the next random Kademlia query.
+	/// The next one triggers after the `Duration`.
+	///
+	/// `None` if random walking is disabled.
+	next_kad_random_query_with_duration: Option<(Delay, Duration)>,
 	/// Events to return in priority when polled.
 	pending_events: VecDeque<DiscoveryOut>,
 	/// Identity of our local node.
@@ -414,13 +413,12 @@ impl DiscoveryBehaviour {
 			//
 			// Extract the chain-based Kademlia protocol from `kademlia.protocol_name()`
 			// when all nodes are upgraded to genesis hash and fork ID-based Kademlia:
-			// https://github.com/paritytech/polkadot-sdk/issues/504.
-			if !supported_protocols.iter().any(|p| {
-				p == self
-					.kademlia_protocol
+			// <https://github.com/paritytech/polkadot-sdk/issues/504>.
+			if !supported_protocols.contains(
+				self.kademlia_protocol
 					.as_ref()
-					.expect("kademlia protocol was checked above to be enabled; qed")
-			}) {
+					.expect("kademlia protocol was checked above to be enabled; qed"),
+			) {
 				trace!(
 					target: LOG_TARGET,
 					"Ignoring self-reported address {} from {} as remote node is not part of the \
@@ -884,7 +882,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 		// Poll the stream that fires when we need to start a random Kademlia query.
 		if let Some(kademlia) = self.kademlia.as_mut() {
-			if let Some(next_kad_random_query) = self.next_kad_random_query.as_mut() {
+			if let Some((next_kad_random_query, duration_to_next_kad)) =
+				self.next_kad_random_query_with_duration.as_mut()
+			{
 				while next_kad_random_query.poll_unpin(cx).is_ready() {
 					let actually_started =
 						if self.num_connections < self.discovery_only_if_under_num {
@@ -907,9 +907,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 
 					// Schedule the next random query with exponentially increasing delay,
 					// capped at 60 seconds.
-					*next_kad_random_query = Delay::new(self.duration_to_next_kad);
-					self.duration_to_next_kad =
-						cmp::min(self.duration_to_next_kad * 2, Duration::from_secs(60));
+					*next_kad_random_query = Delay::new(*duration_to_next_kad);
+					*duration_to_next_kad =
+						cmp::min(*duration_to_next_kad * 2, Duration::from_secs(60));
 
 					if actually_started {
 						let ev = DiscoveryOut::RandomKademliaStarted;
@@ -1248,7 +1248,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
 					KademliaEvent::OutboundQueryProgressed { result: e, .. } => {
 						warn!(target: LOG_TARGET, "Libp2p => Unhandled Kademlia event: {:?}", e)
 					},
-					Event::ModeChanged { new_mode } => {
+					KademliaEvent::ModeChanged { new_mode } => {
 						debug!(target: LOG_TARGET, "Libp2p => Kademlia mode changed: {new_mode}")
 					},
 				},
