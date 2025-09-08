@@ -106,11 +106,19 @@ pub trait RuntimePublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
-	/// Generate proof of possession of the corresponding public key
+	/// Generates the necessary proof(s) usually as a signature or list of signatures, for the
+	/// corresponding public key to be accepted as legitimate by the network.
+	///
+	/// This includes attestation of the owner of the public key in the form of signing the owner's
+	/// identity. It might also includes other signatures such as signature obtained by signing
+	/// the corresponding public in different context than normal signatures in case of BLS
+	/// key pair.
+	///
+	/// The `owner` is an arbitrary byte array representing the identity of the owner of the key
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
-	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
+	/// Returns the proof of possession or `None` if it failed or is not able to do
 	/// so.
 	fn generate_proof_of_possession(
 		&mut self,
@@ -118,7 +126,16 @@ pub trait RuntimePublic: Sized {
 		owner: &[u8],
 	) -> Option<Self::ProofOfPossession>;
 
-	/// Verify that the given proof of possession is valid for the corresponding public key.
+	/// Verifies that the given proof is valid for the corresponding public key.
+	/// The proof is usually a signature or list of signatures, for the corresponding
+	/// public key to be accepted by the network. It include attestation of the owner of
+	/// the public key in the form signing the owner's identity but might also includes
+	/// other signatures.
+	///
+	/// The  `owner` is an arbitrary byte array representing the identity of the owner of
+	/// the key which has been signed  by the private key in process of generating the proof.
+	///
+	/// Returns `true` if the proof is deemed correct by the cryto type.
 	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
 
 	/// Returns `Self` as raw vec.
@@ -157,12 +174,10 @@ pub trait RuntimeAppPublic: Sized {
 	/// Verify that the given signature matches the given message using this public key.
 	fn verify<M: AsRef<[u8]>>(&self, msg: &M, signature: &Self::Signature) -> bool;
 
-	/// Generate proof of possession of the corresponding public key
+	/// Generate proof of legitimacy for the corresponding public key
 	///
-	/// The private key will be requested from the keystore using the given key type.
-	///
-	/// Returns the proof of possession as a signature or `None` if it failed or is not able to do
-	/// so.
+	/// Returns the proof of possession, usually a signature or a list of signature,  or `None` if
+	/// it failed or is not able to do so.
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Option<Self::ProofOfPossession>;
 
 	/// Verify that the given proof of possession is valid for the corresponding public key.
