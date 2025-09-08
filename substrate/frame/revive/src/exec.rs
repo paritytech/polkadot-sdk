@@ -432,7 +432,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Copies a slice of the contract's code at `address` into the provided buffer.
 	///
 	/// EVM CODECOPY semantics:
-	/// - If `len` = 0: Nothing happens
+	/// - If `buf.len()` = 0: Nothing happens
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
 	/// - If `code_offset + len` extends beyond code: Available code copied, remaining bytes are
 	///   filled with zeros
