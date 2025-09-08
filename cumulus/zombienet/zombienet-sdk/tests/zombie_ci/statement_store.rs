@@ -10,20 +10,6 @@ use futures::FutureExt;
 use sp_core::{Bytes, Encode};
 use zombienet_sdk::{subxt::rpc_params, NetworkConfigBuilder};
 
-fn timeout_1min<T>(
-	fut: impl std::future::Future<Output = Result<T, impl Into<anyhow::Error>>>,
-) -> impl std::future::Future<Output = Result<T, anyhow::Error>> {
-	let caller_loc = std::panic::Location::caller();
-	tokio::time::timeout(Duration::from_secs(60), fut).map(move |res| match res {
-		Ok(res) => res.map_err(|e| e.into()),
-		Err(_) => Err(anyhow!(
-			"Operation timed out after 60s (called from {}:{})",
-			caller_loc.file(),
-			caller_loc.line(),
-		)),
-	})
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -69,13 +55,14 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 		})?;
 
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
-	let network = timeout_1min(spawn_fn(config)).await?;
+	let network = spawn_fn(config).await?;
+	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
-	let charlie_rpc = timeout_1min(charlie.rpc()).await?;
-	let dave_rpc = timeout_1min(dave.rpc()).await?;
+	let charlie_rpc = charlie.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();
@@ -85,13 +72,10 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let statement: Bytes = statement.encode().into();
 
 	// Submit the statement to charlie.
-	let _: () =
-		timeout_1min(charlie_rpc.request("statement_submit", rpc_params![statement.clone()]))
-			.await?;
+	let _: () = charlie_rpc.request("statement_submit", rpc_params![statement.clone()]).await?;
 
 	// Ensure that charlie stored the statement.
-	let charlie_dump: Vec<Bytes> =
-		timeout_1min(charlie_rpc.request("statement_dump", rpc_params![])).await?;
+	let charlie_dump: Vec<Bytes> = charlie_rpc.request("statement_dump", rpc_params![]).await?;
 	if charlie_dump != vec![statement.clone()] {
 		return Err(anyhow!("Charlie did not store the statement"));
 	}
@@ -100,8 +84,7 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 	let query_start_time = std::time::SystemTime::now();
 	let stop_after_secs = 20;
 	loop {
-		let dave_dump: Vec<Bytes> =
-			timeout_1min(dave_rpc.request("statement_dump", rpc_params![])).await?;
+		let dave_dump: Vec<Bytes> = dave_rpc.request("statement_dump", rpc_params![]).await?;
 		if !dave_dump.is_empty() {
 			if dave_dump != vec![statement.clone()] {
 				return Err(anyhow!("Dave statement store is not the expected one"));
