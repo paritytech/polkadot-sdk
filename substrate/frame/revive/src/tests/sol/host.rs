@@ -272,15 +272,6 @@ fn extcodecopy_works() {
 			};
 
 			assert_eq!(
-				test_case.expected.len(),
-				actual_code.len(),
-				"EXTCODECOPY length mismatch for {}: expected {} bytes, got {}",
-				test_case.description,
-				test_case.expected.len(),
-				actual_code.len()
-			);
-
-			assert_eq!(
 				&test_case.expected, actual_code,
 				"EXTCODECOPY content mismatch for {}",
 				test_case.description
