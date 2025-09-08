@@ -286,12 +286,9 @@ pub mod pallet {
 		///
 		/// Both of these happen `on_initialize.`
 		///
-		/// Sensible value: See `message_queue_sizes`.
-		///
-		/// **Performance characteristics**
-		/// - Base cost: ~30.9ms (XCM infrastructure overhead)
-		/// - Per-offence cost: ~0.073ms (linear scaling)
-		/// - At batch size 50: ~34.6ms total (~1.7% of 2-second compute allowance)
+		/// A sensible value should be such that sending this batch is small enough to not exhaust
+		/// the DMP queue. The size of a single offence is documented in `message_queue_sizes` test
+		/// (74 bytes).
 		type MaxOffenceBatchSize: Get<u32>;
 
 		/// Interface to talk to the local Session pallet.
@@ -313,7 +310,7 @@ pub mod pallet {
 
 		/// Maximum number of times we try to send a session report to AssetHub, after which, if
 		/// sending still fails, we emit an [`UnexpectedKind::SessionReportSendFailed`] event and
-		/// drop
+		/// drop it.
 		type MaxSessionReportRetries: Get<u32>;
 	}
 
@@ -387,8 +384,6 @@ pub mod pallet {
 	///
 	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of
 	/// which should NEVER be used manually.
-	///
-	/// It uses [`Config::MaxOffenceBatchSize`] as the page size.
 	pub struct OffenceSendQueue<T: Config>(core::marker::PhantomData<T>);
 
 	/// A single buffered offence in [`OffenceSendQueue`].

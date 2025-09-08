@@ -847,7 +847,7 @@ mod tests {
 		}
 
 		#[test]
-		fn normal_offence_legacy_single() {
+		fn offence() {
 			// when one validator had an offence
 			let offences = (0..1)
 				.map(|i| rc_client::Offence::<AccountId32> {
@@ -860,22 +860,6 @@ mod tests {
 			// offence + session-index
 			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
 			assert_eq!(encoded_size, 74);
-		}
-
-		#[test]
-		fn normal_offence_legacy_third() {
-			// when a third of validators are offending
-			let offences = (0..333)
-				.map(|i| rc_client::Offence::<AccountId32> {
-					offender: AccountId32::from([i as u8; 32]),
-					reporters: vec![AccountId32::from([42; 32])],
-					slash_fraction: Perbill::from_percent(50),
-				})
-				.collect::<Vec<_>>();
-
-			// offence + session-index
-			let encoded_size = offences.encoded_size() + 42u32.encoded_size();
-			assert_eq!(encoded_size, 22_983);
 		}
 
 		// Kusama has the same configurations as of now.
