@@ -78,7 +78,6 @@ mod benchmarks {
 	}
 
 	#[benchmark(extra, pov_mode = Measured)]
-	#[extra]
 	fn mine_solution(p: Linear<1, { T::Pages::get() }>) -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
