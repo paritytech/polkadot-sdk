@@ -59,16 +59,16 @@ substrate-wasm-builder = { optional = true, workspace = true, default-features =
 [features]
 default = ["std"]
 std = [
-	"cumulus-pallet-parachain-system/std",
 	"codec/std",
+	"cumulus-pallet-parachain-system/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
-	"substrate-wasm-builder"
+	"substrate-wasm-builder",
 ]
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
-	"polkadot-sdk/runtime-benchmarks"
+	"polkadot-sdk/runtime-benchmarks",
 ]
 
 # A feature that should be enabled when the runtime should be built for on-chain
