@@ -2,9 +2,8 @@ title: Add collator selection to YAP
 doc:
 - audience: Runtime Dev
   description: |-
-    This PR adds the collator selection pallet as well as other pallets needed for its functionality to the Yet Another Parachain runtime.
-
-    Along with that, the YAP runtime is a little bit refactored to adopt the latest FRAMEwork changes.
+    The collator selection pallet as well as other pallets needed for its functionality are added to the Yet Another Parachain runtime.
+    The YAP runtime is a refactored to adopt the latest FRAME and Substrate changes.
 crates:
 - name: yet-another-parachain-runtime
   bump: minor
