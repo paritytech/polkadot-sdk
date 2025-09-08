@@ -5,16 +5,8 @@
 // propagated to peers.
 
 use anyhow::anyhow;
-use core::time::Duration;
-use futures::FutureExt;
 use sp_core::{Bytes, Encode};
-use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, utils::url_is_secure, OnlineClient,
-		PolkadotConfig,
-	},
-	NetworkConfigBuilder,
-};
+use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
