@@ -282,14 +282,7 @@ pub mod pallet {
 
 		/// Maximum number of offences to batch in a single message to AssetHub.
 		///
-		/// This value is used in two places:
-		///
-		/// * (will be removed post migration): Number of buffered offences that are passed to
-		///   [`pallet_staking_async_rc_client::SendToAssetHub::relay_new_offence`]. This mechanism
-		///   sends over offences that happend during the AssetHub migration (`Buffered` mode) to AH
-		///   post migration (`Active` mode).
-		/// * Number of batched offences that are send under normal operation to AssetHub. at each
-		///   block.
+		/// This value is used as the upper bound of the batch size of offences at all times.
 		///
 		/// Both of these happen `on_initialize.`
 		///

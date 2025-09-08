@@ -735,16 +735,6 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 		>::send(session_report)
 	}
 
-	fn relay_new_offence(
-		_session_index: SessionIndex,
-		_offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) -> Result<(), ()> {
-		unreachable!(
-			"this endpoint is only used for the offences that are buffered during the \
-		migraiton, not a valid scenario in this runtime, which simulates the post-migration state."
-		)
-	}
-
 	fn relay_new_offence_paged(
 		offences: Vec<ah_client::QueuedOffenceOf<Runtime>>,
 	) -> Result<(), ()> {
@@ -811,7 +801,7 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type Fallback = Staking;
-	type WeightInfo = ();
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
 parameter_types! {

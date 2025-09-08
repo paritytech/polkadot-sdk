@@ -946,40 +946,6 @@ mod tests {
 		}
 
 		#[test]
-		fn offence_legacy() {
-			// the format sent in `SendToAssetHub::relay_new_offence`
-			let mut offenders_in_session = 0;
-			let session_index: u32 = 42;
-			loop {
-				let offences = (0..offenders_in_session)
-					.map(|i| rc_client::Offence::<AccountId32> {
-						offender: AccountId32::from([i as u8; 32]),
-						reporters: vec![AccountId32::from([42; 32])],
-						slash_fraction: Perbill::from_percent(50),
-					})
-					.collect::<Vec<_>>();
-
-				// Note: the real encoded size of the message will be a few bytes more, due to call
-				// indices and XCM instructions, but not significant.
-				let encoded_size = offences.encoded_size() + session_index.encoded_size();
-
-				if encoded_size as u32 > POLKADOT_MAX_UPWARD_MESSAGE_SIZE {
-					println!(
-						"Offence: offenders_in_session: {}, encoded len: {}, max: {:?}, largest offence: {}",
-						offenders_in_session, encoded_size, POLKADOT_MAX_UPWARD_MESSAGE_SIZE, offenders_in_session - 1
-					);
-					break;
-				}
-
-				offenders_in_session += 1;
-			}
-
-			// We can send up to 950 offences associated with a single session in the legacy format.
-			// Should inform the value of `MaxOffenceBatchSize`.
-			assert_eq!(offenders_in_session, 950);
-		}
-
-		#[test]
 		fn offence_batched() {
 			let mut num_offences = 1;
 			let session_index: u32 = 42;

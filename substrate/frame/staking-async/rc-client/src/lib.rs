@@ -42,7 +42,7 @@
 //! > Note that in the code, due to historical reasons, planning of a new session is called
 //! > `new_session`.
 //!
-//! * [`Call::relay_new_offence`]: A report of one or more offences on the relay chain.
+//! * [`Call::relay_new_offence_paged`]: A report of one or more offences on the relay chain.
 //!
 //! ## Outgoing Messages
 //!
@@ -180,20 +180,6 @@ pub trait SendToAssetHub {
 	#[allow(clippy::result_unit_err)]
 	fn relay_session_report(session_report: SessionReport<Self::AccountId>) -> Result<(), ()>;
 
-	/// Report new offences to AssetHub.
-	///
-	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
-	///
-	/// This should always be implemented by [`pallet_staking_async_rc_client::XCMSender`].
-	#[deprecated(
-		note = "use `relay_new_offence_paged` instead. This old API should only be used for the migration"
-	)]
-	#[allow(clippy::result_unit_err)]
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<Offence<Self::AccountId>>,
-	) -> Result<(), ()>;
-
 	#[allow(clippy::result_unit_err)]
 	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
@@ -207,18 +193,6 @@ impl SendToAssetHub for () {
 
 	fn relay_session_report(_session_report: SessionReport<Self::AccountId>) -> Result<(), ()> {
 		unimplemented!();
-	}
-
-	#[allow(deprecated)]
-	fn relay_new_offence(
-		_session_index: SessionIndex,
-		_offences: Vec<Offence<Self::AccountId>>,
-	) -> Result<(), ()> {
-		if cfg!(feature = "runtime-benchmarks") {
-			Err(())
-		} else {
-			unimplemented!()
-		}
 	}
 
 	fn relay_new_offence_paged(
@@ -840,30 +814,6 @@ pub mod pallet {
 				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
 				Ok((Some(local_weight + weight)).into())
 			}
-		}
-
-		/// Called to report one or more new offenses on the relay chain.
-		#[pallet::call_index(1)]
-		#[pallet::weight(
-			// events are free
-			// origin check is negligible.
-			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
-		)]
-		pub fn relay_new_offence(
-			origin: OriginFor<T>,
-			slash_session: SessionIndex,
-			offences: Vec<Offence<T::AccountId>>,
-		) -> DispatchResultWithPostInfo {
-			log!(info, "Received new offence at slash_session: {:?}", slash_session);
-			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
-
-			Self::deposit_event(Event::OffenceReceived {
-				slash_session,
-				offences_count: offences.len() as u32,
-			});
-
-			let weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
-			Ok(Some(weight).into())
 		}
 
 		#[pallet::call_index(2)]

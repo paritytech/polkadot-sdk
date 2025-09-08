@@ -323,13 +323,6 @@ impl DeliverToAH {
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
 
-	fn relay_new_offence(
-		_session_index: SessionIndex,
-		_offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) -> Result<(), ()> {
-		unreachable!("deprecated and no longer used here")
-	}
-
 	fn relay_session_report(
 		session_report: rc_client::SessionReport<Self::AccountId>,
 	) -> Result<(), ()> {

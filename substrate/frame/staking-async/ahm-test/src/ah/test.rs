@@ -651,20 +651,25 @@ fn on_offence_current_era() {
 		// flush the events.
 		let _ = staking_events_since_last_call();
 
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
-			5,
 			vec![
-				rc_client::Offence {
-					offender: 5,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				},
-				rc_client::Offence {
-					offender: 3,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}
+				(
+					5,
+					rc_client::Offence {
+						offender: 5,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				),
+				(
+					5,
+					rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)
 			]
 		));
 
@@ -743,20 +748,25 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
-				5,
 				vec![
-					rc_client::Offence {
-						offender: 5,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(50),
-					},
-					rc_client::Offence {
-						offender: 3,
-						reporters: vec![],
-						slash_fraction: Perbill::from_percent(50),
-					}
+					(
+						5,
+						rc_client::Offence {
+							offender: 5,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50),
+						}
+					),
+					(
+						5,
+						rc_client::Offence {
+							offender: 3,
+							reporters: vec![],
+							slash_fraction: Perbill::from_percent(50),
+						}
+					)
 				]
 			));
 
@@ -821,15 +831,17 @@ fn on_offence_non_validator() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
-				5,
-				vec![rc_client::Offence {
-					// this offender is unknown to the staking pallet.
-					offender: 666,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}]
+				vec![(
+					5,
+					rc_client::Offence {
+						// this offender is unknown to the staking pallet.
+						offender: 666,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)]
 			));
 
 			// nada
@@ -859,15 +871,17 @@ fn on_offence_previous_era() {
 		assert_eq!(oldest_reportable_era, 2);
 
 		// WHEN we report an offence older than Era 2 (oldest reportable era).
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 1
-			5,
-			vec![rc_client::Offence {
-				offender: 3,
-				reporters: vec![],
-				slash_fraction: Perbill::from_percent(30),
-			}]
+			vec![(
+				5,
+				rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(30),
+				}
+			)]
 		));
 
 		// THEN offence is ignored.
@@ -882,15 +896,17 @@ fn on_offence_previous_era() {
 
 		// WHEN: report an offence for the session belonging to the previous era
 		assert_eq!(Rotator::<Runtime>::era_start_session_index(2), Some(10));
-		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+		assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 			RuntimeOrigin::root(),
 			// offence is in era 2
-			10,
-			vec![rc_client::Offence {
-				offender: 3,
-				reporters: vec![],
-				slash_fraction: Perbill::from_percent(50),
-			}]
+			vec![(
+				10,
+				rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				}
+			)]
 		));
 
 		// THEN: offence is reported.
@@ -955,15 +971,17 @@ fn on_offence_previous_era_instant_apply() {
 			// report an offence for the session belonging to the previous era
 			assert_eq!(Rotator::<Runtime>::era_start_session_index(1), Some(5));
 
-			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence(
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
 				// offence is in era 1
-				5,
-				vec![rc_client::Offence {
-					offender: 3,
-					reporters: vec![],
-					slash_fraction: Perbill::from_percent(50),
-				}]
+				vec![(
+					5,
+					rc_client::Offence {
+						offender: 3,
+						reporters: vec![],
+						slash_fraction: Perbill::from_percent(50),
+					}
+				)]
 			));
 
 			// reported

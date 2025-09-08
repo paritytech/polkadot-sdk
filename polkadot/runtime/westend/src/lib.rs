@@ -892,32 +892,6 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			QueuedOffenceToXcm,
 		>::send(offences)
 	}
-
-	#[allow(deprecated)]
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) -> Result<(), ()> {
-		let message = Xcm(vec![
-			Instruction::UnpaidExecution {
-				weight_limit: WeightLimit::Unlimited,
-				check_origin: None,
-			},
-			Instruction::Transact {
-				origin_kind: OriginKind::Superuser,
-				fallback_max_weight: None,
-				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
-					session_index,
-					offences,
-				))
-				.encode()
-				.into(),
-			},
-		]);
-		send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message)
-			.map_err(|_| ())
-			.map(|_| ())
-	}
 }
 
 impl ah_client::Config for Runtime {
@@ -934,7 +908,7 @@ impl ah_client::Config for Runtime {
 	type Fallback = Staking;
 	// Maximum validator set size * 4
 	type MaximumValidatorsWithPoints = ConstU32<{ MaxActiveValidators::get() * 4 }>;
-	type WeightInfo = ah_client::weights::SubstrateWeight<Runtime>;
+	type MaxSessionReportRetries = ConstU32<5>;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
