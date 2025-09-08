@@ -6,4 +6,4 @@ doc:
     The YAP runtime is a refactored to adopt the latest FRAME and Substrate changes.
 crates:
 - name: yet-another-parachain-runtime
-  bump: minor
+  bump: major
