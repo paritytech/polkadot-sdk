@@ -25,7 +25,7 @@ use cumulus_relay_chain_interface::*;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	CandidateEvent, vstaging::CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
+	vstaging::CommittedCandidateReceiptV2, CandidateEvent, CoreIndex, Hash as RelayHash,
 	Header as RelayHeader, Id as ParaId,
 };
 use sp_runtime::{generic::BlockId, testing::Header as TestHeader, traits::Header};
