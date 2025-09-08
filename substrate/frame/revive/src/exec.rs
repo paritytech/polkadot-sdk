@@ -78,6 +78,7 @@ pub const EMPTY_CODE_HASH: H256 =
 	H256(sp_core::hex2array!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 /// Combined key type for both fixed and variable sized storage keys.
+#[derive(Debug)]
 pub enum Key {
 	/// Variant for fixed sized keys.
 	Fix([u8; 32]),
@@ -427,6 +428,15 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Copies a slice of the contract's code at `address` into the provided buffer.
+	///
+	/// EVM CODECOPY semantics:
+	/// - If `buf.len()` = 0: Nothing happens
+	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
+	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
+	///   are filled with zeros
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -1403,6 +1413,7 @@ where
 				}
 			}
 		} else {
+			// TODO: iterate contracts_to_be_destroyed and destroy each contract
 			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
 				return;
@@ -1810,32 +1821,35 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+
 		let sender = self.top_frame().account_id.clone();
-		let executable = match &code {
-			Code::Upload(bytecode) => {
-				if !T::AllowEVMBytecode::get() {
-					return Err(<Error<T>>::CodeRejected.into());
-				}
-				E::from_evm_init_code(bytecode.clone(), sender.clone())?
-			},
-			Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+		let executable = {
+			let executable = match &code {
+				Code::Upload(bytecode) => {
+					if !T::AllowEVMBytecode::get() {
+						return Err(<Error<T>>::CodeRejected.into());
+					}
+					E::from_evm_init_code(bytecode.clone(), sender.clone())?
+				},
+				Code::Existing(hash) => E::from_storage(*hash, self.gas_meter_mut())?,
+			};
+			self.push_frame(
+				FrameArgs::Instantiate {
+					sender,
+					executable,
+					salt,
+					input_data: input_data.as_ref(),
+				},
+				value,
+				gas_limit,
+				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				self.is_read_only(),
+			)?
 		};
-		let executable = self.push_frame(
-			FrameArgs::Instantiate {
-				sender: sender.clone(),
-				executable,
-				salt,
-				input_data: input_data.as_ref(),
-			},
-			value,
-			gas_limit,
-			deposit_limit.saturated_into::<BalanceOf<T>>(),
-			self.is_read_only(),
-		)?;
+		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
-		self.run(executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE), input_data, BumpNonce::Yes)
-			.map(|_| address)
+		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
 	}
 }
 
@@ -2128,6 +2142,23 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
+		let len = buf.len();
+		if len == 0 {
+			return;
+		}
+
+		let code_hash = self.code_hash(address);
+		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+
+		let len = len.min(code.len().saturating_sub(code_offset));
+		if len > 0 {
+			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		}
+
+		buf[len..].fill(0);
 	}
 }
 
