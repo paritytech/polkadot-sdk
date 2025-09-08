@@ -18,6 +18,8 @@
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
+
+#[cfg(feature = "evm")]
 mod sol;
 
 use crate::{
@@ -457,6 +459,7 @@ impl Default for Origin<Test> {
 }
 
 #[test]
+#[cfg(feature = "evm")]
 fn ext_builder_with_genesis_config_works() {
 	let pvm_contract = Account {
 		address: BOB_ADDR,

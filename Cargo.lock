@@ -13048,6 +13048,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_pcg",
  "revm",
+ "revm-primitives",
  "ripemd",
  "rlp 0.6.1",
  "scale-info",

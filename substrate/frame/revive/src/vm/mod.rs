@@ -18,6 +18,7 @@
 //! This module provides a means for executing contracts
 //! represented in vm bytecode.
 
+#[cfg(feature = "evm")]
 pub mod evm;
 pub mod pvm;
 mod runtime_costs;
@@ -347,11 +348,16 @@ where
 				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
-			use crate::vm::evm::EVMInputs;
-			use revm::bytecode::Bytecode;
-			let inputs = EVMInputs::new(input_data);
-			let bytecode = Bytecode::new_raw(self.code.into());
-			evm::call(bytecode, ext, inputs)
+			#[cfg(feature = "evm")]
+			{
+				use crate::vm::evm::EVMInputs;
+				use revm::bytecode::Bytecode;
+				let inputs = EVMInputs::new(input_data);
+				let bytecode = Bytecode::new_raw(self.code.into());
+				evm::call(bytecode, ext, inputs)
+			}
+			#[cfg(not(feature = "evm"))]
+			unreachable!("Feature `evm` must be enabled for EVM support!");
 		} else {
 			Err(Error::<T>::CodeRejected.into())
 		}

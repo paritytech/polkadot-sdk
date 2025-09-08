@@ -1265,6 +1265,7 @@ where
 				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
+				#[cfg(feature = "evm")]
 				if !is_pvm {
 					// Only keep return data for tracing
 					let data = if crate::tracing::if_tracing(|_| {}).is_none() {

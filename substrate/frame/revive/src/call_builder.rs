@@ -417,6 +417,7 @@ impl VmBinaryModule {
 	}
 
 	// Same as [`Self::sized`] but using EVM bytecode.
+	#[cfg(feature = "evm")]
 	pub fn evm_sized(size: u32) -> Self {
 		use revm::bytecode::opcode::STOP;
 		let code = vec![STOP; size as usize];
@@ -486,6 +487,7 @@ impl VmBinaryModule {
 	}
 
 	/// An evm contract that executes `size` JUMPDEST instructions.
+	#[cfg(feature = "revm")]
 	pub fn evm_noop(size: u32) -> Self {
 		use revm::bytecode::opcode::JUMPDEST;
 

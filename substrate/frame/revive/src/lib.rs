@@ -623,6 +623,10 @@ pub mod pallet {
 								log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
 							})
 						} else {
+							#[cfg(not(feature = "evm"))]
+							panic!("Found contract blob with EVM bytecode, but feature `evm` is not enabled.");
+
+							#[cfg(feature = "evm")]
 							ContractBlob::<T>::from_evm_runtime_code(code.clone(), account_id).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
 							})

@@ -2304,6 +2304,7 @@ mod benchmarks {
 	}
 
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
+	#[cfg(feature = "revm")]
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);

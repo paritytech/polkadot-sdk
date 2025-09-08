@@ -35,7 +35,8 @@ polkavm = { version = "0.27.0", default-features = false }
 polkavm-common = { version = "0.27.0", default-features = false, features = ["alloc"] }
 rand = { workspace = true, optional = true }
 rand_pcg = { workspace = true, optional = true }
-revm = { workspace = true }
+revm = { workspace = true, optional = true }
+revm-primitives = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true, default-features = false }
@@ -99,7 +100,8 @@ std = [
 	"polkavm-common/std",
 	"polkavm/std",
 	"rand?/std",
-	"revm/std",
+	"revm?/std",
+	"revm-primitives/std",
 	"ripemd/std",
 	"rlp/std",
 	"scale-info/std",
@@ -133,6 +135,7 @@ runtime-benchmarks = [
 	"sp-consensus-babe",
 	"sp-consensus-slots",
 	"sp-runtime/runtime-benchmarks",
+	"revm",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
@@ -143,4 +146,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
+]
+evm = [
+	"revm",
 ]

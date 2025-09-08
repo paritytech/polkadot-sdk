@@ -28,7 +28,7 @@ use pallet_revive_fixtures::{
 	compile_module_with_type, Callee, FixtureType, System as SystemFixture,
 };
 use pretty_assertions::assert_eq;
-use revm::primitives::Bytes;
+use revm_primitives::Bytes;
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 

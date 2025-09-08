@@ -20,9 +20,11 @@
 use crate::{
 	test_utils::{builder::Contract, ALICE},
 	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::{U256Converter, BASE_FEE, DIFFICULTY},
 	Code, Config,
 };
+
+#[cfg(feature = "evm")]
+use crate::vm::evm::{U256Converter, BASE_FEE, DIFFICULTY};
 
 use alloy_core::{primitives::U256, sol_types::SolInterface};
 use frame_support::traits::fungible::Mutate;
@@ -150,6 +152,7 @@ fn gaslimit_works() {
 
 /// Tests that the basefee opcode works as expected.
 #[test]
+#[cfg(feature = "evm")]
 fn basefee_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
@@ -171,6 +174,7 @@ fn basefee_works() {
 
 /// Tests that the difficulty opcode works as expected.
 #[test]
+#[cfg(feature = "evm")]
 fn difficulty_works() {
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
 		let (code, _) = compile_module_with_type("BlockInfo", fixture_type).unwrap();
