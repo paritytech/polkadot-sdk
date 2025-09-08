@@ -329,6 +329,15 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
 
+	if matches!(block_origin, BlockOrigin::ConsensusBroadcast) {
+		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+			import_block: BlockImportParams::new(block_origin, header),
+			hash: block.hash,
+			block_origin: peer,
+			verification_time: Duration::ZERO,
+		}));
+	}
+
 	match import_handler::<B>(
 		number,
 		hash,
@@ -341,7 +350,8 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				allow_missing_parent: block.state.is_some(),
+				// TODO This is the place
+				allow_missing_parent: true,
 			})
 			.await,
 	)? {

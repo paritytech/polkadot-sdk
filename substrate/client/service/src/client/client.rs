@@ -801,6 +801,10 @@ where
 		Self: ProvideRuntimeApi<Block>,
 		<Self as ProvideRuntimeApi<Block>>::Api: CoreApi<Block> + ApiExt<Block>,
 	{
+		if import_block.origin == BlockOrigin::ConsensusBroadcast {
+			return Ok(PrepareStorageChangesResult::Import(None))
+		}
+
 		let parent_hash = import_block.header.parent_hash();
 		let state_action = std::mem::replace(&mut import_block.state_action, StateAction::Skip);
 		let (enact_state, storage_changes) = match (self.block_status(*parent_hash)?, state_action)

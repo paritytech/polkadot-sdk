@@ -1257,6 +1257,10 @@ where
 		self.check_inherents(block, parent_hash, slot, create_inherent_data_providers)
 			.await?;
 
+		if block.origin == BlockOrigin::ConsensusBroadcast {
+			return Ok(());
+		}
+
 		// Check for equivocation and report it to the runtime if needed.
 		let author = {
 			let viable_epoch = query_epoch_changes(
@@ -1486,36 +1490,36 @@ where
 		);
 		let slot = pre_digest.slot();
 
-		let parent_hash = *block.header.parent_hash();
-		let parent_header = self
-			.client
-			.header(parent_hash)
-			.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
-			.ok_or_else(|| {
-				ConsensusError::ChainLookup(
-					babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
-				)
-			})?;
-
-		let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
-			"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
-			 been verified; qed",
-		);
-
-		// make sure that slot number is strictly increasing
-		if slot <= parent_slot {
-			return Err(ConsensusError::ClientImport(
-				babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
-			))
-		}
-
-		// if there's a pending epoch we'll save the previous epoch changes here
-		// this way we can revert it if there's any error
+		// If there's a pending epoch we'll save the previous epoch changes here
+		// this way we can revert it if there's any error.
 		let mut old_epoch_changes = None;
 
-		// Use an extra scope to make the compiler happy, because otherwise it complains about the
-		// mutex, even if we dropped it...
-		let mut epoch_changes = {
+		let epoch_changes = if block.origin != BlockOrigin::ConsensusBroadcast {
+			let parent_hash = *block.header.parent_hash();
+			let parent_header = self
+				.client
+				.header(parent_hash)
+				.map_err(|e| ConsensusError::ChainLookup(e.to_string()))?
+				.ok_or_else(|| {
+					ConsensusError::ChainLookup(
+						babe_err(Error::<Block>::ParentUnavailable(parent_hash, hash)).into(),
+					)
+				})?;
+
+			let parent_slot = find_pre_digest::<Block>(&parent_header).map(|d| d.slot()).expect(
+				"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
+				 been verified; qed",
+			);
+
+			// make sure that slot number is strictly increasing
+			if slot <= parent_slot {
+				return Err(ConsensusError::ClientImport(
+					babe_err(Error::<Block>::SlotMustIncrease(parent_slot, slot)).into(),
+				))
+			}
+
+			// Use an extra scope to make the compiler happy, because otherwise it complains about
+			// the mutex, even if we dropped it...
 			let mut epoch_changes = self.epoch_changes.shared_data_locked();
 
 			// check if there's any epoch change expected to happen at this slot.
@@ -1597,13 +1601,14 @@ where
 					// re-use the same data for that epoch.
 					// Notice that we are only updating a local copy of the `Epoch`, this
 					// makes it so that when we insert the next epoch into `EpochChanges` below
-					// (after incrementing it), it will use the correct epoch index and start slot.
-					// We do not update the original epoch that will be re-used because there might
-					// be other forks (that we haven't imported) where the epoch isn't skipped, and
-					// to import those forks we want to keep the original epoch data. Not updating
-					// the original epoch works because when we search the tree for which epoch to
-					// use for a given slot, we will search in-depth with the predicate
-					// `epoch.start_slot <= slot` which will still match correctly without updating
+					// (after incrementing it), it will use the correct epoch index and start
+					// slot. We do not update the original epoch that will be re-used
+					// because there might be other forks (that we haven't imported) where
+					// the epoch isn't skipped, and to import those forks we want to keep
+					// the original epoch data. Not updating the original epoch works
+					// because when we search the tree for which epoch to use for a given
+					// slot, we will search in-depth with the predicate `epoch.start_slot
+					// <= slot` which will still match correctly without updating
 					// `start_slot` to the correct value as below.
 					let epoch = viable_epoch.as_mut();
 					let prev_index = epoch.epoch_index;
@@ -1711,7 +1716,10 @@ where
 			};
 
 			// Release the mutex, but it stays locked
-			epoch_changes.release_mutex()
+			Some(epoch_changes.release_mutex())
+		} else {
+			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+			None
 		};
 
 		let import_result = self.inner.import_block(block).await;
@@ -1719,7 +1727,9 @@ where
 		// revert to the original epoch changes in case there's an error
 		// importing the block
 		if import_result.is_err() {
-			if let Some(old_epoch_changes) = old_epoch_changes {
+			if let (Some(mut epoch_changes), Some(old_epoch_changes)) =
+				(epoch_changes, old_epoch_changes)
+			{
 				*epoch_changes.upgrade() = old_epoch_changes;
 			}
 		}

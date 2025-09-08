@@ -276,6 +276,14 @@ where
 		hash: Block::Hash,
 		initial_sync: bool,
 	) -> Result<PendingSetChanges<Block>, ConsensusError> {
+		if block.origin == BlockOrigin::ConsensusBroadcast {
+			return Ok(PendingSetChanges {
+				just_in_case: None,
+				applied_changes: AppliedChanges::None,
+				do_pause: false,
+			})
+		}
+
 		// when we update the authorities, we need to hold the lock
 		// until the block is written to prevent a race if we need to restore
 		// the old authority set on error or panic.
@@ -537,7 +545,7 @@ where
 			Ok(BlockStatus::InChain) => {
 				// Strip justifications when re-importing an existing block.
 				let _justifications = block.justifications.take();
-				return (&*self.inner).import_block(block).await
+				return dbg!((&*self.inner).import_block(block).await)
 			},
 			Ok(BlockStatus::Unknown) => {},
 			Err(e) => return Err(ConsensusError::ClientImport(e.to_string())),
