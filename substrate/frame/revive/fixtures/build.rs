@@ -414,17 +414,11 @@ fn create_out_dir() -> Result<PathBuf> {
 		}
 		out_dir.join("target")
 	}
+	.join("release")
 	.join("pallet-revive-fixtures");
 
-	// clean up some leftover symlink from previous versions of this script
-	let mut out_exists = out_dir.exists();
-	if out_exists && !out_dir.is_dir() {
-		fs::remove_file(&out_dir).context("Failed to remove `OUT_DIR`.")?;
-		out_exists = false;
-	}
-
-	if !out_exists {
-		fs::create_dir(&out_dir)
+	if !out_dir.exists() {
+		fs::create_dir_all(&out_dir)
 			.context(format!("Failed to create output directory: {})", out_dir.display(),))?;
 	}
 
@@ -480,7 +474,6 @@ pub fn main() -> Result<()> {
 	println!("cargo::rerun-if-env-changed={OVERRIDE_RUSTUP_TOOLCHAIN_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_STRIP_ENV_VAR}");
 	println!("cargo::rerun-if-env-changed={OVERRIDE_OPTIMIZE_ENV_VAR}");
-	println!("cargo::rerun-if-changed={}", out_dir.display());
 
 	// the fixtures have a dependency on the uapi crate
 	println!("cargo::rerun-if-changed={}", fixtures_dir.display());
