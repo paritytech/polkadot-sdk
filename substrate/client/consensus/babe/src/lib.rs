@@ -1462,23 +1462,12 @@ where
 		let number = *block.header.number();
 		let info = self.client.info();
 
-		if number.to_string() == "328745".to_string() {
-			log::info!("XXX babe block import called for {}: {:?}", number, block.origin);
-		}
+		self.check_inherents_and_equivocations(&mut block).await?;
 
-		self.check_inherents_and_equivocations(&mut block).await.map_err(|e| {
-			log::info!("XXX inherents and equivocations check failed for {}: {e:?}", number);
-			e
-		})?;
-
-		if number.to_string() == "328745".to_string() {
-			log::info!("XXX checked inherents and equivocations for {}", number);
-		}
-
-		let block_status = self.client.status(hash).map_err(|e| {
-			log::info!("XXX failed to fetch status for for {}: {e:?}", number);
-			ConsensusError::ClientImport(e.to_string())
-		})?;
+		let block_status = self
+			.client
+			.status(hash)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
 
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
@@ -1497,15 +1486,10 @@ where
 				let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
 				block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
 				return self.inner.import_block(block).await.map_err(Into::into)
-			} else {
-				log::info!("XXX fully re-importing block {number}");
 			}
 		}
 
 		if block.with_state() {
-			if number.to_string() == "328745".to_string() {
-				log::info!("XXX import state");
-			}
 			return self.import_state(block).await
 		}
 
@@ -1513,10 +1497,6 @@ where
 			"valid babe headers must contain a predigest; header has been already verified; qed",
 		);
 		let slot = pre_digest.slot();
-
-		if number.to_string() == "328745".to_string() {
-			log::info!("XXX made it here");
-		}
 
 		// If there's a pending epoch we'll save the previous epoch changes here
 		// this way we can revert it if there's any error.
@@ -1561,7 +1541,6 @@ where
 					aux_schema::load_block_weight(&*self.client, parent_hash)
 						.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 						.ok_or_else(|| {
-							log::info!("XXX no weight for parent of block {}", number);
 							ConsensusError::ClientImport(
 								babe_err(Error::<Block>::ParentBlockNoAssociatedWeight(hash))
 									.into(),
@@ -1569,8 +1548,12 @@ where
 						})?
 				};
 
-				let intermediate =
-					block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY)?;
+				let intermediate = block
+					.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY)
+					.map_err(|e| {
+						log::info!("XXX no intermediate for block {}", number);
+						e
+					})?;
 
 				let epoch_descriptor = intermediate.epoch_descriptor;
 				let first_in_epoch = parent_slot < epoch_descriptor.start_slot();

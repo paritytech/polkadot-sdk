@@ -426,7 +426,6 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
 
-	//log::info!("XXX top level block import: {}", import_handle.name());
 	let imported = import_handle.import_block(import_block).await;
 	if let Some(metrics) = metrics {
 		metrics.report_verification_and_import(started.elapsed() + verification_time);
