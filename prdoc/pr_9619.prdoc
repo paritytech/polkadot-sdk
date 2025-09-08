@@ -29,18 +29,18 @@ crates:
 - name: pallet-offences
   bump: patch
 - name: pallet-root-offences
-  bump: patch
+  bump: major
 - name: pallet-staking-async-ah-client
-  bump: patch
+  bump: major
 - name: pallet-staking-async
   bump: patch
 - name: westend-runtime
-  bump: patch
+  bump: minor
 - name: pallet-staking-async-rc-client
-  bump: patch
+  bump: major
 - name: pallet-staking-async-rc-runtime-constants
   bump: patch
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: pallet-election-provider-multi-block
   bump: patch
