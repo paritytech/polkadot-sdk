@@ -574,7 +574,7 @@ where
 		if value.is_zero() {
 			return true
 		}
-		ensure_can_reserve::<T, I>(who, value.clone(), true).is_ok()
+		ensure_can_reserve::<T, I>(who, value, true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
