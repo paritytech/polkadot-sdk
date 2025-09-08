@@ -436,11 +436,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
 	/// - If `code_offset + len` extends beyond code: Available code copied, remaining bytes are
 	///   filled with zeros
-	///
-	/// # Panics
-	///
-	/// Panics if buf.len() < len
-	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize, len: usize);
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2148,16 +2144,17 @@ where
 		&mut self.top_frame_mut().last_frame_output
 	}
 
-	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize, len: usize) {
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
+		let len = buf.len();
 		if len == 0 {
 			return;
 		}
 
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
-		buf[..len].fill(0);
 
 		if code_offset >= code.len() {
+			buf[..len].fill(0);
 			return;
 		}
 
@@ -2165,6 +2162,8 @@ where
 		if len > 0 {
 			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
 		}
+
+		buf[len..].fill(0);
 	}
 }
 

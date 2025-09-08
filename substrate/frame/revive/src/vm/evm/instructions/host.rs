@@ -83,8 +83,9 @@ pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	resize_memory!(context.interpreter, memory_offset, len);
 
+	// Note: This can't panic because we resized memory to fit.
 	let mut buf = context.interpreter.memory.slice_mut(memory_offset, len);
-	context.interpreter.extend.copy_code_slice(&mut buf, &address, code_offset, len);
+	context.interpreter.extend.copy_code_slice(&mut buf, &address, code_offset);
 }
 
 /// Implements the BLOCKHASH instruction.
