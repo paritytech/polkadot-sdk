@@ -195,9 +195,6 @@ fn extcodecopy_works() {
 	let (code, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
 	let (dummy_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
-	let code_start = 3;
-	let code_len = 17;
-
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 		let Contract { addr, .. } =
@@ -205,43 +202,90 @@ fn extcodecopy_works() {
 		let Contract { addr: dummy_addr, .. } =
 			builder::bare_instantiate(Code::Upload(dummy_code.clone())).build_and_unwrap_contract();
 
-		let expected_code = {
-			let contract_info = test_utils::get_contract(&dummy_addr);
-			let code_hash = contract_info.code_hash;
-			let expected_code = crate::PristineCode::<Test>::get(&code_hash)
-				.map(|bounded_vec| bounded_vec.to_vec())
-				.unwrap_or_default();
-			expected_code[code_start..code_start + code_len].to_vec()
-		};
+		let contract_info = test_utils::get_contract(&dummy_addr);
+		let code_hash = contract_info.code_hash;
+		let full_code = crate::PristineCode::<Test>::get(&code_hash)
+			.map(|bounded_vec| bounded_vec.to_vec())
+			.unwrap_or_default();
 
-		let result = builder::bare_call(addr)
-			.data(
-				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-					account: dummy_addr.0.into(),
-					offset: U256::from(code_start),
-					size: U256::from(code_len),
-				})
-				.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		assert!(!result.did_revert(), "test reverted");
-		let actual_code = {
-			let length = u32::from_be_bytes(result.data[60..64].try_into().unwrap()) as usize;
-			&result.data[64..64 + length]
-		};
+		struct TestCase {
+			description: &'static str,
+			offset: usize,
+			size: usize,
+			expected: Vec<u8>,
+		}
 
-		assert_eq!(
-			expected_code.len(),
-			actual_code.len(),
-			"EXTCODECOPY should return the correct code length for {:?}",
-			fixture_type
-		);
+		// Test cases covering different scenarios
+		let test_cases = vec![
+			TestCase {
+				description: "copy within bounds",
+				offset: 3,
+				size: 17,
+				expected: full_code[3..20].to_vec(),
+			},
+			TestCase { description: "len = 0", offset: 0, size: 0, expected: vec![] },
+			TestCase {
+				description: "offset beyond code length",
+				offset: full_code.len(),
+				size: 10,
+				expected: vec![0u8; 10],
+			},
+			TestCase {
+				description: "offset + size beyond code",
+				offset: full_code.len().saturating_sub(5),
+				size: 20,
+				expected: {
+					let mut expected = vec![0u8; 20];
+					expected[..5].copy_from_slice(&full_code[full_code.len() - 5..]);
+					expected
+				},
+			},
+			TestCase {
+				description: "size larger than remaining",
+				offset: 10,
+				size: full_code.len(),
+				expected: {
+					let mut expected = vec![0u8; full_code.len()];
+					expected[..full_code.len() - 10].copy_from_slice(&full_code[10..]);
+					expected
+				},
+			},
+		];
 
-		assert_eq!(
-			&expected_code, actual_code,
-			"EXTCODECOPY should return the correct code for {:?}",
-			fixture_type
-		);
+		for test_case in test_cases {
+			let result = builder::bare_call(addr.clone())
+				.data(
+					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+						account: dummy_addr.0.into(),
+						offset: U256::from(test_case.offset),
+						size: U256::from(test_case.size),
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+
+			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
+
+			let actual_code = {
+				let length = u32::from_be_bytes(result.data[60..64].try_into().unwrap()) as usize;
+				&result.data[64..64 + length]
+			};
+
+			assert_eq!(
+				test_case.expected.len(),
+				actual_code.len(),
+				"EXTCODECOPY length mismatch for {}: expected {} bytes, got {}",
+				test_case.description,
+				test_case.expected.len(),
+				actual_code.len()
+			);
+
+			assert_eq!(
+				&test_case.expected, actual_code,
+				"EXTCODECOPY content mismatch for {}",
+				test_case.description
+			);
+		}
 	});
 }
 

@@ -429,8 +429,18 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
 
-	/// Returns a slice of the contract's code as `address`
-	fn get_code_slice(&mut self, address: &H160, code_offset: usize, len: usize) -> Vec<u8>;
+	/// Copies a slice of the contract's code at `address` into the provided buffer.
+	///
+	/// EVM CODECOPY semantics:
+	/// - If `len` = 0: Nothing happens
+	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
+	/// - If `code_offset + len` extends beyond code: Available code copied, remaining bytes are
+	///   filled with zeros
+	///
+	/// # Panics
+	///
+	/// Panics if buf.len() < len
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize, len: usize);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2138,16 +2148,22 @@ where
 		&mut self.top_frame_mut().last_frame_output
 	}
 
-	fn get_code_slice(&mut self, address: &H160, code_offset: usize, len: usize) -> Vec<u8> {
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize, len: usize) {
+		if len == 0 {
+			return;
+		}
+
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		buf[..len].fill(0);
 
-		let copy_len = code.len().saturating_sub(code_offset).min(len);
+		if code_offset >= code.len() {
+			return;
+		}
 
-		if copy_len > 0 {
-			code[code_offset..code_offset + copy_len].to_vec()
-		} else {
-			Vec::new()
+		let len = len.min(code.len().saturating_sub(code_offset));
+		if len > 0 {
+			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
 		}
 	}
 }
