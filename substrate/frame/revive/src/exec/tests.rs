@@ -30,7 +30,7 @@ use crate::{
 		test_utils::{get_balance, place_contract, set_balance},
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
 	},
-	AddressMapper, Error,
+	AddressMapper, Error, Pallet,
 };
 use assert_matches::assert_matches;
 use frame_support::{assert_err, assert_ok, parameter_types};
@@ -148,6 +148,13 @@ impl Executable<Test> for MockExecutable {
 		})
 	}
 
+	fn from_evm_init_code(
+		_code: Vec<u8>,
+		_owner: AccountIdOf<Test>,
+	) -> Result<Self, DispatchError> {
+		unimplemented!()
+	}
+
 	fn execute<E: Ext<T = Test>>(
 		self,
 		ext: &mut E,
@@ -238,7 +245,15 @@ fn transfer_works() {
 		let value = 55;
 		let origin = Origin::from_account_id(ALICE);
 		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
-		MockStack::transfer(&origin, &ALICE, &BOB, value.into(), &mut storage_meter).unwrap();
+
+		MockStack::transfer(
+			&origin,
+			&ALICE,
+			&BOB,
+			Pallet::<Test>::convert_native_to_evm(value),
+			&mut storage_meter,
+		)
+		.unwrap();
 
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 		assert!(min_balance > 0);
@@ -254,14 +269,15 @@ fn transfer_works() {
 #[test]
 fn transfer_to_nonexistent_account_works() {
 	// This test verifies that a contract is able to transfer
-	// some funds to a nonexistant account and that those transfers
+	// some funds to a nonexistent account and that those transfers
 	// are not able to reap accounts.
 	ExtBuilder::default().build().execute_with(|| {
 		let ed = <Test as Config>::Currency::minimum_balance();
 		let value = 1024;
+		let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 		let mut storage_meter = storage::meter::Meter::new(u64::MAX);
 
-		// Transfers to nonexistant accounts should work
+		// Transfers to nonexistent accounts should work
 		set_balance(&ALICE, ed * 2);
 		set_balance(&BOB, ed + value);
 
@@ -269,7 +285,7 @@ fn transfer_to_nonexistent_account_works() {
 			&Origin::from_account_id(ALICE),
 			&BOB,
 			&CHARLIE,
-			value.into(),
+			evm_value,
 			&mut storage_meter,
 		));
 		assert_eq!(get_balance(&ALICE), ed);
@@ -284,7 +300,7 @@ fn transfer_to_nonexistent_account_works() {
 				&Origin::from_account_id(ALICE),
 				&BOB,
 				&DJANGO,
-				value.into(),
+				evm_value,
 				&mut storage_meter
 			),
 			<Error<Test>>::StorageDepositNotEnoughFunds,
@@ -298,7 +314,7 @@ fn transfer_to_nonexistent_account_works() {
 				&Origin::from_account_id(ALICE),
 				&BOB,
 				&EVE,
-				value.into(),
+				evm_value,
 				&mut storage_meter
 			),
 			<Error<Test>>::TransferFailed
@@ -311,9 +327,10 @@ fn transfer_to_nonexistent_account_works() {
 #[test]
 fn correct_transfer_on_call() {
 	let value = 55;
+	let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 
 	let success_ch = MockLoader::insert(Call, move |ctx, _| {
-		assert_eq!(ctx.ext.value_transferred(), U256::from(value));
+		assert_eq!(ctx.ext.value_transferred(), evm_value);
 		Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 	});
 
@@ -329,7 +346,7 @@ fn correct_transfer_on_call() {
 			BOB_ADDR,
 			&mut GasMeter::<Test>::new(GAS_LIMIT),
 			&mut storage_meter,
-			value.into(),
+			evm_value.as_u64().into(),
 			vec![],
 			false,
 		)
@@ -343,14 +360,15 @@ fn correct_transfer_on_call() {
 #[test]
 fn correct_transfer_on_delegate_call() {
 	let value = 35;
+	let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 
 	let success_ch = MockLoader::insert(Call, move |ctx, _| {
-		assert_eq!(ctx.ext.value_transferred(), U256::from(value));
+		assert_eq!(ctx.ext.value_transferred(), evm_value);
 		Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 	});
 
 	let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-		assert_eq!(ctx.ext.value_transferred(), U256::from(value));
+		assert_eq!(ctx.ext.value_transferred(), evm_value);
 		ctx.ext.delegate_call(Weight::zero(), U256::zero(), CHARLIE_ADDR, Vec::new())?;
 		Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 	});
@@ -368,7 +386,7 @@ fn correct_transfer_on_delegate_call() {
 			BOB_ADDR,
 			&mut GasMeter::<Test>::new(GAS_LIMIT),
 			&mut storage_meter,
-			value.into(),
+			evm_value.as_u64().into(),
 			vec![],
 			false,
 		));
@@ -471,7 +489,7 @@ fn balance_too_low() {
 			&Origin::from_account_id(ALICE),
 			&from,
 			&dest,
-			100u64.into(),
+			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
 			&mut storage_meter,
 		);
 
@@ -783,40 +801,6 @@ fn origin_returns_proper_values() {
 }
 
 #[test]
-fn to_account_id_returns_proper_values() {
-	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
-		let alice_account_id = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
-		assert_eq!(ctx.ext.to_account_id(&ALICE_ADDR), alice_account_id);
-
-		const UNMAPPED_ADDR: H160 = H160([99u8; 20]);
-		let mut unmapped_fallback_account_id = [0xEE; 32];
-		unmapped_fallback_account_id[..20].copy_from_slice(UNMAPPED_ADDR.as_bytes());
-		assert_eq!(
-			ctx.ext.to_account_id(&UNMAPPED_ADDR),
-			AccountId32::new(unmapped_fallback_account_id)
-		);
-
-		exec_success()
-	});
-
-	ExtBuilder::default().build().execute_with(|| {
-		place_contract(&BOB, bob_code_hash);
-		let origin = Origin::from_account_id(ALICE);
-		let mut storage_meter = storage::meter::Meter::new(0);
-		let result = MockStack::run_call(
-			origin,
-			BOB_ADDR,
-			&mut GasMeter::<Test>::new(GAS_LIMIT),
-			&mut storage_meter,
-			U256::zero(),
-			vec![0],
-			false,
-		);
-		assert_matches!(result, Ok(_));
-	});
-}
-
-#[test]
 fn code_hash_returns_proper_values() {
 	let bob_code_hash = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is not a contract but account exists so it returns hash of empty data
@@ -1098,7 +1082,7 @@ fn instantiation_work_with_success_output() {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance.into(),
+					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[0 ;32]),
 					false,
@@ -1150,7 +1134,7 @@ fn instantiation_fails_with_failing_output() {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					min_balance.into(),
+					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[0; 32]),
 					false,
@@ -1178,13 +1162,14 @@ fn instantiation_from_contract() {
 		let instantiated_contract_address = Rc::clone(&instantiated_contract_address);
 		move |ctx, _| {
 			// Instantiate a contract and save it's address in `instantiated_contract_address`.
+			let min_balance = <Test as Config>::Currency::minimum_balance();
 			let (address, output) = ctx
 				.ext
 				.instantiate(
 					Weight::MAX,
 					U256::MAX,
-					dummy_ch,
-					<Test as Config>::Currency::minimum_balance().into(),
+					Code::Existing(dummy_ch),
+					Pallet::<Test>::convert_native_to_evm(min_balance),
 					vec![],
 					Some(&[48; 32]),
 				)
@@ -1213,7 +1198,7 @@ fn instantiation_from_contract() {
 					BOB_ADDR,
 					&mut GasMeter::<Test>::new(GAS_LIMIT),
 					&mut storage_meter,
-					(min_balance * 10).into(),
+					Pallet::<Test>::convert_native_to_evm(min_balance * 10),
 					vec![],
 					false,
 				),
@@ -1243,12 +1228,15 @@ fn instantiation_traps() {
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
 			// Instantiate a contract and save it's address in `instantiated_contract_address`.
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+
 			assert_matches!(
 				ctx.ext.instantiate(
 					Weight::zero(),
 					U256::zero(),
-					dummy_ch,
-					<Test as Config>::Currency::minimum_balance().into(),
+					Code::Existing(dummy_ch),
+					value,
 					vec![],
 					Some(&[0; 32]),
 				),
@@ -1291,7 +1279,7 @@ fn instantiation_traps() {
 #[test]
 fn termination_from_instantiate_fails() {
 	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		ctx.ext.terminate(&ALICE_ADDR)?;
+		let _ = ctx.ext.terminate(&ALICE_ADDR)?;
 		exec_success()
 	});
 
@@ -1311,7 +1299,7 @@ fn termination_from_instantiate_fails() {
 					executable,
 					&mut gas_meter,
 					&mut storage_meter,
-					100u64.into(),
+					Pallet::<Test>::convert_native_to_evm(100u64),
 					vec![],
 					Some(&[0; 32]),
 					false,
@@ -1599,7 +1587,7 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				fail_code,
+				Code::Existing(fail_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
@@ -1616,7 +1604,7 @@ fn nonce() {
 			.instantiate(
 				Weight::MAX,
 				U256::MAX,
-				success_code,
+				Code::Existing(success_code),
 				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
@@ -2340,11 +2328,14 @@ fn last_frame_output_works_on_instantiate() {
 	let trap_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let value = <Test as Config>::Currency::minimum_balance().into();
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			// Successful instantiation should set the output
-			let address =
-				ctx.ext.instantiate(Weight::MAX, U256::MAX, ok_ch, value, vec![], None).unwrap();
+			let address = ctx
+				.ext
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(ok_ch), value, vec![], None)
+				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
 				&ExecReturnValue { flags: ReturnFlags::empty(), data: vec![127] }
@@ -2352,13 +2343,28 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Balance transfers should reset the output
 			ctx.ext
-				.call(Weight::MAX, U256::MAX, &address, U256::from(1), vec![], true, false)
+				.call(
+					Weight::MAX,
+					U256::MAX,
+					&address,
+					Pallet::<Test>::convert_native_to_evm(1),
+					vec![],
+					true,
+					false,
+				)
 				.unwrap();
 			assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
 			// Reverted instantiation should set the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), revert_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(revert_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2367,7 +2373,14 @@ fn last_frame_output_works_on_instantiate() {
 
 			// Trapped instantiation should clear the output
 			ctx.ext
-				.instantiate(Weight::zero(), U256::zero(), trap_ch, value, vec![], None)
+				.instantiate(
+					Weight::zero(),
+					U256::zero(),
+					Code::Existing(trap_ch),
+					value,
+					vec![],
+					None,
+				)
 				.unwrap_err();
 			assert_eq!(
 				ctx.ext.last_frame_output(),
@@ -2508,7 +2521,7 @@ fn last_frame_output_is_always_reset() {
 			ctx.ext.instantiate(
 				Weight::zero(),
 				U256::zero(),
-				invalid_code_hash,
+				Code::Existing(invalid_code_hash),
 				U256::zero(),
 				vec![],
 				None,
@@ -2547,7 +2560,8 @@ fn immutable_data_access_checks_work() {
 	});
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let value = <Test as Config>::Currency::minimum_balance().into();
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			assert_eq!(
 				ctx.ext.set_immutable_data(vec![0, 1, 2, 3].try_into().unwrap()),
@@ -2556,7 +2570,7 @@ fn immutable_data_access_checks_work() {
 
 			// Constructors can not access the immutable data
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()
@@ -2719,9 +2733,11 @@ fn immutable_data_set_errors_with_empty_data() {
 	});
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let value = <Test as Config>::Currency::minimum_balance().into();
+			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+
 			ctx.ext
-				.instantiate(Weight::MAX, U256::MAX, dummy_ch, value, vec![], None)
+				.instantiate(Weight::MAX, U256::MAX, Code::Existing(dummy_ch), value, vec![], None)
 				.unwrap();
 
 			exec_success()

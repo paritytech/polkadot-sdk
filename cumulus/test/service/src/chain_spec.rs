@@ -51,7 +51,7 @@ pub fn get_chain_spec_with_extra_endowed(
 	let mut patch_json = json!({
 		"balances": {
 			"balances": all_balances,
-		}
+		},
 	});
 
 	if let Some(id) = id {
@@ -62,6 +62,7 @@ pub fn get_chain_spec_with_extra_endowed(
 				"parachainInfo": {
 					"parachainId": id,
 				},
+
 			}),
 		);
 	};

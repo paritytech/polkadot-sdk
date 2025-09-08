@@ -20,8 +20,9 @@ use crate::{
 		api::{GenericTransaction, TransactionSigned},
 		GasEncoder,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, Config, ConversionPrecision, MomentOf,
-	OnChargeTransactionBalanceOf, Pallet, LOG_TARGET, RUNTIME_PALLETS_ADDR,
+	vm::pvm::extract_code_and_data,
+	AccountIdOf, AddressMapper, BalanceOf, Config, MomentOf, OnChargeTransactionBalanceOf, Pallet,
+	LOG_TARGET, RUNTIME_PALLETS_ADDR,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeLimit, DecodeWithMemTracking, Encode};
@@ -294,6 +295,23 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
+		// Check transaction type and reject unsupported transaction types
+		match &tx {
+			crate::evm::api::TransactionSigned::Transaction1559Signed(_) |
+			crate::evm::api::TransactionSigned::Transaction2930Signed(_) |
+			crate::evm::api::TransactionSigned::TransactionLegacySigned(_) => {
+				// Supported transaction types, continue processing
+			},
+			crate::evm::api::TransactionSigned::Transaction7702Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+			crate::evm::api::TransactionSigned::Transaction4844Signed(_) => {
+				log::debug!(target: LOG_TARGET, "EIP-4844 transactions are not supported");
+				return Err(InvalidTransaction::Call);
+			},
+		}
+
 		let signer_addr = tx.recover_eth_address().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to recover signer: {err:?}");
 			InvalidTransaction::BadProof
@@ -313,15 +331,7 @@ pub trait EthExtra {
 			return Err(InvalidTransaction::Call);
 		}
 
-		let value = crate::Pallet::<Self::Config>::convert_evm_to_native(
-			value.unwrap_or_default(),
-			ConversionPrecision::Exact,
-		)
-		.map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to convert value to native: {err:?}");
-			InvalidTransaction::Call
-		})?;
-
+		let value = value.unwrap_or_default();
 		let data = input.to_vec();
 
 		let (gas_limit, storage_deposit_limit) =
@@ -341,14 +351,14 @@ pub trait EthExtra {
 					InvalidTransaction::Call
 				})?;
 
-				if value != 0u32.into() {
+				if !value.is_zero() {
 					log::debug!(target: LOG_TARGET, "Runtime pallets address cannot be called with value");
 					return Err(InvalidTransaction::Call)
 				}
 
 				call
 			} else {
-				crate::Call::call::<Self::Config> {
+				crate::Call::eth_call::<Self::Config> {
 					dest,
 					value,
 					gas_limit,
@@ -358,23 +368,22 @@ pub trait EthExtra {
 				.into()
 			}
 		} else {
-			let blob = match polkavm::ProgramBlob::blob_length(&data) {
-				Some(blob_len) =>
-					blob_len.try_into().ok().and_then(|blob_len| (data.split_at_checked(blob_len))),
-				_ => None,
-			};
-
-			let Some((code, data)) = blob else {
-				log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
-				return Err(InvalidTransaction::Call);
+			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+				let Some((code, data)) = extract_code_and_data(&data) else {
+					log::debug!(target: LOG_TARGET, "Failed to extract polkavm code & data");
+					return Err(InvalidTransaction::Call);
+				};
+				(code, data)
+			} else {
+				(data, Default::default())
 			};
 
 			crate::Call::eth_instantiate_with_code::<Self::Config> {
 				value,
 				gas_limit,
 				storage_deposit_limit,
-				code: code.to_vec(),
-				data: data.to_vec(),
+				code,
+				data,
 			}
 			.into()
 		};
@@ -604,9 +613,9 @@ mod test {
 
 		assert_eq!(
 			call,
-			crate::Call::call::<Test> {
+			crate::Call::eth_call::<Test> {
 				dest: tx.to.unwrap(),
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				data: tx.input.to_vec(),
 				gas_limit,
 				storage_deposit_limit
@@ -627,7 +636,7 @@ mod test {
 		assert_eq!(
 			call,
 			crate::Call::eth_instantiate_with_code::<Test> {
-				value: tx.value.unwrap_or_default().as_u64(),
+				value: tx.value.unwrap_or_default().as_u64().into(),
 				code,
 				data,
 				gas_limit,
@@ -669,13 +678,17 @@ mod test {
 
 	#[test]
 	fn check_instantiate_data() {
-		let code = b"invalid code".to_vec();
+		let code: Vec<u8> = polkavm_common::program::BLOB_MAGIC
+			.into_iter()
+			.chain(b"invalid code".iter().cloned())
+			.collect();
 		let data = vec![1];
+
 		let builder = UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone());
 
 		// Fail because the tx input fail to get the blob length
 		assert_eq!(
-			builder.mutate_estimate_and_check(Box::new(|tx| tx.input = vec![1, 2, 3].into())),
+			builder.check(),
 			Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		);
 	}

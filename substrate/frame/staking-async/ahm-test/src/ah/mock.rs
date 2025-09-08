@@ -121,7 +121,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 							leftover: false,
 							// arbitrary, feel free to change if test setup updates
 							new_validator_set: vec![3, 5, 6, 8],
-							prune_up_to: None,
+							prune_up_to: active_era.checked_sub(BondingDuration::get()),
 						})
 					)
 				);
@@ -316,6 +316,7 @@ parameter_types! {
 	pub static SlashDeferredDuration: u32 = 2;
 	pub static SessionsPerEra: u32 = 6;
 	pub static PlanningEraOffset: u32 = 2;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -341,6 +342,7 @@ impl pallet_staking_async::Config for Runtime {
 	type Slash = ();
 	type SlashDeferDuration = SlashDeferredDuration;
 	type MaxEraDuration = ();
+	type MaxPruningItems = MaxPruningItems;
 
 	type HistoryDepth = ConstU32<7>;
 	type MaxControllersInDeprecationBatch = ();

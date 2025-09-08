@@ -530,7 +530,7 @@ parse_branch_names_from_backport_labels() {
   BRANCHES=""
 
   for label in $labels; do
-    if [[ "$label" =~ ^A4-backport-stable[0-9]{4}$ ]]; then
+    if [[ "$label" =~ ^A4-backport-(stable|unstable)[0-9]{4}$ ]]; then
       branch_name=$(sed 's/A4-backport-//' <<< "$label")
       BRANCHES+=" ${branch_name}"
     fi

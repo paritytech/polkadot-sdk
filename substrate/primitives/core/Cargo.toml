@@ -28,7 +28,6 @@ bitflags = { workspace = true }
 bounded-collections = { workspace = true, features = ["scale-codec"] }
 bs58 = { optional = true, workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
-dyn-clonable = { optional = true, workspace = true }
 futures = { optional = true, workspace = true }
 hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
@@ -60,7 +59,6 @@ libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
-sp-runtime-interface = { workspace = true }
 # k256 crate, better portability, intended to be used in substrate-runtimes (no-std)
 k256 = { features = ["alloc", "ecdsa"], workspace = true }
 # secp256k1 crate, better performance, intended to be used on host side (std)
@@ -120,7 +118,6 @@ std = [
 	"sp-crypto-hashing/std",
 	"sp-debug-derive/std",
 	"sp-externalities/std",
-	"sp-runtime-interface/std",
 	"sp-std/std",
 	"sp-storage/std",
 	"ss58-registry/std",
@@ -150,7 +147,6 @@ serde = [
 # For the regular wasm runtime builds this should not be used.
 full_crypto = [
 	"blake2",
-	"sp-runtime-interface/disable_target_static_assertions",
 ]
 
 # This feature adds BLS crypto primitives.

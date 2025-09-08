@@ -65,13 +65,12 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
-      # currently disabled https://github.com/paritytech/polkadot-sdk/issues/9123
-      # - name: Stop all workflows if failed
-      #   if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
-      #   uses: ./.github/actions/workflow-stopper
-      #   with:
-      #     app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
-      #     app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
   test-linux-stable:
     needs: [preflight]
@@ -169,9 +168,10 @@ jobs:
     runs-on: ubuntu-latest
     name: All tests passed
     # If any new job gets added, be sure to add it to this array
-    needs: [
+    needs:
+      [
         test-linux-stable-int,
-        # test-linux-stable-runtime-benchmarks, disabled until is solved https://github.com/paritytech/polkadot-sdk/issues/9123
+        test-linux-stable-runtime-benchmarks,
         test-linux-stable,
         test-linux-stable-no-try-runtime,
       ]
