@@ -56,6 +56,9 @@ pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 static_init = { workspace = true }
 substrate-cli-test-utils = { workspace = true }
+zombienet-sdk = { workspace = true }
+zombienet-orchestrator = { workspace = true }
+zombienet-configuration = { workspace = true }
 
 [build-dependencies]
 git2 = { workspace = true }

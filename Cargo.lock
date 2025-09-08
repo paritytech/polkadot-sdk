@@ -13331,6 +13331,9 @@ dependencies = [
  "subxt-signer 0.43.0",
  "thiserror 1.0.65",
  "tokio",
+ "zombienet-configuration",
+ "zombienet-orchestrator",
+ "zombienet-sdk",
 ]
 
 [[package]]
