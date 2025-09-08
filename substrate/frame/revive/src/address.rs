@@ -62,8 +62,9 @@ pub trait AddressMapper<T: Config>: private::Sealed {
 	/// `account_id` instead of the fallback account id.
 	fn map(account_id: &T::AccountId) -> DispatchResult;
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn bench_map(account_id: &T::AccountId) -> DispatchResult {
+	/// Map an account id without taking any deposit.
+	/// This is only useful for genesis configuration, or benchmarks.
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
 		Self::map(account_id)
 	}
 
@@ -145,9 +146,7 @@ where
 		Ok(())
 	}
 
-	/// Convenience function for benchmarking, to map an account id without taking any deposit.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn bench_map(account_id: &T::AccountId) -> DispatchResult {
+	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
 		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
 		Ok(())
