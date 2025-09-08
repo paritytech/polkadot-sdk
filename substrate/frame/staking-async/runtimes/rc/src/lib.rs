@@ -710,7 +710,7 @@ impl Convert<Vec<ah_client::QueuedOffenceOf<Runtime>>, Xcm<()>> for QueuedOffenc
 			Instruction::Transact {
 				origin_kind: OriginKind::Superuser,
 				fallback_max_weight: None,
-				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffenceQueued(
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffencePaged(
 					offences,
 				))
 				.encode()
@@ -760,9 +760,7 @@ enum RcClientCalls<AccountId> {
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
-	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
-	#[codec(index = 2)]
-	RelayNewOffenceQueued(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
+	RelayNewOffencePaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 pub struct EnsureAssetHub;

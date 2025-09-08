@@ -816,7 +816,7 @@ pub mod pallet {
 			}
 		}
 
-		#[pallet::call_index(2)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(
 			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
 		)]
