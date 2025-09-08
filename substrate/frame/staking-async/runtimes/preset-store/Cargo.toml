@@ -13,14 +13,14 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
-scale-info = { workspace = true }
 pallet-staking-async-ah-client = { workspace = true }
+scale-info = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"codec/std",
 	"frame/std",
+	"pallet-staking-async-ah-client/std",
 	"scale-info/std",
-	"pallet-staking-async-ah-client/std"
 ]
