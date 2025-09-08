@@ -1,0 +1,58 @@
+title: '[AHM/Staking/VMP] Paginated Offence Reports + Retries for Validator Set'
+doc:
+- audience: Todo
+  description: |-
+    * Please see the full design do [here](https://docs.google.com/document/d/1l2COWct1f-gC8nM0tq7Xs8pBWeAP6pX0LociWC6enUg/edit?tab=t.0)
+    * closes https://github.com/paritytech-secops/srlabs_findings/issues/520
+
+    This PR makes the following changes:
+
+    #### Common
+
+    * `SendToRelayChain` and `SendToAssetHub` traits now return a result, allowing the caller to know if the underlying XCM was sent or not.
+    * Adds a number of testing facilities to `pallet-root-offences`, and `staking-async/papi-tests`. Both of which can be ignored in the review.
+
+    #### Offences
+
+    * Mark `SendToAssetHub::relay_new_offence` as deprecated. This interface is now only used for any offence that might happen during the migration, and thereafter we use the new `relay_new_offence_paged` which is a vector of self-contained offences, not requiring us to group offences per session in each message.
+    * Offences are not sent immediately anymore.
+    * Instead, they are stored in a paginated `OffenceSendQueue`
+    * `on-init`, we grab one page of this storage map, and sent it.
+
+    #### Session Report
+    * Session reports now also have a retry mechanism.
+    * Upon each failure, we emit an `UnexpectedEvent`
+    * If our retries run out and we still can't send the session report, we will emit a different `UnexpectedEvent`. We also retore the validator points that we meant to send, and merge them back, so that they are sent in the next session report.
+
+    #### Validator Set
+    * Similar to offences, they are not sent immediately anymore.
+    * Instead, they are stored in a storage item, and are sent on subsequent on-inits.
+    * A maximum retry count is added.
+
+    ### Review notes
+
+    As noted above, ignore all changes in
+    * `staking-async/runtimes`
+    * `staking-async/runtimes/papi-tests`
+    * `root-offences`
+
+    As they are only related to testing.
+crates:
+- name: pallet-offences
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-staking-async-ah-client
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
+- name: westend-runtime
+  bump: patch
+- name: pallet-staking-async-rc-client
+  bump: patch
+- name: pallet-staking-async-rc-runtime-constants
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-election-provider-multi-block
+  bump: patch
