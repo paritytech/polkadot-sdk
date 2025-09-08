@@ -92,8 +92,6 @@ pub enum RuntimeCosts {
 	Now,
 	/// Weight of calling `seal_gas_limit`.
 	GasLimit,
-	/// Weight of calling `seal_weight_to_fee`.
-	WeightToFee,
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
@@ -256,7 +254,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			BaseFee => T::WeightInfo::seal_base_fee(),
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
-			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
 			Terminate { code_removed } => T::WeightInfo::seal_terminate(code_removed.into()),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			SetStorage { new_bytes, old_bytes } => {

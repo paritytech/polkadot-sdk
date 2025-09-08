@@ -20,7 +20,7 @@ use crate::{
 	gas::GasMeter,
 	limits,
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{BumpNonce, ExecReturnValue, StorageDeposit},
+	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
 	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
 	tracing::if_tracing,
@@ -54,7 +54,7 @@ use sp_core::{
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Convert, Saturating, Zero},
+	traits::{BadOrigin, Bounded, Saturating, Zero},
 	DispatchError, SaturatedConversion,
 };
 
@@ -399,9 +399,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the maximum allowed size of a storage item.
 	fn max_value_size(&self) -> u32;
 
-	/// Returns the price for the specified amount of weight.
-	fn get_weight_price(&self, weight: Weight) -> U256;
-
 	/// Get an immutable reference to the nested gas meter.
 	fn gas_meter(&self) -> &GasMeter<Self::T>;
 
@@ -444,6 +441,9 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
+
+	/// Returns the effective gas price of this transaction.
+	fn effective_gas_price(&self) -> u64;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -535,9 +535,8 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
-	/// Whether or not actual transfer of funds should be performed.
-	/// This is set to `true` exclusively when we simulate a call through eth_transact.
-	skip_transfer: bool,
+	/// Global behavior determined by the creater of this stack.
+	exec_config: &'a ExecConfig,
 	/// No executable is held by the struct but influences its behaviour.
 	_phantom: PhantomData<E>,
 }
@@ -790,7 +789,7 @@ where
 		storage_meter: &mut storage::meter::Meter<T>,
 		value: U256,
 		input_data: Vec<u8>,
-		skip_transfer: bool,
+		exec_config: &ExecConfig,
 	) -> ExecResult {
 		let dest = T::AddressMapper::to_account_id(&dest);
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
@@ -799,11 +798,9 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_config,
 		)? {
-			stack
-				.run(executable, input_data, BumpNonce::Yes)
-				.map(|_| stack.first_frame.last_frame_output)
+			stack.run(executable, input_data).map(|_| stack.first_frame.last_frame_output)
 		} else {
 			if_tracing(|t| {
 				t.enter_child_span(
@@ -824,6 +821,8 @@ where
 				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
 			});
 
+			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
+
 			result
 		}
 	}
@@ -841,8 +840,7 @@ where
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
-		skip_transfer: bool,
-		bump_nonce: BumpNonce,
+		exec_config: &ExecConfig,
 	) -> Result<(H160, ExecReturnValue), ExecError> {
 		let deployer = T::AddressMapper::to_address(&origin);
 		let (mut stack, executable) = Stack::<'_, T, E>::new(
@@ -856,18 +854,19 @@ where
 			gas_meter,
 			storage_meter,
 			value,
-			skip_transfer,
+			exec_config,
 		)?
 		.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&stack.top_frame().account_id);
 		let result = stack
-			.run(executable, input_data, bump_nonce)
+			.run(executable, input_data)
 			.map(|_| (address, stack.first_frame.last_frame_output));
 		if let Ok((contract, ref output)) = result {
 			if !output.did_revert() {
 				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
 			}
 		}
+		log::trace!(target: LOG_TARGET, "instantiate finished with: {result:?}");
 		result
 	}
 
@@ -878,6 +877,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: BalanceOf<T>,
+		exec_config: &'a ExecConfig,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -889,7 +889,7 @@ where
 			gas_meter,
 			storage_meter,
 			value.into(),
-			false,
+			exec_config,
 		)
 		.unwrap()
 		.unwrap();
@@ -906,7 +906,7 @@ where
 		gas_meter: &'a mut GasMeter<T>,
 		storage_meter: &'a mut storage::meter::Meter<T>,
 		value: U256,
-		skip_transfer: bool,
+		exec_config: &'a ExecConfig,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
 		let Some((first_frame, executable)) = Self::new_frame(
@@ -932,7 +932,7 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			skip_transfer,
+			exec_config,
 			_phantom: Default::default(),
 		};
 
@@ -1119,7 +1119,6 @@ where
 		&mut self,
 		executable: ExecutableOrPrecompile<T, E, Self>,
 		input_data: Vec<u8>,
-		bump_nonce: BumpNonce,
 	) -> Result<(), ExecError> {
 		let frame = self.top_frame();
 		let entry_point = frame.entry_point;
@@ -1153,7 +1152,9 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let skip_transfer = self.skip_transfer;
+			let skip_transfer = self.exec_config.unsafe_skip_transfers;
+			let is_first_frame = self.frames.len() == 0;
+			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1173,10 +1174,10 @@ where
 
 				let ed = <Contracts<T>>::min_balance();
 				frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
-				if self.skip_transfer {
+				if skip_transfer {
 					T::Currency::set_balance(account_id, ed);
 				} else {
-					T::Currency::transfer(origin, account_id, ed, Preservation::Preserve)
+					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)
 						.map_err(|_| <Error<T>>::StorageDepositNotEnoughFunds)?;
 				}
 
@@ -1189,7 +1190,7 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				if matches!(bump_nonce, BumpNonce::Yes) {
+				if bump_nonce || !is_first_frame {
 					// Needs to be incremented before calling into the code so that it is visible
 					// in case of recursion.
 					<System<T>>::inc_account_nonce(caller.account_id()?);
@@ -1268,7 +1269,7 @@ where
 			// Hence we need to delay charging the base deposit after execution.
 			let frame = if entry_point == ExportedFunction::Constructor {
 				let origin = self.origin.account_id()?.clone();
-				let frame = self.top_frame_mut();
+				let frame = top_frame_mut!(self);
 				let contract_info = frame.contract_info();
 				// if we are dealing with EVM bytecode
 				// We upload the new runtime code, and update the code
@@ -1281,7 +1282,7 @@ where
 					};
 
 					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
-					module.store_code(skip_transfer)?;
+					module.store_code(&self.exec_config)?;
 					code_deposit = module.code_info().deposit();
 					contract_info.code_hash = *module.code_hash();
 
@@ -1683,7 +1684,7 @@ where
 			deposit_limit.saturated_into::<BalanceOf<T>>(),
 			self.is_read_only(),
 		)? {
-			self.run(executable, input_data, BumpNonce::Yes)
+			self.run(executable, input_data)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
@@ -1857,7 +1858,7 @@ where
 		let executable = executable.expect(FRAME_ALWAYS_EXISTS_ON_INSTANTIATE);
 		let address = T::AddressMapper::to_address(&self.top_frame().account_id);
 		if_tracing(|t| t.instantiate_code(&code, salt));
-		self.run(executable, input_data, BumpNonce::Yes).map(|_| address)
+		self.run(executable, input_data).map(|_| address)
 	}
 }
 
@@ -1923,7 +1924,7 @@ where
 				deposit_limit.saturated_into::<BalanceOf<T>>(),
 				is_read_only,
 			)? {
-				self.run(executable, input_data, BumpNonce::Yes)
+				self.run(executable, input_data)
 			} else {
 				if_tracing(|t| {
 					t.enter_child_span(
@@ -2121,10 +2122,6 @@ where
 		limits::PAYLOAD_BYTES
 	}
 
-	fn get_weight_price(&self, weight: Weight) -> U256 {
-		T::WeightPrice::convert(weight).into()
-	}
-
 	fn gas_meter(&self) -> &GasMeter<Self::T> {
 		&self.top_frame().nested_gas
 	}
@@ -2186,6 +2183,14 @@ where
 		}
 
 		buf[len..].fill(0);
+	}
+
+	fn effective_gas_price(&self) -> u64 {
+		self.exec_config
+			.effective_gas_price
+			.unwrap_or_else(|| <Contracts<T>>::evm_gas_price())
+			.try_into()
+			.unwrap_or(u64::MAX)
 	}
 }
 

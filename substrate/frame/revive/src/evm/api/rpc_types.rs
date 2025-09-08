@@ -209,6 +209,16 @@ impl GenericTransaction {
 		Self::from_unsigned(tx.into(), base_gas_price, from)
 	}
 
+	/// The gas price that is actually paid (including priority fee).
+	pub fn effective_gas_price(&self, base_gas_price: U256) -> Option<U256> {
+		if let Some(prio_price) = self.max_priority_fee_per_gas {
+			let max_price = self.max_fee_per_gas?;
+			Some(max_price.min(base_gas_price.saturating_add(prio_price)))
+		} else {
+			self.gas_price
+		}
+	}
+
 	/// Create a new [`GenericTransaction`] from a unsigned transaction.
 	pub fn from_unsigned(
 		tx: TransactionUnsigned,
@@ -216,7 +226,7 @@ impl GenericTransaction {
 		from: Option<H160>,
 	) -> Self {
 		use TransactionUnsigned::*;
-		match tx {
+		let mut tx = match tx {
 			TransactionLegacyUnsigned(tx) => GenericTransaction {
 				from,
 				r#type: Some(tx.r#type.as_byte()),
@@ -238,11 +248,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: Some(tx.to),
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_blob_gas),
-				),
 				access_list: Some(tx.access_list),
 				blob_versioned_hashes: tx.blob_versioned_hashes,
 				max_fee_per_blob_gas: Some(tx.max_fee_per_blob_gas),
@@ -259,11 +264,6 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
@@ -291,18 +291,15 @@ impl GenericTransaction {
 				value: Some(tx.value),
 				to: tx.to,
 				gas: Some(tx.gas),
-				gas_price: Some(
-					base_gas_price
-						.saturating_add(tx.max_priority_fee_per_gas)
-						.min(tx.max_fee_per_gas),
-				),
 				access_list: Some(tx.access_list),
 				authorization_list: tx.authorization_list,
 				max_fee_per_gas: Some(tx.max_fee_per_gas),
 				max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
 				..Default::default()
 			},
-		}
+		};
+		tx.gas_price = tx.effective_gas_price(base_gas_price);
+		tx
 	}
 
 	/// Convert to a [`TransactionUnsigned`].

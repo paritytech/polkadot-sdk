@@ -24,7 +24,7 @@ use super::{
 use crate::{
 	address::{create1, create2, AddressMapper},
 	assert_refcount, assert_return_code,
-	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
+	evm::{fees::InfoT, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
 	precompiles::alloy::sol_types::{
@@ -40,9 +40,8 @@ use crate::{
 	},
 	tracing::trace,
 	weights::WeightInfo,
-	AccountInfo, AccountInfoOf, BalanceWithDust, BumpNonce, Code, Config, ContractInfo,
-	DeletionQueueCounter, DepositLimit, Error, EthTransactError, HoldReason, Pallet, PristineCode,
-	StorageDeposit, H160,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DeletionQueueCounter,
+	Error, EthTransactError, ExecConfig, HoldReason, Pallet, PristineCode, StorageDeposit, H160,
 };
 use assert_matches::assert_matches;
 use codec::Encode;
@@ -50,7 +49,7 @@ use frame_support::{
 	assert_err, assert_err_ignore_postinfo, assert_noop, assert_ok,
 	storage::child,
 	traits::{
-		fungible::{BalancedHold, Inspect, Mutate},
+		fungible::{Balanced, BalancedHold, Inspect, Mutate},
 		tokens::Preservation,
 		OnIdle, OnInitialize,
 	},
@@ -243,17 +242,14 @@ fn deposit_limit_enforced_on_plain_transfer() {
 		// sending balance to a new account should fail when the limit is lower than the ed
 		let result = builder::bare_call(CHARLIE_ADDR)
 			.native_value(1)
-			.storage_deposit_limit(190.into())
+			.storage_deposit_limit(190)
 			.build();
 		assert_err!(result.result, <Error<Test>>::StorageDepositLimitExhausted);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
 		assert_eq!(get_balance(&CHARLIE), 0);
 
 		// works when the account is prefunded
-		let result = builder::bare_call(BOB_ADDR)
-			.native_value(1)
-			.storage_deposit_limit(0.into())
-			.build();
+		let result = builder::bare_call(BOB_ADDR).native_value(1).storage_deposit_limit(0).build();
 		assert_ok!(result.result);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(0));
 		assert_eq!(get_balance(&BOB), 1_000_001);
@@ -261,7 +257,7 @@ fn deposit_limit_enforced_on_plain_transfer() {
 		// also works allowing enough deposit
 		let result = builder::bare_call(CHARLIE_ADDR)
 			.native_value(1)
-			.storage_deposit_limit(200.into())
+			.storage_deposit_limit(200)
 			.build();
 		assert_ok!(result.result);
 		assert_eq!(result.storage_deposit, StorageDeposit::Charge(200));
@@ -2653,7 +2649,7 @@ fn deposit_limit_in_nested_calls() {
 		// that the nested call should have a deposit limit of at least 2 Balance. The
 		// sub-call should be rolled back, which is covered by the next test case.
 		let ret = builder::bare_call(addr_caller)
-			.storage_deposit_limit(DepositLimit::Balance(u64::MAX))
+			.storage_deposit_limit(u64::MAX)
 			.data((102u32, &addr_callee, U256::from(1u64)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -2731,7 +2727,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Sub calls return first to they are checked first.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(0))
+			.storage_deposit_limit(0)
 			.data((&code_hash_callee, 100u32, &U256::MAX.to_little_endian()).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -2744,7 +2740,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// succeeds but the parent call runs out of storage.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit))
+			.storage_deposit_limit(callee_min_deposit)
 			.data((&code_hash_callee, 0u32, &U256::MAX.to_little_endian()).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
@@ -2756,7 +2752,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(caller_min_deposit + 1))
+			.storage_deposit_limit(caller_min_deposit + 1)
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit)).encode())
 			.build_and_unwrap_result();
 		assert_return_code!(ret, RuntimeReturnCode::OutOfResources);
@@ -2768,7 +2764,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// Same as above but stores one byte in both caller and callee.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
-			.storage_deposit_limit(DepositLimit::Balance(callee_min_deposit + 1))
+			.storage_deposit_limit(callee_min_deposit + 1)
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();
 		assert_err!(ret.result, <Error<Test>>::StorageDepositLimitExhausted);
@@ -3361,7 +3357,10 @@ fn gas_price_api_works() {
 		// Call the contract: It echoes back the value returned by the gas price API.
 		let received = builder::bare_call(addr).build_and_unwrap_result();
 		assert_eq!(received.flags, ReturnFlags::empty());
-		assert_eq!(u64::from_le_bytes(received.data[..].try_into().unwrap()), u64::from(GAS_PRICE));
+		assert_eq!(
+			u64::from_le_bytes(received.data[..].try_into().unwrap()),
+			u64::try_from(<Pallet<Test>>::evm_gas_price()).unwrap(),
+		);
 	});
 }
 
@@ -3916,7 +3915,6 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_, _| 0u64,
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -3931,7 +3929,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		));
 
 		let Contract { addr, .. } =
@@ -3951,7 +3948,6 @@ fn skip_transfer_works() {
 					..Default::default()
 				},
 				Weight::MAX,
-				|_, _| 0u64,
 			),
 			EthTransactError::Message(format!(
 				"insufficient funds for gas * price + value: address {BOB_ADDR:?} have 0 (supplied gas 1)"
@@ -3971,7 +3967,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		)
 		.is_err(),);
 
@@ -3984,7 +3979,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		));
 
 		// call through contract works when transfers are skipped
@@ -3996,7 +3990,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		));
 
 		// works with transfers enabled if we don't incur a storage cost
@@ -4010,7 +4003,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		));
 
 		// fails when trying to increase the storage item size
@@ -4023,7 +4015,6 @@ fn skip_transfer_works() {
 				..Default::default()
 			},
 			Weight::MAX,
-			|_, _| 0u64,
 		)
 		.is_err());
 	});
@@ -4789,12 +4780,14 @@ fn bump_nonce_once_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 		frame_system::Account::<Test>::mutate(&ALICE, |account| account.nonce = 1);
 
+		let mut do_not_bump = ExecConfig::new_substrate_tx();
+		do_not_bump.bump_nonce = false;
+
 		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
 		frame_system::Account::<Test>::mutate(&BOB, |account| account.nonce = 1);
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(ALICE))
-			.bump_nonce(BumpNonce::Yes)
 			.salt(None)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&ALICE), 2);
@@ -4802,7 +4795,6 @@ fn bump_nonce_once_works() {
 		// instantiate again is ok
 		let result = builder::bare_instantiate(Code::Existing(hash))
 			.origin(RuntimeOrigin::signed(ALICE))
-			.bump_nonce(BumpNonce::Yes)
 			.salt(None)
 			.build()
 			.result;
@@ -4810,7 +4802,7 @@ fn bump_nonce_once_works() {
 
 		builder::bare_instantiate(Code::Upload(code.clone()))
 			.origin(RuntimeOrigin::signed(BOB))
-			.bump_nonce(BumpNonce::No)
+			.exec_config(do_not_bump.clone())
 			.salt(None)
 			.build_and_unwrap_result();
 		assert_eq!(System::account_nonce(&BOB), 1);
@@ -4818,7 +4810,7 @@ fn bump_nonce_once_works() {
 		// instantiate again should fail
 		let err = builder::bare_instantiate(Code::Upload(code))
 			.origin(RuntimeOrigin::signed(BOB))
-			.bump_nonce(BumpNonce::No)
+			.exec_config(do_not_bump)
 			.salt(None)
 			.build()
 			.result
@@ -4990,5 +4982,42 @@ fn return_data_limit_is_enforced() {
 			let result = builder::bare_call(addr).data(return_size.encode()).build().result;
 			assert_result(result);
 		}
+	});
+}
+
+#[test]
+fn storage_deposit_from_hold_works() {
+	let ed = 200;
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(ed).build().execute_with(|| {
+		let hold_initial = 500_000;
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(hold_initial));
+		let mut exec_config = ExecConfig::new_substrate_tx();
+		exec_config.collect_deposit_from_hold = true;
+
+		// Instantiate the BOB contract.
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(binary))
+			.exec_config(exec_config)
+			.native_value(1_000)
+			.build_and_unwrap_contract();
+
+		// Check that the BOB contract has been instantiated.
+		get_contract(&addr);
+
+		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
+		let base_deposit = contract_base_deposit(&addr);
+		let code_deposit = get_code_deposit(&code_hash);
+		assert!(base_deposit > 0);
+		assert!(code_deposit > 0);
+
+		assert_eq!(
+			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
+			base_deposit,
+		);
+		assert_eq!(
+			<Test as Config>::FeeInfo::remaining_txfee(),
+			hold_initial - base_deposit - code_deposit - ed,
+		);
 	});
 }

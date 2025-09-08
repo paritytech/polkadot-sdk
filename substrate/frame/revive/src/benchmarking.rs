@@ -20,7 +20,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
 	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
-	evm::runtime::GAS_PRICE,
 	exec::{Key, MomentOf, PrecompileExt},
 	limits,
 	precompiles::{
@@ -294,7 +293,6 @@ mod benchmarks {
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
@@ -308,8 +306,12 @@ mod benchmarks {
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
 
+		<T as Config>::FeeInfo::deposit_txfee(
+			<T as Config>::Currency::issue(caller_funding::<T>()),
+		);
+
 		#[extrinsic_call]
-		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
+		_(origin, evm_value, Weight::MAX, storage_deposit, code, input, 0u32.into());
 
 		let deposit =
 			T::Currency::balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account_id);
@@ -322,13 +324,13 @@ mod benchmarks {
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
 		assert_eq!(
+			<T as Config>::FeeInfo::remaining_txfee(),
+			caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
+		);
+		assert_eq!(
 			Pallet::<T>::evm_balance(&deployer),
 			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
+				caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
 			) - dust,
 		);
 
@@ -444,7 +446,7 @@ mod benchmarks {
 		let before = Pallet::<T>::evm_balance(&instance.address);
 		let storage_deposit = default_deposit_limit::<T>();
 		#[extrinsic_call]
-		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data);
+		_(origin, instance.address, evm_value, Weight::MAX, storage_deposit, data, 0u32.into());
 		let deposit = T::Currency::balance_on_hold(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
@@ -994,7 +996,7 @@ mod benchmarks {
 		{
 			result = runtime.bench_gas_price(memory.as_mut_slice());
 		}
-		assert_eq!(result.unwrap(), u64::from(GAS_PRICE));
+		assert_eq!(U256::from(result.unwrap()), <Pallet<T>>::evm_gas_price());
 	}
 
 	#[benchmark(pov_mode = Measured)]
@@ -1105,24 +1107,6 @@ mod benchmarks {
 		}
 		assert_ok!(result);
 		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().now());
-	}
-
-	#[benchmark(pov_mode = Measured)]
-	fn seal_weight_to_fee() {
-		build_runtime!(runtime, memory: [[0u8;32], ]);
-		let weight = Weight::from_parts(500_000, 300_000);
-		let result;
-		#[block]
-		{
-			result = runtime.bench_weight_to_fee(
-				memory.as_mut_slice(),
-				weight.ref_time(),
-				weight.proof_size(),
-				0,
-			);
-		}
-		assert_ok!(result);
-		assert_eq!(U256::from_little_endian(&memory[..]), runtime.ext().get_weight_price(weight));
 	}
 
 	#[benchmark(pov_mode = Measured)]

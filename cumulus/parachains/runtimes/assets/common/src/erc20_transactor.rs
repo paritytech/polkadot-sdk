@@ -24,7 +24,7 @@ use pallet_revive::{
 		primitives::{Address, U256 as EU256},
 		sol_types::SolCall,
 	},
-	AddressMapper, ContractResult, DepositLimit, MomentOf,
+	AddressMapper, ContractResult, ExecConfig, MomentOf,
 };
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::Weight;
@@ -126,8 +126,9 @@ where
 				asset_id,
 				U256::zero(),
 				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				StorageDepositLimit::get(),
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);
@@ -184,8 +185,9 @@ where
 				asset_id,
 				U256::zero(),
 				gas_limit,
-				DepositLimit::Balance(StorageDepositLimit::get()),
+				StorageDepositLimit::get(),
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 		// We need to return this surplus for the executor to allow refunding it.
 		let surplus = gas_limit.saturating_sub(gas_consumed);

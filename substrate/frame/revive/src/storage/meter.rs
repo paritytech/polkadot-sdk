@@ -18,8 +18,8 @@
 //! This module contains functions to meter the storage deposit.
 
 use crate::{
-	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, HoldReason, Inspect, Origin,
-	StorageDeposit as Deposit, System, LOG_TARGET,
+	storage::ContractInfo, AccountIdOf, BalanceOf, Config, Error, ExecConfig, HoldReason, Inspect,
+	Origin, Pallet, StorageDeposit as Deposit, System, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use core::{fmt::Debug, marker::PhantomData};
@@ -65,6 +65,7 @@ pub trait Ext<T: Config> {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
+		exec_config: &ExecConfig,
 	) -> Result<(), DispatchError>;
 }
 
@@ -364,9 +365,9 @@ where
 	pub fn try_into_deposit(
 		self,
 		origin: &Origin<T>,
-		skip_transfer: bool,
+		exec_config: &ExecConfig,
 	) -> Result<DepositOf<T>, DispatchError> {
-		if !skip_transfer {
+		if !exec_config.unsafe_skip_transfers {
 			// Only refund or charge deposit if the origin is not root.
 			let origin = match origin {
 				Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
@@ -375,11 +376,23 @@ where
 			let try_charge = || {
 				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Refund(_)))
 				{
-					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+					E::charge(
+						origin,
+						&charge.contract,
+						&charge.amount,
+						&charge.state,
+						exec_config,
+					)?;
 				}
 				for charge in self.charges.iter().filter(|c| matches!(c.amount, Deposit::Charge(_)))
 				{
-					E::charge(origin, &charge.contract, &charge.amount, &charge.state)?;
+					E::charge(
+						origin,
+						&charge.contract,
+						&charge.amount,
+						&charge.state,
+						exec_config,
+					)?;
 				}
 				Ok(())
 			};
@@ -456,18 +469,17 @@ impl<T: Config> Ext<T> for ReservingExt {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		state: &ContractState<T>,
+		exec_config: &ExecConfig,
 	) -> Result<(), DispatchError> {
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => return Ok(()),
 			Deposit::Charge(amount) => {
-				T::Currency::transfer_and_hold(
-					&HoldReason::StorageDepositReserve.into(),
+				<Pallet<T>>::charge_deposit(
+					Some(HoldReason::StorageDepositReserve),
 					origin,
 					contract,
 					*amount,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
+					exec_config,
 				)?;
 			},
 			Deposit::Refund(amount) => {
@@ -551,6 +563,7 @@ mod tests {
 			contract: &AccountIdOf<Test>,
 			amount: &DepositOf<Test>,
 			state: &ContractState<Test>,
+			_exec_config: &ExecConfig,
 		) -> Result<(), DispatchError> {
 			TestExtTestValue::mutate(|ext| {
 				ext.charges.push(Charge {
@@ -747,7 +760,9 @@ mod tests {
 			meter.absorb(nested0, &BOB, Some(&mut nested0_info));
 
 			assert_eq!(
-				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				meter
+					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
+					.unwrap(),
 				test_case.deposit
 			);
 
@@ -820,7 +835,9 @@ mod tests {
 
 			meter.absorb(nested0, &BOB, None);
 			assert_eq!(
-				meter.try_into_deposit(&test_case.origin, false).unwrap(),
+				meter
+					.try_into_deposit(&test_case.origin, &ExecConfig::new_substrate_tx())
+					.unwrap(),
 				test_case.deposit
 			);
 			assert_eq!(TestExtTestValue::get(), test_case.expected)

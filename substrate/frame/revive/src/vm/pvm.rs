@@ -23,7 +23,6 @@ pub mod env;
 pub use env::SyscallDoc;
 
 use crate::{
-	evm::runtime::GAS_PRICE,
 	exec::{ExecError, ExecResult, Ext, Key},
 	gas::ChargedAmount,
 	limits,
