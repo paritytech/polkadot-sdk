@@ -1,0 +1,51 @@
+title: Change fee collection to make use of hold and release pattern
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implementation of  [Transaction Payment - Hold and Release](https://docs.google.com/document/d/1ChZ4NnnzJt_w9xEWChocYtwABwrXpDT-luMo63y3ShI/edit?tab=t.0).
+    Public copy of the design doc: https://hackmd.io/@athei/Sk88_m3qlg
+
+    A lot of files needed to be touched because we are adding a new config knob (`RuntimeHoldreason`) to a pallet that is used by every runtime. All the relevant changes are in `payment.rs`.
+
+    We only change the native asset payments for now. `SwapAssetAdapter` will come later as it is not used by eth transactions right now anyways.
+crates:
+- name: bridge-runtime-common
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-balances
+  bump: major
+- name: frame-executive
+  bump: major
+- name: pallet-meta-tx
+  bump: major
+- name: pallet-origin-restriction
+  bump: major
+- name: pallet-transaction-payment
+  bump: major
