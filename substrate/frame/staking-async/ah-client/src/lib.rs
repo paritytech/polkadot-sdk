@@ -387,7 +387,7 @@ pub mod pallet {
 	///
 	/// It has only two interfaces:
 	///
-	/// * [`OffenceSendQueue::append`], to add a single offeence.
+	/// * [`OffenceSendQueue::append`], to add a single offence.
 	/// * [`OffenceSendQueue::get_and_maybe_delete`] which retrieves the last page. Depending on the
 	///   closure, it may also delete that page. The returned value is indeed
 	///   [`Config::MaxOffenceBatchSize`] or less items.
@@ -395,7 +395,7 @@ pub mod pallet {
 	/// Internally, it manages `OffenceSendQueueOffences` and `OffenceSendQueueCursor`, both of
 	/// which should NEVER be used manually.
 	///
-	/// It uses [`Config::MaxOffeenceBatchSize`] as the page size.
+	/// It uses [`Config::MaxOffenceBatchSize`] as the page size.
 	pub struct OffenceSendQueue<T: Config>(core::marker::PhantomData<T>);
 
 	/// A single buffered offence in [`OffenceSendQueue`].
