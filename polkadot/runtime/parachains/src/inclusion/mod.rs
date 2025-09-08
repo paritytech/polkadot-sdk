@@ -273,12 +273,20 @@ impl From<ParaId> for AggregateMessageOrigin {
 	}
 }
 
-impl Into<ParaId> for AggregateMessageOrigin {
-	fn into(self) -> ParaId {
-		match self {
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
-		}
-	}
+#[derive(Debug)]
+pub enum ConversionError {
+    NotAPara,
+}
+
+impl TryFrom<AggregateMessageOrigin> for ParaId {
+    type Error = ConversionError;
+
+    fn try_from(value: AggregateMessageOrigin) -> Result<Self, Self::Error> {
+        match value {
+            AggregateMessageOrigin::Ump(UmpQueueId::Para(id)) => Ok(id),
+            _ => Err(ConversionError::NotAPara),
+        }
+    }
 }
 
 /// The maximal length of a UMP message.
@@ -319,7 +327,7 @@ pub mod pallet {
 			+ TypeInfo
 			+ Debug
 			+ From<ParaId>
-			+ Into<ParaId>;
+			+ TryInto<ParaId>;
 
 		/// The system message queue.
 		///
@@ -1227,7 +1235,13 @@ impl AcceptanceCheckErr {
 impl<T: Config> OnQueueChanged<T::AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
 	fn on_queue_changed(origin: T::AggregateMessageOrigin, fp: QueueFootprint) {
-		let para = origin.into();
+		let para: ParaId = match origin.try_into() {
+			Ok(id) => id,
+			Err(_) => {
+				log::warn!(target: LOG_TARGET, "on_queue_changed: non paraId origin, ignoring");
+				return;
+			}
+		};
 		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
