@@ -103,7 +103,6 @@ impl Config for Test {
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = MockSessionInterface;
 	type Fallback = MockFallback;
-	type WeightInfo = ();
 }
 
 #[cfg(test)]

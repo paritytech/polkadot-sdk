@@ -47,7 +47,7 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 	Pages::set(&16);
 	MinerPages::set(&4);
 	MaxElectingVoters::set(&12_500);
-	TargetSnapshotPerBlock::set(&4000);
+	TargetSnapshotPerBlock::set(&2500);
 	if !fast {
 		SignedValidationPhase::set(&(4 * Pages::get()));
 		SignedPhase::set(&(20 * MINUTES));

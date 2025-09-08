@@ -59,12 +59,6 @@ pub use pallet::*;
 #[cfg(test)]
 pub mod mock;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
-pub mod weights;
-
-pub use weights::WeightInfo;
-
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::RewardsReporter};
@@ -322,9 +316,6 @@ pub mod pallet {
 				Weight,
 			> + frame_support::traits::RewardsReporter<Self::AccountId>
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
-
-		/// Information on runtime weights.
-		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -376,21 +367,6 @@ pub mod pallet {
 	/// or not.
 	#[pallet::storage]
 	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
-
-	/// Offences collected while in [`OperatingMode::Buffered`] mode.
-	///
-	/// These are temporarily stored and sent once the pallet switches to [`OperatingMode::Active`].
-	/// For each offender, only the highest `slash_fraction` is kept.
-	///
-	/// Internally stores as a nested BTreeMap:
-	/// `session_index -> (offender -> (reporter, slash_fraction))`.
-	///
-	/// Note: While the [`rc_client::Offence`] type includes a list of reporters, in practice there
-	/// is only one. In this pallet, we assume this is the case and store only the first reporter.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type MigrationBufferedOffences<T: Config> =
-		StorageValue<_, BufferedOffencesMap<T>, ValueQuery>;
 
 	/// Wrapper struct for storing offences, and getting them back page by page.
 	///
@@ -675,30 +651,19 @@ pub mod pallet {
 				return weight;
 			}
 
-			// Check if we have any buffered offences to send
-			let migration_buffered_offences = MigrationBufferedOffences::<T>::get();
-			weight.saturating_accrue(T::DbWeight::get().reads(1));
-			if migration_buffered_offences.is_empty() {
-				// take a page from our send queue, and actually send it.
-				weight.saturating_accrue(T::DbWeight::get().reads(2));
-				OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
-					if page.is_empty() {
-						return Ok(())
-					}
-					// send the page if not empty. If sending returns `Ok`, we delete this page.
-					T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(
-						|_| {
-							Self::deposit_event(Event::Unexpected(
-								UnexpectedKind::OffenceSendFailed,
-							));
-						},
-					)
-				});
-				weight
-			} else {
-				let migration_processing_weight = Self::process_migration_buffered_offences();
-				weight.saturating_add(migration_processing_weight)
-			}
+			// take a page from our send queue, and actually send it.
+			weight.saturating_accrue(T::DbWeight::get().reads(2));
+			OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
+				if page.is_empty() {
+					return Ok(())
+				}
+				// send the page if not empty. If sending returns `Ok`, we delete this page.
+				T::SendToAssetHub::relay_new_offence_paged(page.into_inner()).inspect_err(|_| {
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
+				})
+			});
+
+			weight
 		}
 	}
 
@@ -935,67 +900,6 @@ pub mod pallet {
 			});
 		}
 
-		/// Process buffered offences and send them to AssetHub in batches.
-		pub(crate) fn process_migration_buffered_offences() -> Weight {
-			let max_batch_size = T::MaxOffenceBatchSize::get() as usize;
-
-			// Process and remove offences one session at a time
-			let offences_sent = MigrationBufferedOffences::<T>::mutate(|buffered| {
-				let first_session_key = buffered.keys().next().copied()?;
-
-				let session_map = buffered.get_mut(&first_session_key)?;
-
-				// Take up to max_batch_size offences from this session
-				let keys_to_drain: Vec<_> =
-					session_map.keys().take(max_batch_size).cloned().collect();
-
-				let offences_to_send: Vec<_> = keys_to_drain
-					.into_iter()
-					.filter_map(|key| {
-						session_map.remove(&key).map(|offence| rc_client::Offence {
-							offender: key,
-							reporters: offence.reporter.into_iter().collect(),
-							slash_fraction: offence.slash_fraction,
-						})
-					})
-					.collect();
-
-				if !offences_to_send.is_empty() {
-					// Remove the entire session if it's now empty
-					if session_map.is_empty() {
-						buffered.remove(&first_session_key);
-						log!(debug, "Cleared all offences for session {}", first_session_key);
-					}
-
-					Some((first_session_key, offences_to_send))
-				} else {
-					None
-				}
-			});
-
-			if let Some((slash_session, offences_to_send)) = offences_sent {
-				log!(
-					info,
-					"Sending {} buffered offences for session {} to AssetHub",
-					offences_to_send.len(),
-					slash_session
-				);
-
-				let batch_size = offences_to_send.len();
-
-				// process_migration_buffered_offences will be removed post AHM
-				#[allow(deprecated)]
-				let _no_retry = T::SendToAssetHub::relay_new_offence(slash_session, offences_to_send)
-					.inspect_err(|_| {
-						Self::deposit_event(Event::Unexpected(UnexpectedKind::OffenceSendFailed));
-					});
-
-				T::WeightInfo::process_migration_buffered_offences(batch_size as u32)
-			} else {
-				Weight::zero()
-			}
-		}
-
 		/// Check if an offence is from the active validator set.
 		fn is_ongoing_offence(slash_session: SessionIndex) -> bool {
 			ValidatorSetAppliedAt::<T>::get()
@@ -1011,46 +915,29 @@ pub mod pallet {
 		) -> Weight {
 			let ongoing_offence = Self::is_ongoing_offence(slash_session);
 
-			let _: Vec<_> = offenders
-				.iter()
-				.cloned()
-				.zip(slash_fraction)
-				.map(|(offence, fraction)| {
-					if ongoing_offence {
-						// report the offence to the session pallet.
-						T::SessionInterface::report_offence(
-							offence.offender.0.clone(),
-							OffenceSeverity(*fraction),
-						);
-					}
+			offenders.iter().cloned().zip(slash_fraction).for_each(|(offence, fraction)| {
+				if ongoing_offence {
+					// report the offence to the session pallet.
+					T::SessionInterface::report_offence(
+						offence.offender.0.clone(),
+						OffenceSeverity(*fraction),
+					);
+				}
 
-					let (offender, _full_identification) = offence.offender;
-					let reporters = offence.reporters;
+				let (offender, _full_identification) = offence.offender;
+				let reporters = offence.reporters;
 
-					// In `Buffered` mode, we buffer the offences for later processing.
-					// We only keep the highest slash fraction for each offender per session.
-					MigrationBufferedOffences::<T>::mutate(|buffered| {
-						let session_offences = buffered.entry(slash_session).or_default();
-						let entry = session_offences.entry(offender);
-
-						entry
-							.and_modify(|existing| {
-								if existing.slash_fraction < *fraction {
-									*existing = BufferedOffence {
-										reporter: reporters.first().cloned(),
-										slash_fraction: *fraction,
-									};
-								}
-							})
-							.or_insert(BufferedOffence {
-								reporter: reporters.first().cloned(),
-								slash_fraction: *fraction,
-							});
-					});
-
-					// Return unit for the map operation
-				})
-				.collect();
+				// In `Buffered` mode, we buffer the offences for later processing.
+				// We only keep the highest slash fraction for each offender per session.
+				OffenceSendQueue::<T>::append((
+					slash_session,
+					rc_client::Offence {
+						offender: offender.clone(),
+						reporters: reporters.clone(),
+						slash_fraction: *fraction,
+					},
+				));
+			});
 
 			T::DbWeight::get().reads_writes(1, 1)
 		}

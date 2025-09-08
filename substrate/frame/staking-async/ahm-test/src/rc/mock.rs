@@ -300,7 +300,6 @@ impl ah_client::Config for Runtime {
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Self;
-	type WeightInfo = ();
 	type Fallback = Staking;
 }
 
@@ -323,31 +322,11 @@ impl DeliverToAH {
 impl ah_client::SendToAssetHub for DeliverToAH {
 	type AccountId = AccountId;
 
-	#[allow(deprecated)] // can be removed post AHM
 	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
+		_session_index: SessionIndex,
+		_offences: Vec<rc_client::Offence<Self::AccountId>>,
 	) -> Result<(), ()> {
-		Self::ensure_delivery_guard()?;
-		if let Some(mut local_queue) = LocalQueue::get() {
-			local_queue.push((
-				System::block_number(),
-				OutgoingMessages::OffenceReport(session_index, offences),
-			));
-			LocalQueue::set(Some(local_queue));
-		} else {
-			shared::CounterRCAHNewOffence::mutate(|x| *x += 1);
-			shared::in_ah(|| {
-				let origin = crate::ah::RuntimeOrigin::root();
-				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence(
-					origin,
-					session_index,
-					offences.clone(),
-				)
-				.unwrap();
-			});
-		}
-		Ok(())
+		unreachable!("deprecated and no longer used here")
 	}
 
 	fn relay_session_report(
@@ -381,12 +360,15 @@ impl ah_client::SendToAssetHub for DeliverToAH {
 				.push((System::block_number(), OutgoingMessages::OffenceReportPaged(offences)));
 			LocalQueue::set(Some(local_queue));
 		} else {
-			let origin = crate::ah::RuntimeOrigin::root();
-			rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_paged(
-				origin,
-				offences.clone(),
-			)
-			.unwrap();
+			shared::in_ah(|| {
+				crate::shared::CounterRCAHNewOffence::mutate(|x| *x += offences.len() as u32);
+				let origin = crate::ah::RuntimeOrigin::root();
+				rc_client::Pallet::<crate::ah::Runtime>::relay_new_offence_paged(
+					origin,
+					offences.clone(),
+				)
+				.unwrap();
+			});
 		}
 		Ok(())
 	}
