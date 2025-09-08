@@ -1,10 +1,15 @@
-title: "[pallet_balances] Account for reserved balance in `ensure_can_withdraw` function"
+title: "Fix `ensure_can_withdraw` to properly handle reserved balances"
 
 doc:
-- audience: [Runtime Dev, Runtime User]
+- audience: Runtime Dev
   description: |-
-    The function `ensure_can_withdraw` now ensures the `new free balance` is higher 
-    or equal to the `usable balance`.
+    Fixes a bug in `pallet-balances` where the `ensure_can_withdraw` function was incorrectly 
+    preventing new reserves when an account's free balance was lower than its frozen balance, 
+    even if the usable balance was sufficient after accounting for the reserved balance.
+- audience: Runtime User
+  description: |-
+    Fixes a bug that was causing unexpected `LiquidityRestrictions` errors when attempting to 
+    reserve funds.
 
 crates: 
 - name: pallet-balances
