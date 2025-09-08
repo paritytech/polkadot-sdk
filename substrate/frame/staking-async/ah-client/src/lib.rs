@@ -61,7 +61,10 @@ pub mod mock;
 
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec};
-use frame_support::{pallet_prelude::*, traits::RewardsReporter};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Defensive, RewardsReporter},
+};
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
 use sp_runtime::SaturatedConversion;
@@ -405,7 +408,7 @@ pub mod pallet {
 					index += 1;
 					OffenceSendQueueOffences::<T>::insert(
 						index,
-						BoundedVec::<_, _>::try_from(vec![o]).expect("1 is less than 16; qed"),
+						BoundedVec::<_, _>::try_from(vec![o]).defensive_unwrap_or_default(),
 					);
 					OffenceSendQueueCursor::<T>::mutate(|i| *i += 1);
 				},
@@ -530,10 +533,10 @@ pub mod pallet {
 
 		/// An offence report failed to be sent.
 		///
-		/// It will be retried again in the next block
+		/// It will be retried again in the next block. We never drop them.
 		OffenceSendFailed,
 
-		/// Some validator points didin't make it to be included in the session report. Should
+		/// Some validator points didn't make it to be included in the session report. Should
 		/// never happen, and means:
 		///
 		/// * a too low of a value is assigned to [`Config::MaximumValidatorsWithPoints`]
@@ -704,6 +707,10 @@ pub mod pallet {
 			});
 
 			weight
+		}
+
+		fn integrity_test() {
+			assert!(T::MaxOffenceBatchSize::get() > 0, "Offence Batch size must be at least 1");
 		}
 	}
 
@@ -910,7 +917,7 @@ pub mod pallet {
 
 			let session_report = pallet_staking_async_rc_client::SessionReport {
 				end_index,
-				validator_points: validator_points.clone(),
+				validator_points,
 				activation_timestamp,
 				leftover: false,
 			};
