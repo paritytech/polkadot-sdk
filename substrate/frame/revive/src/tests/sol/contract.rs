@@ -74,21 +74,19 @@ fn staticcall_works() {
 				"the call must reproduce the magic number"
 			);
 
-			// Enable it once sstore host fn is implemented
-			// log::info!("Calling callee from caller");
-			// let result = builder::bare_call(caller_addr)
-			// 	.data(
-			// 		Caller::staticCallCall {
-			// 			_callee: callee_addr.0.into(),
-			// 			_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
-			// 			_gas: U256::MAX,
-			// 		}
-			// 		.abi_encode(),
-			// 	)
-			// 	.build_and_unwrap_result();
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::staticCallCall {
+						_callee: callee_addr.0.into(),
+						_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
 
-			// let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
-			// assert!(!result.success, "Can not store in static call");
+			let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+			assert!(!result.success, "Can not store in static call");
 		});
 	}
 }
@@ -136,22 +134,20 @@ fn call_works() {
 				"the call must reproduce the magic number"
 			);
 
-			// Enable it once sstore host fn is implemented
-			// log::info!("Calling callee from caller");
-			// let result = builder::bare_call(caller_addr)
-			// 	.data(
-			// 		Caller::normalCall {
-			// 			_callee: callee_addr.0.into(),
-			// 			_value: U256::ZERO,
-			// 			_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
-			// 			_gas: U256::MAX,
-			// 		}
-			// 		.abi_encode(),
-			// 	)
-			// 	.build_and_unwrap_result();
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::normalCall {
+						_callee: callee_addr.0.into(),
+						_value: U256::ZERO,
+						_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
 
-			// let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
-			// assert!(result.success, "the store call must succeed");
+			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			assert!(result.success, "the store call must succeed");
 		});
 	}
 }
