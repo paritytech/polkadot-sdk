@@ -117,19 +117,21 @@ pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
 	<T as Config<I>>::AssetKind,
+	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
 type ChildBountyOf<T, I> = ChildBounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
+	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
 
 /// A funded bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
+pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The amount that should be paid if the bounty is rewarded, including
@@ -141,13 +143,18 @@ pub struct Bounty<AccountId, Balance, AssetKind, PaymentId, Beneficiary> {
 	///
 	/// The asset class determined by the [`pallet::Config::Currency`].
 	pub curator_deposit: Balance,
+	/// The metadata concerning the bounty.
+	///
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// dump or IPFS hash of a JSON file.
+	pub hash: Hash,
 	/// The status of this bounty.
 	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
 }
 
 /// A funded child-bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ChildBounty<AccountId, Balance, PaymentId, Beneficiary> {
+pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
 	/// The amount that should be paid if the child-bounty is rewarded.
@@ -158,6 +165,11 @@ pub struct ChildBounty<AccountId, Balance, PaymentId, Beneficiary> {
 	///
 	/// The asset class determined by the [`pallet::Config::Currency`].
 	pub curator_deposit: Balance,
+	/// The metadata concerning the child-bounty.
+	///
+	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
+	/// dump or IPFS hash of a JSON file.
+	pub hash: Hash,
 	/// The status of this child-bounty.
 	pub status: BountyStatus<AccountId, PaymentId, Beneficiary>,
 }
@@ -501,23 +513,6 @@ pub mod pallet {
 		ChildBountyOf<T, I>,
 	>;
 
-	/// The metadata is a general information concerning the bounty.
-	///
-	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
-	/// dump or IPFS hash of a JSON file.
-	#[pallet::storage]
-	pub type BountyMetadataOf<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Blake2_128Concat, BountyIndex, T::Hash>;
-
-	/// The metadata is a general information concerning the child-bounty.
-	///
-	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
-	/// dump or IPFS hash of a JSON file.
-	/// Indexed by `(parent_bounty_id, child_bounty_id)`.
-	#[pallet::storage]
-	pub type ChildBountyMetadataOf<T: Config<I>, I: 'static = ()> =
-		StorageDoubleMap<_, Blake2_128Concat, BountyIndex, Blake2_128Concat, BountyIndex, T::Hash>;
-
 	/// Number of active child bounties per parent bounty.
 	///
 	/// Indexed by `parent_bounty_id`.
@@ -615,11 +610,11 @@ pub mod pallet {
 				asset_kind: *asset_kind,
 				value,
 				curator_deposit: 0u32.into(),
+				hash,
 				status: BountyStatus::FundingAttempted { curator, payment_status },
 			};
 			Bounties::<T, I>::insert(index, &bounty);
 			BountyCount::<T, I>::put(index + 1);
-			BountyMetadataOf::<T, I>::insert(index, hash);
 
 			Self::deposit_event(Event::<T, I>::BountyCreated { index });
 
@@ -707,14 +702,13 @@ pub mod pallet {
 				parent_bounty: parent_bounty_id,
 				value,
 				curator_deposit: 0u32.into(),
+				hash,
 				status: BountyStatus::FundingAttempted {
 					curator: final_curator,
 					payment_status: payment_status.clone(),
 				},
 			};
-
 			ChildBounties::<T, I>::insert(parent_bounty_id, child_bounty_id, child_bounty);
-			ChildBountyMetadataOf::<T, I>::insert(parent_bounty_id, child_bounty_id, hash);
 
 			// Add child-bounty value to the cumulative value sum. To be
 			// subtracted from the parent bounty payout when awarding
@@ -1417,14 +1411,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// * `BountyCount` should be greater or equals to the length of the number of items in
 	///   `Bounties`.
-	/// * `BountyCount` should be greater or equals to the length of the number of items in
-	///   `BountyMetadataOf`.
-	/// * Number of items in `Bounties` should be the same as `BountyMetadataOf` length.
-	/// * `ChildBountyCount` should be greater or equals to the length of the number of items in
-	///   `ChildBounties`.
-	/// * `ChildBountyCount` should be greater or equals to the length of the number of items in
-	///   `ChildBountyMetadataOf`.
-	/// * Number of items in `ChildBounties` should be the same as `ChildBountyMetadataOf` length.
 	fn try_state_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
 		let bounties_length = Bounties::<T, I>::iter().count() as u32;
 
@@ -1433,15 +1419,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			"`BountyCount` must be grater or equals the number of `Bounties` in storage"
 		);
 
-		let bounties_metadata_length = BountyMetadataOf::<T, I>::iter().count() as u32;
-		ensure!(
-			<BountyCount<T, I>>::get() >= bounties_metadata_length,
-			"`BountyCount` must be grater or equals the number of `BountiesMetadata` in storage."
-		);
-		ensure!(
-			bounties_length == bounties_metadata_length,
-			"Number of `Bounties` in storage must be the same as the Number of `BountiesMetadata` in storage."
-		);
 		Ok(())
 	}
 
@@ -1449,9 +1426,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///
 	/// * `ChildBountyCount` should be greater or equals to the length of the number of items in
 	///   `ChildBounties`.
-	/// * `ChildBountyCount` should be greater or equals to the length of the number of items in
-	///   `ChildBountyMetadataOf`.
-	/// * Number of items in `ChildBounties` should be the same as `ChildBountyMetadataOf` length.
 	fn try_state_child_bounties_count(
 		parent_bounty_id: BountyIndex,
 	) -> Result<(), sp_runtime::TryRuntimeError> {
@@ -1463,16 +1437,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			"`ChildBountiesPerParent` must be grater or equals the number of `ChildBounties` in storage"
 		);
 
-		let child_bounties_metadata_length =
-			ChildBountyMetadataOf::<T, I>::iter_prefix(parent_bounty_id).count() as u32;
-		ensure!(
-			<ChildBountiesPerParent<T, I>>::get(parent_bounty_id) >= child_bounties_metadata_length,
-			"`ChildBountiesPerParent` must be grater or equals the number of `ChildBountiesMetadata` in storage."
-		);
-		ensure!(
-			child_bounties_length == child_bounties_metadata_length,
-			"Number of `ChildBounties` in storage must be the same as the Number of `ChildBountiesMetadata` in storage."
-		);
 		Ok(())
 	}
 }
@@ -1630,14 +1594,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		match child_bounty_id {
 			None => {
 				Bounties::<T, I>::remove(parent_bounty_id);
-				BountyMetadataOf::<T, I>::remove(parent_bounty_id);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
-				ChildBountyMetadataOf::<T, I>::remove(parent_bounty_id, child_bounty_id);
 				ChildBountiesPerParent::<T, I>::mutate(parent_bounty_id, |count| {
 					count.saturating_dec()
 				});
