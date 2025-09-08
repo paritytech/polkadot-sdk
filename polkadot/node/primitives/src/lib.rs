@@ -30,10 +30,8 @@ use futures::Future;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use polkadot_primitives::{
-	vstaging::{
-		CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
 	BlakeTwo256, BlockNumber, CandidateCommitments, CandidateHash, ChunkIndex, CollatorPair,
+	CommittedCandidateReceiptError, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	CompactStatement, CoreIndex, EncodeAs, Hash, HashT, HeadData, Id as ParaId,
 	PersistedValidationData, SessionIndex, Signed, UncheckedSigned, ValidationCode,
 	ValidationCodeHash, MAX_CODE_SIZE, MAX_POV_SIZE,

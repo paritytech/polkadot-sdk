@@ -19,7 +19,7 @@
 //! Module implementing the logic for verifying and importing AuRa blocks.
 
 use crate::{
-	authorities, standalone::SealVerificationError, AuthorityId, CompatibilityMode, Error,
+	standalone::SealVerificationError, AuthoritiesTracker, AuthorityId, CompatibilityMode, Error,
 	LOG_TARGET,
 };
 use codec::Codec;
@@ -34,7 +34,7 @@ use sc_consensus_slots::{check_equivocation, CheckedHeader, InherentDataProvider
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_blockchain::HeaderBackend;
+use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::Error as ConsensusError;
 use sp_consensus_aura::{inherents::AuraInherentData, AuraApi};
 use sp_consensus_slots::Slot;
@@ -44,7 +44,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, NumberFor},
 	DigestItem,
 };
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 /// check a header has been signed by the right key. If the slot is too far in the future, an error
 /// will be returned. If it's successful, returns the pre-header and the digest item
@@ -99,38 +99,44 @@ where
 }
 
 /// A verifier for Aura blocks.
-pub struct AuraVerifier<C, P, CIDP, N> {
+pub struct AuraVerifier<C, P: Pair, CIDP, B: BlockT> {
 	client: Arc<C>,
 	create_inherent_data_providers: CIDP,
 	check_for_equivocation: CheckForEquivocation,
 	telemetry: Option<TelemetryHandle>,
-	compatibility_mode: CompatibilityMode<N>,
-	_phantom: PhantomData<fn() -> P>,
+	compatibility_mode: CompatibilityMode<NumberFor<B>>,
+	authorities_tracker: AuthoritiesTracker<P, B, C>,
 }
 
-impl<C, P, CIDP, N> AuraVerifier<C, P, CIDP, N> {
+impl<C, P: Pair, CIDP, B: BlockT> AuraVerifier<C, P, CIDP, B> {
 	pub(crate) fn new(
 		client: Arc<C>,
 		create_inherent_data_providers: CIDP,
 		check_for_equivocation: CheckForEquivocation,
 		telemetry: Option<TelemetryHandle>,
-		compatibility_mode: CompatibilityMode<N>,
+		compatibility_mode: CompatibilityMode<NumberFor<B>>,
 	) -> Self {
 		Self {
-			client,
+			client: client.clone(),
 			create_inherent_data_providers,
 			check_for_equivocation,
 			telemetry,
 			compatibility_mode,
-			_phantom: PhantomData,
+			authorities_tracker: AuthoritiesTracker::new(client),
 		}
 	}
 }
 
 #[async_trait::async_trait]
-impl<B: BlockT, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, NumberFor<B>>
+impl<B, C, P, CIDP> Verifier<B> for AuraVerifier<C, P, CIDP, B>
 where
-	C: ProvideRuntimeApi<B> + Send + Sync + sc_client_api::backend::AuxStore,
+	B: BlockT,
+	C: HeaderBackend<B>
+		+ HeaderMetadata<B, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<B>
+		+ Send
+		+ Sync
+		+ sc_client_api::backend::AuxStore,
 	C::Api: BlockBuilderApi<B> + AuraApi<B, AuthorityId<P>> + ApiExt<B>,
 	P: Pair,
 	P::Public: Codec + Debug,
@@ -155,14 +161,15 @@ where
 		}
 
 		let hash = block.header.hash();
+		let number = *block.header.number();
 		let parent_hash = *block.header.parent_hash();
-		let authorities = authorities(
-			self.client.as_ref(),
-			parent_hash,
-			*block.header.number(),
-			&self.compatibility_mode,
-		)
-		.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
+
+		let authorities = self
+			.authorities_tracker
+			.fetch_or_update(&block.header, &self.compatibility_mode)
+			.map_err(|e| {
+				format!("Could not fetch authorities for block {hash:?} at number {number}: {e}")
+			})?;
 
 		let create_inherent_data_providers = self
 			.create_inherent_data_providers
@@ -221,6 +228,12 @@ where
 					let (_, inner_body) = new_block.deconstruct();
 					block.body = Some(inner_body);
 				}
+
+				self.authorities_tracker.import(&pre_header).map_err(|e| {
+					format!(
+						"Could not import authorities for block {hash:?} at number {number}: {e}"
+					)
+				})?;
 
 				trace!(target: LOG_TARGET, "Checked {:?}; importing.", pre_header);
 				telemetry!(
@@ -325,7 +338,8 @@ where
 		+ Sync
 		+ AuxStore
 		+ UsageProvider<Block>
-		+ HeaderBackend<Block>,
+		+ HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>,
 	I: BlockImport<Block, Error = ConsensusError> + Send + Sync + 'static,
 	P: Pair + 'static,
 	P::Public: Codec + Debug,
@@ -362,15 +376,15 @@ pub struct BuildVerifierParams<C, CIDP, N> {
 }
 
 /// Build the [`AuraVerifier`]
-pub fn build_verifier<P, C, CIDP, N>(
+pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
 	BuildVerifierParams {
 		client,
 		create_inherent_data_providers,
 		check_for_equivocation,
 		telemetry,
 		compatibility_mode,
-	}: BuildVerifierParams<C, CIDP, N>,
-) -> AuraVerifier<C, P, CIDP, N> {
+	}: BuildVerifierParams<C, CIDP, NumberFor<B>>,
+) -> AuraVerifier<C, P, CIDP, B> {
 	AuraVerifier::<_, P, _, _>::new(
 		client,
 		create_inherent_data_providers,
