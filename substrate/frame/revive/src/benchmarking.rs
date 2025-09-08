@@ -2406,7 +2406,7 @@ mod benchmarks {
 		}
 	}
 
-	#[benchmark(pov_mode = Ignored)]
+	#[benchmark(pov_mode = Measured)]
 	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::sized(n);
 		let mut setup = CallSetup::<T>::new(module);
