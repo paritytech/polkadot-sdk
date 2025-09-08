@@ -6,13 +6,7 @@
 
 use anyhow::anyhow;
 use sp_core::{Bytes, Encode};
-use zombienet_sdk::{
-	subxt::{
-		backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, utils::url_is_secure, OnlineClient,
-		PolkadotConfig,
-	},
-	NetworkConfigBuilder,
-};
+use zombienet_sdk::{subxt::ext::subxt_rpcs::rpc_params, NetworkConfigBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store() -> Result<(), anyhow::Error> {
@@ -60,23 +54,13 @@ async fn statement_store() -> Result<(), anyhow::Error> {
 
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
+	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
 
-	let _charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
-	let _dave_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
-
-	let charlie_rpc = if url_is_secure(charlie.ws_uri())? {
-		RpcClient::from_url(&charlie.ws_uri()).await?
-	} else {
-		RpcClient::from_insecure_url(&charlie.ws_uri()).await?
-	};
-	let dave_rpc = if url_is_secure(dave.ws_uri())? {
-		RpcClient::from_url(&dave.ws_uri()).await?
-	} else {
-		RpcClient::from_insecure_url(&dave.ws_uri()).await?
-	};
+	let charlie_rpc = charlie.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
 
 	// Create the statement "1,2,3" signed by dave.
 	let mut statement = sp_statement_store::Statement::new();

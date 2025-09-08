@@ -21,7 +21,7 @@ use std::{
 
 use polkadot_node_subsystem::prometheus::prometheus::HistogramTimer;
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
-use polkadot_primitives::{vstaging::CandidateReceiptV2 as CandidateReceipt, BlockNumber, Hash};
+use polkadot_primitives::{BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash};
 use sp_core::H256;
 
 use super::collation::CollationStatus;
