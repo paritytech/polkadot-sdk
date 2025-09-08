@@ -465,6 +465,10 @@ mod tests {
 		)
 		.unwrap();
 
+		assert!(backend
+			.storage(sp_core::storage::well_known_keys::PENDING_CODE)
+			.unwrap()
+			.is_none());
 		// Should return an error, as it was not included while building the proof.
 		assert!(backend
 			.storage(sp_core::storage::well_known_keys::CODE)

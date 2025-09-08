@@ -126,6 +126,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, MaxEnc
 #[cfg(feature = "std")]
 use frame_support::traits::BuildGenesisConfig;
 use frame_support::{
+	defensive,
 	dispatch::{
 		extract_actual_pays_fee, extract_actual_weight, DispatchClass, DispatchInfo,
 		DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PerDispatchClass,
@@ -156,6 +157,8 @@ use sp_io::TestExternalities;
 pub mod limits;
 #[cfg(test)]
 pub(crate) mod mock;
+#[cfg(test)]
+pub(crate) mod mock_v3;
 
 pub mod offchain;
 
@@ -222,7 +225,20 @@ pub trait SetCode<T: Config> {
 
 impl<T: Config> SetCode<T> for () {
 	fn set_code(code: Vec<u8>) -> DispatchResult {
-		<Pallet<T>>::update_code_in_storage(&code);
+		let system_version = T::Version::get().system_version;
+		log::info!(
+			 target: LOG_TARGET,
+			"Setting new code using system_version {}",
+			system_version,
+		);
+		match system_version {
+			0..=2 => {
+				<Pallet<T>>::update_code_in_storage(&code);
+			},
+			_ => {
+				<Pallet<T>>::update_pending_code_in_storage(&code);
+			},
+		}
 		Ok(())
 	}
 }
@@ -653,7 +669,7 @@ pub mod pallet {
 		///
 		/// The default (`()`) implementation is responsible for setting the correct storage
 		/// entry and emitting corresponding event and log item. (see
-		/// [`Pallet::update_code_in_storage`]).
+		/// [`Pallet::update_pending_code_in_storage`]).
 		/// It's unlikely that this needs to be customized, unless you are writing a parachain using
 		/// `Cumulus`, where the actual code change is deferred.
 		#[pallet::no_default_bounds]
@@ -1081,6 +1097,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub type LastRuntimeUpgrade<T: Config> = StorageValue<_, LastRuntimeUpgradeInfo>;
+
+	/// At which block a runtime upgrade is scheduled at.
+	/// At the moment, we only allow one upgrade to be scheduled at the next block after pending
+	/// code is set.
+	#[pallet::storage]
+	pub(super) type UpgradeScheduledAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
@@ -1572,7 +1594,6 @@ impl<T: Config> Pallet<T> {
 	pub fn account_exists(who: &T::AccountId) -> bool {
 		Account::<T>::contains_key(who)
 	}
-
 	/// Write code to the storage and emit related events and digest items.
 	///
 	/// Note this function almost never should be used directly. It is exposed
@@ -1580,8 +1601,61 @@ impl<T: Config> Pallet<T> {
 	/// the storage (for instance in case of parachains).
 	pub fn update_code_in_storage(code: &[u8]) {
 		storage::unhashed::put_raw(well_known_keys::CODE, code);
+
 		Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
 		Self::deposit_event(Event::CodeUpdated);
+	}
+
+	/// Write pending code to the storage for it to be applied in the next block.
+	///
+	/// Note this function almost never should be used directly. It is exposed
+	/// for `OnSetCode` implementations that defer actual code being written to
+	/// the storage (for instance in case of parachains).
+	///
+	/// This function assumes that the current block number has been set.
+	pub fn update_pending_code_in_storage(code: &[u8]) {
+		let current_number = Pallet::<T>::block_number();
+		let scheduled_at = current_number + One::one();
+
+		UpgradeScheduledAt::<T>::put(scheduled_at);
+		storage::unhashed::put_raw(well_known_keys::PENDING_CODE, code);
+	}
+
+	/// Replace code with pending code if scheduled to enact in this block and in that case emit
+	/// related events and digest items.
+	///
+	/// This method is expected to be called in `on_finalize`.
+	///
+	/// Returns `true` if the pending code upgrade was applied.
+	pub fn maybe_apply_pending_code_upgrade() -> bool {
+		if UpgradeScheduledAt::<T>::exists() {
+			let scheduled_at = UpgradeScheduledAt::<T>::get();
+			let current_number = Pallet::<T>::block_number();
+
+			// Only enact the pending code upgrade if it is scheduled to be enacted in this block.
+			if scheduled_at == current_number {
+				UpgradeScheduledAt::<T>::kill();
+				let new_code = storage::unhashed::get_raw(well_known_keys::PENDING_CODE);
+				let Some(new_code) = new_code else {
+					// should never happen
+					defensive!("UpgradeScheduledAt is set but no pending code found");
+					return false
+				};
+				storage::unhashed::put_raw(well_known_keys::CODE, &new_code);
+				storage::unhashed::kill(well_known_keys::PENDING_CODE);
+
+				Self::deposit_log(generic::DigestItem::RuntimeEnvironmentUpdated);
+				Self::deposit_event(Event::CodeUpdated);
+
+				return true
+			} else if scheduled_at != current_number + One::one() {
+				defensive!("pending code scheduled to be applied not in the next block");
+				// should never happen, but if it does, we should clear the pending code
+				storage::unhashed::kill(well_known_keys::PENDING_CODE)
+			}
+		}
+
+		false
 	}
 
 	/// Whether all inherents have been applied.
