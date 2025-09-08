@@ -297,13 +297,10 @@ pub mod pallet {
 		/// Converting trait to take a source type and convert to [`Self::Beneficiary`].
 		type BeneficiaryLookup: StaticLookup<Target = Self::Beneficiary>;
 
-		/// A means of providing some cost while curator is active.
-		type Consideration: Consideration<Self::AccountId, Footprint>;
-
 		/// The bounty pallet id, used for deriving its sovereign account ID.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-		
+
 		/// The curator deposit is calculated as a percentage of the bounty value.
 		///
 		/// This deposit has optional upper and lower bounds with `CuratorDepositMax` and

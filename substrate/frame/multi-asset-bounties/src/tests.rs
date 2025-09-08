@@ -181,13 +181,7 @@ fn fund_bounty_fails() {
 		// When/Then
 		let invalid_origin = RuntimeOrigin::signed(0);
 		assert_noop!(
-			Bounties::fund_bounty(
-				invalid_origin,
-				Box::new(asset_kind),
-				value,
-				curator,
-				hash
-			),
+			Bounties::fund_bounty(invalid_origin, Box::new(asset_kind), value, curator, hash),
 			BadOrigin
 		);
 
