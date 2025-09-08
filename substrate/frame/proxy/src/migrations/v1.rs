@@ -74,6 +74,10 @@
 //! - S STILL controls P via proxy ✅
 //! - Pure proxy remains fully accessible!
 //!
+//! Both for regular and pure proxy, to fully recover and fix deposit inconsistencies, we can use a
+//! remove/re-add approach, using `utility.batch_all` to ensure atomicity.
+//! Atomicity is especially important for a pure proxy, as it prevents it from being orphaned.
+//!
 //! Benefits:
 //! - No governance intervention needed
 //! - No funds become stranded
