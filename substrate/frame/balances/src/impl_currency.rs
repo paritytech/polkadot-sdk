@@ -535,19 +535,30 @@ where
 	}
 }
 
-/// Validates whether an account can reserve a specified amount while respecting
-/// existing withdrawal restrictions.
+/// Validates whether an account can create a reserve without violating
+/// liquidity constraints.
 ///
-/// This method performs liquidity checks against locks, vesting, and other
-/// balance restrictions without modifying the account state or checking existential
-/// deposit requirements.
-fn ensure_can_reserve<T: Config<I>, I: 'static>(who: &T::AccountId) -> DispatchResult {
-	let total_balance = Pallet::<T, I>::total_balance(who);
-	let frozen_balance = Pallet::<T, I>::account(who).frozen;
+/// This method performs liquidity checks without modifying the account state.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(
+	who: &T::AccountId,
+	value: T::Balance,
+	check_existential_deposit: bool,
+) -> DispatchResult {
+	let AccountData { free, reserved, frozen, .. } = Pallet::<T, I>::account(who);
 
-	// The withdraw is allowed as long as the total balance (free + reserved)
+	// Early validation: Check sufficient free balance
+	let new_free_balance = free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
+
+	// The reserve is allowed as long as the total balance (free + reserved)
 	// remains above the frozen balance
-	ensure!(total_balance >= frozen_balance, Error::<T, I>::LiquidityRestrictions);
+	let total_balance = free.saturating_add(reserved);
+	ensure!(total_balance >= frozen, Error::<T, I>::LiquidityRestrictions);
+
+	// Conditionally validate existential deposit preservation
+	if check_existential_deposit {
+		let existential_deposit = T::ExistentialDeposit::get();
+		ensure!(new_free_balance >= existential_deposit, Error::<T, I>::Expendability);
+	}
 
 	Ok(())
 }
@@ -563,9 +574,7 @@ where
 		if value.is_zero() {
 			return true
 		}
-		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() && ensure_can_reserve::<T, I>(who).is_ok()
-		})
+		ensure_can_reserve::<T, I>(who, value.clone(), true).is_ok()
 	}
 
 	fn reserved_balance(who: &T::AccountId) -> Self::Balance {
@@ -587,7 +596,7 @@ where
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
 
 			// Check if it is possible to reserve before trying to mutate the account
-			ensure_can_reserve::<T, I>(who)
+			ensure_can_reserve::<T, I>(who, value, false)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });
