@@ -35,7 +35,7 @@ use staging_xcm_executor as xcm_executor;
 
 use cumulus_primitives_core::ParaId;
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
-use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
+use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 
 use alloc::{borrow::Cow, vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
@@ -235,7 +235,7 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: u32 = 6 * HOURS;
+	pub const Period: u32 = prod_or_fast!(1 * HOURS, 1 * MINUTES);
 	pub const Offset: u32 = 0;
 }
 
@@ -257,7 +257,7 @@ impl pallet_session::Config for Runtime {
 
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
-	pub const SessionLength: BlockNumber = 6 * HOURS;
+	pub const SessionLength: BlockNumber = prod_or_fast!(1 * HOURS, 1 * MINUTES);
 	// StakingAdmin pluralistic body.
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
