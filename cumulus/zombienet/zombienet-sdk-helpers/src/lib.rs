@@ -3,11 +3,11 @@
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use cumulus_primitives_core::{CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
+use cumulus_primitives_core::{BundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
-use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
+use std::{cmp::max, collections::HashMap, ops::Range};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -30,8 +30,8 @@ use zombienet_sdk::subxt::{
 pub enum BlockToCheck {
 	/// The exact block hash provided should occupy a full core.
 	Exact(H256),
-	/// The parent of the block that should occupy a full core.
-	Parent(H256),
+	/// Wait for the next first bundle block.
+	NextFirstBundleBlock(H256),
 }
 
 // Maximum number of blocks to wait for a session change.
@@ -699,6 +699,38 @@ pub async fn assert_para_is_registered(
 	Err(anyhow!("No more blocks to check"))
 }
 
+/// Returns [`BundleInfo`] for the given parachain block.
+fn find_bundle_info(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<BundleInfo, anyhow::Error> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_bundle_info(&substrate_digest)
+		.ok_or_else(|| anyhow!("Failed to find `BundleInfo` digest"))
+}
+
+/// Validates that the given block is the first block on its core (bundle index == 0).
+async fn validate_block_is_only_on_core(
+	para_client: &OnlineClient<PolkadotConfig>,
+	block_hash: H256,
+) -> Result<(), anyhow::Error> {
+	let blocks = para_client.blocks();
+	let block = blocks.at(block_hash).await?;
+
+	// Check if this block is the first block in the bundle (index == 0)
+	let bundle_info = find_bundle_info(&block)?;
+	if bundle_info.index != 0 {
+		return Err(anyhow::anyhow!(
+			"Not first block in core, found block with bundle index {}",
+			bundle_info.index
+		));
+	}
+
+	Ok(())
+}
+
 /// Checks if the specified block occupies a full core.
 pub async fn ensure_is_only_block_in_core(
 	para_client: &OnlineClient<PolkadotConfig>,
@@ -706,60 +738,49 @@ pub async fn ensure_is_only_block_in_core(
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
 
-	let (block_hash, is_parent) = match block_to_check {
-		BlockToCheck::Exact(block_hash) => (block_hash, false),
-		BlockToCheck::Parent(block_hash) => (block_hash, true),
-	};
+	match block_to_check {
+		BlockToCheck::Exact(block_hash) =>
+			validate_block_is_only_on_core(para_client, block_hash).await,
+		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
+			// Find the first block after start_block_hash that has bundle index 0
+			let mut current_block = blocks.at(start_block_hash).await?;
 
-	let mut chain_of_blocks = loop {
-		// Start with the latest best block.
-		let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+			loop {
+				// Get the next block by subscribing to best blocks and finding blocks after
+				// current_block
+				let mut best_block_stream = blocks.subscribe_best().await?;
 
-		let mut chain_of_blocks = vec![];
+				// Find a block that comes after our current block
+				let mut next_block = None;
+				while let Some(block) = best_block_stream.next().await.transpose()? {
+					if block.number() > current_block.number() {
+						// Walk back from this block to find the direct child of current_block
+						let mut candidate = block;
+						while candidate.number() > current_block.number() + 1 {
+							candidate = blocks.at(candidate.header().parent_hash).await?;
+						}
+						if candidate.header().parent_hash == current_block.hash() {
+							next_block = Some(candidate);
+							break;
+						}
+					}
+				}
 
-		while current_block.hash() != block_hash {
-			chain_of_blocks.push(current_block.clone());
-			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+				if let Some(next) = next_block {
+					// Check if this block has bundle index 0 (first block on core)
+					if let Ok(bundle_info) = find_bundle_info(&next) {
+						if bundle_info.index == 0 {
+							// Found the first bundle block, now validate it using the common logic
+							return validate_block_is_only_on_core(para_client, next.hash()).await;
+						}
+					}
 
-			if current_block.number() == 0 {
-				return Err(anyhow::anyhow!(
-					"Did not found block while going backwards from the best block"
-				))
+					current_block = next;
+				} else {
+					// Wait a bit before trying again
+					tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+				}
 			}
-		}
-
-		// It possible that the first block we got is the same as the transaction got finalized.
-		// So, we just retry again until we found some more blocks.
-		if !chain_of_blocks.is_empty() {
-			break chain_of_blocks
-		}
-	};
-
-	// If the input was the parent block, we have the actual block we are interested in as last
-	// member of `chain_of_blocks`.
-	let block = blocks
-		.at(if is_parent { chain_of_blocks.pop().unwrap().hash() } else { block_hash })
-		.await?;
-	let core_info = find_core_info(&block)?;
-	let parent = blocks.at(block.header().parent_hash).await?;
-
-	// Genesis is for sure on a different core :)
-	if parent.number() != 0 {
-		let parent_core_info = find_core_info(&parent)?;
-
-		if core_info == parent_core_info {
-			return Err(anyhow::anyhow!(
-				"Not first block in core, found in block {}",
-				block.number()
-			))
-		}
-	}
-
-	// The last block `CoreInfo` must be different or it shares the core with the block we are
-	// interested in.
-	if core_info == find_core_info(chain_of_blocks.last().unwrap())? {
-		Err(anyhow::anyhow!("Found more blocks on the same core"))
-	} else {
-		Ok(())
+		},
 	}
 }

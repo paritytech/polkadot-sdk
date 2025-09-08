@@ -109,7 +109,7 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("Third transaction finalized, weight registration scheduled for next block");
 
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::Parent(block_hash)).await?;
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash)).await?;
 
 	Ok(())
 }
