@@ -21,7 +21,7 @@ use core::cmp::max;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{MemoryTr, RuntimeFlag, StackTr},
+		interpreter_types::{MemoryTr, StackTr},
 	},
 	primitives::U256,
 };
@@ -72,7 +72,6 @@ pub fn msize<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// EIP-5656: Memory copying instruction that copies memory from one location to another.
 pub fn mcopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CANCUN);
 	popn!([dst, src, len], context.interpreter);
 
 	// Into usize or fail

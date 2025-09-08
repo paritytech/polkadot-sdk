@@ -27,7 +27,11 @@ use crate::{
 		self, run::builtin as run_builtin_precompile, BenchmarkSystem, BuiltinPrecompile, ISystem,
 	},
 	storage::WriteOutcome,
-	vm::pvm,
+	vm::{
+		evm,
+		evm::{instructions::instruction_table, EVMInterpreter},
+		pvm,
+	},
 	Pallet as Contracts, *,
 };
 use alloc::{vec, vec::Vec};
@@ -43,6 +47,13 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+use revm::{
+	bytecode::{opcode::EXTCODECOPY, Bytecode},
+	interpreter::{
+		host::DummyHost, interpreter_types::MemoryTr, InstructionContext, Interpreter, SharedMemory,
+	},
+	primitives,
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	digests::{PreDigest, PrimaryPreDigest},
@@ -2295,9 +2306,6 @@ mod benchmarks {
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
-		use crate::vm::evm;
-		use revm::bytecode::Bytecode;
-
 		let module = VmBinaryModule::evm_noop(r);
 		let inputs = evm::EVMInputs::new(vec![]);
 
@@ -2386,7 +2394,7 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Ignored)]
-	fn instr_empty_loop(r: Linear<0, 100_000>) {
+	fn instr_empty_loop(r: Linear<0, 10_000>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::instr(false));
 		let (mut ext, module) = setup.ext();
 		let mut prepared = CallSetup::<T>::prepare_call(&mut ext, module, Vec::new(), 0);
@@ -2396,6 +2404,53 @@ mod benchmarks {
 		{
 			prepared.call().unwrap();
 		}
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn extcodecopy(n: Linear<1_000, 10_000>) -> Result<(), BenchmarkError> {
+		let module = VmBinaryModule::sized(n);
+		let mut setup = CallSetup::<T>::new(module);
+		let contract = setup.contract();
+
+		let mut address: [u8; 32] = [0; 32];
+		address[12..].copy_from_slice(&contract.address.0);
+
+		let (mut ext, _) = setup.ext();
+		let mut interpreter: Interpreter<EVMInterpreter<'_, _>> = Interpreter {
+			extend: &mut ext,
+			input: Default::default(),
+			bytecode: Default::default(),
+			gas: Default::default(),
+			stack: Default::default(),
+			return_data: Default::default(),
+			memory: SharedMemory::new(),
+			runtime_flag: Default::default(),
+		};
+
+		let table = instruction_table::<'_, _>();
+		let extcodecopy_fn = table[EXTCODECOPY as usize];
+
+		// Setup stack for extcodecopy instruction: [address, dest_offset, offset, size]
+		let _ = interpreter.stack.push(primitives::U256::from(n));
+		let _ = interpreter.stack.push(primitives::U256::from(0u32));
+		let _ = interpreter.stack.push(primitives::U256::from(0u32));
+		let _ = interpreter.stack.push(primitives::U256::from_be_bytes(address));
+
+		let mut host = DummyHost {};
+		let context = InstructionContext { interpreter: &mut interpreter, host: &mut host };
+
+		#[block]
+		{
+			extcodecopy_fn(context);
+		}
+
+		assert_eq!(
+			*interpreter.memory.slice(0..n as usize),
+			PristineCode::<T>::get(contract.info()?.code_hash).unwrap()[0..n as usize],
+			"Memory should contain the contract's code after extcodecopy"
+		);
+
+		Ok(())
 	}
 
 	#[benchmark]
