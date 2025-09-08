@@ -301,6 +301,7 @@ impl ah_client::Config for Runtime {
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = Self;
 	type Fallback = Staking;
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
 parameter_types! {
@@ -585,4 +586,11 @@ pub(crate) fn receive_validator_set_at(
 		);
 		assert_eq!(pallet_session::Validators::<Runtime>::get(), new_validator_set);
 	}
+}
+
+/// The queued validator points in the ah-client sorted by account id.
+pub(crate) fn validator_points() -> Vec<(AccountId, u32)> {
+	let mut points = ah_client::ValidatorPoints::<Runtime>::iter().collect::<Vec<_>>();
+	points.sort_by(|a, b| a.0.cmp(&b.0));
+	points
 }

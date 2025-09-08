@@ -17,7 +17,9 @@
 
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
-use pallet_staking_async_ah_client::{self as ah_client, Mode, OperatingMode, UnexpectedKind};
+use pallet_staking_async_ah_client::{
+	self as ah_client, Mode, OperatingMode, OutgoingSessionReport, UnexpectedKind,
+};
 use pallet_staking_async_rc_client::{
 	self as rc_client, Offence, SessionReport, ValidatorSetReport,
 };
@@ -375,29 +377,74 @@ fn cleans_validator_points_upon_session_report() {
 }
 
 #[test]
-fn keep_validator_points_if_session_report_not_sent() {
-	// if a session report cannot be sent, for whatever reason, don't drop the validator points, so
-	// they can be communicated in an upcoming session report again.
+fn session_report_send_fails_after_retries() {
+	// if a session report cannot be sent, first we retry. If we still fail and retries are out, we
+	// restore the points.
 	ExtBuilder::default().local_queue().build().execute_with(|| {
-		// given
+		// insert a custom validator point for easier tracking
 		ah_client::ValidatorPoints::<Runtime>::insert(1, 100);
-		ah_client::ValidatorPoints::<Runtime>::insert(2, 200);
+
 		assert_eq!(pallet_session::CurrentIndex::<Runtime>::get(), 0);
+		assert!(ah_client::OutgoingSessionReport::<Runtime>::get().is_none());
 
 		// when roll forward, but next message will fail to be sent
 		NextAhDeliveryFails::set(true);
 		roll_until_matches(|| pallet_session::CurrentIndex::<Runtime>::get() == 1, false);
 
-		// then
-		assert!(LocalQueue::get().unwrap().is_empty());
+		// these are the points that are saved in the outgoing report
+		assert_eq!(
+			OutgoingSessionReport::<Runtime>::get().unwrap().0.validator_points,
+			vec![(1, 100), (11, 580)]
+		);
+
+		// now we have 2 retries left
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 2))));
+		// validator points are drained, since we have the session report.
+		assert_eq!(validator_points(), vec![]);
+		// event emitted
 		assert_eq!(
 			ah_client_events_since_last_call(),
 			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
 		);
 
-		// it should not be drained
-		assert!(ah_client::ValidatorPoints::<Runtime>::contains_key(1));
-		assert!(ah_client::ValidatorPoints::<Runtime>::contains_key(2));
+		// again
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 1))));
+		// this is registered by our mock setup
+		assert_eq!(validator_points(), vec![(11, 20)]);
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
+		);
+
+		// in the meantime, we receive some new validator points.
+		ah_client::ValidatorPoints::<Runtime>::insert(1, 50);
+
+		// again
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), Some((_, 0))));
+		assert_eq!(validator_points(), vec![(1, 50), (11, 40)]);
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed)]
+		);
+
+		// last time, we will drop it now.
+		NextAhDeliveryFails::set(true);
+		roll_next();
+		assert!(matches!(ah_client::OutgoingSessionReport::<Runtime>::get(), None));
+		assert_eq!(
+			ah_client_events_since_last_call(),
+			vec![
+				ah_client::Event::Unexpected(UnexpectedKind::SessionReportSendFailed),
+				ah_client::Event::Unexpected(UnexpectedKind::SessionReportDropped)
+			]
+		);
+
+		// validator points are restored and merged with what we have noted in the meantime.
+		assert_eq!(validator_points(), vec![(1, 150), (11, 640)]);
 	})
 }
 

@@ -647,7 +647,7 @@ pub mod pallet {
 	/// A validator set that is outgoing, and should be sent.
 	///
 	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
-	/// or the second block number value is reached.
+	/// or the second value reaches zero, at which point we drop it.
 	#[pallet::storage]
 	// TODO: for now we know this ValidatorSetReport is at most validator-count * 32, and we don't
 	// need its MEL critically.
@@ -699,7 +699,9 @@ pub mod pallet {
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
 
-		/// Maximum number of times that we retry sending a validator set to RC.
+		/// Maximum number of times that we retry sending a validator set to RC, after which, if
+		/// sending still fails, we emit an [`UnexpectedKind::ValidatorSetDropped`] event and drop
+		/// it.
 		type MaxValidatorSetRetries: Get<u32>;
 	}
 

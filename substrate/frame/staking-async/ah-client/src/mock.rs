@@ -103,6 +103,7 @@ impl Config for Test {
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type SessionInterface = MockSessionInterface;
 	type Fallback = MockFallback;
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
 #[cfg(test)]

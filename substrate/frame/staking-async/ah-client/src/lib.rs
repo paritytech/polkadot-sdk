@@ -221,6 +221,7 @@ pub mod pallet {
 	use frame_support::traits::{Hooks, UnixTime};
 	use frame_system::pallet_prelude::*;
 	use pallet_session::{historical, SessionManager};
+	use pallet_staking_async_rc_client::SessionReport;
 	use sp_runtime::{Perbill, Saturating};
 	use sp_staking::{
 		offence::{OffenceSeverity, OnOffenceHandler},
@@ -316,6 +317,11 @@ pub mod pallet {
 				Weight,
 			> + frame_support::traits::RewardsReporter<Self::AccountId>
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
+
+		/// Maximum number of times we try to send a session report to AssetHub, after which, if
+		/// sending still fails, we emit an [`UnexpectedKind::SessionReportSendFailed`] event and
+		/// drop
+		type MaxSessionReportRetries: Get<u32>;
 	}
 
 	#[pallet::pallet]
@@ -367,6 +373,15 @@ pub mod pallet {
 	/// or not.
 	#[pallet::storage]
 	pub type ValidatorSetAppliedAt<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
+
+	/// A session report that is outgoing, and should be sent.
+	///
+	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
+	/// or the second value reaches zero, at which point we drop it.
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type OutgoingSessionReport<T: Config> =
+		StorageValue<_, (SessionReport<T::AccountId>, u32), OptionQuery>;
 
 	/// Wrapper struct for storing offences, and getting them back page by page.
 	///
@@ -516,8 +531,14 @@ pub mod pallet {
 
 		/// A session report failed to be sent.
 		///
-		/// This will be retried in the next session rotation. No era points will be lost.
+		/// We will store, and retry it for a number of more block.
 		SessionReportSendFailed,
+
+		/// A session report failed enough times that we should drop it.
+		///
+		/// We will retain the validator points, and send them over in the next session we receive
+		/// from pallet-session.
+		SessionReportDropped,
 
 		/// An offence report failed to be sent.
 		///
@@ -651,7 +672,38 @@ pub mod pallet {
 				return weight;
 			}
 
-			// take a page from our send queue, and actually send it.
+			// if we have any pending session reports, send it.
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			if let Some((session_report, retries_left)) = OutgoingSessionReport::<T>::take() {
+				match T::SendToAssetHub::relay_session_report(session_report.clone()) {
+					Ok(()) => {
+						// report was sent, all good, it is already deleted.
+					},
+					Err(()) => {
+						log!(error, "Failed to send session report to assethub");
+						Self::deposit_event(Event::<T>::Unexpected(
+							UnexpectedKind::SessionReportSendFailed,
+						));
+						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
+							OutgoingSessionReport::<T>::put((session_report, new_retries_left))
+						} else {
+							// recreate the validator points, so they will be sent in the next
+							// report.
+							session_report.validator_points.into_iter().for_each(|(v, p)| {
+								ValidatorPoints::<T>::mutate(v, |existing_points| {
+									*existing_points = existing_points.saturating_add(p)
+								});
+							});
+
+							Self::deposit_event(Event::<T>::Unexpected(
+								UnexpectedKind::SessionReportDropped,
+							));
+						}
+					},
+				}
+			}
+
+			// then, take a page from our send queue, and if present, send it.
 			weight.saturating_accrue(T::DbWeight::get().reads(2));
 			OffenceSendQueue::<T>::get_and_maybe_delete(|page| {
 				if page.is_empty() {
@@ -875,15 +927,8 @@ pub mod pallet {
 				leftover: false,
 			};
 
-			match T::SendToAssetHub::relay_session_report(session_report) {
-				Ok(()) => (),
-				Err(_) => {
-					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionReportSendFailed));
-					validator_points.into_iter().for_each(|(id, points)| {
-						ValidatorPoints::<T>::insert(id, points);
-					});
-				},
-			}
+			// queue the session report to be sent.
+			OutgoingSessionReport::<T>::put((session_report, T::MaxSessionReportRetries::get()));
 		}
 
 		fn do_reward_by_ids(rewards: impl IntoIterator<Item = (T::AccountId, u32)>) {
