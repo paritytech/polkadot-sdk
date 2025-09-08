@@ -434,8 +434,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// EVM CODECOPY semantics:
 	/// - If `buf.len()` = 0: Nothing happens
 	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
-	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes are
-	///   filled with zeros
+	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
+	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 }
 
