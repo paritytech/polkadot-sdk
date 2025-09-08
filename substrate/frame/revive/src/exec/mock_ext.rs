@@ -202,7 +202,13 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::last_frame_output_mut")
 	}
 
-	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize, _len: usize) {
+	fn copy_code_slice(
+		&mut self,
+		_buf: &mut [u8],
+		_address: &H160,
+		_code_offset: usize,
+		_len: usize,
+	) {
 		panic!("MockExt::copy_code_slice")
 	}
 }
