@@ -184,6 +184,11 @@ jobs:
         run: |
           brew install llvm
           export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+      
+      - name: Set dynamic library path
+        run: |
+          LLVM_PATH=$(brew --prefix llvm)
+          echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
 
       - name: Install gpg
         run: |
@@ -218,6 +223,7 @@ jobs:
         run: |
           echo "Listing contents of the artifacts directory..."
           ls -laR "${GITHUB_WORKSPACE}/artifacts"
+          echo "Directory listing complete."
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
