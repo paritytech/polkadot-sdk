@@ -253,7 +253,7 @@ fn extcodecopy_works() {
 		];
 
 		for test_case in test_cases {
-			let result = builder::bare_call(addr.clone())
+			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
 						account: dummy_addr.0.into(),
