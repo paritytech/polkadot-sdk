@@ -179,6 +179,12 @@ jobs:
 
       - name: Install protobuf
         run: brew install protobuf
+
+      - name: Install llvm
+        run: |
+          brew install llvm
+          export LIBCLANG_PATH="$(brew --prefix llvm)/lib"
+
       - name: Install gpg
         run: |
           brew install gnupg
