@@ -73,26 +73,29 @@ impl MaxParachainBlockWeight {
 		let digest = frame_system::Pallet::<T>::digest();
 		let target_block_weight =
 			Self::target_block_weight_with_digest::<T>(target_blocks, &digest);
+		let max_block_weight = if is_first_block_in_core_with_digest(&digest) {
+			Self::FULL_CORE_WEIGHT
+		} else {
+			target_block_weight
+		};
 
-		// If we are in `on_initialize` or at applying the inherents, we should
-		// allow the full core weight.
+		// If we are in `on_initialize` or at applying the inherents, we allow the maximum block
+		// weight as allowed by the current context.
 		if !frame_system::Pallet::<T>::inherents_applied() {
-			return Self::FULL_CORE_WEIGHT
+			return max_block_weight
 		}
 
 		match crate::BlockWeightMode::<T>::get() {
 			// We allow the full core.
 			Some(BlockWeightMode::FullCore | BlockWeightMode::PotentialFullCore { .. }) =>
-				return Self::FULL_CORE_WEIGHT,
+				Self::FULL_CORE_WEIGHT,
 			// Let's calculate below how much weight we can use.
-			Some(BlockWeightMode::FractionOfCore { .. }) => (),
+			Some(BlockWeightMode::FractionOfCore { .. }) => target_block_weight,
 			// Either the runtime is not using the `DynamicMaxBlockWeight` extension or there is
 			// some bug. Because after the inherents are applied, this value should be set by the
 			// extension. To be on the safe side, we allow the full core weight.
-			None => return Self::FULL_CORE_WEIGHT,
+			None => Self::FULL_CORE_WEIGHT,
 		}
-
-		Self::target_block_weight::<T>(target_blocks)
 	}
 
 	fn target_block_weight<T: Config>(target_blocks: u32) -> Weight {
@@ -128,7 +131,12 @@ impl MaxParachainBlockWeight {
 /// Is this the first block in a core?
 fn is_first_block_in_core<T: Config>() -> bool {
 	let digest = frame_system::Pallet::<T>::digest();
-	CumulusDigestItem::find_bundle_info(&digest).map_or(false, |bi| bi.index == 0)
+	is_first_block_in_core_with_digest(&digest)
+}
+
+/// Is this the first block in a core? (takes digest as parameter)
+fn is_first_block_in_core_with_digest(digest: &Digest) -> bool {
+	CumulusDigestItem::find_bundle_info(digest).map_or(false, |bi| bi.index == 0)
 }
 
 /// Is the `BlockWeight` already above the target block weight?
