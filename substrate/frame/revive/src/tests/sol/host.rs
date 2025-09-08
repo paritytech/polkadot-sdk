@@ -266,10 +266,9 @@ fn extcodecopy_works() {
 
 			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
 
-			let actual_code = {
-				let length = u32::from_be_bytes(result.data[60..64].try_into().unwrap()) as usize;
-				&result.data[64..64 + length]
-			};
+			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+				.expect("Failed to decode extcodecopyOp return value");
+			let actual_code = &return_value.0;
 
 			assert_eq!(
 				&test_case.expected, actual_code,
