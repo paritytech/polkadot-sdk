@@ -1458,15 +1458,27 @@ where
 		mut block: BlockImportParams<Block>,
 	) -> Result<ImportResult, Self::Error> {
 		let hash = block.post_hash();
+		let parent_hash = *block.header.parent_hash();
 		let number = *block.header.number();
 		let info = self.client.info();
 
-		self.check_inherents_and_equivocations(&mut block).await?;
+		if number.to_string() == "328745".to_string() {
+			log::info!("XXX babe block import called for {}: {:?}", number, block.origin);
+		}
 
-		let block_status = self
-			.client
-			.status(hash)
-			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+		self.check_inherents_and_equivocations(&mut block).await.map_err(|e| {
+			log::info!("XXX inherents and equivocations check failed for {}: {e:?}", number);
+			e
+		})?;
+
+		if number.to_string() == "328745".to_string() {
+			log::info!("XXX checked inherents and equivocations for {}", number);
+		}
+
+		let block_status = self.client.status(hash).map_err(|e| {
+			log::info!("XXX failed to fetch status for for {}: {e:?}", number);
+			ConsensusError::ClientImport(e.to_string())
+		})?;
 
 		// Skip babe logic if block already in chain or importing blocks during initial sync,
 		// otherwise the check for epoch changes will error because trying to re-import an
@@ -1474,6 +1486,30 @@ where
 		if info.block_gap.map_or(false, |gap| gap.start <= number && number <= gap.end) ||
 			block_status == BlockStatus::InChain
 		{
+			// Calculate the weight of the block in case it is missing.
+			let stored_weight = aux_schema::load_block_weight(&*self.client, hash)
+				.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
+			if stored_weight.is_none() {
+				log::info!("XXX calculating weight for block {}", number);
+				let parent_weight = aux_schema::load_block_weight(&*self.client, parent_hash)
+					.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
+					.ok_or_else(|| {
+						log::info!("XXX no weight for parent of block {}", number);
+						ConsensusError::ClientImport(
+							babe_err(Error::<Block>::ParentBlockNoAssociatedWeight(hash)).into(),
+						)
+					})?;
+				let pre_digest = find_pre_digest::<Block>(&block.header).expect(
+					"valid babe headers must contain a predigest; header has been already verified; qed",
+				);
+				let total_weight = parent_weight + pre_digest.added_weight();
+				aux_schema::write_block_weight(hash, total_weight, |values| {
+					block
+						.auxiliary
+						.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
+				});
+			}
+			// TODO I guess I could just calculate the weight here (?)
 			// When re-importing existing block strip away intermediates.
 			// In case of initial sync intermediates should not be present...
 			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
@@ -1482,6 +1518,9 @@ where
 		}
 
 		if block.with_state() {
+			if number.to_string() == "328745".to_string() {
+				log::info!("XXX import state");
+			}
 			return self.import_state(block).await
 		}
 
@@ -1490,12 +1529,15 @@ where
 		);
 		let slot = pre_digest.slot();
 
+		if number.to_string() == "328745".to_string() {
+			log::info!("XXX made it here");
+		}
+
 		// If there's a pending epoch we'll save the previous epoch changes here
 		// this way we can revert it if there's any error.
 		let mut old_epoch_changes = None;
 
 		let epoch_changes = if block.origin != BlockOrigin::ConsensusBroadcast {
-			let parent_hash = *block.header.parent_hash();
 			let parent_header = self
 				.client
 				.header(parent_hash)
@@ -1534,6 +1576,7 @@ where
 					aux_schema::load_block_weight(&*self.client, parent_hash)
 						.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
 						.ok_or_else(|| {
+							log::info!("XXX no weight for parent of block {}", number);
 							ConsensusError::ClientImport(
 								babe_err(Error::<Block>::ParentBlockNoAssociatedWeight(hash))
 									.into(),

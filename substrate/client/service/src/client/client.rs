@@ -502,6 +502,13 @@ where
 
 		*self.importing_block.write() = Some(hash);
 
+		let create_gap = if origin == BlockOrigin::ConsensusBroadcast {
+			// Never create gaps for consensus imported blocks, because this import origin is used
+			// during warp sync, and the following gap sync needs to import all blocks.
+			false
+		} else {
+			create_gap
+		};
 		operation.op.set_create_gap(create_gap);
 
 		let result = self.execute_and_import_block(

@@ -1210,6 +1210,7 @@ where
 										import_existing: self.import_existing,
 										skip_execution: true,
 										state: None,
+										allow_missing_parent: true,
 									}
 								})
 								.collect();
@@ -1249,6 +1250,7 @@ where
 									import_existing: self.import_existing,
 									skip_execution: self.skip_execution(),
 									state: None,
+									allow_missing_parent: false,
 								}
 							})
 							.collect()
@@ -1390,6 +1392,7 @@ where
 							allow_missing_state: true,
 							import_existing: false,
 							skip_execution: true,
+							allow_missing_parent: false,
 							state: None,
 						}
 					})
@@ -1528,6 +1531,8 @@ where
 
 	fn required_block_attributes(&self) -> BlockAttributes {
 		match self.mode {
+			// TODO Not sure if commenting/uncommenting this actually affects the behavior
+			_ if self.block_pruning_enabled /*&& self.gap_sync.is_some()*/ => BlockAttributes::HEADER,
 			ChainSyncMode::Full =>
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
@@ -1721,19 +1726,11 @@ where
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
 			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
 			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
-			// Start gap sync, unless block pruning is enabled.
-			if self.block_pruning_enabled {
-				debug!(
-					target: LOG_TARGET,
-					"Block pruning is enabled, skipping gap sync."
-				);
-			} else {
-				self.gap_sync = Some(GapSync {
-					best_queued_number: start - One::one(),
-					target: end,
-					blocks: BlockCollection::new(),
-				});
-			}
+			self.gap_sync = Some(GapSync {
+				best_queued_number: start - One::one(),
+				target: end,
+				blocks: BlockCollection::new(),
+			});
 		}
 		trace!(
 			target: LOG_TARGET,
@@ -1784,6 +1781,7 @@ where
 					allow_missing_state: true,
 					import_existing: self.import_existing,
 					skip_execution: self.skip_execution(),
+					allow_missing_parent: false,
 					state: None,
 				}
 			})
@@ -2032,6 +2030,7 @@ where
 					allow_missing_state: true,
 					import_existing: true,
 					skip_execution: self.skip_execution(),
+					allow_missing_parent: false,
 					state: Some(state),
 				};
 				debug!(target: LOG_TARGET, "State download is complete. Import is queued");

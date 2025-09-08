@@ -1115,6 +1115,10 @@ where
 
 	/// Import blocks.
 	fn import_blocks(&mut self, origin: BlockOrigin, blocks: Vec<IncomingBlock<B>>) {
+		if let Some(block) = blocks.first() {
+			log::info!("XXX allowing re-import: {:?}", block.import_existing);
+		}
+
 		if let Some(metrics) = &self.metrics {
 			metrics.import_queue_blocks_submitted.inc();
 		}

@@ -241,6 +241,14 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
+		use sp_runtime::traits::Header;
+		if let Some(header) = blocks.first().and_then(|b| b.header.as_ref()) {
+			log::info!("XXX importing from {} ({:?})", header.number(), header.hash());
+		}
+		if let Some(header) = blocks.last().and_then(|b| b.header.as_ref()) {
+			log::info!("XXX importing up to {} ({:?})", header.number(), header.hash());
+		}
+
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 

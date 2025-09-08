@@ -91,6 +91,8 @@ pub struct IncomingBlock<B: BlockT> {
 	pub skip_execution: bool,
 	/// Re-validate existing block.
 	pub import_existing: bool,
+	/// Re-validate existing block.
+	pub allow_missing_parent: bool,
 	/// Do not compute new state, but rather set it to the given set.
 	pub state: Option<ImportedState<B>>,
 }
@@ -350,8 +352,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 				parent_hash,
 				allow_missing_state: block.allow_missing_state,
 				import_existing: block.import_existing,
-				// TODO This is the place
-				allow_missing_parent: true,
+				allow_missing_parent: block.state.is_some() || block.allow_missing_parent,
 			})
 			.await,
 	)? {
@@ -425,6 +426,7 @@ pub(crate) async fn import_single_block_metered<Block: BlockT>(
 	let number = *import_block.header.number();
 	let parent_hash = *import_block.header.parent_hash();
 
+	//log::info!("XXX top level block import: {}", import_handle.name());
 	let imported = import_handle.import_block(import_block).await;
 	if let Some(metrics) = metrics {
 		metrics.report_verification_and_import(started.elapsed() + verification_time);

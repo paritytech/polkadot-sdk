@@ -323,6 +323,10 @@ pub trait BlockImport<B: BlockT> {
 	/// The error type.
 	type Error: std::error::Error + Send + 'static;
 
+	fn name(&self) -> &'static str {
+		std::any::type_name::<Self>()
+	}
+
 	/// Check block preconditions.
 	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error>;
 
@@ -333,6 +337,10 @@ pub trait BlockImport<B: BlockT> {
 #[async_trait::async_trait]
 impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	type Error = sp_consensus::error::Error;
+
+	fn name(&self) -> &'static str {
+		(**self).name()
+	}
 
 	/// Check block preconditions.
 	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {

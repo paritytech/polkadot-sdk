@@ -407,6 +407,7 @@ where
 
 		let proof_to_incoming_block =
 			|(header, justifications): (B::Header, Justifications)| -> IncomingBlock<B> {
+				log::info!("XXX warp sync importing header {}", header.number());
 				IncomingBlock {
 					hash: header.hash(),
 					header: Some(header),
@@ -421,6 +422,7 @@ where
 					// Shouldn't already exist in the database.
 					import_existing: false,
 					state: None,
+					allow_missing_parent: false,
 				}
 			};
 
