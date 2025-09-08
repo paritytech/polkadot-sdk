@@ -327,45 +327,19 @@ where
 		Self::account(who).free
 	}
 
-	/// Validates whether an account can withdraw a specified amount from their free balance
-	/// while respecting existing withdrawal restrictions.
-	///
-	/// This method performs liquidity checks against locks, vesting, and other
-	/// balance restrictions without modifying the account state or checking existential
-	/// deposit requirements.
-	///
-	/// Is a no-op if amount to be withdrawn is zero.
+	// Ensure that an account can withdraw from their free balance given any existing withdrawal
+	// restrictions like locks and vesting balance.
+	// Is a no-op if amount to be withdrawn is zero.
 	fn ensure_can_withdraw(
 		who: &T::AccountId,
 		amount: T::Balance,
-		reasons: WithdrawReasons,
-		new_free_balance: T::Balance,
+		_reasons: WithdrawReasons,
+		new_balance: T::Balance,
 	) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(())
 		}
-		let account = Self::account(who);
-
-		// Account for the new reserved amount only if withdrawing for a reserve.
-		let updated_reserved = if matches!(reasons, WithdrawReasons::RESERVE) {
-			account.reserved.saturating_add(amount)
-		} else {
-			account.reserved
-		};
-
-		// Spendable balance is calculated with the following formulas, where "frozen" balance
-		// overlays with "reserved" balance:
-		//
-		// [ untouchable = max(frozen - reserved, ED) ]
-		// [ spendable = free - untouchable ]
-		//
-		// We intentionally ignore existential deposit (ED) in the calculation, the operation
-		// [Preservation] is handled outside of this method.
-		let untouchable = account.frozen.saturating_sub(updated_reserved);
-
-		// The withdraw is allowed as long as the total balance (free + reserved)
-		// remains above the frozen balance
-		ensure!(new_free_balance >= untouchable, Error::<T, I>::LiquidityRestrictions);
+		ensure!(new_balance >= Self::account(who).frozen, Error::<T, I>::LiquidityRestrictions);
 		Ok(())
 	}
 
@@ -561,6 +535,23 @@ where
 	}
 }
 
+/// Validates whether an account can reserve a specified amount while respecting
+/// existing withdrawal restrictions.
+///
+/// This method performs liquidity checks against locks, vesting, and other
+/// balance restrictions without modifying the account state or checking existential
+/// deposit requirements.
+fn ensure_can_reserve<T: Config<I>, I: 'static>(who: &T::AccountId) -> DispatchResult {
+	let total_balance = Pallet::<T, I>::total_balance(who);
+	let frozen_balance = Pallet::<T, I>::account(who).frozen;
+
+	// The withdraw is allowed as long as the total balance (free + reserved)
+	// remains above the frozen balance
+	ensure!(total_balance >= frozen_balance, Error::<T, I>::LiquidityRestrictions);
+
+	Ok(())
+}
+
 impl<T: Config<I>, I: 'static> ReservableCurrency<T::AccountId> for Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -573,9 +564,7 @@ where
 			return true
 		}
 		Self::account(who).free.checked_sub(&value).map_or(false, |new_balance| {
-			new_balance >= T::ExistentialDeposit::get() &&
-				Self::ensure_can_withdraw(who, value, WithdrawReasons::RESERVE, new_balance)
-					.is_ok()
+			new_balance >= T::ExistentialDeposit::get() && ensure_can_reserve::<T, I>(who).is_ok()
 		})
 	}
 
@@ -596,7 +585,9 @@ where
 				account.free.checked_sub(&value).ok_or(Error::<T, I>::InsufficientBalance)?;
 			account.reserved =
 				account.reserved.checked_add(&value).ok_or(ArithmeticError::Overflow)?;
-			Self::ensure_can_withdraw(&who, value, WithdrawReasons::RESERVE, account.free)
+
+			// Check if it is possible to reserve before trying to mutate the account
+			ensure_can_reserve::<T, I>(who)
 		})?;
 
 		Self::deposit_event(Event::Reserved { who: who.clone(), amount: value });
