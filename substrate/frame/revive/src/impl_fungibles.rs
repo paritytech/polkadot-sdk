@@ -42,7 +42,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError};
 
 use super::{
-	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, DepositLimit,
+	address::AddressMapper, pallet, BalanceOf, Bounded, Config, ContractResult, ExecConfig,
 	MomentOf, Pallet, Weight,
 };
 use ethereum_standards::IERC20;
@@ -77,10 +77,9 @@ where
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -113,10 +112,9 @@ where
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if let Ok(eu256) = EU256::abi_decode_validate(&return_value.data) {
@@ -188,10 +186,9 @@ where
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		log::trace!(target: "whatiwant", "{gas_consumed}");
 		if let Ok(return_value) = result {
@@ -225,10 +222,9 @@ where
 			asset_id,
 			U256::zero(),
 			GAS_LIMIT,
-			DepositLimit::Balance(
-				<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
-			),
+			<<T as pallet::Config>::Currency as fungible::Inspect<_>>::total_issuance(),
 			data,
+			ExecConfig::new_substrate_tx(),
 		);
 		if let Ok(return_value) = result {
 			if return_value.did_revert() {
@@ -416,7 +412,7 @@ mod tests {
 				RuntimeOrigin::signed(checking_account.clone()),
 				Code::Upload(code),
 			)
-			.storage_deposit_limit((1_000_000_000_000).into())
+			.storage_deposit_limit(1_000_000_000_000)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 			assert_eq!(

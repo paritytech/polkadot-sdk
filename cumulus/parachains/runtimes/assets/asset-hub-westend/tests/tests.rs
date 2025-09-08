@@ -57,7 +57,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_revive::{
 	test_utils::builder::{BareInstantiateBuilder, Contract},
-	Code, DepositLimit,
+	Code,
 };
 use pallet_revive_fixtures::compile_module;
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
@@ -1689,7 +1689,7 @@ fn withdraw_and_deposit_erc20s() {
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: erc20_address, .. } = bare_instantiate(&sender, code)
 			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
@@ -1802,7 +1802,7 @@ fn smart_contract_not_erc20_will_error() {
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
 			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.storage_deposit_limit(Balance::MAX)
 			.build_and_unwrap_contract();
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
@@ -1860,7 +1860,7 @@ fn smart_contract_does_not_return_bool_fails() {
 
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
 			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 
@@ -1916,7 +1916,7 @@ fn expensive_erc20_runs_out_of_gas() {
 		let constructor_data = sol_data::Uint::<256>::abi_encode(&initial_amount_u256);
 		let Contract { addr: non_erc20_address, .. } = bare_instantiate(&sender, code)
 			.gas_limit(Weight::from_parts(2_000_000_000, 200_000))
-			.storage_deposit_limit(DepositLimit::Balance(Balance::MAX))
+			.storage_deposit_limit(Balance::MAX)
 			.data(constructor_data)
 			.build_and_unwrap_contract();
 

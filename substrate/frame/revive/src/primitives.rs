@@ -23,45 +23,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::weights::Weight;
 use pallet_revive_uapi::ReturnFlags;
 use scale_info::TypeInfo;
-use sp_arithmetic::traits::Bounded;
 use sp_core::Get;
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchError, RuntimeDebug,
 };
-
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DepositLimit<Balance> {
-	/// Allows bypassing all balance transfer checks.
-	UnsafeOnlyForDryRun,
-
-	/// Specifies a maximum allowable balance for a deposit.
-	Balance(Balance),
-}
-
-impl<T> DepositLimit<T> {
-	pub fn is_unchecked(&self) -> bool {
-		match self {
-			Self::UnsafeOnlyForDryRun => true,
-			_ => false,
-		}
-	}
-}
-
-impl<T> From<T> for DepositLimit<T> {
-	fn from(value: T) -> Self {
-		Self::Balance(value)
-	}
-}
-
-impl<T: Bounded + Copy> DepositLimit<T> {
-	pub fn limit(&self) -> T {
-		match self {
-			Self::UnsafeOnlyForDryRun => T::max_value(),
-			Self::Balance(limit) => *limit,
-		}
-	}
-}
 
 /// Result type of a `bare_call` or `bare_instantiate` call as well as `ContractsApi::call` and
 /// `ContractsApi::instantiate`.
@@ -340,22 +306,50 @@ where
 	}
 }
 
-/// Indicates whether the account nonce should be incremented after instantiating a new contract.
-///
-/// In Substrate, where transactions can be batched, the account's nonce should be incremented after
-/// each instantiation, ensuring that each instantiation uses a unique nonce.
-///
-/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only be
-/// incremented once. In these cases, Use `BumpNonce::No` to suppress an extra nonce increment.
-///
-/// Note:
-/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
-/// extension.
-pub enum BumpNonce {
-	/// Do not increment the nonce after contract instantiation
-	No,
-	/// Increment the nonce after contract instantiation
-	Yes,
+/// `Stack` wide configuration options.
+#[derive(Debug, Clone)]
+pub struct ExecConfig {
+	/// Indicates whether the account nonce should be incremented after instantiating a new
+	/// contract.
+	///
+	/// In Substrate, where transactions can be batched, the account's nonce should be incremented
+	/// after each instantiation, ensuring that each instantiation uses a unique nonce.
+	///
+	/// For transactions sent from Ethereum wallets, which cannot be batched, the nonce should only
+	/// be incremented once. In these cases, set this to `false` to suppress an extra nonce
+	/// increment.
+	///
+	/// Note:
+	/// The origin's nonce is already incremented pre-dispatch by the `CheckNonce` transaction
+	/// extension.
+	///
+	/// This does not apply to contract initiated instantatiations. Those will always bump the
+	/// instantiating contract's nonce.
+	pub bump_nonce: bool,
+	/// If set to `true` deposits will be collected from [`Config::DepositSource`] instead of
+	/// free_balance.
+	///
+	/// Only applies if [`Config::DepositSource`] is `Some`. Otherwise it will fall back to collect
+	/// from fee balance.
+	pub collect_deposit_from_hold: bool,
+	/// Skip all transfers (deposits, contract instantiation, value transfer).
+	///
+	/// Must only be used in dry runs where no wallet is available to charge those funds from,
+	/// Using it for on-chain code is unsafe as it will allow execution without taking any money
+	/// from the origin,
+	pub unsafe_skip_transfers: bool,
+}
+
+impl ExecConfig {
+	/// Create a default config appropriate when the call originated from a subtrate tx.
+	pub fn new_substrate_tx() -> Self {
+		Self { bump_nonce: true, collect_deposit_from_hold: false, unsafe_skip_transfers: false }
+	}
+
+	/// Create a default config appropriate when the call originated from a ethereum tx.
+	pub fn new_eth_tx() -> Self {
+		Self { bump_nonce: false, collect_deposit_from_hold: true, unsafe_skip_transfers: false }
+	}
 }
 
 /// Indicates whether the code was removed after the last refcount was decremented.

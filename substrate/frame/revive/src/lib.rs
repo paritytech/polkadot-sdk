@@ -59,8 +59,8 @@ use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	dispatch::{
-		DispatchErrorWithPostInfo, DispatchResultWithPostInfo, GetDispatchInfo, Pays,
-		PostDispatchInfo, RawOrigin,
+		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
+		Pays, PostDispatchInfo, RawOrigin,
 	},
 	ensure,
 	pallet_prelude::DispatchClass,
@@ -278,6 +278,15 @@ pub mod pallet {
 		/// Only valid value is `()`. See [`GasEncoder`].
 		#[pallet::no_default_bounds]
 		type EthGasEncoder: GasEncoder<BalanceOf<Self>>;
+
+		/// Set to `Some` in order to collect all storage deposits from the specified hold.
+		///
+		/// If `None` the deposits are collected from free balance. In any case, they are
+		/// collected from the transaction signers native balance.
+		///
+		/// It only applies eth_* dispatchables. The non eth flavor functions will contine
+		/// to take from the fee_balance.
+		type DepositSource: Get<Option<Self::RuntimeHoldReason>>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -333,6 +342,7 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
+
 			type Precompiles = ();
 			type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 			type DepositPerByte = DepositPerByte;
@@ -350,6 +360,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type EthGasEncoder = ();
 			type FindAuthor = ();
+			type DepositSource = ();
 		}
 	}
 
@@ -835,8 +846,9 @@ pub mod pallet {
 				dest,
 				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
+				storage_deposit_limit,
 				data,
+				ExecConfig::new_substrate_tx(),
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -870,11 +882,11 @@ pub mod pallet {
 				origin,
 				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
+				storage_deposit_limit,
 				Code::Existing(code_hash),
 				data,
 				salt,
-				BumpNonce::Yes,
+				ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -935,11 +947,11 @@ pub mod pallet {
 				origin,
 				Pallet::<T>::convert_native_to_evm(value),
 				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
+				storage_deposit_limit,
 				Code::Upload(code),
 				data,
 				salt,
-				BumpNonce::Yes,
+				ExecConfig::new_substrate_tx(),
 			);
 			if let Ok(retval) = &output.result {
 				if retval.result.did_revert() {
@@ -979,11 +991,11 @@ pub mod pallet {
 				origin,
 				value,
 				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
+				storage_deposit_limit,
 				Code::Upload(code),
 				data,
 				None,
-				BumpNonce::No,
+				ExecConfig::new_eth_tx(),
 			);
 
 			if let Ok(retval) = &output.result {
@@ -1019,8 +1031,9 @@ pub mod pallet {
 				dest,
 				value,
 				gas_limit,
-				DepositLimit::Balance(storage_deposit_limit),
+				storage_deposit_limit,
 				data,
+				ExecConfig::new_eth_tx(),
 			);
 
 			if let Ok(return_value) = &output.result {
@@ -1190,15 +1203,16 @@ where
 		dest: H160,
 		evm_value: U256,
 		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		storage_deposit_limit: BalanceOf<T>,
 		data: Vec<u8>,
+		exec_config: ExecConfig,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
 		let try_call = || {
 			let origin = Origin::from_runtime_origin(origin)?;
-			let mut storage_meter = StorageMeter::new(storage_deposit_limit.limit());
+			let mut storage_meter = StorageMeter::new(storage_deposit_limit);
 			let result = ExecStack::<T, ContractBlob<T>>::run_call(
 				origin.clone(),
 				dest,
@@ -1206,11 +1220,10 @@ where
 				&mut storage_meter,
 				evm_value,
 				data,
-				storage_deposit_limit.is_unchecked(),
+				&exec_config,
 			)?;
-			storage_deposit = storage_meter
-				.try_into_deposit(&origin, storage_deposit_limit.is_unchecked())
-				.inspect_err(|err| {
+			storage_deposit =
+				storage_meter.try_into_deposit(&origin, &exec_config).inspect_err(|err| {
 					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
 			Ok(result)
@@ -1244,16 +1257,14 @@ where
 		origin: OriginFor<T>,
 		evm_value: U256,
 		gas_limit: Weight,
-		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
+		mut storage_deposit_limit: BalanceOf<T>,
 		code: Code,
 		data: Vec<u8>,
 		salt: Option<[u8; 32]>,
-		bump_nonce: BumpNonce,
+		exec_config: ExecConfig,
 	) -> ContractResult<InstantiateReturnValue, BalanceOf<T>> {
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
-		let unchecked_deposit_limit = storage_deposit_limit.is_unchecked();
-		let mut storage_deposit_limit = storage_deposit_limit.limit();
 		let try_instantiate = || {
 			let instantiate_account = T::InstantiateOrigin::ensure_origin(origin.clone())?;
 
@@ -1265,7 +1276,7 @@ where
 						upload_account,
 						code,
 						storage_deposit_limit,
-						unchecked_deposit_limit,
+						&exec_config,
 					)?;
 					storage_deposit_limit.saturating_reduce(upload_deposit);
 					(executable, upload_deposit)
@@ -1291,11 +1302,10 @@ where
 				evm_value,
 				data,
 				salt.as_ref(),
-				unchecked_deposit_limit,
-				bump_nonce,
+				&exec_config,
 			);
 			storage_deposit = storage_meter
-				.try_into_deposit(&instantiate_origin, unchecked_deposit_limit)?
+				.try_into_deposit(&instantiate_origin, &exec_config)?
 				.saturating_add(&StorageDeposit::Charge(upload_deposit));
 			result
 		};
@@ -1339,11 +1349,9 @@ where
 		let origin = T::AddressMapper::to_account_id(&from);
 		Self::prepare_dry_run(&origin);
 
-		let storage_deposit_limit = if tx.gas.is_some() {
-			DepositLimit::Balance(BalanceOf::<T>::max_value())
-		} else {
-			DepositLimit::UnsafeOnlyForDryRun
-		};
+		let storage_deposit_limit = BalanceOf::<T>::max_value();
+		let mut exec_config = ExecConfig::new_eth_tx();
+		exec_config.unsafe_skip_transfers = tx.gas.is_none();
 
 		if tx.nonce.is_none() {
 			tx.nonce = Some(<System<T>>::account_nonce(&origin).into());
@@ -1423,6 +1431,7 @@ where
 						gas_limit,
 						storage_deposit_limit,
 						input.clone(),
+						exec_config,
 					);
 
 					let data = match result.result {
@@ -1478,7 +1487,7 @@ where
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					BumpNonce::No,
+					exec_config,
 				);
 
 				let returned_data = match result.result {
@@ -1648,8 +1657,12 @@ where
 		storage_deposit_limit: BalanceOf<T>,
 	) -> CodeUploadResult<BalanceOf<T>> {
 		let origin = T::UploadOrigin::ensure_origin(origin)?;
-		let (module, deposit) =
-			Self::try_upload_pvm_code(origin, code, storage_deposit_limit, false)?;
+		let (module, deposit) = Self::try_upload_pvm_code(
+			origin,
+			code,
+			storage_deposit_limit,
+			&ExecConfig::new_substrate_tx(),
+		)?;
 		Ok(CodeUploadReturnValue { code_hash: *module.code_hash(), deposit })
 	}
 
@@ -1680,10 +1693,10 @@ where
 		origin: T::AccountId,
 		code: Vec<u8>,
 		storage_deposit_limit: BalanceOf<T>,
-		skip_transfer: bool,
+		exec_config: &ExecConfig,
 	) -> Result<(ContractBlob<T>, BalanceOf<T>), DispatchError> {
 		let mut module = ContractBlob::from_pvm_code(code, origin)?;
-		let deposit = module.store_code(skip_transfer)?;
+		let deposit = module.store_code(exec_config)?;
 		ensure!(storage_deposit_limit >= deposit, <Error<T>>::StorageDepositLimitExhausted);
 		Ok((module, deposit))
 	}
@@ -1768,6 +1781,55 @@ impl<T: Config> Pallet<T> {
 			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
 			.map(|code| code.into())
 			.unwrap_or_default()
+	}
+
+	/// Transfer a deposit from some account to another.
+	///
+	/// `from` is usually the transaction origin and `to` a contract or
+	/// the pallets own account.
+	fn charge_deposit(
+		hold_reason: Option<HoldReason>,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+		exec_config: &ExecConfig,
+	) -> DispatchResult {
+		use frame_support::traits::tokens::{Fortitude, Precision, Preservation, Restriction};
+		let deposit_source = exec_config
+			.collect_deposit_from_hold
+			.then_some(T::DepositSource::get())
+			.flatten();
+		match (deposit_source, hold_reason) {
+			(Some(deposit_source), hold_reason) => {
+				T::Currency::transfer_on_hold(
+					&deposit_source,
+					from,
+					to,
+					amount,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+				if let Some(hold_reason) = hold_reason {
+					T::Currency::hold(&hold_reason.into(), to, amount)?;
+				}
+			},
+			(None, Some(hold_reason)) => {
+				T::Currency::transfer_and_hold(
+					&hold_reason.into(),
+					from,
+					to,
+					amount,
+					Precision::Exact,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				)?;
+			},
+			(None, None) => {
+				T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
+			},
+		}
+		Ok(())
 	}
 }
 
@@ -1998,8 +2060,9 @@ macro_rules! impl_runtime_apis_plus_revive {
 						dest,
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
-						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
+						storage_deposit_limit.unwrap_or(u128::MAX),
 						input_data,
+						$crate::ExecConfig::new_substrate_tx(),
 					)
 				}
 
@@ -2021,11 +2084,11 @@ macro_rules! impl_runtime_apis_plus_revive {
 						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
 						$crate::Pallet::<Self>::convert_native_to_evm(value),
 						gas_limit.unwrap_or(blockweights.max_block),
-						$crate::DepositLimit::Balance(storage_deposit_limit.unwrap_or(u128::MAX)),
+						storage_deposit_limit.unwrap_or(u128::MAX),
 						code,
 						data,
 						salt,
-						$crate::BumpNonce::Yes,
+						$crate::ExecConfig::new_substrate_tx(),
 					)
 				}
 

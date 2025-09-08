@@ -332,6 +332,7 @@ parameter_types! {
 	pub static UnstableInterface: bool = true;
 	pub static AllowEvmBytecode: bool = true;
 	pub CheckingAccount: AccountId32 = BOB.clone();
+	pub DepositSource: Option<RuntimeHoldReason> = Some(pallet_transaction_payment::HoldReason::Payment.into());
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -358,6 +359,7 @@ impl Config for Test {
 	type ChainId = ChainId;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
+	type DepositSource = DepositSource;
 }
 
 impl TryFrom<RuntimeCall> for crate::Call<Test> {

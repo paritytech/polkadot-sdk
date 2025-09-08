@@ -30,8 +30,8 @@ use crate::{
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecError, HoldReason,
-	PristineCode, Weight, LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
+	HoldReason, Pallet, PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -39,7 +39,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	traits::{
 		fungible::MutateHold,
-		tokens::{Fortitude, Precision, Preservation},
+		tokens::{Fortitude, Precision},
 	},
 };
 use pallet_revive_uapi::ReturnErrorCode;
@@ -176,7 +176,7 @@ where
 				ensure!(&code_info.owner == origin, BadOrigin);
 				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
-					&crate::Pallet::<T>::account_id(),
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					Precision::Exact,
@@ -194,7 +194,7 @@ where
 	}
 
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
-	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
+	pub fn store_code(&mut self, exec_config: &ExecConfig) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
@@ -209,15 +209,13 @@ where
 				None => {
 					let deposit = self.code_info.deposit;
 
-					if !skip_transfer {
-						T::Currency::transfer_and_hold(
-							&HoldReason::CodeUploadDepositReserve.into(),
+					if !exec_config.unsafe_skip_transfers {
+						<Pallet<T>>::charge_deposit(
+							Some(HoldReason::CodeUploadDepositReserve),
 							&self.code_info.owner,
-							&crate::Pallet::<T>::account_id(),
+							&Pallet::<T>::account_id(),
 							deposit,
-							Precision::Exact,
-							Preservation::Preserve,
-							Fortitude::Polite,
+							&exec_config,
 						)
 					 .map_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);

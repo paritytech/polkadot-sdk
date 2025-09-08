@@ -1424,6 +1424,7 @@ parameter_types! {
 	pub const DefaultDepositLimit: Balance = deposit(1024, 1024 * 1024);
 	pub Schedule: pallet_contracts::Schedule<Runtime> = Default::default();
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
+	pub TxPaymentHoldReason: Option<RuntimeHoldReason> = Some(pallet_transaction_payment::HoldReason::Payment.into());
 }
 
 impl pallet_contracts::Config for Runtime {
@@ -1492,6 +1493,7 @@ impl pallet_revive::Config for Runtime {
 	type EthGasEncoder = ();
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type AllowEVMBytecode = ConstBool<true>;
+	type DepositSource = TxPaymentHoldReason;
 }
 
 impl pallet_sudo::Config for Runtime {

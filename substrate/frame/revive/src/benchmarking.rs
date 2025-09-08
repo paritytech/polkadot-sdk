@@ -42,7 +42,7 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::fungible::InspectHold,
+	traits::fungible::{InspectHold, UnbalancedHold},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
@@ -286,7 +286,6 @@ mod benchmarks {
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
@@ -299,6 +298,11 @@ mod benchmarks {
 		let storage_deposit = default_deposit_limit::<T>();
 
 		assert!(AccountInfoOf::<T>::get(&deployer).is_none());
+
+		let hold_reason = T::DepositSource::get();
+		if let Some(hold_reason) = hold_reason.as_ref() {
+			T::Currency::set_balance_on_hold(hold_reason, &caller, caller_funding::<T>()).unwrap();
+		}
 
 		#[extrinsic_call]
 		_(origin, evm_value, Weight::MAX, storage_deposit, code, input);
@@ -313,16 +317,29 @@ mod benchmarks {
 		let mapping_deposit =
 			T::Currency::balance_on_hold(&HoldReason::AddressMapping.into(), &caller);
 
-		assert_eq!(
-			Pallet::<T>::evm_balance(&deployer),
-			Pallet::<T>::convert_native_to_evm(
-				caller_funding::<T>() -
-					Pallet::<T>::min_balance() -
-					Pallet::<T>::min_balance() -
-					value - deposit - code_deposit -
-					mapping_deposit,
-			) - dust,
-		);
+		if let Some(hold_reason) = hold_reason.as_ref() {
+			assert_eq!(
+				T::Currency::balance_on_hold(&hold_reason, &caller),
+				caller_funding::<T>() - deposit - code_deposit - Pallet::<T>::min_balance(),
+			);
+			assert_eq!(
+				Pallet::<T>::evm_balance(&deployer),
+				Pallet::<T>::convert_native_to_evm(
+					caller_funding::<T>() - Pallet::<T>::min_balance() - value - mapping_deposit,
+				) - dust,
+			);
+		} else {
+			assert_eq!(
+				Pallet::<T>::evm_balance(&deployer),
+				Pallet::<T>::convert_native_to_evm(
+					caller_funding::<T>() -
+						Pallet::<T>::min_balance() -
+						Pallet::<T>::min_balance() -
+						value - mapping_deposit -
+						deposit - code_deposit,
+				) - dust,
+			)
+		}
 
 		// contract has the full value
 		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
