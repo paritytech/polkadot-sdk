@@ -596,14 +596,13 @@ macro_rules! app_crypto_proof_of_possession_full_crypto {
 	($sig:ty, $key_type:expr, $crypto_type:expr) => {
 		$crate::wrap! {
 			/// A generic `AppPublic` wrapper type over $public crypto; this has no specific App.
-			#[derive(Clone, Eq, PartialEq,
+			#[derive(Clone, Eq, PartialEq, Hash,
 				$crate::codec::Encode,
 				$crate::codec::Decode,
 				$crate::codec::DecodeWithMemTracking,
 				$crate::RuntimeDebug,
 				$crate::scale_info::TypeInfo,
 			)]
-			#[derive(Hash)]
 			pub struct ProofOfPossession($sig);
 		}
 

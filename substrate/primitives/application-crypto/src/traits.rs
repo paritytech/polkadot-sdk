@@ -72,7 +72,7 @@ pub trait AppPublic: AppCrypto + Public + Debug + MaybeHash + Codec {
 
 /// Application-specific signature and Proof Of Possession
 pub trait AppSignature: AppCrypto + Eq + PartialEq + Debug + Clone {
-	/// The wrapped type which is just a plain instancet of `Signature`.
+	/// The wrapped type which is just a plain instance of `Signature`.
 	type Generic: IsWrappedBy<Self> + Eq + PartialEq + Debug;
 }
 

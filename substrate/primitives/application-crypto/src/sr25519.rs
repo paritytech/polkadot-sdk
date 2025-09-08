@@ -57,7 +57,7 @@ impl RuntimePublic for Public {
 		&mut self,
 		key_type: KeyTypeId,
 		owner: &[u8],
-	) -> Option<Self::Signature> {
+	) -> Option<Self::ProofOfPossession> {
 		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
 		sp_io::crypto::sr25519_sign(key_type, self, &proof_of_possession_statement)
 	}
@@ -65,7 +65,7 @@ impl RuntimePublic for Public {
 	fn verify_proof_of_possession(
 		&self,
 		owner: &[u8],
-		proof_of_possession: &Self::Signature,
+		proof_of_possession: &Self::ProofOfPossession,
 	) -> bool {
 		let proof_of_possession_statement = Pair::proof_of_possession_statement(owner);
 		sp_io::crypto::sr25519_verify(&proof_of_possession, &proof_of_possession_statement, &self)

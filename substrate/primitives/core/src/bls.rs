@@ -262,8 +262,6 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 }
 
 impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T>
-where
-	Pair<T>: TraitPair<ProofOfPossession = ProofOfPossession<T>, Signature = Signature<T>>,
 {
 	#[cfg(feature = "full_crypto")]
 	/// signs on
@@ -293,7 +291,6 @@ where
 
 impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T>
 where
-	Pair<T>: TraitPair<ProofOfPossession = ProofOfPossession<T>, Signature = Signature<T>>,
 {
 	///Verify both proof of ownership (back cert) and proof of possession of the private key
 	fn verify_proof_of_possession(
@@ -312,11 +309,11 @@ where
 			return false
 		};
 
-		if !(Self::verify(
+		if !Self::verify(
 			&proof_of_ownership,
 			statement_of_ownership(owner).as_slice(),
 			allegedly_possessed_pubkey,
-		)) {
+		) {
 			return false;
 		}
 
