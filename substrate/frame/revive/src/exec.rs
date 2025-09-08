@@ -196,14 +196,15 @@ pub trait Ext: PrecompileWithInfoExt {
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
 
-	/// Transfer all funds to `beneficiary` and delete the contract.
+	/// Transfer all funds to `beneficiary`.
 	///
-	/// Since this function removes the self contract eagerly, if succeeded, no further actions
-	/// should be performed on this `Ext` instance.
+	/// If `allow_from_outside_tx` is true, it allows the contract to be deleted even if it was created in a different transaction.
+	/// Else the contract is *NOT* deleted *unless* this function is called in the same transaction
+	/// as the contract was created.
 	///
 	/// This function will fail if the same contract is present on the contract
 	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
+	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError>;
 
 	/// Destroys the contract and transfers all funds to the beneficiary.
 	fn destroy_contract(
@@ -212,15 +213,6 @@ pub trait Ext: PrecompileWithInfoExt {
 		contract_info: &ContractInfo<<Self as PrecompileExt>::T>,
 		beneficiary_address: &H160
 	) -> Result<CodeRemoved, DispatchError>;
-
-	/// Transfer all funds to `beneficiary`.
-	///
-	/// The contract is *NOT* deleted *unless* this function is called in the same transaction
-	/// as the contract was created.
-	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult;
 
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
@@ -1700,7 +1692,7 @@ where
 		}
 	}
 
-	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
 		if self.is_recursive() {
 			return Err(Error::<T>::TerminatedWhileReentrant.into());
 		}
@@ -1717,102 +1709,56 @@ where
 		}
 		Ok(CodeRemoved::Yes)
 	}
-fn destroy_contract(
-    &mut self,
-    contract_address: &H160,
-    contract_info: &ContractInfo<T>,
-    beneficiary_address: &H160,
-) -> Result<CodeRemoved, DispatchError> {
-    log::info!(
-        target: LOG_TARGET,
-        "Destroying contract: {:?} for beneficiary: {:?}",
-        contract_address,
-        beneficiary_address
-    );
+	
+	fn destroy_contract(
+		&mut self,
+		contract_address: &H160,
+		contract_info: &ContractInfo<T>,
+		beneficiary_address: &H160,
+	) -> Result<CodeRemoved, DispatchError> {
+		log::info!(
+			target: LOG_TARGET,
+			"Destroying contract: {:?} for beneficiary: {:?}",
+			contract_address,
+			beneficiary_address
+		);
 
-    // derive account ids
-    let contract_account = T::AddressMapper::to_account_id(contract_address);
-    let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
+		// derive account ids
+		let contract_account = T::AddressMapper::to_account_id(contract_address);
+		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
 
-    // transfer balance (including dust) to beneficiary
-    {
-        let raw_value: U256 = self.account_balance(&contract_account);
-        let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)?;
-        if !value.is_zero() {
-            transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-        }
-    }
+		// transfer balance (including dust) to beneficiary
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)?;
+			if !value.is_zero() {
+				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+			}
+		}
 
-    // refund storage deposit accounting if any (use provided ContractInfo)
-    let deposit_to_refund = contract_info.total_deposit();
-    if !deposit_to_refund.is_zero() {
-        let _ = self
-            .storage_meter
-            .record_charge(&StorageDeposit::Refund(deposit_to_refund))
-            .unwrap_or_else(|_| {
-                log::debug!(
-                    target: LOG_TARGET,
-                    "Failed to refund storage deposit during deferred destruction"
-                );
-            });
-    }
+		// refund storage deposit accounting if any (use provided ContractInfo)
+		let deposit_to_refund = contract_info.total_deposit();
+		if !deposit_to_refund.is_zero() {
+			let _ = self
+				.storage_meter
+				.record_charge(&StorageDeposit::Refund(deposit_to_refund))
+				.unwrap_or_else(|_| {
+					log::debug!(
+						target: LOG_TARGET,
+						"Failed to refund storage deposit during deferred destruction"
+					);
+				});
+		}
 
-    // mark trie for deletion and remove on-chain entries
-    contract_info.queue_trie_for_deletion();
-    AccountInfoOf::<T>::remove(contract_address);
-    ImmutableDataOf::<T>::remove(contract_address);
+		// mark trie for deletion and remove on-chain entries
+		contract_info.queue_trie_for_deletion();
+		AccountInfoOf::<T>::remove(contract_address);
+		ImmutableDataOf::<T>::remove(contract_address);
 
-    // decrement code refcount and return result
-    let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-    log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
-    Ok(removed)
-}
-	// fn destroy_contract(&mut self, contract_address: &H160, contract_info: &ContractInfo<T>, beneficiary_address: &H160) -> Result<CodeRemoved, DispatchError> {
-	// 	log::info!(target: LOG_TARGET, "Destroying contract: {:?} for beneficiary: {:?}", destroy_contract, beneficiary_address);
-	// 	let contract_account = T::AddressMapper::to_account_id(&contract_address);
-	// 	let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
-	// 	{
-	// 		let value: U256 = self.account_balance(&contract_account);
-	// 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
-	// 		if !value.is_zero() {
-	// 			transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-	// 		}
-	// 	}
-
-    //     if let Some(contract_info) = AccountInfo::<T>::load_contract(&contract_address) {
-    //         let deposit_to_refund = contract_info.total_deposit();
-    //         if !deposit_to_refund.is_zero() {
-    //             // This handles the storage deposit accounting
-    //             self.storage_meter.record_charge(&StorageDeposit::Refund(deposit_to_refund))
-    //                 .unwrap_or_else(|_| {
-    //                     log::debug!(
-    //                         target: LOG_TARGET,
-    //                         "Failed to refund storage deposit during deferred destruction"
-    //                     );
-    //                 });
-    //         }
-    //         contract_info.queue_trie_for_deletion();
-	// 		AccountInfoOf::<T>::remove(&contract_address);
-	// 		ImmutableDataOf::<T>::remove(&contract_address);
-	// 		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-	// 		log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
-	// 		return Ok(removed);
-	// 	} else {
-	// 		return Err(Error::<T>::CodeNotFound.into());
-	// 	}
-
-		// todo!("not finished")
-	// 	return Ok(CodeRemoved::Yes);
-	// }
-
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
-		let contract_account = self.account_id();
-		
-		// Only schedule the contract for true deletion if it was created in the current transaction.
-		// if self.contracts_created.contains(&contract_account) {
-		// 	self.contracts_to_be_destroyed.insert((frame.contract_info(), *beneficiary));
-		// }
-		Ok(())
+		// decrement code refcount and return result
+		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+		log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
+		Ok(removed)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

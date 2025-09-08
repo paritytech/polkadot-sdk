@@ -249,16 +249,12 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
+	fn terminate(&mut self, _beneficiary: &H160, _allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}
 
 	fn destroy_contract(&mut self, _contract_address: &H160, _contract_info: &ContractInfo<T>, _beneficiary_address: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::destroy_contract")
-	}
-
-	fn selfdestruct(&mut self, _beneficiary: &H160) -> DispatchResult {
-		panic!("MockExt::selfdestruct")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
