@@ -89,6 +89,7 @@ pub fn dummy_overseer_builder<Spawner, SupportsParachains>(
 		DummySubsystem,
 		DummySubsystem,
 		DummySubsystem,
+		DummySubsystem,
 	>,
 	SubsystemError,
 >
@@ -109,6 +110,7 @@ pub fn one_for_all_overseer_builder<Spawner, SupportsParachains, Sub>(
 	InitializedOverseerBuilder<
 		SpawnGlue<Spawner>,
 		SupportsParachains,
+		Sub,
 		Sub,
 		Sub,
 		Sub,

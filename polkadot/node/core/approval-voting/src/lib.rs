@@ -95,6 +95,7 @@ use persisted_entries::{ApprovalEntry, BlockEntry, CandidateEntry};
 use polkadot_node_primitives::approval::time::{
 	slot_number_to_tick, Clock, ClockExt, DelayedApprovalTimer, SystemClock, Tick,
 };
+use polkadot_node_subsystem::messages::StatisticsCollectorMessage;
 
 mod approval_checking;
 pub mod approval_db;
@@ -2883,7 +2884,8 @@ async fn import_approval<Sender>(
 	wakeups: &Wakeups,
 ) -> SubsystemResult<(Vec<Action>, ApprovalCheckResult)>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> +
+	SubsystemSender<StatisticsCollectorMessage>,
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
@@ -2922,7 +2924,7 @@ where
 	gum::trace!(
 		target: LOG_TARGET,
 		"Received approval for num_candidates {:}",
-		approval.candidate_indices.count_ones()
+		approval.candidate_indices.clone().count_ones()
 	);
 
 	let mut actions = Vec::new();
@@ -3036,7 +3038,8 @@ async fn advance_approval_state<Sender>(
 	wakeups: &Wakeups,
 ) -> Vec<Action>
 where
-	Sender: SubsystemSender<RuntimeApiMessage>,
+	Sender: SubsystemSender<RuntimeApiMessage> +
+	SubsystemSender<StatisticsCollectorMessage>,
 {
 	let validator_index = transition.validator_index();
 
@@ -3085,12 +3088,29 @@ where
 			candidate_hash,
 		);
 
+		if let Some(v_idx) = validator_index {
+			sender.send_message(
+				StatisticsCollectorMessage::ApprovalVoting(
+					block_hash,
+					candidate_hash,
+					(v_idx, status.tranche_now),
+				)
+			).await;
+		}
 		// Check whether this is approved, while allowing a maximum
 		// assignment tick of `now - APPROVAL_DELAY` - that is, that
 		// all counted assignments are at least `APPROVAL_DELAY` ticks old.
 		let is_approved = check.is_approved(tick_now.saturating_sub(APPROVAL_DELAY));
 		if status.last_no_shows != 0 {
 			metrics.on_observed_no_shows(status.last_no_shows);
+			sender
+				.send_message(
+					StatisticsCollectorMessage::ObservedNoShows(
+						session_index,
+						status.no_show_validators.clone(),
+					))
+				.await;
+
 			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
@@ -3124,6 +3144,12 @@ where
 			}
 
 			metrics.on_candidate_approved(status.tranche_now as _);
+			sender.send_message(
+				StatisticsCollectorMessage::CandidateApproved(
+					candidate_hash,
+					block_hash,
+				)
+			).await;
 
 			if is_block_approved && !was_block_approved {
 				metrics.on_block_approved(status.tranche_now as _);

@@ -132,6 +132,7 @@ polkadot-node-core-pvf = { optional = true, workspace = true, default-features =
 polkadot-node-core-pvf-checker = { optional = true, workspace = true, default-features = true }
 polkadot-node-core-runtime-api = { optional = true, workspace = true, default-features = true }
 polkadot-statement-distribution = { optional = true, workspace = true, default-features = true }
+polkadot-node-core-statistics-collector = { optional = true, workspace = true, default-features = true }
 
 xcm = { workspace = true, default-features = true }
 xcm-runtime-apis = { workspace = true, default-features = true }
