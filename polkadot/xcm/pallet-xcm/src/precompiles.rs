@@ -160,7 +160,7 @@ where
 					.map_err(|error| {
 						revert(&error, "XCM weightMessage: Failed to calculate weight")
 					})?;
-				
+
 				let weight_to_charge =
 					max_weight.saturating_add(<Runtime as Config>::WeightInfo::execute());
 				let charged_amount = env.charge(weight_to_charge)?;
@@ -186,7 +186,7 @@ where
 							&error,
 							"XCM execute failed: message may be invalid or execution constraints not satisfied"
 						)
-				})	
+				})
 			},
 			IXcmCalls::executeAsAccount_0(IXcm::executeAsAccount_0Call { message, weight }) => {
 				let origin = env.origin();
@@ -232,7 +232,7 @@ where
 						)
 				})
 			},
-			IXcmCalls::executeAsAccount_1(IXcm::executeAsAccount_1Call { message}) => {
+			IXcmCalls::executeAsAccount_1(IXcm::executeAsAccount_1Call { message }) => {
 				let origin = env.origin();
 				let frame_origin = match origin {
 					Origin::Root => frame_system::RawOrigin::Root.into(),
@@ -258,7 +258,7 @@ where
 					.map_err(|error| {
 						revert(&error, "XCM weightMessage: Failed to calculate weight")
 					})?;
-				
+
 				let weight_to_charge =
 					max_weight.saturating_add(<Runtime as Config>::WeightInfo::execute());
 				let charged_amount = env.charge(weight_to_charge)?;
@@ -319,7 +319,10 @@ where
 mod test {
 	use crate::{
 		mock::*,
-		precompiles::{IXcm::{self, weighMessageCall}, CallToXcmPrecompile::{self}},
+		precompiles::{
+			CallToXcmPrecompile::{self},
+			IXcm::{self, weighMessageCall},
+		},
 		VersionedLocation, VersionedXcm,
 	};
 	use frame_support::traits::Currency;
@@ -343,9 +346,8 @@ mod test {
 	const SEND_AMOUNT: u128 = 10;
 	const CUSTOM_INITIAL_BALANCE: u128 = 200_000_000_000_000u128;
 
-	const CALL_TO_XCM_PRECOMPILE_PVM: &[u8] = include_bytes!(
-		"precompiles/fixtures/CallToXcmPrecompile.pvm"
-	);
+	const CALL_TO_XCM_PRECOMPILE_PVM: &[u8] =
+		include_bytes!("precompiles/fixtures/CallToXcmPrecompile.pvm");
 
 	#[test]
 	fn test_xcm_send_precompile_works() {
@@ -685,8 +687,50 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::execute_0Call { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::execute_0Call { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute_0(xcm_execute_params);
+			let encoded_call = call.abi_encode();
+
+			let result = pallet_revive::Pallet::<Test>::bare_call(
+				RuntimeOrigin::signed(ALICE),
+				xcm_precompile_addr,
+				U256::zero(),
+				Weight::MAX,
+				DepositLimit::UnsafeOnlyForDryRun,
+				encoded_call,
+			);
+
+			assert!(result.result.is_ok());
+			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE - SEND_AMOUNT);
+			assert_eq!(Balances::total_balance(&BOB), SEND_AMOUNT);
+		});
+	}
+
+	#[test]
+	fn test_unweighted_xcm_execute_precompile_works() {
+		use codec::Encode;
+
+		let balances = vec![
+			(ALICE, CUSTOM_INITIAL_BALANCE),
+			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
+		];
+		new_test_ext_with_balances(balances).execute_with(|| {
+			let xcm_precompile_addr = H160::from(
+				hex::const_decode_to_array(b"00000000000000000000000000000000000A0000").unwrap(),
+			);
+
+			let dest: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+			assert_eq!(Balances::total_balance(&ALICE), CUSTOM_INITIAL_BALANCE);
+
+			let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![
+				WithdrawAsset((Here, SEND_AMOUNT).into()),
+				buy_execution((Here, SEND_AMOUNT)),
+				DepositAsset { assets: AllCounted(1).into(), beneficiary: dest },
+			]));
+
+			let xcm_execute_params = IXcm::execute_1Call { message: message.encode().into() };
+			let call = IXcm::IXcmCalls::execute_1(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -745,7 +789,8 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::execute_0Call { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::execute_0Call { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute_0(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -813,7 +858,8 @@ mod test {
 			let weight: IXcm::Weight = IXcm::Weight::abi_decode(&weight_result.data[..])
 				.expect("XcmExecutePrecompile Failed to decode weight");
 
-			let xcm_execute_params = IXcm::execute_0Call { message: message.encode().into(), weight };
+			let xcm_execute_params =
+				IXcm::execute_0Call { message: message.encode().into(), weight };
 			let call = IXcm::IXcmCalls::execute_0(xcm_execute_params);
 			let encoded_call = call.abi_encode();
 
@@ -1015,28 +1061,36 @@ mod test {
 			(ALICE, CUSTOM_INITIAL_BALANCE),
 			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
 		];
-		
+
 		new_test_ext_with_balances(balances).execute_with(|| {
 			let code = CALL_TO_XCM_PRECOMPILE_PVM.to_vec();
 
-			let Contract { addr: contract_addr, .. } =  BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
-				Code::Upload(code)
-			)
-			.storage_deposit_limit(DepositLimit::Balance(CUSTOM_INITIAL_BALANCE.saturating_div(10)))
-			.build_and_unwrap_contract();
+			let Contract { addr: contract_addr, .. } =
+				BareInstantiateBuilder::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(ALICE),
+					Code::Upload(code),
+				)
+				.storage_deposit_limit(DepositLimit::Balance(CUSTOM_INITIAL_BALANCE / 10))
+				.build_and_unwrap_contract();
 
-			let beneficiary: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
+			let alice_balance_after_deployment = Balances::free_balance(ALICE);
+			let bob_initial_balance = Balances::free_balance(BOB);
+
+			let beneficiary: Location =
+				Junction::AccountId32 { network: None, id: BOB.into() }.into();
+			let transfer_amount = 1_000;
 			let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![
-				WithdrawAsset((Here, 1_000).into()),
-				buy_execution((Here, 1_000)),
+				WithdrawAsset((Here, transfer_amount).into()),
+				buy_execution((Here, transfer_amount)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary },
 			]));
 
-			let xcm_execute_as_acc_params = CallToXcmPrecompile::callExecuteAsAccount_1Call { 
-				message: message.encode().into() 
+			let xcm_execute_as_acc_params = CallToXcmPrecompile::callExecuteAsAccount_1Call {
+				message: message.encode().into(),
 			};
-			let call = CallToXcmPrecompile::CallToXcmPrecompileCalls::callExecuteAsAccount_1(xcm_execute_as_acc_params);
+			let call = CallToXcmPrecompile::CallToXcmPrecompileCalls::callExecuteAsAccount_1(
+				xcm_execute_as_acc_params,
+			);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -1049,6 +1103,11 @@ mod test {
 			);
 
 			assert!(result.result.is_ok());
+			assert_eq!(
+				Balances::free_balance(ALICE),
+				alice_balance_after_deployment - transfer_amount,
+			);
+			assert_eq!(Balances::free_balance(BOB), bob_initial_balance + transfer_amount,);
 		});
 	}
 
@@ -1056,38 +1115,55 @@ mod test {
 	fn test_xcm_execute_as_account_fails() {
 		use codec::Encode;
 
+		const ALICE_WITHDRAWAL_ATTEMPT: u128 = CUSTOM_INITIAL_BALANCE * 2; // More than Alice has
+
 		let balances = vec![
 			(ALICE, CUSTOM_INITIAL_BALANCE),
-			(BOB, CUSTOM_INITIAL_BALANCE.saturating_mul(2)),
+			(BOB, ALICE_WITHDRAWAL_ATTEMPT),
 			(ParaId::from(OTHER_PARA_ID).into_account_truncating(), CUSTOM_INITIAL_BALANCE),
 		];
-		
+
 		new_test_ext_with_balances(balances).execute_with(|| {
 			let code = CALL_TO_XCM_PRECOMPILE_PVM.to_vec();
 
-			let Contract { addr: contract_addr, account_id: contract_account_id } = BareInstantiateBuilder::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(ALICE),
-				Code::Upload(code)
-			)
-			.storage_deposit_limit(DepositLimit::Balance(CUSTOM_INITIAL_BALANCE.saturating_div(10)))
-			.build_and_unwrap_contract();
+			// Alice deploys the contract that performs a cross-contract calls to the XCM precompile
+			let Contract { addr: contract_addr, account_id: contract_account_id } =
+				BareInstantiateBuilder::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(ALICE),
+					Code::Upload(code),
+				)
+				.storage_deposit_limit(DepositLimit::Balance(CUSTOM_INITIAL_BALANCE / 10))
+				.build_and_unwrap_contract();
 
-			// Fund the contract after deployment
-			let _ = Balances::transfer_allow_death(RuntimeOrigin::signed(BOB), contract_account_id, CUSTOM_INITIAL_BALANCE);
+			let alice_balance_after_deployment = Balances::free_balance(ALICE);
+			assert!(alice_balance_after_deployment < ALICE_WITHDRAWAL_ATTEMPT);
 
-			let beneficiary: Location = Junction::AccountId32 { network: None, id: BOB.into() }.into();
-			// Try to withdraw more than ALICE has - this should fail
-			let excessive_amount = CUSTOM_INITIAL_BALANCE * 2;
+			// Not really necessary, just to demonstrate that the contract has enough funds in case
+			// `execute` was called instead
+			let _ = Balances::transfer_allow_death(
+				RuntimeOrigin::signed(BOB),
+				contract_account_id.clone(),
+				ALICE_WITHDRAWAL_ATTEMPT,
+			);
+
+			let contract_balance_after_funding =
+				Balances::free_balance(contract_account_id.clone());
+
+			let beneficiary: Location =
+				Junction::AccountId32 { network: None, id: BOB.into() }.into();
+
 			let message: VersionedXcm<RuntimeCall> = VersionedXcm::from(Xcm(vec![
-				WithdrawAsset((Here, excessive_amount).into()),
-				buy_execution((Here, excessive_amount.saturating_div(10))),
+				WithdrawAsset((Here, ALICE_WITHDRAWAL_ATTEMPT).into()),
+				buy_execution((Here, ALICE_WITHDRAWAL_ATTEMPT)),
 				DepositAsset { assets: AllCounted(1).into(), beneficiary },
 			]));
 
-			let xcm_execute_as_acc_params = CallToXcmPrecompile::callExecuteAsAccount_1Call { 
-				message: message.encode().into() 
+			let xcm_execute_as_acc_params = CallToXcmPrecompile::callExecuteAsAccount_1Call {
+				message: message.encode().into(),
 			};
-			let call = CallToXcmPrecompile::CallToXcmPrecompileCalls::callExecuteAsAccount_1(xcm_execute_as_acc_params);
+			let call = CallToXcmPrecompile::CallToXcmPrecompileCalls::callExecuteAsAccount_1(
+				xcm_execute_as_acc_params,
+			);
 			let encoded_call = call.abi_encode();
 
 			let result = pallet_revive::Pallet::<Test>::bare_call(
@@ -1099,8 +1175,13 @@ mod test {
 				encoded_call,
 			);
 
-			// This should fail because ALICE doesn't have enough funds (not the contract)
-			assert!(result.result.is_err() || result.result.unwrap().did_revert());
+			// This should fail because it uses Alice as the origin,
+			// so Alice's insufficient balance causes the failure
+			assert!(result.result.unwrap().did_revert());
+
+			// Verify balances are unchanged after failed call
+			assert_eq!(Balances::free_balance(ALICE), alice_balance_after_deployment);
+			assert_eq!(Balances::free_balance(contract_account_id), contract_balance_after_funding);
 		});
 	}
 }
