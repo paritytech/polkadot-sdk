@@ -272,7 +272,7 @@ pub mod pallet {
 		///
 		/// Note that in case a single session report is larger than a single DMP message, it might
 		/// still be sent over if we use
-		/// [`pallet_staking_async_rc_client::XCMSender::split_and_send`]. This will make the size
+		/// [`pallet_staking_async_rc_client::XCMSender::split_then_send`]. This will make the size
 		/// of each individual message smaller, yet, it will still try and push them all to the
 		/// queue at the same time.
 		type MaximumValidatorsWithPoints: Get<u32>;
