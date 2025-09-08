@@ -2153,11 +2153,6 @@ where
 		let code_hash = self.code_hash(address);
 		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
 
-		if code_offset >= code.len() {
-			buf[..len].fill(0);
-			return;
-		}
-
 		let len = len.min(code.len().saturating_sub(code_offset));
 		if len > 0 {
 			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
