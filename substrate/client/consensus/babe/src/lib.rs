@@ -1489,32 +1489,17 @@ where
 			// Calculate the weight of the block in case it is missing.
 			let stored_weight = aux_schema::load_block_weight(&*self.client, hash)
 				.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
-			if stored_weight.is_none() {
-				log::info!("XXX calculating weight for block {}", number);
-				let parent_weight = aux_schema::load_block_weight(&*self.client, parent_hash)
-					.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
-					.ok_or_else(|| {
-						log::info!("XXX no weight for parent of block {}", number);
-						ConsensusError::ClientImport(
-							babe_err(Error::<Block>::ParentBlockNoAssociatedWeight(hash)).into(),
-						)
-					})?;
-				let pre_digest = find_pre_digest::<Block>(&block.header).expect(
-					"valid babe headers must contain a predigest; header has been already verified; qed",
-				);
-				let total_weight = parent_weight + pre_digest.added_weight();
-				aux_schema::write_block_weight(hash, total_weight, |values| {
-					block
-						.auxiliary
-						.extend(values.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))))
-				});
+			// If the stored weight is missing, it means it was skipped when the block was first
+			// imported. It needs to happen again, along with epoch change tracking.
+			if stored_weight.is_some() {
+				// When re-importing existing block strip away intermediates.
+				// In case of initial sync intermediates should not be present...
+				let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
+				block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+				return self.inner.import_block(block).await.map_err(Into::into)
+			} else {
+				log::info!("XXX fully re-importing block {number}");
 			}
-			// TODO I guess I could just calculate the weight here (?)
-			// When re-importing existing block strip away intermediates.
-			// In case of initial sync intermediates should not be present...
-			let _ = block.remove_intermediate::<BabeIntermediate<Block>>(INTERMEDIATE_KEY);
-			block.fork_choice = Some(ForkChoiceStrategy::Custom(false));
-			return self.inner.import_block(block).await.map_err(Into::into)
 		}
 
 		if block.with_state() {
