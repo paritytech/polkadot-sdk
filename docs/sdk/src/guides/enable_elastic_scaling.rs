@@ -149,7 +149,7 @@
 //!    block produced by the previous author.
 //!    If the import of the last block is not completed before the next relay chain slot starts,
 //!    the new author will build on its parent (assuming it was imported).
-//!    This means that, on reference hardware, a parachain with a slot time of 6 seconds can
+//!    This means that, on reference hardware, a parachain with a slot time of 6s can
 //! effectively    utilize up to 4 seconds of execution per relay chain block, because it needs to
 //! ensure the    next block author has enough time to import the last block.
 //!    Hardware with higher single-core performance can enable a parachain to fully utilize more
