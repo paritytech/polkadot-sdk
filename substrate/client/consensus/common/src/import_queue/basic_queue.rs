@@ -241,8 +241,6 @@ async fn block_import_process<B: BlockT>(
 			},
 		};
 
-		use sp_runtime::traits::Header;
-
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
 
