@@ -68,6 +68,8 @@
 //! pallet:
 //! `cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"] }`
 //! 
+//! You can find more technical details about RFC103 [here](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
+//! 
 //! ### Enable the relay parent offset feature
 //! 
 //! It is recommended to use an offset of `1`, which is sufficient to eliminate any issues 
