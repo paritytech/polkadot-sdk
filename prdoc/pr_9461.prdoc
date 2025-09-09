@@ -1,15 +1,13 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+title: "Expose migrating keys"
 
-title: 'Expose migrating keys'
 doc:
-  - audience: Runtime Dev & Node Dev
-    description: |
-      Adds `nth_migrating_prefixes` method to `SteppedMigrations` trait to expose storage prefixes
+  - audience: Runtime Dev
+    description: Adds `nth_migrating_prefixes` method to `SteppedMigrations` trait to expose storage prefixes
       that will be modified by each migration. This enables external tooling to inspect which
       storage areas will be affected by migrations before execution.
 
 crates:
-  - name: frame-support
-    bump: minor
-  - name: frame-migrations
-    bump: minor
+- name: frame-support
+  bump: minor
+- name: frame-migrations
+  bump: minor

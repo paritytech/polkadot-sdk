@@ -123,8 +123,9 @@ impl SteppedMigrations for MockedMigrations {
 		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
 	}
 
-	fn nth_migrating_prefixes(_n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-		None
+	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
+		let (kind, steps) = MIGRATIONS::get()[n as usize];
+		Some(Ok(vec![mocked_id(kind, steps).into_inner()]))
 	}
 
 	#[cfg(feature = "try-runtime")]

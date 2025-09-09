@@ -727,7 +727,6 @@ pub trait SteppedMigrations {
 	/// Get the storage prefixes modified by the `n`th migration.
 	///
 	/// Returns `None` if the index is out of bounds.
-	/// Returns `Some(Ok(prefixes))` containing the storage prefixes that will be modified.
 	fn nth_migrating_prefixes(n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>>;
 
 	/// Call the pre-upgrade hooks of the `n`th migration.
@@ -807,7 +806,7 @@ impl SteppedMigrations for () {
 	}
 
 	fn nth_migrating_prefixes(_n: u32) -> Option<Result<Vec<Vec<u8>>, SteppedMigrationError>> {
-		None::<Result<Vec<Vec<u8>>, SteppedMigrationError>>
+		None
 	}
 
 	#[cfg(feature = "try-runtime")]
