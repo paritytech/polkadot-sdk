@@ -6,8 +6,7 @@
 //!
 //! ## Quick introduction to Elastic Scaling
 //!
-//! [Elastic scaling](https://www.parity.io/blog/polkadot-web3-cloud)
-//! is a feature that enables parachains (rollups) to use multiple cores.
+//! [Elastic scaling](https://www.parity.io/blog/polkadot-web3-cloud) is a feature that enables parachains (rollups) to use multiple cores.
 //! Parachains can adjust their usage of core resources on the fly to increase TPS and decrease
 //! latency.
 //!
