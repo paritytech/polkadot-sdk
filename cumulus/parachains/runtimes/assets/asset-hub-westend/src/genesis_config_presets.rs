@@ -102,6 +102,25 @@ mod preset_names {
 	pub const PRESET_GENESIS: &str = "genesis";
 }
 
+/// The Keyring's wellknown accounts + Alith and Baltathar.
+///
+/// Some integration tests require these ETH accounts.
+pub fn well_known_including_eth_accounts() -> Vec<AccountId> {
+	Sr25519Keyring::well_known()
+		.map(|k| k.to_account_id())
+		.chain([
+			// subxt_signer::eth::dev::alith()
+			array_bytes::hex_n_into_unchecked(
+				"f24ff3a9cf04c71dbc94d0b566f7a27b94566caceeeeeeeeeeeeeeeeeeeeeeee",
+			),
+			// subxt_signer::eth::dev::baltathar()
+			array_bytes::hex_n_into_unchecked(
+				"3cd0a705a2dc65e5b1e1205896baa2be8a07c6e0eeeeeeeeeeeeeeeeeeeeeeee",
+			),
+		])
+		.collect::<Vec<_>>()
+}
+
 /// Provides the JSON representation of predefined genesis config for given `id`.
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	use preset_names::*;
@@ -145,7 +164,7 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
 					(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
 				],
-				Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
+				well_known_including_eth_accounts(),
 				WND * 1_000_000,
 				dev_stakers,
 				1000.into(),

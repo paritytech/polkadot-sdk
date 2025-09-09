@@ -12,6 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+array-bytes = { workspace = true }
 codec = { features = ["derive", "max-encoded-len"], workspace = true }
 hex-literal = { workspace = true, default-features = true }
 log = { workspace = true }

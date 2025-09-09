@@ -1359,6 +1359,7 @@ name = "asset-hub-westend-runtime"
 version = "0.15.0"
 dependencies = [
  "alloy-core",
+ "array-bytes 6.2.2",
  "asset-test-utils",
  "assets-common",
  "bp-asset-hub-rococo",
