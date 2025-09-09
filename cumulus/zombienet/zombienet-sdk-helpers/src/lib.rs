@@ -7,7 +7,7 @@ use cumulus_primitives_core::{BundleInfo, CoreInfo, CumulusDigestItem, RelayBloc
 use futures::{pin_mut, select, stream::StreamExt, TryStreamExt};
 use polkadot_primitives::{vstaging::CandidateReceiptV2, BlakeTwo256, HashT, Id as ParaId};
 use sp_runtime::traits::Zero;
-use std::{cmp::max, collections::HashMap, ops::Range};
+use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
 	join,
 	time::{sleep, Duration},
@@ -712,19 +712,54 @@ fn find_bundle_info(
 }
 
 /// Validates that the given block is the first block on its core (bundle index == 0).
-async fn validate_block_is_only_on_core(
+async fn ensure_is_only_block_in_core_impl(
 	para_client: &OnlineClient<PolkadotConfig>,
 	block_hash: H256,
 ) -> Result<(), anyhow::Error> {
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
+	let block_core_info = find_core_info(&block)?;
 
-	// Check if this block is the first block in the bundle (index == 0)
-	let bundle_info = find_bundle_info(&block)?;
-	if bundle_info.index != 0 {
+	let parent = blocks.at(block.header().parent_hash).await?;
+	let parent_core_info = find_core_info(&parent)?;
+
+	if parent_core_info == block_core_info {
 		return Err(anyhow::anyhow!(
-			"Not first block in core, found block with bundle index {}",
-			bundle_info.index
+			"Not first block ({}) in core, at least the parent block is on the same core.",
+			block.header().number
+		));
+	}
+
+	let next_block = loop {
+		// Start with the latest best block.
+		let mut current_block = Arc::new(blocks.subscribe_best().await?.next().await.unwrap()?);
+
+		let mut next_block = None;
+
+		while current_block.hash() != block_hash {
+			next_block = Some(current_block.clone());
+			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+
+			if current_block.number() == 0 {
+				return Err(anyhow::anyhow!(
+					"Did not found block while going backwards from the best block"
+				))
+			}
+		}
+
+		// It possible that the first block we got is the same as the transaction got finalized.
+		// So, we just retry again until we found some more blocks.
+		if let Some(next_block) = next_block {
+			break next_block
+		}
+	};
+
+	let next_block_core_info = find_core_info(&next_block)?;
+
+	if next_block_core_info == block_core_info {
+		return Err(anyhow::anyhow!(
+			"Not first block ({}) in core, at least the following block is on the same core.",
+			block.header().number
 		));
 	}
 
@@ -740,46 +775,31 @@ pub async fn ensure_is_only_block_in_core(
 
 	match block_to_check {
 		BlockToCheck::Exact(block_hash) =>
-			validate_block_is_only_on_core(para_client, block_hash).await,
+			ensure_is_only_block_in_core_impl(para_client, block_hash).await,
 		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
-			// Find the first block after start_block_hash that has bundle index 0
-			let mut current_block = blocks.at(start_block_hash).await?;
+			let start_block = blocks.at(start_block_hash).await?;
 
-			loop {
-				// Get the next block by subscribing to best blocks and finding blocks after
-				// current_block
-				let mut best_block_stream = blocks.subscribe_best().await?;
+			let mut best_block_stream = blocks.subscribe_best().await?;
 
-				// Find a block that comes after our current block
-				let mut next_block = None;
-				while let Some(block) = best_block_stream.next().await.transpose()? {
-					if block.number() > current_block.number() {
-						// Walk back from this block to find the direct child of current_block
-						let mut candidate = block;
-						while candidate.number() > current_block.number() + 1 {
-							candidate = blocks.at(candidate.header().parent_hash).await?;
-						}
-						if candidate.header().parent_hash == current_block.hash() {
-							next_block = Some(candidate);
-							break;
-						}
-					}
-				}
-
-				if let Some(next) = next_block {
-					// Check if this block has bundle index 0 (first block on core)
-					if let Ok(bundle_info) = find_bundle_info(&next) {
-						if bundle_info.index == 0 {
-							// Found the first bundle block, now validate it using the common logic
-							return validate_block_is_only_on_core(para_client, next.hash()).await;
-						}
+			let mut next_first_bundle_block = None;
+			while let Some(mut block) = best_block_stream.next().await.transpose()? {
+				while block.number() > start_block.number() {
+					if find_bundle_info(&block)?.index == 0 {
+						next_first_bundle_block = Some(block.hash());
 					}
 
-					current_block = next;
-				} else {
-					// Wait a bit before trying again
-					tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+					block = blocks.at(block.header().parent_hash).await?;
 				}
+
+				if next_first_bundle_block.is_some() {
+					break;
+				}
+			}
+
+			if let Some(block) = next_first_bundle_block {
+				ensure_is_only_block_in_core_impl(para_client, block).await
+			} else {
+				Err(anyhow!("Could not find the next bundle after {}", start_block.number()))
 			}
 		},
 	}
