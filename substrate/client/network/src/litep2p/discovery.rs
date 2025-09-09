@@ -704,7 +704,7 @@ impl Stream for Discovery {
 					providers,
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::AddProviderSuccess { query_id, provided_key: _ })) => {
+			Poll::Ready(Some(KademliaEvent::AddProviderSuccess { query_id, provided_key })) => {
 				log::trace!(
 					target: LOG_TARGET,
 					"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded",
