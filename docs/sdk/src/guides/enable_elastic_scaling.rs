@@ -44,7 +44,8 @@
 //! To ensure the security and reliability of your chain when using this feature you need the
 //! following:
 //! - An omni-node based collator. This has already become the default choice for collators.
-//! - [RFC103](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md). This is mandatory protection against PoV replay attacks.
+//! - [RFC103](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
+//!   This is mandatory protection against PoV replay attacks.
 //! - Enabling the relay parent offset feature. This is required to ensure the parachain block times
 //!   and transaction in-block confidence are not negatively affected by relay chain forks.
 //! - Block production configuration adjustments.
@@ -131,29 +132,31 @@
 //!
 //! ### Maximum execution time per relay chain block.
 
-//!    Since parachain block authoring is sequential, the next block can only be built after
-//!    the previous one has been imported.
-//!    At present, a core allows up to 2 seconds of execution per relay chain block.
+//! Since parachain block authoring is sequential, the next block can only be built after
+//! the previous one has been imported.
+//! At present, a core allows up to 2 seconds of execution per relay chain block.
 //!
-//!    If we assume a 6s parachain slot, and each block takes the full 2 seconds to execute,
-//!    the parachain will not be able to fully utilize the compute resources of all 3 cores.
+//! If we assume a 6s parachain slot, and each block takes the full 2 seconds to execute,
+//! the parachain will not be able to fully utilize the compute resources of all 3 cores.
 //!    
-//!    If the collator hardware is faster, it can author and import full blocks more quickly,
-//!    making it possible to utilize even more than 3 cores efficiently.
+//! If the collator hardware is faster, it can author and import full blocks more quickly,
+//! making it possible to utilize even more than 3 cores efficiently.
 //!
 //! #### Why?
 //!
-//!    Within a 6-second parachain slot, collators can author multiple parachain blocks.
-//!    Before building the first block in a slot, the new block author must import the last
-//!    block produced by the previous author.
-//!    If the import of the last block is not completed before the next relay chain slot starts,
-//!    the new author will build on its parent (assuming it was imported).
-//!    This means that, on reference hardware, a parachain with a slot time of 6s can
-//! effectively    utilize up to 4 seconds of execution per relay chain block, because it needs to
-//! ensure the    next block author has enough time to import the last block.
-//!    Hardware with higher single-core performance can enable a parachain to fully utilize more
-//! cores.    
+//! Within a 6-second parachain slot, collators can author multiple parachain blocks.
+//! Before building the first block in a slot, the new block author must import the last
+//! block produced by the previous author.
+//! If the import of the last block is not completed before the next relay chain slot starts,
+//! the new author will build on its parent (assuming it was imported).
+//! This means that, on reference hardware, a parachain with a slot time of 6s can
+//! effectively utilize up to 4 seconds of execution per relay chain block, because it needs to
+//! ensure the next block author has enough time to import the last block.
+//! Hardware with higher single-core performance can enable a parachain to fully utilize more
+//! cores.
+//!
 //! ### Fixed factor scaling.
-//!    For true elasticity, a parachain needs to acquire more cores when needed in an automated
+//!
+//! For true elasticity, a parachain needs to acquire more cores when needed in an automated
 //! manner. This functionality is not yet available in the SDK, thus acquiring additional
 //! on-demand or bulk cores has to be managed externally.
