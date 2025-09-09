@@ -124,15 +124,14 @@
 //! ## Current limitations
 //!
 //! ### Maximum execution time per relay chain block.
-//!    Assuming parachain slot duration is 6seconds. 
-//!    
-//!
+
 //!    Since parachain block authoring is sequential, the next block can only be built after 
 //!    the previous one has been imported.
 //!    At present, a core allows up to 2 seconds of execution per relay chain block.
 //!
-//!    As a result, if each block takes the full 2 seconds to execute, the parachain will not 
-//!    be able to fully utilize the compute resources of all 3 cores.
+//!    If we assume a 6s parachain slot, and each block takes the full 2 seconds to execute, 
+//!    the parachain will not be able to fully utilize the compute resources of all 3 cores.
+//!    
 //!    If the collator hardware is faster, it can author and import full blocks more quickly,
 //!    making it possible to utilize even more than 3 cores efficiently.
 //! 
