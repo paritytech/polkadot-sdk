@@ -29,7 +29,7 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
-	runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+    runtime::{TestAPI, TEST_OWNER}, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
 
 #[test]
@@ -37,7 +37,6 @@ fn bls381_works_in_runtime() {
 	sp_tracing::try_init_simple();
 	let keystore = Arc::new(MemoryKeystore::new());
 	let test_client = TestClientBuilder::new().build();
-	let test_owner = b"owner"; //this is the same owner used in runtime_api.test_bls381_crypto
 
 	let mut runtime_api = test_client.runtime_api();
 	runtime_api.register_extension(KeystoreExt::new(keystore.clone()));
@@ -50,7 +49,7 @@ fn bls381_works_in_runtime() {
 	assert!(supported_keys.contains(&public.to_raw_vec()));
 
 	assert!(AppPair::verify_proof_of_possession(
-		test_owner,
+		TEST_OWNER,
 		&proof_of_possession.into(),
 		&public.into()
 	));
@@ -58,13 +57,12 @@ fn bls381_works_in_runtime() {
 
 #[test]
 fn bls381_client_proof_of_possession_verified_by_runtime_public() {
-	let test_owner = b"owner";
 	let (mut test_pair, _) = Bls381Pair::generate();
 
-	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession(test_owner);
+	let client_generated_proof_of_possession = test_pair.generate_proof_of_possession(TEST_OWNER);
 	assert!(RuntimePublic::verify_proof_of_possession(
 		&test_pair.public(),
-		test_owner,
+		TEST_OWNER,
 		&client_generated_proof_of_possession
 	));
 }

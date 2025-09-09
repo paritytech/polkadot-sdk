@@ -492,6 +492,9 @@ fn code_using_trie() -> u64 {
 	res
 }
 
+/// The test owner to test proof of possession generation and verification for the session keys
+pub const TEST_OWNER: &[u8; 5] = b"owner";
+
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub ed25519: ed25519::AppPublic,
