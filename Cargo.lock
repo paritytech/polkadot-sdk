@@ -1923,7 +1923,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "regex",
@@ -9856,7 +9856,7 @@ checksum = "4ee93343901ab17bd981295f2cf0026d4ad018c7c31ba84549a4ddbb47a45104"
 [[package]]
 name = "litep2p"
 version = "0.10.0"
-source = "git+https://github.com/paritytech/litep2p.git?branch=dm-add-provider-success#e6aad45f3f4acd9ef1bce21cd2b30cb129d79b0a"
+source = "git+https://github.com/paritytech/litep2p.git?branch=dm-add-provider-success#d64e3b948524371d23a0d239575f8bc4b02914d9"
 dependencies = [
  "async-trait",
  "bs58",
@@ -17755,7 +17755,7 @@ checksum = "f8650aabb6c35b860610e9cff5dc1af886c9e25073b7b1712a68972af4281302"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "log",
  "multimap",
  "once_cell",
@@ -17801,7 +17801,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
