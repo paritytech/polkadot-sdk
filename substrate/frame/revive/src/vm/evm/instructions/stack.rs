@@ -20,7 +20,7 @@ use crate::vm::Ext;
 use revm::{
 	interpreter::{
 		gas as revm_gas,
-		interpreter_types::{Immediates, Jumps, RuntimeFlag, StackTr},
+		interpreter_types::{Immediates, Jumps, StackTr},
 		InstructionResult,
 	},
 	primitives::U256,
@@ -39,7 +39,6 @@ pub fn pop<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
 pub fn push0<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, SHANGHAI);
 	gas_legacy!(context.interpreter, revm_gas::BASE);
 	push!(context.interpreter, U256::ZERO);
 }
