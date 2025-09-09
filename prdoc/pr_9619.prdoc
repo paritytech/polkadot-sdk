@@ -7,13 +7,12 @@ doc:
     #### Common
 
     * `SendToRelayChain` and `SendToAssetHub` traits now return a result, allowing the caller to know if the underlying XCM was sent or not.
-    * Adds a number of testing facilities to `pallet-root-offences`, and `staking-async/papi-tests`. Both of which can be ignored in the review.
 
     #### Offences
 
-    * Mark `SendToAssetHub::relay_new_offence` as deprecated. This interface is now only used for any offence that might happen during the migration, and thereafter we use the new `relay_new_offence_paged` which is a vector of self-contained offences, not requiring us to group offences per session in each message.
+    * `SendToAssetHub::relay_new_offence` is removed. Instead, we use the new `relay_new_offence_paged` which is a vector of self-contained offences, not requiring us to group offences per session in each message.
     * Offences are not sent immediately anymore.
-    * Instead, they are stored in a paginated `OffenceSendQueue`
+    * Instead, they are stored in a paginated `OffenceSendQueue`.
     * `on-init`, we grab one page of this storage map, and sent it.
 
     #### Session Report

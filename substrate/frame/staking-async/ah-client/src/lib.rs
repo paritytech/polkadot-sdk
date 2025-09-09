@@ -665,7 +665,7 @@ pub mod pallet {
 							// report.
 							session_report.validator_points.into_iter().for_each(|(v, p)| {
 								ValidatorPoints::<T>::mutate(v, |existing_points| {
-									*existing_points = existing_points.saturating_add(p)
+									*existing_points = existing_points.defensive_saturating_add(p)
 								});
 							});
 
