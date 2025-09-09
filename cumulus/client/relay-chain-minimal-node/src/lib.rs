@@ -153,36 +153,6 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 	build_interface(relay_chain_config, task_manager, client).await
 }
 
-pub async fn build_minimal_relay_chain_node_light_client(
-	polkadot_config: Configuration,
-	task_manager: &mut TaskManager,
-) -> RelayChainResult<(
-	Arc<(dyn RelayChainInterface + 'static)>,
-	Option<CollatorPair>,
-	Arc<dyn NetworkService>,
-	async_channel::Receiver<GenericIncomingRequest>,
-)> {
-	tracing::info!(
-		target: LOG_TARGET,
-		chain_name = polkadot_config.chain_spec.name(),
-		chain_id = polkadot_config.chain_spec.id(),
-		"Initializing embedded light client with chain spec."
-	);
-
-	let spec = polkadot_config
-		.chain_spec
-		.as_json(false)
-		.map_err(RelayChainError::GenericError)?;
-
-	let client = cumulus_relay_chain_rpc_interface::create_client_and_start_light_client_worker(
-		spec,
-		task_manager,
-	)
-	.await?;
-
-	build_interface(polkadot_config, task_manager, client).await
-}
-
 /// Builds a minimal relay chain node. Chain data is fetched
 /// via [`BlockChainRpcClient`] and fed into the overseer and its subsystems.
 ///
