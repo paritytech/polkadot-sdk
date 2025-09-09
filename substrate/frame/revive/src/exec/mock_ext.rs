@@ -190,8 +190,12 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::last_frame_output_mut")
 	}
 
-	fn convert_native_to_evm(&self, _value: crate::BalanceOf<T>) -> U256 {
-		panic!("MockExt::convert_native_to_evm")
+	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
+		panic!("MockExt::copy_code_slice")
+
+	}
+		fn convert_native_to_evm(&self, _value: crate::BalanceOf<T>) -> U256 {
+			panic!("MockExt::convert_native_to_evm")
 	}
 }
 
