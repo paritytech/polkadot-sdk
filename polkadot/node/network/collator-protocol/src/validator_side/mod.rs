@@ -71,7 +71,7 @@ use collation::{
 	CollationFetchRequest, CollationStatus, Collations, FetchedCollation, PendingCollation,
 	PendingCollationFetch, ProspectiveCandidate,
 };
-use error::{Error, FetchError, Result, SecondingError};
+use error::{Error, FetchError, HoldOffError, Result, SecondingError};
 
 const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
 
@@ -348,13 +348,70 @@ struct GroupAssignments {
 	current: Vec<ParaId>,
 }
 
+/// Represents the hold off state of a relay parent.
+enum RelayParentHoldOffState {
+	/// No Advertisements from non-invulnerable collators were received so far. Nothing was held
+	/// off.
+	NotStarted,
+	/// One or more advertisements from non-invulnerable collators are being held off. Any new
+	/// advertisements received in this state are added to the queue.
+	HoldingOff(VecDeque<HeldOffAdvertisement>),
+	/// One or more advertisements were held off. We are not holding off any new advertisements.
+	Done,
+}
+
+impl RelayParentHoldOffState {
+	/// If called in `HoldingOff` state - returns all held off advertisements (there should be at
+	/// least one). If the function is called in a bad state - an error is returned.
+	fn on_hold_off_complete(
+		&mut self,
+	) -> std::result::Result<VecDeque<HeldOffAdvertisement>, HoldOffError> {
+		match std::mem::replace(self, RelayParentHoldOffState::Done) {
+			Self::NotStarted => {
+				*self = Self::NotStarted;
+				Err(HoldOffError::InvalidStateNotStarted)
+			},
+			Self::HoldingOff(held_off) => {
+				*self = RelayParentHoldOffState::Done;
+				if held_off.is_empty() {
+					// the queue should never be empty
+					Err(HoldOffError::QueueEmpty)
+				} else {
+					Ok(held_off)
+				}
+			},
+			Self::Done => {
+				*self = Self::Done;
+				Err(HoldOffError::InvalidStateDone)
+			},
+		}
+	}
+
+	/// Holds off the advertisement, if nothing was held off for this relay parent or there are
+	/// other advertisements being held off. Return false if the hold off was complete for the
+	/// relay parent.
+	fn hold_off_if_necessary(&mut self, advertisement: HeldOffAdvertisement) -> bool {
+		match self {
+			Self::NotStarted => {
+				*self = Self::HoldingOff(vec![advertisement].into());
+				true
+			},
+			Self::HoldingOff(advertisements) => {
+				advertisements.push_back(advertisement);
+				true
+			},
+			Self::Done => false,
+		}
+	}
+}
+
 struct PerRelayParent {
 	assignment: GroupAssignments,
 	collations: Collations,
 	v2_receipts: bool,
 	current_core: CoreIndex,
 	session_index: SessionIndex,
-	ah_held_off_advertisements: VecDeque<HeldOffAdvertisement>,
+	ah_held_off_advertisements: RelayParentHoldOffState,
 }
 
 /// Information about a held off advertisement
@@ -434,7 +491,7 @@ struct State {
 	/// Timers for AH held off advertisements. All advertisements are grouped by relay parent. Once
 	/// we get the first collation for a relay parent which should be held off we save it and start
 	/// a delay timer. When the timer fires we process all advertisements.
-	ah_held_off_rp: FuturesUnordered<BoxFuture<'static, Hash>>,
+	ah_held_off_rp_timers: FuturesUnordered<BoxFuture<'static, Hash>>,
 
 	/// For how long to hold off AssetHub collations from non-invulnerable collators
 	hold_off_duration: Duration,
@@ -573,7 +630,7 @@ where
 		v2_receipts,
 		session_index,
 		current_core: core_now,
-		ah_held_off_advertisements: VecDeque::new(),
+		ah_held_off_advertisements: RelayParentHoldOffState::NotStarted,
 	}))
 }
 
@@ -980,7 +1037,13 @@ fn hold_off_asset_hub_collation_if_needed(
 	let maybe_para_id = state.peer_data.get(&peer_id).and_then(|pd| pd.collating_para());
 	let hold_off_duration = state.hold_off_duration;
 	let collator_id = collator_id.clone();
-	if maybe_para_id == Some(ASSET_HUB_PARA_ID) && !state.ah_invulnerables.contains(&peer_id) {
+	let peer_is_invulnerable = state.ah_invulnerables.contains(&peer_id);
+	let invulnerables_set_is_empty = state.ah_invulnerables.is_empty();
+
+	if maybe_para_id == Some(ASSET_HUB_PARA_ID) &&
+		!peer_is_invulnerable &&
+		!invulnerables_set_is_empty
+	{
 		let Some(rp_state) = state.per_relay_parent.get_mut(&relay_parent) else {
 			// this should never happen
 			gum::warn!(
@@ -992,31 +1055,48 @@ fn hold_off_asset_hub_collation_if_needed(
 			return false
 		};
 
-		if rp_state.ah_held_off_advertisements.is_empty() {
-			// This is the first advertisement which will be held off for this relay parent so start
-			// a timer.
-			state.ah_held_off_rp.push(Box::pin(async move {
-				Delay::new(hold_off_duration).await;
-				relay_parent
-			}));
-		}
-
-		rp_state.ah_held_off_advertisements.push_back(HeldOffAdvertisement {
+		if rp_state.ah_held_off_advertisements.hold_off_if_necessary(HeldOffAdvertisement {
 			relay_parent,
 			peer_id,
 			collator_id,
 			prospective_candidate,
-		});
+		}) {
+			state.ah_held_off_rp_timers.push(Box::pin(async move {
+				Delay::new(hold_off_duration).await;
+				relay_parent
+			}));
 
-		gum::debug!(
-			target: LOG_TARGET,
-			?peer_id,
-			?relay_parent,
-			?prospective_candidate,
-			"AssetHub collation held off, not from invulnerable collator",
-		);
-		return true
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation held off, not from invulnerable collator",
+			);
+
+			return true;
+		} else {
+			gum::debug!(
+				target: LOG_TARGET,
+				?peer_id,
+				?relay_parent,
+				?prospective_candidate,
+				"AssetHub collation from non-invulnerable collator not held off - already done for this relay parent",
+			);
+			return false
+		}
 	}
+
+	gum::trace!(
+		target: LOG_TARGET,
+		?maybe_para_id,
+		peer_is_invulnerable,
+		invulnerables_set_is_empty,
+		?peer_id,
+		?relay_parent,
+		?prospective_candidate,
+		"Collation not held off",
+	);
 
 	return false
 }
@@ -1917,8 +1997,8 @@ async fn run_inner<Context>(
 				)
 				.await;
 			},
-			rp = state.ah_held_off_rp.select_next_some() => {
-				let Some(held_off_advertisements) = state.per_relay_parent.get_mut(&rp).map(|rp_state| rp_state.ah_held_off_advertisements.drain(..).collect::<VecDeque<_>>()) else {
+			rp = state.ah_held_off_rp_timers.select_next_some() => {
+				let Some(held_off_advertisements) = state.per_relay_parent.get_mut(&rp).map(|rp_state| rp_state.ah_held_off_advertisements.on_hold_off_complete()) else {
 					gum::debug!(
 						target: LOG_TARGET,
 						?rp,
@@ -1926,6 +2006,20 @@ async fn run_inner<Context>(
 					);
 					continue
 				};
+
+				let held_off_advertisements = match held_off_advertisements {
+					Ok(held_off) => held_off,
+					Err(err) => {
+						gum::warn!(
+							target: LOG_TARGET,
+							?rp,
+							?err,
+							"Failed to get held off advertisements for relay parent",
+						);
+						continue;
+					}
+				};
+
 				for held_off_advertisement in held_off_advertisements {
 					let HeldOffAdvertisement{relay_parent, peer_id, collator_id, prospective_candidate} = held_off_advertisement;
 					gum::debug!(
