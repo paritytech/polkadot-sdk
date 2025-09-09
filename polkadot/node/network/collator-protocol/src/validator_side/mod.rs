@@ -1905,11 +1905,7 @@ async fn run_inner<Context>(
 				}
 			},
 			_ = next_inactivity_stream.next() => {
-				disconnect_inactive_peers(
-					ctx.sender(),
-					&eviction_policy,
-					&state.peer_data,
-				).await;
+				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.relay_parent;
@@ -2575,7 +2571,7 @@ fn can_accept_new_collator_connection(
 	currently_connected: &HashMap<PeerId, PeerData>,
 	ah_invulnerables: &HashSet<PeerId>,
 ) -> bool {
-	if ah_invulnerables.contains(new_peer_id) {
+	if ah_invulnerables.contains(new_peer_id) || ah_invulnerables.is_empty() {
 		// If the new peer is AH invulnerable, we always accept it.
 		return true;
 	}
