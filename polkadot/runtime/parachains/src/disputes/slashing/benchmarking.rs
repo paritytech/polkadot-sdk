@@ -76,6 +76,7 @@ where
 		let proof: Vec<u8> = vec![];
 
 		whitelist_account!(controller);
+		pallet_session::Pallet::<T>::ensure_can_pay_key_deposit(&controller).unwrap();
 		pallet_session::Pallet::<T>::set_keys(RawOrigin::Signed(controller).into(), keys, proof)
 			.expect("session::set_keys should work");
 	}
@@ -117,7 +118,7 @@ where
 }
 
 /// Submits a single `ForInvalid` dispute.
-fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProofV2
+fn setup_dispute<T>(session_index: SessionIndex, validator_id: ValidatorId) -> DisputeProof
 where
 	T: Config,
 {
@@ -141,11 +142,11 @@ fn dispute_proof(
 	session_index: SessionIndex,
 	validator_id: ValidatorId,
 	validator_index: ValidatorIndex,
-) -> DisputeProofV2 {
+) -> DisputeProof {
 	let kind = DisputeOffenceKind::ForInvalidBacked;
 	let time_slot = DisputesTimeSlot::new(session_index, CANDIDATE_HASH);
 
-	DisputeProofV2 { time_slot, kind, validator_index, validator_id }
+	DisputeProof { time_slot, kind, validator_index, validator_id }
 }
 
 #[benchmarks(where T: Config<KeyOwnerProof = MembershipProof>)]

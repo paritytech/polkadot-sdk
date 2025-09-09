@@ -455,6 +455,10 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
@@ -979,6 +983,10 @@ pub use polkadot_parachain_primitives;
 /// Shared primitives used by Polkadot runtime.
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
+
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
 
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]

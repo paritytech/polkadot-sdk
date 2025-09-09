@@ -29,7 +29,8 @@ pub use block_import::{
 };
 pub use import_queue::{
 	import_single_block, BasicQueue, BlockImportError, BlockImportStatus, BoxBlockImport,
-	BoxJustificationImport, DefaultImportQueue, ImportQueue, IncomingBlock, Link, Verifier,
+	BoxJustificationImport, DefaultImportQueue, ImportQueue, IncomingBlock,
+	JustificationImportResult, Link, Verifier,
 };
 
 mod longest_chain;

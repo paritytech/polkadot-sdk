@@ -56,7 +56,7 @@ pub use weights_ext::WeightInfoExt;
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, vec, vec::Vec};
-use bounded_collections::BoundedBTreeSet;
+use bounded_collections::{BoundedBTreeSet, BoundedSlice, BoundedVec};
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
@@ -70,7 +70,6 @@ use frame_support::{
 		QueuePausedQuery,
 	},
 	weights::{Weight, WeightMeter},
-	BoundedVec,
 };
 use pallet_message_queue::OnQueueChanged;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
@@ -275,10 +274,10 @@ pub mod pallet {
 			let mut meter = WeightMeter::with_limit(limit);
 
 			if meter.try_consume(Self::on_idle_weight()).is_err() {
-				log::debug!(
+				tracing::debug!(
+					target: LOG_TARGET,
 					"Not enough weight for on_idle. {} < {}",
-					Self::on_idle_weight(),
-					limit
+					Self::on_idle_weight(), limit
 				);
 				return meter.consumed()
 			}
@@ -513,7 +512,7 @@ impl<T: Config> Pallet<T> {
 			details
 		} else {
 			all_channels.try_push(OutboundChannelDetails::new(recipient)).map_err(|e| {
-				log::error!("Failed to activate HRMP channel: {:?}", e);
+				tracing::error!(target: LOG_TARGET, error=?e, "Failed to activate HRMP channel");
 				MessageSendError::TooManyChannels
 			})?;
 			all_channels
@@ -559,7 +558,7 @@ impl<T: Config> Pallet<T> {
 			let number_of_pages = (channel_details.last_index - channel_details.first_index) as u32;
 			let bounded_page =
 				BoundedVec::<u8, T::MaxPageSize>::try_from(new_page).map_err(|error| {
-					log::debug!(target: LOG_TARGET, "Failed to create bounded message page: {error:?}");
+					tracing::debug!(target: LOG_TARGET, ?error, "Failed to create bounded message page");
 					MessageSendError::TooBig
 				})?;
 			let bounded_page = WeakBoundedVec::force_from(bounded_page.into_inner(), None);
@@ -589,7 +588,7 @@ impl<T: Config> Pallet<T> {
 			details.signals_exist = true;
 		} else {
 			s.try_push(OutboundChannelDetails::new(dest).with_signals()).map_err(|error| {
-				log::debug!(target: LOG_TARGET, "Failed to activate XCMP channel: {error:?}");
+				tracing::debug!(target: LOG_TARGET, ?error, "Failed to activate XCMP channel");
 				Error::<T>::TooManyActiveOutboundChannels
 			})?;
 		}
@@ -598,7 +597,7 @@ impl<T: Config> Pallet<T> {
 			(XcmpMessageFormat::Signals, signal).encode(),
 		)
 		.map_err(|error| {
-			log::debug!(target: LOG_TARGET, "Failed to encode signal message: {error:?}");
+			tracing::debug!(target: LOG_TARGET, ?error, "Failed to encode signal message");
 			Error::<T>::TooBig
 		})?;
 		let page = WeakBoundedVec::force_from(page.into_inner(), None);
@@ -641,17 +640,14 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	fn enqueue_xcmp_messages(
+	fn enqueue_xcmp_messages<'a>(
 		sender: ParaId,
-		xcms: &[BoundedVec<u8, MaxXcmpMessageLenOf<T>>],
+		xcms: &[BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>],
 		meter: &mut WeightMeter,
 	) -> Result<(), ()> {
 		let QueueConfigData { drop_threshold, .. } = <QueueConfig<T>>::get();
-		let batches_footprints = T::XcmpQueue::get_batches_footprints(
-			sender,
-			xcms.iter().map(|xcm| xcm.as_bounded_slice()),
-			drop_threshold,
-		);
+		let batches_footprints =
+			T::XcmpQueue::get_batches_footprints(sender, xcms.iter().copied(), drop_threshold);
 
 		let best_batch_footprint = batches_footprints.search_best_by(|batch_info| {
 			let required_weight = T::WeightInfo::enqueue_xcmp_messages(
@@ -670,17 +666,16 @@ impl<T: Config> Pallet<T> {
 			best_batch_footprint,
 		));
 		T::XcmpQueue::enqueue_messages(
-			xcms.iter()
-				.take(best_batch_footprint.msgs_count)
-				.map(|xcm| xcm.as_bounded_slice()),
+			xcms.iter().take(best_batch_footprint.msgs_count).copied(),
 			sender,
 		);
 
 		if best_batch_footprint.msgs_count < xcms.len() {
-			log::error!(
+			tracing::error!(
+				target: LOG_TARGET,
+				used_weight=?meter.consumed_ratio(),
 				"Out of weight: cannot enqueue entire XCMP messages batch; \
-				dropped some or all messages in batch. Used weight: {:?}",
-				meter.consumed_ratio()
+				dropped some or all messages in batch."
 			);
 			return Err(());
 		}
@@ -694,42 +689,62 @@ impl<T: Config> Pallet<T> {
 	///
 	/// On error returns a partial batch with all the XCMs processed before the failure.
 	/// This can happen in case of a decoding/re-encoding failure.
-	pub(crate) fn take_first_concatenated_xcm(
-		data: &mut &[u8],
+	pub(crate) fn take_first_concatenated_xcm<'a>(
+		data: &mut &'a [u8],
 		meter: &mut WeightMeter,
-	) -> Result<Option<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>, ()> {
+	) -> Result<Option<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>, ()> {
 		if data.is_empty() {
 			return Ok(None)
 		}
 
-		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
+		// Let's make sure that we can decode at least an empty xcm message.
+		let base_weight = T::WeightInfo::take_first_concatenated_xcm(0);
+		if meter.try_consume(base_weight).is_err() {
 			defensive!("Out of weight; could not decode all; dropping");
 			return Err(())
 		}
 
-		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data).map_err(
+		let input_data = &mut &data[..];
+		let mut input = codec::CountedInput::new(input_data);
+		VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut input).map_err(
 			|error| {
-				log::debug!(target: LOG_TARGET, "Failed to decode XCM with depth limit: {error:?}");
+				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode XCM with depth limit");
 				()
 			},
 		)?;
-		Ok(Some(xcm.encode().try_into().map_err(|error| {
-			log::debug!(target: LOG_TARGET, "Failed to encode XCM after decoding: {error:?}");
+		let (xcm_data, remaining_data) = data.split_at(input.count() as usize);
+		*data = remaining_data;
+
+		// Consume the extra weight that it took to decode this message.
+		// This depends on the message len in bytes.
+		// Saturates if it's over the limit.
+		let extra_weight =
+			T::WeightInfo::take_first_concatenated_xcm(xcm_data.len() as u32) - base_weight;
+		meter.consume(extra_weight);
+
+		let xcm = Some(BoundedSlice::try_from(xcm_data).map_err(|error| {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				"Failed to take XCM after decoding: message is too long"
+			);
 			()
-		})?))
+		})?);
+
+		Ok(xcm)
 	}
 
 	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
 	/// batches.
 	///
 	/// We directly encode them again since that is needed later on.
-	pub(crate) fn take_first_concatenated_xcms(
-		data: &mut &[u8],
+	pub(crate) fn take_first_concatenated_xcms<'a>(
+		data: &mut &'a [u8],
 		batch_size: usize,
 		meter: &mut WeightMeter,
 	) -> Result<
-		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
-		Vec<BoundedVec<u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
 	> {
 		let mut batch = vec![];
 		loop {
@@ -777,21 +792,32 @@ impl<T: Config> OnQueueChanged<ParaId> for Pallet<T> {
 
 		if suspended && fp.ready_pages <= resume_threshold {
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Resume) {
-				log::error!("defensive: Could not send resumption signal to inbound channel of sibling {:?}: {:?}; channel remains suspended.", para, err);
+				tracing::error!(
+					target: LOG_TARGET,
+					error=?err,
+					sibling=?para,
+					"defensive: Could not send resumption signal to inbound channel of sibling; channel remains suspended."
+				);
 			} else {
 				suspended_channels.remove(&para);
 				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
 		} else if !suspended && fp.ready_pages >= suspend_threshold {
-			log::warn!("XCMP queue for sibling {:?} is full; suspending channel.", para);
+			tracing::warn!(target: LOG_TARGET, sibling=?para, "XCMP queue for sibling is full; suspending channel.");
 
 			if let Err(err) = Self::send_signal(para, ChannelSignal::Suspend) {
 				// It will retry if `drop_threshold` is not reached, but it could be too late.
-				log::error!(
-					"defensive: Could not send suspension signal; future messages may be dropped: {:?}", err
+				tracing::error!(
+					target: LOG_TARGET, error=?err,
+					"defensive: Could not send suspension signal; future messages may be dropped."
 				);
 			} else if let Err(err) = suspended_channels.try_insert(para) {
-				log::error!("Too many channels suspended; cannot suspend sibling {:?}: {:?}; further messages may be dropped.", para, err);
+				tracing::error!(
+					target: LOG_TARGET,
+					error=?err,
+					sibling=?para,
+					"Too many channels suspended; cannot suspend sibling; further messages may be dropped."
+				);
 			} else {
 				<InboundXcmpSuspended<T>>::put(suspended_channels);
 			}
@@ -992,7 +1018,7 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 			let max_total_size = match T::ChannelInfo::get_channel_info(para_id) {
 				Some(channel_info) => channel_info.max_total_size,
 				None => {
-					log::warn!("calling `get_channel_info` with no RelevantMessagingState?!");
+					tracing::warn!(target: LOG_TARGET, "calling `get_channel_info` with no RelevantMessagingState?!");
 					MAX_POSSIBLE_ALLOCATION // We use this as a fallback in case the messaging state is not present
 				},
 			};
@@ -1086,7 +1112,7 @@ impl<T: Config> SendXcm for Pallet<T> {
 				Ok(hash)
 			},
 			Err(e) => {
-				log::error!(target: LOG_TARGET, "Deliver error: {e:?}");
+				tracing::error!(target: LOG_TARGET, error=?e, "Deliver error");
 				Err(SendError::Transport(e.into()))
 			},
 		}

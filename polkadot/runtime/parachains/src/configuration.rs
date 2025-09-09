@@ -18,7 +18,7 @@
 //!
 //! Configuration can change only at session boundaries and is buffered until then.
 
-use crate::{inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND, shared};
+use crate::shared;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, DefaultNoBound};
@@ -326,7 +326,9 @@ pub enum InconsistentError<BlockNumber> {
 	},
 	/// `validation_upgrade_delay` is less than or equal 1.
 	ValidationUpgradeDelayIsTooLow { validation_upgrade_delay: BlockNumber },
-	/// Maximum UMP message size ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`]) exceeded.
+	/// Maximum UMP message size
+	/// ([`MAX_UPWARD_MESSAGE_SIZE_BOUND`](crate::inclusion::MAX_UPWARD_MESSAGE_SIZE_BOUND))
+	/// exceeded.
 	MaxUpwardMessageSizeExceeded { max_message_size: u32 },
 	/// Maximum HRMP message num ([`MAX_HORIZONTAL_MESSAGE_NUM`]) exceeded.
 	MaxHorizontalMessageNumExceeded { max_message_num: u32 },
@@ -876,7 +878,6 @@ pub mod pallet {
 		))]
 		pub fn set_max_upward_queue_size(origin: OriginFor<T>, new: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new <= MAX_UPWARD_MESSAGE_SIZE_BOUND, Error::<T>::InvalidNewValue);
 
 			Self::schedule_config_update(|config| {
 				config.max_upward_queue_size = new;

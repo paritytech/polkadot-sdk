@@ -20,7 +20,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 bytes = { workspace = true }
 codec = { features = ["bytes"], workspace = true }
 impl-trait-for-tuples = { workspace = true }
-primitive-types = { workspace = true }
 sp-externalities = { workspace = true }
 sp-runtime-interface-proc-macro = { workspace = true, default-features = true }
 sp-std = { workspace = true }
@@ -44,7 +43,6 @@ default = ["std"]
 std = [
 	"bytes/std",
 	"codec/std",
-	"primitive-types/std",
 	"sp-externalities/std",
 	"sp-io/std",
 	"sp-runtime-interface-test-wasm/std",

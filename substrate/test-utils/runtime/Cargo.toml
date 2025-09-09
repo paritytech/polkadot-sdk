@@ -65,7 +65,6 @@ sc-chain-spec = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-serde_json = { features = ["alloc"], workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }

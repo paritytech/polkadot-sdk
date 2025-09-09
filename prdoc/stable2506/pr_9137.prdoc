@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Pallet XCM - transfer_assets pre-ahm patch
+
+doc:
+  - audience: Runtime User
+    description: |
+      Pallet XCM's `transfer_assets` extrinsic now returns an error when it determines that a
+      reserve transfer of DOT|KSM|WND|PAS has to be done.
+      This is a safeguard in preparation for the Asset Hub Migration (AHM), where the reserve
+      of DOT|KSM|WND|PAS will change from the Relay Chain to Asset Hub.
+      After the migration, another patch will remove this error case and use the correct reserve.
+      `limited_reserve_transfer_assets`, `transfer_assets_using_type_and_then` or `execute` should
+      be used instead, since they provide the ability to specify the reserve you want to use.
+  - audience: Runtime Dev
+    description: |
+      Pallet XCM's `transfer_assets` extrinsic now returns an error when it determines that a
+      reserve transfer of DOT|KSM|WND|PAS has to be done.
+      This is a safeguard in preparation for the Asset Hub Migration (AHM), where the reserve
+      of DOT|KSM|WND|PAS will change from the Relay Chain to Asset Hub.
+      After the migration, another patch will remove this error case and use the correct reserve.
+      The pallet uses the `UniversalLocation` configuration to figure out the correct asset
+      being transferred. It's very important to have that configuration correct.
+
+crates:
+  - name: pallet-xcm
+    bump: patch

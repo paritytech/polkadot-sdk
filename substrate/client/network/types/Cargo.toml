@@ -20,6 +20,8 @@ log = { workspace = true, default-features = true }
 multiaddr = { workspace = true }
 multihash = { workspace = true }
 rand = { workspace = true, default-features = true }
+serde.workspace = true
+serde_with.workspace = true
 thiserror = { workspace = true }
 zeroize = { workspace = true }
 

@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	pin::Pin,
 	task::Poll,
 	time::Duration,
@@ -57,7 +57,7 @@ pub enum DisputeSenderMessage {
 	/// A task finished.
 	TaskFinish(TaskFinish),
 	/// A request for active disputes to the dispute-coordinator finished.
-	ActiveDisputesReady(JfyiErrorResult<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>),
+	ActiveDisputesReady(JfyiErrorResult<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>),
 }
 
 /// The `DisputeSender` keeps track of all ongoing disputes we need to send statements out.
@@ -255,10 +255,11 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		&mut self,
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
-		active_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+		active_disputes: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 		have_new_sessions: bool,
 	) -> Result<()> {
-		let active_disputes: HashSet<_> = active_disputes.into_iter().map(|(_, c, _)| c).collect();
+		let active_disputes: HashSet<_> =
+			active_disputes.into_iter().map(|((_, c), _)| c).collect();
 
 		// Cleanup obsolete senders (retain keeps order of remaining elements):
 		self.disputes
@@ -380,7 +381,7 @@ async fn get_active_session_indices<Context>(
 /// Retrieve Set of active disputes from the dispute coordinator.
 async fn get_active_disputes<Sender>(
 	sender: &mut Sender,
-) -> JfyiErrorResult<Vec<(SessionIndex, CandidateHash, DisputeStatus)>>
+) -> JfyiErrorResult<BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>>
 where
 	Sender: SubsystemSender<DisputeCoordinatorMessage>,
 {

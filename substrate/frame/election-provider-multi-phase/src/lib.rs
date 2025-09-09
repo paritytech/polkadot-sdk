@@ -1801,6 +1801,7 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 	type Error = ElectionError<T>;
 	type MaxWinnersPerPage = T::MaxWinners;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
+	type MaxBackersPerWinnerFinal = T::MaxBackersPerWinner;
 	type Pages = sp_core::ConstU32<1>;
 	type DataProvider = T::DataProvider;
 

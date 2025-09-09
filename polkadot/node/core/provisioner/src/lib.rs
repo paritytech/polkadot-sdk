@@ -35,8 +35,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_availability_cores, TimeoutExt};
 use polkadot_primitives::{
-	vstaging::{BackedCandidate, CoreState},
-	CandidateHash, CoreIndex, Hash, Id as ParaId, SignedAvailabilityBitfield, ValidatorIndex,
+	BackedCandidate, CandidateHash, CoreIndex, CoreState, Hash, Id as ParaId,
+	SignedAvailabilityBitfield, ValidatorIndex,
 };
 use std::collections::{BTreeMap, HashMap};
 
