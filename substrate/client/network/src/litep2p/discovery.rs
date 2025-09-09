@@ -188,8 +188,6 @@ pub enum DiscoveryEvent {
 	AddProviderSuccess {
 		/// Query ID.
 		query_id: QueryId,
-		/// Provided key.
-		provided_key: RecordKey,
 	},
 
 	/// Query failed.
@@ -470,10 +468,10 @@ impl Discovery {
 	}
 
 	/// Start providing `key`.
-	pub async fn start_providing(&mut self, key: KademliaKey) {
+	pub async fn start_providing(&mut self, key: KademliaKey) -> QueryId {
 		self.kademlia_handle
 			.start_providing(key.into(), Quorum::N(QUORUM_THRESHOLD))
-			.await;
+			.await
 	}
 
 	/// Stop providing `key`.
@@ -706,16 +704,13 @@ impl Stream for Discovery {
 					providers,
 				}))
 			},
-			Poll::Ready(Some(KademliaEvent::AddProviderSuccess { query_id, provided_key })) => {
+			Poll::Ready(Some(KademliaEvent::AddProviderSuccess { query_id, provided_key: _ })) => {
 				log::trace!(
 					target: LOG_TARGET,
 					"`ADD_PROVIDER` for {query_id:?} with {provided_key:?} succeeded",
 				);
 
-				return Poll::Ready(Some(DiscoveryEvent::AddProviderSuccess {
-					query_id,
-					provided_key,
-				}))
+				return Poll::Ready(Some(DiscoveryEvent::AddProviderSuccess { query_id }))
 			},
 			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},

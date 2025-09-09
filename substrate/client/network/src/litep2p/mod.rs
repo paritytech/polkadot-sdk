@@ -686,7 +686,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::StartProviding { key } => {
-							self.discovery.start_providing(key).await;
+							let query_id = self.discovery.start_providing(key.clone()).await;
+							self.pending_queries.insert(query_id, KadQuery::AddProvider(key, Instant::now()));
 						}
 						NetworkServiceCommand::StopProviding { key } => {
 							self.discovery.stop_providing(key).await;
@@ -969,16 +970,16 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
-					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
+					Some(DiscoveryEvent::AddProviderSuccess { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::GetProviders(key, started)) => {
 								log::trace!(
 									target: LOG_TARGET,
-									"`ADD_PROVIDER` for {provided_key:?} ({query_id:?}) succeeded",
+									"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded",
 								);
 
 								self.event_streams.send(Event::Dht(
-									DhtEvent::StartedProviding(provided_key.into())
+									DhtEvent::StartedProviding(key.into())
 								));
 
 								if let Some(ref metrics) = self.metrics {
