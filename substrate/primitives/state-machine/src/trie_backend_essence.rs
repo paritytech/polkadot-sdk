@@ -661,27 +661,20 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, PrefixedMemoryDB<hash_db::FoldHasher<H>>) {
-		let mut write_overlay =
-			PrefixedMemoryDB::<hash_db::FoldHasher<H>>::with_hasher(RandomState::default());
-
-		let root = self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
-			let res = if let Some(xxx) = xxx {
-				let ll = xxx.0.len();
-				let mut tmp_eph =
-					TrieBackendStorageWithReadOnlyOverlay::new(self.backend_storage(), xxx.0);
-
-				let mut tmp_eph2 = Ephemeral2::new(&tmp_eph, &mut write_overlay);
+	) {
+		let xxx = &self.backend_storage();
+		self.with_recorder_and_cache_for_storage_root(None, |recorder, cache| {
+			let res = {
 				#[cfg(feature = "std")]
 				{
-					debug!(target: "trie", "using read-only overlay for: {:?} snapshots len:{}", xxx.1, ll);
+					debug!(target: "trie", "using read-only overlay");
 				}
+				let mut tmp_eph2 = Ephemeral2::new(xxx);
 				match state_version {
 					StateVersion::V0 =>
 						delta_trie_root_forget::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
 							&mut tmp_eph2,
-							xxx.1.unwrap_or(self.root),
+							self.root,
 							delta,
 							recorder,
 							cache,
@@ -689,22 +682,10 @@ where
 					StateVersion::V1 =>
 						delta_trie_root_forget::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
 							&mut tmp_eph2,
-							xxx.1.unwrap_or(self.root),
+							self.root,
 							delta,
 							recorder,
 							cache,
-						),
-				}
-			} else {
-				let mut eph = Ephemeral2::new(self.backend_storage(), &mut write_overlay);
-				match state_version {
-					StateVersion::V0 =>
-						delta_trie_root_forget::<sp_trie::LayoutV0<H>, _, _, _, _, _>(
-							&mut eph, self.root, delta, recorder, cache,
-						),
-					StateVersion::V1 =>
-						delta_trie_root_forget::<sp_trie::LayoutV1<H>, _, _, _, _, _>(
-							&mut eph, self.root, delta, recorder, cache,
 						),
 				}
 			};
@@ -717,8 +698,6 @@ where
 				},
 			}
 		});
-
-		(root, write_overlay)
 	}
 
 	/// Returns the child storage root for the child trie `child_info` after applying the given
@@ -902,7 +881,7 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> HashDBRef<H, DBValue> for Eph
 
 pub(crate) struct Ephemeral2<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> {
 	storage: &'a S,
-	overlay: &'a mut PrefixedMemoryDB<hash_db::FoldHasher<H>>,
+	_p: PhantomData<H>,
 }
 
 impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> AsHashDB<H, DBValue>
@@ -917,8 +896,8 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: 'a + Hasher> AsHashDB<H, DBValue>
 }
 
 impl<'a, S: TrieBackendStorage<H>, H: Hasher> Ephemeral2<'a, S, H> {
-	pub fn new(storage: &'a S, overlay: &'a mut PrefixedMemoryDB<hash_db::FoldHasher<H>>) -> Self {
-		Ephemeral2 { storage, overlay }
+	pub fn new(storage: &'a S) -> Self {
+		Ephemeral2 { storage, _p: Default::default() }
 	}
 }
 
@@ -926,11 +905,9 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 	for Ephemeral2<'a, S, H>
 {
 	fn get(&self, key: &H::Out, prefix: Prefix) -> Option<DBValue> {
-		HashDB::get(self.overlay, key, prefix).or_else(|| {
-			self.storage.get(key, prefix).unwrap_or_else(|e| {
-				warn!(target: "trie", "Failed to read from DB: {}", e);
-				None
-			})
+		self.storage.get(key, prefix).unwrap_or_else(|e| {
+			warn!(target: "trie", "Failed to read from DB: {}", e);
+			None
 		})
 	}
 
@@ -938,16 +915,25 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 		HashDB::get(self, key, prefix).is_some()
 	}
 
-	fn insert(&mut self, prefix: Prefix, value: &[u8]) -> H::Out {
-		HashDB::insert(self.overlay, prefix, value)
+	fn insert(&mut self, _prefix: Prefix, _value: &[u8]) -> H::Out {
+		#[cfg(feature = "std")]
+		{
+			panic!("shall not be here");
+		}
 	}
 
-	fn emplace(&mut self, key: H::Out, prefix: Prefix, value: DBValue) {
-		HashDB::emplace(self.overlay, key, prefix, value)
+	fn emplace(&mut self, _key: H::Out, _prefix: Prefix, _value: DBValue) {
+		#[cfg(feature = "std")]
+		{
+			panic!("shall not be here");
+		}
 	}
 
-	fn remove(&mut self, key: &H::Out, prefix: Prefix) {
-		HashDB::remove(self.overlay, key, prefix)
+	fn remove(&mut self, _key: &H::Out, _prefix: Prefix) {
+		#[cfg(feature = "std")]
+		{
+			panic!("shall not be here");
+		}
 	}
 }
 

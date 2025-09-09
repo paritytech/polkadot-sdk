@@ -22,7 +22,7 @@ use crate::backend::AsTrieBackend;
 use crate::{
 	backend::{BackendSnapshot, IterArgs, StorageIterator},
 	trie_backend_essence::{RawIter, TrieBackendEssence, TrieBackendStorage},
-	Backend, BackendTransaction, StorageKey, StorageValue,
+	Backend, StorageKey, StorageValue,
 };
 
 use codec::Codec;
@@ -534,12 +534,10 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, PrefixedMemoryDB<hash_db::FoldHasher<H>>)
-	where
+	) where
 		H::Out: Ord,
 	{
-		self.essence.trigger_storage_root_size_estimation(delta, state_version, xxx)
+		self.essence.trigger_storage_root_size_estimation(delta, state_version)
 	}
 
 	fn trigger_child_storage_root_size_estimation<'a, 'b>(
@@ -547,9 +545,7 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		_xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, bool, PrefixedMemoryDB<hash_db::FoldHasher<H>>)
-	where
+	) where
 		H::Out: Ord,
 	{
 		// self.essence.child_storage_root(child_info, delta, state_version, xxx)

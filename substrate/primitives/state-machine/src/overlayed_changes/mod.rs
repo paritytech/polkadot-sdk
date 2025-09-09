@@ -112,8 +112,6 @@ pub struct OverlayedChanges<H: Hasher> {
 
 	// todo: better name
 	storage_transaction_cache2_flag: Option<()>,
-	storage_transaction_cache2:
-		xxx::BackendSnapshots<StorageTransactionCache<hash_db::FoldHasher<H>>>,
 }
 
 impl<H: Hasher> Default for OverlayedChanges<H> {
@@ -127,7 +125,6 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			stats: Default::default(),
 			storage_transaction_cache: None,
 			storage_transaction_cache2_flag: None,
-			storage_transaction_cache2: Default::default(),
 		}
 	}
 }
@@ -143,7 +140,6 @@ impl<H: Hasher> Clone for OverlayedChanges<H> {
 			stats: self.stats.clone(),
 			storage_transaction_cache: self.storage_transaction_cache.clone(),
 			storage_transaction_cache2_flag: self.storage_transaction_cache2_flag.clone(),
-			storage_transaction_cache2: self.storage_transaction_cache2.clone(),
 		}
 	}
 }
@@ -254,13 +250,6 @@ struct StorageTransactionCache<H: Hasher> {
 	transaction: BackendTransaction<H>,
 	/// The storage root after applying the transaction.
 	transaction_storage_root: H::Out,
-}
-
-impl<H: Hasher> xxx::BackendTransaction for StorageTransactionCache<H> {
-	fn consolidate(&mut self, other: Self) {
-		self.transaction_storage_root = other.transaction_storage_root;
-		self.transaction.consolidate(other.transaction);
-	}
 }
 
 impl<H: Hasher> StorageTransactionCache<H> {
@@ -450,7 +439,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 	///
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
-		self.storage_transaction_cache2.start_transaction();
 		self.top.start_transaction();
 		for (_, (changeset, _)) in self.children.iter_mut() {
 			changeset.start_transaction();
@@ -465,7 +453,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 	pub fn rollback_transaction(&mut self) -> Result<(), NoOpenTransaction> {
 		self.mark_dirty();
 
-		self.storage_transaction_cache2.rollback_transaction();
 		self.top.rollback_transaction()?;
 		retain_map(&mut self.children, |_, (changeset, _)| {
 			changeset
@@ -485,7 +472,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Any changes made during that transaction are committed. Returns an error if there
 	/// is no open transaction that can be committed.
 	pub fn commit_transaction(&mut self) -> Result<(), NoOpenTransaction> {
-		self.storage_transaction_cache2.commit_transaction();
 		self.top.commit_transaction()?;
 		for (_, (changeset, _)) in self.children.iter_mut() {
 			changeset
@@ -704,15 +690,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 		&mut self,
 		backend: &B,
 		state_version: StateVersion,
-	) -> (H::Out, bool)
-	where
+	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
 		if self.storage_transaction_cache2_flag.is_some() {
-			if let Some(cache) = self.storage_transaction_cache2.recent_item() {
-				crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
-				return (cache.transaction_storage_root, true)
-			}
+			crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (cache)");
+			return;
 		}
 		#[cfg(feature = "std")]
 		let start = std::time::Instant::now();
@@ -720,150 +703,30 @@ impl<H: Hasher> OverlayedChanges<H> {
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation (non-cache)");
 
 		let snapshot = self.top.storage_root_snaphost_delta_keys2();
-		#[cfg(feature = "std")]
-		let elapsed00 = start.elapsed();
 
 		crate::debug!(target: "overlayed_changes", "trigger_storage_root_size_estimation snapshot: {:?}", snapshot);
 		let snapshot_len = snapshot.len();
-		let mut transcation_nodes = 0;
 
-		let child_delta = self
-			.children
-			.values_mut()
-			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
-
-		#[cfg(feature = "std")]
-		let elapsed01 = start.elapsed();
-
-		#[cfg(feature = "std")]
-		let mut elapsed02 = Default::default();
-		#[cfg(feature = "std")]
-		let mut elapsed03 = Default::default();
-		#[cfg(feature = "std")]
-		let mut elapsed04 = Default::default();
-		#[cfg(feature = "std")]
-		let mut elapsed05 = Default::default();
-		#[cfg(feature = "std")]
-		let mut elapsed06 = Default::default();
-
-		let root = {
+		{
 			let delta = self
 				.top
 				.changes_mut2(&snapshot)
 				.into_iter()
 				.map(|(k, v)| (&k[..], v.map(|v| &v[..])));
 
-			#[cfg(feature = "std")]
-			{
-				elapsed02 = start.elapsed();
-			}
-
 			let child_delta = self.children.values_mut().map(|v| {
 				(&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..]))))
 			});
 
-			#[cfg(feature = "std")]
-			{
-				elapsed03 = start.elapsed();
-			}
-
-			let xxx = Some((
-				self.storage_transaction_cache2
-					.get_snapshots()
-					.iter()
-					.map(|x| x.as_ref().map(|x| &x.transaction))
-					.collect::<Vec<_>>(),
-				self.storage_transaction_cache2
-					.recent_item()
-					.as_ref()
-					.map(|t| t.transaction_storage_root.clone()),
-			));
-
-			#[cfg(feature = "std")]
-			{
-				elapsed04 = start.elapsed();
-			}
-
-			let (root2, transaction) = backend.trigger_storage_root_size_estimation_full(
-				delta,
-				child_delta,
-				state_version,
-				xxx,
-			);
-
-			#[cfg(feature = "std")]
-			{
-				elapsed05 = start.elapsed();
-			}
-
-			// transcation_nodes = transaction.keys().len();
-
-			// crate::debug!(target: "overlayed_changes", "XXXXXXX: {:?} delta: {} snapshot_len:
-			// {}", root2, delta_count, snapshot_len);
+			backend.trigger_storage_root_size_estimation_full(delta, child_delta, state_version);
 
 			self.storage_transaction_cache2_flag = Some(());
-			// self.storage_transaction_cache = Some(StorageTransactionCache {
-			// 	transaction: transaction.clone(),
-			// 	transaction_storage_root: root2,
-			// });
-
-			self.storage_transaction_cache2
-				.push(StorageTransactionCache { transaction, transaction_storage_root: root2 });
-			#[cfg(feature = "std")]
-			{
-				elapsed06 = start.elapsed();
-			}
-			root2
-
-			// if let Some(current_snaphost) = self.storage_transaction_cache2.pop() {
-			// 	let (root2, transaction) = backend.full_storage_root2(
-			// 		delta,
-			// 		child_delta,
-			// 		state_version,
-			// 		&Some(current_snaphost.into_inner()),
-			// 	);
-			//
-			// 	crate::debug!(target: "overlayed_changes", "XXXXXXX: {:?} delta: {}", root2, len);
-			//
-			// 	self.storage_transaction_cache = Some(StorageTransactionCache {
-			// 		transaction: transaction.clone(),
-			// 		transaction_storage_root: root2,
-			// 	});
-			//
-			// 	self.storage_transaction_cache2
-			// 		.push(StorageTransactionCache { transaction, transaction_storage_root: root2 });
-			// 	root2
-			// } else {
-			// 	let (root2, transaction) =
-			// 		backend.full_storage_root2(delta, child_delta, state_version, &None);
-			//
-			// 	self.storage_transaction_cache = Some(StorageTransactionCache {
-			// 		transaction: transaction.clone(),
-			// 		transaction_storage_root: root2,
-			// 	});
-			//
-			// 	self.storage_transaction_cache2.push(StorageTransactionCache {
-			// 		transaction: transaction.clone(),
-			// 		transaction_storage_root: root2,
-			// 	});
-			// 	root2
-			// }
 		};
+
 		#[cfg(feature = "std")]
 		{
-			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={} transcation_nodes={}", start.elapsed(), snapshot_len, transcation_nodes);
-			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-				elapsed00,
-				elapsed01,
-				elapsed02,
-				elapsed03,
-				elapsed04,
-				elapsed05,
-				elapsed06,
-			);
+			crate::debug!(target: "durations", "trigger_storage_root_size_estimation: duration={:?} snapshot_len={}", start.elapsed(), snapshot_len);
 		}
-
-		(root, false)
 	}
 
 	/// Generate the child storage root using `backend` and all child changes

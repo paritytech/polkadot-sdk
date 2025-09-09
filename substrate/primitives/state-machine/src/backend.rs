@@ -276,9 +276,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, BackendTransaction<hash_db::FoldHasher<H>>)
-	where
+	) where
 		H::Out: Ord;
 
 	/// Calculate the child storage root, with given delta over what is already stored in
@@ -289,9 +287,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, bool, BackendTransaction<hash_db::FoldHasher<H>>)
-	where
+	) where
 		H::Out: Ord;
 
 	/// Returns a lifetimeless raw storage iterator.
@@ -364,39 +360,27 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
 		>,
 		state_version: StateVersion,
-		xxx: Option<BackendSnapshot<'b, hash_db::FoldHasher<H>>>,
-	) -> (H::Out, BackendTransaction<hash_db::FoldHasher<H>>)
-	where
+	) where
 		H::Out: Ord + Encode,
 	{
-		let mut txs = BackendTransaction::with_hasher(RandomState::default());
-		let mut child_roots: Vec<_> = Default::default();
+		// let mut child_roots: Vec<_> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			let (child_root, empty, child_txs) = self.trigger_child_storage_root_size_estimation(
-				child_info,
-				child_delta,
-				state_version,
-				xxx.clone(),
-			);
-			let prefixed_storage_key = child_info.prefixed_storage_key();
-			txs.consolidate(child_txs);
-			if empty {
-				child_roots.push((prefixed_storage_key.into_inner(), None));
-			} else {
-				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
-			}
+			self.trigger_child_storage_root_size_estimation(child_info, child_delta, state_version);
+			//todo: do we need to include potential child storage root changes?
+			//how do we know empy?
+			// let prefixed_storage_key = child_info.prefixed_storage_key();
+			// if empty {
+			// 	child_roots.push((prefixed_storage_key.into_inner(), None));
+			// } else {
+			// 	child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
+			// }
 		}
-		let (root, parent_txs) = self.trigger_storage_root_size_estimation(
-			delta
-				.map(|(k, v)| (k, v.as_ref().map(|v| &v[..])))
-				.chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
+		self.trigger_storage_root_size_estimation(
+			delta.map(|(k, v)| (k, v.as_ref().map(|v| &v[..]))),
+			// .chain(child_roots.iter().map(|(k, v)| (&k[..], v.as_ref().map(|v| &v[..])))),
 			state_version,
-			xxx,
 		);
-		txs.consolidate(parent_txs);
-
-		(root, txs)
 	}
 
 	/// Register stats from overlay of state machine.
