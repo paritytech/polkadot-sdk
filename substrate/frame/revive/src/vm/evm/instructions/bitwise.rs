@@ -19,10 +19,7 @@ use super::{i256::i256_cmp, Context};
 use crate::vm::Ext;
 use core::cmp::Ordering;
 use revm::{
-	interpreter::{
-		gas as revm_gas,
-		interpreter_types::{RuntimeFlag, StackTr},
-	},
+	interpreter::{gas as revm_gas, interpreter_types::StackTr},
 	primitives::U256,
 };
 
@@ -43,7 +40,6 @@ pub fn gt<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// Implements the CLZ instruction - count leading zeros.
 pub fn clz<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, OSAKA);
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([], op1, context.interpreter);
 
@@ -147,7 +143,6 @@ pub fn byte<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shl<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CONSTANTINOPLE);
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
@@ -157,7 +152,6 @@ pub fn shl<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shr<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CONSTANTINOPLE);
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
@@ -167,7 +161,6 @@ pub fn shr<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn sar<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	check!(context.interpreter, CONSTANTINOPLE);
 	gas_legacy!(context.interpreter, revm_gas::VERYLOW);
 	popn_top!([op1], op2, context.interpreter);
 
