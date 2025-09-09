@@ -1900,9 +1900,7 @@ async fn run_inner<Context>(
 							&mut state,
 						).await;
 					}
-					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => {
-						break
-					},
+					Ok(FromOrchestra::Signal(OverseerSignal::Conclude)) | Err(_) => break,
 					Ok(FromOrchestra::Signal(_)) => continue,
 				}
 			},
