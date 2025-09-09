@@ -2,7 +2,7 @@ title: '[pallet-revive] fix GAS_PRICE'
 doc:
 - audience: Runtime Dev
   description: |-
-    Currently submitting a transactio to the dev-node or kitchensink will trigger an error when you try to submit a transaction trhough cast (or anything using alloy) as the block gas limit on these runtime is greater than u64::max.
+    Currently submitting a transaction to the dev-node or kitchensink will trigger an error when you try to submit a transaction trough cast (or anything using alloy) as the block gas limit on these runtime is greater than u64::max.
 
     This bump the GAS_PRICE to fix this issue, this will eventually be superseeded by the new gas model
 crates:
