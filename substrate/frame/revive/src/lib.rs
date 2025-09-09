@@ -2152,7 +2152,7 @@ macro_rules! impl_runtime_apis_plus_revive {
 				}
 
 				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
-					$crate::Pallet::<Self>::construct_native_balance(&balance)
+					$crate::Pallet::<Self>::construct_native_balance(balance)
 				}
 			}
 		}
