@@ -2,6 +2,7 @@
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
 //! terminology, as defined in <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html">the Polkadot SDK Docs</a>.
+//! </div>
 //!
 //! ## Quick introduction to Elastic Scaling
 //!
@@ -96,6 +97,10 @@
 //!
 //! This configuration directly controls the minimum block time and maximum number of cores
 //! the parachain can use.
+//!
+//! The minimum block time is determined by the slot duration, which is set by the Aura consensus mechanism.
+//! The slot duration constant is defined in the Aura pallet as `SlotDuration`:
+//! #![doc = docify::embed!("../../substrate/frame/aura/src/lib.rs", Pallet::SlotDuration)]
 //! 
 //! Example configuration for a 3 core parachain:
 //!  ```rust 
@@ -123,6 +128,8 @@
 //! ## Current limitations
 //!
 //! ### Maximum execution time per relay chain block.
+//!    Assuming parachain slot duration is 6seconds. 
+//!    
 //!
 //!    Since parachain block authoring is sequential, the next block can only be built after 
 //!    the previous one has been imported.
