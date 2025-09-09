@@ -109,7 +109,7 @@
 //!  ```rust
 //!     /// How many parachain blocks are processed by the relay chain per parent. Limits the
 //!     /// number of blocks authored per slot. This determines the minimum block time of the
-//! parachain:     // `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
+//!     /// parachain: `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
 //!     const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 //!
 //!     /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
