@@ -25,7 +25,6 @@ use super::*;
 use crate::{
 	exec::ExportedFunction::*,
 	gas::GasMeter,
-	precompiles::alloy::sol_types::{sol_data::Bool, SolType},
 	test_utils::*,
 	tests::{
 		test_utils::{get_balance, place_contract, set_balance},
@@ -254,7 +253,7 @@ fn transfer_works() {
 			Pallet::<Test>::convert_native_to_evm(value),
 			&mut storage_meter,
 		)
-		.unwrap();
+			.unwrap();
 
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 		assert!(min_balance > 0);
@@ -351,7 +350,7 @@ fn correct_transfer_on_call() {
 			vec![],
 			false,
 		)
-		.unwrap();
+			.unwrap();
 
 		assert_eq!(get_balance(&ALICE), 100 - value);
 		assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
@@ -465,7 +464,7 @@ fn changes_are_reverted_on_failing_call() {
 			vec![],
 			false,
 		)
-		.unwrap();
+			.unwrap();
 
 		assert!(output.did_revert());
 		assert_eq!(get_balance(&ALICE), 100);
@@ -842,16 +841,7 @@ fn code_hash_returns_proper_values() {
 fn own_code_hash_returns_proper_values() {
 	let bob_ch = MockLoader::insert(Call, |ctx, _| {
 		let code_hash = ctx.ext.code_hash(&BOB_ADDR);
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("ownCodeHash()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-		assert_eq!(ret.unwrap().data, code_hash.0.to_vec());
+		assert_eq!(*ctx.ext.own_code_hash(), code_hash);
 		exec_success()
 	});
 
@@ -877,39 +867,16 @@ fn own_code_hash_returns_proper_values() {
 fn caller_is_origin_returns_proper_values() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not the origin of the stack call
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("callerIsOrigin()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_origin = ret.unwrap().data == vec![1];
-		assert!(!caller_is_origin);
+		assert!(!ctx.ext.caller_is_origin());
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is the origin of the call stack
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("callerIsOrigin()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-
-		let raw_data = ret.unwrap().data;
-		let caller_is_origin = Bool::abi_decode(&raw_data).expect("decoding to bool failed");
-		assert!(caller_is_origin);
-
+		assert!(ctx.ext.caller_is_origin());
 		// BOB calls CHARLIE
 		ctx.ext
-			.call(Weight::MAX, U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -936,17 +903,7 @@ fn caller_is_origin_returns_proper_values() {
 fn root_caller_succeeds() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
-		assert!(caller_is_root);
+		assert!(ctx.ext.caller_is_root());
 		exec_success()
 	});
 
@@ -972,12 +929,7 @@ fn root_caller_succeeds() {
 fn root_caller_does_not_succeed_when_value_not_zero() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert_ok!(ctx.ext.delegate_call(
-			Weight::MAX,
-			U256::zero(),
-			H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-			pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-		));
+		assert!(ctx.ext.caller_is_root());
 		exec_success()
 	});
 
@@ -1003,37 +955,16 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not root, even though the origin is root.
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
-		assert!(!caller_is_root);
+		assert!(!ctx.ext.caller_is_root());
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		let ret = ctx
-			.ext
-			.delegate_call(
-				Weight::MAX,
-				U256::zero(),
-				H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
-				pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
-			)
-			.map(|_| ctx.ext.last_frame_output().clone());
-		let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
-		assert!(caller_is_root);
-
+		assert!(ctx.ext.caller_is_root());
 		// BOB calls CHARLIE.
 		ctx.ext
-			.call(Weight::MAX, U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
+			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
 			.map(|_| ctx.ext.last_frame_output().clone())
 	});
 
@@ -1547,7 +1478,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				vec![],
 				false,
 			)
-			.unwrap();
+				.unwrap();
 		});
 }
 
@@ -1649,7 +1580,6 @@ fn call_deny_reentry() {
 
 #[test]
 fn nonce() {
-	let minimum_balance = <Test as Config>::Currency::minimum_balance();
 	let fail_code = MockLoader::insert(Constructor, |_, _| exec_trapped());
 	let success_code = MockLoader::insert(Constructor, |_, _| exec_success());
 	let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
@@ -1658,7 +1588,7 @@ fn nonce() {
 				Weight::MAX,
 				U256::MAX,
 				Code::Existing(fail_code),
-				(minimum_balance * 100).into(),
+				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
 			)
@@ -1675,7 +1605,7 @@ fn nonce() {
 				Weight::MAX,
 				U256::MAX,
 				Code::Existing(success_code),
-				(minimum_balance * 100).into(),
+				ctx.ext.minimum_balance() * 100,
 				vec![],
 				Some(&[0; 32]),
 			)
@@ -1729,7 +1659,7 @@ fn nonce() {
 				false,
 				BumpNonce::Yes,
 			)
-			.ok();
+				.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
 
 			assert_ok!(MockStack::run_instantiate(
@@ -2481,7 +2411,7 @@ fn last_frame_output_works_on_instantiate() {
 				vec![],
 				false,
 			)
-			.unwrap()
+				.unwrap()
 		});
 }
 
@@ -2666,7 +2596,7 @@ fn immutable_data_access_checks_work() {
 				vec![],
 				false,
 			)
-			.unwrap()
+				.unwrap()
 		});
 }
 
@@ -2735,7 +2665,7 @@ fn correct_immutable_data_in_delegate_call() {
 				vec![],
 				false,
 			)
-			.unwrap()
+				.unwrap()
 		});
 }
 
@@ -2775,8 +2705,8 @@ fn immutable_data_set_overrides() {
 				false,
 				BumpNonce::Yes,
 			)
-			.unwrap()
-			.0;
+				.unwrap()
+				.0;
 
 			MockStack::run_call(
 				origin,
@@ -2787,7 +2717,7 @@ fn immutable_data_set_overrides() {
 				vec![],
 				false,
 			)
-			.unwrap()
+				.unwrap()
 		});
 }
 
@@ -2833,7 +2763,7 @@ fn immutable_data_set_errors_with_empty_data() {
 				vec![],
 				false,
 			)
-			.unwrap()
+				.unwrap()
 		});
 }
 

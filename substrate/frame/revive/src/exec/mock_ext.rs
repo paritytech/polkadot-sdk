@@ -92,6 +92,14 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
+	fn caller_is_origin(&self) -> bool {
+		panic!("MockExt::caller_is_origin")
+	}
+
+	fn caller_is_root(&self) -> bool {
+		panic!("MockExt::caller_is_root")
+	}
+
 	fn account_id(&self) -> &AccountIdOf<Self::T> {
 		panic!("MockExt::account_id")
 	}
@@ -110,6 +118,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 
 	fn now(&self) -> U256 {
 		panic!("MockExt::now")
+	}
+
+	fn minimum_balance(&self) -> U256 {
+		panic!("MockExt::minimum_balance")
 	}
 
 	fn deposit_event(&mut self, _topics: Vec<H256>, _data: Vec<u8>) {
@@ -241,6 +253,10 @@ impl<T: Config> Ext for MockExt<T> {
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
+	}
+
+	fn own_code_hash(&mut self) -> &H256 {
+		panic!("MockExt::own_code_hash")
 	}
 
 	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
