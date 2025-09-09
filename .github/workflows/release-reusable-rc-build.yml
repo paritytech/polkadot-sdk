@@ -182,7 +182,7 @@ jobs:
 
       - name: Install llvm
         run: |
-          brew install llvm
+          brew install llvm@21.1.0
 
       - name: Set dynamic library path
         run: |
