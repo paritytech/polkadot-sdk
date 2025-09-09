@@ -189,22 +189,18 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						])
 				})
 				.with_collator(|c| {
-					c.with_name("alice")
-						.validator(true)
-						.with_args(build_collator_args(vec!["--use-null-consensus".into()]))
+					c.with_name("alice").validator(true)
 				})
 				.with_collator(|c| {
 					c.with_name("charlie").validator(false).with_args(build_collator_args(vec![]))
 				})
 				.with_collator(|c| {
 					c.with_name("eve").validator(true).with_args(build_collator_args(vec![
-						"--fail-pov-recovery".into(),
-						"--use-null-consensus".into(),
+						"--fail-pov-recovery".into()
 					]))
 				})
 				.with_collator(|c| {
 					c.with_name("one").validator(true).with_args(build_collator_args(vec![
-						"--use-null-consensus".into(),
 						("--relay-chain-rpc-url", rpc_urls.clone()).into()
 					]))
 				})
