@@ -2630,16 +2630,7 @@ mod ah_stop_gap {
 				)
 				.await;
 
-				// disconnect the invulnerable because it will time out and interfere with the test
-				overseer_send(
-					&mut virtual_overseer,
-					CollatorProtocolMessage::NetworkBridgeUpdate(
-						NetworkBridgeEvent::PeerDisconnected(invulnerable_collator),
-					),
-				)
-				.await;
-
-				// sleep 1 sec, to kick off held off processing
+				// sleep, to kick off held off processing
 				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE * 2);
 
 				// the one from the permissionless is also fetched
@@ -2959,6 +2950,132 @@ mod ah_stop_gap {
 				// takeaway is that initially a permissionless collator might manage to fill in the
 				// claim queue but after that invulnerable one will be preferred thanks to the hold
 				// off mechanism. For claim queue with size 3 this is harmless.
+
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				virtual_overseer
+			},
+		);
+	}
+
+	#[test]
+	fn permissionless_are_held_off_only_once() {
+		let mut test_state = TestState::with_one_scheduled_para();
+		let invulnerable_collator = PeerId::random();
+		let invulnerables = HashSet::from_iter([invulnerable_collator]);
+
+		let mut claim_queue = BTreeMap::new();
+		claim_queue.insert(
+			CoreIndex(0),
+			VecDeque::from_iter(
+				[ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID, ASSET_HUB_PARA_ID].into_iter(),
+			),
+		);
+		test_state.claim_queue = claim_queue;
+		test_state.chain_ids = vec![ASSET_HUB_PARA_ID];
+
+		test_harness(
+			ReputationAggregator::new(|_| true),
+			invulnerables,
+			|test_harness| async move {
+				let TestHarness { mut virtual_overseer, keystore } = test_harness;
+
+				let head = test_state.relay_parent;
+
+				update_view(&mut virtual_overseer, &mut test_state, vec![(head, 1)]).await;
+
+				let permissionless_collator = PeerId::random();
+				connect_and_declare_collator(
+					&mut virtual_overseer,
+					permissionless_collator,
+					CollatorPair::generate().0,
+					ASSET_HUB_PARA_ID,
+					CollationVersion::V2,
+				)
+				.await;
+
+				// permissionless makes an advertisement
+				let permissionless_head_data = HeadData(vec![0u8]);
+				let permissionless_head_data_hash = permissionless_head_data.hash();
+				let (permissionless_candidate, permissionless_commitments) =
+					create_dummy_candidate_and_commitments(
+						ASSET_HUB_PARA_ID,
+						permissionless_head_data,
+						head,
+					);
+				advertise_collation(
+					&mut virtual_overseer,
+					permissionless_collator,
+					head,
+					Some((permissionless_candidate.hash(), permissionless_head_data_hash)),
+				)
+				.await;
+
+				// nothing happens yet
+				test_helpers::Yield::new().await;
+				assert_matches!(virtual_overseer.recv().now_or_never(), None);
+
+				// sleep, to kick off held off processing
+				std::thread::sleep(HOLD_OFF_DURATION_DEFAULT_VALUE * 2);
+
+				// the one from the permissionless is also fetched
+				assert_matches!(
+					overseer_recv(&mut virtual_overseer).await,
+					AllMessages::CandidateBacking(
+						CandidateBackingMessage::CanSecond(request, tx),
+					) => {
+						assert_eq!(request.candidate_hash, permissionless_candidate.hash());
+						assert_eq!(request.candidate_para_id, ASSET_HUB_PARA_ID);
+						assert_eq!(request.parent_head_data_hash, permissionless_head_data_hash);
+						tx.send(true).expect("receiving side should be alive");
+					}
+				);
+
+				let response_channel = assert_fetch_collation_request(
+					&mut virtual_overseer,
+					head,
+					ASSET_HUB_PARA_ID,
+					Some(permissionless_candidate.hash()),
+				)
+				.await;
+
+				let pov = PoV { block_data: BlockData(vec![1]) };
+
+				send_collation_and_assert_processing(
+					&mut virtual_overseer,
+					keystore.clone(),
+					head,
+					ASSET_HUB_PARA_ID,
+					permissionless_collator,
+					response_channel,
+					permissionless_candidate,
+					permissionless_commitments,
+					pov,
+				)
+				.await;
+
+				// the rest of the permissionless advertisements for this RP should be processed
+				// immediately
+				submit_second_and_assert(
+					&mut virtual_overseer,
+					keystore.clone(),
+					ASSET_HUB_PARA_ID,
+					head,
+					permissionless_collator,
+					HeadData(vec![1 as u8]),
+				)
+				.await;
+
+				submit_second_and_assert(
+					&mut virtual_overseer,
+					keystore,
+					ASSET_HUB_PARA_ID,
+					head,
+					permissionless_collator,
+					HeadData(vec![2 as u8]),
+				)
+				.await;
 
 				test_helpers::Yield::new().await;
 				assert_matches!(virtual_overseer.recv().now_or_never(), None);
