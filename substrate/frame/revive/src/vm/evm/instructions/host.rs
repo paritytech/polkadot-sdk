@@ -315,9 +315,9 @@ pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 
 	// Check if we're in a static context
 	// require_non_staticcall!(context.interpreter);
-	// popn!([beneficiary], context.interpreter);
-	// let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
-	// let dispatch_result = context.interpreter.extend.selfdestruct(&h160);
+	popn!([beneficiary], context.interpreter);
+	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
+	let dispatch_result = context.interpreter.extend.terminate(&h160, false);
 
 	// match dispatch_result {
 	// 	Ok(_) => {

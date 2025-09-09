@@ -302,6 +302,7 @@ pub mod env {
 		let (deposit_ptr, value_ptr) = extract_hi_lo(deposit_and_value);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
+		log::info!("env.rs call, flags: {flags:02x?}, callee: {callee_ptr:02x?}, deposit: {deposit_ptr:02x?}, value: {value_ptr:02x?}, input: {input_data_ptr:02x?}, output: {output_ptr:02x?}");
 
 		self.call(
 			memory,

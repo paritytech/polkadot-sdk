@@ -20,6 +20,8 @@ use crate::{
 	vm::RuntimeCosts,
 	Config,
 };
+use crate::H160;
+use crate::precompiles::ExtWithInfo;
 use alloc::vec::Vec;
 use alloy_core::sol;
 use core::{marker::PhantomData, num::NonZero};
@@ -43,6 +45,10 @@ sol! {
 		///
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
 		function toAccountId(address input) external view returns (bytes memory account_id);
+		/// Terminate the currently executing contract and send balance to `beneficiary`.
+        /// This call mutates contract state and therefore requires contract info.
+		 #[derive(Debug)]
+        function terminate(address beneficiary) external;
 	}
 }
 
@@ -51,13 +57,14 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	type Interface = ISystem::ISystemCalls;
 	const MATCHER: BuiltinAddressMatcher =
 		BuiltinAddressMatcher::Fixed(NonZero::new(0x900).unwrap());
-	const HAS_CONTRACT_INFO: bool = false;
+	const HAS_CONTRACT_INFO: bool = true;
 
 	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+				log::info!(">>>>>>>>>>>>>called precompile call");
 		use ISystem::ISystemCalls;
 		match input {
 			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
@@ -78,8 +85,54 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
 				Ok(account_id.encode())
 			},
-		}
+            // terminate requires contract info; route to call_with_info by returning an error here
+            ISystemCalls::terminate(_) => {
+				log::error!("system.rs precompile call() for terminate is not implemented");
+				unimplemented!("not implemented")
+			},
+        }
 	}
+
+    // implement the contract-info aware entrypoint
+    fn call_with_info(
+        _address: &[u8; 20],
+        input: &Self::Interface,
+        env: &mut impl ExtWithInfo<T = Self::T>,
+    ) -> Result<Vec<u8>, Error> {
+				log::info!("called precompile call_with_info");
+        use ISystem::ISystemCalls;
+        match input {
+            ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
+                env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+                let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
+                Ok(output.to_vec())
+            },
+            ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
+                env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+                let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
+                Ok(output.to_vec())
+            },
+            ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
+                use crate::address::AddressMapper;
+                use codec::Encode;
+                env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+                let account_id =
+                    T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
+                Ok(account_id.encode())
+            },
+            ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
+				log::info!("called precompile terminate {:?}", beneficiary);
+                // charge termination cost
+                env.gas_meter_mut().charge(RuntimeCosts::Terminate{ code_removed: true })?;
+                // beneficiary is 20 bytes; convert to H160
+                let h160 = H160::from_slice(beneficiary.as_slice());
+                // call into exec layer to terminate the contract; allow_from_outside_tx = true
+                // `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From if available.
+                env.terminate(&h160, true)?;
+                Ok(Vec::new())
+            },
+        }
+    }
 }
 
 #[cfg(test)]
@@ -101,6 +154,14 @@ mod tests {
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_256.json"));
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-blake2_128.json"));
 		run_test_vectors::<System<Test>>(include_str!("testdata/900-to_account_id.json"));
+	}
+
+	#[test]
+	fn print_selector() {
+		use crate::precompiles::alloy::hex;
+		let unmapped_address = H160::zero();
+    	println!("generated sel (sol!): {:02x?}", ISystem::terminateCall{beneficiary: unmapped_address.0.into(),});
+    println!("SYSTEM base_address = 0x{}", hex::encode(<System<Test>>::MATCHER.base_address()));
 	}
 
 	#[test]

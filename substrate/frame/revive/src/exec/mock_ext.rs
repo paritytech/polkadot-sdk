@@ -203,6 +203,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		panic!("MockExt::last_frame_output_mut")
 	}
+
+	fn terminate(&mut self, _beneficiary: &H160, _allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
+		panic!("MockExt::terminate")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
@@ -247,14 +251,6 @@ impl<T: Config> Ext for MockExt<T> {
 		_input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
-	}
-
-	fn terminate(&mut self, _beneficiary: &H160, _allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::terminate")
-	}
-
-	fn destroy_contract(&mut self, _contract_address: &H160, _contract_info: &ContractInfo<T>, _beneficiary_address: &H160) -> Result<CodeRemoved, DispatchError> {
-		panic!("MockExt::destroy_contract")
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {

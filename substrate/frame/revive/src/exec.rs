@@ -196,24 +196,6 @@ pub trait Ext: PrecompileWithInfoExt {
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
 
-	/// Transfer all funds to `beneficiary`.
-	///
-	/// If `allow_from_outside_tx` is true, it allows the contract to be deleted even if it was created in a different transaction.
-	/// Else the contract is *NOT* deleted *unless* this function is called in the same transaction
-	/// as the contract was created.
-	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
-	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError>;
-
-	/// Destroys the contract and transfers all funds to the beneficiary.
-	fn destroy_contract(
-		&mut self, 
-		contract_address: &H160, 
-		contract_info: &ContractInfo<<Self as PrecompileExt>::T>,
-		beneficiary_address: &H160
-	) -> Result<CodeRemoved, DispatchError>;
-
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -437,6 +419,16 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Transfer all funds to `beneficiary`.
+	///
+	/// If `allow_from_outside_tx` is true, it allows the contract to be deleted even if it was created in a different transaction.
+	/// Else the contract is *NOT* deleted *unless* this function is called in the same transaction
+	/// as the contract was created.
+	///
+	/// This function will fail if the same contract is present on the contract
+	/// call stack.
+	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError>;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -535,7 +527,8 @@ pub struct Stack<'a, T: Config, E> {
 	_phantom: PhantomData<E>,
 	/// The set of contracts that were created during this call stack.
 	contracts_created: BTreeSet<T::AccountId>,
-	/// The set of contracts that were created during this call stack.
+	/// The set of contracts that are to be destroyed at the end of this call stack.
+	/// The tuple contains: (address of contract, contract info, address of beneficiary)
 	contracts_to_be_destroyed: BTreeSet<(H160, ContractInfo<T>, H160)>,
 }
 
@@ -1298,6 +1291,8 @@ where
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
 			if let Some(precompile) = executable.as_precompile() {
+				log::info!("exec.rs run() executing precompile...");
+				log::info!("exec.rs run() precompile.has_contract_info(): {}", precompile.has_contract_info());
 				if precompile.has_contract_info() &&
 					frame.delegate.is_none() &&
 					!<System<T>>::account_exists(account_id)
@@ -1322,6 +1317,7 @@ where
 					instance.call(input_data, self),
 			}
 			.and_then(|output| {
+				log::info!("exec.rs run() output: {:?}", output);
 				if u32::try_from(output.data.len())
 					.map(|len| len > limits::CALLDATA_BYTES)
 					.unwrap_or(true)
@@ -1330,7 +1326,10 @@ where
 				}
 				Ok(output)
 			})
-			.map_err(|e| ExecError { error: e.error, origin: ErrorOrigin::Callee })?;
+			.map_err(|e| {
+				log::error!("exec.rs run() error: {:?}", e);
+				ExecError { error: e.error, origin: ErrorOrigin::Callee }
+			})?;
 
 			// Avoid useless work that would be reverted anyways.
 			if output.did_revert() {
@@ -1646,6 +1645,61 @@ where
 		}
 		Some(System::<T>::block_hash(&block_number).into())
 	}
+	
+	fn destroy_contract(
+		&mut self,
+		contract_address: &H160,
+		contract_info: &ContractInfo<T>,
+		beneficiary_address: &H160,
+	) -> Result<CodeRemoved, DispatchError> {
+		log::info!(
+			target: LOG_TARGET,
+			"Destroying contract: {:?} for beneficiary: {:?}",
+			contract_address,
+			beneficiary_address
+		);
+
+		// derive account ids
+		let contract_account = T::AddressMapper::to_account_id(contract_address);
+		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
+
+		// transfer balance (including dust) to beneficiary
+		{
+			let raw_value: U256 = self.account_balance(&contract_account);
+			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)?;
+			if !value.is_zero() {
+				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
+			}
+		}
+
+		if !self.contracts_created.contains(&contract_account) {
+			return Ok(CodeRemoved::No);
+		}
+
+		// refund storage deposit accounting if any (use provided ContractInfo)
+		let deposit_to_refund = contract_info.total_deposit();
+		if !deposit_to_refund.is_zero() {
+			let _ = self
+				.storage_meter
+				.record_charge(&StorageDeposit::Refund(deposit_to_refund))
+				.unwrap_or_else(|_| {
+					log::debug!(
+						target: LOG_TARGET,
+						"Failed to refund storage deposit during deferred destruction"
+					);
+				});
+		}
+
+		// mark trie for deletion and remove on-chain entries
+		contract_info.queue_trie_for_deletion();
+		AccountInfoOf::<T>::remove(contract_address);
+		ImmutableDataOf::<T>::remove(contract_address);
+
+		// decrement code refcount and return result
+		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
+		log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
+		Ok(removed)
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1690,75 +1744,6 @@ where
 			// Delegate-calls to non-contract accounts are considered success.
 			Ok(())
 		}
-	}
-
-	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
-		if self.is_recursive() {
-			return Err(Error::<T>::TerminatedWhileReentrant.into());
-		}
-		let contract_address = {
-			let frame = self.top_frame_mut();
-			if frame.entry_point == ExportedFunction::Constructor {
-				return Err(Error::<T>::TerminatedInConstructor.into());
-			}
-			T::AddressMapper::to_address(&frame.account_id)
-		};
-		{
-			let contract_info = self.top_frame_mut().terminate();
-			self.contracts_to_be_destroyed.insert((contract_address, contract_info, *beneficiary));
-		}
-		Ok(CodeRemoved::Yes)
-	}
-	
-	fn destroy_contract(
-		&mut self,
-		contract_address: &H160,
-		contract_info: &ContractInfo<T>,
-		beneficiary_address: &H160,
-	) -> Result<CodeRemoved, DispatchError> {
-		log::info!(
-			target: LOG_TARGET,
-			"Destroying contract: {:?} for beneficiary: {:?}",
-			contract_address,
-			beneficiary_address
-		);
-
-		// derive account ids
-		let contract_account = T::AddressMapper::to_account_id(contract_address);
-		let beneficiary_account = T::AddressMapper::to_account_id(beneficiary_address);
-
-		// transfer balance (including dust) to beneficiary
-		{
-			let raw_value: U256 = self.account_balance(&contract_account);
-			let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(raw_value)?;
-			if !value.is_zero() {
-				transfer_with_dust::<T>(&contract_account, &beneficiary_account, value)?;
-			}
-		}
-
-		// refund storage deposit accounting if any (use provided ContractInfo)
-		let deposit_to_refund = contract_info.total_deposit();
-		if !deposit_to_refund.is_zero() {
-			let _ = self
-				.storage_meter
-				.record_charge(&StorageDeposit::Refund(deposit_to_refund))
-				.unwrap_or_else(|_| {
-					log::debug!(
-						target: LOG_TARGET,
-						"Failed to refund storage deposit during deferred destruction"
-					);
-				});
-		}
-
-		// mark trie for deletion and remove on-chain entries
-		contract_info.queue_trie_for_deletion();
-		AccountInfoOf::<T>::remove(contract_address);
-		ImmutableDataOf::<T>::remove(contract_address);
-
-		// decrement code refcount and return result
-		let removed = <CodeInfo<T>>::decrement_refcount(contract_info.code_hash)?;
-		log::info!(target: LOG_TARGET, "Contract destroyed: {:?}", contract_address);
-		Ok(removed)
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
@@ -1940,6 +1925,7 @@ where
 		allows_reentry: bool,
 		read_only: bool,
 	) -> Result<(), ExecError> {
+		log::info!("exec.rs call input: {input_data:?}, dest_addr: {dest_addr:02x?}");
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -1955,10 +1941,12 @@ where
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
+				log::info!("exec.rs call fallback dest: {:02x?}", T::AddressMapper::to_fallback_account_id(dest_addr));
 				T::AddressMapper::to_fallback_account_id(dest_addr)
 			} else {
 				T::AddressMapper::to_account_id(dest_addr)
 			};
+			log::info!("exec.rs call dest: {dest:02x?}");
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -2209,6 +2197,30 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	fn terminate(&mut self, beneficiary: &H160, allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
+		log::info!("called terminate {:?} {}", beneficiary, allow_from_outside_tx);
+		if self.is_recursive() {
+			return Err(Error::<T>::TerminatedWhileReentrant.into());
+		}
+		let contract_address = {
+			let frame = self.top_frame_mut();
+			if frame.entry_point == ExportedFunction::Constructor {
+				return Err(Error::<T>::TerminatedInConstructor.into());
+			}
+			T::AddressMapper::to_address(&frame.account_id)
+		};
+		if allow_from_outside_tx {
+			// Pretend the contract was created in the current tx
+			let account_id = self.top_frame_mut().account_id.clone();
+			self.contracts_created.insert(account_id);
+		}
+		{
+			let contract_info = self.top_frame_mut().terminate();
+			self.contracts_to_be_destroyed.insert((contract_address, contract_info, *beneficiary));
+		}
+		Ok(CodeRemoved::Yes)
 	}
 }
 
