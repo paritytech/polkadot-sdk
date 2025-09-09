@@ -47,7 +47,7 @@
 //! - An omni-node based collator. This has already become the default choice for collators.
 //! - RFC 103. This is mandatory protection against PoV replay attacks.
 //! - Enabling the relay parent offset feature. This is required to ensure the parachain block times
-//!   and transaction in-block confidence is not negatively affected by relay chain forks.
+//!   and transaction in-block confidence are not negatively affected by relay chain forks.
 //! - Block production configuration adjustments.
 //!
 //! ### Upgrade to Polkadot Omni node
