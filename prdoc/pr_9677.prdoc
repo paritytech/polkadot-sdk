@@ -1,0 +1,5 @@
+title: '[WIP] Update elastic scaling documentation'
+doc:
+- audience: Todo
+  description: Add docs and remove MVP
+crates: []
