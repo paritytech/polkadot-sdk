@@ -261,8 +261,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 	}
 }
 
-impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T>
-{
+impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
 	#[cfg(feature = "full_crypto")]
 	/// signs on
 	///  - owner as sort of back cert and proof of ownership to prevent front runner attack
@@ -289,9 +288,7 @@ impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T>
 	}
 }
 
-impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T>
-where
-{
+impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
 	///Verify both proof of ownership (back cert) and proof of possession of the private key
 	fn verify_proof_of_possession(
 		owner: &[u8],

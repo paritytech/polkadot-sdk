@@ -29,7 +29,8 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use std::sync::Arc;
 use substrate_test_runtime_client::{
-	runtime::{TestAPI, TEST_OWNER}, DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	runtime::{TestAPI, TEST_OWNER},
+	DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
 };
 
 #[test]
