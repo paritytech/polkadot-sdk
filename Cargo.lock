@@ -1073,7 +1073,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.28.0"
+version = "0.28.1"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1207,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.34.0"
+version = "0.35.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -3357,7 +3357,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4590,7 +4590,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "assert_matches",
  "bytes",
@@ -4707,7 +4707,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-xcmp-queue"
-version = "0.22.0"
+version = "0.22.1"
 dependencies = [
  "approx",
  "bounded-collections 0.3.2",
@@ -6755,7 +6755,7 @@ dependencies = [
 
 [[package]]
 name = "frame-executive"
-version = "42.0.0"
+version = "42.0.1"
 dependencies = [
  "aquamarine",
  "array-bytes 6.2.2",
@@ -9059,7 +9059,7 @@ dependencies = [
  "pallet-example-mbm",
  "pallet-example-tasks",
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "primitive-types 0.13.1",
  "scale-info",
  "serde_json",
@@ -10301,7 +10301,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "minimal-template-runtime",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
 ]
 
 [[package]]
@@ -10310,7 +10310,7 @@ version = "0.1.0"
 dependencies = [
  "pallet-minimal-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "scale-info",
  "serde_json",
 ]
@@ -12072,7 +12072,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-core-fellowship"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12687,7 +12687,7 @@ name = "pallet-minimal-template"
 version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "scale-info",
 ]
 
@@ -13382,7 +13382,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-society"
-version = "42.1.0"
+version = "42.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -13430,7 +13430,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -13477,7 +13477,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async-parachain-runtime"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -14049,7 +14049,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "bounded-collections 0.3.2",
  "frame-benchmarking",
@@ -14160,7 +14160,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parachain-template-runtime",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "serde",
  "substrate-prometheus-endpoint",
 ]
@@ -14175,7 +14175,7 @@ dependencies = [
  "log",
  "pallet-parachain-template",
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "scale-info",
  "serde_json",
  "smallvec",
@@ -16194,7 +16194,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2507.1.0"
+version = "2507.2.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -16619,7 +16619,7 @@ dependencies = [
  "pallet-xcm",
  "parity-scale-codec",
  "polkadot-omni-node-lib",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "polkadot-sdk-docs-first-runtime",
  "polkadot-sdk-frame",
  "rand 0.8.5",
@@ -18511,7 +18511,7 @@ dependencies = [
  "futures",
  "futures-timer",
  "jsonrpsee",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "revive-dev-runtime",
 ]
 
@@ -18521,7 +18521,7 @@ version = "0.1.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "scale-info",
  "serde_json",
 ]
@@ -18682,7 +18682,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "26.0.0"
+version = "26.0.1"
 dependencies = [
  "binary-merkle-tree",
  "bitvec",
@@ -24565,7 +24565,7 @@ dependencies = [
  "node-rpc",
  "node-testing",
  "parity-scale-codec",
- "polkadot-sdk 2507.1.0",
+ "polkadot-sdk 2507.2.0",
  "pretty_assertions",
  "rand 0.8.5",
  "regex",
@@ -27789,7 +27789,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "26.0.1"
+version = "26.0.2"
 dependencies = [
  "approx",
  "binary-merkle-tree",
