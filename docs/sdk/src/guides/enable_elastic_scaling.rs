@@ -45,7 +45,7 @@
 //! To ensure the security and reliability of your chain when using this feature you need the
 //! following:
 //! - An omni-node based collator. This has already become the default choice for collators.
-//! - RFC 103. This is mandatory protection against PoV replay attacks.
+//! - [RFC103](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md). This is mandatory protection against PoV replay attacks.
 //! - Enabling the relay parent offset feature. This is required to ensure the parachain block times
 //!   and transaction in-block confidence are not negatively affected by relay chain forks.
 //! - Block production configuration adjustments.
