@@ -74,7 +74,7 @@ where
 
 		match input {
 			IXcmCalls::send(IXcm::sendCall { destination, message }) => {
-				let _ = env.charge(<Runtime as Config>::WeightInfo::send())?;
+				env.charge(<Runtime as Config>::WeightInfo::send())?;
 
 				let final_destination = VersionedLocation::decode_all(&mut &destination[..])
 					.map_err(|error| {
@@ -142,7 +142,7 @@ where
 				})
 			},
 			IXcmCalls::execute_1(IXcm::execute_1Call { message }) => {
-				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
+				env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
 
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
@@ -233,14 +233,14 @@ where
 				})
 			},
 			IXcmCalls::executeAsAccount_1(IXcm::executeAsAccount_1Call { message }) => {
+				env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
+
 				let origin = env.origin();
 				let frame_origin = match origin {
 					Origin::Root => frame_system::RawOrigin::Root.into(),
 					Origin::Signed(account_id) =>
 						frame_system::RawOrigin::Signed(account_id.clone()).into(),
 				};
-
-				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
 
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
@@ -287,7 +287,7 @@ where
 				})
 			},
 			IXcmCalls::weighMessage(IXcm::weighMessageCall { message }) => {
-				let _ = env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
+				env.charge(<Runtime as Config>::WeightInfo::weigh_message())?;
 
 				let converted_message = VersionedXcm::decode_all_with_depth_limit(
 					MAX_XCM_DECODE_DEPTH,
