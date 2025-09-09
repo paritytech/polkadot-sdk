@@ -43,7 +43,7 @@ use std::{cell::RefCell, collections::hash_map::HashMap, rc::Rc};
 
 type System = frame_system::Pallet<Test>;
 
-type MockStack<'a> = Stack<'a, Test, MockExecutable>;
+pub type MockStack<'a> = Stack<'a, Test, MockExecutable>;
 
 parameter_types! {
 	static Loader: MockLoader = MockLoader::default();
@@ -59,13 +59,13 @@ fn events() -> Vec<Event<Test>> {
 		.collect()
 }
 
-struct MockCtx<'a> {
-	ext: &'a mut MockStack<'a>,
+pub struct MockCtx<'a> {
+	pub ext: &'a mut MockStack<'a>,
 	input_data: Vec<u8>,
 }
 
 #[derive(Clone)]
-struct MockExecutable {
+pub struct MockExecutable {
 	func: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 	constructor: Rc<dyn for<'a> Fn(MockCtx<'a>, &Self) -> ExecResult + 'static>,
 	code_hash: H256,
@@ -83,7 +83,7 @@ impl MockLoader {
 		Loader::get().map.keys().copied().collect()
 	}
 
-	fn insert(
+	pub fn insert(
 		func_type: ExportedFunction,
 		f: impl Fn(MockCtx, &MockExecutable) -> ExecResult + 'static,
 	) -> H256 {
@@ -192,11 +192,11 @@ impl Executable<Test> for MockExecutable {
 	}
 }
 
-fn exec_success() -> ExecResult {
+pub fn exec_success() -> ExecResult {
 	Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 }
 
-fn exec_trapped() -> ExecResult {
+pub fn exec_trapped() -> ExecResult {
 	Err(ExecError { error: <Error<Test>>::ContractTrapped.into(), origin: ErrorOrigin::Callee })
 }
 
@@ -253,7 +253,7 @@ fn transfer_works() {
 			Pallet::<Test>::convert_native_to_evm(value),
 			&mut storage_meter,
 		)
-			.unwrap();
+		.unwrap();
 
 		let min_balance = <Test as Config>::Currency::minimum_balance();
 		assert!(min_balance > 0);
@@ -350,7 +350,7 @@ fn correct_transfer_on_call() {
 			vec![],
 			false,
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(get_balance(&ALICE), 100 - value);
 		assert_eq!(get_balance(&BOB_FALLBACK), balance + value);
@@ -464,7 +464,7 @@ fn changes_are_reverted_on_failing_call() {
 			vec![],
 			false,
 		)
-			.unwrap();
+		.unwrap();
 
 		assert!(output.did_revert());
 		assert_eq!(get_balance(&ALICE), 100);
@@ -1512,7 +1512,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 				vec![],
 				false,
 			)
-				.unwrap();
+			.unwrap();
 		});
 }
 
@@ -1693,7 +1693,7 @@ fn nonce() {
 				false,
 				BumpNonce::Yes,
 			)
-				.ok();
+			.ok();
 			assert_eq!(System::account_nonce(&ALICE), 0);
 
 			assert_ok!(MockStack::run_instantiate(
@@ -2445,7 +2445,7 @@ fn last_frame_output_works_on_instantiate() {
 				vec![],
 				false,
 			)
-				.unwrap()
+			.unwrap()
 		});
 }
 
@@ -2630,7 +2630,7 @@ fn immutable_data_access_checks_work() {
 				vec![],
 				false,
 			)
-				.unwrap()
+			.unwrap()
 		});
 }
 
@@ -2699,7 +2699,7 @@ fn correct_immutable_data_in_delegate_call() {
 				vec![],
 				false,
 			)
-				.unwrap()
+			.unwrap()
 		});
 }
 
@@ -2739,8 +2739,8 @@ fn immutable_data_set_overrides() {
 				false,
 				BumpNonce::Yes,
 			)
-				.unwrap()
-				.0;
+			.unwrap()
+			.0;
 
 			MockStack::run_call(
 				origin,
@@ -2751,7 +2751,7 @@ fn immutable_data_set_overrides() {
 				vec![],
 				false,
 			)
-				.unwrap()
+			.unwrap()
 		});
 }
 
@@ -2797,7 +2797,7 @@ fn immutable_data_set_errors_with_empty_data() {
 				vec![],
 				false,
 			)
-				.unwrap()
+			.unwrap()
 		});
 }
 

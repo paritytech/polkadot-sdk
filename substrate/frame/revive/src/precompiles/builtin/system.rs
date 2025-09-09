@@ -108,31 +108,12 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
-				let is_origin = match env.origin() {
-					Origin::Root => {
-						// `Root` does not have an address
-						false
-					},
-					Origin::Signed(origin_account_id) => {
-						let origin_address = T::AddressMapper::to_address(&origin_account_id).0;
-						match env.caller() {
-							Origin::Signed(caller_account_id) => {
-								let caller_address =
-									T::AddressMapper::to_address(&caller_account_id).0;
-								origin_address == caller_address
-							},
-							Origin::Root => false,
-						}
-					},
-				};
+				let is_origin = env.caller_is_origin();
 				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
-				let is_root = match env.caller() {
-					Origin::Root => true,
-					Origin::Signed(_) => false,
-				};
+				let is_root = env.caller_is_root();
 				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
@@ -164,14 +145,20 @@ mod tests {
 	use crate::{
 		address::AddressMapper,
 		call_builder::{caller_funding, CallSetup},
+		exec::ExportedFunction::Call,
+		gas::GasMeter,
 		pallet,
 		precompiles::{
 			alloy::sol_types::{sol_data::Bytes, SolType},
 			tests::run_test_vectors,
 			BuiltinPrecompile,
 		},
-		tests::{ExtBuilder, Test},
+		storage,
+		test_utils::{BOB, BOB_ADDR, GAS_LIMIT},
+		tests::{test_utils::place_contract, ExtBuilder, Test},
+		U256,
 	};
+	use assert_matches::assert_matches;
 	use codec::Decode;
 	use frame_support::traits::fungible::Mutate;
 
@@ -244,4 +231,73 @@ mod tests {
 			);
 		})
 	}
+
+	/*
+	use crate::Weight;
+	use alloy_core::sol_types::{sol_data::Bool};
+	use crate::exec::Ext;
+	use crate::exec::PrecompileExt;
+
+	#[test]
+	fn root_caller_succeeds() {
+		let code_bob = crate::exec::tests::MockLoader::insert(Call, |ctx, _| {
+			let ret = ctx.ext
+			.delegate_call(
+											   Weight::MAX,
+											   U256::zero(),
+											   H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+											   pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+									   )
+									   .map(|_| ctx.ext.last_frame_output().clone());
+						   let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
+						   assert!(caller_is_root);
+			crate::exec::tests::exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			let result = crate::exec::tests::MockStack::run_call(
+				Origin::Root,
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage::meter::Meter::new(0),
+				U256::zero(),
+				vec![0],
+				false,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+
+	#[test]
+	fn root_caller_fails() {
+		let code_bob = crate::exec::tests::MockLoader::insert(Call, |ctx, _| {
+			let ret = ctx.ext
+				.delegate_call(
+					Weight::MAX,
+					U256::zero(),
+					H160::from(pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR),
+					pallet_revive_uapi::solidity_selector("callerIsRoot()").to_vec(),
+				)
+				.map(|_| ctx.ext.last_frame_output().clone());
+			let caller_is_root = Bool::abi_decode(&ret.unwrap().data).expect("decoding to bool failed");
+			assert!(!caller_is_root);
+			crate::exec::tests::exec_success()
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			place_contract(&BOB, code_bob);
+			let result = crate::exec::tests::MockStack::run_call(
+				Origin::Signed(BOB),
+				BOB_ADDR,
+				&mut GasMeter::<Test>::new(GAS_LIMIT),
+				&mut storage::meter::Meter::new(0),
+				U256::zero(),
+				vec![0],
+				false,
+			);
+			assert_matches!(result, Ok(_));
+		});
+	}
+	*/
 }
