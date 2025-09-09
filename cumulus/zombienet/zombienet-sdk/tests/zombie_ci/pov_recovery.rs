@@ -192,7 +192,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					c.with_name("alice").validator(true)
 				})
 				.with_collator(|c| {
-					c.with_name("charlie").validator(false).with_args(build_collator_args(vec![]))
+					c.with_name("charlie").validator(false)
 				})
 				.with_collator(|c| {
 					c.with_name("eve").validator(true).with_args(build_collator_args(vec![
