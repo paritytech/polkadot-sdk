@@ -16,6 +16,7 @@
 //! - compute (CPU weight)
 //! - bandwidth (proof size)
 //! - lower latency (block time)
+//! 
 //! ### High throughput (TPS) and lower latency
 //! 
 //! If the main bottleneck is the CPU, then your parachain needs to maximize the compute usage of each core while also achieving 
@@ -137,7 +138,7 @@
 //! 
 //! #### Why ?
 //! 
-//!    Within a 6-second relay chain slot, collators can author multiple parachain blocks.
+//!    Within a 6-second parachain slot, collators can author multiple parachain blocks.
 //!    Before building the first block in a slot, the new block author must import the last 
 //!    block produced by the previous author.
 //!    If the import of the last block is not completed before the next relay chain slot starts,
