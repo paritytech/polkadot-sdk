@@ -96,7 +96,9 @@
 //! ### Block production configuration
 //!
 //! This configuration directly controls the minimum block time and maximum number of cores
-//! the parachain can use:
+//! the parachain can use.
+//! 
+//! Example configuration for a 3 core parachain:
 //!  ```rust 
 //!     /// How many parachain blocks are processed by the relay chain per parent. Limits the
 //!     /// number of blocks authored per slot. This determines the minimum block time of the parachain: 
