@@ -156,5 +156,5 @@
 //! cores.    
 //! ### Fixed factor scaling.
 //!    For true elasticity, a parachain needs to acquire more cores when needed in an automated
-//! manner.    This functionality is not yet available in the SDK. So, acquiring additional
+//! manner. This functionality is not yet available in the SDK, thus acquiring additional
 //! on-demand or bulk cores has to be managed externally.
