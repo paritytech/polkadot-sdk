@@ -122,16 +122,18 @@
 //! 
 //! ## Current limitations
 //!
-//! 1. **Maximum execution time per relay chain block.**
+//! ### Maximum execution time per relay chain block.
 //!
-//!    Since parachain block authoring is sequential, the next block
-//!    can only be built after the previous one has been imported.
-//!    At present, block production is limited to 2 seconds of execution per block.
+//!    Since parachain block authoring is sequential, the next block can only be built after 
+//!    the previous one has been imported.
+//!    At present, a core allows up to 2 seconds of execution per relay chain block.
 //!
-//!    Therefore, if each block uses the full 2 seconds, a parachain can utilize up to 3 
-//!    cores in a 6-second relay chain slot.
-//!    If authoring and importing full blocks require less execution time, 
-//!    utilizing more than 3 cores is possible.
+//!    As a result, if each block takes the full 2 seconds to execute, the parachain will not 
+//!    be able to fully utilize the compute resources of all 3 cores.
+//!    If the collator hardware is faster, it can author and import full blocks more quickly,
+//!    making it possible to utilize even more than 3 cores efficiently.
+//! 
+//! #### Why ?
 //! 
 //!    Within a 6-second relay chain slot, collators can author multiple parachain blocks.
 //!    Before building the first block in a slot, the new block author must import the last 
@@ -139,10 +141,12 @@
 //!    If the import of the last block is not completed before the next relay chain slot starts,
 //!    the new author will build on its parent (assuming it was imported).
 //!    This means that, on reference hardware, a parachain with a slot time of 6 seconds can effectively 
-//!    utilize up to 4 seconds of execution per relay chain block.
+//!    utilize up to 4 seconds of execution per relay chain block, because it needs to ensure the 
+//!    next block author has enough time to import the last block.
 //!    Hardware with higher single-core performance can enable a parachain to fully utilize more cores.
 //!    
-//! 2. **Fixed scaling.** For true elasticity, a parachain needs to acquire more cores
-//!    when needed in an automated manner. This functionality is not yet available in the SDK.
-//!    So, acquiring additional on-demand or bulk cores has to be managed externally.
+//! ### Fixed factor scaling. 
+//!    For true elasticity, a parachain needs to acquire more cores when needed in an automated manner. 
+//!    This functionality is not yet available in the SDK. So, acquiring additional on-demand or bulk cores
+//!    has to be managed externally.
 //!
