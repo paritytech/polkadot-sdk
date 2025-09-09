@@ -43,7 +43,7 @@ pub mod async_backing_guide;
 /// How to enable metadata hash verification in the runtime.
 pub mod enable_metadata_hash;
 
-/// How to enable elastic scaling MVP on a parachain.
+/// How to enable elastic scaling on a parachain.
 pub mod enable_elastic_scaling;
 
 /// How to parameterize parachain forking in relation to relay chain forking.

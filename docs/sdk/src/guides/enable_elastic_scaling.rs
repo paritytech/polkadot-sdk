@@ -38,6 +38,8 @@
 //! 
 //! ## Dependencies
 //! 
+//! Pre-requisites: Polkadot-SDK `2509` or newer.
+//! 
 //! To ensure the security and reliability of your chain when using this feature you need the following:
 //! - An omni-node based collator. This has already become the default choice for collators.
 //! - RFC 103. This is mandatory protection against PoV replay attacks.
@@ -45,12 +47,18 @@
 //! and transaction in-bloc confidence is not negatively affected by relay chain forks.
 //! - Block production configuration adjustments.
 //! 
-//! ### Use Omni node
+//! ### Upgrade to Polkadot Omni node
+//! 
+//! Your collators need to run `polkadot-parachain` or `polkadot-omni-node` with `--authoring slot-based` CLI argument.
+//! 
+//! Further information about omni-node and how to upgrade is available:
+//! - [high level docs](https://docs.polkadot.com/develop/toolkit/parachains/polkadot-omni-node/)
+//! - [`crate::reference_docs::omni_node`]
 //! 
 //! ### Enable RFC103
 //!
 //! RFC103 is enabled automatically on the collators if it is enabled on relay chain. There are no code changes
-//! required on the client to support it. All collators must be built on `2509` or newer Polkadot-SDK releases.
+//! required on the client to support it. 
 //! 
 //! RFC103 relies on the ability of parachain blocks to commit to a specific core index on the relay chain.
 //! This commitment is implemented via `UMP` signals, which relies on the upward message passing channel that
@@ -133,9 +141,7 @@
 //!    utilize up to 4 seconds of execution per relay chain block.
 //!    Hardware with higher single-core performance can enable a parachain to fully utilize more cores.
 //!    
-//! 2. **Fixed scaling.** For true elasticity, a parachain can seamlessly acquire more cores
+//! 2. **Fixed scaling.** For true elasticity, a parachain needs to acquire more cores
 //!    when needed in an automated manner. This functionaltiy is not yet available in the SDK.
 //!    So, aquiring additional on-demand or bulk cores has to be managed externally.
-//!
-//! ### Running the collator nodes
 //!
