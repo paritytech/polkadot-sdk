@@ -153,6 +153,8 @@ enum KadQuery {
 	PutValue(RecordKey, Instant),
 	/// `GET_PROVIDERS` query for key and when it was initiated.
 	GetProviders(RecordKey, Instant),
+	/// `ADD_PROVIDER` query for key and when it was initiated.
+	AddProvider(RecordKey, Instant),
 }
 
 /// Networking backend for `litep2p`.
@@ -967,6 +969,34 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
+					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::GetProviders(key, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for {provided_key:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartedProviding(provided_key.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							}
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `ADD_PROVIDER`: {query:?}"
+								);
+								debug_assert!(false);
+							}
+						}
+					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
 							Some(KadQuery::FindNode(peer_id, started)) => {
@@ -1034,6 +1064,23 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									metrics
 										.kademlia_query_duration
 										.with_label_values(&["providers-get-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							Some(KadQuery::AddProvider(key, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartProvidingFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add-failed"])
 										.observe(started.elapsed().as_secs_f64());
 								}
 							},
