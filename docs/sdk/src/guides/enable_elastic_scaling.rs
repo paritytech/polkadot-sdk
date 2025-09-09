@@ -16,13 +16,6 @@
 //! - compute (CPU weight)
 //! - bandwidth (proof size)
 //! - lower latency (block time)
-//! 
-//! ### Low latency
-//! When latency is the primary requirement, Elastic scaling is currently the only solution. The caveat is
-//! the efficiency of core time usage decreases as more cores are used. 
-//! 
-//! For example, using 12 cores enables fast transaction confirmations with 500ms blocks and up to 12 MB/s of DA bandwidth.
-//!
 //! ### High throughput (TPS) and lower latency
 //! 
 //! If the main bottleneck is the CPU, then your parachain needs to maximize the compute usage of each core while also achieving 
@@ -36,6 +29,12 @@
 //! By using 6 cores, applications can make use of up to 6s of compute, 6MB/s of bandwidth every 6s while also achieving 
 //! 1 second block times. 
 //! 
+//! ### Ultra low latency
+//! When latency is the primary requirement, Elastic scaling is currently the only solution. The caveat is
+//! the efficiency of core time usage decreases as more cores are used. 
+//! 
+//! For example, using 12 cores enables fast transaction confirmations with 500ms blocks and up to 12 MB/s of DA bandwidth.
+//!
 //! ## Dependencies
 //! 
 //! Prerequisites: Polkadot-SDK `2509` or newer.
@@ -98,10 +97,6 @@
 //! This configuration directly controls the minimum block time and maximum number of cores
 //! the parachain can use.
 //!
-//! The minimum block time is determined by the slot duration, which is set by the Aura consensus mechanism.
-//! The slot duration constant is defined in the Aura pallet as `SlotDuration`:
-//! #![doc = docify::embed!("../../substrate/frame/aura/src/lib.rs", Pallet::SlotDuration)]
-//! 
 //! Example configuration for a 3 core parachain:
 //!  ```rust 
 //!     /// How many parachain blocks are processed by the relay chain per parent. Limits the
