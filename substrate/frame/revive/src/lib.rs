@@ -1918,7 +1918,7 @@ sp_api::decl_runtime_apis! {
 		fn account_id(address: H160) -> AccountId;
 
 		/// Construct the new balance and dust components of this EVM balance.
-		fn new_balance_with_dust(balance: U256) -> (Balance, u32);
+		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 	}
 }
 
