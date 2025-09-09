@@ -31,12 +31,12 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeLimit, Encode};
-use core::{cmp, marker::PhantomData};
+use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain::{self, ClaimQueueOffset, CoreSelector, DEFAULT_CLAIM_QUEUE_OFFSET},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, GetChannelInfo,
-	ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId, PersistedValidationData,
-	UpwardMessage, UpwardMessageSender, XcmpMessageHandler, XcmpMessageSource,
+	relay_chain, AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo,
+	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
 use frame_support::{
@@ -55,7 +55,7 @@ use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{Block as BlockT, BlockNumberProvider, Hash, One},
+	traits::{Block as BlockT, BlockNumberProvider, Hash},
 	FixedU128, RuntimeDebug, SaturatedConversion,
 };
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH};
@@ -186,53 +186,10 @@ pub mod ump_constants {
 	pub const THRESHOLD_FACTOR: u32 = 2;
 }
 
-/// Trait for selecting the next core to build the candidate for.
-pub trait SelectCore {
-	/// Core selector information for the current block.
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset);
-	/// Core selector information for the next block.
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset);
-}
-
-/// The default core selection policy.
-pub struct DefaultCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for DefaultCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(DEFAULT_CLAIM_QUEUE_OFFSET))
-	}
-}
-
-/// Core selection policy that builds on claim queue offset 1.
-pub struct LookaheadCoreSelector<T>(PhantomData<T>);
-
-impl<T: frame_system::Config> SelectCore for LookaheadCoreSelector<T> {
-	fn selected_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector = frame_system::Pallet::<T>::block_number().using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-
-	fn select_next_core() -> (CoreSelector, ClaimQueueOffset) {
-		let core_selector =
-			(frame_system::Pallet::<T>::block_number() + One::one()).using_encoded(|b| b[0]);
-
-		(CoreSelector(core_selector), ClaimQueueOffset(1))
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -291,9 +248,6 @@ pub mod pallet {
 		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		type ConsensusHook: ConsensusHook;
-
-		/// Select core.
-		type SelectCore: SelectCore;
 
 		/// The offset between the tip of the relay chain and the parent relay block used as parent
 		/// when authoring a parachain block.
@@ -573,6 +527,24 @@ pub mod pallet {
 
 			// Always try to read `UpgradeGoAhead` in `on_finalize`.
 			weight += T::DbWeight::get().reads(1);
+
+			// We need to ensure that `CoreInfo` digest exists only once.
+			match CumulusDigestItem::core_info_exists_at_max_once(
+				&frame_system::Pallet::<T>::digest(),
+			) {
+				CoreInfoExistsAtMaxOnce::Once(core_info) => {
+					assert_eq!(
+						core_info.claim_queue_offset.0,
+						T::RelayParentOffset::get() as u8,
+						"Only {} is supported as valid claim queue offset",
+						T::RelayParentOffset::get()
+					);
+				},
+				CoreInfoExistsAtMaxOnce::NotFound => {},
+				CoreInfoExistsAtMaxOnce::MoreThanOnce => {
+					panic!("`CumulusDigestItem::CoreInfo` must exist at max once.");
+				},
+			}
 
 			weight
 		}
@@ -1523,11 +1495,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Returns the core selector for the next block.
-	pub fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-		T::SelectCore::select_next_core()
-	}
-
 	/// Set a custom head data that should be returned as result of `validate_block`.
 	///
 	/// This will overwrite the head data that is returned as result of `validate_block` while
@@ -1550,11 +1517,17 @@ impl<T: Config> Pallet<T> {
 		use cumulus_primitives_core::relay_chain::{UMPSignal, UMP_SEPARATOR};
 
 		UpwardMessages::<T>::mutate(|up| {
-			up.push(UMP_SEPARATOR);
+			if let Some(core_info) =
+				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+			{
+				up.push(UMP_SEPARATOR);
 
-			// Send the core selector signal.
-			let core_selector = T::SelectCore::selected_core();
-			up.push(UMPSignal::SelectCore(core_selector.0, core_selector.1).encode());
+				// Send the core selector signal.
+				up.push(
+					UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+						.encode(),
+				);
+			}
 		});
 	}
 
