@@ -18,7 +18,7 @@
 use crate::rc::mock::*;
 use frame::testing_prelude::*;
 use pallet_staking_async_ah_client::{
-	self as ah_client, Mode, OperatingMode, OutgoingSessionReport, UnexpectedKind,
+	self as ah_client, Mode, OffenceSendQueue, OperatingMode, OutgoingSessionReport, UnexpectedKind,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, Offence, SessionReport, ValidatorSetReport,
@@ -626,6 +626,9 @@ fn offences_first_queued_and_then_sent() {
 
 		// Nothing is in our local outgoing queue yet
 		assert_eq!(LocalQueue::get_since_last_call(), vec![]);
+
+		// But we have it in our internal buffer
+		assert_eq!(OffenceSendQueue::<Runtime>::count(), 2);
 
 		// roll one block forward
 		roll_next();

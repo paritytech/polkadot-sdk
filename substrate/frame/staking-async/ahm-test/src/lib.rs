@@ -126,7 +126,7 @@ mod tests {
 				.pre_migration()
 				// set session keys for all "potential" validators
 				.session_keys(vec![1, 2, 3, 4, 5, 6, 7, 8])
-				// set a very low MaxOffenceBatchSize to test batching behavior
+				// set a very low `MaxOffenceBatchSize` to test batching behavior
 				.max_offence_batch_size(2)
 				.build(),
 		);
@@ -867,7 +867,7 @@ mod tests {
 		const POLKADOT_MAX_UPWARD_MESSAGE_SIZE: u32 = 65531; // 64 Kib
 
 		#[test]
-		fn session_report() {
+		fn maximum_session_report() {
 			let mut num_validator_points = 1;
 			loop {
 				let session_report = rc_client::SessionReport::<AccountId32> {
@@ -899,7 +899,7 @@ mod tests {
 		}
 
 		#[test]
-		fn validator_set() {
+		fn maximum_validator_set() {
 			let mut num_validators = 1;
 			loop {
 				let validator_set_report = rc_client::ValidatorSetReport::<AccountId32> {
@@ -930,7 +930,7 @@ mod tests {
 		}
 
 		#[test]
-		fn offence_batched() {
+		fn maximum_offence_batched() {
 			let mut num_offences = 1;
 			let session_index: u32 = 42;
 			loop {

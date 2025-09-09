@@ -36,7 +36,7 @@
 //!
 //! All outgoing messages are handled by a single trait
 //! [`pallet_staking_async_rc_client::SendToAssetHub`]. They match the incoming messages of the
-//! `ah-client` pallet.
+//! `rc-client` pallet.
 //!
 //! ## Local Interfaces:
 //!
@@ -60,7 +60,7 @@ pub use pallet::*;
 pub mod mock;
 
 extern crate alloc;
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, RewardsReporter},
@@ -200,23 +200,6 @@ impl<T: Config>
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct BufferedOffence<AccountId> {
-	// rc_client::Offence takes multiple reporters, but in practice there is only one. In this
-	// pallet, we assume this is the case and store only the first reporter or none if empty.
-	pub reporter: Option<AccountId>,
-	pub slash_fraction: sp_runtime::Perbill,
-}
-
-/// A map of buffered offences, keyed by session index and then by offender account id.
-pub type BufferedOffencesMap<T> = BTreeMap<
-	SessionIndex,
-	BTreeMap<
-		<T as frame_system::Config>::AccountId,
-		BufferedOffence<<T as frame_system::Config>::AccountId>,
-	>,
->;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::*;
@@ -283,11 +266,8 @@ pub mod pallet {
 		/// Number of points to award a validator per block authored.
 		type PointsPerBlock: Get<u32>;
 
-		/// Maximum number of offences to batch in a single message to AssetHub.
-		///
-		/// This value is used as the upper bound of the batch size of offences at all times.
-		///
-		/// Both of these happen `on_initialize.`
+		/// Maximum number of offences to batch in a single message to AssetHub. Actual sending
+		/// happens `on_initialize`. Offences get infinite "retries", and are never dropped.
 		///
 		/// A sensible value should be such that sending this batch is small enough to not exhaust
 		/// the DMP queue. The size of a single offence is documented in `message_queue_sizes` test
@@ -312,8 +292,7 @@ pub mod pallet {
 			+ pallet_authorship::EventHandler<Self::AccountId, BlockNumberFor<Self>>;
 
 		/// Maximum number of times we try to send a session report to AssetHub, after which, if
-		/// sending still fails, we emit an [`UnexpectedKind::SessionReportSendFailed`] event and
-		/// drop it.
+		/// sending still fails, we drop it.
 		type MaxSessionReportRetries: Get<u32>;
 	}
 
@@ -405,6 +384,10 @@ pub mod pallet {
 					// `index` had empty slot -- all good.
 				},
 				Err(_) => {
+					debug_assert!(
+						!OffenceSendQueueOffences::<T>::contains_key(index + 1),
+						"next page should be empty"
+					);
 					index += 1;
 					OffenceSendQueueOffences::<T>::insert(
 						index,
@@ -895,8 +878,7 @@ pub mod pallet {
 		}
 
 		fn do_end_session(end_index: u32) {
-			// take and delete all validator points, limited by `MaximumValidatorsWithPoints`. There
-			// should be none left after this limit.
+			// take and delete all validator points, limited by `MaximumValidatorsWithPoints`.
 			let validator_points = ValidatorPoints::<T>::iter()
 				.drain()
 				.take(T::MaximumValidatorsWithPoints::get() as usize)
@@ -968,12 +950,11 @@ pub mod pallet {
 				let reporters = offence.reporters;
 
 				// In `Buffered` mode, we buffer the offences for later processing.
-				// We only keep the highest slash fraction for each offender per session.
 				OffenceSendQueue::<T>::append((
 					slash_session,
 					rc_client::Offence {
 						offender: offender.clone(),
-						reporters: reporters.clone(),
+						reporters: reporters.into_iter().take(1).collect(),
 						slash_fraction: *fraction,
 					},
 				));
@@ -1004,7 +985,11 @@ pub mod pallet {
 
 				// prepare an `Offence` instance for the XCM message. Note that we drop
 				// the identification.
-				let offence = rc_client::Offence { offender, reporters, slash_fraction: *fraction };
+				let offence = rc_client::Offence {
+					offender,
+					reporters: reporters.into_iter().take(1).collect(),
+					slash_fraction: *fraction,
+				};
 				OffenceSendQueue::<T>::append((slash_session, offence))
 			});
 

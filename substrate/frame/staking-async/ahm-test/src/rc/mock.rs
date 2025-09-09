@@ -41,6 +41,10 @@ construct_runtime! {
 		Session: pallet_session,
 		SessionHistorical: pallet_session::historical,
 		Staking: pallet_staking,
+		// NOTE: the session report is given by pallet-session to ah-client on-init, and ah-client
+		// will not send it immediately, but rather store it and sends it over on its own next
+		// on-init call. Yet, because session comes first here, its on-init is called before
+		// ah-client, so under normal conditions, the message is sent immediately.
 		StakingAhClient: pallet_staking_async_ah_client,
 		RootOffences: pallet_root_offences,
 		Offences: pallet_offences,
@@ -260,8 +264,6 @@ impl pallet_root_offences::Config for Runtime {
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutgoingMessages {
 	SessionReport(rc_client::SessionReport<AccountId>),
-	#[deprecated(note = "use `OffenceReportPaged` instead. Only used for migration")]
-	OffenceReport(SessionIndex, Vec<rc_client::Offence<AccountId>>),
 	OffenceReportPaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
