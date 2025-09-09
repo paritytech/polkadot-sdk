@@ -4697,6 +4697,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-pallet-slot-config"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-consensus-slots",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "cumulus-pallet-solo-to-para"
 version = "0.7.0"
 dependencies = [

@@ -85,6 +85,7 @@ members = [
 	"cumulus/pallets/parachain-system",
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
+	"cumulus/pallets/slot-config",
 	"cumulus/pallets/solo-to-para",
 	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
@@ -751,6 +752,7 @@ cumulus-pallet-dmp-queue = { default-features = false, path = "cumulus/pallets/d
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }
 cumulus-pallet-session-benchmarking = { path = "cumulus/pallets/session-benchmarking", default-features = false }
+cumulus-pallet-slot-config = { path = "cumulus/pallets/slot-config", default-features = false }
 cumulus-pallet-solo-to-para = { path = "cumulus/pallets/solo-to-para", default-features = false }
 cumulus-pallet-weight-reclaim = { path = "cumulus/pallets/weight-reclaim", default-features = false }
 cumulus-pallet-xcm = { path = "cumulus/pallets/xcm", default-features = false }

@@ -57,6 +57,7 @@ pub mod sync_backing {
 }
 
 mod genesis_config_presets;
+mod slot_config;
 mod test_pallet;
 
 extern crate alloc;
@@ -382,6 +383,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+impl slot_config::Config for Runtime {
+	type UpdateOrigin = EnsureRoot<AccountId>;
+	type DefaultSlotDuration = ConstU64<SLOT_DURATION>;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -390,7 +396,7 @@ impl pallet_aura::Config for Runtime {
 	type AllowMultipleBlocksPerSlot = ConstBool<false>;
 	#[cfg(not(feature = "sync-backing"))]
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<SLOT_DURATION>;
+	type SlotDuration = slot_config::DynamicSlotDuration<Runtime>;
 }
 
 impl test_pallet::Config for Runtime {}
@@ -402,6 +408,7 @@ construct_runtime! {
 		ParachainSystem: cumulus_pallet_parachain_system,
 		Timestamp: pallet_timestamp,
 		ParachainInfo: parachain_info,
+		SlotConfig: slot_config,
 		Balances: pallet_balances,
 		Sudo: pallet_sudo,
 		TransactionPayment: pallet_transaction_payment,
