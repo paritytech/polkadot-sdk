@@ -142,7 +142,7 @@
 //!    If the collator hardware is faster, it can author and import full blocks more quickly,
 //!    making it possible to utilize even more than 3 cores efficiently.
 //!
-//! #### Why ?
+//! #### Why?
 //!
 //!    Within a 6-second parachain slot, collators can author multiple parachain blocks.
 //!    Before building the first block in a slot, the new block author must import the last
