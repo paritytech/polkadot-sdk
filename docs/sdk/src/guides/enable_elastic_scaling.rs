@@ -2,7 +2,6 @@
 //!
 //! <div class="warning">This guide assumes full familiarity with Asynchronous Backing and its
 //! terminology, as defined in <a href="https://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/async_backing_guide/index.html">the Polkadot SDK Docs</a>.
-//! Furthermore, the parachain should have already been upgraded according to the guide.</div>
 //!
 //! ## Quick introduction to Elastic Scaling
 //!
