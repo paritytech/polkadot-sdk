@@ -3088,15 +3088,6 @@ where
 			candidate_hash,
 		);
 
-		if let Some(v_idx) = validator_index {
-			sender.send_message(
-				StatisticsCollectorMessage::ApprovalVoting(
-					block_hash,
-					candidate_hash,
-					(v_idx, status.tranche_now),
-				)
-			).await;
-		}
 		// Check whether this is approved, while allowing a maximum
 		// assignment tick of `now - APPROVAL_DELAY` - that is, that
 		// all counted assignments are at least `APPROVAL_DELAY` ticks old.
@@ -3189,6 +3180,11 @@ where
 		}
 		if newly_approved {
 			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
+			sender.send_message(StatisticsCollectorMessage::CandidateApproved(
+					candidate_hash,
+					block_hash,
+					candidate_entry.approvals().clone().into(),
+				)).await;
 		}
 		actions.extend(schedule_wakeup_action(
 			&approval_entry,

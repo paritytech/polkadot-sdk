@@ -15745,6 +15745,7 @@ name = "polkadot-node-subsystem-types"
 version = "7.0.0"
 dependencies = [
  "async-trait",
+ "bitvec",
  "derive_more 0.99.17",
  "fatality",
  "futures",

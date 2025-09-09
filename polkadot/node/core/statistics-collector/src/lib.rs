@@ -32,21 +32,21 @@ use crate::{
 
 mod error;
 mod metrics;
+#[cfg(test)]
+mod tests;
+
+
 use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::statistics-collector";
 
 struct ApprovalsStats {
-    // votes holds the votes received from approval voting
-    // subsystem, it also indicates if the vote as received
-    // before/after candidate approval
-    votes: Vec<(ValidatorIndex, DelayTranche, bool)>,
-    approved: bool,
+    votes: HashSet<ValidatorIndex>,
 }
 
 impl ApprovalsStats {
-    fn new(votes: Vec<(ValidatorIndex, DelayTranche, bool)>, approved: bool) -> Self {
-        Self { votes, approved }
+    fn new(votes: HashSet<ValidatorIndex>) -> Self {
+        Self { votes }
     }
 }
 
@@ -138,36 +138,15 @@ pub(crate) async fn run_iteration<Context>(
             FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
             FromOrchestra::Communication { msg } => {
                 match msg {
-                    StatisticsCollectorMessage::ApprovalVoting(
-                        block_hash,
-                        candidate_hash,
-                        (v_idx, tranche),
-                    ) => {
-                        match view.per_relay_parent.entry(block_hash) {
-                            Entry::Occupied(mut e) => {
-                                let relay_view = e.get_mut();
-
-                                // TODO: avoid inserting duplicated vote
-                                // for the same relay block/candidate hash
-
-                                relay_view.approvals_stats
-                                    .entry(candidate_hash.clone())
-                                    .and_modify(|v: &mut ApprovalsStats| v.votes.push((v_idx, tranche, v.approved)))
-                                    .or_insert(ApprovalsStats::new(vec![(v_idx, tranche, false)], false));
-
-                                relay_view.votes_per_tranche
-                                    .entry(tranche)
-                                    .and_modify(|q: &mut usize| *q += 1)
-                                    .or_insert(1);
-                            }
-                            Entry::Vacant(_) => {}
-                        }
-                    },
-                    StatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash) => {
+                    StatisticsCollectorMessage::CandidateApproved(candidate_hash, block_hash, approvals) => {
                         if let Some(relay_view) = view.per_relay_parent.get_mut(&block_hash) {
                             relay_view.approvals_stats
                                 .entry(candidate_hash)
-                                .and_modify(|a: &mut ApprovalsStats| a.approved = true);
+                                .and_modify(|a: &mut ApprovalsStats| {
+                                    for v_idx in approvals.iter_ones() {
+                                        a.votes.insert(ValidatorIndex(v_idx as u32));
+                                    }
+                                });
                         }
                     }
                     StatisticsCollectorMessage::ObservedNoShows(session_idx, no_show_validators) => {

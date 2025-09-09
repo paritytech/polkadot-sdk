@@ -194,6 +194,7 @@ where
 		.dispute_distribution(subsystem.clone())
 		.chain_selection(subsystem.clone())
 		.prospective_parachains(subsystem.clone())
+		.statistics_collector(subsystem.clone())
 		.activation_external_listeners(Default::default())
 		.active_leaves(Default::default())
 		.spawner(SpawnGlue(spawner))
