@@ -1,0 +1,10 @@
+title: Account for PoV size when enqueing XCMP message
+doc:
+- audience: Runtime Dev
+  description: |-
+    Related to https://github.com/paritytech/polkadot-sdk/pull/9630 , but adjusting the benchmark
+
+    Using `#[benchmark(pov_mode = Measured)]` for the `enqueue_empty_xcmp_message_at` benchmark.
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch

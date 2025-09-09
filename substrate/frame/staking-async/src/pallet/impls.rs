@@ -180,6 +180,18 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Checks if a slash has been cancelled for the given era and slash parameters.
+	pub(crate) fn check_slash_cancelled(
+		era: EraIndex,
+		validator: &T::AccountId,
+		slash_fraction: Perbill,
+	) -> bool {
+		let cancelled_slashes = CancelledSlashes::<T>::get(&era);
+		cancelled_slashes.iter().any(|(cancelled_validator, cancel_fraction)| {
+			*cancelled_validator == *validator && *cancel_fraction >= slash_fraction
+		})
+	}
+
 	pub(super) fn do_bond_extra(stash: &T::AccountId, additional: BalanceOf<T>) -> DispatchResult {
 		let mut ledger = Self::ledger(StakingAccount::Stash(stash.clone()))?;
 
@@ -1145,7 +1157,6 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	) -> Weight {
 		// worst case weight of this is always
 		T::WeightInfo::rc_on_session_report()
-			.saturating_add(T::WeightInfo::prune_era(ValidatorCount::<T>::get()))
 	}
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
