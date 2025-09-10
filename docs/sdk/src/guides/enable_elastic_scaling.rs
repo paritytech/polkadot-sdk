@@ -27,7 +27,7 @@
 //! ### High bandwidth
 //!
 //! Useful for applications that are bottlenecked by bandwidth.
-//! By using 6 cores, applications can make use of up to 6s of compute, 10MB/s of bandwidth 
+//! By using 6 cores, applications can make use of up to 6s of compute, 10MB/s of bandwidth
 //! while also achieving 1 second block times.
 //!
 //! ### Ultra low latency
@@ -45,36 +45,34 @@
 //! To ensure the security and reliability of your chain when using this feature you need the
 //! following:
 //! - An omni-node based collator. This has already become the default choice for collators.
-//! - [RFC103](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
+//! - UMP signal support.
+//! [RFC103](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
 //!   This is mandatory protection against PoV replay attacks.
 //! - Enabling the relay parent offset feature. This is required to ensure the parachain block times
-//!   and transaction in-block confidence are not negatively affected by relay chain forks.
+//!   and transaction in-block confidence are not negatively affected by relay chain forks. Read
+//!   [`crate::guides::handling_parachain_forks`] for more information.
 //! - Block production configuration adjustments.
 //!
 //! ### Upgrade to Polkadot Omni node
 //!
 //! Your collators need to run `polkadot-parachain` or `polkadot-omni-node` with the `--authoring
 //! slot-based` CLI argument.
+//! To avoid potential issues and get best performance it is recommeneded to always run the  
+//! latest release on all of the collators.
 //!
 //! Further information about omni-node and how to upgrade is available:
 //! - [high level docs](https://docs.polkadot.com/develop/toolkit/parachains/polkadot-omni-node/)
 //! - [`crate::reference_docs::omni_node`]
 //!
-//! ### Enable RFC103
-//!
-//! RFC103 is enabled automatically on the collators if it is enabled on the relay chain. There are
-//! no code changes required on the client to support it.
-//!
-//! RFC103 relies on the ability of parachain blocks to commit to a specific core index on the relay
-//! chain. This commitment is implemented via `UMP` signals, which rely on the upward message
-//! passing channel that is used by parachains to send messages to the relay chain.
+//! ### Enable UMP signals
 //!
 //! The only required change for the runtime is enabling the `experimental-ump-signals` feature of
 //! the `parachain-system` pallet:
 //! `cumulus-pallet-parachain-system = { workspace = true, features = ["experimental-ump-signals"]
 //! }`
 //!
-//! You can find more technical details about RFC103 [here](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
+//! You can find more technical details about UMP signals and their usage for elastic scaling
+//! [here](https://github.com/polkadot-fellows/RFCs/blob/main/text/0103-introduce-core-index-commitment.md).
 //!
 //! ### Enable the relay parent offset feature
 //!
@@ -115,7 +113,8 @@
 //!
 //!     /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 //!     /// into the relay chain.
-//!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY + 1;
+//!     const UNINCLUDED_SEGMENT_CAPACITY: u32 = (2 + RELAY_PARENT_OFFSET) *
+//! BLOCK_PROCESSING_VELOCITY + 1;
 //!
 //!     /// Relay chain slot duration, in milliseconds.
 //!     const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -149,7 +148,9 @@
 //! Before building the first block in a slot, the new block author must import the last
 //! block produced by the previous author.
 //! If the import of the last block is not completed before the next relay chain slot starts,
-//! the new author will build on its parent (assuming it was imported).
+//! the new author will build on its parent (assuming it was imported). This will create a fork
+//! which degrades the parachain block confidence and block times.
+//!
 //! This means that, on reference hardware, a parachain with a slot time of 6s can
 //! effectively utilize up to 4 seconds of execution per relay chain block, because it needs to
 //! ensure the next block author has enough time to import the last block.
