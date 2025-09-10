@@ -15,13 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod arithmetic;
-mod bitwise;
-mod control;
-mod host;
-mod memory;
-mod stack;
-
 use crate::{
 	assert_refcount,
 	test_utils::{builder::Contract, ALICE},
@@ -39,7 +32,18 @@ use pretty_assertions::assert_eq;
 
 use revm::bytecode::opcode::*;
 
-pub fn make_evm_bytecode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
+mod arithmetic;
+mod bitwise;
+mod block_info;
+mod contract;
+mod control;
+mod host;
+mod memory;
+mod stack;
+mod system;
+mod tx_info;
+
+fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
 	let runtime_code_len = runtime_code.len();
 	assert!(runtime_code_len < 256, "runtime code length must be less than 256 bytes");
 	let mut init_code: Vec<u8> = vec![

@@ -26,19 +26,23 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
+	frame_support::{ensure, error::BadOrigin, traits::tokens::Restriction},
 	gas::{GasMeter, Token},
 	storage::meter::Diff,
 	weights::WeightInfo,
-	AccountIdOf, BadOrigin, BalanceOf, CodeInfoOf, Config, Error, HoldReason, PristineCode, Weight,
-	LOG_TARGET,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecError, HoldReason,
+	PristineCode, Weight, LOG_TARGET,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::DispatchResult,
-	ensure,
-	traits::{fungible::MutateHold, tokens::Precision::BestEffort},
+	traits::{
+		fungible::MutateHold,
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
+use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256, U256};
 use sp_runtime::DispatchError;
 
@@ -74,7 +78,9 @@ pub enum BytecodeType {
 /// - reference count,
 ///
 /// It is stored in a separate storage entry to avoid loading the code when not necessary.
-#[derive(Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
+#[derive(
+	frame_support::DebugNoBound, Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
 pub struct CodeInfo<T: Config> {
@@ -103,10 +109,9 @@ pub struct CodeInfo<T: Config> {
 /// Calculate the deposit required for storing code and its metadata.
 pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
 	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
-	let deposit = Diff { bytes_added, items_added: 2, ..Default::default() }
+	Diff { bytes_added, items_added: 2, ..Default::default() }
 		.update_contract::<T>(None)
-		.charge_or_zero();
-	deposit
+		.charge_or_zero()
 }
 
 impl ExportedFunction {
@@ -169,12 +174,15 @@ where
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				let _ = T::Currency::release(
+				T::Currency::transfer_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
+					&crate::Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					BestEffort,
-				);
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
 
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -188,6 +196,8 @@ where
 	/// Puts the module blob into storage, and returns the deposit collected for the storage.
 	pub fn store_code(&mut self, skip_transfer: bool) -> Result<BalanceOf<T>, Error<T>> {
 		let code_hash = *self.code_hash();
+		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
+
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
 				// Contract code is already stored in storage. Nothing to be done here.
@@ -200,11 +210,16 @@ where
 					let deposit = self.code_info.deposit;
 
 					if !skip_transfer {
-						T::Currency::hold(
-						&HoldReason::CodeUploadDepositReserve.into(),
-						&self.code_info.owner,
-						deposit,
-					) .map_err(|err| {
+						T::Currency::transfer_and_hold(
+							&HoldReason::CodeUploadDepositReserve.into(),
+							&self.code_info.owner,
+							&crate::Pallet::<T>::account_id(),
+							deposit,
+							Precision::Exact,
+							Preservation::Preserve,
+							Fortitude::Polite,
+						)
+					 .map_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 							<Error<T>>::StorageDepositNotEnoughFunds
 					})?;
@@ -275,21 +290,32 @@ impl<T: Config> CodeInfo<T> {
 	}
 
 	/// Decrement the reference count of a stored code by one.
-	///
-	/// # Note
-	///
-	/// A contract whose reference count dropped to zero isn't automatically removed. A
-	/// `remove_code` transaction must be submitted by the original uploader to do so.
-	pub fn decrement_refcount(code_hash: H256) -> DispatchResult {
-		<CodeInfoOf<T>>::mutate(code_hash, |existing| {
-			if let Some(info) = existing {
-				info.refcount = info
+	/// Remove the code from storage when the reference count is zero.
+	pub fn decrement_refcount(code_hash: H256) -> Result<CodeRemoved, DispatchError> {
+		<CodeInfoOf<T>>::try_mutate_exists(code_hash, |existing| {
+			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
+
+			if code_info.refcount == 1 {
+				T::Currency::transfer_on_hold(
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&crate::Pallet::<T>::account_id(),
+					&code_info.owner,
+					code_info.deposit,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+
+				*existing = None;
+				<PristineCode<T>>::remove(&code_hash);
+
+				Ok(CodeRemoved::Yes)
+			} else {
+				code_info.refcount = code_info
 					.refcount
 					.checked_sub(1)
 					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
-				Ok(())
-			} else {
-				Err(Error::<T>::CodeNotFound.into())
+				Ok(CodeRemoved::No)
 			}
 		})
 	}
@@ -304,6 +330,10 @@ where
 		gas_meter.charge(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		Ok(Self { code, code_info, code_hash })
+	}
+
+	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
+		ContractBlob::from_evm_init_code(code, owner)
 	}
 
 	fn execute<E: Ext<T = T>>(
@@ -337,5 +367,32 @@ where
 
 	fn code_info(&self) -> &CodeInfo<T> {
 		&self.code_info
+	}
+}
+
+/// Fallible conversion of a `ExecError` to `ReturnErrorCode`.
+///
+/// This is used when converting the error returned from a subcall in order to decide
+/// whether to trap the caller or allow handling of the error.
+pub(crate) fn exec_error_into_return_code<E: Ext>(
+	from: ExecError,
+) -> Result<ReturnErrorCode, DispatchError> {
+	use crate::exec::ErrorOrigin::Callee;
+	use ReturnErrorCode::*;
+
+	let transfer_failed = Error::<E::T>::TransferFailed.into();
+	let out_of_gas = Error::<E::T>::OutOfGas.into();
+	let out_of_deposit = Error::<E::T>::StorageDepositLimitExhausted.into();
+	let duplicate_contract = Error::<E::T>::DuplicateContract.into();
+	let unsupported_precompile = Error::<E::T>::UnsupportedPrecompileAddress.into();
+
+	// errors in the callee do not trap the caller
+	match (from.error, from.origin) {
+		(err, _) if err == transfer_failed => Ok(TransferFailed),
+		(err, _) if err == duplicate_contract => Ok(DuplicateContractAddress),
+		(err, _) if err == unsupported_precompile => Err(err),
+		(err, Callee) if err == out_of_gas || err == out_of_deposit => Ok(OutOfResources),
+		(_, Callee) => Ok(CalleeTrapped),
+		(err, _) => Err(err),
 	}
 }

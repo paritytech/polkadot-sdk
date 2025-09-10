@@ -18,17 +18,14 @@
 use super::Context;
 
 use crate::{
+	storage::WriteOutcome,
+	vec::Vec,
 	vm::{evm::U256Converter, Ext},
-	Key, RuntimeCosts, LOG_TARGET,
+	DispatchError, Key, RuntimeCosts,
 };
 use revm::{
-	interpreter::{
-		gas::{self},
-		host::Host,
-		interpreter_types::{InputsTr, RuntimeFlag, StackTr},
-		InstructionResult,
-	},
-	primitives::{Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256},
+	interpreter::{interpreter_types::StackTr, InstructionResult},
+	primitives::{Bytes, U256},
 };
 
 /// Implements the BALANCE instruction.
@@ -73,43 +70,22 @@ pub fn extcodehash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 /// Copies a portion of an account's code to memory.
 pub fn extcodecopy<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn!([address, memory_offset, code_offset, len_u256], context.interpreter);
+	let len = as_usize_or_fail!(context.interpreter, len_u256);
 
-	let h160 = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
-	let code_hash = context.interpreter.extend.code_hash(&h160);
+	gas!(context.interpreter, RuntimeCosts::ExtCodeCopy(len as u32));
+	let address = sp_core::H160::from_slice(&address.to_be_bytes::<32>()[12..]);
 
-	let Some(code) =
-		crate::PristineCode::<E::T>::get(&code_hash).map(|bounded_vec| bounded_vec.to_vec())
-	else {
-		context.interpreter.halt(InstructionResult::FatalExternalError);
+	if len == 0 {
 		return;
-	};
-	let Ok(code_offset) = code_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	if code_offset >= code.len() {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	let Ok(memory_len): Result<usize, _> = len_u256.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	if memory_len > code.len().saturating_sub(code_offset) {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	let Ok(memory_offset) = memory_offset.try_into() else {
-		context.interpreter.halt(InstructionResult::Revert);
-		return;
-	};
-	// TODO: IDK which RuntimeCost to use here
-	// gas!(context.interpreter, RuntimeCosts::CallDataCopy(memory_len as u32));
+	}
+	let memory_offset = as_usize_or_fail!(context.interpreter, memory_offset);
+	let code_offset = as_usize_saturated!(code_offset);
 
-	context
-		.interpreter
-		.memory
-		.set_data(memory_offset, code_offset, memory_len, &code);
+	resize_memory!(context.interpreter, memory_offset, len);
+
+	let mut buf = context.interpreter.memory.slice_mut(memory_offset, len);
+	// Note: This can't panic because we resized memory to fit.
+	context.interpreter.extend.copy_code_slice(&mut buf, &address, code_offset);
 }
 
 /// Implements the BLOCKHASH instruction.
@@ -120,30 +96,12 @@ pub fn blockhash<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	popn_top!([], number, context.interpreter);
 	let requested_number = <sp_core::U256 as U256Converter>::from_revm_u256(&number);
 
-	let block_number = context.interpreter.extend.block_number();
-
-	let Some(diff) = block_number.checked_sub(requested_number) else {
-		*number = U256::ZERO;
-		return;
-	};
-
-	let diff = if diff > sp_core::U256::from(u64::MAX) { u64::MAX } else { diff.low_u64() };
-
-	// blockhash should push zero if number is same as current block number.
-	if diff == 0 {
-		*number = U256::ZERO;
-		return;
-	}
-
-	*number = if diff <= BLOCK_HASH_HISTORY {
-		let Some(hash) = context.interpreter.extend.block_hash(requested_number) else {
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		};
-		U256::from_be_bytes(hash.0)
+	// blockhash should push zero if number is not within valid range.
+	if let Some(hash) = context.interpreter.extend.block_hash(requested_number) {
+		*number = U256::from_be_bytes(hash.0)
 	} else {
-		U256::ZERO
-	}
+		*number = U256::ZERO
+	};
 }
 
 /// Implements the SLOAD instruction.
@@ -157,13 +115,11 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	let value = context.interpreter.extend.get_storage(&key);
 
 	*index = if let Some(storage_value) = value {
-		if storage_value.len() != 32 {
-			// sload always reads a word
+		// sload always reads a word
+		let Ok::<[u8; 32], _>(bytes) = storage_value.try_into() else {
 			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		}
-		let mut bytes = [0u8; 32];
-		bytes.copy_from_slice(&storage_value);
+			return
+		};
 		U256::from_be_bytes(bytes)
 	} else {
 		// the key was never written before
@@ -171,28 +127,29 @@ pub fn sload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 	};
 }
 
-/// Implements the SSTORE instruction.
-///
-/// Stores a word to storage.
-pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
+fn store_helper<'ext, E: Ext>(
+	context: Context<'_, 'ext, E>,
+	cost_before: RuntimeCosts,
+	set_function: fn(&mut E, &Key, Option<Vec<u8>>, bool) -> Result<WriteOutcome, DispatchError>,
+	adjust_cost: fn(new_bytes: u32, old_bytes: u32) -> RuntimeCosts,
+) {
+	if context.interpreter.extend.is_read_only() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	}
 
 	popn!([index, value], context.interpreter);
 
 	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let Ok(charged_amount) = context
-		.interpreter
-		.extend
-		.gas_meter_mut()
-		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
-	else {
+	let Ok(charged_amount) = context.interpreter.extend.gas_meter_mut().charge(cost_before) else {
 		context.interpreter.halt(InstructionResult::OutOfGas);
 		return;
 	};
 
 	let key = Key::Fix(index.to_be_bytes());
 	let take_old = false;
-	let Ok(write_outcome) = context.interpreter.extend.set_storage(
+	let Ok(write_outcome) = set_function(
+		context.interpreter.extend,
 		&key,
 		Some(value.to_be_bytes::<32>().to_vec()),
 		take_old,
@@ -200,53 +157,35 @@ pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 		context.interpreter.halt(InstructionResult::FatalExternalError);
 		return;
 	};
-	context.interpreter.extend.gas_meter_mut().adjust_gas(
-		charged_amount,
-		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: write_outcome.old_len() },
+
+	context
+		.interpreter
+		.extend
+		.gas_meter_mut()
+		.adjust_gas(charged_amount, adjust_cost(32, write_outcome.old_len()));
+}
+
+/// Implements the SSTORE instruction.
+///
+/// Stores a word to storage.
+pub fn sstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
+	store_helper(
+		context,
+		RuntimeCosts::SetStorage { new_bytes: 32, old_bytes: 0 },
+		|ext, key, value, take_old| ext.set_storage(key, value, take_old),
+		|new_bytes, old_bytes| RuntimeCosts::SetStorage { new_bytes, old_bytes },
 	);
 }
 
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
-
-	popn!([index, value], context.interpreter);
-
-	// Charge gas before set_storage and later adjust it down to the true gas cost
-	let Ok(charged_amount) = context
-		.interpreter
-		.extend
-		.gas_meter_mut()
-		.charge(RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 })
-	else {
-		context.interpreter.halt(InstructionResult::OutOfGas);
-		return;
-	};
-
-	let key = Key::Fix(index.to_be_bytes());
-	let take_old = false;
-	let write_outcome = context.interpreter.extend.set_transient_storage(
-		&key,
-		Some(value.to_be_bytes::<32>().to_vec()),
-		take_old,
+	store_helper(
+		context,
+		RuntimeCosts::SetTransientStorage { new_bytes: 32, old_bytes: 0 },
+		|ext, key, value, take_old| ext.set_transient_storage(key, value, take_old),
+		|new_bytes, old_bytes| RuntimeCosts::SetTransientStorage { new_bytes, old_bytes },
 	);
-
-	match write_outcome {
-		Ok(write_outcome) => {
-			context.interpreter.extend.gas_meter_mut().adjust_gas(
-				charged_amount,
-				RuntimeCosts::SetTransientStorage {
-					new_bytes: 32,
-					old_bytes: write_outcome.old_len(),
-				},
-			);
-		},
-		Err(err) => {
-			log::debug!(target: LOG_TARGET, "Transient storage write failed: {:?}", err);
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-		},
-	}
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -276,11 +215,21 @@ pub fn tload<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
 ///
 /// Appends log record with N topics.
 pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
-	require_non_staticcall!(context.interpreter);
+	if context.interpreter.extend.is_read_only() {
+		context.interpreter.halt(InstructionResult::Revert);
+		return;
+	}
 
 	popn!([offset, len], context.interpreter);
 	let len = as_usize_or_fail!(context.interpreter, len);
-	gas_or_fail!(context.interpreter, gas::log_cost(N as u8, len as u64));
+	if len as u32 > context.interpreter.extend.max_value_size() {
+		context
+			.interpreter
+			.halt(revm::interpreter::InstructionResult::InvalidOperandOOG);
+		return;
+	}
+
+	gas!(context.interpreter, RuntimeCosts::DepositEvent { num_topic: N as u32, len: len as u32 });
 	let data = if len == 0 {
 		Bytes::new()
 	} else {
@@ -297,34 +246,15 @@ pub fn log<'ext, const N: usize, E: Ext>(context: Context<'_, 'ext, E>) {
 		return;
 	};
 
-	let log = Log {
-		address: context.interpreter.input.target_address(),
-		data: LogData::new(topics.into_iter().map(B256::from).collect(), data)
-			.expect("LogData should have <=4 topics"),
-	};
+	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_be_bytes())).collect();
 
-	context.host.log(log);
+	context.interpreter.extend.deposit_event(topics, data.to_vec());
 }
 
 /// Implements the SELFDESTRUCT instruction.
 ///
 /// Halt execution and register account for later deletion.
 pub fn selfdestruct<'ext, E: Ext>(context: Context<'_, 'ext, E>) {
-	// Check if we're in a static context
-	require_non_staticcall!(context.interpreter);
-	popn!([beneficiary], context.interpreter);
-	let h160 = sp_core::H160::from_slice(&beneficiary.to_be_bytes::<32>()[12..]);
-	let dispatch_result = context.interpreter.extend.selfdestruct(&h160);
-
-	match dispatch_result {
-		Ok(_) => {
-			context.interpreter.halt(InstructionResult::SelfDestruct);
-			return;
-		},
-		Err(e) => {
-			log::debug!(target: LOG_TARGET, "Selfdestruct failed: {:?}", e);
-			context.interpreter.halt(InstructionResult::FatalExternalError);
-			return;
-		},
-	}
+	// TODO: for now this instruction is not supported
+	context.interpreter.halt(InstructionResult::NotActivated);
 }

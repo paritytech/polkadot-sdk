@@ -34,6 +34,8 @@ const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 pub enum RuntimeCosts {
 	/// Base Weight of calling a host function.
 	HostFn,
+	/// Weight charged for executing the extcodecopy instruction.
+	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
 	CopyFromContract(u32),
 	/// Weight charged for copying data to the sandbox.
@@ -93,7 +95,7 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_weight_to_fee`.
 	WeightToFee,
 	/// Weight of calling `seal_terminate`.
-	Terminate,
+	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of calling `seal_set_storage` for the given storage item sizes.
@@ -151,7 +153,7 @@ pub enum RuntimeCosts {
 	/// Weight charged by a precompile.
 	Precompile(Weight),
 	/// Weight of calling `seal_set_code_hash`
-	SetCodeHash,
+	SetCodeHash { old_code_removed: bool },
 	/// Weight of calling `ecdsa_to_eth_address`
 	EcdsaToEthAddress,
 	/// Weight of calling `get_immutable_dependency`
@@ -225,6 +227,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 		use self::RuntimeCosts::*;
 		match *self {
 			HostFn => cost_args!(noop_host_fn, 1),
+			ExtCodeCopy(len) => T::WeightInfo::extcodecopy(len),
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
@@ -254,7 +257,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Now => T::WeightInfo::seal_now(),
 			GasLimit => T::WeightInfo::seal_gas_limit(),
 			WeightToFee => T::WeightInfo::seal_weight_to_fee(),
-			Terminate => T::WeightInfo::seal_terminate(),
+			Terminate { code_removed } => T::WeightInfo::seal_terminate(code_removed.into()),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len),
 			SetStorage { new_bytes, old_bytes } => {
 				cost_storage!(write, seal_set_storage, new_bytes, old_bytes)
@@ -300,7 +303,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			EcdsaRecovery => T::WeightInfo::ecdsa_recover(),
 			Sr25519Verify(len) => T::WeightInfo::seal_sr25519_verify(len),
 			Precompile(weight) => weight,
-			SetCodeHash => T::WeightInfo::seal_set_code_hash(),
+			SetCodeHash { old_code_removed } =>
+				T::WeightInfo::seal_set_code_hash(old_code_removed.into()),
 			EcdsaToEthAddress => T::WeightInfo::seal_ecdsa_to_eth_address(),
 			GetImmutableData(len) => T::WeightInfo::seal_get_immutable_data(len),
 			SetImmutableData(len) => T::WeightInfo::seal_set_immutable_data(len),
