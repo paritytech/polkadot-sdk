@@ -105,6 +105,8 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
+	tokio::time::sleep(std::time::Duration::from_secs(60 * 1000)).await;
+	
 	// Assert the parachain finalized block height is also on par with the number of backed
 	// candidates.
 	assert_finality_lag(&para_node.wait_client().await?, 60).await?;
