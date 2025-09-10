@@ -3,10 +3,11 @@ title: "Expose migrating keys"
 doc:
   - audience: Runtime Dev
     description: |
-      Adds `migrating_prefixes` method to the `SteppedMigrations` trait to expose storage prefixes
-      that will be modified by each migration. This enables the migration framework to understand which storage
-      areas are affected, allowing chain explorers and other external tooling to identify state that might be
-      temporarily unreadable during migration execution. This is particularly helpful for debugging and monitoring purposes.
+      This PR introduces the ability for multi-block migrations to declare which storage prefixes they will modify,
+      enabling external tooling and monitoring systems to identify potentially affected state during migration execution.
+
+      Implement `migrating_prefixes()` in your SteppedMigration to declare modified storage prefixes.
+      For migration collections, use `nth_migrating_prefixes()` to retrieve prefixes by index.
 
 crates:
 - name: frame-support
