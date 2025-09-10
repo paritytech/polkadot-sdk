@@ -205,15 +205,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// call stack.
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
-	/// Transfer all funds to `beneficiary`.
-	///
-	/// The contract is *NOT* deleted *unless* this function is called in the same transaction
-	/// as the contract was created.
-	///
-	/// This function will fail if the same contract is present on the contract
-	/// call stack.
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult;
-
 	/// Returns the code hash of the contract being executed.
 	fn own_code_hash(&mut self) -> &H256;
 
@@ -770,80 +761,6 @@ impl<T: Config> CachedContract<T> {
 			*self = CachedContract::Invalidated;
 		}
 	}
-}
-
-/// Function to transfer balance including the dust between accounts.
-fn transfer_with_dust<T: Config>(
-	from: &AccountIdOf<T>,
-	to: &AccountIdOf<T>,
-	value: BalanceWithDust<BalanceOf<T>>,
-) -> DispatchResult {
-	let (value, dust) = value.deconstruct();
-
-	fn transfer_balance<T: Config>(
-		from: &AccountIdOf<T>,
-		to: &AccountIdOf<T>,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		T::Currency::transfer(from, to, value, Preservation::Preserve)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-		Ok(())
-	}
-
-	fn transfer_dust<T: Config>(
-		from: &mut AccountInfo<T>,
-		to: &mut AccountInfo<T>,
-		dust: u32,
-	) -> DispatchResult {
-		from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-		Ok(())
-	}
-
-	if dust.is_zero() {
-		return transfer_balance::<T>(from, to, value)
-	}
-
-	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
-
-	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-	let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
-
-	let plank = T::NativeToEthRatio::get();
-
-	if from_info.dust < dust {
-		T::Currency::burn_from(
-			from,
-			1u32.into(),
-			Preservation::Preserve,
-			Precision::Exact,
-			Fortitude::Polite,
-		)
-		.map_err(|err| {
-			log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
-			Error::<T>::TransferFailed
-		})?;
-
-		from_info.dust =
-			from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	transfer_balance::<T>(from, to, value)?;
-	transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
-
-	if to_info.dust >= plank {
-		T::Currency::mint_into(to, 1u32.into())?;
-		to_info.dust = to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
-	}
-
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-	AccountInfoOf::<T>::set(&to_addr, Some(to_info));
-
-	Ok(())
 }
 
 impl<'a, T, E> Stack<'a, T, E>
@@ -1535,6 +1452,80 @@ where
 		value: U256,
 		storage_meter: &mut storage::meter::GenericMeter<T, S>,
 	) -> DispatchResult {
+		fn transfer_with_dust<T: Config>(
+			from: &AccountIdOf<T>,
+			to: &AccountIdOf<T>,
+			value: BalanceWithDust<BalanceOf<T>>,
+		) -> DispatchResult {
+			let (value, dust) = value.deconstruct();
+
+			fn transfer_balance<T: Config>(
+				from: &AccountIdOf<T>,
+				to: &AccountIdOf<T>,
+				value: BalanceOf<T>,
+			) -> DispatchResult {
+				T::Currency::transfer(from, to, value, Preservation::Preserve)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Transfer failed: from {from:?} to {to:?} (value: ${value:?}). Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+				Ok(())
+			}
+
+			fn transfer_dust<T: Config>(
+				from: &mut AccountInfo<T>,
+				to: &mut AccountInfo<T>,
+				dust: u32,
+			) -> DispatchResult {
+				from.dust =
+					from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
+				Ok(())
+			}
+
+			if dust.is_zero() {
+				return transfer_balance::<T>(from, to, value)
+			}
+
+			let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
+			let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+
+			let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
+			let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+
+			let plank = T::NativeToEthRatio::get();
+
+			if from_info.dust < dust {
+				T::Currency::burn_from(
+					from,
+					1u32.into(),
+					Preservation::Preserve,
+					Precision::Exact,
+					Fortitude::Polite,
+				)
+				.map_err(|err| {
+					log::debug!(target: crate::LOG_TARGET, "Burning 1 plank from {from:?} failed. Err: {err:?}");
+					Error::<T>::TransferFailed
+				})?;
+
+				from_info.dust =
+					from_info.dust.checked_add(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			transfer_balance::<T>(from, to, value)?;
+			transfer_dust::<T>(&mut from_info, &mut to_info, dust)?;
+
+			if to_info.dust >= plank {
+				T::Currency::mint_into(to, 1u32.into())?;
+				to_info.dust =
+					to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
+			}
+
+			AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+			AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+
+			Ok(())
+		}
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(());
@@ -1709,33 +1700,6 @@ where
 		let removed = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
 
 		Ok(removed)
-	}
-
-	fn selfdestruct(&mut self, beneficiary: &H160) -> DispatchResult {
-		let from = self.account_id();
-		let to = T::AddressMapper::to_account_id(beneficiary);
-		let value: U256 = self.balance();
-		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
-
-		if value.is_zero() {
-			return Ok(());
-		}
-
-		transfer_with_dust::<T>(&from, &to, value)?;
-
-		// If this is called in the same transaction as the contract was created then the contract
-		// is deleted.
-		if self.top_frame().entry_point == ExportedFunction::Constructor {
-			let frame = self.top_frame_mut();
-			let info = frame.terminate();
-			frame.nested_storage.terminate(&info, to);
-			info.queue_trie_for_deletion();
-			let account_address = T::AddressMapper::to_address(&frame.account_id);
-			AccountInfoOf::<T>::remove(&account_address);
-			ImmutableDataOf::<T>::remove(&account_address);
-			let _ = <CodeInfo<T>>::decrement_refcount(info.code_hash)?;
-		}
-		Ok(())
 	}
 
 	fn own_code_hash(&mut self) -> &H256 {
