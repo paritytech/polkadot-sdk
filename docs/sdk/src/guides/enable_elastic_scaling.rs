@@ -22,12 +22,12 @@
 //! If the main bottleneck is the CPU, then your parachain needs to maximize the compute usage of
 //! each core while also achieving a lower latency.
 //! 3 cores provide the best balance between CPU, bandwidth and latency: up to 6s of execution,
-//! 3MB/s of DA bandwidth and fast block time of just 2 seconds.
+//! 5MB/s of DA bandwidth and fast block time of just 2 seconds.
 //!
 //! ### High bandwidth
 //!
 //! Useful for applications that are bottlenecked by bandwidth.
-//! By using 6 cores, applications can make use of up to 6s of compute, 6MB/s of bandwidth every 6s
+//! By using 6 cores, applications can make use of up to 6s of compute, 10MB/s of bandwidth 
 //! while also achieving 1 second block times.
 //!
 //! ### Ultra low latency
@@ -36,7 +36,7 @@
 //! caveat is the efficiency of core time usage decreases as more cores are used.
 //!
 //! For example, using 12 cores enables fast transaction confirmations with 500ms blocks and up to
-//! 12 MB/s of DA bandwidth.
+//! 20 MB/s of DA bandwidth.
 //!
 //! ## Dependencies
 //!
