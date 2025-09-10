@@ -1853,9 +1853,6 @@ impl_runtime_apis! {
 				crate::staking::Pages::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
-				crate::staking::SolutionImprovementThreshold::key().to_vec().into()
-			);
-			frame_benchmarking::benchmarking::add_to_whitelist(
 				crate::staking::SignedPhase::key().to_vec().into()
 			);
 			frame_benchmarking::benchmarking::add_to_whitelist(
