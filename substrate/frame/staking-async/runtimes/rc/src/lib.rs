@@ -622,11 +622,11 @@ impl session_historical::Config for Runtime {
 	type FullIdentificationOf = ah_client::DefaultExposureOf<Self>;
 }
 
-impl pallet_root_offences::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type OffenceHandler = StakingAhClient;
-	type ReportOffence = Offences;
-}
+// impl pallet_root_offences::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type OffenceHandler = StakingAhClient;
+// 	type ReportOffence = Offences;
+// }
 
 pub struct AssetHubLocation;
 impl Get<Location> for AssetHubLocation {
