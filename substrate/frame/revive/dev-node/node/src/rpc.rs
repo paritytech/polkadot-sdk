@@ -34,9 +34,7 @@ use polkadot_sdk::{
 };
 use revive_dev_runtime::{AccountId, Nonce, OpaqueBlock};
 use std::{
-	collections::BTreeMap,
 	sync::{Arc, Mutex, atomic::AtomicU64},
-	time::Instant,
 };
 
 pub type SharedTimestampDelta = Arc<Mutex<Option<u64>>>;

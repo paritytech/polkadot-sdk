@@ -53,7 +53,6 @@ use sp_core::keccak_256;
 use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::{Block as BlockT, Zero};
 use sp_weights::Weight;
-use std::collections::HashMap;
 use std::{
 	ops::Range,
 	sync::{Arc, RwLock},
@@ -83,7 +82,7 @@ pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 /// The substrate block number type.
 pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
-// /// The substrate block hash type.
+/// The substrate block hash type.
 pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.

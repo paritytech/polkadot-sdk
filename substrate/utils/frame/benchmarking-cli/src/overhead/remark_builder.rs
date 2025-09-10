@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::extrinsic::ExtrinsicBuilder;
-use codec::Decode;
+use codec::{Decode, Encode};
 use sc_client_api::UsageProvider;
 use sp_api::{ApiExt, Core, Metadata, ProvideRuntimeApi};
 use sp_runtime::{traits::Block as BlockT, OpaqueExtrinsic};
@@ -46,7 +46,7 @@ where
 	/// construct an offline client that provides the extrinsics.
 	pub fn new_from_client<Client, Block>(client: Arc<Client>) -> sc_cli::Result<Self>
 	where
-		Block: BlockT<Hash = sp_core::H256>,
+		Block: BlockT,
 		Client: UsageProvider<Block> + ProvideRuntimeApi<Block>,
 		Client::Api: Metadata<Block> + Core<Block>,
 	{
@@ -65,9 +65,6 @@ where
 
 			let latest = supported_metadata_versions
 				.into_iter()
-				// TODO: Subxt doesn't support V16 metadata until v0.42.0, so don't try
-				// to fetch it here until we update to that version.
-				.filter(|v| *v != u32::MAX && *v < 16)
 				.max()
 				.ok_or("No stable metadata versions supported".to_string())?;
 
@@ -86,7 +83,8 @@ where
 			transaction_version: version.transaction_version,
 		};
 		let metadata = subxt::Metadata::decode(&mut (*opaque_metadata).as_slice())?;
-		let genesis = subxt::utils::H256::from(genesis.to_fixed_bytes());
+		let genesis = HashFor::<C>::decode(&mut &genesis.encode()[..])
+			.map_err(|_| "Incompatible hash types?")?;
 
 		Ok(Self { offline_client: OfflineClient::new(genesis, runtime_version, metadata) })
 	}

@@ -31,7 +31,6 @@ use sc_service::{
 };
 use sqlx::sqlite::SqlitePoolOptions;
 use std::{
-	collections::HashMap,
 	sync::{Arc, RwLock},
 };
 use subxt_signer::eth::dev;

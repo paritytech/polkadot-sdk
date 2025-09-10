@@ -84,9 +84,8 @@ use alloc::{
 	string::{String, ToString},
 	vec::Vec,
 };
-use alloy_core::sol_types::SolInterface;
 use alloy_core::{hex, sol};
-use core::{marker::PhantomData, num::NonZero};
+use core::{marker::PhantomData};
 
 type OutputChannel = alloc::boxed::Box<dyn Fn(&str) + Send + Sync>;
 

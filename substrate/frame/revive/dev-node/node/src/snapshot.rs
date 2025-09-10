@@ -82,8 +82,6 @@ where
 	}
 
 	fn reset(&self) -> RpcResult<bool> {
-		let snapshot = self.snapshots.read().unwrap().get(&0u64).unwrap();
-
 		let current_best_number = self.client.info().best_number;
 
 		self.backend.revert(current_best_number, true).map_err(|e| {

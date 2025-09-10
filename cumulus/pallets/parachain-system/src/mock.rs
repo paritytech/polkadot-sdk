@@ -98,7 +98,6 @@ impl Config for Test {
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = TestConsensusHook;
 	type WeightInfo = ();
-	type SelectCore = DefaultCoreSelector<Test>;
 	type RelayParentOffset = ConstU32<0>;
 }
 
