@@ -114,7 +114,8 @@ pub trait RuntimePublic: Sized {
 	/// the corresponding public in different context than normal signatures in case of BLS
 	/// key pair.
 	///
-	/// The `owner` is an arbitrary byte array representing the identity of the owner of the key
+	/// The `owner` is an arbitrary byte array representing the identity of the owner of
+	/// the key which has been signed by the private key in process of generating the proof.
 	///
 	/// The private key will be requested from the keystore using the given key type.
 	///
@@ -132,8 +133,8 @@ pub trait RuntimePublic: Sized {
 	/// the public key in the form signing the owner's identity but might also includes
 	/// other signatures.
 	///
-	/// The  `owner` is an arbitrary byte array representing the identity of the owner of
-	/// the key which has been signed  by the private key in process of generating the proof.
+	/// The `owner` is an arbitrary byte array representing the identity of the owner of
+	/// the key which has been signed by the private key in process of generating the proof.
 	///
 	/// Returns `true` if the proof is deemed correct by the cryto type.
 	fn verify_proof_of_possession(&self, owner: &[u8], pop: &Self::ProofOfPossession) -> bool;
