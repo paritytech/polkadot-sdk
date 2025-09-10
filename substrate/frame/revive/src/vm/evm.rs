@@ -156,7 +156,10 @@ fn run<'a, E: Ext>(
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
 	loop {
+		#[cfg(not(feature = "std"))]
 		let action = interpreter.run_plain(table, host);
+		#[cfg(feature = "std")]
+		let action = run_plain(interpreter, table, host);
 		match action {
 			InterpreterAction::Return(result) => {
 				log::trace!(target: LOG_TARGET, "Evm return {:?}", result);
@@ -243,20 +246,22 @@ fn run_call<'a, E: Ext>(
 }
 
 /// Re-implementation of REVM run_plain function to add trace logging to our EVM interpreter loop.
+/// NB: copied directly from revm tag v82
+#[cfg(feature = "std")]
 fn run_plain<WIRE: InterpreterTypes>(
 	interpreter: &mut Interpreter<WIRE>,
 	instruction_table: &revm::interpreter::InstructionTable<WIRE, DummyHost>,
 	host: &mut DummyHost,
 ) -> InterpreterAction {
-	#[cfg(feature = "std")]
 	use crate::{alloc::string::ToString, format};
-	#[cfg(feature = "std")]
 	use revm::{
 		bytecode::OpCode,
-		interpreter::interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+		interpreter::{
+			instruction_context::InstructionContext,
+			interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+		},
 	};
 	while interpreter.bytecode.is_not_end() {
-		#[cfg(feature = "std")]
 		log::trace!(target: LOG_TARGET,
 			"[{pc}]: {opcode}, stacktop: {stacktop}, memory size: {memsize} {memory:?}",
 			pc = interpreter.bytecode.pc(),
@@ -270,8 +275,19 @@ fn run_plain<WIRE: InterpreterTypes>(
 				.slice_len(0, core::cmp::min(32, interpreter.memory.size()))
 				.to_vec(),
 		);
-		interpreter.step(instruction_table, host);
+		// Get current opcode.
+		let opcode = interpreter.bytecode.opcode();
+
+		// SAFETY: In analysis we are doing padding of bytecode so that we are sure that last
+		// byte instruction is STOP so we are safe to just increment program_counter bcs on last
+		// instruction it will do noop and just stop execution of this contract
+		interpreter.bytecode.relative_jump(1);
+		let context = InstructionContext { interpreter, host };
+		// Execute instruction.
+		instruction_table[opcode as usize](context);
 	}
+	interpreter.bytecode.revert_to_previous_pointer();
+
 	interpreter.take_next_action()
 }
 
