@@ -167,3 +167,119 @@ fn basic_evm_flow_tracing_works() {
 		);
 	});
 }
+
+#[test]
+fn opcode_tracing_works() {
+	use crate::{
+		evm::{OpcodeTracer, OpcodeTracerConfig},
+		tracing::trace,
+	};
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// Create a simple contract that will produce some opcodes
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.build_and_unwrap_contract();
+
+		// Test opcode tracing with basic config
+		let config = OpcodeTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: false,
+			debug: false,
+			limit: 10,
+		};
+		let mut opcode_tracer = OpcodeTracer::new(config);
+
+		let result = trace(&mut opcode_tracer, || {
+			builder::bare_call(addr)
+				.data(
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(3u64) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+
+		assert_eq!(
+			U256::from(2u32),
+			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
+		);
+
+		let trace = opcode_tracer.collect_trace();
+		
+		// Should have captured some opcode steps
+		assert!(!trace.steps.is_empty());
+		
+		// Should have limited the number of steps to the config limit
+		assert!(trace.steps.len() <= 10);
+
+		// Each step should have the required fields
+		for step in &trace.steps {
+			assert!(!step.op.is_empty());
+			// Stack should be present (not disabled)
+			assert!(step.stack.is_some());
+			// Memory should not be present (disabled)
+			assert!(step.memory.is_none());
+			// Storage should not be present (disabled)
+			assert!(step.storage.is_none());
+		}
+	});
+}
+
+#[test]
+fn opcode_tracing_with_memory_works() {
+	use crate::{
+		evm::{OpcodeTracer, OpcodeTracerConfig},
+		tracing::trace,
+	};
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.build_and_unwrap_contract();
+
+		// Test opcode tracing with memory enabled
+		let config = OpcodeTracerConfig {
+			enable_memory: true,
+			disable_stack: true,
+			disable_storage: true,
+			enable_return_data: true,
+			debug: false,
+			limit: 5,
+		};
+		let mut opcode_tracer = OpcodeTracer::new(config);
+
+		let result = trace(&mut opcode_tracer, || {
+			builder::bare_call(addr)
+				.data(
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(1u64) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+
+		assert_eq!(
+			U256::from(1u32),
+			U256::from_be_bytes::<32>(result.data.clone().try_into().unwrap())
+		);
+
+		let trace = opcode_tracer.collect_trace();
+		
+		// Should have captured some opcode steps
+		assert!(!trace.steps.is_empty());
+
+		// Each step should have the required fields based on config
+		for step in &trace.steps {
+			assert!(!step.op.is_empty());
+			// Stack should not be present (disabled)
+			assert!(step.stack.is_none());
+			// Memory should be present (enabled)
+			assert!(step.memory.is_some());
+		}
+	});
+}

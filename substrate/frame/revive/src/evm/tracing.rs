@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{CallTrace, Trace},
+	evm::{CallTrace, OpcodeTrace, Trace},
 	tracing::Tracing,
 	BalanceOf, Bounded, Config, MomentOf, Weight,
 };
@@ -27,6 +27,9 @@ pub use call_tracing::*;
 mod prestate_tracing;
 pub use prestate_tracing::*;
 
+mod opcode_tracing;
+pub use opcode_tracing::*;
+
 /// A composite tracer.
 #[derive(derive_more::From, Debug)]
 pub enum Tracer<T> {
@@ -34,6 +37,8 @@ pub enum Tracer<T> {
 	CallTracer(CallTracer<U256, fn(Weight) -> U256>),
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
+	/// A tracer that traces opcodes.
+	OpcodeTracer(OpcodeTracer),
 }
 
 impl<T: Config> Tracer<T>
@@ -48,6 +53,7 @@ where
 		match self {
 			Tracer::CallTracer(_) => CallTrace::default().into(),
 			Tracer::PrestateTracer(tracer) => tracer.empty_trace().into(),
+			Tracer::OpcodeTracer(_) => OpcodeTrace::default().into(),
 		}
 	}
 
@@ -56,6 +62,7 @@ where
 		match self {
 			Tracer::CallTracer(inner) => inner as &mut dyn Tracing,
 			Tracer::PrestateTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::OpcodeTracer(inner) => inner as &mut dyn Tracing,
 		}
 	}
 
@@ -64,6 +71,20 @@ where
 		match self {
 			Tracer::CallTracer(inner) => inner.collect_trace().map(Trace::Call),
 			Tracer::PrestateTracer(inner) => Some(inner.collect_trace().into()),
+			Tracer::OpcodeTracer(inner) => Some(inner.collect_trace().into()),
 		}
+	}
+
+	/// Get a mutable reference to the opcode tracer if this is an opcode tracer.
+	pub fn as_opcode_tracer(&mut self) -> Option<&mut OpcodeTracer> {
+		match self {
+			Tracer::OpcodeTracer(inner) => Some(inner),
+			_ => None,
+		}
+	}
+
+	/// Check if this is an opcode tracer.
+	pub fn is_opcode_tracer(&self) -> bool {
+		matches!(self, Tracer::OpcodeTracer(_))
 	}
 }

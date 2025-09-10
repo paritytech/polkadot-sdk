@@ -42,6 +42,21 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
+	/// Check if this tracer requires opcode-level tracing.
+	fn is_opcode_tracer(&self) -> bool { false }
+
+	/// Record an opcode step for opcode tracers.
+	fn record_opcode_step(
+		&mut self,
+		_pc: u64,
+		_opcode: &str,
+		_gas_before: u64,
+		_gas_cost: u64,
+		_depth: u32,
+		_stack: Option<Vec<String>>,
+		_memory: Option<Vec<String>>,
+	) {}
+
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 

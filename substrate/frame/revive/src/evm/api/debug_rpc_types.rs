@@ -27,7 +27,6 @@ use serde::{
 use sp_core::{H160, H256, U256};
 
 /// The type of tracer to use.
-/// Only "callTracer" is supported for now.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 pub enum TracerType {
@@ -36,11 +35,26 @@ pub enum TracerType {
 
 	/// A tracer that traces the prestate.
 	PrestateTracer(Option<PrestateTracerConfig>),
+
+	/// A tracer that traces opcodes.
+	StructLogger(Option<OpcodeTracerConfig>),
 }
 
 impl From<CallTracerConfig> for TracerType {
 	fn from(config: CallTracerConfig) -> Self {
 		TracerType::CallTracer(Some(config))
+	}
+}
+
+impl From<PrestateTracerConfig> for TracerType {
+	fn from(config: PrestateTracerConfig) -> Self {
+		TracerType::PrestateTracer(Some(config))
+	}
+}
+
+impl From<OpcodeTracerConfig> for TracerType {
+	fn from(config: OpcodeTracerConfig) -> Self {
+		TracerType::StructLogger(Some(config))
 	}
 }
 
@@ -100,6 +114,42 @@ impl Default for PrestateTracerConfig {
 	}
 }
 
+/// The configuration for the opcode tracer.
+#[derive(Clone, Debug, Decode, Serialize, Deserialize, Encode, PartialEq, TypeInfo)]
+#[serde(default, rename_all = "camelCase")]
+pub struct OpcodeTracerConfig {
+	/// Whether to enable memory capture (default: false)
+	pub enable_memory: bool,
+
+	/// Whether to disable stack capture (default: false)
+	pub disable_stack: bool,
+
+	/// Whether to disable storage capture (default: false)
+	pub disable_storage: bool,
+
+	/// Whether to enable return data capture (default: false)
+	pub enable_return_data: bool,
+
+	/// Whether to print output during capture (default: false)
+	pub debug: bool,
+
+	/// Limit number of steps captured (default: 0, no limit)
+	pub limit: u64,
+}
+
+impl Default for OpcodeTracerConfig {
+	fn default() -> Self {
+		Self {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: false,
+			enable_return_data: false,
+			debug: false,
+			limit: 0,
+		}
+	}
+}
+
 /// Serialization should support the following JSON format:
 ///
 /// ```json
@@ -135,6 +185,17 @@ fn test_tracer_config_serialization() {
 			TracerConfig {
 				config: CallTracerConfig { with_logs: true, only_top_call: true }.into(),
 				timeout: Some(core::time::Duration::from_millis(10)),
+			},
+		),
+		(
+			r#"{"tracer": "structLogger"}"#,
+			TracerConfig { config: TracerType::StructLogger(None), timeout: None },
+		),
+		(
+			r#"{"tracer": "structLogger", "tracerConfig": { "enableMemory": true }}"#,
+			TracerConfig {
+				config: OpcodeTracerConfig { enable_memory: true, ..Default::default() }.into(),
+				timeout: None,
 			},
 		),
 	];
@@ -173,6 +234,8 @@ pub enum Trace {
 	Call(CallTrace),
 	/// A prestate trace.
 	Prestate(PrestateTrace),
+	/// An opcode trace.
+	Opcode(OpcodeTrace),
 }
 
 /// A prestate Trace
@@ -252,6 +315,50 @@ where
 	}
 
 	ser_map.end()
+}
+
+/// An opcode trace containing the step-by-step execution of EVM instructions.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+pub struct OpcodeTrace {
+	/// The list of opcode execution steps.
+	pub steps: Vec<OpcodeStep>,
+}
+
+impl Default for OpcodeTrace {
+	fn default() -> Self {
+		Self { steps: Vec::new() }
+	}
+}
+
+/// A single opcode execution step.
+#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpcodeStep {
+	/// The program counter.
+	pub pc: u64,
+	/// The opcode being executed.
+	pub op: String,
+	/// Remaining gas before executing this opcode.
+	pub gas: U256,
+	/// Cost of executing this opcode.
+	pub gas_cost: U256,
+	/// Current call depth.
+	pub depth: u32,
+	/// EVM stack contents (optional based on config).
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub stack: Option<Vec<String>>,
+	/// EVM memory contents (optional based on config).
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub memory: Option<Vec<String>>,
+	/// Contract storage changes (optional based on config).
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub storage: Option<alloc::collections::BTreeMap<String, String>>,
+	/// Any error that occurred during opcode execution.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub error: Option<String>,
+	/// Return data (optional based on config).
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub return_data: Option<String>,
 }
 
 /// A smart contract execution call trace.
