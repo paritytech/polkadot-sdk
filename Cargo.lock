@@ -13379,6 +13379,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-zombienet"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cumulus-zombienet-sdk-helpers",
+ "env_logger 0.11.3",
+ "log",
+ "polkadot-primitives",
+ "serde_json",
+ "tokio",
+ "zombienet-configuration",
+ "zombienet-orchestrator",
+ "zombienet-sdk",
+]
+
+[[package]]
 name = "pallet-root-offences"
 version = "25.0.0"
 dependencies = [

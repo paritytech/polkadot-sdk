@@ -1,0 +1,31 @@
+[package]
+name = "pallet-revive-zombienet"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Zombienet integration tests for pallet-revive."
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+
+# Zombienet dependencies
+zombienet-sdk = { workspace = true }
+zombienet-orchestrator = { workspace = true }
+zombienet-configuration = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
+
+# Polkadot dependencies
+polkadot-primitives = { workspace = true, default-features = true }
+
+[dev-dependencies]
+# Additional test dependencies can be added here if needed
