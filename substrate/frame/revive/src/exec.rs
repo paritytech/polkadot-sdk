@@ -428,6 +428,15 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns a mutable reference to the output of the last executed call frame.
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue;
+
+	/// Copies a slice of the contract's code at `address` into the provided buffer.
+	///
+	/// EVM CODECOPY semantics:
+	/// - If `buf.len()` = 0: Nothing happens
+	/// - If `code_offset` >= code size: `len` bytes of zero are written to memory
+	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
+	///   are filled with zeros
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2132,6 +2141,23 @@ where
 
 	fn last_frame_output_mut(&mut self) -> &mut ExecReturnValue {
 		&mut self.top_frame_mut().last_frame_output
+	}
+
+	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
+		let len = buf.len();
+		if len == 0 {
+			return;
+		}
+
+		let code_hash = self.code_hash(address);
+		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+
+		let len = len.min(code.len().saturating_sub(code_offset));
+		if len > 0 {
+			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		}
+
+		buf[len..].fill(0);
 	}
 }
 

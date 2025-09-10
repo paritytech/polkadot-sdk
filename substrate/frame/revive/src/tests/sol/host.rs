@@ -20,11 +20,14 @@
 use crate::{
 	address::AddressMapper,
 	test_utils::{builder::Contract, ALICE, BOB, BOB_ADDR},
-	tests::{builder, test_utils, ExtBuilder, Test},
+	tests::{builder, test_utils, ExtBuilder, RuntimeEvent, Test},
 	Code, Config, Key, System, H256,
 };
 
-use alloy_core::{primitives::U256, sol_types::SolInterface};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolInterface},
+};
 use frame_support::traits::{fungible::Mutate, Get};
 use pallet_revive_fixtures::{compile_module_with_type, FixtureType, Host};
 use pretty_assertions::assert_eq;
@@ -192,9 +195,6 @@ fn extcodecopy_works() {
 	let (code, _) = compile_module_with_type("HostEvmOnly", fixture_type).unwrap();
 	let (dummy_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
-	let code_start = 3;
-	let code_len = 17;
-
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 		let Contract { addr, .. } =
@@ -202,43 +202,80 @@ fn extcodecopy_works() {
 		let Contract { addr: dummy_addr, .. } =
 			builder::bare_instantiate(Code::Upload(dummy_code.clone())).build_and_unwrap_contract();
 
-		let expected_code = {
-			let contract_info = test_utils::get_contract(&dummy_addr);
-			let code_hash = contract_info.code_hash;
-			let expected_code = crate::PristineCode::<Test>::get(&code_hash)
-				.map(|bounded_vec| bounded_vec.to_vec())
-				.unwrap_or_default();
-			expected_code[code_start..code_start + code_len].to_vec()
-		};
+		let contract_info = test_utils::get_contract(&dummy_addr);
+		let code_hash = contract_info.code_hash;
+		let full_code = crate::PristineCode::<Test>::get(&code_hash)
+			.map(|bounded_vec| bounded_vec.to_vec())
+			.unwrap_or_default();
 
-		let result = builder::bare_call(addr)
-			.data(
-				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-					account: dummy_addr.0.into(),
-					offset: U256::from(code_start),
-					size: U256::from(code_len),
-				})
-				.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		assert!(!result.did_revert(), "test reverted");
-		let actual_code = {
-			let length = u32::from_be_bytes(result.data[60..64].try_into().unwrap()) as usize;
-			&result.data[64..64 + length]
-		};
+		struct TestCase {
+			description: &'static str,
+			offset: usize,
+			size: usize,
+			expected: Vec<u8>,
+		}
 
-		assert_eq!(
-			expected_code.len(),
-			actual_code.len(),
-			"EXTCODECOPY should return the correct code length for {:?}",
-			fixture_type
-		);
+		// Test cases covering different scenarios
+		let test_cases = vec![
+			TestCase {
+				description: "copy within bounds",
+				offset: 3,
+				size: 17,
+				expected: full_code[3..20].to_vec(),
+			},
+			TestCase { description: "len = 0", offset: 0, size: 0, expected: vec![] },
+			TestCase {
+				description: "offset beyond code length",
+				offset: full_code.len(),
+				size: 10,
+				expected: vec![0u8; 10],
+			},
+			TestCase {
+				description: "offset + size beyond code",
+				offset: full_code.len().saturating_sub(5),
+				size: 20,
+				expected: {
+					let mut expected = vec![0u8; 20];
+					expected[..5].copy_from_slice(&full_code[full_code.len() - 5..]);
+					expected
+				},
+			},
+			TestCase {
+				description: "size larger than remaining",
+				offset: 10,
+				size: full_code.len(),
+				expected: {
+					let mut expected = vec![0u8; full_code.len()];
+					expected[..full_code.len() - 10].copy_from_slice(&full_code[10..]);
+					expected
+				},
+			},
+		];
 
-		assert_eq!(
-			&expected_code, actual_code,
-			"EXTCODECOPY should return the correct code for {:?}",
-			fixture_type
-		);
+		for test_case in test_cases {
+			let result = builder::bare_call(addr)
+				.data(
+					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+						account: dummy_addr.0.into(),
+						offset: U256::from(test_case.offset),
+						size: U256::from(test_case.size),
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+
+			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
+
+			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+				.expect("Failed to decode extcodecopyOp return value");
+			let actual_code = &return_value.0;
+
+			assert_eq!(
+				&test_case.expected, actual_code,
+				"EXTCODECOPY content mismatch for {}",
+				test_case.description
+			);
+		}
 	});
 }
 
@@ -379,6 +416,90 @@ fn sstore_works() {
 }
 
 #[test]
+fn logs_work() {
+	use crate::tests::initialize_block;
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			// Drop previous events
+			initialize_block(2);
+
+			let result = builder::bare_call(addr)
+				.data(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+
+			let events = System::<Test>::events();
+			assert_eq!(
+				events,
+				vec![
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x11)],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![H256::from_low_u64_be(0x22), H256::from_low_u64_be(0x33)],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![
+								H256::from_low_u64_be(0x44),
+								H256::from_low_u64_be(0x55),
+								H256::from_low_u64_be(0x66)
+							],
+						}),
+						topics: vec![],
+					},
+					frame_system::EventRecord {
+						phase: frame_system::Phase::Initialization,
+						event: RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+							contract: addr,
+							data: vec![0u8; 32],
+							topics: vec![
+								H256::from_low_u64_be(0x77),
+								H256::from_low_u64_be(0x88),
+								H256::from_low_u64_be(0x99),
+								H256::from_low_u64_be(0xaa)
+							],
+						}),
+						topics: vec![],
+					},
+				]
+			);
+		});
+	}
+}
+
+#[test]
 fn transient_storage_works() {
 	use pallet_revive_fixtures::HostTransientMemory;
 	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
@@ -409,6 +530,43 @@ fn transient_storage_works() {
 				"transient storage should return zero for {:?}",
 				fixture_type
 			);
+		});
+	}
+}
+
+#[test]
+fn logs_denied_for_static_call() {
+	use pallet_revive_fixtures::Caller;
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			// Deploy Host contract
+			let Contract { addr: host_addr, .. } =
+				builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+			// Deploy Caller contract
+			let Contract { addr: caller_addr, .. } =
+				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+			// Use staticcall from Caller to Host's logOps function
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::CallerCalls::staticCall(Caller::staticCallCall {
+						_callee: host_addr.0.into(),
+						_data: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
+						_gas: U256::MAX,
+					})
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
+
+			let decoded_result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+
+			assert_eq!(decoded_result.success, false);
 		});
 	}
 }

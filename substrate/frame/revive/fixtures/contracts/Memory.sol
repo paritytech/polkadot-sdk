@@ -2,6 +2,20 @@
 pragma solidity ^0.8.24;
 
 contract Memory {
+    /// @notice Expands memory to the specified size by writing a byte at that offset
+    /// @param memorySize The memory size in bytes to expand to
+    function expandMemory(uint256 memorySize) public pure returns (bool success) {
+        // Allocate memory by accessing a byte at the specified offset
+        // This will trigger memory expansion up to at least memorySize + 1
+        assembly {
+            // Store a single byte (0xFF) at the memory offset
+            // This forces the EVM to expand memory to accommodate this write
+            mstore8(memorySize, 0xFF)
+        }
+
+        return false;
+    }
+
     function testMemory() public {
         uint256 value = 0xfe;
         assembly {
