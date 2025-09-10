@@ -99,11 +99,8 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				Ok(output.abi_encode())
 			},
 			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-				use crate::address::AddressMapper;
-				use codec::Encode;
 				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
-				let account_id =
-					T::AddressMapper::to_account_id(&H160::from_slice(input.as_slice()));
+				let account_id = env.to_account_id(&H160::from_slice(input.as_slice()));
 				Ok(account_id.encode().abi_encode())
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
@@ -124,9 +121,8 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::MinimumBalance)?;
-				let minimum_balance = T::Currency::minimum_balance();
-				let minimum_balance_as_evm_value = env.convert_native_to_evm(minimum_balance);
-				Ok(minimum_balance_as_evm_value.to_big_endian().abi_encode())
+				let minimum_balance = env.minimum_balance();
+				Ok(minimum_balance.to_big_endian().abi_encode())
 			},
 			ISystemCalls::weightLeft(ISystem::weightLeftCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::WeightLeft)?;
