@@ -920,6 +920,8 @@ impl<'a, S: 'a + TrieBackendStorage<H>, H: Hasher> hash_db::HashDB<H, DBValue>
 		{
 			panic!("shall not be here");
 		}
+		//todo: omg, clean this up
+		H::Out::default()
 	}
 
 	fn emplace(&mut self, _key: H::Out, _prefix: Prefix, _value: DBValue) {
