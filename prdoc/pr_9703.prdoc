@@ -1,0 +1,8 @@
+title: 'Cumulus: adjust authorship duration'
+doc:
+- audience: Todo
+  description: "For elastic scaling usecases with more than 3 cores we need to ensure\
+    \ block authorship ends before the next block is supposed to be built. \r\n"
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
