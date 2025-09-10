@@ -25,8 +25,6 @@ doc:
     * Instead, they are stored in a storage item, and are sent on subsequent on-inits.
     * A maximum retry count is added.
 crates:
-- name: pallet-offences
-  bump: patch
 - name: pallet-root-offences
   bump: major
   validate: false
@@ -46,3 +44,9 @@ crates:
   bump: minor
 - name: pallet-election-provider-multi-block
   bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+  validate: false
+- name: pallet-staking-async-rc-runtime
+  bump: major
+  validate: false
