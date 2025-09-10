@@ -391,11 +391,11 @@ where
 				Err(e) => {
 					tracing::warn!(target: crate::LOG_TARGET, ?e, "Failed to get authoring duration for next slot.");
 					authoring_duration
-				}
+				},
 			};
 
-			tracing::debug!(target: crate::LOG_TARGET, ?parent_hash, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
-			
+			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
+
 			let Ok(Some(candidate)) = collator
 				.build_block_and_import(
 					&parent_header,
