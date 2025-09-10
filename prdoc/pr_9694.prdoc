@@ -1,0 +1,23 @@
+title: align `DiscoveryBehaviour::add_known_address` with its docs
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+    align `DiscoveryBehaviour::add_known_address` with its docs
+    ## Integration
+    seems to not affect
+
+    ## Review Notes
+    Both here and in the higher-level `impl NetwirkBehaviour` this is referred as the addresses which doesn't expire, so if I got it right it should go into the field for the permanent addrs.
+
+    # Checklist
+
+    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
+    * [ ] My PR follows the [labeling requirements](
+    https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process
+    ) of this project (at minimum one label for `T` required)
+        *  T17-primitives
+    * [ ] I have added tests that prove my fix is effective or that my feature works (if applicable)
+crates:
+- name: sc-network
+  bump: patch
