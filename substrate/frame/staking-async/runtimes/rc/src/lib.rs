@@ -134,6 +134,53 @@ use pallet_staking_async_rc_runtime_constants::{
 	time::*,
 };
 
+pub mod pallet_reward_point_filler {
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[frame_support::pallet]
+	pub mod pallet {
+		use super::*;
+
+		#[pallet::config]
+		pub trait Config: frame_system::Config + pallet_staking_async_ah_client::Config {
+			type FillValidatorPointsTo: Get<u32>;
+		}
+
+		#[pallet::pallet]
+		pub struct Pallet<T>(_);
+
+		#[pallet::hooks]
+		impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+		where
+			T::AccountId: From<[u8; 32]>,
+		{
+			fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+				let current =
+					pallet_staking_async_ah_client::ValidatorPoints::<T>::iter().count() as u32;
+				if let Some(deficit) = T::FillValidatorPointsTo::get().checked_sub(current) {
+					for index in 0..deficit {
+						let unique = index.to_le_bytes();
+						let mut key = [0u8; 32];
+						// first 4 bytes should be `unique`, rest 0
+						key[..4].copy_from_slice(&unique);
+						pallet_staking_async_ah_client::ValidatorPoints::<T>::insert(
+							T::AccountId::from(key),
+							42,
+						);
+					}
+				}
+				Default::default()
+			}
+		}
+	}
+}
+
+impl pallet_reward_point_filler::pallet::Config for Runtime {
+	// we may have 2/4 validators by default, so let's fill it up to 994.
+	type FillValidatorPointsTo = ConstU32<994>;
+}
+
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;
@@ -623,6 +670,7 @@ impl session_historical::Config for Runtime {
 impl pallet_root_offences::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = StakingAhClient;
+	type ReportOffence = Offences;
 }
 
 pub struct AssetHubLocation;
@@ -651,24 +699,10 @@ impl Convert<rc_client::SessionReport<AccountId>, Xcm<()>> for SessionReportToXc
 	}
 }
 
-pub struct StakingXcmToAssetHub;
-impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
-	type AccountId = AccountId;
-
-	fn relay_session_report(session_report: rc_client::SessionReport<Self::AccountId>) {
-		rc_client::XCMSender::<
-			xcm_config::XcmRouter,
-			AssetHubLocation,
-			rc_client::SessionReport<AccountId>,
-			SessionReportToXcm,
-		>::split_then_send(session_report, Some(8));
-	}
-
-	fn relay_new_offence(
-		session_index: SessionIndex,
-		offences: Vec<rc_client::Offence<Self::AccountId>>,
-	) {
-		let message = Xcm(vec![
+pub struct QueuedOffenceToXcm;
+impl Convert<Vec<ah_client::QueuedOffenceOf<Runtime>>, Xcm<()>> for QueuedOffenceToXcm {
+	fn convert(offences: Vec<ah_client::QueuedOffenceOf<Runtime>>) -> Xcm<()> {
+		Xcm(vec![
 			Instruction::UnpaidExecution {
 				weight_limit: WeightLimit::Unlimited,
 				check_origin: None,
@@ -676,17 +710,40 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			Instruction::Transact {
 				origin_kind: OriginKind::Superuser,
 				fallback_max_weight: None,
-				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffence(
-					session_index,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayNewOffencePaged(
 					offences,
 				))
 				.encode()
 				.into(),
 			},
-		]);
-		if let Err(err) = send_xcm::<xcm_config::XcmRouter>(AssetHubLocation::get(), message) {
-			log::error!(target: "runtime::ah-client", "Failed to send relay offence message: {:?}", err);
-		}
+		])
+	}
+}
+
+pub struct StakingXcmToAssetHub;
+impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
+	type AccountId = AccountId;
+
+	fn relay_session_report(
+		session_report: rc_client::SessionReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			rc_client::SessionReport<AccountId>,
+			SessionReportToXcm,
+		>::send(session_report)
+	}
+
+	fn relay_new_offence_paged(
+		offences: Vec<ah_client::QueuedOffenceOf<Runtime>>,
+	) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			Vec<ah_client::QueuedOffenceOf<Runtime>>,
+			QueuedOffenceToXcm,
+		>::send(offences)
 	}
 }
 
@@ -703,7 +760,7 @@ enum RcClientCalls<AccountId> {
 	#[codec(index = 0)]
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
-	RelayNewOffence(SessionIndex, Vec<rc_client::Offence<AccountId>>),
+	RelayNewOffencePaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
 }
 
 pub struct EnsureAssetHub;
@@ -725,6 +782,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 parameter_types! {
+	/// each offence is 74 bytes max, sending 50 at a time will be 3,700 bytes.
 	pub const MaxOffenceBatchSize: u32 = 50;
 }
 
@@ -736,11 +794,12 @@ impl pallet_staking_async_ah_client::Config for Runtime {
 	type SessionInterface = Self;
 	type SendToAssetHub = StakingXcmToAssetHub;
 	type MinimumValidatorSetSize = ConstU32<1>;
+	type MaximumValidatorsWithPoints = ConstU32<{ MaxActiveValidators::get() * 4 }>;
 	type UnixTime = Timestamp;
 	type PointsPerBlock = ConstU32<20>;
 	type MaxOffenceBatchSize = MaxOffenceBatchSize;
 	type Fallback = Staking;
-	type WeightInfo = ();
+	type MaxSessionReportRetries = ConstU32<3>;
 }
 
 parameter_types! {
@@ -1888,6 +1947,8 @@ mod runtime {
 	pub type StakingAhClient = pallet_staking_async_ah_client;
 	#[runtime::pallet_index(68)]
 	pub type PresetStore = pallet_staking_async_preset_store;
+	#[runtime::pallet_index(69)]
+	pub type RewardPointFiller = pallet_reward_point_filler::pallet;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
