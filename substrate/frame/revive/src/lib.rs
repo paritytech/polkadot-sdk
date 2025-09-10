@@ -1806,7 +1806,7 @@ impl<T: Config> Pallet<T> {
 					from,
 					to,
 					amount,
-					Precision::BestEffort,
+					Precision::Exact,
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
