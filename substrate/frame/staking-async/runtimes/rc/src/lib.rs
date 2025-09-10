@@ -1898,8 +1898,6 @@ mod runtime {
 
 	#[runtime::pallet_index(67)]
 	pub type StakingAhClient = pallet_staking_async_ah_client;
-	#[runtime::pallet_index(68)]
-	pub type PresetStore = pallet_staking_async_preset_store;
 	#[runtime::pallet_index(69)]
 	pub type RewardPointFiller = pallet_reward_point_filler::pallet;
 
