@@ -63,7 +63,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, RewardsReporter},
+	traits::{Defensive, DefensiveSaturating, RewardsReporter},
 };
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
