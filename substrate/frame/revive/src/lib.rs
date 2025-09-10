@@ -284,8 +284,8 @@ pub mod pallet {
 		/// If `None` the deposits are collected from free balance. In any case, they are
 		/// collected from the transaction signers native balance.
 		///
-		/// It only applies eth_* dispatchables. The non eth flavor functions will contine
-		/// to take from the fee_balance.
+		/// It only applies to eth_* dispatchables. The non eth flavor functions will continue
+		/// to take from the free balance.
 		type DepositSource: Get<Option<Self::RuntimeHoldReason>>;
 	}
 
