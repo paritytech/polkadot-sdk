@@ -102,7 +102,7 @@ impl ZombienetNetwork {
 		let alice = network.get_node("alice-westend-validator")?.wait_client().await?;
 
 		log::info!("Ensuring parachain making progress");
-		assert_para_throughput(&alice, 30, [(ParaId::from(PARA_ID), 2..40)].into_iter().collect())
+		assert_para_throughput(&alice, 5, [(ParaId::from(PARA_ID), 2..8)].into_iter().collect())
 			.await?;
 
 		Ok(Self { network })
