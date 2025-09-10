@@ -59,6 +59,8 @@ substrate-cli-test-utils = { workspace = true }
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
+cumulus-zombienet-sdk-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 [build-dependencies]
 git2 = { workspace = true }
