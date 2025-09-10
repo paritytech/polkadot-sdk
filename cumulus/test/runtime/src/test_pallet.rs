@@ -48,7 +48,7 @@ pub mod pallet {
 			if ScheduleWeightRegistration::<T>::get() {
 				let weight_to_register = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0);
 
-				let left_weight = frame_system::Pallet::<T>::block_weight_left();
+				let left_weight = frame_system::Pallet::<T>::remaining_block_weight();
 
 				if left_weight.can_consume(weight_to_register) {
 					tracing::info!("Consuming 1s of weight :)");

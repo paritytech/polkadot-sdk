@@ -2388,11 +2388,12 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Returns the weight left for the block.
-	pub fn block_weight_left() -> WeightMeter {
-		let left_weight =
-			T::BlockWeights::get().max_block.saturating_sub(BlockWeight::<T>::get().total());
-		WeightMeter::with_limit(left_weight)
+	/// Returns the remaining weight of the block.
+	pub fn remaining_block_weight() -> WeightMeter {
+		let limit = T::BlockWeights::get().max_block;
+		let consumed = BlockWeight::<T>::get().total();
+
+		WeightMeter::with_consumed_and_limit(consumed, limit)
 	}
 }
 

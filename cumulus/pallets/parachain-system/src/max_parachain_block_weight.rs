@@ -144,7 +144,7 @@ fn block_weight_over_target_block_weight<T: Config, TargetBlockRate: Get<u32>>()
 	let target_block_weight =
 		MaxParachainBlockWeight::target_block_weight::<T>(TargetBlockRate::get());
 
-	frame_system::Pallet::<T>::block_weight_left()
+	frame_system::Pallet::<T>::remaining_block_weight()
 		.consumed()
 		.any_gt(target_block_weight)
 }

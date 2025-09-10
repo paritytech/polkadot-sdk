@@ -721,13 +721,17 @@ async fn ensure_is_only_block_in_core_impl(
 	let block_core_info = find_core_info(&block)?;
 
 	let parent = blocks.at(block.header().parent_hash).await?;
-	let parent_core_info = find_core_info(&parent)?;
 
-	if parent_core_info == block_core_info {
-		return Err(anyhow::anyhow!(
-			"Not first block ({}) in core, at least the parent block is on the same core.",
-			block.header().number
-		));
+	// Genesis is for sure on a different core :)
+	if parent.number() != 0 {
+		let parent_core_info = find_core_info(&parent)?;
+
+		if parent_core_info == block_core_info {
+			return Err(anyhow::anyhow!(
+				"Not first block ({}) in core, at least the parent block is on the same core.",
+				block.header().number
+			));
+		}
 	}
 
 	let next_block = loop {
