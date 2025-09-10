@@ -388,10 +388,7 @@ where
 
 			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
 				Ok((duration, _slot)) => duration,
-				Err(e) => {
-					tracing::warn!(target: crate::LOG_TARGET, ?e, "Failed to get authoring duration for next slot.");
-					authoring_duration
-				},
+				Err(e) => authoring_duration,
 			};
 
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
