@@ -51,7 +51,7 @@ use sp_runtime::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub(crate) use builtin::{
-	IBenchmarking, ISystem, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
+	IBenchmarking, NoInfo as BenchmarkNoInfo, System as BenchmarkSystem,
 	WithInfo as BenchmarkWithInfo,
 };
 

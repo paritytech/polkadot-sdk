@@ -23,8 +23,9 @@ mod flags;
 pub use flags::*;
 mod host;
 mod macros;
-mod precompile_utils;
-pub use precompile_utils::*;
+
+pub mod precompiles;
+pub use precompiles::{system::SYSTEM_PRECOMPILE_ADDR, utils::solidity_selector};
 
 pub use host::{HostFn, HostFnImpl};
 

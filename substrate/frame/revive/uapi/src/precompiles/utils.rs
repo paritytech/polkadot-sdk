@@ -17,10 +17,6 @@
 
 //! Helper utilities around pre-compiles.
 
-/// The contract address for the System pre-compile.
-pub const SYSTEM_PRECOMPILE_ADDR: [u8; 20] =
-	hex_literal::hex!("0000000000000000000000000000000000000900");
-
 /// Returns the Solidity selector for `fn_sig`.
 ///
 /// Note that this is a const function, it is evaluated at compile time.

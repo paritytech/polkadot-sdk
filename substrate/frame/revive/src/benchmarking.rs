@@ -30,7 +30,7 @@ use crate::{
 			SolType,
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkSystem, BuiltinPrecompile, ISystem,
+		BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
@@ -52,6 +52,8 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
+#[cfg(feature = "runtime-benchmarks")]
+use pallet_revive_uapi::precompiles::system::ISystem;
 use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
 use revm::{
 	bytecode::{opcode::EXTCODECOPY, Bytecode},

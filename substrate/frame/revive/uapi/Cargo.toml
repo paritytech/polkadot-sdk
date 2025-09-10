@@ -22,6 +22,7 @@ const-crypto = { version = "0.3.0", default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
 pallet-revive-proc-macro = { workspace = true }
 scale-info = { features = ["derive"], optional = true, workspace = true }
+alloy-core = { workspace = true, features = ["sol-types"], optional = true }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 polkavm-derive = { version = "0.27.0" }
@@ -30,3 +31,4 @@ polkavm-derive = { version = "0.27.0" }
 default = ["scale"]
 scale = ["dep:codec", "scale-info"]
 unstable-hostfn = []
+precompiles = ["alloy-core"]
