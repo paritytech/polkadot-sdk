@@ -304,6 +304,49 @@ pub mod env {
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
 		log::info!("env.rs call, flags: {flags:02x?}, callee: {callee_ptr:02x?}, deposit: {deposit_ptr:02x?}, value: {value_ptr:02x?}, input: {input_data_ptr:02x?}, output: {output_ptr:02x?}");
 
+use crate::precompiles::alloy::hex;
+let input_bytes = if input_data_len == 0 {
+    alloc::vec::Vec::new()
+} else {
+    let ptr = input_data_ptr as u32;
+    let len = input_data_len as u32;
+    match memory.read(ptr, len) {
+        Ok(b) => b,
+        Err(e) => {
+            log::error!("env.rs call: failed to read input_data at {ptr:02x?} len={len}: {e:?}");
+            alloc::vec::Vec::new()
+        }
+    }
+};
+
+// Log actual calldata as hex (truncate to first 256 bytes)
+if input_bytes.is_empty() {
+    log::info!(target: LOG_TARGET, "env.rs call: input_data = (empty)");
+} else {
+    const MAX_PRINT: usize = 256;
+    let show = &input_bytes[..core::cmp::min(input_bytes.len(), MAX_PRINT)];
+    // use hex::encode if available
+    #[cfg(feature = "std")]
+    {
+        log::info!(
+            target: LOG_TARGET,
+            "env.rs call: input_data (len={} bytes, first {} shown) = 0x{}",
+            input_bytes.len(),
+            show.len(),
+            hex::encode(show)
+        );
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        log::info!(
+            target: LOG_TARGET,
+            "env.rs call: input_data (len={} bytes, first {} shown) = {:02x?}",
+            input_bytes.len(),
+            show.len(),
+            show
+        );
+    }
+}
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,

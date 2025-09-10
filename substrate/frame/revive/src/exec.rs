@@ -856,7 +856,9 @@ where
 		input_data: Vec<u8>,
 		skip_transfer: bool,
 	) -> ExecResult {
+		log::info!("exec.rs stack::run_call dest: {dest:?}, input_data: {input_data:?}");
 		let dest = T::AddressMapper::to_account_id(&dest);
+		log::info!("exec.rs stack::run_call dest: {dest:?}");
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
@@ -865,6 +867,7 @@ where
 			value,
 			skip_transfer,
 		)? {
+			log::info!("exec.rs stack::run_call");
 			stack
 				.run(executable, input_data, BumpNonce::Yes)
 				.map(|_| stack.first_frame.last_frame_output)
@@ -1314,10 +1317,20 @@ where
 				ExecutableOrPrecompile::Executable(executable) =>
 					executable.execute(self, entry_point, input_data),
 				ExecutableOrPrecompile::Precompile { instance, .. } =>
-					instance.call(input_data, self),
+				{
+					log::info!("exec.rs run before instance.call, instance: {instance:?}");
+					let result = instance.call(input_data, self);
+					log::info!("exec.rs run after instance.call, result: {result:?}");
+					result
+				}
 			}
 			.and_then(|output| {
+				use crate::precompiles::alloy::hex;
 				log::info!("exec.rs run() output: {:?}", output);
+				log::info!(target: LOG_TARGET, "precompile returned data (hex): 0x{}", hex::encode(output.data.clone()));
+				if let Ok(s) = core::str::from_utf8(&output.data) {
+    log::info!(target: LOG_TARGET, "returned data as utf8: {:?}", s);
+}
 				if u32::try_from(output.data.len())
 					.map(|len| len > limits::CALLDATA_BYTES)
 					.unwrap_or(true)

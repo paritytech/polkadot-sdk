@@ -1089,6 +1089,7 @@ where
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		log::info!("lib.rs bare_Call(). dest: {dest:?}, data: {data:?}");
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 
