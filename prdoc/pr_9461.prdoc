@@ -12,5 +12,5 @@ doc:
 crates:
 - name: frame-support
   bump: minor
-- name: frame-migrations
+- name: pallet-migrations
   bump: minor
