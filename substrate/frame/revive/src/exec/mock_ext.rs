@@ -206,10 +206,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::copy_code_slice")
 	}
 
-	fn convert_native_to_evm(&self, _value: crate::BalanceOf<T>) -> U256 {
-		panic!("MockExt::convert_native_to_evm")
-	}
-
 	fn to_account_id(&self, _address: &H160) -> AccountIdOf<Self::T> {
 		panic!("MockExt::to_account_id")
 	}
@@ -259,12 +255,12 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
-	fn own_code_hash(&mut self) -> &H256 {
-		panic!("MockExt::own_code_hash")
-	}
-
 	fn terminate(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
+	}
+
+	fn own_code_hash(&mut self) -> &H256 {
+		panic!("MockExt::own_code_hash")
 	}
 
 	fn set_code_hash(&mut self, _hash: H256) -> Result<CodeRemoved, DispatchError> {

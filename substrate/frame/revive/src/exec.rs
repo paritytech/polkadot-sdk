@@ -440,9 +440,6 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// - If `code_offset + buf.len()` extends beyond code: Available code copied, remaining bytes
 	///   are filled with zeros
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize);
-
-	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -2169,11 +2166,6 @@ where
 		}
 
 		buf[len..].fill(0);
-	}
-
-	/// Convert a native balance to EVM balance.
-	fn convert_native_to_evm(&self, value: BalanceOf<Self::T>) -> U256 {
-		crate::Pallet::<T>::convert_native_to_evm(value)
 	}
 }
 
