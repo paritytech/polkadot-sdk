@@ -202,8 +202,9 @@ where
 			return Ok(inner_refund);
 		};
 
-		let version = T::Version::get().state_version();
-		let _ = sp_io::storage::trigger_storage_root_size_estimation(version);
+		cumulus_primitives_storage_weight_reclaim::trigger_storage_root_size_estimation(
+			T::Version::get().state_version()
+		);
 
 		let Some(proof_size_after_dispatch) = get_proof_size().defensive_proof(
 			"Proof recording enabled during prepare, now disabled. This should not happen.",
