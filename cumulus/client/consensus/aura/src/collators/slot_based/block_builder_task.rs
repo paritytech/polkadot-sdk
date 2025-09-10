@@ -387,8 +387,8 @@ where
 			} as usize;
 
 			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
-				Ok((duration, _slot)) => duration,
-				Err(e) => authoring_duration,
+				Ok((duration, _slot)) => std::cmp::min(authoring_duration, duration),
+				Err(_) => authoring_duration,
 			};
 
 			tracing::debug!(target: crate::LOG_TARGET, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
