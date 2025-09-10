@@ -294,7 +294,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("penpal-parachain"),
 	impl_name: alloc::borrow::Cow::Borrowed("penpal-parachain"),
 	authoring_version: 1,
-	spec_version: 1,
+	spec_version: 1_020_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
