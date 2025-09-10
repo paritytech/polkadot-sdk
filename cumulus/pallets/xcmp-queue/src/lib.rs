@@ -874,9 +874,12 @@ impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 	}
 }
 
+/// The encoding of the XCM messages in an XCMP page.
 #[derive(Copy, Clone)]
 enum XcmEncoding {
+	/// Simple encoding
 	Simple,
+	/// Double encoding
 	Double,
 }
 
