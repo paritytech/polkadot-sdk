@@ -101,9 +101,9 @@ where
 		let para_slot_from_relay =
 			Slot::from_timestamp(relay_chain_timestamp.into(), para_slot_duration);
 
-		if *para_slot > *para_slot_from_relay {
+		if *para_slot != *para_slot_from_relay {
 			panic!(
-				"Parachain slot is too far in the future: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
+				"Parachain slot must match relay-derived slot: parachain_slot={:?}, derived_from_relay_slot={:?} velocity={:?}, relay_chain_slot={:?}",
 				para_slot,
 				para_slot_from_relay,
 				velocity,
