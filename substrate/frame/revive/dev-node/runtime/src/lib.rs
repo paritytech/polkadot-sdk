@@ -317,7 +317,6 @@ impl pallet_transaction_payment::Config for Runtime {
 
 parameter_types! {
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
-	pub TxPaymentHoldReason: Option<RuntimeHoldReason> = Some(pallet_transaction_payment::HoldReason::Payment.into());
 }
 
 #[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
@@ -330,7 +329,6 @@ impl pallet_revive::Config for Runtime {
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
-	type DepositSource = TxPaymentHoldReason;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive!(
