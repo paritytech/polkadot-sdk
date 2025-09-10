@@ -263,7 +263,7 @@ jobs:
 
   post_to_matrix:
     runs-on: ubuntu-latest
-    needs: [ validate-inputs, publish-release-draft ]
+    needs: [ validate-inputs, publish-release-draft, publish-runtimes, publish-release-artifacts ]
     environment: release
     strategy:
       matrix:
