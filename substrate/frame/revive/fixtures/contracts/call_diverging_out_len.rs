@@ -60,12 +60,13 @@ fn assert_call<const N: usize>(callee_address: &[u8; 20], expected_output: [u8; 
 fn assert_instantiate<const N: usize>(expected_output: [u8; BUF_SIZE]) {
 	let mut output_buf1 = [0u8; 32];
 	let output1 = &mut &mut output_buf1[..];
-	let _ = api::delegate_call(
-		uapi::CallFlags::empty(),
+	let _ = api::call(
+		uapi::CallFlags::READ_ONLY,
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // Value transferred to the contract.
 		&uapi::solidity_selector("ownCodeHash()"),
 		Some(output1),
 	).unwrap();
