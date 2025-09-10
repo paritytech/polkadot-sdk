@@ -32,6 +32,10 @@ construct_runtime! {
 		System: frame_system,
 		Balances: pallet_balances,
 
+		// NOTE: the validator set is given by pallet-staking to rc-client on-init, and rc-client
+		// will not send it immediately, but rather store it and sends it over on its own next
+		// on-init call. Yet, because staking comes first here, its on-init is called before
+		// rc-client, so under normal conditions, the message is sent immediately.
 		Staking: pallet_staking_async,
 		RcClient: pallet_staking_async_rc_client,
 
@@ -365,13 +369,33 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = DeliverToRelay;
 	type RelayChainOrigin = EnsureRoot<AccountId>;
+	type MaxValidatorSetRetries = ConstU32<3>;
+}
+
+parameter_types! {
+	pub static NextRelayDeliveryFails: bool = false;
 }
 
 pub struct DeliverToRelay;
+
+impl DeliverToRelay {
+	fn ensure_delivery_guard() -> Result<(), ()> {
+		// `::take` will set it back to the default value, `false`.
+		if NextRelayDeliveryFails::take() {
+			Err(())
+		} else {
+			Ok(())
+		}
+	}
+}
+
 impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 	type AccountId = AccountId;
 
-	fn validator_set(report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(
+		report: pallet_staking_async_rc_client::ValidatorSetReport<Self::AccountId>,
+	) -> Result<(), ()> {
+		Self::ensure_delivery_guard()?;
 		if let Some(mut local_queue) = LocalQueue::get() {
 			local_queue.push((System::block_number(), OutgoingMessages::ValidatorSet(report)));
 			LocalQueue::set(Some(local_queue));
@@ -386,6 +410,7 @@ impl pallet_staking_async_rc_client::SendToRelayChain for DeliverToRelay {
 				.unwrap();
 			});
 		}
+		Ok(())
 	}
 }
 
