@@ -172,7 +172,7 @@ where
 	/// with a block number higher than the target.
 	///
 	/// Returns the removed leaves.
-	pub fn revert(&mut self, best_hash: H, best_number: N) -> Vec<(H, N)> {
+	pub fn revert(&mut self, best_hash: H, best_number: N) -> impl Iterator<Item = (H, N)> {
 		let items = self
 			.storage
 			.iter()
@@ -188,19 +188,19 @@ where
 			}
 		}
 
-		let best_number = Reverse(best_number);
+		let best_number_rev = Reverse(best_number);
 		let leaves_contains_best = self
 			.storage
-			.get(&best_number)
+			.get(&best_number_rev)
 			.map_or(false, |hashes| hashes.contains(&best_hash));
 
 		// We need to make sure that the best block exists in the leaf set as
 		// this is an invariant of regular block import.
 		if !leaves_contains_best {
-			self.insert_leaf(best_number, best_hash.clone());
+			self.insert_leaf(best_number_rev, best_hash.clone());
 		}
 
-		items
+		items.into_iter().filter(move |(_, n)| *n > best_number)
 	}
 
 	/// Returns an iterator over all hashes in the leaf set

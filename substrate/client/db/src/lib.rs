@@ -2360,12 +2360,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 							if let Some((hash, _)) = self.blockchain.info().finalized_state {
 								if hash == hash_to_revert {
 									if !number_to_revert.is_zero() &&
-										self.have_state_at(
-											prev_hash,
-											number_to_revert - One::one(),
-										) {
+										self.have_state_at(prev_hash, prev_number)
+									{
 										let lookup_key = utils::number_and_hash_to_lookup_key(
-											number_to_revert - One::one(),
+											prev_number,
 											prev_hash,
 										)?;
 										transaction.set_from_vec(
