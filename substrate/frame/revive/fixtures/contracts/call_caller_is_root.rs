@@ -33,7 +33,7 @@ pub extern "C" fn deploy() {}
 pub extern "C" fn call() {
 	let mut output = [0u8; 32];
 	let _ = api::call(
-		uapi::CallFlags::empty(),
+		uapi::CallFlags::READ_ONLY,
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.

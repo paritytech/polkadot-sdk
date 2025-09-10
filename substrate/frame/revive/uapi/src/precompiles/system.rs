@@ -20,7 +20,7 @@
 #[cfg(feature = "precompiles-sol-interfaces")]
 use alloy_core::sol;
 
-/// The contract address for the System pre-compile.
+/// Address for the System pre-compile.
 pub const SYSTEM_PRECOMPILE_ADDR: [u8; 20] =
 	hex_literal::hex!("0000000000000000000000000000000000000900");
 
