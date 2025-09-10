@@ -66,32 +66,32 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 	) -> Result<Vec<u8>, Error> {
 				log::info!(">>>>>>>>>>>>>called precompile call");
 		use ISystem::ISystemCalls;
-		// match input {
-		// 	ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-		// 		env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
-		// 		let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
-		// 		Ok(output.to_vec())
-		// 	},
-		// 	ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-		// 		env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
-		// 		let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
-		// 		Ok(output.to_vec())
-		// 	},
-		// 	ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-		// 		use crate::address::AddressMapper;
-		// 		use codec::Encode;
-		// 		env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
-		// 		let account_id =
-		// 			T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
-		// 		Ok(account_id.encode())
-		// 	},
-        //     // terminate requires contract info; route to call_with_info by returning an error here
-        //     ISystemCalls::terminate(_) => {
-		// 		log::error!("system.rs precompile call() for terminate is not implemented");
-		// 		unimplemented!("not implemented")
-		// 	},
-        // }
-		Ok(Vec::new())
+		match input {
+			ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+				let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
+				Ok(output.to_vec())
+			},
+			ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
+				env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+				let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
+				Ok(output.to_vec())
+			},
+			ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
+				use crate::address::AddressMapper;
+				use codec::Encode;
+				env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+				let account_id =
+					T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
+				Ok(account_id.encode())
+			},
+            // terminate requires contract info; route to call_with_info by returning an error here
+            ISystemCalls::terminate(_) => {
+				log::error!("system.rs precompile call() for terminate is not implemented");
+				unimplemented!("not implemented")
+			},
+        }
+		// Ok(Vec::new())
 	}
 
     // implement the contract-info aware entrypoint
@@ -102,38 +102,38 @@ impl<T: Config> BuiltinPrecompile for System<T> {
     ) -> Result<Vec<u8>, Error> {
 				log::info!("called precompile call_with_info");
         use ISystem::ISystemCalls;
-        // match input {
-        //     ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
-        //         env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
-        //         let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
-        //         Ok(output.to_vec())
-        //     },
-        //     ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
-        //         env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
-        //         let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
-        //         Ok(output.to_vec())
-        //     },
-        //     ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
-        //         use crate::address::AddressMapper;
-        //         use codec::Encode;
-        //         env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
-        //         let account_id =
-        //             T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
-        //         Ok(account_id.encode())
-        //     },
-        //     ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
-		// 		log::info!("called precompile terminate {:?}", beneficiary);
-        //         // charge termination cost
-        //         env.gas_meter_mut().charge(RuntimeCosts::Terminate{ code_removed: true })?;
-        //         // beneficiary is 20 bytes; convert to H160
-        //         let h160 = H160::from_slice(beneficiary.as_slice());
-        //         // call into exec layer to terminate the contract; allow_from_outside_tx = true
-        //         // `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From if available.
-        //         env.terminate(&h160, true)?;
-        //         Ok(Vec::new())
-        //     },
-        // }
-		Ok(Vec::new())
+        match input {
+            ISystemCalls::hashBlake256(ISystem::hashBlake256Call { input }) => {
+                env.gas_meter_mut().charge(RuntimeCosts::HashBlake256(input.len() as u32))?;
+                let output = sp_io::hashing::blake2_256(input.as_bytes_ref());
+                Ok(output.to_vec())
+            },
+            ISystemCalls::hashBlake128(ISystem::hashBlake128Call { input }) => {
+                env.gas_meter_mut().charge(RuntimeCosts::HashBlake128(input.len() as u32))?;
+                let output = sp_io::hashing::blake2_128(input.as_bytes_ref());
+                Ok(output.to_vec())
+            },
+            ISystemCalls::toAccountId(ISystem::toAccountIdCall { input }) => {
+                use crate::address::AddressMapper;
+                use codec::Encode;
+                env.gas_meter_mut().charge(RuntimeCosts::ToAccountId)?;
+                let account_id =
+                    T::AddressMapper::to_account_id(&crate::H160::from_slice(input.as_slice()));
+                Ok(account_id.encode())
+            },
+            ISystemCalls::terminate(ISystem::terminateCall { beneficiary }) => {
+				log::info!("called precompile terminate {:?}", beneficiary);
+                // charge termination cost
+                env.gas_meter_mut().charge(RuntimeCosts::Terminate{ code_removed: true })?;
+                // beneficiary is 20 bytes; convert to H160
+                let h160 = H160::from_slice(beneficiary.as_slice());
+                // call into exec layer to terminate the contract; allow_from_outside_tx = true
+                // `terminate` returns Result<CodeRemoved, DispatchError>, `?` will convert via From if available.
+                env.terminate(&h160, true)?;
+                Ok(Vec::new())
+            },
+        }
+		// Ok(Vec::new())
     }
 }
 
