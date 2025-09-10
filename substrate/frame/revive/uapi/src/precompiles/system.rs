@@ -63,8 +63,7 @@ sol! {
 		/// Returns the code hash of the currently executing contract.
 		function ownCodeHash() external view returns (bytes32);
 
-		/// Returns the amount of weight left.
-		/// The data is encoded as `Weight`.
+		/// Returns the amount of `Weight` left.
 		function weightLeft() external view returns (uint64 refTime, uint64 proofSize);
 	}
 }
