@@ -180,6 +180,9 @@ jobs:
       - name: Install protobuf
         run: brew install protobuf
 
+      - name: Install solc
+        run: brew install solidity
+
       - name: Install llvm
         run: |
           brew install llvm@21
