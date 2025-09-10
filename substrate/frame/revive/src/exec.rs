@@ -1526,7 +1526,7 @@ where
 
 			Ok(())
 		}
-		
+
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(());
