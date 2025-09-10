@@ -131,7 +131,7 @@
 //! ## Current limitations
 //!
 //! ### Maximum execution time per relay chain block.
-
+//!
 //! Since parachain block authoring is sequential, the next block can only be built after
 //! the previous one has been imported.
 //! At present, a core allows up to 2 seconds of execution per relay chain block.
