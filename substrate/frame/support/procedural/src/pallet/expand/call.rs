@@ -540,6 +540,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 									#frame_support::__private::sp_tracing::trace_span!(stringify!(#fn_name))
 								);
 								#maybe_allow_attrs
+								#[allow(clippy::useless_conversion)]
 								<#pallet_ident<#type_use_gen>>::#fn_name(origin, #( #args_name, )* )
 									.map(Into::into).map_err(Into::into)
 							},

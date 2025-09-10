@@ -18,7 +18,7 @@ use crate::{
 	evm::{decode_revert_reason, CallLog, CallTrace, CallTracerConfig, CallType},
 	primitives::ExecReturnValue,
 	tracing::Tracing,
-	DispatchError, Weight,
+	Code, DispatchError, Weight,
 };
 use alloc::{format, string::ToString, vec::Vec};
 use sp_core::{H160, H256, U256};
@@ -32,6 +32,8 @@ pub struct CallTracer<Gas, GasMapper> {
 	traces: Vec<CallTrace<Gas>>,
 	/// Stack of indices to the current active traces.
 	current_stack: Vec<usize>,
+	/// The code and salt used to instantiate the next contract.
+	code_with_salt: Option<(Code, bool)>,
 	/// The tracer configuration.
 	config: CallTracerConfig,
 }
@@ -39,7 +41,13 @@ pub struct CallTracer<Gas, GasMapper> {
 impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	/// Create a new [`CallTracer`] instance.
 	pub fn new(config: CallTracerConfig, gas_mapper: GasMapper) -> Self {
-		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), config }
+		Self {
+			gas_mapper,
+			traces: Vec::new(),
+			code_with_salt: None,
+			current_stack: Vec::new(),
+			config,
+		}
 	}
 
 	/// Collect the traces and return them.
@@ -49,6 +57,10 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 }
 
 impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, GasMapper> {
+	fn instantiate_code(&mut self, code: &Code, salt: Option<&[u8; 32]>) {
+		self.code_with_salt = Some((code.clone(), salt.is_some()));
+	}
+
 	fn enter_child_span(
 		&mut self,
 		from: H160,
@@ -60,12 +72,28 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		gas_left: Weight,
 	) {
 		if self.traces.is_empty() || !self.config.only_top_call {
-			let call_type = if is_read_only {
-				CallType::StaticCall
-			} else if is_delegate_call {
-				CallType::DelegateCall
-			} else {
-				CallType::Call
+			let (call_type, input) = match self.code_with_salt.take() {
+				Some((Code::Upload(v), salt)) => (
+					if salt { CallType::Create2 } else { CallType::Create },
+					v.into_iter().chain(input.to_vec().into_iter()).collect::<Vec<_>>(),
+				),
+				Some((Code::Existing(v), salt)) => (
+					if salt { CallType::Create2 } else { CallType::Create },
+					v.to_fixed_bytes()
+						.into_iter()
+						.chain(input.to_vec().into_iter())
+						.collect::<Vec<_>>(),
+				),
+				None => {
+					let call_type = if is_read_only {
+						CallType::StaticCall
+					} else if is_delegate_call {
+						CallType::DelegateCall
+					} else {
+						CallType::Call
+					};
+					(call_type, input.to_vec())
+				},
 			};
 
 			self.traces.push(CallTrace {
@@ -73,7 +101,7 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 				to,
 				value: if is_read_only { None } else { Some(value) },
 				call_type,
-				input: input.to_vec().into(),
+				input: input.into(),
 				gas: (self.gas_mapper)(gas_left),
 				..Default::default()
 			});
@@ -102,6 +130,8 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 	}
 
 	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
+		self.code_with_salt = None;
+
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 
@@ -126,6 +156,8 @@ impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracing for CallTracer<Gas, Gas
 		}
 	}
 	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
+		self.code_with_salt = None;
+
 		// Set the output of the current trace
 		let current_index = self.current_stack.pop().unwrap();
 

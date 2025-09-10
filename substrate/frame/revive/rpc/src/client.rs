@@ -28,7 +28,11 @@ use crate::{
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
 	TracerType, TransactionInfo, LOG_TARGET,
 };
-use jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned};
+use jsonrpsee::{
+	core::traits::ToRpcParams,
+	rpc_params,
+	types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
+};
 use pallet_revive::{
 	evm::{
 		decode_revert_reason, Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult,
@@ -48,8 +52,7 @@ use subxt::{
 			RpcClient,
 		},
 	},
-	config::Header,
-	error::RpcError,
+	config::{HashFor, Header},
 	Config, OnlineClient,
 };
 use thiserror::Error;
@@ -64,7 +67,7 @@ pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
 pub type SubstrateBlockNumber = <SubstrateBlockHeader as Header>::Number;
 
 /// The substrate block hash type.
-pub type SubstrateBlockHash = <SrcChainConfig as Config>::Hash;
+pub type SubstrateBlockHash = HashFor<SrcChainConfig>;
 
 /// The runtime balance type.
 pub type Balance = u128;
@@ -78,22 +81,6 @@ pub enum SubscriptionType {
 	FinalizedBlocks,
 }
 
-/// Unwrap the original `jsonrpsee::core::client::Error::Call` error.
-fn unwrap_call_err(err: &subxt::error::RpcError) -> Option<ErrorObjectOwned> {
-	use subxt::backend::rpc::reconnecting_rpc_client;
-	match err {
-		subxt::error::RpcError::ClientError(err) => {
-			match err.downcast_ref::<reconnecting_rpc_client::Error>() {
-				Some(reconnecting_rpc_client::Error::RpcError(
-					jsonrpsee::core::client::Error::Call(err),
-				)) => Some(err.clone().into_owned()),
-				_ => None,
-			}
-		},
-		_ => None,
-	}
-}
-
 /// The error type for the client.
 #[derive(Error, Debug)]
 pub enum ClientError {
@@ -103,9 +90,8 @@ pub enum ClientError {
 	/// A [`subxt::Error`] wrapper error.
 	#[error(transparent)]
 	SubxtError(#[from] subxt::Error),
-	/// A [`RpcError`] wrapper error.
 	#[error(transparent)]
-	RpcError(#[from] RpcError),
+	RpcError(#[from] subxt::ext::subxt_rpcs::Error),
 	/// A [`sqlx::Error`] wrapper error.
 	#[error(transparent)]
 	SqlxError(#[from] sqlx::Error),
@@ -144,16 +130,11 @@ const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
 	fn from(err: ClientError) -> Self {
 		match err {
-			ClientError::SubxtError(subxt::Error::Rpc(err)) | ClientError::RpcError(err) => {
-				if let Some(err) = unwrap_call_err(&err) {
-					return err;
-				}
-				ErrorObjectOwned::owned::<Vec<u8>>(
-					CALL_EXECUTION_FAILED_CODE,
-					err.to_string(),
-					None,
-				)
-			},
+			ClientError::SubxtError(subxt::Error::Rpc(subxt::error::RpcError::ClientError(
+				subxt::ext::subxt_rpcs::Error::User(err),
+			))) |
+			ClientError::RpcError(subxt::ext::subxt_rpcs::Error::User(err)) =>
+				ErrorObjectOwned::owned::<Vec<u8>>(err.code, err.message, None),
 			ClientError::TransactError(EthTransactError::Data(data)) => {
 				let msg = match decode_revert_reason(&data) {
 					Some(reason) => format!("execution reverted: {reason}"),
@@ -314,12 +295,12 @@ impl Client {
 					if err.is_disconnected_will_reconnect() {
 						log::warn!(
 							target: LOG_TARGET,
-							"The RPC connection was lost and we may have missed a few blocks"
+							"The RPC connection was lost and we may have missed a few blocks ({subscription_type:?}): {err:?}"
 						);
 						continue;
 					}
 
-					log::error!(target: LOG_TARGET, "Failed to fetch block: {err:?}");
+					log::error!(target: LOG_TARGET, "Failed to fetch block ({subscription_type:?}): {err:?}");
 					return Err(err.into());
 				},
 			};
@@ -338,44 +319,41 @@ impl Client {
 	}
 
 	/// Start the block subscription, and populate the block cache.
-	pub async fn subscribe_and_cache_new_blocks(&self, subscription_type: SubscriptionType) {
+	pub async fn subscribe_and_cache_new_blocks(
+		&self,
+		subscription_type: SubscriptionType,
+	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
-		let res = self
-			.subscribe_new_blocks(subscription_type, |block| async {
-				let (signed_txs, receipts): (Vec<_>, Vec<_>) =
-					self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
+		self.subscribe_new_blocks(subscription_type, |block| async {
+			let (signed_txs, receipts): (Vec<_>, Vec<_>) =
+				self.receipt_provider.insert_block_receipts(&block).await?.into_iter().unzip();
 
-				let evm_block =
-					self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
-				self.block_provider.update_latest(block, subscription_type).await;
+			let evm_block =
+				self.evm_block_from_receipts(&block, &receipts, signed_txs, false).await;
+			self.block_provider.update_latest(block, subscription_type).await;
 
-				self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
-				Ok(())
-			})
-			.await;
-
-		if let Err(err) = res {
-			log::error!(target: LOG_TARGET, "Block subscription error: {err:?}");
-		}
+			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
+			Ok(())
+		})
+		.await
 	}
 
 	/// Cache old blocks up to the given block number.
-	pub async fn subscribe_and_cache_blocks(&self, index_last_n_blocks: SubstrateBlockNumber) {
+	pub async fn subscribe_and_cache_blocks(
+		&self,
+		index_last_n_blocks: SubstrateBlockNumber,
+	) -> Result<(), ClientError> {
 		let last = self.latest_block().await.number().saturating_sub(1);
 		let range = last.saturating_sub(index_last_n_blocks)..last;
 		log::info!(target: LOG_TARGET, "🗄️ Indexing past blocks in range {range:?}");
-		let res = self
-			.subscribe_past_blocks(range, |block| async move {
-				self.receipt_provider.insert_block_receipts(&block).await?;
-				Ok(())
-			})
-			.await;
+		self.subscribe_past_blocks(range, |block| async move {
+			self.receipt_provider.insert_block_receipts(&block).await?;
+			Ok(())
+		})
+		.await?;
 
-		if let Err(err) = res {
-			log::error!(target: LOG_TARGET, "Past Block subscription error: {err:?}");
-		} else {
-			log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
-		}
+		log::info!(target: LOG_TARGET, "🗄️ Finished indexing past blocks");
+		Ok(())
 	}
 
 	/// Get the block hash for the given block number or tag.
@@ -384,8 +362,8 @@ impl Client {
 		at: BlockNumberOrTagOrHash,
 	) -> Result<SubstrateBlockHash, ClientError> {
 		match at {
-			BlockNumberOrTagOrHash::H256(hash) => Ok(hash),
-			BlockNumberOrTagOrHash::U256(block_number) => {
+			BlockNumberOrTagOrHash::BlockHash(hash) => Ok(hash),
+			BlockNumberOrTagOrHash::BlockNumber(block_number) => {
 				let n: SubstrateBlockNumber =
 					(block_number).try_into().map_err(|_| ClientError::ConversionFailed)?;
 				let hash = self.get_block_hash(n).await?.ok_or(ClientError::BlockNotFound)?;
@@ -553,11 +531,8 @@ impl Client {
 		>,
 		ClientError,
 	> {
-		let res = self
-			.rpc_client
-			.request("chain_getBlock".to_string(), subxt::rpc_params![block_hash].build())
-			.await
-			.unwrap();
+		let params = rpc_params![block_hash].to_rpc_params().unwrap_or_default();
+		let res = self.rpc_client.request("chain_getBlock".to_string(), params).await.unwrap();
 
 		let signed_block: sp_runtime::generic::SignedBlock<
 			sp_runtime::generic::Block<
@@ -620,10 +595,10 @@ impl Client {
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
-		block: BlockNumberOrTag,
+		block: BlockNumberOrTagOrHash,
 		config: TracerType,
 	) -> Result<Trace, ClientError> {
-		let block_hash = self.block_hash_for_tag(block.into()).await?;
+		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
 		runtime_api.trace_call(transaction, config.clone()).await
 	}
@@ -659,6 +634,7 @@ impl Client {
 
 		let header = block.header();
 		let timestamp = extract_block_timestamp(block).await.unwrap_or_default();
+		let block_author = runtime_api.block_author().await.ok().flatten().unwrap_or_default();
 
 		// TODO: remove once subxt is updated
 		let parent_hash = header.parent_hash.0.into();
@@ -685,11 +661,11 @@ impl Client {
 			hash: block.hash(),
 			parent_hash,
 			state_root,
+			miner: block_author,
 			transactions_root: extrinsics_root,
 			number: header.number.into(),
 			timestamp: timestamp.into(),
-			difficulty: Some(0u32.into()),
-			base_fee_per_gas: runtime_api.gas_price().await.ok(),
+			base_fee_per_gas: runtime_api.gas_price().await.ok().unwrap_or_default(),
 			gas_limit,
 			gas_used,
 			receipts_root: extrinsics_root,

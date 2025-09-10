@@ -136,6 +136,9 @@ fn prepaid_result_of_query_should_get_free_execution() {
 	);
 	assert_eq!(
 		r,
-		Outcome::Incomplete { used: Weight::from_parts(10, 10), error: XcmError::Barrier }
+		Outcome::Incomplete {
+			used: Weight::from_parts(10, 10),
+			error: InstructionError { index: 0, error: XcmError::Barrier },
+		}
 	);
 }

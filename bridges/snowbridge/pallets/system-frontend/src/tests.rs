@@ -26,10 +26,15 @@ fn register_token() {
 			decimals: 12,
 		};
 
+		let ether_location = Ether::get();
+		let fee_amount = 1000;
+		let asset = Asset::from((ether_location.clone(), fee_amount));
+
 		assert_ok!(EthereumSystemFrontend::register_token(
 			origin.clone(),
 			asset_id.clone(),
-			asset_metadata.clone()
+			asset_metadata.clone(),
+			asset.clone(),
 		));
 	});
 }
@@ -46,11 +51,14 @@ fn register_token_fails_delivery_fees_not_met() {
 			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
 			decimals: 12,
 		};
+		let ether_location = Ether::get();
+		let fee_amount = 1000;
+		let asset = Asset::from((ether_location.clone(), fee_amount));
 
 		set_charge_fees_override(|_, _| Err(XcmError::FeesNotMet));
 
 		assert_err!(
-			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata),
+			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, asset.clone()),
 			Error::<Test>::FeesNotMet,
 		);
 	});
@@ -68,6 +76,9 @@ fn register_token_fails_unroutable() {
 			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
 			decimals: 12,
 		};
+		let ether_location = Ether::get();
+		let fee_amount = 1000;
+		let asset = Asset::from((ether_location.clone(), fee_amount));
 
 		// Send XCM with overrides for `SendXcm` behavior to return `Unroutable` error on
 		// validate
@@ -79,7 +90,8 @@ fn register_token_fails_unroutable() {
 			EthereumSystemFrontend::register_token(
 				origin.clone(),
 				asset_id.clone(),
-				asset_metadata.clone()
+				asset_metadata.clone(),
+				asset.clone(),
 			),
 			Error::<Test>::SendFailure
 		);
@@ -92,7 +104,7 @@ fn register_token_fails_unroutable() {
 		);
 
 		assert_err!(
-			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata),
+			EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, asset.clone()),
 			Error::<Test>::SendFailure
 		);
 	});
@@ -114,11 +126,15 @@ fn test_switch_operating_mode() {
 			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
 			decimals: 12,
 		};
+		let ether_location = Ether::get();
+		let fee_amount = 1000;
+		let asset = Asset::from((ether_location.clone(), fee_amount));
 		assert_noop!(
 			EthereumSystemFrontend::register_token(
 				origin.clone(),
 				asset_id.clone(),
-				asset_metadata.clone()
+				asset_metadata.clone(),
+				asset.clone(),
 			),
 			crate::Error::<Test>::Halted
 		);
@@ -126,7 +142,7 @@ fn test_switch_operating_mode() {
 			RawOrigin::Root.into(),
 			BasicOperatingMode::Normal,
 		));
-		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata),);
+		assert_ok!(EthereumSystemFrontend::register_token(origin, asset_id, asset_metadata, asset));
 	});
 }
 
@@ -247,5 +263,30 @@ fn tip_fails_due_to_swap_error() {
 			EthereumSystemFrontend::add_tip(RuntimeOrigin::signed(who), message_id, asset),
 			Other("Swap failed for test")
 		);
+	});
+}
+
+#[test]
+fn register_token_with_non_ether_fee_asset_succeeds() {
+	new_test_ext().execute_with(|| {
+		let origin_location = Location::new(1, [Parachain(2000)]);
+		let origin = make_xcm_origin(origin_location.clone());
+		let asset_location: Location = Location::new(1, [Parachain(2000), GeneralIndex(1)]);
+		let asset_id = Box::new(VersionedLocation::from(asset_location));
+		let asset_metadata = AssetMetadata {
+			name: "pal".as_bytes().to_vec().try_into().unwrap(),
+			symbol: "pal".as_bytes().to_vec().try_into().unwrap(),
+			decimals: 12,
+		};
+
+		let fee_amount = 1000;
+		let fee_asset = Asset::from((Location::parent(), fee_amount));
+
+		assert_ok!(EthereumSystemFrontend::register_token(
+			origin.clone(),
+			asset_id.clone(),
+			asset_metadata.clone(),
+			fee_asset.clone(),
+		));
 	});
 }

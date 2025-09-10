@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rococo_system_emulated_network::rococo_emulated_chain::rococo_runtime::Dmp;
-
 use super::reserve_transfer::*;
 use crate::{
 	imports::*,

@@ -23,6 +23,9 @@ use std::{
 	time::Instant,
 };
 
+use crate::tests::{create_spawner, test_config};
+
+use super::*;
 use futures::{
 	channel::mpsc::{self, channel},
 	executor::{block_on, LocalPool},
@@ -45,8 +48,6 @@ use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
 use substrate_test_runtime_client::runtime::Block;
-
-use super::*;
 
 #[derive(Clone)]
 pub(crate) struct TestApi {
@@ -309,8 +310,8 @@ fn build_dht_event<Signer: NetworkSigner>(
 	kv_pairs
 }
 
-#[test]
-fn new_registers_metrics() {
+#[tokio::test]
+async fn new_registers_metrics() {
 	let (_dht_event_tx, dht_event_rx) = mpsc::channel(1000);
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 	let key_store = MemoryKeystore::new();
@@ -318,6 +319,8 @@ fn new_registers_metrics() {
 
 	let registry = prometheus_endpoint::Registry::new();
 
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let (_to_worker, from_service) = mpsc::channel(0);
 	Worker::new(
 		from_service,
@@ -326,14 +329,15 @@ fn new_registers_metrics() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		Some(registry.clone()),
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	assert!(registry.gather().len() > 0);
 }
 
-#[test]
-fn triggers_dht_get_query() {
+#[tokio::test]
+async fn triggers_dht_get_query() {
 	sp_tracing::try_init_simple();
 	let (_dht_event_tx, dht_event_rx) = channel(1000);
 
@@ -348,6 +352,8 @@ fn triggers_dht_get_query() {
 	let key_store = MemoryKeystore::new();
 
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		test_api,
@@ -355,7 +361,8 @@ fn triggers_dht_get_query() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	futures::executor::block_on(async {
@@ -365,8 +372,8 @@ fn triggers_dht_get_query() {
 	})
 }
 
-#[test]
-fn publish_discover_cycle() {
+#[tokio::test]
+async fn publish_discover_cycle() {
 	sp_tracing::try_init_simple();
 
 	let mut pool = LocalPool::new();
@@ -378,7 +385,6 @@ fn publish_discover_cycle() {
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 
 	let key_store = MemoryKeystore::new();
-
 	let _ = pool.spawner().spawn_local_obj(
 		async move {
 			let node_a_public =
@@ -386,6 +392,9 @@ fn publish_discover_cycle() {
 			let test_api = Arc::new(TestApi { authorities: vec![node_a_public.into()] });
 
 			let (_to_worker, from_service) = mpsc::channel(0);
+			let tempdir = tempfile::tempdir().unwrap();
+			let temppath = tempdir.path();
+			let path = temppath.to_path_buf();
 			let mut worker = Worker::new(
 				from_service,
 				test_api,
@@ -393,7 +402,8 @@ fn publish_discover_cycle() {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(key_store.into()),
 				None,
-				Default::default(),
+				test_config(Some(path)),
+				create_spawner(),
 			);
 
 			worker.publish_ext_addresses(false).await.unwrap();
@@ -420,6 +430,9 @@ fn publish_discover_cycle() {
 			let key_store = MemoryKeystore::new();
 
 			let (_to_worker, from_service) = mpsc::channel(0);
+			let tempdir = tempfile::tempdir().unwrap();
+			let temppath = tempdir.path();
+			let path = temppath.to_path_buf();
 			let mut worker = Worker::new(
 				from_service,
 				test_api,
@@ -427,7 +440,8 @@ fn publish_discover_cycle() {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(key_store.into()),
 				None,
-				Default::default(),
+				test_config(Some(path)),
+				create_spawner(),
 			);
 
 			dht_event_tx.try_send(dht_event.clone()).unwrap();
@@ -447,12 +461,13 @@ fn publish_discover_cycle() {
 
 /// Don't terminate when sender side of service channel is dropped. Terminate when network event
 /// stream terminates.
-#[test]
-fn terminate_when_event_stream_terminates() {
+#[tokio::test]
+async fn terminate_when_event_stream_terminates() {
 	let (dht_event_tx, dht_event_rx) = channel(1000);
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 	let key_store = MemoryKeystore::new();
 	let test_api = Arc::new(TestApi { authorities: vec![] });
+	let path = tempfile::tempdir().unwrap().path().to_path_buf();
 
 	let (to_worker, from_service) = mpsc::channel(0);
 	let worker = Worker::new(
@@ -462,7 +477,8 @@ fn terminate_when_event_stream_terminates() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(key_store.into()),
 		None,
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	)
 	.run();
 	futures::pin_mut!(worker);
@@ -492,8 +508,8 @@ fn terminate_when_event_stream_terminates() {
 	});
 }
 
-#[test]
-fn dont_stop_polling_dht_event_stream_after_bogus_event() {
+#[tokio::test]
+async fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 	let remote_multiaddr = {
 		let peer_id = PeerId::random();
 		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
@@ -518,6 +534,8 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 	let mut pool = LocalPool::new();
 
 	let (mut to_worker, from_service) = mpsc::channel(1);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		test_api,
@@ -525,7 +543,8 @@ fn dont_stop_polling_dht_event_stream_after_bogus_event() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(Arc::new(key_store)),
 		None,
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	// Spawn the authority discovery to make sure it is polled independently.
@@ -652,7 +671,17 @@ impl DhtValueFoundTester {
 				Box::pin(dht_event_rx),
 				Role::PublishAndDiscover(Arc::new(local_key_store)),
 				None,
-				WorkerConfig { strict_record_validation, ..Default::default() },
+				WorkerConfig {
+					strict_record_validation,
+					persisted_cache_directory: Some(
+						tempfile::tempdir()
+							.expect("Should be able to create tmp dir")
+							.path()
+							.to_path_buf(),
+					),
+					..Default::default()
+				},
+				create_spawner(),
 			));
 			(self.local_worker.as_mut().unwrap(), Some(local_network))
 		};
@@ -681,8 +710,8 @@ impl DhtValueFoundTester {
 	}
 }
 
-#[test]
-fn limit_number_of_addresses_added_to_cache_per_authority() {
+#[tokio::test]
+async fn limit_number_of_addresses_added_to_cache_per_authority() {
 	let mut tester = DhtValueFoundTester::new();
 	assert!(MAX_ADDRESSES_PER_AUTHORITY < 100);
 	let addresses = (1..100).map(|i| tester.multiaddr_with_peer_id(i)).collect();
@@ -698,8 +727,8 @@ fn limit_number_of_addresses_added_to_cache_per_authority() {
 	assert_eq!(MAX_ADDRESSES_PER_AUTHORITY, cached_remote_addresses.unwrap().len());
 }
 
-#[test]
-fn strict_accept_address_with_peer_signature() {
+#[tokio::test]
+async fn strict_accept_address_with_peer_signature() {
 	let mut tester = DhtValueFoundTester::new();
 	let addr = tester.multiaddr_with_peer_id(1);
 	let kv_pairs = build_dht_event(
@@ -719,8 +748,8 @@ fn strict_accept_address_with_peer_signature() {
 	);
 }
 
-#[test]
-fn strict_accept_address_without_creation_time() {
+#[tokio::test]
+async fn strict_accept_address_without_creation_time() {
 	let mut tester = DhtValueFoundTester::new();
 	let addr = tester.multiaddr_with_peer_id(1);
 	let kv_pairs = build_dht_event(
@@ -740,8 +769,8 @@ fn strict_accept_address_without_creation_time() {
 	);
 }
 
-#[test]
-fn keep_last_received_if_no_creation_time() {
+#[tokio::test]
+async fn keep_last_received_if_no_creation_time() {
 	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
 	let addr = tester.multiaddr_with_peer_id(1);
 	let kv_pairs = build_dht_event(
@@ -787,8 +816,8 @@ fn keep_last_received_if_no_creation_time() {
 		.unwrap_or_default());
 }
 
-#[test]
-fn records_with_incorrectly_signed_creation_time_are_ignored() {
+#[tokio::test]
+async fn records_with_incorrectly_signed_creation_time_are_ignored() {
 	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
 	let addr = tester.multiaddr_with_peer_id(1);
 	let kv_pairs = build_dht_event(
@@ -841,8 +870,8 @@ fn records_with_incorrectly_signed_creation_time_are_ignored() {
 		.unwrap_or_default());
 }
 
-#[test]
-fn newer_records_overwrite_older_ones() {
+#[tokio::test]
+async fn newer_records_overwrite_older_ones() {
 	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
 	let old_record = tester.multiaddr_with_peer_id(1);
 	let kv_pairs = build_dht_event(
@@ -892,8 +921,8 @@ fn newer_records_overwrite_older_ones() {
 	assert_eq!(result.1.len(), 1);
 }
 
-#[test]
-fn older_records_dont_affect_newer_ones() {
+#[tokio::test]
+async fn older_records_dont_affect_newer_ones() {
 	let mut tester: DhtValueFoundTester = DhtValueFoundTester::new();
 	let old_record = tester.multiaddr_with_peer_id(1);
 	let old_kv_pairs = build_dht_event(
@@ -943,8 +972,8 @@ fn older_records_dont_affect_newer_ones() {
 	assert_eq!(update_peers_info.1.len(), 1);
 }
 
-#[test]
-fn reject_address_with_rogue_peer_signature() {
+#[tokio::test]
+async fn reject_address_with_rogue_peer_signature() {
 	let mut tester = DhtValueFoundTester::new();
 	let rogue_remote_node_key = Keypair::generate_ed25519();
 	let kv_pairs = build_dht_event(
@@ -963,8 +992,8 @@ fn reject_address_with_rogue_peer_signature() {
 	);
 }
 
-#[test]
-fn reject_address_with_invalid_peer_signature() {
+#[tokio::test]
+async fn reject_address_with_invalid_peer_signature() {
 	let mut tester = DhtValueFoundTester::new();
 	let mut kv_pairs = build_dht_event(
 		vec![tester.multiaddr_with_peer_id(1)],
@@ -986,8 +1015,8 @@ fn reject_address_with_invalid_peer_signature() {
 	);
 }
 
-#[test]
-fn reject_address_without_peer_signature() {
+#[tokio::test]
+async fn reject_address_without_peer_signature() {
 	let mut tester = DhtValueFoundTester::new();
 	let kv_pairs = build_dht_event::<TestNetwork>(
 		vec![tester.multiaddr_with_peer_id(1)],
@@ -1002,8 +1031,8 @@ fn reject_address_without_peer_signature() {
 	assert!(cached_remote_addresses.is_none(), "Expected worker to ignore unsigned record.",);
 }
 
-#[test]
-fn do_not_cache_addresses_without_peer_id() {
+#[tokio::test]
+async fn do_not_cache_addresses_without_peer_id() {
 	let mut tester = DhtValueFoundTester::new();
 	let multiaddr_with_peer_id = tester.multiaddr_with_peer_id(1);
 	let multiaddr_without_peer_id: Multiaddr =
@@ -1025,8 +1054,8 @@ fn do_not_cache_addresses_without_peer_id() {
 	);
 }
 
-#[test]
-fn addresses_to_publish_adds_p2p() {
+#[tokio::test]
+async fn addresses_to_publish_adds_p2p() {
 	let (_dht_event_tx, dht_event_rx) = channel(1000);
 	let network: Arc<TestNetwork> = Arc::new(Default::default());
 
@@ -1036,6 +1065,8 @@ fn addresses_to_publish_adds_p2p() {
 	));
 
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
@@ -1043,7 +1074,8 @@ fn addresses_to_publish_adds_p2p() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	assert!(
@@ -1057,8 +1089,8 @@ fn addresses_to_publish_adds_p2p() {
 
 /// Ensure [`Worker::addresses_to_publish`] does not add an additional `p2p` protocol component in
 /// case one already exists.
-#[test]
-fn addresses_to_publish_respects_existing_p2p_protocol() {
+#[tokio::test]
+async fn addresses_to_publish_respects_existing_p2p_protocol() {
 	let (_dht_event_tx, dht_event_rx) = channel(1000);
 	let identity = Keypair::generate_ed25519();
 	let peer_id = identity.public().to_peer_id();
@@ -1074,6 +1106,8 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 	});
 
 	let (_to_worker, from_service) = mpsc::channel(0);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: vec![] }),
@@ -1081,7 +1115,8 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 		Box::pin(dht_event_rx),
 		Role::PublishAndDiscover(MemoryKeystore::new().into()),
 		Some(prometheus_endpoint::Registry::new()),
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	assert_eq!(
@@ -1091,8 +1126,8 @@ fn addresses_to_publish_respects_existing_p2p_protocol() {
 	);
 }
 
-#[test]
-fn lookup_throttling() {
+#[tokio::test]
+async fn lookup_throttling() {
 	let remote_multiaddr = {
 		let peer_id = PeerId::random();
 		let address: Multiaddr = "/ip6/2001:db8:0:0:0:0:0:1/tcp/30333".parse().unwrap();
@@ -1118,6 +1153,8 @@ fn lookup_throttling() {
 	let mut network = TestNetwork::default();
 	let mut receiver = network.get_event_receiver().unwrap();
 	let network = Arc::new(network);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
@@ -1125,7 +1162,8 @@ fn lookup_throttling() {
 		dht_event_rx.boxed(),
 		Role::Discover,
 		Some(default_registry().clone()),
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	let mut pool = LocalPool::new();
@@ -1201,8 +1239,8 @@ fn lookup_throttling() {
 	);
 }
 
-#[test]
-fn test_handle_put_record_request() {
+#[tokio::test]
+async fn test_handle_put_record_request() {
 	let local_node_network = TestNetwork::default();
 	let remote_node_network = TestNetwork::default();
 	let peer_id = remote_node_network.peer_id;
@@ -1236,6 +1274,8 @@ fn test_handle_put_record_request() {
 	let (_dht_event_tx, dht_event_rx) = channel(1);
 	let (_to_worker, from_service) = mpsc::channel(0);
 	let network = Arc::new(local_node_network);
+	let tempdir = tempfile::tempdir().unwrap();
+	let path = tempdir.path().to_path_buf();
 	let mut worker = Worker::new(
 		from_service,
 		Arc::new(TestApi { authorities: remote_public_keys.clone() }),
@@ -1243,7 +1283,8 @@ fn test_handle_put_record_request() {
 		dht_event_rx.boxed(),
 		Role::Discover,
 		Some(default_registry().clone()),
-		Default::default(),
+		test_config(Some(path)),
+		create_spawner(),
 	);
 
 	let mut pool = LocalPool::new();

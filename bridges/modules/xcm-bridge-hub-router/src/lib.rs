@@ -129,11 +129,11 @@ pub mod pallet {
 				return T::WeightInfo::on_initialize_when_congested();
 			}
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Bridge channel is uncongested. Decreased fee factor from {} to {}",
-				previous_factor,
-				bridge.delivery_fee_factor,
+				from=%previous_factor,
+				to=%bridge.delivery_fee_factor,
+				"Bridge channel is uncongested. Decreased fee factor"
 			);
 			Self::deposit_event(Event::DeliveryFeeFactorDecreased {
 				new_value: bridge.delivery_fee_factor,
@@ -159,11 +159,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::BridgeHubOrigin::ensure_origin(origin)?;
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"Received bridge status from {:?}: congested = {}",
-				bridge_id,
-				is_congested,
+				from=?bridge_id,
+				congested=%is_congested,
+				"Received bridge status"
 			);
 
 			Bridge::<T, I>::mutate(|bridge| {
@@ -191,9 +191,9 @@ pub mod pallet {
 
 		/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		pub(crate) fn on_message_sent_to_bridge(message_size: u32) {
-			log::trace!(
+			tracing::trace!(
 				target: LOG_TARGET,
-				"on_message_sent_to_bridge - message_size: {message_size:?}",
+				?message_size, "on_message_sent_to_bridge"
 			);
 			let _ = Bridge::<T, I>::try_mutate(|bridge| {
 				let is_channel_with_bridge_hub_congested =
@@ -213,11 +213,11 @@ pub mod pallet {
 					message_size as u128,
 				);
 
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
-					"Bridge channel is congested. Increased fee factor from {} to {}",
-					previous_factor,
-					bridge.delivery_fee_factor,
+					from=%previous_factor,
+					to=%bridge.delivery_fee_factor,
+					"Bridge channel is congested. Increased fee factor"
 				);
 				Self::deposit_event(Event::DeliveryFeeFactorIncreased {
 					new_value: bridge.delivery_fee_factor,
@@ -259,58 +259,54 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 		remote_location: &InteriorLocation,
 		message: &Xcm<()>,
 	) -> Option<(Location, Option<Asset>)> {
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}",
+			?network, ?remote_location, msg=?message, "exporter_for"
 		);
 		// ensure that the message is sent to the expected bridged network (if specified).
 		if let Some(bridged_network) = T::BridgedNetworkId::get() {
 			if *network != bridged_network {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!",
+					bridged_network_id=?bridged_network, ?network, "Router does not support bridging!"
 				);
 				return None;
 			}
 		}
 
 		// ensure that the message is sent to the expected bridged network and location.
-		let (bridge_hub_location, maybe_payment) = match T::Bridges::exporter_for(
-			network,
-			remote_location,
-			message,
-		) {
-			Some((bridge_hub_location, maybe_payment))
-				if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
-				(bridge_hub_location, maybe_payment),
-			_ => {
-				log::trace!(
-					target: LOG_TARGET,
-					"Router configured with bridged_network_id {:?} and sibling_bridge_hub_location: {:?} does not support bridging to network {:?} and remote_location {:?}!",
-					T::BridgedNetworkId::get(),
-					T::SiblingBridgeHubLocation::get(),
-					network,
-					remote_location,
-				);
-				return None;
-			},
-		};
+		let (bridge_hub_location, maybe_payment) =
+			match T::Bridges::exporter_for(network, remote_location, message) {
+				Some((bridge_hub_location, maybe_payment))
+					if bridge_hub_location.eq(&T::SiblingBridgeHubLocation::get()) =>
+					(bridge_hub_location, maybe_payment),
+				_ => {
+					tracing::trace!(
+						target: LOG_TARGET,
+						bridged_network_id=?T::BridgedNetworkId::get(),
+						sibling_bridge_hub_location=?T::SiblingBridgeHubLocation::get(),
+						?network,
+						?remote_location,
+						"Router configured does not support bridging!"
+					);
+					return None;
+				},
+			};
 
 		// take `base_fee` from `T::Brides`, but it has to be the same `T::FeeAsset`
 		let base_fee = match maybe_payment {
 			Some(payment) => match payment {
 				Asset { fun: Fungible(amount), id } if id.eq(&T::FeeAsset::get()) => amount,
 				invalid_asset => {
-					log::error!(
+					tracing::error!(
 						target: LOG_TARGET,
-						"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} \
-						which is not compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!",
-						T::BridgedNetworkId::get(),
-						T::FeeAsset::get(),
-						invalid_asset,
-						bridge_hub_location,
-						network,
-						remote_location,
+						bridged_network_id=?T::BridgedNetworkId::get(),
+						fee_asset=?T::FeeAsset::get(),
+						with=?invalid_asset,
+						?bridge_hub_location,
+						?network,
+						?remote_location,
+						"Router is configured for `T::FeeAsset` which is not compatible for bridging!"
 					);
 					return None;
 				},
@@ -329,13 +325,12 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 
 		let fee = if fee > 0 { Some((T::FeeAsset::get(), fee).into()) } else { None };
 
-		log::info!(
+		tracing::info!(
 			target: LOG_TARGET,
-			"Going to send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}",
-			(network, remote_location),
-			message_size,
-			fee,
-			fee_factor,
+			to=?(network, remote_location),
+			bridge_fee=?fee,
+			%fee_factor,
+			"Going to send message ({message_size} bytes) over bridge."
 		);
 
 		Some((bridge_hub_location, fee))
@@ -352,7 +347,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		dest: &mut Option<Location>,
 		xcm: &mut Option<Xcm<()>>,
 	) -> SendResult<Self::Ticket> {
-		log::trace!(target: LOG_TARGET, "validate - msg: {xcm:?}, destination: {dest:?}");
+		tracing::trace!(target: LOG_TARGET, msg=?xcm, destination=?dest, "validate");
 
 		// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions and consume
 		// `dest` / `xcm`, so we retain the clone of original message and the destination for later
@@ -401,7 +396,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 				Ok(((message_size, ticket), cost))
 			},
 			Err(e) => {
-				log::trace!(target: LOG_TARGET, "validate - ViaBridgeHubExporter - error: {e:?}");
+				tracing::trace!(target: LOG_TARGET, error=?e, "validate - ViaBridgeHubExporter");
 				Err(e)
 			},
 		}
@@ -416,7 +411,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// increase delivery fee factor if required
 		Self::on_message_sent_to_bridge(message_size);
 
-		log::trace!(target: LOG_TARGET, "deliver - message sent, xcm_hash: {xcm_hash:?}");
+		tracing::trace!(target: LOG_TARGET, ?xcm_hash, "deliver - message sent");
 		Ok(xcm_hash)
 	}
 }

@@ -212,7 +212,7 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		BatchFootprint, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
+		BatchesFootprints, Defensive, DefensiveSaturating, DefensiveTruncateFrom, EnqueueMessage,
 		ExecuteOverweightError, Footprint, ProcessMessage, ProcessMessageError, QueueFootprint,
 		QueueFootprintQuery, QueuePausedQuery, ServiceQueues,
 	},
@@ -1830,10 +1830,10 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 		origin: MessageOriginOf<T>,
 		msgs: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>,
 		total_pages_limit: u32,
-	) -> Vec<BatchFootprint> {
-		let mut batches_footprints = vec![];
+	) -> BatchesFootprints {
+		let mut batches_footprints = BatchesFootprints::default();
 
-		let mut new_pages_count = 0;
+		let mut new_page = false;
 		let mut total_pages_count = 0;
 		let mut current_page_pos: usize = T::HeapSize::get().into() as usize;
 
@@ -1842,31 +1842,27 @@ impl<T: Config> QueueFootprintQuery<MessageOriginOf<T>> for Pallet<T> {
 			total_pages_count = book.end - book.begin;
 			if let Some(page) = Pages::<T>::get(origin, book.end - 1) {
 				current_page_pos = page.heap_pos();
+				batches_footprints.first_page_pos = current_page_pos;
 			}
 		}
 
-		let mut msgs = msgs.enumerate().peekable();
-		let mut total_msgs_size = 0;
-		while let Some((idx, msg)) = msgs.peek() {
+		let mut msgs = msgs.peekable();
+		while let Some(msg) = msgs.peek() {
 			if total_pages_count > total_pages_limit {
 				return batches_footprints;
 			}
 
 			match Page::<T::Size, T::HeapSize>::can_append_message_at(current_page_pos, msg.len()) {
 				Ok(new_pos) => {
-					total_msgs_size += msg.len();
 					current_page_pos = new_pos;
-					batches_footprints.push(BatchFootprint {
-						msgs_count: idx + 1,
-						size_in_bytes: total_msgs_size,
-						new_pages_count,
-					});
+					batches_footprints.push(msg, new_page);
+					new_page = false;
 					msgs.next();
 				},
 				Err(_) => {
 					// Would not fit into the current page.
 					// We start a new one and try again in the next iteration.
-					new_pages_count += 1;
+					new_page = true;
 					total_pages_count += 1;
 					current_page_pos = 0;
 				},

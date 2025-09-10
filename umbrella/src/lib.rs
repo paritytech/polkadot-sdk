@@ -214,6 +214,10 @@ pub use cumulus_test_relay_sproof_builder;
 #[cfg(feature = "emulated-integration-tests-common")]
 pub use emulated_integration_tests_common;
 
+/// Interfaces for Ethereum standards.
+#[cfg(feature = "ethereum-standards")]
+pub use ethereum_standards;
+
 /// Utility library for managing tree-like ordered data with logic for pruning the tree while
 /// finalizing nodes.
 #[cfg(feature = "fork-tree")]
@@ -447,9 +451,17 @@ pub use pallet_delegated_staking;
 #[cfg(feature = "pallet-democracy")]
 pub use pallet_democracy;
 
+/// FRAME derivatives pallet.
+#[cfg(feature = "pallet-derivatives")]
+pub use pallet_derivatives;
+
 /// FRAME example pallet.
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
+
+/// Dummy DIM Pallet.
+#[cfg(feature = "pallet-dummy-dim")]
+pub use pallet_dummy_dim;
 
 /// PALLET multi phase+block election providers.
 #[cfg(feature = "pallet-election-provider-multi-block")]
@@ -567,6 +579,10 @@ pub use pallet_offences;
 #[cfg(feature = "pallet-offences-benchmarking")]
 pub use pallet_offences_benchmarking;
 
+/// Pallet to give some execution allowance for some origins.
+#[cfg(feature = "pallet-origin-restriction")]
+pub use pallet_origin_restriction;
+
 /// FRAME pallet that provides a paged list data structure.
 #[cfg(feature = "pallet-paged-list")]
 pub use pallet_paged_list;
@@ -574,6 +590,10 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
+
+/// Personhood-tracking pallet.
+#[cfg(feature = "pallet-people")]
+pub use pallet_people;
 
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
@@ -607,10 +627,6 @@ pub use pallet_revive;
 /// An Ethereum JSON-RPC server for pallet-revive.
 #[cfg(feature = "pallet-revive-eth-rpc")]
 pub use pallet_revive_eth_rpc;
-
-/// A mock network for testing pallet-revive.
-#[cfg(feature = "pallet-revive-mock-network")]
-pub use pallet_revive_mock_network;
 
 /// Procedural macros used in pallet_revive.
 #[cfg(feature = "pallet-revive-proc-macro")]
@@ -963,6 +979,10 @@ pub use polkadot_parachain_primitives;
 /// Shared primitives used by Polkadot runtime.
 #[cfg(feature = "polkadot-primitives")]
 pub use polkadot_primitives;
+
+/// Test helpers for Polkadot runtime primitives.
+#[cfg(feature = "polkadot-primitives-test-helpers")]
+pub use polkadot_primitives_test_helpers;
 
 /// Polkadot specific RPC functionality.
 #[cfg(feature = "polkadot-rpc")]

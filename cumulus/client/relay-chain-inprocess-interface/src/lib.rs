@@ -26,16 +26,16 @@ use async_trait::async_trait;
 use cumulus_client_bootnodes::bootnode_request_response_config;
 use cumulus_primitives_core::{
 	relay_chain::{
-		runtime_api::ParachainHost,
-		vstaging::{CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreState},
-		Block as PBlock, BlockId, BlockNumber, CoreIndex, Hash as PHash, Header as PHeader,
-		InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex, ValidationCodeHash, ValidatorId,
+		runtime_api::ParachainHost, Block as PBlock, BlockId, BlockNumber,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+		Hash as PHash, Header as PHeader, InboundHrmpMessage, OccupiedCoreAssumption, SessionIndex,
+		ValidationCodeHash, ValidatorId,
 	},
 	InboundDownwardMessage, ParaId, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
 use futures::{FutureExt, Stream, StreamExt};
-use polkadot_primitives::vstaging::CandidateEvent;
+use polkadot_primitives::CandidateEvent;
 use polkadot_service::{
 	builder::PolkadotServiceBuilder, CollatorOverseerGen, CollatorPair, Configuration, FullBackend,
 	FullClient, Handle, NewFull, NewFullParams, TaskManager,
@@ -416,19 +416,17 @@ fn build_polkadot_full_node(
 		execute_workers_max_num: None,
 		prepare_workers_hard_max_num: None,
 		prepare_workers_soft_max_num: None,
-		enable_approval_voting_parallel: false,
 		keep_finalized_for: None,
 	};
 
-	let (relay_chain_full_node, paranode_req_receiver) =
-		match config.network.network_backend.unwrap_or_default() {
-			NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
-				sc_network::NetworkWorker<_, _>,
-			>(config, new_full_params)?,
-			NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
-				sc_network::Litep2pNetworkBackend,
-			>(config, new_full_params)?,
-		};
+	let (relay_chain_full_node, paranode_req_receiver) = match config.network.network_backend {
+		NetworkBackendType::Libp2p => build_polkadot_with_paranode_protocol::<
+			sc_network::NetworkWorker<_, _>,
+		>(config, new_full_params)?,
+		NetworkBackendType::Litep2p => build_polkadot_with_paranode_protocol::<
+			sc_network::Litep2pNetworkBackend,
+		>(config, new_full_params)?,
+	};
 
 	Ok((relay_chain_full_node, maybe_collator_key, paranode_req_receiver))
 }

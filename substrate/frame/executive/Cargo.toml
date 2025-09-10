@@ -36,6 +36,7 @@ sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
 
 [features]
 default = ["std"]

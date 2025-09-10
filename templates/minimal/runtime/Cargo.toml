@@ -9,6 +9,9 @@ repository.workspace = true
 edition.workspace = true
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { workspace = true }
 polkadot-sdk = { workspace = true, features = [

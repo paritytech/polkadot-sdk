@@ -24,7 +24,8 @@ use crate::{
 	validator_side_experimental::{
 		common::{
 			PeerInfo, PeerState, Score, CONNECTED_PEERS_LIMIT, CONNECTED_PEERS_PARA_LIMIT,
-			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, VALID_INCLUDED_CANDIDATE_BUMP,
+			INACTIVITY_DECAY, MAX_STARTUP_ANCESTRY_LOOKBACK, MAX_STORED_SCORES_PER_PARA,
+			VALID_INCLUDED_CANDIDATE_BUMP,
 		},
 		error::{Error, Result},
 	},
@@ -45,10 +46,10 @@ use polkadot_node_subsystem_util::{
 	request_candidate_events, request_candidates_pending_availability, runtime::recv_runtime,
 };
 use polkadot_primitives::{
-	vstaging::{CandidateDescriptorVersion, CandidateEvent},
-	BlockNumber, CandidateHash, Hash, Id as ParaId,
+	BlockNumber, CandidateDescriptorVersion, CandidateEvent, CandidateHash, Hash, Id as ParaId,
 };
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct ReputationUpdate {
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
@@ -56,6 +57,7 @@ pub struct ReputationUpdate {
 	pub kind: ReputationUpdateKind,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum ReputationUpdateKind {
 	Bump,
 	Slash,
@@ -105,14 +107,12 @@ impl<B: Backend> PeerManager<B> {
 	/// Initialize the peer manager (called on subsystem startup, after the node finished syncing to
 	/// the tip of the chain).
 	pub async fn startup<Sender: CollatorProtocolSenderTrait>(
+		backend: B,
 		sender: &mut Sender,
 		scheduled_paras: BTreeSet<ParaId>,
 	) -> Result<Self> {
-		// Open the Db.
-		let db = B::new().await;
-
 		let mut instance = Self {
-			db,
+			db: backend,
 			connected: ConnectedPeers::new(
 				scheduled_paras,
 				CONNECTED_PEERS_LIMIT,

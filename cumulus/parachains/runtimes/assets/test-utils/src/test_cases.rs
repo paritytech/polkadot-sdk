@@ -38,8 +38,11 @@ use sp_runtime::{
 	traits::{Block as BlockT, MaybeEquivalence, StaticLookup, Zero},
 	DispatchError, SaturatedConversion, Saturating,
 };
-use xcm::{latest::prelude::*, VersionedAssets};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 use xcm_runtime_apis::fees::{
 	runtime_decl_for_xcm_payment_api::XcmPaymentApiV1, Error as XcmPaymentApiError,
 };
@@ -89,17 +92,36 @@ pub fn teleports_for_native_asset_works<
 		From<<Runtime as frame_system::Config>::AccountId>,
 	<Runtime as frame_system::Config>::AccountId: From<AccountId>,
 	XcmConfig: xcm_executor::Config,
-	CheckingAccount: Get<AccountIdOf<Runtime>>,
+	CheckingAccount: Get<Option<AccountIdOf<Runtime>>>,
 	HrmpChannelOpener: frame_support::inherent::ProvideInherent<
 		Call = cumulus_pallet_parachain_system::Call<Runtime>,
 	>,
 {
-	ExtBuilder::<Runtime>::default()
+	let buy_execution_fee_amount_eta =
+		WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 1024));
+	let native_asset_amount_unit = existential_deposit;
+	let native_asset_amount_received =
+		native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
+
+	let checking_account = if let Some(checking_account) = CheckingAccount::get() {
+		Some((checking_account, native_asset_amount_received))
+	} else {
+		None
+	};
+
+	let mut builder = ExtBuilder::<Runtime>::default()
 		.with_collators(collator_session_keys.collators())
 		.with_session_keys(collator_session_keys.session_keys())
 		.with_safe_xcm_version(XCM_VERSION)
 		.with_para_id(runtime_para_id.into())
-		.with_tracing()
+		.with_tracing();
+
+	if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+		builder =
+			builder.with_balances(vec![(checking_account.clone(), *initial_checking_account)]);
+	};
+
+	builder
 		.build()
 		.execute_with(|| {
 			let mut alice = [0u8; 32];
@@ -111,17 +133,14 @@ pub fn teleports_for_native_asset_works<
 			);
 			// check Balances before
 			assert_eq!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-				0.into()
-			);
+			if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+				assert_eq!(
+					<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+					*initial_checking_account
+				);
+			};
 
 			let native_asset_id = Location::parent();
-			let buy_execution_fee_amount_eta =
-				WeightToFee::weight_to_fee(&Weight::from_parts(90_000_000_000, 1024));
-			let native_asset_amount_unit = existential_deposit;
-			let native_asset_amount_received =
-				native_asset_amount_unit * 10.into() + buy_execution_fee_amount_eta.into();
 
 			// 1. process received teleported assets from relaychain
 			let xcm = Xcm(vec![
@@ -164,11 +183,14 @@ pub fn teleports_for_native_asset_works<
 
 			// check Balances after
 			assert_ne!(<pallet_balances::Pallet<Runtime>>::free_balance(&target_account), 0.into());
-			assert_eq!(
-				<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-				0.into()
-			);
+			if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+				assert_eq!(
+					<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+					*initial_checking_account - native_asset_amount_received
+				);
+			}
 
+			let native_asset_to_teleport_away = native_asset_amount_unit * 3.into();
 			// 2. try to teleport asset back to the relaychain
 			{
 				<cumulus_pallet_parachain_system::Pallet<Runtime> as UpwardMessageSender>::ensure_successful_delivery();
@@ -184,7 +206,6 @@ pub fn teleports_for_native_asset_works<
 
 				let target_account_balance_before_teleport =
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account);
-				let native_asset_to_teleport_away = native_asset_amount_unit * 3.into();
 				assert!(
 					native_asset_to_teleport_away <
 						target_account_balance_before_teleport - existential_deposit
@@ -221,10 +242,12 @@ pub fn teleports_for_native_asset_works<
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 					target_account_balance_before_teleport - native_asset_to_teleport_away
 				);
-				assert_eq!(
-					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-					0.into()
-				);
+				if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+					assert_eq!(
+						<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+						*initial_checking_account - native_asset_amount_received + native_asset_to_teleport_away
+					);
+				}
 
 				// check events
 				RuntimeHelper::<Runtime>::assert_pallet_xcm_event_outcome(
@@ -280,10 +303,12 @@ pub fn teleports_for_native_asset_works<
 					<pallet_balances::Pallet<Runtime>>::free_balance(&target_account),
 					target_account_balance_before_teleport
 				);
-				assert_eq!(
-					<pallet_balances::Pallet<Runtime>>::free_balance(&CheckingAccount::get()),
-					0.into()
-				);
+				if let Some((checking_account, initial_checking_account)) = checking_account.as_ref() {
+					assert_eq!(
+						<pallet_balances::Pallet<Runtime>>::free_balance(checking_account),
+						*initial_checking_account - native_asset_amount_received + native_asset_to_teleport_away
+					);
+				}
 			}
 		})
 }
@@ -294,7 +319,7 @@ macro_rules! include_teleports_for_native_asset_works(
 		$runtime:path,
 		$all_pallets_without_system:path,
 		$xcm_config:path,
-		$checking_account:path,
+		$checking_account:ty,
 		$weight_to_fee:path,
 		$hrmp_channel_opener:path,
 		$collator_session_key:expr,
@@ -1529,12 +1554,18 @@ pub fn reserve_transfer_native_asset_to_non_teleport_para_works<
 				Asset { fun: Fungible(balance_to_transfer.into()), id: AssetId(native_asset) };
 
 			// pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(dest.clone().into_versioned()),
-				Box::new(dest_beneficiary.clone().into_versioned()),
 				Box::new(VersionedAssets::from(Assets::from(asset_to_transfer))),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), dest_beneficiary.clone())
+						.build()
+				)),
 				weight_limit,
 			));
 

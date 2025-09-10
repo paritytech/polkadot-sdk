@@ -168,6 +168,8 @@ impl pallet_session::Config for Test {
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type DisablingStrategy = ();
 	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
 }
 
 impl pallet_timestamp::Config for Test {
@@ -180,6 +182,7 @@ impl pallet_timestamp::Config for Test {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OffenceHandler = Staking;
+	type ReportOffence = ();
 }
 
 pub struct ExtBuilder {

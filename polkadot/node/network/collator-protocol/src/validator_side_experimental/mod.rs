@@ -27,6 +27,7 @@ mod state;
 
 use std::collections::VecDeque;
 
+use common::MAX_STORED_SCORES_PER_PARA;
 use error::{log_error, FatalError, FatalResult, Result};
 use fatality::Split;
 use peer_manager::{Db, PeerManager};
@@ -80,7 +81,11 @@ async fn initialize<Context>(
 			},
 		};
 
-		match PeerManager::startup(ctx.sender(), scheduled_paras.into_iter().collect()).await {
+		let backend = Db::new(MAX_STORED_SCORES_PER_PARA).await;
+
+		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
+			.await
+		{
 			Ok(peer_manager) => return Ok(Some(State::new(peer_manager, keystore, metrics))),
 			Err(err) => {
 				log_error(Err(err))?;

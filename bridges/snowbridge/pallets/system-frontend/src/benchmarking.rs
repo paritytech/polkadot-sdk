@@ -7,6 +7,7 @@ use crate::Pallet as SnowbridgeControlFrontend;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use xcm::prelude::{Location, *};
+use xcm_executor::traits::ConvertLocation;
 
 #[benchmarks(where <T as frame_system::Config>::AccountId: Into<Location>)]
 mod benchmarks {
@@ -18,7 +19,11 @@ mod benchmarks {
 
 		let asset_location: Location = Location::new(1, [Parachain(2000), GeneralIndex(1)]);
 		let asset_id = Box::new(VersionedLocation::from(asset_location.clone()));
-		T::Helper::initialize_storage(asset_location, origin_location);
+		T::Helper::initialize_storage(asset_location, origin_location.clone());
+
+		let ether = T::EthereumLocation::get();
+		let asset_owner = T::AccountIdConverter::convert_location(&origin_location).unwrap();
+		T::Helper::setup_pools(asset_owner, ether.clone());
 
 		let asset_metadata = AssetMetadata {
 			name: "pal".as_bytes().to_vec().try_into().unwrap(),
@@ -26,8 +31,10 @@ mod benchmarks {
 			decimals: 12,
 		};
 
+		let fee_asset = Asset::from((Location::parent(), 1_000_000u128));
+
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, asset_id, asset_metadata);
+		_(origin as T::RuntimeOrigin, asset_id, asset_metadata, fee_asset);
 
 		Ok(())
 	}

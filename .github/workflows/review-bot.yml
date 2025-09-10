@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Generate token
         id: app_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.REVIEW_APP_ID }}
           private-key: ${{ secrets.REVIEW_APP_KEY }}
@@ -29,7 +29,7 @@ jobs:
         with:
           artifact-name: pr_number
       - name: "Evaluates PR reviews and assigns reviewers"
-        uses: paritytech/review-bot@v2.7.0
+        uses: paritytech/review-bot@v2.7.1
         with:
           repo-token: ${{ steps.app_token.outputs.token }}
           team-token: ${{ steps.app_token.outputs.token }}

@@ -19,6 +19,16 @@
 
 use super::*;
 
+use frame_support::{
+	assert_err, assert_ok, derive_impl,
+	migrations::MultiStepMigrator,
+	pallet_prelude::*,
+	parameter_types,
+	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
+	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
+};
+use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
+use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::FungibleAdapter;
 use sp_core::H256;
 use sp_runtime::{
@@ -31,18 +41,8 @@ use sp_runtime::{
 	BuildStorage, DispatchError,
 };
 
-use frame_support::{
-	assert_err, assert_ok, derive_impl,
-	migrations::MultiStepMigrator,
-	pallet_prelude::*,
-	parameter_types,
-	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
-	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
-};
-use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
-use pallet_balances::Call as BalancesCall;
-
 const TEST_KEY: &[u8] = b":test:key:";
+const TEST_KEY_2: &[u8] = b":test:key_2:";
 
 #[frame_support::pallet(dev_mode)]
 mod custom {
@@ -355,6 +355,7 @@ impl frame_system::Config for Runtime {
 	type PostTransactions = MockedSystemCallbacks;
 	type MultiBlockMigrator = MockedModeGetter;
 	type ExtensionsWeightInfo = MockExtensionsWeights;
+	type SingleBlockMigrations = CustomOnRuntimeUpgrade;
 }
 
 #[derive(
@@ -480,16 +481,23 @@ type TestBlock = Block<UncheckedXt>;
 // Will contain `true` when the custom runtime logic was called.
 const CUSTOM_ON_RUNTIME_KEY: &[u8] = b":custom:on_runtime";
 
-struct CustomOnRuntimeUpgrade;
+pub struct CustomOnRuntimeUpgrade;
 impl OnRuntimeUpgrade for CustomOnRuntimeUpgrade {
 	fn on_runtime_upgrade() -> Weight {
 		sp_io::storage::set(TEST_KEY, "custom_upgrade".as_bytes());
+		sp_io::storage::set(TEST_KEY_2, "try_runtime_upgrade_works".as_bytes());
 		sp_io::storage::set(CUSTOM_ON_RUNTIME_KEY, &true.encode());
 		System::deposit_event(frame_system::Event::CodeUpdated);
 
 		assert_eq!(0, System::last_runtime_upgrade_spec_version());
 
 		Weight::from_parts(100, 0)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
+		Ok(())
 	}
 }
 
@@ -1075,9 +1083,7 @@ fn all_weights_are_recorded_correctly() {
 		MockedSystemCallbacks::reset();
 
 		// All weights that show up in the `initialize_block_impl`
-		let custom_runtime_upgrade_weight = CustomOnRuntimeUpgrade::on_runtime_upgrade();
-		let runtime_upgrade_weight =
-			<AllPalletsWithSystem as OnRuntimeUpgrade>::on_runtime_upgrade();
+		let runtime_upgrade_weight = Executive::execute_on_runtime_upgrade();
 		let on_initialize_weight =
 			<AllPalletsWithSystem as OnInitialize<u64>>::on_initialize(block_number);
 		let base_block_weight = <Runtime as frame_system::Config>::BlockWeights::get().base_block;
@@ -1085,10 +1091,7 @@ fn all_weights_are_recorded_correctly() {
 		// Weights are recorded correctly
 		assert_eq!(
 			frame_system::Pallet::<Runtime>::block_weight().total(),
-			custom_runtime_upgrade_weight +
-				runtime_upgrade_weight +
-				on_initialize_weight +
-				base_block_weight,
+			runtime_upgrade_weight + on_initialize_weight + base_block_weight,
 		);
 	});
 }
@@ -1292,6 +1295,35 @@ fn try_execute_block_works() {
 			frame_try_runtime::TryStateSelect::All,
 		)
 		.unwrap();
+	});
+}
+
+#[test]
+#[cfg(feature = "try-runtime")]
+fn try_runtime_upgrade_works() {
+	use frame_support::traits::OnGenesis;
+
+	sp_tracing::init_for_tests();
+
+	type ExecutiveWithoutMigrations = super::Executive<
+		Runtime,
+		Block<UncheckedXt>,
+		ChainContext<Runtime>,
+		Runtime,
+		AllPalletsWithSystem,
+	>;
+
+	new_test_ext(1).execute_with(|| {
+		// Call `on_genesis` to reset the storage version of all pallets.
+		AllPalletsWithSystem::on_genesis();
+
+		// Make sure the test storages are un-set
+		assert!(&sp_io::storage::get(TEST_KEY_2).is_none());
+
+		ExecutiveWithoutMigrations::try_runtime_upgrade(UpgradeCheckSelect::All).unwrap();
+
+		// Make sure the test storages were set
+		assert_eq!(&sp_io::storage::get(TEST_KEY_2).unwrap()[..], *b"try_runtime_upgrade_works");
 	});
 }
 
@@ -1564,4 +1596,40 @@ fn is_inherent_works() {
 
 	let ext = UncheckedXt::new_bare(RuntimeCall::Custom2(custom2::Call::allowed_unsigned {}));
 	assert!(!Runtime::is_inherent(&ext), "Unsigned ext are not automatically inherents");
+}
+
+#[test]
+fn max_transaction_depth_is_respected() {
+	use substrate_test_runtime_client::{
+		prelude::*,
+		runtime::{ExtrinsicBuilder, RuntimeCall, UtilityCall},
+		BlockOrigin,
+	};
+
+	let client = TestClientBuilder::default().build();
+
+	let mut call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1, 2, 3] });
+	for _ in 0..MAX_EXTRINSIC_DEPTH {
+		call = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call] });
+	}
+
+	let call_one_more = RuntimeCall::Utility(UtilityCall::batch { calls: vec![call.clone()] });
+
+	let ext = ExtrinsicBuilder::new(call).build();
+
+	let mut block_builder = BlockBuilderBuilder::new(&client)
+		.on_parent_block(client.chain_info().best_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+
+	block_builder.push(ext).unwrap();
+
+	// With one more the transaction is rejected
+	block_builder.push(ExtrinsicBuilder::new(call_one_more).build()).unwrap_err();
+
+	let block = block_builder.build().unwrap().block;
+
+	// Import works
+	block_on(client.import(BlockOrigin::Own, block)).unwrap();
 }

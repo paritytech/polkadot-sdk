@@ -521,7 +521,8 @@ fn decode_collation_response(bytes: &[u8]) -> (CandidateReceipt, PoV) {
 	let response: CollationFetchingResponse =
 		CollationFetchingResponse::decode(&mut &bytes[..]).expect("Decoding should work");
 	match response {
-		CollationFetchingResponse::Collation(receipt, pov) => (receipt, pov),
+		CollationFetchingResponse::Collation(_, _) =>
+			panic!("Expected to always receive CollationWithParentHeadData"),
 		CollationFetchingResponse::CollationWithParentHeadData { receipt, pov, .. } =>
 			(receipt, pov),
 	}
@@ -1460,6 +1461,7 @@ fn connect_to_buffered_groups() {
 				1,
 			)
 			.await;
+
 			test_state.group_rotation_info = test_state.group_rotation_info.bump_rotation();
 
 			let head_b = test_state.relay_parent;

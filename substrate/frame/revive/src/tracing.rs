@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{primitives::ExecReturnValue, DispatchError, Weight};
+use crate::{primitives::ExecReturnValue, Code, DispatchError, Key, Weight};
+use alloc::vec::Vec;
 use environmental::environmental;
 use sp_core::{H160, H256, U256};
 
@@ -35,12 +36,15 @@ pub fn trace<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracing + 'static), f: F) ->
 ///
 /// This is safe to be called from on-chain code as tracing will never be activated
 /// there. Hence the closure is not executed in this case.
-pub(crate) fn if_tracing<F: FnOnce(&mut (dyn Tracing + 'static))>(f: F) {
-	tracer::with(f);
+pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) -> Option<R> {
+	tracer::with(f)
 }
 
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
+	/// Register an address that should be traced.
+	fn watch_address(&mut self, _addr: &H160) {}
+
 	/// Called before a contract call is executed
 	fn enter_child_span(
 		&mut self,
@@ -51,6 +55,24 @@ pub trait Tracing {
 		_value: U256,
 		_input: &[u8],
 		_gas: Weight,
+	) {
+	}
+
+	/// Record the next code and salt to be instantiated.
+	fn instantiate_code(&mut self, _code: &Code, _salt: Option<&[u8; 32]>) {}
+
+	/// Called when a balance is read
+	fn balance_read(&mut self, _addr: &H160, _value: U256) {}
+
+	/// Called when storage read is called
+	fn storage_read(&mut self, _key: &Key, _value: Option<&[u8]>) {}
+
+	/// Called when storage write is called
+	fn storage_write(
+		&mut self,
+		_key: &Key,
+		_old_value: Option<Vec<u8>>,
+		_new_value: Option<&[u8]>,
 	) {
 	}
 

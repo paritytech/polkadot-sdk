@@ -18,7 +18,7 @@
 
 pub use polkadot_node_primitives::NODE_VERSION;
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 use std::path::PathBuf;
 
 #[allow(missing_docs)]
@@ -153,13 +153,6 @@ pub struct RunCmd {
 	/// TESTING ONLY: disable the version check between nodes and workers.
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
-
-	/// Enable approval-voting message processing in parallel.
-	///
-	/// This is a flag used for gradually enabling approval-voting-parallel in production,
-	/// should not be used unless explicitly advised to. It will be removed in the future.
-	#[arg(long, default_value = "true", action=ArgAction::Set)]
-	pub enable_approval_voting_parallel: bool,
 
 	/// How long finalized data should be kept in the availability store (in hours).
 	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live

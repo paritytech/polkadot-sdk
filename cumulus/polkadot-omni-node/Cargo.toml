@@ -16,7 +16,7 @@ workspace = true
 color-eyre = { workspace = true }
 
 # Local
-polkadot-omni-node-lib = { workspace = true }
+polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "westend-native"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

@@ -44,13 +44,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_message_queue::OnQueueChanged;
 use polkadot_primitives::{
-	effective_minimum_backing_votes, supermajority_threshold,
-	vstaging::{
-		skip_ump_signals, BackedCandidate, CandidateDescriptorV2 as CandidateDescriptor,
-		CandidateReceiptV2 as CandidateReceipt,
-		CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
-	},
-	well_known_keys, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex, HeadData,
+	effective_minimum_backing_votes, skip_ump_signals, supermajority_threshold, well_known_keys,
+	BackedCandidate, CandidateCommitments, CandidateDescriptorV2 as CandidateDescriptor,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, GroupIndex, HeadData,
 	Id as ParaId, SignedAvailabilityBitfields, SigningContext, UpwardMessage, ValidatorId,
 	ValidatorIndex, ValidityAttestation,
 };
@@ -195,6 +192,11 @@ pub trait RewardValidators {
 	// Validators are sent to this hook when they have contributed to the availability
 	// of a candidate by setting a bit in their bitfield.
 	fn reward_bitfields(validators: impl IntoIterator<Item = ValidatorIndex>);
+}
+
+impl RewardValidators for () {
+	fn reward_backing(_: impl IntoIterator<Item = ValidatorIndex>) {}
+	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
 /// Reads the footprint of queues for a specific origin type.
@@ -615,8 +617,12 @@ impl<T: Config> Pallet<T> {
 				}
 			});
 		}
-
-		(weight, freed_cores)
+		// For relay chain blocks, we're (ab)using the proof size
+		// to limit the raw transaction size of `ParaInherent` and
+		// there's no state proof (aka PoV) associated with it.
+		// Since we already accounted for bitfields size, we should
+		// not include `enact_candidate` PoV impact here.
+		(weight.set_proof_size(0), freed_cores)
 	}
 
 	/// Process candidates that have been backed. Provide a set of

@@ -97,14 +97,20 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).map_err(|error| {
+			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert asset kind to locatable asset");
+			xcm::latest::Error::InvalidLocation
+		})?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
-		let destination = Querier::UniversalLocation::get()
-			.invert_target(&asset_location)
-			.map_err(|()| Self::Error::LocationNotInvertible)?;
-		let beneficiary = BeneficiaryRefToLocation::try_convert(&who)
-			.map_err(|_| xcm::latest::Error::InvalidLocation)?;
+		let destination =
+			Querier::UniversalLocation::get().invert_target(&asset_location).map_err(|()| {
+				tracing::debug!(target: "xcm::pay", "Failed to invert asset location");
+				Self::Error::LocationNotInvertible
+			})?;
+		let beneficiary = BeneficiaryRefToLocation::try_convert(&who).map_err(|error| {
+			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
+			xcm::latest::Error::InvalidLocation
+		})?;
 
 		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
 

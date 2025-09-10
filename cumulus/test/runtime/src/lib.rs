@@ -27,6 +27,11 @@ pub mod wasm_spec_version_incremented {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_spec_version_incremented.rs"));
 }
 
+pub mod relay_parent_offset {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_relay_parent_offset.rs"));
+}
+
 pub mod elastic_scaling_500ms {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_500ms.rs"));
@@ -62,7 +67,6 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstBool, ConstU32, ConstU64, OpaqueMetadata};
 
-use cumulus_primitives_core::{ClaimQueueOffset, CoreSelector};
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
@@ -72,6 +76,8 @@ use sp_runtime::{
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+
+use cumulus_primitives_core::ParaId;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -114,23 +120,32 @@ pub const PARACHAIN_ID: u32 = 100;
 
 #[cfg(all(
 	feature = "elastic-scaling-multi-block-slot",
-	not(any(feature = "elastic-scaling", feature = "elastic-scaling-500ms"))
+	not(any(
+		feature = "elastic-scaling",
+		feature = "elastic-scaling-500ms",
+		feature = "relay-parent-offset"
+	))
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
 #[cfg(all(
 	feature = "elastic-scaling-500ms",
-	not(any(feature = "elastic-scaling", feature = "elastic-scaling-multi-block-slot"))
+	not(any(
+		feature = "elastic-scaling",
+		feature = "elastic-scaling-multi-block-slot",
+		feature = "relay-parent-offset"
+	))
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 
-#[cfg(feature = "elastic-scaling")]
+#[cfg(any(feature = "elastic-scaling", feature = "relay-parent-offset"))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 #[cfg(not(any(
 	feature = "elastic-scaling",
 	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot"
+	feature = "elastic-scaling-multi-block-slot",
+	feature = "relay-parent-offset"
 )))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
@@ -139,7 +154,7 @@ const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 
 // The `+2` shouldn't be needed, https://github.com/paritytech/polkadot-sdk/issues/5260
 #[cfg(not(feature = "sync-backing"))]
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * 2 + 2;
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = BLOCK_PROCESSING_VELOCITY * (2 + RELAY_PARENT_OFFSET) + 2;
 
 #[cfg(feature = "sync-backing")]
 pub const SLOT_DURATION: u64 = 12000;
@@ -166,7 +181,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 1,
+	spec_version: 2,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -180,7 +195,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
 	authoring_version: 1,
 	// Read the note above.
-	spec_version: 2,
+	spec_version: 3,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -336,6 +351,12 @@ impl pallet_glutton::Config for Runtime {
 	type WeightInfo = pallet_glutton::weights::SubstrateWeight<Runtime>;
 }
 
+#[cfg(feature = "relay-parent-offset")]
+const RELAY_PARENT_OFFSET: u32 = 2;
+
+#[cfg(not(feature = "relay-parent-offset"))]
+const RELAY_PARENT_OFFSET: u32 = 0;
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -356,7 +377,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber =
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -491,6 +512,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			RELAY_PARENT_OFFSET
+		}
+	}
+
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
 		fn slot_duration() -> sp_consensus_aura::SlotDuration {
 			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
@@ -581,12 +608,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl cumulus_primitives_core::GetCoreSelectorApi<Block> for Runtime {
-		fn core_selector() -> (CoreSelector, ClaimQueueOffset) {
-			ParachainSystem::core_selector()
-		}
-	}
-
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
 		fn build_state(config: Vec<u8>) -> sp_genesis_builder::Result {
 			build_state::<RuntimeGenesisConfig>(config)
@@ -599,6 +620,13 @@ impl_runtime_apis! {
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
 		}
+	}
+
+	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+		fn parachain_id() -> ParaId {
+			ParachainInfo::parachain_id()
+		}
+
 	}
 }
 

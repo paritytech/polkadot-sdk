@@ -225,7 +225,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -275,7 +275,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }

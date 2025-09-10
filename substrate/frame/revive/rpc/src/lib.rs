@@ -136,12 +136,6 @@ impl EthRpcServer for EthRpcServerImpl {
 		transaction_hash: H256,
 	) -> RpcResult<Option<ReceiptInfo>> {
 		let receipt = self.client.receipt(&transaction_hash).await;
-		log::debug!(
-			target: LOG_TARGET,
-			"transaction_receipt for {transaction_hash:?}: received: {received} - success: {success:?}",
-			received = receipt.is_some(),
-			success = receipt.as_ref().map(|r| r.status == Some(U256::one()))
-		);
 		Ok(receipt)
 	}
 
@@ -252,8 +246,8 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_code(&self, address: H160, block: BlockNumberOrTagOrHash) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
-		let code = self.client.storage_api(hash).get_contract_code(&address).await?;
-		Ok(code.unwrap_or_default().into())
+		let code = self.client.runtime_api(hash).code(address).await?;
+		Ok(code.into())
 	}
 
 	async fn accounts(&self) -> RpcResult<Vec<H160>> {

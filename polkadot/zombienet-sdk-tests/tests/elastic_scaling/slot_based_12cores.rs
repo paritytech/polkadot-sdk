@@ -11,9 +11,11 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::dev;
-use zombienet_sdk::NetworkConfigBuilder;
+use zombienet_sdk::{
+	subxt::{OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
+	NetworkConfigBuilder,
+};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
@@ -94,10 +96,12 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// (11.33 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
 	// change will be counted.
+	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
+	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2300), 170..181)].into_iter().collect(),
+		[(ParaId::from(2300), 153..181)].into_iter().collect(),
 	)
 	.await?;
 

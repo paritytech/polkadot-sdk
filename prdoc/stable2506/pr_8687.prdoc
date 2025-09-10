@@ -1,0 +1,12 @@
+title: 'Staking (EPMB): Add defensive error handling to voter snapshot creation and solution verification'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Refactor snapshot creation to emit events and triggers defensive panic on failure
+    - Replace unwrap() with defensive_unwrap_or(u32::MAX) to ensure solution fails verification
+    gracefully when desired_targets is unavailable rather than panicking.
+    - Add error events for failed target and voter snapshots
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major

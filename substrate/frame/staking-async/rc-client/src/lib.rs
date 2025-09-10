@@ -42,7 +42,7 @@
 //! > Note that in the code, due to historical reasons, planning of a new session is called
 //! > `new_session`.
 //!
-//! * [`Call::relay_new_offence`]: A report of one or more offences on the relay chain.
+//! * [`Call::relay_new_offence_paged`]: A report of one or more offences on the relay chain.
 //!
 //! ## Outgoing Messages
 //!
@@ -116,10 +116,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
-use sp_runtime::Perbill;
+use alloc::{vec, vec::Vec};
+use core::fmt::Display;
+use frame_support::{pallet_prelude::*, storage::transactional::with_transaction_opaque_err};
+use sp_runtime::{traits::Convert, Perbill, TransactionOutcome};
 use sp_staking::SessionIndex;
+use xcm::latest::{send_xcm, Location, SendError, SendXcm, Xcm};
 
 /// Export everything needed for the pallet to be used in the runtime.
 pub use pallet::*;
@@ -149,10 +151,58 @@ pub trait SendToRelayChain {
 	type AccountId;
 
 	/// Send a new validator set report to relay chain.
-	fn validator_set(report: ValidatorSetReport<Self::AccountId>);
+	#[allow(clippy::result_unit_err)]
+	fn validator_set(report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()>;
 }
 
-#[derive(Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo)]
+#[cfg(feature = "std")]
+impl SendToRelayChain for () {
+	type AccountId = u64;
+	fn validator_set(_report: ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
+		unimplemented!();
+	}
+}
+
+/// The interface to communicate to asset hub.
+///
+/// This trait should only encapsulate our outgoing communications. Any incoming message is handled
+/// with `Call`s.
+///
+/// In a real runtime, this is implemented via XCM calls, much like how the coretime pallet works.
+/// In a test runtime, it can be wired to direct function call.
+pub trait SendToAssetHub {
+	/// The validator account ids.
+	type AccountId;
+
+	/// Report a session change to AssetHub.
+	///
+	/// Returning `Err(())` means the DMP queue is full, and you should try again in the next block.
+	#[allow(clippy::result_unit_err)]
+	fn relay_session_report(session_report: SessionReport<Self::AccountId>) -> Result<(), ()>;
+
+	#[allow(clippy::result_unit_err)]
+	fn relay_new_offence_paged(
+		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
+	) -> Result<(), ()>;
+}
+
+/// A no-op implementation of [`SendToAssetHub`].
+#[cfg(feature = "std")]
+impl SendToAssetHub for () {
+	type AccountId = u64;
+
+	fn relay_session_report(_session_report: SessionReport<Self::AccountId>) -> Result<(), ()> {
+		unimplemented!();
+	}
+
+	fn relay_new_offence_paged(
+		_offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
+	) -> Result<(), ()> {
+		unimplemented!()
+	}
+}
+
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo)]
 /// A report about a new validator set. This is sent from AH -> RC.
 pub struct ValidatorSetReport<AccountId> {
 	/// The new validator set.
@@ -172,6 +222,28 @@ pub struct ValidatorSetReport<AccountId> {
 	pub prune_up_to: Option<SessionIndex>,
 	/// Same semantics as [`SessionReport::leftover`].
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set)
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for ValidatorSetReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("ValidatorSetReport")
+			.field("new_validator_set", &self.new_validator_set.len())
+			.field("id", &self.id)
+			.field("prune_up_to", &self.prune_up_to)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> ValidatorSetReport<AccountId> {
@@ -196,7 +268,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 		Ok(self)
 	}
 
-	/// Split self into `count` number of pieces.
+	/// Split self into chunks of `chunk_size` element.
 	pub fn split(self, chunk_size: usize) -> Vec<Self>
 	where
 		AccountId: Clone,
@@ -213,9 +285,7 @@ impl<AccountId> ValidatorSetReport<AccountId> {
 	}
 }
 
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 /// The information that is sent from RC -> AH on session end.
 pub struct SessionReport<AccountId> {
 	/// The session that is ending.
@@ -244,6 +314,28 @@ pub struct SessionReport<AccountId> {
 	///
 	/// Upon processing, this should always be true, and it should be ignored.
 	pub leftover: bool,
+}
+
+impl<AccountId: core::fmt::Debug> core::fmt::Debug for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points)
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
+}
+
+impl<AccountId> core::fmt::Display for SessionReport<AccountId> {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_struct("SessionReport")
+			.field("end_index", &self.end_index)
+			.field("validator_points", &self.validator_points.len())
+			.field("activation_timestamp", &self.activation_timestamp)
+			.field("leftover", &self.leftover)
+			.finish()
+	}
 }
 
 impl<AccountId> SessionReport<AccountId> {
@@ -287,6 +379,165 @@ impl<AccountId> SessionReport<AccountId> {
 	}
 }
 
+/// A trait to encapsulate messages between RC and AH that can be splitted into smaller chunks.
+///
+/// Implemented for [`SessionReport`] and [`ValidatorSetReport`].
+#[allow(clippy::len_without_is_empty)]
+pub trait SplittableMessage: Sized {
+	/// Split yourself into pieces of `chunk_size` size.
+	fn split_by(self, chunk_size: usize) -> Vec<Self>;
+
+	/// Current length of the message.
+	fn len(&self) -> usize;
+}
+
+impl<AccountId: Clone> SplittableMessage for SessionReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.validator_points.len()
+	}
+}
+
+impl<AccountId: Clone> SplittableMessage for ValidatorSetReport<AccountId> {
+	fn split_by(self, chunk_size: usize) -> Vec<Self> {
+		self.split(chunk_size)
+	}
+	fn len(&self) -> usize {
+		self.new_validator_set.len()
+	}
+}
+
+/// Common utility to send XCM messages that can use [`SplittableMessage`].
+///
+/// It can be used both in the RC and AH. `Message` is the splittable message type, and `ToXcm`
+/// should be configured by the user, converting `message` to a valida `Xcm<()>`. It should utilize
+/// the correct call indices, which we only know at the runtime level.
+pub struct XCMSender<Sender, Destination, Message, ToXcm>(
+	core::marker::PhantomData<(Sender, Destination, Message, ToXcm)>,
+);
+
+impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
+where
+	Sender: SendXcm,
+	Destination: Get<Location>,
+	Message: Clone + Encode,
+	ToXcm: Convert<Message, Xcm<()>>,
+{
+	/// Send the message single-shot; no splitting.
+	///
+	/// Useful for sending messages that are already paged/chunked, so we are sure that they fit in
+	/// one message.
+	#[allow(clippy::result_unit_err)]
+	pub fn send(message: Message) -> Result<(), ()> {
+		let xcm = ToXcm::convert(message);
+		let dest = Destination::get();
+		// send_xcm already calls validate internally
+		send_xcm::<Sender>(dest, xcm).map(|_| ()).map_err(|_| ())
+	}
+}
+
+impl<Sender, Destination, Message, ToXcm> XCMSender<Sender, Destination, Message, ToXcm>
+where
+	Sender: SendXcm,
+	Destination: Get<Location>,
+	Message: SplittableMessage + Display + Clone + Encode,
+	ToXcm: Convert<Message, Xcm<()>>,
+{
+	/// Safe send method to send a `message`, while validating it and using [`SplittableMessage`] to
+	/// split it into smaller pieces if XCM validation fails with `ExceedsMaxMessageSize`. It will
+	/// fail on other errors.
+	///
+	/// Returns `Ok()` if the message was sent using `XCM`, potentially with splitting up to
+	/// `maybe_max_step` times, `Err(())` otherwise.
+	#[deprecated(
+		note = "all staking related VMP messages should fit the single message limits. Should not be used."
+	)]
+	#[allow(clippy::result_unit_err)]
+	pub fn split_then_send(message: Message, maybe_max_steps: Option<u32>) -> Result<(), ()> {
+		let message_type_name = core::any::type_name::<Message>();
+		let dest = Destination::get();
+		let xcms = Self::prepare(message, maybe_max_steps).map_err(|e| {
+			log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to split message {}: {:?}", message_type_name, e);
+		})?;
+
+		match with_transaction_opaque_err(|| {
+			let all_sent = xcms.into_iter().enumerate().try_for_each(|(idx, xcm)| {
+				log::debug!(target: "runtime::staking-async::rc-client", "📨 sending {} message index {}, size: {:?}", message_type_name, idx, xcm.encoded_size());
+				send_xcm::<Sender>(dest.clone(), xcm).map(|_| {
+					log::debug!(target: "runtime::staking-async::rc-client", "📨 Successfully sent {} message part {} to relay chain", message_type_name,  idx);
+				}).inspect_err(|e| {
+					log::error!(target: "runtime::staking-async::rc-client", "📨 Failed to send {} message to relay chain: {:?}", message_type_name, e);
+				})
+			});
+
+			match all_sent {
+				Ok(()) => TransactionOutcome::Commit(Ok(())),
+				Err(send_err) => TransactionOutcome::Rollback(Err(send_err)),
+			}
+		}) {
+			// just like https://doc.rust-lang.org/src/core/result.rs.html#1746 which I cannot use yet because not in 1.89
+			Ok(inner) => inner.map_err(|_| ()),
+			// unreachable; `with_transaction_opaque_err` always returns `Ok(inner)`
+			Err(_) => Err(()),
+		}
+	}
+
+	fn prepare(message: Message, maybe_max_steps: Option<u32>) -> Result<Vec<Xcm<()>>, SendError> {
+		// initial chunk size is the entire thing, so it will be a vector of 1 item.
+		let mut chunk_size = message.len();
+		let mut steps = 0;
+
+		loop {
+			let current_messages = message.clone().split_by(chunk_size);
+
+			// the first message is the heaviest, the last one might be smaller.
+			let first_message = if let Some(r) = current_messages.first() {
+				r
+			} else {
+				log::debug!(target: "runtime::staking-async::xcm", "📨 unexpected: no messages to send");
+				return Ok(vec![]);
+			};
+
+			log::debug!(
+				target: "runtime::staking-async::xcm",
+				"📨 step: {:?}, chunk_size: {:?}, message_size: {:?}",
+				steps,
+				chunk_size,
+				first_message.encoded_size(),
+			);
+
+			let first_xcm = ToXcm::convert(first_message.clone());
+			match <Sender as SendXcm>::validate(&mut Some(Destination::get()), &mut Some(first_xcm))
+			{
+				Ok((_ticket, price)) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 validated, price: {:?}", price);
+					return Ok(current_messages.into_iter().map(ToXcm::convert).collect::<Vec<_>>());
+				},
+				Err(SendError::ExceedsMaxMessageSize) => {
+					log::debug!(target: "runtime::staking-async::xcm", "📨 ExceedsMaxMessageSize -- reducing chunk_size");
+					chunk_size = chunk_size.saturating_div(2);
+					steps += 1;
+					if maybe_max_steps.is_some_and(|max_steps| steps > max_steps) ||
+						chunk_size.is_zero()
+					{
+						log::error!(target: "runtime::staking-async::xcm", "📨 Exceeded max steps or chunk_size = 0");
+						return Err(SendError::ExceedsMaxMessageSize);
+					} else {
+						// try again with the new `chunk_size`
+						continue;
+					}
+				},
+				Err(other) => {
+					log::error!(target: "runtime::staking-async::xcm", "📨 other error -- cannot send XCM: {:?}", other);
+					return Err(other);
+				},
+			}
+		}
+	}
+}
+
 /// Our communication trait of `pallet-staking-async-rc-client` -> `pallet-staking-async`.
 ///
 /// This is merely a shorthand to avoid tightly-coupling the staking pallet to this pallet. It
@@ -298,12 +549,25 @@ pub trait AHStakingInterface {
 	type MaxValidatorSet: Get<u32>;
 
 	/// New session report from the relay chain.
-	fn on_relay_session_report(report: SessionReport<Self::AccountId>);
+	fn on_relay_session_report(report: SessionReport<Self::AccountId>) -> Weight;
+
+	/// Return the weight of `on_relay_session_report` call without executing it.
+	///
+	/// This will return the worst case estimate of the weight. The actual execution will return the
+	/// accurate amount.
+	fn weigh_on_relay_session_report(report: &SessionReport<Self::AccountId>) -> Weight;
 
 	/// Report one or more offences on the relay chain.
+	fn on_new_offences(
+		slash_session: SessionIndex,
+		offences: Vec<Offence<Self::AccountId>>,
+	) -> Weight;
+
+	/// Return the weight of `on_new_offences` call without executing it.
 	///
-	/// This returns its consumed weight because its complexity is hard to measure.
-	fn on_new_offences(slash_session: SessionIndex, offences: Vec<Offence<Self::AccountId>>);
+	/// This will return the worst case estimate of the weight. The actual execution will return the
+	/// accurate amount.
+	fn weigh_on_new_offences(offence_count: u32) -> Weight;
 }
 
 /// The communication trait of `pallet-staking-async` -> `pallet-staking-async-rc-client`.
@@ -330,7 +594,7 @@ pub struct Offence<AccountId> {
 pub mod pallet {
 	use super::*;
 	use alloc::vec;
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor, *};
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -354,9 +618,47 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastSessionReportEndingIndex<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
+	/// A validator set that is outgoing, and should be sent.
+	///
+	/// This will be attempted to be sent, possibly on every `on_initialize` call, until it is sent,
+	/// or the second value reaches zero, at which point we drop it.
+	#[pallet::storage]
+	// TODO: for now we know this ValidatorSetReport is at most validator-count * 32, and we don't
+	// need its MEL critically.
+	#[pallet::unbounded]
+	pub type OutgoingValidatorSet<T: Config> =
+		StorageValue<_, (ValidatorSetReport<T::AccountId>, u32), OptionQuery>;
+
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			if let Some((report, retries_left)) = OutgoingValidatorSet::<T>::take() {
+				match T::SendToRelayChain::validator_set(report.clone()) {
+					Ok(()) => {
+						// report was sent, all good, it is already deleted.
+					},
+					Err(()) => {
+						log!(error, "Failed to send validator set report to relay chain");
+						Self::deposit_event(Event::<T>::Unexpected(
+							UnexpectedKind::ValidatorSetSendFailed,
+						));
+						if let Some(new_retries_left) = retries_left.checked_sub(One::one()) {
+							OutgoingValidatorSet::<T>::put((report, new_retries_left))
+						} else {
+							Self::deposit_event(Event::<T>::Unexpected(
+								UnexpectedKind::ValidatorSetDropped,
+							));
+						}
+					},
+				}
+			}
+			T::DbWeight::get().reads_writes(1, 1)
+		}
+	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -370,6 +672,11 @@ pub mod pallet {
 
 		/// Our communication handle to the relay chain.
 		type SendToRelayChain: SendToRelayChain<AccountId = Self::AccountId>;
+
+		/// Maximum number of times that we retry sending a validator set to RC, after which, if
+		/// sending still fails, we emit an [`UnexpectedKind::ValidatorSetDropped`] event and drop
+		/// it.
+		type MaxValidatorSetRetries: Get<u32>;
 	}
 
 	#[pallet::event]
@@ -400,12 +707,17 @@ pub mod pallet {
 		SessionReportIntegrityFailed,
 		/// We could not merge the chunks, and therefore dropped the validator set.
 		ValidatorSetIntegrityFailed,
-	}
-
-	#[pallet::error]
-	pub enum Error<T> {
-		/// The session report was not valid, due to a bad end index.
-		SessionIndexNotValid,
+		/// The received session index is more than what we expected.
+		SessionSkipped,
+		/// A session in the past was received. This will not raise any errors, just emit an event
+		/// and stop processing the report.
+		SessionAlreadyProcessed,
+		/// A validator set failed to be sent to RC.
+		///
+		/// We will store, and retry it for [`Config::MaxValidatorSetRetries`] future blocks.
+		ValidatorSetSendFailed,
+		/// A validator set was dropped.
+		ValidatorSetDropped,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -417,7 +729,8 @@ pub mod pallet {
 			prune_up_tp: Option<u32>,
 		) {
 			let report = ValidatorSetReport::new_terminal(new_validator_set, id, prune_up_tp);
-			T::SendToRelayChain::validator_set(report);
+			// just store the report to be outgoing, it will be sent in the next on-init.
+			OutgoingValidatorSet::<T>::put((report, T::MaxValidatorSetRetries::get()));
 		}
 	}
 
@@ -428,15 +741,15 @@ pub mod pallet {
 		#[pallet::weight(
 			// `LastSessionReportEndingIndex`: rw
 			// `IncompleteSessionReport`: rw
-			// NOTE: what happens inside `AHStakingInterface` is benchmarked and registered in `pallet-staking-async`
-			T::DbWeight::get().reads_writes(2, 2)
+			T::DbWeight::get().reads_writes(2, 2) + T::AHStakingInterface::weigh_on_relay_session_report(report)
 		)]
 		pub fn relay_session_report(
 			origin: OriginFor<T>,
 			report: SessionReport<T::AccountId>,
-		) -> DispatchResult {
-			log!(info, "Received session report: {:?}", report);
+		) -> DispatchResultWithPostInfo {
+			log!(debug, "Received session report: {}", report);
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+			let local_weight = T::DbWeight::get().reads_writes(2, 2);
 
 			match LastSessionReportEndingIndex::<T>::get() {
 				None => {
@@ -445,15 +758,26 @@ pub mod pallet {
 				Some(last) if report.end_index == last + 1 => {
 					// incremental -- good
 				},
-				Some(incorrect) => {
+				Some(last) if report.end_index > last + 1 => {
+					// deposit a warning event, but proceed
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionSkipped));
+					log!(
+						warn,
+						"Session report end index is more than expected. last_index={:?}, report.index={:?}",
+						last,
+						report.end_index
+					);
+				},
+				Some(past) => {
 					log!(
 						error,
 						"Session report end index is not valid. last_index={:?}, report.index={:?}",
-						incorrect,
+						past,
 						report.end_index
 					);
-					// NOTE: we may want to set ourself to a blocked mode at this point.
-					return Err(Error::<T>::SessionIndexNotValid.into());
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::SessionAlreadyProcessed));
+					IncompleteSessionReport::<T>::kill();
+					return Ok(Some(local_weight).into());
 				},
 			}
 
@@ -476,45 +800,50 @@ pub mod pallet {
 					IncompleteSessionReport::<T>::get().is_none(),
 					"we have ::take() it above, we don't want to keep the old data"
 				);
-				return Ok(());
+				return Ok(().into());
 			}
 			let new_session_report = maybe_new_session_report.expect("checked above; qed");
 
 			if new_session_report.leftover {
 				// this is still not final -- buffer it.
 				IncompleteSessionReport::<T>::put(new_session_report);
+				Ok(().into())
 			} else {
 				// this is final, report it.
 				LastSessionReportEndingIndex::<T>::put(new_session_report.end_index);
-				T::AHStakingInterface::on_relay_session_report(new_session_report);
+				let weight = T::AHStakingInterface::on_relay_session_report(new_session_report);
+				Ok((Some(local_weight + weight)).into())
 			}
-
-			Ok(())
 		}
 
-		/// Called to report one or more new offenses on the relay chain.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
-			// `on_new_offences` is benchmarked by `pallet-staking-async`
-			// events are free
-			// origin check is negligible.
-			Weight::default()
+			T::AHStakingInterface::weigh_on_new_offences(offences.len() as u32)
 		)]
-		pub fn relay_new_offence(
+		pub fn relay_new_offence_paged(
 			origin: OriginFor<T>,
-			slash_session: SessionIndex,
-			offences: Vec<Offence<T::AccountId>>,
-		) -> DispatchResult {
-			log!(info, "Received new offence at slash_session: {:?}", slash_session);
+			offences: Vec<(SessionIndex, Offence<T::AccountId>)>,
+		) -> DispatchResultWithPostInfo {
 			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+			log!(info, "Received new page of {} offences", offences.len());
 
-			Self::deposit_event(Event::OffenceReceived {
-				slash_session,
-				offences_count: offences.len() as u32,
-			});
+			let mut offences_by_session =
+				alloc::collections::BTreeMap::<SessionIndex, Vec<Offence<T::AccountId>>>::new();
+			for (session_index, offence) in offences {
+				offences_by_session.entry(session_index).or_default().push(offence);
+			}
 
-			T::AHStakingInterface::on_new_offences(slash_session, offences);
-			Ok(())
+			let mut weight: Weight = Default::default();
+			for (slash_session, offences) in offences_by_session {
+				Self::deposit_event(Event::OffenceReceived {
+					slash_session,
+					offences_count: offences.len() as u32,
+				});
+				let new_weight = T::AHStakingInterface::on_new_offences(slash_session, offences);
+				weight.saturating_accrue(new_weight)
+			}
+
+			Ok(Some(weight).into())
 		}
 	}
 }

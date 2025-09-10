@@ -409,6 +409,14 @@ pub mod pallet {
 			/// The Region whose contribution is no longer exists.
 			region_id: RegionId,
 		},
+		/// A region has been force-removed from the pool. This is usually due to a provisionally
+		/// pooled region being redeployed.
+		RegionUnpooled {
+			/// The Region which has been force-removed from the pool.
+			region_id: RegionId,
+			/// The timeslice at which the region was force-removed.
+			when: Timeslice,
+		},
 		/// Some historical Instantaneous Core Pool payment record has been initialized.
 		HistoryInitialized {
 			/// The timeslice whose history has been initialized.

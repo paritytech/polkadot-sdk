@@ -303,4 +303,37 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::paras::WeightInfo for
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	/// Storage: `Paras::AuthorizedCodeHash` (r:0 w:1)
+	/// Proof: `Paras::AuthorizedCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn authorize_force_set_current_code_hash() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 8_112_000 picoseconds.
+		Weight::from_parts(8_401_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Paras::AuthorizedCodeHash` (r:1 w:1)
+	/// Proof: `Paras::AuthorizedCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CodeByHashRefs` (r:1 w:1)
+	/// Proof: `Paras::CodeByHashRefs` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CurrentCodeHash` (r:1 w:1)
+	/// Proof: `Paras::CurrentCodeHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Paras::CodeByHash` (r:0 w:1)
+	/// Proof: `Paras::CodeByHash` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `c` is `[9, 3145728]`.
+	fn apply_authorized_force_set_current_code(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `132`
+		//  Estimated: `3597`
+		// Minimum execution time: 32_733_000 picoseconds.
+		Weight::from_parts(33_172_000, 0)
+			.saturating_add(Weight::from_parts(0, 3597))
+			// Standard Error: 133
+			.saturating_add(Weight::from_parts(14_731, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(4))
+	}
 }
