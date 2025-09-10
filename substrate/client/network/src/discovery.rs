@@ -382,10 +382,10 @@ impl DiscoveryBehaviour {
 			self.permanent_addresses.push(t.clone());
 			let (peer_id, addr) = t;
 
-			if let Some(addr_eph) = self.ephemeral_addresses.get(&peer_id) {
-				if !addr_eph.contains(&addr) {
-					self.pending_events.push_back(DiscoveryOut::Discovered(peer_id));
-				}
+			let addrs_list = self.ephemeral_addresses.entry(peer_id).or_default();
+			if !addrs_list.contains(&addr) {
+				self.pending_events.push_back(DiscoveryOut::Discovered(peer_id));
+				addrs_list.push(addr.clone());
 			}
 
 			if let Some(k) = self.kademlia.as_mut() {
