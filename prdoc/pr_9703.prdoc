@@ -1,8 +1,7 @@
 title: 'Cumulus: adjust authorship duration'
 doc:
-- audience: Todo
-  description: "For elastic scaling usecases with more than 3 cores we need to ensure\
-    \ block authorship ends before the next block is supposed to be built. \r\n"
+- audience: Node Dev
+  description: Adjust block authroship duration when a parachain uses more than 3 cores.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
