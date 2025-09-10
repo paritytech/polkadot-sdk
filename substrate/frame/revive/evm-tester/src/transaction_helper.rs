@@ -5,7 +5,7 @@ use pallet_revive::{
 	evm::{
 		Account, Byte, Bytes as ReviveBytes, GenericTransaction, InputOrData, TransactionSigned,
 	},
-	U256Converter,
+	vm::U256Converter,
 };
 use revm_statetest_types::{recover_address, TestUnit, TxPartIndices};
 

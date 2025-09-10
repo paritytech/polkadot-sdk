@@ -13,22 +13,43 @@ use revm::{
 	context::cfg::CfgEnv,
 	context_interface::result::{EVMError, ExecutionResult, HaltReason, InvalidTransaction},
 	primitives::{hardfork::SpecId, keccak256, Log, U256},
-	Context, ExecuteCommitEvm, MainBuilder, MainContext,
+	Context, Database, ExecuteCommitEvm, MainBuilder, MainContext,
 };
 
 use crate::{cli::Args, transaction_helper::create_signed_transaction};
 
-/// Custom error for state test verification failures  
+/// Custom error for state test verification failures
 #[derive(Debug)]
 pub enum StateTestError {
 	ExecutionError(anyhow::Error),
 	EvmError(EVMError<std::convert::Infallible, InvalidTransaction>),
-	LogsRootMismatch { got: revm::primitives::B256, expected: revm::primitives::B256 },
-	AccountBalanceMismatch { address: revm::primitives::Address, got: U256, expected: U256 },
-	AccountNonceMismatch { address: revm::primitives::Address, got: u64, expected: u64 },
-	AccountCodeMismatch { address: revm::primitives::Address },
-	AccountStorageMismatch { address: revm::primitives::Address, key: U256, got: U256, expected: U256 },
-	UnexpectedException { expected: Option<String>, got: Option<String> },
+	LogsRootMismatch {
+		got: revm::primitives::B256,
+		expected: revm::primitives::B256,
+	},
+	AccountBalanceMismatch {
+		address: revm::primitives::Address,
+		got: U256,
+		expected: U256,
+	},
+	AccountNonceMismatch {
+		address: revm::primitives::Address,
+		got: u64,
+		expected: u64,
+	},
+	AccountCodeMismatch {
+		address: revm::primitives::Address,
+	},
+	AccountStorageMismatch {
+		address: revm::primitives::Address,
+		key: U256,
+		got: U256,
+		expected: U256,
+	},
+	UnexpectedException {
+		expected: Option<String>,
+		got: Option<String>,
+	},
 }
 
 impl std::fmt::Display for StateTestError {
@@ -36,12 +57,27 @@ impl std::fmt::Display for StateTestError {
 		match self {
 			StateTestError::ExecutionError(e) => write!(f, "Execution error: {}", e),
 			StateTestError::EvmError(e) => write!(f, "EVM error: {}", e),
-			StateTestError::LogsRootMismatch { got, expected } => write!(f, "Logs root mismatch: got {:?}, expected {:?}", got, expected),
-			StateTestError::AccountBalanceMismatch { address, got, expected } => write!(f, "Account balance mismatch for {}: got {:?}, expected {:?}", address, got, expected),
-			StateTestError::AccountNonceMismatch { address, got, expected } => write!(f, "Account nonce mismatch for {}: got {:?}, expected {:?}", address, got, expected),
-			StateTestError::AccountCodeMismatch { address } => write!(f, "Account code mismatch for {}", address),
-			StateTestError::AccountStorageMismatch { address, key, got, expected } => write!(f, "Account storage mismatch for {}, slot {:?}: got {:?}, expected {:?}", address, key, got, expected),
-			StateTestError::UnexpectedException { expected, got } => write!(f, "Unexpected exception: got {:?}, expected {:?}", got, expected),
+			StateTestError::LogsRootMismatch { got, expected } =>
+				write!(f, "Logs root mismatch: got {:?}, expected {:?}", got, expected),
+			StateTestError::AccountBalanceMismatch { address, got, expected } => write!(
+				f,
+				"Account balance mismatch for {}: got {:?}, expected {:?}",
+				address, got, expected
+			),
+			StateTestError::AccountNonceMismatch { address, got, expected } => write!(
+				f,
+				"Account nonce mismatch for {}: got {:?}, expected {:?}",
+				address, got, expected
+			),
+			StateTestError::AccountCodeMismatch { address } =>
+				write!(f, "Account code mismatch for {}", address),
+			StateTestError::AccountStorageMismatch { address, key, got, expected } => write!(
+				f,
+				"Account storage mismatch for {}, slot {:?}: got {:?}, expected {:?}",
+				address, key, got, expected
+			),
+			StateTestError::UnexpectedException { expected, got } =>
+				write!(f, "Unexpected exception: got {:?}, expected {:?}", got, expected),
 		}
 	}
 }
@@ -251,9 +287,7 @@ impl ExtBuilder {
 pub fn execute_revive_statetest_old(
 	test_case: &TestUnit,
 	expected_post_state: &Test,
-) -> Result<
-	Result<ExecutionResult<HaltReason>, StateTestError>,
-> {
+) -> Result<Result<ExecutionResult<HaltReason>, StateTestError>> {
 	use revive_dev_runtime::{Runtime, RuntimeCall};
 
 	let signed_tx = create_signed_transaction(test_case, &expected_post_state.indexes)?;
@@ -309,9 +343,7 @@ pub fn execute_revive_statetest_old(
 pub fn execute_revive_statetest(
 	test_case: &TestUnit,
 	expected_post_state: &Test,
-) -> Result<
-	Result<ExecutionResult<HaltReason>, StateTestError>,
-> {
+) -> Result<Result<ExecutionResult<HaltReason>, StateTestError>> {
 	use crate::transaction_helper::create_generic_transaction;
 	use revive_dev_runtime::Runtime;
 	use sp_runtime::Weight;
@@ -321,7 +353,8 @@ pub fn execute_revive_statetest(
 
 	// Execute transaction and capture results
 	let (execution_result, logs) = ext.execute_with(|| {
-		let result = pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128);
+		let result =
+			pallet_revive::Pallet::<Runtime>::dry_run_eth_transact(tx, Weight::MAX, |_, _| 0u128);
 		// TODO: Extract actual logs from the execution
 		// For now, return empty logs as placeholder
 		let logs = vec![];
@@ -335,20 +368,22 @@ pub fn execute_revive_statetest(
 			gas_used: 0, // TODO: Extract actual gas used
 			gas_refunded: 0,
 			logs,
-			output: revm::context::result::Output::Call(Default::default()), // TODO: Extract actual output
+			output: revm::context::result::Output::Call(Default::default()), /* TODO: Extract
+			                                                                  * actual output */
 		},
 		Err(_) => {
 			// TODO: Map pallet errors to appropriate ExecutionResult variants
 			ExecutionResult::Halt {
-				reason: HaltReason::OutOfGas(revm::context::result::OutOfGasError::Basic), // Placeholder
+				reason: HaltReason::OutOfGas(revm::context::result::OutOfGasError::Basic), /* Placeholder */
 				gas_used: 0,
 			}
-		}
+		},
 	};
 
 	// Perform verification similar to REVM version
 	match &result {
 		ExecutionResult::Success { logs, .. } => {
+			dbg!(&logs);
 			// Check for expected exceptions
 			if let Some(exception) = &expected_post_state.expect_exception {
 				if !exception.is_empty() {
@@ -384,8 +419,9 @@ pub fn execute_revive_statetest(
 		},
 		ExecutionResult::Revert { .. } => {
 			// Check if revert was expected
-			if expected_post_state.expect_exception.is_none() || 
-			   expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty()) {
+			if expected_post_state.expect_exception.is_none() ||
+				expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty())
+			{
 				return Ok(Err(StateTestError::UnexpectedException {
 					expected: None,
 					got: Some("Execution reverted".to_string()),
@@ -395,8 +431,9 @@ pub fn execute_revive_statetest(
 		},
 		ExecutionResult::Halt { reason, .. } => {
 			// Check if halt was expected
-			if expected_post_state.expect_exception.is_none() || 
-			   expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty()) {
+			if expected_post_state.expect_exception.is_none() ||
+				expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty())
+			{
 				return Ok(Err(StateTestError::UnexpectedException {
 					expected: None,
 					got: Some(format!("Execution halted: {:?}", reason)),
@@ -413,9 +450,7 @@ fn execute_revm_statetest(
 	fork: &str,
 	_index: usize,
 	expected_post_state: &Test,
-) -> Result<
-	Result<ExecutionResult<HaltReason>, StateTestError>,
-> {
+) -> Result<Result<ExecutionResult<HaltReason>, StateTestError>> {
 	// Map fork name to SpecId
 	let spec_id = match fork {
 		"Frontier" => SpecId::FRONTIER,
@@ -492,34 +527,37 @@ fn execute_revm_statetest(
 
 			// Verify account states
 			for (address, expected_account) in &expected_post_state.post_state {
-				if let Ok(actual_account) = state.load_cache_account(*address) {
+				let Ok(actual_account) = state.load_cache_account(*address);
+				if let Some(account) = &actual_account.account {
 					// Verify balance
-					if actual_account.info.balance != expected_account.balance {
+					if account.info.balance != expected_account.balance {
 						return Ok(Err(StateTestError::AccountBalanceMismatch {
 							address: *address,
-							got: actual_account.info.balance,
+							got: account.info.balance,
 							expected: expected_account.balance,
 						}));
 					}
 
 					// Verify nonce
-					if actual_account.info.nonce != expected_account.nonce {
+					if account.info.nonce != expected_account.nonce {
 						return Ok(Err(StateTestError::AccountNonceMismatch {
 							address: *address,
-							got: actual_account.info.nonce,
+							got: account.info.nonce,
 							expected: expected_account.nonce,
 						}));
 					}
 
 					// Verify code
-					let actual_code = state.code_by_hash(actual_account.info.code_hash).unwrap_or_default();
+					let code_hash = account.info.code_hash;
+					let actual_code = state.code_by_hash(code_hash).unwrap_or_default();
 					if actual_code.bytecode() != expected_account.code.as_ref() {
 						return Ok(Err(StateTestError::AccountCodeMismatch { address: *address }));
 					}
 
 					// Verify storage
 					for (storage_key, expected_value) in &expected_account.storage {
-						let actual_value = state.storage(*address, (*storage_key).into()).unwrap_or_default();
+						let actual_value =
+							state.storage(*address, (*storage_key).into()).unwrap_or_default();
 						if actual_value != *expected_value {
 							return Ok(Err(StateTestError::AccountStorageMismatch {
 								address: *address,
@@ -532,37 +570,40 @@ fn execute_revm_statetest(
 				}
 			}
 
-			Ok(exec_result)
+			Ok(exec_result.map_err(|e| StateTestError::EvmError(e)))
 		},
 		Ok(ExecutionResult::Revert { .. }) => {
 			// Check if revert was expected
-			if expected_post_state.expect_exception.is_none() || 
-			   expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty()) {
+			if expected_post_state.expect_exception.is_none() ||
+				expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty())
+			{
 				return Ok(Err(StateTestError::UnexpectedException {
 					expected: None,
 					got: Some("Execution reverted".to_string()),
 				}));
 			}
-			Ok(exec_result)
+			Ok(exec_result.map_err(|e| StateTestError::EvmError(e)))
 		},
 		Ok(ExecutionResult::Halt { reason, .. }) => {
 			// Check if halt was expected
-			if expected_post_state.expect_exception.is_none() || 
-			   expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty()) {
+			if expected_post_state.expect_exception.is_none() ||
+				expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty())
+			{
 				return Ok(Err(StateTestError::UnexpectedException {
 					expected: None,
 					got: Some(format!("Execution halted: {:?}", reason)),
 				}));
 			}
-			Ok(exec_result)
+			Ok(exec_result.map_err(|e| StateTestError::EvmError(e)))
 		},
 		Err(e) => {
 			// Check if error was expected
-			if expected_post_state.expect_exception.is_none() || 
-			   expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty()) {
+			if expected_post_state.expect_exception.is_none() ||
+				expected_post_state.expect_exception.as_ref().map_or(true, |e| e.is_empty())
+			{
 				Ok(Err(StateTestError::EvmError(e.clone())))
 			} else {
-				Ok(exec_result)
+				Ok(exec_result.map_err(|e| StateTestError::EvmError(e)))
 			}
 		},
 	}
