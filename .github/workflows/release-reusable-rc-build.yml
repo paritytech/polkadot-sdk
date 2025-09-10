@@ -179,6 +179,19 @@ jobs:
 
       - name: Install protobuf
         run: brew install protobuf
+
+      - name: Install llvm
+        run: |
+          brew install llvm@21
+
+      - name: Set dynamic library path
+        run: |
+          LLVM_PATH=$(brew --prefix llvm)
+          export LIBCLANG_PATH="$LLVM_PATH/lib"
+          export LDFLAGS="-L$LLVM_PATH/lib"
+          export CPPFLAGS="-I$LLVM_PATH/include"
+          echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+
       - name: Install gpg
         run: |
           brew install gnupg

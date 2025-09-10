@@ -17,7 +17,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, sol::make_evm_bytecode_from_runtime_code, ExtBuilder, Test},
+	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
 	Code, Config,
 };
 use alloy_core::primitives::U256;
@@ -40,7 +40,7 @@ fn push_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -74,7 +74,7 @@ fn pop_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -108,7 +108,7 @@ fn dup_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -142,7 +142,7 @@ fn swap_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);

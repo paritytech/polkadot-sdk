@@ -44,44 +44,13 @@ contract Host {
         }
     }
 
-    function log0Op(bytes32 data) public {
+    function logOps() public {
         assembly {
-            log0(data, 0x20)
-        }
-    }
-
-    function log1Op(bytes32 data, bytes32 topic1) public {
-        assembly {
-            log1(data, 0x20, topic1)
-        }
-    }
-
-    function log2Op(bytes32 data, bytes32 topic1, bytes32 topic2) public {
-        assembly {
-            log2(data, 0x20, topic1, topic2)
-        }
-    }
-
-    function log3Op(
-        bytes32 data,
-        bytes32 topic1,
-        bytes32 topic2,
-        bytes32 topic3
-    ) public {
-        assembly {
-            log3(data, 0x20, topic1, topic2, topic3)
-        }
-    }
-
-    function log4Op(
-        bytes32 data,
-        bytes32 topic1,
-        bytes32 topic2,
-        bytes32 topic3,
-        bytes32 topic4
-    ) public {
-        assembly {
-            log4(data, 0x20, topic1, topic2, topic3, topic4)
+            log0(0x01, 0x20)
+            log1(0x02, 0x20, 0x11)
+            log2(0x03, 0x20, 0x22, 0x33)
+            log3(0x04, 0x20, 0x44, 0x55, 0x66)
+            log4(0x05, 0x20, 0x77, 0x88, 0x99, 0xaa)
         }
     }
 

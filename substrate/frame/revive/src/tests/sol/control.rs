@@ -17,7 +17,7 @@
 
 use crate::{
 	test_utils::{builder::Contract, ALICE},
-	tests::{builder, sol::make_evm_bytecode_from_runtime_code, ExtBuilder, Test},
+	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
 	Code, Config,
 };
 use alloy_core::primitives::U256;
@@ -52,7 +52,7 @@ fn jump_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -74,11 +74,8 @@ fn jumpdest_works() {
 	// Test invalid jumpdest
 	let runtime_code: Vec<u8> = vec![
 		// This will jump to the MSTORE instruction, should give an error
-		vec![PUSH1, 0x09_u8],
+		vec![PUSH1, 0x00_u8],
 		vec![JUMP],
-		vec![PUSH4, 0xde, 0xad, 0xbe, 0xef],
-		vec![PUSH0],
-		vec![MSTORE],
 		// return whatever is in memory at location 0
 		vec![JUMPDEST],
 		vec![PUSH1, 0x20_u8],
@@ -88,7 +85,7 @@ fn jumpdest_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -140,7 +137,7 @@ fn jumpi_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -190,7 +187,7 @@ fn ret_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -222,7 +219,7 @@ fn revert_works() {
 	.into_iter()
 	.flatten()
 	.collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -243,7 +240,7 @@ fn revert_works() {
 #[test]
 fn stop_works() {
 	let runtime_code: Vec<u8> = vec![vec![STOP]].into_iter().flatten().collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -260,7 +257,7 @@ fn stop_works() {
 fn invalid_works() {
 	let expected_gas = 12_345_000_u64;
 	let runtime_code: Vec<u8> = vec![vec![INVALID]].into_iter().flatten().collect();
-	let code = make_evm_bytecode_from_runtime_code(&runtime_code);
+	let code = make_initcode_from_runtime_code(&runtime_code);
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);

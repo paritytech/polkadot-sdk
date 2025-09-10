@@ -346,7 +346,7 @@ if input_bytes.is_empty() {
             show
         );
     }
-}
+}bb
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,

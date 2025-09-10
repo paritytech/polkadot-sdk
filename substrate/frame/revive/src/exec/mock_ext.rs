@@ -207,6 +207,9 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 	fn terminate(&mut self, _beneficiary: &H160, _allow_from_outside_tx: bool) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate")
 	}
+	fn copy_code_slice(&mut self, _buf: &mut [u8], _address: &H160, _code_offset: usize) {
+		panic!("MockExt::copy_code_slice")
+	}
 }
 
 impl<T: Config> PrecompileWithInfoExt for MockExt<T> {
