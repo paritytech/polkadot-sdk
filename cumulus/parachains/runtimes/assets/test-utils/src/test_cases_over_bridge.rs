@@ -30,9 +30,12 @@ use parachains_runtimes_test_utils::{
 	SlotDurations, ValidatorIdOf, XcmReceivedFrom,
 };
 use sp_runtime::{traits::StaticLookup, Saturating};
-use xcm::{latest::prelude::*, VersionedAssets};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedXcm};
 use xcm_builder::{CreateMatcher, MatchXcm};
-use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_executor::{
+	traits::{ConvertLocation, TransferType},
+	XcmExecutor,
+};
 
 pub struct TestBridgingConfig {
 	pub bridged_network: NetworkId,
@@ -186,13 +189,19 @@ pub fn limited_reserve_transfer_assets_for_native_asset_works<
 
 			let expected_beneficiary = target_destination_account.clone();
 
-			// do pallet_xcm call reserve transfer
-			assert_ok!(<pallet_xcm::Pallet<Runtime>>::limited_reserve_transfer_assets(
+			// do cross-chain transfer
+			assert_ok!(<pallet_xcm::Pallet<Runtime>>::transfer_assets_using_type_and_then(
 				RuntimeHelper::<Runtime, AllPalletsWithoutSystem>::origin_of(alice_account.clone()),
 				Box::new(target_location_from_different_consensus.clone().into_versioned()),
-				Box::new(target_destination_account.into_versioned()),
 				Box::new(VersionedAssets::from(assets_to_transfer)),
-				0,
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedAssetId::from(AssetId(Location::parent()))),
+				Box::new(TransferType::LocalReserve),
+				Box::new(VersionedXcm::from(
+					Xcm::<()>::builder_unsafe()
+						.deposit_asset(AllCounted(1), target_destination_account)
+						.build()
+				)),
 				weight_limit,
 			));
 
