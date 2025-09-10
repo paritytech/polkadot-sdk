@@ -31,6 +31,7 @@
 //! while also achieving 1 second block times.
 //!
 //! ### Ultra low latency
+//!
 //! When latency is the primary requirement, Elastic scaling is currently the only solution. The
 //! caveat is the efficiency of core time usage decreases as more cores are used.
 //!
