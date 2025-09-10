@@ -102,29 +102,6 @@ use sp_staking::{
 pub struct Eras<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> Eras<T> {
-	/// Prune all associated information with the given era.
-	///
-	/// Implementation note: ATM this is deleting all the information in one go, yet it can very
-	/// well be done lazily.
-	pub(crate) fn prune_era(era: EraIndex) {
-		crate::log!(debug, "Pruning era {:?}", era);
-		let mut cursor = <ErasValidatorPrefs<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ClaimedRewards<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersPaged<T>>::clear_prefix((era,), u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-		cursor = <ErasStakersOverview<T>>::clear_prefix(era, u32::MAX, None);
-		debug_assert!(cursor.maybe_cursor.is_none());
-
-		<ErasValidatorReward<T>>::remove(era);
-		<ErasRewardPoints<T>>::remove(era);
-		<ErasTotalStake<T>>::remove(era);
-
-		// weight is registered in the main `relay_session_report` code path.
-		Pallet::<T>::deposit_event(Event::<T>::EraPruned { index: era });
-	}
-
 	pub(crate) fn set_validator_prefs(era: EraIndex, stash: &T::AccountId, prefs: ValidatorPrefs) {
 		debug_assert_eq!(era, Rotator::<T>::planned_era(), "we only set prefs for planning era");
 		<ErasValidatorPrefs<T>>::insert(era, stash, prefs);
@@ -378,8 +355,8 @@ impl<T: Config> Eras<T> {
 #[cfg(any(feature = "try-runtime", test, feature = "runtime-benchmarks"))]
 #[allow(unused)]
 impl<T: Config> Eras<T> {
-	/// Ensure the given era is present, i.e. has not been pruned yet.
-	pub(crate) fn era_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+	/// Ensure the given era's data is fully present (all storage intact and not being pruned).
+	pub(crate) fn era_fully_present(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// these two are only set if we have some validators in an era.
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
 		// note: we don't check `ErasStakersPaged` as a validator can have no backers.
@@ -411,7 +388,22 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	/// Ensure the given era has indeed been already pruned.
+	/// Check if the given era is currently being pruned.
+	pub(crate) fn era_pruning_in_progress(era: EraIndex) -> bool {
+		EraPruningState::<T>::contains_key(era)
+	}
+
+	/// Ensure the given era is either absent or currently being pruned.
+	pub(crate) fn era_absent_or_pruning(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
+		if Self::era_pruning_in_progress(era) {
+			Ok(())
+		} else {
+			Self::era_absent(era)
+		}
+	}
+
+	/// Ensure the given era has indeed been already pruned. This is called by the main pallet in
+	/// do_prune_era_step.
 	pub(crate) fn era_absent(era: EraIndex) -> Result<(), sp_runtime::TryRuntimeError> {
 		// check double+ maps
 		let e0 = ErasValidatorPrefs::<T>::iter_prefix_values(era).count() != 0;
@@ -427,18 +419,10 @@ impl<T: Config> Eras<T> {
 		let e6 = ClaimedRewards::<T>::iter_prefix_values(era).count() != 0;
 		let e7 = ErasRewardPoints::<T>::contains_key(era);
 
-		assert!(
-			vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]),
-			"era info absence not consistent for era {}: {}, {}, {}, {}, {}, {}, {}",
-			era,
-			e0,
-			e1,
-			e2,
-			e3,
-			e4,
-			e6,
-			e7
-		);
+		// Check if era info is consistent - if not, era is in partial pruning state
+		if !vec![e0, e1, e2, e3, e4, e6, e7].windows(2).all(|w| w[0] == w[1]) {
+			return Err("era info absence not consistent - partial pruning state".into());
+		}
 
 		if !e0 {
 			Ok(())
@@ -453,15 +437,18 @@ impl<T: Config> Eras<T> {
 		// we max with 1 as in active era 0 we don't do an election and therefore we don't have some
 		// of the maps populated.
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
-		let maybe_first_pruned_era =
-			active_era.saturating_sub(T::HistoryDepth::get()).checked_sub(One::one());
 
 		for e in oldest_present_era..=active_era {
-			Self::era_present(e)?
+			Self::era_fully_present(e)?
 		}
-		if let Some(first_pruned_era) = maybe_first_pruned_era {
-			Self::era_absent(first_pruned_era)?;
-		}
+
+		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
+		// pruning
+		ensure!(
+			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
+			"All old eras must be either fully pruned or marked for pruning"
+		);
+
 		Ok(())
 	}
 }
@@ -556,8 +543,8 @@ impl<T: Config> Rotator<T> {
 		end_index: SessionIndex,
 		activation_timestamp: Option<(u64, u32)>,
 	) -> Weight {
-		// baseline weight -- if we start a new era, we will add the pruning weight to it.
-		let mut weight = T::WeightInfo::rc_on_session_report();
+		// baseline weight for processing the relay chain session report
+		let weight = T::WeightInfo::rc_on_session_report();
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
@@ -582,8 +569,6 @@ impl<T: Config> Rotator<T> {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
 				Self::start_era(active_era, starting, time);
-				// accumulate pruning weight.
-				weight.saturating_accrue(T::WeightInfo::prune_era(ValidatorCount::<T>::get()));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -663,8 +648,14 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
-		// discard old era information that is no longer needed.
-		Self::cleanup_old_era(starting_era);
+		// cleanup election state
+		EraElectionPlanner::<T>::cleanup();
+
+		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			log!(debug, "Marking era {:?} for lazy pruning", old_era);
+			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
+		}
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -803,16 +794,6 @@ impl<T: Config> Rotator<T> {
 			target_plan_era_session
 		);
 		session_progress >= target_plan_era_session
-	}
-
-	fn cleanup_old_era(starting_era: EraIndex) {
-		EraElectionPlanner::<T>::cleanup();
-
-		// discard the ancient era info.
-		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
-			log!(debug, "Removing era information for {:?}", old_era);
-			Eras::<T>::prune_era(old_era);
-		}
 	}
 }
 

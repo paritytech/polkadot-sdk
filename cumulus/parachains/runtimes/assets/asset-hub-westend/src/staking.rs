@@ -264,6 +264,7 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub storage PlanningEraOffset: u32 = prod_or_fast!(2, 1);
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
+	pub MaxPruningItems: u32 = 100;
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -296,6 +297,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = PlanningEraOffset;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type MaxPruningItems = MaxPruningItems;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
