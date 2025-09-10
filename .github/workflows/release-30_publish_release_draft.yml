@@ -128,9 +128,6 @@ jobs:
 
           echo "Version: $VERSION"
 
-          ls -la ${{ github.workspace}}/runtimes
-          ls -la ${{ github.workspace}}/prdoc/stable2556
-
           ./scripts/release/build-changelogs.sh
 
       - name: Archive artifact context.json
