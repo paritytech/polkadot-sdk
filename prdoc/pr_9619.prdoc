@@ -29,14 +29,17 @@ crates:
   bump: patch
 - name: pallet-root-offences
   bump: major
+  validate: false
 - name: pallet-staking-async-ah-client
   bump: major
+  validate: false
 - name: pallet-staking-async
   bump: patch
 - name: westend-runtime
   bump: minor
 - name: pallet-staking-async-rc-client
   bump: major
+  validate: false
 - name: pallet-staking-async-rc-runtime-constants
   bump: patch
 - name: asset-hub-westend-runtime
