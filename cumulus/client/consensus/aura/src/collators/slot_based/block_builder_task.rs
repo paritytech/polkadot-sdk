@@ -386,13 +386,23 @@ where
 				validation_data.max_pov_size * 85 / 100
 			} as usize;
 
+			let adjusted_authoring_duration = match slot_timer.time_until_next_slot() {
+				Ok((duration, _slot)) => duration,
+				Err(e) => {
+					tracing::warn!(target: crate::LOG_TARGET, ?e, "Failed to get authoring duration for next slot.");
+					authoring_duration
+				}
+			};
+
+			tracing::debug!(target: crate::LOG_TARGET, ?parent_hash, duration = ?adjusted_authoring_duration, "Adjusted proposal duration.");
+			
 			let Ok(Some(candidate)) = collator
 				.build_block_and_import(
 					&parent_header,
 					&slot_claim,
 					Some(vec![CumulusDigestItem::CoreInfo(core.core_info()).to_digest_item()]),
 					(parachain_inherent_data, other_inherent_data),
-					authoring_duration,
+					adjusted_authoring_duration,
 					allowed_pov_size,
 				)
 				.await
