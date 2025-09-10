@@ -59,7 +59,7 @@ use sp_runtime::{
 };
 
 #[cfg(test)]
-pub mod tests;
+mod tests;
 
 #[cfg(test)]
 pub mod mock_ext;
