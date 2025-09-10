@@ -33,7 +33,7 @@ use sp_runtime::{
 	impl_tx_ext_default,
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
 	transaction_validity::TransactionValidityError,
-	DispatchResult,
+	DispatchResult, StateVersion,
 };
 
 #[cfg(test)]
@@ -98,6 +98,10 @@ impl StorageWeightReclaimer {
 pub fn get_proof_size() -> Option<u64> {
 	let proof_size = storage_proof_size();
 	(proof_size != PROOF_RECORDING_DISABLED).then_some(proof_size)
+}
+
+pub fn trigger_storage_root_size_estimation(state_version: StateVersion) {
+	cumulus_primitives_proof_size_hostfunction::storage_proof_size::trigger_storage_root_size_estimation(state_version)
 }
 
 // Encapsulate into a mod so that macro generated code doesn't trigger a warning about deprecated

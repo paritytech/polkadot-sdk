@@ -176,7 +176,7 @@ where
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
-	fn trigger_storage_root_size_estimation(&mut self, state_version: StateVersion) {
+	fn trigger_storage_root_size_estimation(&mut self, _: StateVersion) {
 		unimplemented!(
 			"trigger_storage_root_size_estimation is not supported in ReadOnlyExternalities"
 		)
