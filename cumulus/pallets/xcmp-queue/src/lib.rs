@@ -740,7 +740,7 @@ impl<T: Config> Pallet<T> {
 		let (xcm_data, remaining_data) = match data.split_at_checked(xcm_len.0 as usize) {
 			Some((xcm_data, remaining_data)) => (xcm_data, remaining_data),
 			None => {
-				tracing::debug!(target: LOG_TARGET, "Wrong opaque XCM length");
+				tracing::debug!(target: LOG_TARGET, ?xcm_len, "Wrong opaque XCM length");
 				return Err(())
 			},
 		};
