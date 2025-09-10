@@ -1313,6 +1313,7 @@ dependencies = [
  "sp-staking",
  "sp-std 14.0.0",
  "sp-storage 22.0.0",
+ "sp-tracing 18.0.0",
  "sp-transaction-pool",
  "sp-version 41.0.0",
  "staging-parachain-info",
@@ -1321,6 +1322,7 @@ dependencies = [
  "staging-xcm-executor",
  "substrate-wasm-builder",
  "testnet-parachains-constants",
+ "tracing",
  "westend-runtime-constants",
  "xcm-runtime-apis",
 ]
@@ -11325,6 +11327,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-balances",
  "pallet-election-provider-multi-block",
+ "pallet-offences",
  "pallet-root-offences",
  "pallet-session",
  "pallet-staking",
