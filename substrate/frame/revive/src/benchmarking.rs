@@ -2323,29 +2323,6 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
-	#[benchmark(pov_mode = Measured)]
-	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
-		use crate::vm::evm;
-		use revm::bytecode::Bytecode;
-
-		let module = VmBinaryModule::evm_noop(r);
-		let inputs = evm::EVMInputs::new(vec![]);
-
-		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
-		let mut setup = CallSetup::<T>::new(module);
-		let (mut ext, _) = setup.ext();
-
-		let result;
-		#[block]
-		{
-			result = evm::call(code, &mut ext, inputs);
-		}
-
-		assert!(result.is_ok());
-		Ok(())
-	}
-
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
