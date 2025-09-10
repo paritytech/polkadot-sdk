@@ -85,9 +85,8 @@ use frame_support::{
 	dispatch_context::with_context,
 	pallet_prelude::*,
 	traits::{
-		tokens::{ConversionFromAssetBalance, PayWithSource, PaymentStatus},
-		Currency, EnsureOrigin, Get, OnUnbalanced, QueryPreimage, ReservableCurrency,
-		StorePreimage,
+		tokens::{Balance, ConversionFromAssetBalance, PayWithSource, PaymentStatus},
+		Consideration, EnsureOrigin, Get, MaybeConsideration, QueryPreimage, StorePreimage,
 	},
 	PalletId,
 };
@@ -96,17 +95,11 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Saturating, StaticLookup, TryConvert, Zero},
+	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
 	Permill, RuntimeDebug,
 };
 
 type BalanceOf<T, I = ()> = <<T as Config<I>>::Paymaster as PayWithSource>::Balance;
-pub type PositiveImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::PositiveImbalance;
-pub type NegativeImbalanceOf<T, I = ()> = <<T as Config<I>>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
 type BeneficiaryLookupOf<T, I> = <<T as Config<I>>::BeneficiaryLookup as StaticLookup>::Source;
 /// An index of a bounty. Just a `u32`.
 pub type BountyIndex = u32;
@@ -117,13 +110,16 @@ pub type BountyOf<T, I> = Bounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
 	<T as Config<I>>::AssetKind,
+	<T as Config<I>>::Consideration,
 	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
 >;
+/// Convenience alias for `ChildBounty`.
 type ChildBountyOf<T, I> = ChildBounty<
 	<T as frame_system::Config>::AccountId,
 	BalanceOf<T, I>,
+	<T as Config<I>>::Consideration,
 	<T as frame_system::Config>::Hash,
 	PaymentIdOf<T, I>,
 	<T as Config<I>>::Beneficiary,
@@ -131,7 +127,7 @@ type ChildBountyOf<T, I> = ChildBounty<
 
 /// A funded bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
+pub struct Bounty<AccountId, Balance, AssetKind, Consideration, Hash, PaymentId, Beneficiary> {
 	/// The kind of asset this bounty is rewarded in.
 	pub asset_kind: AssetKind,
 	/// The amount that should be paid if the bounty is rewarded, including
@@ -139,10 +135,12 @@ pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 	///
 	/// The asset class determined by [`asset_kind`].
 	pub value: Balance,
-	/// The deposit of curator.
+	/// The consideration cost incurred by the curator when accepting a bounty.
 	///
-	/// The asset class determined by the [`pallet::Config::Currency`].
-	pub curator_deposit: Balance,
+	/// Determined by [`pallet::Config::Consideration`]. It is created when the curator accepts the
+	/// role, and is either burned if the curator misbehaves or consumed upon successful
+	/// completion of the bounty.
+	pub curator_deposit: Consideration,
 	/// The metadata concerning the bounty.
 	///
 	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
@@ -154,17 +152,19 @@ pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 
 /// A funded child-bounty.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
+pub struct ChildBounty<AccountId, Balance, Consideration, Hash, PaymentId, Beneficiary> {
 	/// The parent bounty index of this child-bounty.
 	pub parent_bounty: BountyIndex,
 	/// The amount that should be paid if the child-bounty is rewarded.
 	///
 	/// The asset class determined by the parent bounty [`asset_kind`].
 	pub value: Balance,
-	/// The deposit of child curator.
+	/// The consideration cost incurred by the curator when accepting a child-bounty.
 	///
-	/// The asset class determined by the [`pallet::Config::Currency`].
-	pub curator_deposit: Balance,
+	/// Determined by [`pallet::Config::Consideration`]. It is created when the curator accepts the
+	/// role, and is either burned if the curator misbehaves or consumed upon successful
+	/// completion of the child-bounty.
+	pub curator_deposit: Consideration,
 	/// The metadata concerning the child-bounty.
 	///
 	/// The `Hash` refers to the preimage of the `Preimages` provider which can be a JSON
@@ -277,8 +277,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
-		/// The deposits balance.
-		type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+		/// The type in which the assets are measured.
+		type Balance: Balance;
 
 		/// Origin from which rejections must come.
 		type RejectOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -301,21 +301,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		/// The curator deposit is calculated as a percentage of the bounty value.
-		///
-		/// This deposit has optional upper and lower bounds with `CuratorDepositMax` and
-		/// `CuratorDepositMin`.
-		#[pallet::constant]
-		type CuratorDepositMultiplier: Get<Permill>;
-
-		/// Maximum amount of funds that should be placed in a deposit for accepting curator role.
-		#[pallet::constant]
-		type CuratorDepositMax: Get<Option<BalanceOf<Self, I>>>;
-
-		/// Minimum amount of funds that should be placed in a deposit for accepting curator role.
-		#[pallet::constant]
-		type CuratorDepositMin: Get<Option<BalanceOf<Self, I>>>;
-
 		/// Minimum value for a bounty.
 		#[pallet::constant]
 		type BountyValueMinimum: Get<BalanceOf<Self, I>>;
@@ -337,9 +322,6 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
-
-		/// Handler for the unbalanced decrease when slashing for a rejected bounty.
-		type OnSlash: OnUnbalanced<NegativeImbalanceOf<Self, I>>;
 
 		/// Converts an `AssetKind` into the funding source account/location.
 		///
@@ -370,7 +352,7 @@ pub mod pallet {
 		/// Type for processing payments of [`Self::AssetKind`] from [`Self::Source`] in favor of
 		/// [`Self::Beneficiary`].
 		type Paymaster: PayWithSource<
-			Balance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+			Balance = Self::Balance,
 			Source = Self::Beneficiary,
 			Beneficiary = Self::Beneficiary,
 			AssetKind = Self::AssetKind,
@@ -380,13 +362,15 @@ pub mod pallet {
 		/// asset, solely for the purpose of asserting the result against the maximum allowed spend
 		/// amount of the [`Self::SpendOrigin`].
 		type BalanceConverter: ConversionFromAssetBalance<
-			<Self::Paymaster as PayWithSource>::Balance,
+			Self::Balance,
 			Self::AssetKind,
 			BalanceOf<Self, I>,
 		>;
 
 		/// The preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
+
+		type Consideration: MaybeConsideration<Self::AccountId, Self::Balance>;
 
 		/// Helper type for benchmarks.
 		#[cfg(feature = "runtime-benchmarks")]
@@ -489,6 +473,14 @@ pub mod pallet {
 		},
 		/// A payment happened and can be checked.
 		Paid { index: BountyIndex, child_index: Option<BountyIndex>, payment_id: PaymentIdOf<T, I> },
+	}
+
+	/// A reason for this pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason<I: 'static = ()> {
+		/// The funds are held as deposit for the curator commitment to a bounty.
+		#[codec(index = 0)]
+		CuratorDeposit,
 	}
 
 	/// Number of bounty proposals that have been made.
@@ -606,10 +598,11 @@ pub mod pallet {
 				None,
 			)?;
 
+			let curator_deposit = T::Consideration::new(&curator, 0u32.into())?;
 			let bounty = BountyOf::<T, I> {
 				asset_kind: *asset_kind,
 				value,
-				curator_deposit: 0u32.into(),
+				curator_deposit,
 				hash,
 				status: BountyStatus::FundingAttempted { curator, payment_status },
 			};
@@ -698,10 +691,11 @@ pub mod pallet {
 				None,
 			)?;
 
+			let curator_deposit = T::Consideration::new(&final_curator, 0u32.into())?;
 			let child_bounty = ChildBounty {
 				parent_bounty: parent_bounty_id,
 				value,
-				curator_deposit: 0u32.into(),
+				curator_deposit,
 				hash,
 				status: BountyStatus::FundingAttempted {
 					curator: final_curator,
@@ -832,7 +826,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 
-			let (asset_kind, value, _, status, _) =
+			let (asset_kind, value, curator_deposit, status, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
@@ -840,16 +834,12 @@ pub mod pallet {
 			};
 			ensure!(signer == *curator, Error::<T, I>::RequireCurator);
 
-			let deposit = Self::calculate_curator_deposit(&value, asset_kind.clone())?;
-			T::Currency::reserve(curator, deposit)?;
+			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind)
+				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
+			let _ = T::Consideration::update(curator_deposit, &curator, native_amount)?;
 
 			let new_status = BountyStatus::Active { curator: curator.clone() };
-			Self::update_bounty_details(
-				parent_bounty_id,
-				child_bounty_id,
-				new_status,
-				Some(deposit),
-			)?;
+			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None)?;
 
 			Self::deposit_event(Event::<T, I>::BountyBecameActive {
 				index: parent_bounty_id,
@@ -896,14 +886,8 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (_, _, mut curator_deposit, status, parent_curator) =
+			let (_, _, curator_deposit, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
-
-			let slash_curator = |curator: &T::AccountId, curator_deposit: &mut BalanceOf<T, I>| {
-				let imbalance = T::Currency::slash_reserved(curator, *curator_deposit).0;
-				T::OnSlash::on_unbalanced(imbalance);
-				*curator_deposit = Zero::zero();
-			};
 
 			match status {
 				BountyStatus::Funded { ref curator } => {
@@ -922,25 +906,23 @@ pub mod pallet {
 				BountyStatus::Active { ref curator, .. } => {
 					// The child-/bounty is active.
 					match maybe_sender {
-						// If the `RejectOrigin` is calling this function, slash the curator.
+						// If the `RejectOrigin` is calling this function, burn the curator deposit.
 						None => {
-							slash_curator(curator, &mut curator_deposit);
+							T::Consideration::burn(curator_deposit, curator);
 							// Continue to change bounty status below...
 						},
 						Some(sender) if sender == *curator => {
-							// This is the curator, willingly giving up their role. Give back their
+							// This is the curator, willingly giving up their role. Free their
 							// deposit.
-							let err_amount = T::Currency::unreserve(curator, curator_deposit);
-							debug_assert!(err_amount.is_zero());
-							curator_deposit = Zero::zero();
+							let _ = T::Consideration::drop(curator_deposit, curator);
 							// Continue to change bounty status below...
 						},
 						Some(sender) => {
 							if let Some(parent_curator) = parent_curator {
 								// If the parent curator is unassigning a child curator, that is not
-								// itself, slash the child curator deposit.
+								// itself, burn the child curator deposit.
 								if sender == parent_curator && *curator != parent_curator {
-									slash_curator(curator, &mut curator_deposit);
+									T::Consideration::burn(curator_deposit, curator);
 								} else {
 									return Err(BadOrigin.into());
 								}
@@ -952,12 +934,7 @@ pub mod pallet {
 			};
 
 			let new_status = BountyStatus::CuratorUnassigned;
-			Self::update_bounty_details(
-				parent_bounty_id,
-				child_bounty_id,
-				new_status,
-				Some(curator_deposit),
-			)?;
+			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None)?;
 
 			Self::deposit_event(Event::<T, I>::CuratorUnassigned {
 				index: parent_bounty_id,
@@ -1214,11 +1191,10 @@ pub mod pallet {
 					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
 							if let Some(curator) = curator {
-								// Unreserve the curator deposit when payment succeeds
+								// Drop the curator deposit when payment succeeds
 								// If the child curator is the parent curator, the
 								// deposit is 0
-								let err_amount = T::Currency::unreserve(&curator, curator_deposit);
-								debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
+								let _ = curator_deposit.drop(curator);
 							}
 							if let Some(_) = child_bounty_id {
 								// Revert the value back to parent bounty
@@ -1255,12 +1231,11 @@ pub mod pallet {
 
 					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
-							// Unreserve the curator deposit when both payments succeed
+							// Drop the curator deposit when both payments succeed
 							// If the child curator is the parent curator, the
 							// deposit is 0
-							let err_amount = T::Currency::unreserve(&curator, curator_deposit);
-							debug_assert!(err_amount.is_zero()); // Ensure nothing remains reserved
-											// payout succeeded, cleanup the bounty
+							let _ = curator_deposit.drop(curator);
+							// payout succeeded, cleanup the bounty
 							Self::remove_bounty(parent_bounty_id, child_bounty_id);
 							return Ok(Pays::No.into())
 						},
@@ -1442,27 +1417,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Calculates the deposit required for a curator.
-	pub fn calculate_curator_deposit(
-		value: &BalanceOf<T, I>,
-		asset_kind: T::AssetKind,
-	) -> Result<BalanceOf<T, I>, Error<T, I>> {
-		let native_amount = T::BalanceConverter::from_asset_balance(*value, asset_kind)
-			.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-
-		let mut deposit = T::CuratorDepositMultiplier::get() * native_amount;
-
-		if let Some(max_deposit) = T::CuratorDepositMax::get() {
-			deposit = deposit.min(max_deposit)
-		}
-
-		if let Some(min_deposit) = T::CuratorDepositMin::get() {
-			deposit = deposit.max(min_deposit)
-		}
-
-		Ok(deposit)
-	}
-
 	/// The account/location of the funding source.
 	pub fn funding_source_account(
 		asset_kind: T::AssetKind,
@@ -1501,7 +1455,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		(
 			T::AssetKind,
 			BalanceOf<T, I>,
-			BalanceOf<T, I>,
+			T::Consideration,
 			BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
 			Option<T::AccountId>,
 		),
@@ -1544,7 +1498,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
 		new_status: BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
-		maybe_curator_deposit: Option<BalanceOf<T, I>>,
+		maybe_curator_deposit: Option<T::Consideration>,
 	) -> Result<(), DispatchError> {
 		match child_bounty_id {
 			None => {
@@ -1812,6 +1766,43 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok(PaymentState::Failed)
 			},
 		}
+	}
+}
+
+/// Type implementing curator deposit as a percentage of the child-/bounty value.
+///
+/// It implements [Convert](sp_runtime::traits::Convert) trait and can be used with types
+/// like [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
+/// [Consideration](`frame_support::traits::Consideration`) trait.
+pub struct CuratorDepositAmount<Mult, Min, Max, Balance>(PhantomData<(Mult, Min, Max, Balance)>);
+impl<Mult, Min, Max, Balance> Convert<Balance, Balance>
+	for CuratorDepositAmount<Mult, Min, Max, Balance>
+where
+	Balance: frame_support::traits::tokens::Balance,
+	Min: Get<Option<Balance>>,
+	Max: Get<Option<Balance>>,
+	Mult: Get<Permill>,
+{
+	fn convert(value: Balance) -> Balance {
+		if value.is_zero() {
+			return Balance::zero()
+		}
+
+		let mut deposit = Mult::get().mul_floor(value);
+
+		if let Some(min) = Min::get() {
+			if deposit < min {
+				deposit = min;
+			}
+		}
+
+		if let Some(max) = Max::get() {
+			if deposit > max {
+				deposit = max;
+			}
+		}
+
+		deposit
 	}
 }
 
