@@ -36,12 +36,13 @@ pub extern "C" fn deploy() { }
 pub extern "C" fn call() {
 	let mut output_buf = [0u8; 32];
 	let output = &mut &mut output_buf[..];
-	let _ = api::delegate_call(
+	let _ = api::call(
 		uapi::CallFlags::empty(),
 		&uapi::SYSTEM_PRECOMPILE_ADDR,
 		u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 		u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 		&[u8::MAX; 32], // No deposit limit.
+		&[0u8; 32],     // Value transferred to the contract.
 		&uapi::solidity_selector("ownCodeHash()"),
 		Some(output),
 	).unwrap();

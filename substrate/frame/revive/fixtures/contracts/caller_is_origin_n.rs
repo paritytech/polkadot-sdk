@@ -33,12 +33,13 @@ pub extern "C" fn call() {
 	input!(n: u32, );
 
 	for _ in 0..n {
-		let _ = api::delegate_call(
+		let _ = api::call(
 			uapi::CallFlags::empty(),
 			&uapi::SYSTEM_PRECOMPILE_ADDR,
 			u64::MAX,       // How much ref_time to devote for the execution. u64::MAX = use all.
 			u64::MAX,       // How much proof_size to devote for the execution. u64::MAX = use all.
 			&[u8::MAX; 32], // No deposit limit.
+			&[0u8; 32],     // Value transferred to the contract.
 			&uapi::solidity_selector("callerIsOrigin()"),
 			None,
 		).unwrap();
