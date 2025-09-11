@@ -20,7 +20,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use codec::Codec;
+use codec::{Codec, DecodeAll};
 use fork_tree::ForkTree;
 use parking_lot::RwLock;
 use sp_api::ProvideRuntimeApi;
@@ -177,13 +177,19 @@ where
 	P: Pair,
 	P::Public: Codec,
 {
-	for log in header.digest().logs() {
+	header.digest().convert_first(|log| {
 		log::trace!(target: LOG_TARGET, "Checking log {:?}, looking for authorities change digest.", log);
-		let log = log
-			.try_to::<ConsensusLog<AuthorityId<P>>>(OpaqueDigestItemId::Consensus(&AURA_ENGINE_ID));
-		if let Some(ConsensusLog::AuthoritiesChange(authorities)) = log {
-			return Some(authorities);
+		let (engine, log) = log.as_consensus()?;
+
+		if engine != AURA_ENGINE_ID {
+			return None;
 		}
-	}
-	None
+		if let Some(ConsensusLog::AuthoritiesChange(authorities)) =
+			ConsensusLog::<AuthorityId<P>>::decode_all(&mut &log[..]).ok()
+		{
+			Some(authorities)
+		} else {
+			None
+		}
+	})
 }
