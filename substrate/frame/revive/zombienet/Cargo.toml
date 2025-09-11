@@ -17,7 +17,13 @@ serde_json = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-
+jsonrpsee = { workspace = true, features = ["full"] }
+pallet-revive-eth-rpc = { workspace = true }
+pallet-revive = { workspace = true }
+subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
+subxt-signer = { workspace = true, features = ["unstable-eth"] }
+hex = { workspace = true }
+sp-core = { workspace = true, default-features = true }
 # Zombienet dependencies
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }

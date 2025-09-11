@@ -116,12 +116,7 @@ pub struct EthRpcServer {
 
 impl EthRpcServer {
 	/// Launch eth-rpc server, which will connect to the parachain's collator.
-	pub fn launch(
-		node_rpc_ip: &str,
-		node_rpc_port: u16,
-		log_path: &str,
-	) -> Result<Self, anyhow::Error> {
-		let node_rpc_url = format!("ws://{node_rpc_ip}:{node_rpc_port}");
+	pub fn launch(node_rpc_url: &str, log_path: &str) -> Result<Self, anyhow::Error> {
 		log::info!("Launching eth-rpc server with node RPC URL: {}", node_rpc_url);
 
 		// Assuming eth-rpc is available in the PATH
