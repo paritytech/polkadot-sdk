@@ -139,12 +139,14 @@
 //!     type SlotDuration = ConstU64<SLOT_DURATION>;
 //! }
 //! ```
-//! Please note that the slot duration should not be impacted by the block production interval
-//! itself. With a block production interval of 2s on a Parachain with 3 cores, it is still highly
-//! recommended to configure a slot duration of at least 6 seconds. A slot duration of 24 seconds is
-//! recommended. The slot duration determines the length of each author's turn. It is decoupled from
-//! the number or interval of blocks produced by the authors. During their slot, authors are allowed
-//! to produce multiple blocks.
+//!
+//! The slot duration determines the length of each author's turn and is decoupled from the block
+//! production interval. During their slot, authors are allowed to produce multiple blocks.
+//!
+//! **Configuration recommendations:**
+//! - For new parachains starting from genesis: use a slot duration of 24 seconds
+//! - For existing live parachains: leave the slot duration unchanged
+//! - Minimum recommended slot duration: 6 seconds (regardless of block production interval)
 //!
 //! **Note:** Even though not recommended, it is possible to run at arbitrary slot durations. Such
 //! configurations require a custom `ConsensusHook` implementation. The assumptions made in the
