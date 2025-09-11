@@ -52,9 +52,15 @@ pub use weights::WeightInfo;
 
 extern crate alloc;
 
+<<<<<<< HEAD
 use alloc::vec::Vec;
 use bounded_collections::BoundedBTreeSet;
 use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+=======
+use alloc::{collections::BTreeSet, vec, vec::Vec};
+use bounded_collections::{BoundedBTreeSet, BoundedSlice, BoundedVec};
+use codec::{Compact, Decode, DecodeLimit, Encode, MaxEncodedLen};
+>>>>>>> 32cc5d61 ([XCMP] Add support for receiving double encoded XCMs (#9588))
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -460,9 +466,7 @@ impl<T: Config> Pallet<T> {
 	/// Place a message `fragment` on the outgoing XCMP queue for `recipient`.
 	///
 	/// Format is the type of aggregate message that the `fragment` may be safely encoded and
-	/// appended onto. Whether earlier unused space is used for the fragment at the risk of sending
-	/// it out of order is determined with `qos`. NOTE: For any two messages to be guaranteed to be
-	/// dispatched in order, then both must be sent with `ServiceQuality::Ordered`.
+	/// appended onto.
 	///
 	/// ## Background
 	///
@@ -659,26 +663,128 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
-	/// individual items.
+	/// Split concatenated encoded `VersionedXcm`s into individual items.
 	///
 	/// We directly encode them again since that is needed later on.
 	pub(crate) fn take_first_concatenated_xcm(
 		data: &mut &[u8],
 		meter: &mut WeightMeter,
+<<<<<<< HEAD
 	) -> Result<BoundedVec<u8, MaxXcmpMessageLenOf<T>>, ()> {
 		if data.is_empty() {
 			return Err(())
 		}
 
 		if meter.try_consume(T::WeightInfo::take_first_concatenated_xcm()).is_err() {
+=======
+	) -> Result<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>, ()> {
+		// Let's make sure that we can decode at least an empty xcm message.
+		let base_weight = T::WeightInfo::take_first_concatenated_xcm(0);
+		if meter.try_consume(base_weight).is_err() {
+>>>>>>> 32cc5d61 ([XCMP] Add support for receiving double encoded XCMs (#9588))
 			defensive!("Out of weight; could not decode all; dropping");
 			return Err(())
 		}
 
+<<<<<<< HEAD
 		let xcm = VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, data)
 			.map_err(|_| ())?;
 		xcm.encode().try_into().map_err(|_| ())
+=======
+		let input_data = &mut &data[..];
+		let mut input = codec::CountedInput::new(input_data);
+		VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut input).map_err(
+			|error| {
+				tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode XCM with depth limit");
+				()
+			},
+		)?;
+		let (xcm_data, remaining_data) = data.split_at(input.count() as usize);
+		*data = remaining_data;
+
+		// Consume the extra weight that it took to decode this message.
+		// This depends on the message len in bytes.
+		// Saturates if it's over the limit.
+		let extra_weight =
+			T::WeightInfo::take_first_concatenated_xcm(xcm_data.len() as u32) - base_weight;
+		meter.consume(extra_weight);
+
+		let xcm = BoundedSlice::try_from(xcm_data).map_err(|error| {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				"Failed to take XCM after decoding: message is too long"
+			);
+			()
+		})?;
+
+		Ok(xcm)
+	}
+
+	/// Split concatenated opaque `VersionedXcm`s into individual items.
+	///
+	/// This method is not benchmarked because it's almost free.
+	pub(crate) fn take_first_concatenated_opaque_xcm<'a>(
+		data: &mut &'a [u8],
+	) -> Result<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>, ()> {
+		let xcm_len = Compact::<u32>::decode(data).map_err(|error| {
+			tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode opaque XCM length");
+			()
+		})?;
+		let (xcm_data, remaining_data) = match data.split_at_checked(xcm_len.0 as usize) {
+			Some((xcm_data, remaining_data)) => (xcm_data, remaining_data),
+			None => {
+				tracing::debug!(target: LOG_TARGET, ?xcm_len, "Wrong opaque XCM length");
+				return Err(())
+			},
+		};
+		*data = remaining_data;
+
+		let xcm = BoundedSlice::try_from(xcm_data).map_err(|error| {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				"Failed to take opaque XCM after decoding: message is too long"
+			);
+			()
+		})?;
+
+		Ok(xcm)
+	}
+
+	/// Split concatenated encoded `VersionedXcm`s into batches.
+	///
+	/// We directly encode them again since that is needed later on.
+	pub(crate) fn take_first_concatenated_xcms<'a>(
+		data: &mut &'a [u8],
+		encoding: XcmEncoding,
+		batch_size: usize,
+		meter: &mut WeightMeter,
+	) -> Result<
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
+		Vec<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>,
+	> {
+		let mut batch = vec![];
+		loop {
+			if data.is_empty() {
+				return Ok(batch)
+			}
+
+			let maybe_xcm = match encoding {
+				XcmEncoding::Simple => Self::take_first_concatenated_xcm(data, meter),
+				XcmEncoding::Double => Self::take_first_concatenated_opaque_xcm(data),
+			};
+			match maybe_xcm {
+				Ok(xcm) => {
+					batch.push(xcm);
+					if batch.len() >= batch_size {
+						return Ok(batch);
+					}
+				},
+				Err(_) => return Err(batch),
+			}
+		}
+>>>>>>> 32cc5d61 ([XCMP] Add support for receiving double encoded XCMs (#9588))
 	}
 
 	/// The worst-case weight of `on_idle`.
@@ -752,6 +858,24 @@ impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 	}
 }
 
+/// The encoding of the XCM messages in an XCMP page.
+#[derive(Copy, Clone)]
+enum XcmEncoding {
+	/// Simple encoded (`xcm.encode()`)
+	///
+	/// When we receive this king of messages, we have to decode and then re-encoded them before
+	/// enqueueing them for later processing.
+	Simple,
+	/// Double encoded (`xcm.encode().encode()`)
+	///
+	/// The XCM message is encoded first, resulting a vector of bytes. And then the vector of bytes
+	/// is encoded again. This has 2 advantages:
+	/// 1. We can just decode them before enqueueing them for later processing. They don't need to
+	///    be re-encoded.
+	/// 2. Decoding a `Vec<u8>` is much more efficient than decoding XCM messages.
+	Double,
+}
+
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
@@ -791,6 +915,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 						}
 					},
+<<<<<<< HEAD
 				XcmpMessageFormat::ConcatenatedVersionedXcm =>
 					while !data.is_empty() {
 						let Ok(xcm) = Self::take_first_concatenated_xcm(&mut data, &mut meter)
@@ -800,10 +925,57 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 						};
 
 						if let Err(()) = Self::enqueue_xcmp_message(sender, xcm, &mut meter) {
+=======
+				XcmpMessageFormat::ConcatenatedVersionedXcm |
+				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+					let encoding = match format {
+						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
+						_ => {
+							// This branch is unreachable.
+							continue
+						},
+					};
+
+					if known_xcm_senders.insert(sender) {
+						if meter
+							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
+							.is_err()
+						{
+>>>>>>> 32cc5d61 ([XCMP] Add support for receiving double encoded XCMs (#9588))
 							defensive!(
 								"Could not enqueue XCMP messages. Used weight: ",
 								meter.consumed_ratio()
 							);
+<<<<<<< HEAD
+=======
+							continue;
+						}
+					}
+
+					let mut can_process_next_batch = true;
+					while can_process_next_batch {
+						let batch = match Self::take_first_concatenated_xcms(
+							&mut data,
+							encoding,
+							XCM_BATCH_SIZE,
+							&mut meter,
+						) {
+							Ok(batch) => batch,
+							Err(batch) => {
+								can_process_next_batch = false;
+								defensive!(
+									"HRMP inbound decode stream broke; page will be dropped."
+								);
+								batch
+							},
+						};
+						if batch.is_empty() {
+							break;
+						}
+
+						if let Err(()) = Self::enqueue_xcmp_messages(sender, &batch, &mut meter) {
+>>>>>>> 32cc5d61 ([XCMP] Add support for receiving double encoded XCMs (#9588))
 							break
 						}
 					},
@@ -1020,16 +1192,24 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		OutboundXcmpMessages::<T>::iter()
 			.map(|(para_id, _, messages)| {
-				let mut data = &messages[..];
-				let decoded_format = XcmpMessageFormat::decode(&mut data).unwrap();
-				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-					panic!("Unexpected format.")
-				}
+				let data = &mut &messages[..];
+
+				let decoded_format = XcmpMessageFormat::decode(data).unwrap();
 				let mut decoded_messages = Vec::new();
 				while !data.is_empty() {
+					let message_bytes = match decoded_format {
+						XcmpMessageFormat::ConcatenatedVersionedXcm =>
+							Self::take_first_concatenated_xcm(data, &mut WeightMeter::new()),
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =>
+							Self::take_first_concatenated_opaque_xcm(data),
+						unexpected_format => {
+							panic!("Unexpected XCMP format: {unexpected_format:?}!")
+						},
+					}
+					.unwrap();
 					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
 						MAX_XCM_DECODE_DEPTH,
-						&mut data,
+						&mut &message_bytes[..],
 					)
 					.unwrap();
 					decoded_messages.push(decoded_message);
