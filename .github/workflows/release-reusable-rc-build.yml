@@ -179,8 +179,6 @@ jobs:
 
       - name: Install protobuf
         run: brew install protobuf
-<<<<<<< HEAD
-=======
 
       - name: Install solc
         run: brew install solidity
@@ -207,7 +205,6 @@ jobs:
           export CPPFLAGS="-I$LLVM_PATH/include"
           echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
 
->>>>>>> 0567250 ([Release|CI/CD] Fix release flows (#9700))
       - name: Install gpg
         run: |
           brew install gnupg
