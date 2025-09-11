@@ -125,21 +125,18 @@ impl<
 			PaysRemoteFeeWithMaybeDefault::No => PaysRemoteFee::No,
 		};
 
-		let (message, asset_location, query_id) =
+		let (delivery_fees, query_id) =
 			TransferOverXcmHelper::<
+				Router,
 				Querier,
 				Timeout,
 				Transactor,
 				AssetKind,
 				AssetKindToLocatableAsset,
 				TransactorRefToLocation,
-			>::get_remote_transfer_xcm(
+			>::send_remote_transfer_xcm(
 				from_location.clone(), to, asset_kind, amount, remote_fee
 			)?;
-
-		let (ticket, delivery_fees) =
-			Router::validate(&mut Some(asset_location), &mut Some(message))?;
-		Router::deliver(ticket)?;
 
 		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
 			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
@@ -179,6 +176,7 @@ impl<
 }
 
 pub struct TransferOverXcmHelper<
+	Router,
 	Querier,
 	Timeout,
 	Transactor,
@@ -187,6 +185,7 @@ pub struct TransferOverXcmHelper<
 	BeneficiaryRefToLocation,
 >(
 	PhantomData<(
+		Router,
 		Querier,
 		Timeout,
 		Transactor,
@@ -196,15 +195,43 @@ pub struct TransferOverXcmHelper<
 	)>,
 );
 
+pub trait TransferOverXcmHelperT {
+	type Beneficiary;
+
+	type AssetKind;
+
+	type Balance;
+
+	type QueryId;
+
+	fn send_remote_transfer_xcm(
+		from_location: Location,
+		to: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+		remote_fee: PaysRemoteFee<Asset>,
+	) -> Result<(Assets, QueryId), Error>;
+
+	fn check_payment(id: Self::QueryId) -> PaymentStatus;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance);
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id);
+}
+
 impl<
+		Router: SendXcm,
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
-	>
-	TransferOverXcmHelper<
+	> TransferOverXcmHelperT
+	for TransferOverXcmHelper<
+		Router,
 		Querier,
 		Timeout,
 		Transactor,
@@ -213,14 +240,19 @@ impl<
 		BeneficiaryRefToLocation,
 	>
 {
+	type Beneficiary = Transactor;
+	type AssetKind = AssetKind;
+	type Balance = u128;
+	type QueryId = QueryId;
+
 	/// Gets the XCM executing the transfer on the remote chain.
-	pub fn get_remote_transfer_xcm(
+	fn send_remote_transfer_xcm(
 		from_location: Location,
 		to: &Transactor,
 		asset_kind: AssetKind,
 		amount: u128,
 		remote_fee: PaysRemoteFee<Asset>,
-	) -> Result<(Xcm<()>, Location, QueryId), Error> {
+	) -> Result<(Assets, QueryId), Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
 
@@ -257,9 +289,57 @@ impl<
 			)?,
 		};
 
-		Ok((message, asset_location, query_id))
+		let (ticket, delivery_fees) =
+			Router::validate(&mut Some(asset_location), &mut Some(message))?;
+		Router::deliver(ticket)?;
+
+		Ok((delivery_fees, query_id))
 	}
 
+	fn check_payment(id: Self::QueryId) -> PaymentStatus {
+		use QueryResponseStatus::*;
+		match Querier::take_response(id) {
+			Ready { response, .. } => match response {
+				Response::ExecutionResult(None) => PaymentStatus::Success,
+				Response::ExecutionResult(Some(_)) => PaymentStatus::Failure,
+				_ => PaymentStatus::Unknown,
+			},
+			Pending { .. } => PaymentStatus::InProgress,
+			NotFound | UnexpectedVersion => PaymentStatus::Unknown,
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
+		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
+		Router::ensure_successful_delivery(Some(locatable.location));
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_concluded(id: Self::Id) {
+		Querier::expect_response(id, Response::ExecutionResult(None));
+	}
+}
+
+impl<
+		Router: SendXcm,
+		Querier: QueryHandler,
+		Timeout: Get<Querier::BlockNumber>,
+		Transactor: Clone + core::fmt::Debug,
+		AssetKind: Clone + core::fmt::Debug,
+		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
+		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
+	>
+	TransferOverXcmHelper<
+		Router,
+		Querier,
+		Timeout,
+		Transactor,
+		AssetKind,
+		AssetKindToLocatableAsset,
+		BeneficiaryRefToLocation,
+	>
+{
 	/// Returns the `from` relative to the asset's location.
 	///
 	/// This is the account that executes the transfer on the remote chain.
@@ -295,7 +375,7 @@ impl<
 	}
 }
 
-pub fn remote_transfer_xcm_paying_fees(
+fn remote_transfer_xcm_paying_fees(
 	from_location: Location,
 	destination: Location,
 	beneficiary: Location,
@@ -329,7 +409,7 @@ pub fn remote_transfer_xcm_paying_fees(
 	Ok(xcm)
 }
 
-pub fn remote_transfer_xcm_free_execution(
+fn remote_transfer_xcm_free_execution(
 	from_location: Location,
 	destination: Location,
 	beneficiary: Location,

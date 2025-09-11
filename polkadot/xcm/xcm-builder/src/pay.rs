@@ -16,7 +16,7 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
-use crate::transfer::TransferOverXcmHelper;
+use crate::{transfer::TransferOverXcmHelperT, TransferOverXcmHelper};
 use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::{transfer::PaysRemoteFee, Pay, PaymentStatus},
@@ -24,7 +24,6 @@ use frame_support::traits::{
 };
 use sp_runtime::traits::TryConvert;
 use xcm::prelude::*;
-use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// Implementation of the `frame_support::traits::tokens::Pay` trait, to allow
 /// for XCM-based payments of a given `Balance` of some asset ID existing on some chain under
@@ -44,7 +43,7 @@ use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 ///
 /// See also `PayAccountId32OverXcm` which is similar to this except that `BeneficiaryRefToLocation`
 /// need not be supplied and `Beneficiary` must implement `Into<[u8; 32]>`.
-pub struct PayOverXcm<
+pub type PayOverXcm<
 	Interior,
 	Router,
 	Querier,
@@ -53,9 +52,9 @@ pub struct PayOverXcm<
 	AssetKind,
 	AssetKindToLocatableAsset,
 	BeneficiaryRefToLocation,
->(
-	PhantomData<(
-		Interior,
+> = PayOverXcmWithHelper<
+	Interior,
+	TransferOverXcmHelper<
 		Router,
 		Querier,
 		Timeout,
@@ -63,33 +62,21 @@ pub struct PayOverXcm<
 		AssetKind,
 		AssetKindToLocatableAsset,
 		BeneficiaryRefToLocation,
-	)>,
+	>,
+>;
+
+pub struct PayOverXcmWithHelper<Interior, TransferOverXcmHelper>(
+	PhantomData<(Interior, TransferOverXcmHelper)>,
 );
-impl<
-		Interior: Get<InteriorLocation>,
-		Router: SendXcm,
-		Querier: QueryHandler,
-		Timeout: Get<Querier::BlockNumber>,
-		Beneficiary: Clone + core::fmt::Debug,
-		AssetKind: core::fmt::Debug + Clone,
-		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
-		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
-	> Pay
-	for PayOverXcm<
-		Interior,
-		Router,
-		Querier,
-		Timeout,
-		Beneficiary,
-		AssetKind,
-		AssetKindToLocatableAsset,
-		BeneficiaryRefToLocation,
-	>
+impl<Interior: Get<InteriorLocation>, TransferOverXcmHelper: TransferOverXcmHelperT> Pay
+	for PayOverXcmWithHelper<Interior, TransferOverXcmHelper>
+where
+	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 {
-	type Beneficiary = Beneficiary;
-	type AssetKind = AssetKind;
 	type Balance = u128;
-	type Id = QueryId;
+	type Beneficiary = TransferOverXcmHelper::Beneficiary;
+	type AssetKind = TransferOverXcmHelper::AssetKind;
+	type Id = TransferOverXcmHelper::QueryId;
 	type Error = xcm::latest::Error;
 
 	fn pay(
@@ -97,45 +84,33 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let (message, asset_location, query_id) =
-			TransferOverXcmHelper::<
-				Querier,
-				Timeout,
-				Beneficiary,
-				AssetKind,
-				AssetKindToLocatableAsset,
-				BeneficiaryRefToLocation,
-			>::get_remote_transfer_xcm(
-				Interior::get().into(), who, asset_kind, amount, PaysRemoteFee::No
-			)?;
+		let (_delivery_fees, query_id) = TransferOverXcmHelper::send_remote_transfer_xcm(
+			Interior::get().into(),
+			who,
+			asset_kind,
+			amount,
+			PaysRemoteFee::No,
+		)?;
 
-		let (ticket, _) = Router::validate(&mut Some(asset_location), &mut Some(message))?;
-		Router::deliver(ticket)?;
 		Ok(query_id.into())
 	}
 
 	fn check_payment(id: Self::Id) -> PaymentStatus {
-		use QueryResponseStatus::*;
-		match Querier::take_response(id) {
-			Ready { response, .. } => match response {
-				Response::ExecutionResult(None) => PaymentStatus::Success,
-				Response::ExecutionResult(Some(_)) => PaymentStatus::Failure,
-				_ => PaymentStatus::Unknown,
-			},
-			Pending { .. } => PaymentStatus::InProgress,
-			NotFound | UnexpectedVersion => PaymentStatus::Unknown,
-		}
+		TransferOverXcmHelper::check_payment(id)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
-		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
-		Router::ensure_successful_delivery(Some(locatable.location));
+	fn ensure_successful(
+		beneficiary: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		_: Self::Balance,
+	) {
+		TransferOverXcmHelper::ensure_successful(beneficiary, asset_kind);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
-		Querier::expect_response(id, Response::ExecutionResult(None));
+		TransferOverXcmHelper::ensure_concluded(id);
 	}
 }
 
