@@ -40,6 +40,14 @@ pub trait GetDefaultRemoteFee {
 	fn get_default_remote_fee() -> Asset;
 }
 
+pub struct ZeroFee;
+
+impl GetDefaultRemoteFee for ZeroFee {
+	fn get_default_remote_fee() -> Asset {
+		Asset { id: AssetId(Default::default()), fun: Fungibility::Fungible(0) }
+	}
+}
+
 /// Transfer an asset on a remote chain (in practice this should be only asset hub).
 ///
 /// It is similar to the `PayOverXcm` struct from the polkadot-sdk with the difference
@@ -114,7 +122,7 @@ impl<
 			Error::InvalidLocation
 		})?;
 
-		let (message, asset_location, query_id) = Self::get_remote_transfer_xcm(
+		let (message, asset_location, query_id) = TransferOverXcmHelper::<Querier, Timeout, Transactor, AssetKind, AssetKindToLocatableAsset, TransactorRefToLocation, DefaultRemoteFee>::get_remote_transfer_xcm(
 			from_location.clone(),
 			to,
 			asset_kind,
@@ -163,10 +171,28 @@ impl<
 	}
 }
 
+pub struct TransferOverXcmHelper<
+	Querier,
+	Timeout,
+	Transactor,
+	AssetKind,
+	AssetKindToLocatableAsset,
+	TransactorRefToLocation,
+	RemoteFee,
+>(
+	PhantomData<(
+		Querier,
+		Timeout,
+		Transactor,
+		AssetKind,
+		AssetKindToLocatableAsset,
+		TransactorRefToLocation,
+		RemoteFee,
+	)>,
+);
+
 impl<
-		Router: SendXcm,
 		Querier: QueryHandler,
-		HandleXcmFee: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
@@ -174,9 +200,7 @@ impl<
 		TransactorRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
 		DefaultRemoteFee: GetDefaultRemoteFee,
 	>
-	TransferOverXcm<
-		HandleXcmFee,
-		Router,
+TransferOverXcmHelper<
 		Querier,
 		Timeout,
 		Transactor,
@@ -189,10 +213,10 @@ impl<
 	/// Gets the XCM executing the transfer on the remote chain.
 	pub fn get_remote_transfer_xcm(
 		from_location: Location,
-		to: &<Self as Transfer>::Beneficiary,
-		asset_kind: <Self as Transfer>::AssetKind,
-		amount: <Self as Transfer>::Balance,
-		remote_fee: PaysRemoteFee<<Self as Transfer>::RemoteFeeAsset>,
+		to: &Transactor,
+		asset_kind: AssetKind,
+		amount: u128,
+		remote_fee: PaysRemoteFee<Asset>,
 	) -> Result<(Xcm<()>, Location, QueryId), Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
@@ -211,7 +235,14 @@ impl<
 		);
 
 		let message = match remote_fee {
-			PaysRemoteFee::No => unimplemented!(),
+			PaysRemoteFee::No => remote_transfer_xcm_free_execution(
+				from_location,
+				origin_location_on_remote,
+				beneficiary,
+				asset_id,
+				amount,
+				query_id,
+			)?,
 			PaysRemoteFee::Yes { fee_asset } => remote_transfer_xcm_paying_fees(
 				from_location,
 				origin_location_on_remote,
@@ -230,8 +261,8 @@ impl<
 	///
 	/// This is the account that executes the transfer on the remote chain.
 	pub fn from_on_remote(
-		from: &<Self as Transfer>::Sender,
-		asset_kind: <Self as Transfer>::AssetKind,
+		from: &Transactor,
+		asset_kind: AssetKind,
 	) -> Result<Location, Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
@@ -257,7 +288,7 @@ impl<
 	}
 
 	fn locatable_asset_id(
-		asset_kind: <Self as Transfer>::AssetKind,
+		asset_kind: AssetKind,
 	) -> Result<LocatableAssetId, Error> {
 		AssetKindToLocatableAsset::try_convert(asset_kind).map_err(|error| {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to convert asset kind to locatable asset");
@@ -295,6 +326,30 @@ pub fn remote_transfer_xcm_paying_fees(
 			DepositAsset { assets: AssetFilter::Wild(WildAsset::All), beneficiary: from_at_target },
 		])),
 		TransferAsset { beneficiary, assets: (asset_id, amount).into() },
+	]);
+
+	Ok(xcm)
+}
+
+pub fn remote_transfer_xcm_free_execution(
+	from_location: Location,
+	destination: Location,
+	beneficiary: Location,
+	asset_id: AssetId,
+	amount: u128,
+	query_id: QueryId,
+) -> Result<Xcm<()>, Error> {
+	let xcm = Xcm(vec![
+		DescendOrigin(from_location.interior),
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		SetAppendix(Xcm(vec![
+			SetFeesMode { jit_withdraw: true },
+			ReportError(QueryResponseInfo { destination, query_id, max_weight: Weight::zero() }),
+		])),
+		TransferAsset {
+			beneficiary,
+			assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }].into(),
+		},
 	]);
 
 	Ok(xcm)

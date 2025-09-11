@@ -16,14 +16,14 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
-use alloc::vec;
+use crate::transfer::{TransferOverXcmHelper, ZeroFee};
 use core::marker::PhantomData;
 use frame_support::traits::{
-	tokens::{Pay, PaymentStatus},
+	tokens::{transfer::PaysRemoteFee, Pay, PaymentStatus},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
-use xcm::{opaque::lts::Weight, prelude::*};
+use xcm::prelude::*;
 use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 /// Implementation of the `frame_support::traits::tokens::Pay` trait, to allow
@@ -71,7 +71,7 @@ impl<
 		Querier: QueryHandler,
 		Timeout: Get<Querier::BlockNumber>,
 		Beneficiary: Clone + core::fmt::Debug,
-		AssetKind: core::fmt::Debug,
+		AssetKind: core::fmt::Debug + Clone,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> Pay
@@ -97,39 +97,18 @@ impl<
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).map_err(|error| {
-			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert asset kind to locatable asset");
-			xcm::latest::Error::InvalidLocation
-		})?;
-		let LocatableAssetId { asset_id, location: asset_location } = locatable;
-		let destination =
-			Querier::UniversalLocation::get().invert_target(&asset_location).map_err(|()| {
-				tracing::debug!(target: "xcm::pay", "Failed to invert asset location");
-				Self::Error::LocationNotInvertible
-			})?;
-		let beneficiary = BeneficiaryRefToLocation::try_convert(&who).map_err(|error| {
-			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
-			xcm::latest::Error::InvalidLocation
-		})?;
-
-		let query_id = Querier::new_query(asset_location.clone(), Timeout::get(), Interior::get());
-
-		let message = Xcm(vec![
-			DescendOrigin(Interior::get()),
-			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			SetAppendix(Xcm(vec![
-				SetFeesMode { jit_withdraw: true },
-				ReportError(QueryResponseInfo {
-					destination,
-					query_id,
-					max_weight: Weight::zero(),
-				}),
-			])),
-			TransferAsset {
-				beneficiary,
-				assets: vec![Asset { id: asset_id, fun: Fungibility::Fungible(amount) }].into(),
-			},
-		]);
+		let (message, asset_location, query_id) =
+			TransferOverXcmHelper::<
+				Querier,
+				Timeout,
+				Beneficiary,
+				AssetKind,
+				AssetKindToLocatableAsset,
+				BeneficiaryRefToLocation,
+				ZeroFee,
+			>::get_remote_transfer_xcm(
+				Interior::get().into(), who, asset_kind, amount, PaysRemoteFee::No
+			)?;
 
 		let (ticket, _) = Router::validate(&mut Some(asset_location), &mut Some(message))?;
 		Router::deliver(ticket)?;
