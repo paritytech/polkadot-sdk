@@ -19,7 +19,10 @@
 use crate::LocatableAssetId;
 use alloc::vec;
 use core::marker::PhantomData;
-use frame_support::traits::{tokens::PaymentStatus, Get};
+use frame_support::traits::{
+	tokens::{transfer::PaysRemoteFee, PaymentStatus},
+	Get,
+};
 use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
@@ -77,7 +80,7 @@ impl<
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		TransactorRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
-		RemoteFee: GetDefaultRemoteFee,
+		DefaultRemoteFee: GetDefaultRemoteFee,
 	> Transfer
 	for TransferOverXcm<
 		XcmFeeHandler,
@@ -88,7 +91,7 @@ impl<
 		AssetKind,
 		AssetKindToLocatableAsset,
 		TransactorRefToLocation,
-		RemoteFee,
+		DefaultRemoteFee,
 	>
 {
 	type Balance = u128;
@@ -100,14 +103,12 @@ impl<
 	type Error = Error;
 
 	fn transfer(
-        from: &Self::Sender,
-        to: &Self::Beneficiary,
-        asset_kind: Self::AssetKind,
-        amount: Self::Balance,
-        remote_fee: Option<Self::RemoteFeeAsset>,
+		from: &Self::Sender,
+		to: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
+		remote_fee: PaysRemoteFee<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
-		let fee_asset = remote_fee.unwrap_or_else(RemoteFee::get_default_remote_fee);
-
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation
@@ -118,7 +119,7 @@ impl<
 			to,
 			asset_kind,
 			amount,
-			fee_asset,
+			remote_fee,
 		)?;
 
 		let (ticket, delivery_fees) =
@@ -147,10 +148,10 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-        _: &Self::Sender,
-        _: &Self::Beneficiary,
-        asset_kind: Self::AssetKind,
-        _: Self::Balance,
+		_: &Self::Sender,
+		_: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		_: Self::Balance,
 	) {
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
 		Router::ensure_successful_delivery(Some(locatable.location));
@@ -171,7 +172,7 @@ impl<
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		TransactorRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
-		RemoteFee: GetDefaultRemoteFee,
+		DefaultRemoteFee: GetDefaultRemoteFee,
 	>
 	TransferOverXcm<
 		HandleXcmFee,
@@ -182,7 +183,7 @@ impl<
 		AssetKind,
 		AssetKindToLocatableAsset,
 		TransactorRefToLocation,
-		RemoteFee,
+		DefaultRemoteFee,
 	>
 {
 	/// Gets the XCM executing the transfer on the remote chain.
@@ -191,7 +192,7 @@ impl<
 		to: &<Self as Transfer>::Beneficiary,
 		asset_kind: <Self as Transfer>::AssetKind,
 		amount: <Self as Transfer>::Balance,
-		fee_asset: <Self as Transfer>::RemoteFeeAsset,
+		remote_fee: PaysRemoteFee<<Self as Transfer>::RemoteFeeAsset>,
 	) -> Result<(Xcm<()>, Location, QueryId), Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
@@ -209,15 +210,18 @@ impl<
 			from_location.interior.clone(),
 		);
 
-		let message = remote_transfer_xcm(
-			from_location,
-			origin_location_on_remote,
-			beneficiary,
-			asset_id,
-			amount,
-			fee_asset,
-			query_id,
-		)?;
+		let message = match remote_fee {
+			PaysRemoteFee::No => unimplemented!(),
+			PaysRemoteFee::Yes { fee_asset } => remote_transfer_xcm_paying_fees(
+				from_location,
+				origin_location_on_remote,
+				beneficiary,
+				asset_id,
+				amount,
+				fee_asset.unwrap_or_else(DefaultRemoteFee::get_default_remote_fee),
+				query_id,
+			)?,
+		};
 
 		Ok((message, asset_location, query_id))
 	}
@@ -226,8 +230,8 @@ impl<
 	///
 	/// This is the account that executes the transfer on the remote chain.
 	pub fn from_on_remote(
-        from: &<Self as Transfer>::Sender,
-        asset_kind: <Self as Transfer>::AssetKind,
+		from: &<Self as Transfer>::Sender,
+		asset_kind: <Self as Transfer>::AssetKind,
 	) -> Result<Location, Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
@@ -262,7 +266,7 @@ impl<
 	}
 }
 
-pub fn remote_transfer_xcm(
+pub fn remote_transfer_xcm_paying_fees(
 	from_location: Location,
 	destination: Location,
 	beneficiary: Location,

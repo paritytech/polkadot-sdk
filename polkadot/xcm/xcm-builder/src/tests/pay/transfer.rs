@@ -21,7 +21,9 @@ use super::{mock::*, *};
 use crate::AliasesIntoAccountId32;
 use frame_support::{
 	assert_ok, parameter_types,
-	traits::{fungible::Mutate, fungibles::Mutate as FungiblesMutate},
+	traits::{
+		fungible::Mutate, fungibles::Mutate as FungiblesMutate, tokens::transfer::PaysRemoteFee,
+	},
 };
 use xcm::{
 	latest::{InteriorLocation, Junctions::X2, Xcm},
@@ -102,7 +104,7 @@ fn transfer_over_xcm_works() {
 			&recipient,
 			asset_kind.clone(),
 			transfer_amount,
-			Some(fee_asset.clone())
+			PaysRemoteFee::Yes { fee_asset: Some(fee_asset.clone()) }
 		));
 
 		let expected_message = remote_transfer_xcm(
@@ -150,7 +152,7 @@ fn transfer_over_xcm_works_with_default_fee() {
 			&recipient,
 			asset_kind.clone(),
 			transfer_amount,
-			None
+			PaysRemoteFee::Yes { fee_asset: None }
 		));
 
 		let fee_asset = ConstantRelayTokenDefaultFee::get_default_remote_fee();
