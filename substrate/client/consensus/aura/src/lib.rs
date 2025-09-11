@@ -649,7 +649,7 @@ mod tests {
 			let slot_duration = slot_duration(&*client).expect("slot duration available");
 
 			assert_eq!(slot_duration.as_millis() as u64, SLOT_DURATION_MS);
-			import_queue::AuraVerifier::new(
+			AuraVerifier::new(
 				client,
 				Box::new(|_, _| async {
 					let slot = InherentDataProvider::from_timestamp_and_slot_duration(

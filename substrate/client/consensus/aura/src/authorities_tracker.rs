@@ -27,10 +27,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::{AuraApi, ConsensusLog, AURA_ENGINE_ID};
 use sp_core::Pair;
-use sp_runtime::{
-	generic::OpaqueDigestItemId,
-	traits::{Block, Header, NumberFor},
-};
+use sp_runtime::traits::{Block, Header, NumberFor};
 
 use crate::{fetch_authorities_from_runtime, AuthorityId, CompatibilityMode};
 
