@@ -129,6 +129,28 @@
 //!
 //!  ```
 //!
+//! ### Pitfall: Slot Duration
+//!
+//! A common source of confusion is the correct configuration of the `SlotDuration` that is passed
+//! to `pallet-aura`.
+//! ```ignore
+//! impl pallet_aura::Config for Runtime {
+//!     // ...
+//!     type SlotDuration = ConstU64<SLOT_DURATION>;
+//! }
+//! ```
+//! Please note that the slot duration should not be impacted by the block production interval
+//! itself. With a block production interval of 2s on a Parachain with 3 cores, it is still highly
+//! recommended to configure a slot duration of at least 6 seconds. A slot duration of 24 seconds is
+//! recommended. The slot duration determines the length of each author's turn. It is decoupled from
+//! the number or interval of blocks produced by the authors. During their slot, authors are allowed
+//! to produce multiple blocks.
+//!
+//! **Note:** Even though not recommended, it is possible to run at arbitrary slot durations. Such
+//! configurations require a custom `ConsensusHook` implementation. The assumptions made in the
+//! `ConsensusHook` implementations of `pallet-aura-ext` do not support slot durations lower than 6
+//! seconds.
+//!
 //! ## Current limitations
 //!
 //! ### Maximum execution time per relay chain block.
