@@ -283,6 +283,16 @@ pub struct ValidTransaction {
 	/// will enable other transactions that depend on (require) those tags to be included as well.
 	/// Provided and required tags allow Substrate to build a dependency graph of transactions
 	/// and import them in the right (linear) order.
+	///
+	/// <div class="warning">
+	///
+	/// The transaction pool is using the provided tags to distinguish transactions. So, if two
+	/// transactions with different hashes have the same provided tags, the transaction pool
+	/// threats them as the same.
+	///
+	/// A transaction that has no provided tags, will be dropped by the transaction pool.
+	///
+	/// </div>
 	pub provides: Vec<TransactionTag>,
 	/// Transaction longevity
 	///
