@@ -7,19 +7,3 @@ doc:
 crates:
 - name: pallet-revive
   bump: patch
-- name: pallet-revive-fixtures
-  bump: patch
-- name: assets-common
-  bump: patch
-- name: asset-hub-westend-runtime
-  bump: patch
-- name: pallet-xcm
-  bump: patch
-- name: pallet-assets
-  bump: patch
-- name: pallet-contracts
-  bump: patch
-- name: penpal-runtime
-  bump: patch
-- name: sp-runtime
-  bump: patch
