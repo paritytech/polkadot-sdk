@@ -99,35 +99,36 @@ fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
 		// A page with a single message works
 		EnqueuedMessages::set(vec![]);
 		let page = generate_mock_xcm_page(0, 1, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 1), XcmEncoding::Simple);
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
-		assert_eq!(EnqueuedMessages::get(), vec![(1000.into(), generate_mock_xcm(0).encode())]);
+		assert_eq!(
+			EnqueuedMessages::get(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
+		);
 
 		// A page with few message (less than a batch) works
 		EnqueuedMessages::set(vec![]);
 		let page = generate_mock_xcm_page(0, 10, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 		assert_eq!(
 			EnqueuedMessages::get(),
-			generate_mock_xcm_batch(0, 10)
-				.into_iter()
-				.map(|xcm| (1000.into(), xcm.encode()))
-				.collect::<Vec<_>>(),
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>(),
 		);
 
 		// Enqueueing multiple times works
 		EnqueuedMessages::set(vec![]);
 		// The drop threshold is 48 and our mock message queue enqueues 1 message per page
+		let mut xcms = vec![];
 		for i in 0..4 {
 			let page = generate_mock_xcm_page(i * 10, 10, xcm_encoding);
+			xcms.extend(encode_xcm_batch(generate_mock_xcm_batch(i * 10, 10), XcmEncoding::Simple));
 			XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 			assert_eq!((i + 1) * 10, EnqueuedMessages::get().len());
 		}
 		assert_eq!(
 			EnqueuedMessages::get(),
-			generate_mock_xcm_batch(0, 40)
-				.into_iter()
-				.map(|xcm| (1000.into(), xcm.encode()))
-				.collect::<Vec<_>>()
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
 		);
 	});
 }
@@ -148,14 +149,12 @@ fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
 		});
 
 		let page = generate_mock_xcm_page(0, 300, xcm_encoding);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 300), XcmEncoding::Simple);
 		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
 
 		assert_eq!(
 			EnqueuedMessages::get(),
-			generate_mock_xcm_batch(0, 300)
-				.into_iter()
-				.map(|xcm| (1000.into(), xcm.encode()))
-				.collect::<Vec<_>>()
+			xcms.into_iter().map(|xcm| (1000.into(), xcm.into_inner())).collect::<Vec<_>>()
 		);
 	})
 }
@@ -245,7 +244,7 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 		for (idx, xcm) in xcms.iter().enumerate() {
 			EnqueuedMessages::set(vec![]);
 
-			total_size += xcm.encode().len();
+			total_size += xcm.len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
 				0,
 				&BatchFootprint {
