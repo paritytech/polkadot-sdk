@@ -6,17 +6,19 @@
 //! This crate contains integration tests that use Zombienet to test
 //! pallet-revive functionality in a realistic multi-node environment.
 use anyhow::anyhow;
+use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::{
 	fs::File,
 	io::{BufRead, BufReader, Write},
 	process::{Child, Command, Stdio},
+	sync::Arc,
 	thread,
 	time::Duration,
 };
-
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
-use polkadot_primitives::Id as ParaId;
+use subxt::{self, backend::rpc::RpcClient, OnlineClient, PolkadotConfig};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder};
 
 const PARA_ID: u32 = 1000;
@@ -194,5 +196,89 @@ impl Drop for EthRpcServer {
 		if let Err(e) = self.kill() {
 			log::error!("Failed to terminate eth-rpc server in drop: {}", e);
 		}
+	}
+}
+
+pub struct TestEnvironment {
+	pub collator_rpc_client: RpcClient,
+	pub collator_client: OnlineClient<PolkadotConfig>,
+	pub eth_rpc_client: Arc<HttpClient>,
+	pub zombienet: Option<ZombienetNetwork>,
+	pub eth_rpc_server: Option<EthRpcServer>,
+}
+
+impl TestEnvironment {
+	/// Create a test environment with spawned zombienet and eth-rpc server
+	pub async fn with_zombienet(
+		collator_rpc_port: u16,
+		eth_rpc_url: &str,
+	) -> Result<Self, anyhow::Error> {
+		let zn = ZombienetNetwork::launch(collator_rpc_port)
+			.await
+			.map_err(|err| anyhow!("Failed to spawn zombienet: {err:?}"))?;
+		let base_dir = zn.network.base_dir().unwrap();
+
+		let collator_name = "asset-hub-westend-collator1";
+		let collator = zn
+			.network
+			.get_node(collator_name)
+			.map_err(|err| anyhow!("Failed to get collator node: {err:?}"))?;
+
+		let eth_rpc = EthRpcServer::launch(collator.ws_uri(), base_dir)
+			.map_err(|err| anyhow!("Failed to spawn ETH-RPC server: {err:?}"))?;
+
+		// TODO: use below approach once subxt versions used here and in zombienet-sdk match
+		// let collator_rpc_client = collator.rpc().await.unwrap_or_else(|err| {
+		//     panic!("Failed to get the RPC client for the collator {collator_name}: {err:?}")
+		// });
+		let collator_rpc_client = RpcClient::from_insecure_url(collator.ws_uri())
+			.await
+			.map_err(|err| anyhow!("Failed to create RPC client: {err:?}"))?;
+
+		let collator_client = OnlineClient::from_rpc_client(collator_rpc_client.clone())
+			.await
+			.map_err(|err| anyhow!("Failed to create client from RPC client: {err:?}"))?;
+
+		let eth_rpc_client = Arc::new(
+			HttpClientBuilder::default()
+				.build(eth_rpc_url)
+				.map_err(|err| anyhow!("Failed to connect to eth-rpc server: {err:?}"))?,
+		);
+
+		Ok(Self {
+			collator_rpc_client,
+			collator_client,
+			eth_rpc_client,
+			zombienet: Some(zn),
+			eth_rpc_server: Some(eth_rpc),
+		})
+	}
+
+	/// Create a test environment that connects to external test network and eth-rpc server
+	pub async fn without_zombienet(
+		collator_rpc_port: u16,
+		eth_rpc_url: &str,
+	) -> Result<Self, anyhow::Error> {
+		let collator_ws_uri = format!("ws://127.0.0.1:{collator_rpc_port}");
+		let collator_rpc_client = RpcClient::from_insecure_url(collator_ws_uri)
+			.await
+			.map_err(|err| anyhow!("Failed to create RPC client: {err:?}"))?;
+		let collator_client = OnlineClient::from_rpc_client(collator_rpc_client.clone())
+			.await
+			.map_err(|err| anyhow!("Failed to create client from RPC client: {err:?}"))?;
+
+		let eth_rpc_client = Arc::new(
+			HttpClientBuilder::default()
+				.build(eth_rpc_url)
+				.map_err(|err| anyhow!("Failed to connect to eth-rpc server: {err:?}"))?,
+		);
+
+		Ok(Self {
+			collator_rpc_client,
+			collator_client,
+			eth_rpc_client,
+			zombienet: None,
+			eth_rpc_server: None,
+		})
 	}
 }

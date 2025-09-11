@@ -1,22 +1,21 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
+use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, ReceiptInfo};
 use pallet_revive_eth_rpc::{example::TransactionBuilder, subxt_client, EthRpcClient};
-use pallet_revive_zombienet::{EthRpcServer, ZombienetNetwork, BEST_BLOCK_METRIC};
+use pallet_revive_zombienet::{TestEnvironment, BEST_BLOCK_METRIC};
 use sp_core::H256;
 use std::sync::Arc;
-use subxt::{
-	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
-};
+use subxt::{self, ext::subxt_rpcs::rpc_params};
 // use zombienet_sdk::subxt::{
 // 	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
 // };
 
 const COLLATOR_RPC_PORT: u16 = 9944;
-const ROOT_FROM_NO_DATA: &str = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 const ETH_RPC_URL: &str = "http://localhost:8545";
+
+const ROOT_FROM_NO_DATA: &str = "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
 
 async fn transfer() -> Result<(), anyhow::Error> {
 	let client = Arc::new(HttpClientBuilder::default().build("http://localhost:8545")?);
@@ -61,17 +60,12 @@ async fn test_dont_spawn_zombienet() {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
-	let collator_ws_uri = format!("ws://127.0.0.1:{COLLATOR_RPC_PORT}");
-	let collator_rpc_client = RpcClient::from_insecure_url(collator_ws_uri)
-		.await
-		.unwrap_or_else(|err| panic!("Failed to create RPC client: {err:?}"));
-	let eth_rpc_client = Arc::new(
-		HttpClientBuilder::default()
-			.build(ETH_RPC_URL)
-			.unwrap_or_else(|err| panic!("Failed to connect to eth-rpc server: {err:?}")),
-	);
 
-	sanity_check(collator_rpc_client, eth_rpc_client).await;
+	let test_env = TestEnvironment::without_zombienet(COLLATOR_RPC_PORT, ETH_RPC_URL)
+		.await
+		.unwrap_or_else(|err| panic!("Failed to create test environment: {err:?}"));
+
+	sanity_check(&test_env).await;
 }
 
 // This tests makes sure that RPC collator is able to build blocks
@@ -81,50 +75,27 @@ async fn test_with_zombienet_spawning() {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let zn = ZombienetNetwork::launch(COLLATOR_RPC_PORT)
+	let test_env = TestEnvironment::with_zombienet(COLLATOR_RPC_PORT, ETH_RPC_URL)
 		.await
-		.unwrap_or_else(|err| panic!("Failed to spawn zombienet, {err:?}"));
-	let base_dir = zn.network.base_dir().unwrap();
+		.unwrap_or_else(|err| panic!("Failed to create test environment: {err:?}"));
+	let zombienet = test_env.zombienet.as_ref().unwrap();
 
-	let collator_name = "asset-hub-westend-collator1";
-	let collator = zn
-		.network
-		.get_node(collator_name)
-		.unwrap_or_else(|err| panic!("Failed to get collator node: {err:?}"));
+	sanity_check(&test_env).await;
 
-	let _eth_rpc = EthRpcServer::launch(collator.ws_uri(), base_dir)
-		.unwrap_or_else(|err| panic!("Failed to spawn ETH-RPC server: {err:?}"));
-
-	// TODO: use below approach once subxt versions used here and in zombienet-sdk match
-	// let collator_rpc_client = collator.rpc().await.unwrap_or_else(|err| {
-	// 	panic!("Failed to get the RPC client for the collator {collator_name}: {err:?}")
-	// });
-	let collator_rpc_client = RpcClient::from_insecure_url(collator.ws_uri())
-		.await
-		.unwrap_or_else(|err| panic!("Failed to create RPC client: {err:?}"));
-
-	let eth_rpc_client = Arc::new(
-		HttpClientBuilder::default()
-			.build(ETH_RPC_URL)
-			.unwrap_or_else(|err| panic!("Failed to connect to eth-rpc server: {err:?}")),
-	);
-
-	sanity_check(collator_rpc_client, eth_rpc_client).await;
-
-	assert!(zn
+	// TODO remove after tests are implemented
+	let alice = zombienet
 		.network
 		.get_node("alice-westend-validator")
-		.unwrap_or_else(|err| panic!("Failed to get node: {err:?}"))
+		.unwrap_or_else(|err| panic!("Failed to get node: {err:?}"));
+	assert!(alice
 		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= 600.0, 3600u64)
 		.await
 		.is_ok());
 }
 
-async fn sanity_check(collator_rpc_client: RpcClient, eth_rpc_client: Arc<HttpClient>) {
-	let collator: OnlineClient<PolkadotConfig> =
-		OnlineClient::from_rpc_client(collator_rpc_client.clone())
-			.await
-			.unwrap_or_else(|err| panic!("Failed to create client from RPC client: {err:?}"));
+async fn sanity_check(test_env: &TestEnvironment) {
+	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+
 	for block_number_or_tag in [
 		// TODO: block zero is reconstructed from substrate
 		// BlockNumberOrTag::U256(0.into()),
@@ -157,7 +128,7 @@ async fn sanity_check(collator_rpc_client: RpcClient, eth_rpc_client: Arc<HttpCl
 			"substrate block number: {:?} hash: {substrate_block_hash:?}",
 			eth_rpc_block.number
 		);
-		let storage = collator.storage().at(substrate_block_hash);
+		let storage = collator_client.storage().at(substrate_block_hash);
 
 		let query = subxt_client::storage().revive().ethereum_block();
 		let evm_block: EvmBlock = storage
