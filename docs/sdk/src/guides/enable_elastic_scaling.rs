@@ -129,7 +129,7 @@
 //!
 //!  ```
 //!
-//! ### Pitfall: Slot Duration
+//! ### Parachain Slot Duration
 //!
 //! A common source of confusion is the correct configuration of the `SlotDuration` that is passed
 //! to `pallet-aura`.
