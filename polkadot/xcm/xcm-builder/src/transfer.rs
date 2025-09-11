@@ -20,7 +20,10 @@ use crate::LocatableAssetId;
 use alloc::vec;
 use core::marker::PhantomData;
 use frame_support::traits::{
-	tokens::{transfer::PaysRemoteFee, PaymentStatus},
+	tokens::{
+		transfer::{PaysRemoteFee, PaysRemoteFeeWithMaybeDefault},
+		PaymentStatus,
+	},
 	Get,
 };
 use sp_runtime::traits::TryConvert;
@@ -38,14 +41,6 @@ const LOG_TARGET: &str = "xcm::transfer_remote";
 /// fee is sensible.
 pub trait GetDefaultRemoteFee {
 	fn get_default_remote_fee() -> Asset;
-}
-
-pub struct ZeroFee;
-
-impl GetDefaultRemoteFee for ZeroFee {
-	fn get_default_remote_fee() -> Asset {
-		Asset { id: AssetId(Default::default()), fun: Fungibility::Fungible(0) }
-	}
 }
 
 /// Transfer an asset on a remote chain (in practice this should be only asset hub).
@@ -116,12 +111,19 @@ impl<
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
-		remote_fee: PaysRemoteFee<Self::RemoteFeeAsset>,
+		remote_fee: PaysRemoteFeeWithMaybeDefault<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation
 		})?;
+
+		let remote_fee = match remote_fee {
+			PaysRemoteFeeWithMaybeDefault::YesWithDefault =>
+				PaysRemoteFee::Yes { fee_asset: DefaultRemoteFee::get_default_remote_fee() },
+			PaysRemoteFeeWithMaybeDefault::Yes { fee_asset } => PaysRemoteFee::Yes { fee_asset },
+			PaysRemoteFeeWithMaybeDefault::No => PaysRemoteFee::No,
+		};
 
 		let (message, asset_location, query_id) =
 			TransferOverXcmHelper::<
@@ -131,7 +133,6 @@ impl<
 				AssetKind,
 				AssetKindToLocatableAsset,
 				TransactorRefToLocation,
-				DefaultRemoteFee,
 			>::get_remote_transfer_xcm(
 				from_location.clone(), to, asset_kind, amount, remote_fee
 			)?;
@@ -184,7 +185,6 @@ pub struct TransferOverXcmHelper<
 	AssetKind,
 	AssetKindToLocatableAsset,
 	BeneficiaryRefToLocation,
-	RemoteFee,
 >(
 	PhantomData<(
 		Querier,
@@ -193,7 +193,6 @@ pub struct TransferOverXcmHelper<
 		AssetKind,
 		AssetKindToLocatableAsset,
 		BeneficiaryRefToLocation,
-		RemoteFee,
 	)>,
 );
 
@@ -204,7 +203,6 @@ impl<
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
-		DefaultRemoteFee: GetDefaultRemoteFee,
 	>
 	TransferOverXcmHelper<
 		Querier,
@@ -213,7 +211,6 @@ impl<
 		AssetKind,
 		AssetKindToLocatableAsset,
 		BeneficiaryRefToLocation,
-		DefaultRemoteFee,
 	>
 {
 	/// Gets the XCM executing the transfer on the remote chain.
@@ -255,7 +252,7 @@ impl<
 				beneficiary,
 				asset_id,
 				amount,
-				fee_asset.unwrap_or_else(DefaultRemoteFee::get_default_remote_fee),
+				fee_asset,
 				query_id,
 			)?,
 		};

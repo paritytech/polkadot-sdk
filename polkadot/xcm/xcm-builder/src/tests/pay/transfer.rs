@@ -22,7 +22,8 @@ use crate::AliasesIntoAccountId32;
 use frame_support::{
 	assert_ok, parameter_types,
 	traits::{
-		fungible::Mutate, fungibles::Mutate as FungiblesMutate, tokens::transfer::PaysRemoteFee,
+		fungible::Mutate, fungibles::Mutate as FungiblesMutate,
+		tokens::transfer::PaysRemoteFeeWithMaybeDefault,
 	},
 };
 use xcm::{
@@ -61,7 +62,6 @@ type TestTransferOverXcmHelper = TransferOverXcmHelper<
 	AssetKind,
 	LocatableAssetKindConverter,
 	AliasesIntoAccountId32<AnyNetwork, AccountId>,
-	ConstantRelayTokenDefaultFee,
 >;
 
 struct ConstantRelayTokenDefaultFee;
@@ -114,7 +114,7 @@ fn transfer_over_xcm_works() {
 			&recipient,
 			asset_kind.clone(),
 			transfer_amount,
-			PaysRemoteFee::Yes { fee_asset: Some(fee_asset.clone()) }
+			PaysRemoteFeeWithMaybeDefault::Yes { fee_asset: fee_asset.clone() }
 		));
 
 		let expected_message = remote_transfer_xcm(
@@ -162,7 +162,7 @@ fn transfer_over_xcm_works_with_default_fee() {
 			&recipient,
 			asset_kind.clone(),
 			transfer_amount,
-			PaysRemoteFee::Yes { fee_asset: None }
+			PaysRemoteFeeWithMaybeDefault::YesWithDefault
 		));
 
 		let fee_asset = ConstantRelayTokenDefaultFee::get_default_remote_fee();

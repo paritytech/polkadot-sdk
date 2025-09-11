@@ -16,7 +16,7 @@
 
 //! `PayOverXcm` struct for paying through XCM and getting the status back.
 
-use crate::transfer::{TransferOverXcmHelper, ZeroFee};
+use crate::transfer::TransferOverXcmHelper;
 use core::marker::PhantomData;
 use frame_support::traits::{
 	tokens::{transfer::PaysRemoteFee, Pay, PaymentStatus},
@@ -105,7 +105,6 @@ impl<
 				AssetKind,
 				AssetKindToLocatableAsset,
 				BeneficiaryRefToLocation,
-				ZeroFee,
 			>::get_remote_transfer_xcm(
 				Interior::get().into(), who, asset_kind, amount, PaysRemoteFee::No
 			)?;
