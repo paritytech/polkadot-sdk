@@ -877,9 +877,18 @@ impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 /// The encoding of the XCM messages in an XCMP page.
 #[derive(Copy, Clone)]
 enum XcmEncoding {
-	/// Simple encoding
+	/// Simple encoded (`xcm.encode()`)
+	///
+	/// When we receive this king of messages, we have to decode and then re-encoded them before
+	/// enqueueing them for later processing.
 	Simple,
-	/// Double encoding
+	/// Double encoded (`xcm.encode().encode()`)
+	///
+	/// The XCM message is encoded first, resulting a vector of bytes. And then the vector of bytes
+	/// is encoded again. This has 2 advantages:
+	/// 1. We can just decode them before enqueueing them for later processing. They don't need to
+	///    be re-encoded.
+	/// 2. Decoding a `Vec<u8>` is much more efficient than decoding XCM messages.
 	Double,
 }
 
@@ -1197,8 +1206,8 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 							Self::take_first_concatenated_xcm(data, &mut WeightMeter::new()),
 						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =>
 							Self::take_first_concatenated_opaque_xcm(data),
-						_ => {
-							panic!("Unexpected format.")
+						unexpected_format => {
+							panic!("Unexpected XCMP format: {unexpected_format:?}!")
 						},
 					}
 					.unwrap();
