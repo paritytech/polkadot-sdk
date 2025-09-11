@@ -662,6 +662,7 @@ mod tests {
 				None,
 				CompatibilityMode::None,
 			)
+			.unwrap()
 		}
 
 		fn make_block_import(

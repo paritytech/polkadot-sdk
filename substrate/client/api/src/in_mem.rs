@@ -370,6 +370,10 @@ impl<Block: BlockT> HeaderBackend<Block> for Blockchain<Block> {
 	) -> sp_blockchain::Result<Option<Block::Hash>> {
 		Ok(self.id(BlockId::Number(number)))
 	}
+
+	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		Ok(self.storage.read().leaves.hashes())
+	}
 }
 
 impl<Block: BlockT> HeaderMetadata<Block> for Blockchain<Block> {

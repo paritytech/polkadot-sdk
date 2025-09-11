@@ -88,7 +88,11 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block> + Send + Sync,
+	Client: HeaderBackend<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ ProvideRuntimeApi<Block>
+		+ Send
+		+ Sync,
 	<Client as ProvideRuntimeApi<Block>>::Api: BlockBuilderApi<Block> + AuraApi<Block, P::Public>,
 
 	CIDP: CreateInherentDataProviders<Block, ()>,
@@ -99,14 +103,14 @@ where
 		client: Arc<Client>,
 		inherent_data_provider: CIDP,
 		telemetry: Option<TelemetryHandle>,
-	) -> Self {
-		Self {
+	) -> Result<Self, String> {
+		Ok(Self {
 			client: client.clone(),
 			create_inherent_data_providers: inherent_data_provider,
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry,
-			authorities_tracker: AuthoritiesTracker::new(client),
-		}
+			authorities_tracker: AuthoritiesTracker::new(client, &CompatibilityMode::None)?,
+		})
 	}
 }
 
@@ -146,7 +150,7 @@ where
 		{
 			let authorities = self
 				.authorities_tracker
-				.fetch_or_update(&block_params.header, &CompatibilityMode::None)
+				.fetch(&block_params.header)
 				.map_err(|e| format!("Could not fetch authorities: {}", e))?;
 
 			let slot_duration = self
@@ -278,7 +282,7 @@ pub fn fully_verifying_import_queue<P, Client, Block: BlockT, I, CIDP>(
 	spawner: &impl sp_core::traits::SpawnEssentialNamed,
 	registry: Option<&prometheus_endpoint::Registry>,
 	telemetry: Option<TelemetryHandle>,
-) -> BasicQueue<Block>
+) -> Result<BasicQueue<Block>, String>
 where
 	P: Pair + 'static,
 	P::Signature: Codec,
@@ -302,10 +306,10 @@ where
 		create_inherent_data_providers,
 		defender: Mutex::new(NaiveEquivocationDefender::default()),
 		telemetry,
-		authorities_tracker: AuthoritiesTracker::new(client.clone()),
+		authorities_tracker: AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)?,
 	};
 
-	BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry)
+	Ok(BasicQueue::new(verifier, Box::new(block_import), None, spawner, registry))
 }
 
 #[cfg(test)]

@@ -135,7 +135,8 @@ where
 				client.clone(),
 				inherent_data_providers,
 				telemetry_handle,
-			);
+			)
+			.map_err(|e| sc_service::Error::Other(e))?;
 
 		let verifier = Verifier {
 			client,

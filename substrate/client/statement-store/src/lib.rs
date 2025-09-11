@@ -1059,6 +1059,11 @@ mod tests {
 		fn hash(&self, _number: BlockNumber) -> sp_blockchain::Result<Option<Hash>> {
 			unimplemented!()
 		}
+		fn leaf_hashes(
+			&self,
+		) -> sp_blockchain::Result<Vec<<Block as sp_runtime::traits::Block>::Hash>> {
+			unimplemented!()
+		}
 	}
 
 	fn test_store() -> (Store, tempfile::TempDir) {

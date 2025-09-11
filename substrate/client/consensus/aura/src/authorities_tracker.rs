@@ -43,10 +43,66 @@ pub struct AuthoritiesTracker<P: Pair, B: Block, C> {
 	client: Arc<C>,
 }
 
-impl<P: Pair, B: Block, C> AuthoritiesTracker<P, B, C> {
+impl<P: Pair, B: Block, C> AuthoritiesTracker<P, B, C>
+where
+	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
+	P::Public: Codec + Debug,
+	C::Api: AuraApi<B, AuthorityId<P>>,
+{
 	/// Create a new `AuthoritiesTracker`.
-	pub fn new(client: Arc<C>) -> Self {
-		Self { authorities: RwLock::new(ForkTree::new()), client }
+	pub fn new(
+		client: Arc<C>,
+		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
+	) -> Result<Self, String> {
+		let finalized_hash = client.info().finalized_hash;
+		let mut authorities_cache = ForkTree::new();
+		for mut hash in
+			client.leaf_hashes().map_err(|e| format!("Could not get leaf hashes: {e}"))?
+		{
+			// Import the entire chain back to the first imported ancestor, or to the last finalized
+			// block if there is no imported ancestor. The chain must be imported in order, from
+			// first block to last.
+			let mut chain = Vec::new();
+			loop {
+				let header = client
+					.header(hash)
+					.map_err(|e| format!("Could not get header for {hash:?}: {e}"))?
+					.ok_or_else(|| format!("Header for {hash:?} not found"))?;
+				let number = *header.number();
+				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*client, None);
+				let existing_node =
+					authorities_cache
+						.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
+						.map_err(|e| {
+							format!("Could not find authorities for block {hash:?} at number {number}: {e}")
+						})?;
+				if existing_node.is_some() {
+					// We have already imported this part of the chain.
+					break;
+				}
+				chain.push((number, hash));
+				if hash == finalized_hash {
+					break;
+				}
+				hash = *header.parent_hash();
+			}
+			let mut last_imported_authorities = None;
+			for (number, hash) in chain.into_iter().rev() {
+				let authorities =
+					fetch_authorities_from_runtime(&*client, hash, number, compatibility_mode)
+						.map_err(|e| format!("Could not fetch authorities at {hash:?}: {e}"))?;
+				if Some(&authorities) != last_imported_authorities.as_ref() {
+					last_imported_authorities = Some(authorities.clone());
+					let is_descendent_of = sc_client_api::utils::is_descendent_of(&*client, None);
+					authorities_cache
+						.import(hash, number, authorities, &is_descendent_of)
+						.map_err(|e| {
+							format!("Could not import authorities for block {hash:?} at number {number}: {e}")
+						})?;
+				}
+			}
+		}
+		Ok(Self { authorities: RwLock::new(authorities_cache), client })
 	}
 }
 
@@ -60,69 +116,22 @@ where
 {
 	/// Fetch authorities from the tracker, if available. If not available, fetch from the client
 	/// and update the tracker.
-	pub fn fetch_or_update(
-		&self,
-		header: &B::Header,
-		compatibility_mode: &CompatibilityMode<NumberFor<B>>,
-	) -> Result<Vec<AuthorityId<P>>, String> {
+	pub fn fetch(&self, header: &B::Header) -> Result<Vec<AuthorityId<P>>, String> {
 		let hash = header.hash();
 		let number = *header.number();
 		let parent_hash = *header.parent_hash();
-
-		// Fetch authorities from cache, if available.
-		let authorities = {
-			let is_descendent_of =
-				sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
-			let authorities_cache = self.authorities.read();
-			authorities_cache
-				.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
-				.map_err(|e| {
-					format!("Could not find authorities for block {hash:?} at number {number}: {e}")
-				})?
-				.map(|node| node.data.clone())
-		};
-
-		match authorities {
-			Some(authorities) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"Authorities for block {:?} at number {} found in cache",
-					hash,
-					number,
-				);
-				Ok(authorities)
-			},
-			None => {
-				// Authorities are missing from the cache. Fetch them from the runtime and cache
-				// them.
-				log::debug!(
-					target: LOG_TARGET,
-					"Authorities for block {:?} at number {} not found in cache, fetching from runtime",
-					hash,
-					number
-				);
-				let authorities = fetch_authorities_from_runtime(
-					&*self.client,
-					parent_hash,
-					number,
-					compatibility_mode,
-				)
-				.map_err(|e| format!("Could not fetch authorities at {:?}: {}", parent_hash, e))?;
-				let is_descendent_of = sc_client_api::utils::is_descendent_of(&*self.client, None);
-				let mut authorities_cache = self.authorities.write();
-				authorities_cache
-					.import(
-						parent_hash,
-						number - 1u32.into(),
-						authorities.clone(),
-						&is_descendent_of,
-					)
-					.map_err(|e| {
-						format!("Could not import authorities for block {parent_hash:?} at number {}: {e}", number - 1u32.into())
-					})?;
-				Ok(authorities)
-			},
-		}
+		let is_descendent_of =
+			sc_client_api::utils::is_descendent_of(&*self.client, Some((hash, parent_hash)));
+		let authorities_cache = self.authorities.read();
+		let node = authorities_cache
+			.find_node_where(&hash, &number, &is_descendent_of, &|_| true)
+			.map_err(|e| {
+				format!("Could not find authorities for block {hash:?} at number {number}: {e}")
+			})?
+			.ok_or_else(|| {
+				format!("Authorities for block {hash:?} at number {number} not found in",)
+			})?;
+		Ok(node.data.clone())
 	}
 
 	/// If there is an authorities change digest in the header, import it into the tracker.

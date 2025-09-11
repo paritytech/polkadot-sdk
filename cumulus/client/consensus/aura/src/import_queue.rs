@@ -115,7 +115,12 @@ pub fn build_verifier<P: Pair, C, CIDP, B: BlockT>(
 		C,
 		CIDP,
 	>,
-) -> AuraVerifier<C, P, CIDP, B> {
+) -> Result<AuraVerifier<C, P, CIDP, B>, String>
+where
+	C: HeaderBackend<B> + HeaderMetadata<B, Error = sp_blockchain::Error> + ProvideRuntimeApi<B>,
+	P::Public: Codec + Debug,
+	C::Api: AuraApi<B, P::Public>,
+{
 	sc_consensus_aura::build_verifier(sc_consensus_aura::BuildVerifierParams {
 		client,
 		create_inherent_data_providers,

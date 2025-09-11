@@ -717,6 +717,10 @@ impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for Blockcha
 		)?
 		.map(|header| header.hash()))
 	}
+
+	fn leaf_hashes(&self) -> ClientResult<Vec<<Block as BlockT>::Hash>> {
+		Ok(self.leaves.read().hashes())
+	}
 }
 
 impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<Block> {
