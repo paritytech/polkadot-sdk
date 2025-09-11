@@ -3,7 +3,7 @@ name: tests misc
 on:
   push:
     branches:
-      - master
+      - stable2509
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
@@ -127,7 +127,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        branch: [master, current]
+        branch: [stable2509, current]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -135,9 +135,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # if branch is master, use the branch, otherwise set empty string, so it uses the current context
+          # if branch is stable2509, use the branch, otherwise set empty string, so it uses the current context
           # either PR (including forks) or merge group (main repo)
-          ref: ${{ matrix.branch == 'master' && matrix.branch || '' }}
+          ref: ${{ matrix.branch == 'stable2509' && matrix.branch || '' }}
 
       - name: script
         shell: bash
@@ -169,12 +169,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download artifact (master run)
+      - name: Download artifact (stable2509 run)
         uses: actions/download-artifact@v4.1.8
         continue-on-error: true
         with:
-          name: cargo-check-benches-master-${{ github.sha }}
-          path: ./artifacts/master
+          name: cargo-check-benches-stable2509-${{ github.sha }}
+          path: ./artifacts/stable2509
 
       - name: Download artifact (current run)
         uses: actions/download-artifact@v4.1.8
@@ -186,22 +186,22 @@ jobs:
       - name: script
         id: compare
         run: |
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo -e "Exiting on master branch"
+          if [ "${{ github.ref_name }}" = "stable2509" ]; then
+            echo -e "Exiting on stable2509 branch"
             exit 0
           fi
 
           # fail if no artifacts
-          if [ ! -d ./artifacts/master ] || [ ! -d ./artifacts/current ]; then
+          if [ ! -d ./artifacts/stable2509 ] || [ ! -d ./artifacts/current ]; then
             echo "No artifacts found"
             exit 1
           fi
 
           docker run --rm \
-          -v $PWD/artifacts/master:/artifacts/master \
+          -v $PWD/artifacts/stable2509:/artifacts/stable2509 \
           -v $PWD/artifacts/current:/artifacts/current \
           paritytech/node-bench-regression-guard:latest \
-          node-bench-regression-guard --reference /artifacts/master --compare-with /artifacts/current
+          node-bench-regression-guard --reference /artifacts/stable2509 --compare-with /artifacts/current
 
           if [ $? -ne 0 ]; then
             FAILED_MSG='### node-bench-regression-guard failed ❌, check the regression in *cargo-check-benches* job'
@@ -417,4 +417,3 @@ jobs:
           else
             echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
           fi
-
