@@ -1,6 +1,6 @@
 [package]
 name = "asset-hub-rococo-runtime"
-version = "0.22.4"
+version = "0.22.5"
 authors.workspace = true
 edition.workspace = true
 description = "Rococo variant of Asset Hub parachain runtime"

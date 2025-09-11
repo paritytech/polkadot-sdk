@@ -602,10 +602,10 @@ arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
 assert_matches = { version = "1.5.0" }
 asset-hub-rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-rococo", version = "0.1.0" }
-asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.22.4" }
+asset-hub-rococo-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-rococo", default-features = false, version = "0.22.5" }
 asset-hub-westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/parachains/assets/asset-hub-westend", version = "0.1.0" }
-asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.26.6" }
-asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "20.0.0" }
+asset-hub-westend-runtime = { path = "cumulus/parachains/runtimes/assets/asset-hub-westend", version = "0.26.7" }
+asset-test-utils = { path = "cumulus/parachains/runtimes/assets/test-utils", default-features = false, version = "20.0.1" }
 assets-common = { path = "cumulus/parachains/runtimes/assets/common", default-features = false, version = "0.18.3" }
 async-channel = { version = "1.8.0" }
 async-std = { version = "1.9.0" }
@@ -989,7 +989,7 @@ pallet-uniques = { path = "substrate/frame/uniques", default-features = false, v
 pallet-utility = { path = "substrate/frame/utility", default-features = false, version = "38.0.0" }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false, version = "38.0.0" }
 pallet-whitelist = { path = "substrate/frame/whitelist", default-features = false, version = "37.0.0" }
-pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "17.0.4" }
+pallet-xcm = { path = "polkadot/xcm/pallet-xcm", default-features = false, version = "17.0.5" }
 pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-features = false, version = "17.0.1" }
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false, version = "0.13.3" }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false, version = "0.15.3" }
@@ -1105,7 +1105,7 @@ reqwest = { version = "0.11", default-features = false }
 rlp = { version = "0.5.2", default-features = false }
 rococo-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/rococo", version = "0.1.0" }
 rococo-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/rococo-parachain", version = "0.17.0" }
-rococo-runtime = { path = "polkadot/runtime/rococo", version = "18.0.1" }
+rococo-runtime = { path = "polkadot/runtime/rococo", version = "18.0.2" }
 rococo-runtime-constants = { path = "polkadot/runtime/rococo/constants", default-features = false, version = "17.0.0" }
 rococo-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/rococo-system", version = "0.1.0" }
 rococo-westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/rococo-westend-system", version = "0.1.0" }
@@ -1351,7 +1351,7 @@ wasmi = { version = "0.32.3", default-features = false }
 wasmtime = { version = "8.0.1", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false, version = "0.1.0" }
-westend-runtime = { path = "polkadot/runtime/westend", version = "18.1.0" }
+westend-runtime = { path = "polkadot/runtime/westend", version = "18.1.1" }
 westend-runtime-constants = { path = "polkadot/runtime/westend/constants", default-features = false, version = "17.0.0" }
 westend-system-emulated-network = { path = "cumulus/parachains/integration-tests/emulated/networks/westend-system", version = "0.1.0" }
 x25519-dalek = { version = "2.0" }

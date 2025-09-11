@@ -1490,7 +1490,7 @@ version = "37.0.0"
 path = "../polkadot/xcm/pallet-xcm"
 default-features = false
 optional = true
-version = "17.0.4"
+version = "17.0.5"
 
 [dependencies.pallet-xcm-benchmarks]
 path = "../polkadot/xcm/pallet-xcm-benchmarks"
@@ -1994,7 +1994,7 @@ version = "0.4.3"
 path = "../cumulus/parachains/runtimes/assets/test-utils"
 default-features = false
 optional = true
-version = "20.0.0"
+version = "20.0.1"
 
 [dependencies.bridge-hub-test-utils]
 path = "../cumulus/parachains/runtimes/bridge-hubs/test-utils"
