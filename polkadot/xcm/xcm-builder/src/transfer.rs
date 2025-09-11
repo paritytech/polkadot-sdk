@@ -79,6 +79,7 @@ pub struct TransferOverXcm<
 		RemoteFee,
 	)>,
 );
+
 impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
@@ -122,13 +123,18 @@ impl<
 			Error::InvalidLocation
 		})?;
 
-		let (message, asset_location, query_id) = TransferOverXcmHelper::<Querier, Timeout, Transactor, AssetKind, AssetKindToLocatableAsset, TransactorRefToLocation, DefaultRemoteFee>::get_remote_transfer_xcm(
-			from_location.clone(),
-			to,
-			asset_kind,
-			amount,
-			remote_fee,
-		)?;
+		let (message, asset_location, query_id) =
+			TransferOverXcmHelper::<
+				Querier,
+				Timeout,
+				Transactor,
+				AssetKind,
+				AssetKindToLocatableAsset,
+				TransactorRefToLocation,
+				DefaultRemoteFee,
+			>::get_remote_transfer_xcm(
+				from_location.clone(), to, asset_kind, amount, remote_fee
+			)?;
 
 		let (ticket, delivery_fees) =
 			Router::validate(&mut Some(asset_location), &mut Some(message))?;
@@ -177,7 +183,7 @@ pub struct TransferOverXcmHelper<
 	Transactor,
 	AssetKind,
 	AssetKindToLocatableAsset,
-	TransactorRefToLocation,
+	BeneficiaryRefToLocation,
 	RemoteFee,
 >(
 	PhantomData<(
@@ -186,7 +192,7 @@ pub struct TransferOverXcmHelper<
 		Transactor,
 		AssetKind,
 		AssetKindToLocatableAsset,
-		TransactorRefToLocation,
+		BeneficiaryRefToLocation,
 		RemoteFee,
 	)>,
 );
@@ -197,16 +203,16 @@ impl<
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
-		TransactorRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
+		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
 		DefaultRemoteFee: GetDefaultRemoteFee,
 	>
-TransferOverXcmHelper<
+	TransferOverXcmHelper<
 		Querier,
 		Timeout,
 		Transactor,
 		AssetKind,
 		AssetKindToLocatableAsset,
-		TransactorRefToLocation,
+		BeneficiaryRefToLocation,
 		DefaultRemoteFee,
 	>
 {
@@ -223,7 +229,7 @@ TransferOverXcmHelper<
 
 		let origin_location_on_remote = Self::origin_location_on_remote(&asset_location)?;
 
-		let beneficiary = TransactorRefToLocation::try_convert(to).map_err(|error| {
+		let beneficiary = BeneficiaryRefToLocation::try_convert(to).map_err(|error| {
 			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
 			Error::InvalidLocation
 		})?;
@@ -260,11 +266,8 @@ TransferOverXcmHelper<
 	/// Returns the `from` relative to the asset's location.
 	///
 	/// This is the account that executes the transfer on the remote chain.
-	pub fn from_on_remote(
-		from: &Transactor,
-		asset_kind: AssetKind,
-	) -> Result<Location, Error> {
-		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
+	pub fn from_on_remote(from: &Transactor, asset_kind: AssetKind) -> Result<Location, Error> {
+		let from_location = BeneficiaryRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation
 		})?;
@@ -287,9 +290,7 @@ TransferOverXcmHelper<
 		Ok(origin_on_remote)
 	}
 
-	fn locatable_asset_id(
-		asset_kind: AssetKind,
-	) -> Result<LocatableAssetId, Error> {
+	fn locatable_asset_id(asset_kind: AssetKind) -> Result<LocatableAssetId, Error> {
 		AssetKindToLocatableAsset::try_convert(asset_kind).map_err(|error| {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to convert asset kind to locatable asset");
 			Error::InvalidLocation

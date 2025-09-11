@@ -54,6 +54,16 @@ type TestTransferOverXcm = TransferOverXcm<
 	ConstantRelayTokenDefaultFee,
 >;
 
+type TestTransferOverXcmHelper = TransferOverXcmHelper<
+	TestQueryHandler<TestConfig, BlockNumber>,
+	Timeout,
+	AccountId,
+	AssetKind,
+	LocatableAssetKindConverter,
+	AliasesIntoAccountId32<AnyNetwork, AccountId>,
+	ConstantRelayTokenDefaultFee,
+>;
+
 struct ConstantRelayTokenDefaultFee;
 
 impl GetDefaultRemoteFee for ConstantRelayTokenDefaultFee {
@@ -183,7 +193,8 @@ fn sender_on_remote_works() {
 	};
 
 	let sender_on_remote =
-		TestTransferOverXcm::from_on_remote(&SenderAccount::get(), asset_kind.clone()).unwrap();
+		TestTransferOverXcmHelper::from_on_remote(&SenderAccount::get(), asset_kind.clone())
+			.unwrap();
 
 	assert_eq!(sender_on_remote, SenderLocationOnTarget::get());
 }

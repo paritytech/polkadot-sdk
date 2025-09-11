@@ -141,7 +141,7 @@ pub use transactional::FrameTransactionalProcessor;
 pub use universal_exports::UnpaidLocalExporter;
 
 mod transfer;
-pub use transfer::{GetDefaultRemoteFee, Transfer, TransferOverXcm};
+pub use transfer::{GetDefaultRemoteFee, Transfer, TransferOverXcm, TransferOverXcmHelper};
 
 mod universal_exports;
 pub use universal_exports::{
