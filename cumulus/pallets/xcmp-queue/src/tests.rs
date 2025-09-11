@@ -36,15 +36,28 @@ fn generate_mock_xcm(idx: usize) -> VersionedXcm<Test> {
 	VersionedXcm::<Test>::from(Xcm::<Test>(vec![Trap(idx as u64)]))
 }
 
-fn generate_mock_xcm_batch(
-	start_idx: usize,
-	xcm_count: usize,
-) -> Vec<BoundedVec<u8, MaxXcmpMessageLenOf<Test>>> {
+fn generate_mock_xcm_batch(start_idx: usize, xcm_count: usize) -> Vec<VersionedXcm<Test>> {
 	let mut batch = vec![];
 	for i in 0..xcm_count {
-		batch.push(generate_mock_xcm(start_idx + i).encode().try_into().unwrap());
+		batch.push(generate_mock_xcm(start_idx + i));
 	}
 	batch
+}
+
+fn encode_xcm_batch(
+	xcms: Vec<VersionedXcm<Test>>,
+	xcm_encoding: XcmEncoding,
+) -> Vec<BoundedVec<u8, MaxXcmpMessageLenOf<Test>>> {
+	let mut data = vec![];
+
+	for xcm in xcms {
+		let xcm = match xcm_encoding {
+			XcmEncoding::Simple => xcm.encode(),
+			XcmEncoding::Double => xcm.encode().encode(),
+		};
+		data.push(BoundedVec::try_from(xcm).unwrap());
+	}
+	data
 }
 
 fn generate_mock_xcm_page(
@@ -58,12 +71,10 @@ fn generate_mock_xcm_page(
 	}
 	.encode();
 
-	for xcm in generate_mock_xcm_batch(start_idx, xcm_count) {
-		let xcm = match xcm_encoding {
-			XcmEncoding::Simple => xcm.into_inner(),
-			XcmEncoding::Double => xcm.encode(),
-		};
-		data.extend(xcm);
+	let xcms = generate_mock_xcm_batch(start_idx, xcm_count);
+	let xcms = encode_xcm_batch(xcms, xcm_encoding);
+	for xcm in xcms {
+		data.extend(xcm)
 	}
 	data
 }
@@ -99,7 +110,7 @@ fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
 			EnqueuedMessages::get(),
 			generate_mock_xcm_batch(0, 10)
 				.into_iter()
-				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.map(|xcm| (1000.into(), xcm.encode()))
 				.collect::<Vec<_>>(),
 		);
 
@@ -115,7 +126,7 @@ fn test_basic_xcm_enqueueing(xcm_encoding: XcmEncoding) {
 			EnqueuedMessages::get(),
 			generate_mock_xcm_batch(0, 40)
 				.into_iter()
-				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.map(|xcm| (1000.into(), xcm.encode()))
 				.collect::<Vec<_>>()
 		);
 	});
@@ -143,7 +154,7 @@ fn test_enqueueing_more_than_a_xcm_batch(xcm_encoding: XcmEncoding) {
 			EnqueuedMessages::get(),
 			generate_mock_xcm_batch(0, 300)
 				.into_iter()
-				.map(|xcm| (1000.into(), xcm.into_inner()))
+				.map(|xcm| (1000.into(), xcm.encode()))
 				.collect::<Vec<_>>()
 		);
 	})
@@ -230,10 +241,11 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 
 		let mut total_size = 0;
 		let xcms = generate_mock_xcm_batch(0, 10);
+		let xcms = encode_xcm_batch(xcms, XcmEncoding::Simple);
 		for (idx, xcm) in xcms.iter().enumerate() {
 			EnqueuedMessages::set(vec![]);
 
-			total_size += xcm.len();
+			total_size += xcm.encode().len();
 			let required_weight = <<Test as Config>::WeightInfo>::enqueue_xcmp_messages(
 				0,
 				&BatchFootprint {
@@ -777,14 +789,15 @@ fn take_first_concatenated_xcm_good_bad_depth_errors() {
 fn test_take_first_concatenated_xcms(xcm_encoding: XcmEncoding) {
 	// Should return correctly when can't fill a full batch
 	let page = generate_mock_xcm_page(0, 9, xcm_encoding);
+	let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 9), XcmEncoding::Simple);
 	let data = &mut &page[1..];
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, xcm_encoding, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
+		Ok(xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 	assert_eq!(
 		XcmpQueue::take_first_concatenated_xcms(data, xcm_encoding, 5, &mut WeightMeter::new()),
-		Ok(generate_mock_xcm_batch(5, 4).iter().map(|xcm| xcm.as_bounded_slice()).collect())
+		Ok(xcms[5..9].iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 
 	// Should return partial batch on error
@@ -806,7 +819,7 @@ fn test_take_first_concatenated_xcms(xcm_encoding: XcmEncoding) {
 			10,
 			&mut WeightMeter::new()
 		),
-		Err(generate_mock_xcm_batch(0, 5).iter().map(|xcm| xcm.as_bounded_slice()).collect())
+		Err(xcms[0..5].iter().map(|xcm| xcm.as_bounded_slice()).collect())
 	);
 }
 
