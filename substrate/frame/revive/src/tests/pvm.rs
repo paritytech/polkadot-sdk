@@ -4182,10 +4182,7 @@ fn call_tracing_works() {
 					..Default::default()
 				};
 
-			assert_eq!(
-				trace,
-				expected_trace.into(),
-			);
+			assert_eq!(trace, Some(expected_trace));
 		}
 	});
 }

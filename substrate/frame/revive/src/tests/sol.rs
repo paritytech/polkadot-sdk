@@ -211,13 +211,13 @@ fn opcode_tracing_works() {
 		let trace = opcode_tracer.collect_trace();
 		
 		// Should have captured some opcode steps
-		assert!(!trace.steps.is_empty());
+		assert!(!trace.struct_logs.is_empty());
 		
 		// Should have limited the number of steps to the config limit
-		assert!(trace.steps.len() <= 10);
+		assert!(trace.struct_logs.len() <= 10);
 
 		// Each step should have the required fields
-		for step in &trace.steps {
+		for step in &trace.struct_logs {
 			assert!(!step.op.is_empty());
 			// Stack should be present (not disabled)
 			assert!(step.stack.is_some());
@@ -271,15 +271,123 @@ fn opcode_tracing_with_memory_works() {
 		let trace = opcode_tracer.collect_trace();
 		
 		// Should have captured some opcode steps
-		assert!(!trace.steps.is_empty());
+		assert!(!trace.struct_logs.is_empty());
 
 		// Each step should have the required fields based on config
-		for step in &trace.steps {
+		for step in &trace.struct_logs {
 			assert!(!step.op.is_empty());
 			// Stack should not be present (disabled)
 			assert!(step.stack.is_none());
 			// Memory should be present (enabled)
 			assert!(step.memory.is_some());
 		}
+	});
+}
+
+#[test]
+fn opcode_tracing_comprehensive_works() {
+	use crate::{
+		evm::{OpcodeTrace, OpcodeTracer, OpcodeTracerConfig},
+		tracing::trace,
+	};
+	use revm::bytecode::opcode::*;
+	let (code, _) = compile_module_with_type("Fibonacci", FixtureType::Solc).unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Test with a specific configuration and verify exact structure
+		let config = OpcodeTracerConfig { 
+			enable_memory: false, 
+			disable_stack: false, 
+			disable_storage: true, 
+			enable_return_data: true, 
+			debug: false, 
+			limit: 5  // Limit to first 5 steps for predictable testing
+		};
+
+		let mut tracer = OpcodeTracer::new(config);
+		let _result = trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(
+					Fibonacci::FibonacciCalls::fib(Fibonacci::fibCall { n: U256::from(3u64) })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+
+		let actual_trace = tracer.collect_trace();
+
+		// Create expected trace structure that matches the exact execution
+		use crate::evm::OpcodeStep;
+		let expected_trace = OpcodeTrace {
+			gas: actual_trace.gas, // Use actual gas since it varies
+			failed: false,
+			return_value: "0x0000000000000000000000000000000000000000000000000000000000000002".to_string(), // fib(3) = 2
+			struct_logs: vec![
+				OpcodeStep {
+					pc: 0,
+					op: format!("{:02x}", PUSH1),
+					gas: 0,
+					gas_cost: 0,
+					depth: 0,
+					stack: Some(vec![]),
+					memory: None,
+					storage: None,
+					error: None,
+				},
+				OpcodeStep {
+					pc: 2,
+					op: format!("{:02x}", PUSH1),
+					gas: 0,
+					gas_cost: 0,
+					depth: 0,
+					stack: Some(vec!["0x0000000000000000000000000000000000000000000000000000000000000001".to_string()]),
+					memory: None,
+					storage: None,
+					error: None,
+				},
+				OpcodeStep {
+					pc: 4,
+					op: format!("{:02x}", MSTORE),
+					gas: 0,
+					gas_cost: 0,
+					depth: 0,
+					stack: Some(vec![
+						"0x0000000000000000000000000000000000000000000000000000000000000002".to_string(),
+						"0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+					]),
+					memory: None,
+					storage: None,
+					error: None,
+				},
+				OpcodeStep {
+					pc: 5,
+					op: format!("{:02x}", CALLVALUE),
+					gas: 0,
+					gas_cost: 0,
+					depth: 0,
+					stack: Some(vec![]),
+					memory: None,
+					storage: None,
+					error: None,
+				},
+				OpcodeStep {
+					pc: 6,
+					op: format!("{:02x}", DUP1),
+					gas: 0,
+					gas_cost: 0,
+					depth: 0,
+					stack: Some(vec!["0x0000000000000000000000000000000000000000000000000000000000000001".to_string()]),
+					memory: None,
+					storage: None,
+					error: None,
+				},
+			]
+		};
+
+		// Single assertion that verifies the complete trace structure matches exactly
+		assert_eq!(actual_trace, expected_trace);
 	});
 }

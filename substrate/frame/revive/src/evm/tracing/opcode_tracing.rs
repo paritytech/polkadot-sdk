@@ -37,6 +37,15 @@ pub struct OpcodeTracer {
 	
 	/// Number of steps captured (for limiting).
 	step_count: u64,
+	
+	/// Total gas used by the transaction.
+	total_gas_used: u64,
+	
+	/// Whether the transaction failed.
+	failed: bool,
+	
+	/// The return value of the transaction.
+	return_value: Vec<u8>,
 }
 
 impl OpcodeTracer {
@@ -47,13 +56,27 @@ impl OpcodeTracer {
 			steps: Vec::new(),
 			depth: 0,
 			step_count: 0,
+			total_gas_used: 0,
+			failed: false,
+			return_value: Vec::new(),
 		}
 	}
 
 	/// Collect the traces and return them.
 	pub fn collect_trace(&mut self) -> OpcodeTrace {
-		let steps = core::mem::take(&mut self.steps);
-		OpcodeTrace { steps }
+		let struct_logs = core::mem::take(&mut self.steps);
+		let return_value = if self.return_value.is_empty() {
+			"0x".to_string()
+		} else {
+			format!("0x{}", alloy_core::hex::encode(&self.return_value))
+		};
+		
+		OpcodeTrace { 
+			gas: self.total_gas_used,
+			failed: self.failed,
+			return_value,
+			struct_logs,
+		}
 	}
 
 
@@ -66,11 +89,17 @@ impl OpcodeTracer {
 
 	/// Record return data.
 	pub fn record_return_data(&mut self, data: &[u8]) {
-		if self.config.enable_return_data {
-			if let Some(last_step) = self.steps.last_mut() {
-				last_step.return_data = Some(format!("0x{}", alloy_core::hex::encode(data)));
-			}
-		}
+		self.return_value = data.to_vec();
+	}
+	
+	/// Mark the transaction as failed.
+	pub fn mark_failed(&mut self) {
+		self.failed = true;
+	}
+	
+	/// Set the total gas used by the transaction.
+	pub fn set_total_gas_used(&mut self, gas_used: u64) {
+		self.total_gas_used = gas_used;
 	}
 }
 
@@ -120,14 +149,13 @@ impl Tracing for OpcodeTracer {
 		let step = OpcodeStep {
 			pc,
 			op: opcode.to_string(),
-			gas: U256::from(gas_before),
-			gas_cost: U256::from(gas_cost),
+			gas: gas_before,
+			gas_cost,
 			depth,
 			stack: final_stack,
 			memory: final_memory,
 			storage,
 			error: None,
-			return_data: None, // This would be set on return operations
 		};
 
 		self.steps.push(step);
@@ -153,11 +181,20 @@ impl Tracing for OpcodeTracer {
 		self.depth += 1;
 	}
 
-	fn exit_child_span(&mut self, output: &ExecReturnValue, _gas_used: Weight) {
+	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
 		if output.did_revert() {
 			self.record_error("execution reverted".to_string());
+			if self.depth == 0 {
+				self.mark_failed();
+			}
 		} else {
 			self.record_return_data(&output.data);
+		}
+		
+		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
+		if self.depth == 1 {
+			// Convert Weight to gas units - this is a simplified conversion
+			self.set_total_gas_used(gas_used.ref_time() / 1_000_000); // Rough conversion
 		}
 		
 		if self.depth > 0 {
@@ -165,8 +202,14 @@ impl Tracing for OpcodeTracer {
 		}
 	}
 
-	fn exit_child_span_with_error(&mut self, error: DispatchError, _gas_used: Weight) {
+	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
 		self.record_error(format!("{:?}", error));
+		
+		// Mark as failed if this is the top-level call
+		if self.depth == 1 {
+			self.mark_failed();
+			self.set_total_gas_used(gas_used.ref_time() / 1_000_000); // Rough conversion
+		}
 		
 		if self.depth > 0 {
 			self.depth -= 1;

@@ -318,19 +318,33 @@ where
 }
 
 /// An opcode trace containing the step-by-step execution of EVM instructions.
+/// This matches Geth's structLogger output format.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct OpcodeTrace {
-	/// The list of opcode execution steps.
-	pub steps: Vec<OpcodeStep>,
+	/// Total gas used by the transaction.
+	pub gas: u64,
+	/// Whether the transaction failed.
+	pub failed: bool,
+	/// The return value of the transaction.
+	pub return_value: String,
+	/// The list of opcode execution steps (structLogs in Geth).
+	pub struct_logs: Vec<OpcodeStep>,
 }
 
 impl Default for OpcodeTrace {
 	fn default() -> Self {
-		Self { steps: Vec::new() }
+		Self { 
+			gas: 0,
+			failed: false,
+			return_value: "0x".to_string(),
+			struct_logs: Vec::new(),
+		}
 	}
 }
 
 /// A single opcode execution step.
+/// This matches Geth's structLog format exactly.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OpcodeStep {
@@ -339,9 +353,9 @@ pub struct OpcodeStep {
 	/// The opcode being executed.
 	pub op: String,
 	/// Remaining gas before executing this opcode.
-	pub gas: U256,
+	pub gas: u64,
 	/// Cost of executing this opcode.
-	pub gas_cost: U256,
+	pub gas_cost: u64,
 	/// Current call depth.
 	pub depth: u32,
 	/// EVM stack contents (optional based on config).
@@ -356,9 +370,6 @@ pub struct OpcodeStep {
 	/// Any error that occurred during opcode execution.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
-	/// Return data (optional based on config).
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub return_data: Option<String>,
 }
 
 /// A smart contract execution call trace.
