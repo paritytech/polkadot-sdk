@@ -2368,7 +2368,8 @@ pub trait BlockIdTo<Block: self::Block> {
 }
 
 /// Get current block number
-pub trait BlockNumberProvider: Get<&'static str> {
+pub trait BlockNumberProvider {
+	const IDENTIFIER: &'static str;
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
 		+ DecodeWithMemTracking
@@ -2410,6 +2411,7 @@ pub trait BlockNumberProvider: Get<&'static str> {
 }
 
 impl BlockNumberProvider for () {
+	const IDENTIFIER: &'static str = "System";
 	type BlockNumber = u32;
 	fn current_block_number() -> Self::BlockNumber {
 		0

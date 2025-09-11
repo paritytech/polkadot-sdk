@@ -2436,6 +2436,7 @@ impl<T: Config> HandleLifetime<T::AccountId> for Consumer<T> {
 }
 
 impl<T: Config> BlockNumberProvider for Pallet<T> {
+	const IDENTIFIER: &'static str = "System";
 	type BlockNumber = BlockNumberFor<T>;
 
 	fn current_block_number() -> Self::BlockNumber {
@@ -2445,12 +2446,6 @@ impl<T: Config> BlockNumberProvider for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn set_block_number(n: BlockNumberFor<T>) {
 		Self::set_block_number(n)
-	}
-}
-
-impl<T: Config> Get<&'static str> for Pallet<T> {
-	fn get() -> &'static str {
-		"System"
 	}
 }
 

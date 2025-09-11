@@ -287,10 +287,8 @@ pub mod pallet {
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
-
-		#[pallet::constant]
-		type BlockNumberProviderName: Get<&'static str>;
 	}
 
 	#[pallet::extra_constants]
@@ -1103,11 +1101,3 @@ where
 		crate::Pallet::<R>::account_id()
 	}
 }
-
-pub struct BlockNumberProviderName<T: Config<I>, I: 'static = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I: 'static> Get<&'static str> for BlockNumberProviderName<T, I> {
-	fn get() -> &'static str {
-		T::BlockNumberProvider::get()
-	}
-}
-
