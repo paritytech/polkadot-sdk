@@ -230,6 +230,7 @@ mod test {
 	#[rstest]
 	#[case::short_para_slot_okay(2000, 30, 10)]
 	#[case::normal_para_slot_okay(6000, 10, 10)]
+	// Test boundaries for long parachain slots.
 	#[case::long_para_slot_okay(24000, 1, 7)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(2), derived_from_relay_slot=Slot(1)"
@@ -239,24 +240,28 @@ mod test {
 	#[case::long_para_slot_okay(24000, 2, 9)]
 	#[case::long_para_slot_okay(24000, 2, 10)]
 	#[case::long_para_slot_okay(24000, 2, 11)]
+	#[should_panic(
+		expected = "must match relay-derived slot: parachain_slot=Slot(2), derived_from_relay_slot=Slot(3)"
+	)]
+	#[case::long_para_slot_mismatch(24000, 2, 12)]
 	#[case::long_para_slot_okay(24000, 3, 12)]
+	#[case::short_para_slot(2000, 30, 10)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(31), derived_from_relay_slot=Slot(30)"
 	)]
-	#[case::short_para_slot(2000, 31, 10)]
+	#[case::short_para_slot_mismatch(2000, 31, 10)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(32), derived_from_relay_slot=Slot(30)"
 	)]
-	#[case::short_para_slot(2000, 32, 10)]
-	#[case::short_para_slot(2000, 33, 11)]
+	#[case::short_para_slot_mismatch(2000, 32, 10)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(29), derived_from_relay_slot=Slot(30)"
 	)]
-	#[case::short_para_slot(2000, 29, 10)]
+	#[case::short_para_slot_mismatch(2000, 29, 10)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(1), derived_from_relay_slot=Slot(30)"
 	)]
-	#[case::short_para_slot(2000, 1, 10)]
+	#[case::short_para_slot_mismatch(2000, 1, 10)]
 	#[should_panic(
 		expected = "must match relay-derived slot: parachain_slot=Slot(1), derived_from_relay_slot=Slot(10)"
 	)]
