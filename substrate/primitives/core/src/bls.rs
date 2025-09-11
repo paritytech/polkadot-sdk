@@ -263,7 +263,9 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 
 impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
 	#[cfg(feature = "full_crypto")]
-	/// signs on
+	/// Generate proof of possession for BLS12 curves.
+	///
+	/// Signs on:
 	///  - owner as sort of back cert and proof of ownership to prevent front runner attack
 	///  - on its own public key with unique context to prevent rougue key attack on aggregation
 	fn generate_proof_of_possession(&mut self, owner: &[u8]) -> Self::ProofOfPossession {
@@ -289,7 +291,7 @@ impl<T: BlsBound> ProofOfPossessionGenerator for Pair<T> {
 }
 
 impl<T: BlsBound> ProofOfPossessionVerifier for Pair<T> {
-	///Verify both proof of ownership (back cert) and proof of possession of the private key
+	/// Verify both proof of ownership (back cert) and proof of possession of the private key
 	fn verify_proof_of_possession(
 		owner: &[u8],
 		proof_of_possession: &Self::ProofOfPossession,

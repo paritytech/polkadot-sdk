@@ -30,7 +30,7 @@ where
 {
 	/// Generate proof of possession.
 	///
-	/// This is usually done by signing the owner's idetifier, this is prevent
+	/// This is usually done by signing the owner's identifier, this is prevent
 	/// front runner to claim ownership of public keys of other entities.
 	///
 	/// However, for aggregatable signature

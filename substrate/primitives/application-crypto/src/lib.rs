@@ -58,7 +58,7 @@ mod traits;
 
 pub use traits::*;
 
-/// Declares `Public`, `Pair`, `Signature` and `ProofOfpossession` types which are functionally
+/// Declares `Public`, `Pair`, `Signature` and `ProofOfPossession` types which are functionally
 /// equivalent to the corresponding types defined by `$module` but are new application-specific
 /// types whose identifier is `$key_type`.
 ///
@@ -588,7 +588,7 @@ macro_rules! app_crypto_signature_common {
 
 /// Declares ProofOfPossession type which is functionally equivalent to `$sig`, but is new
 /// Application-specific type whose identifier is `$key_type`.
-/// For full functionality, app_crypto_public_common! must be called too.
+/// For full functionality, `app_crypto_proof_of_possession_common` must be called too.
 /// Can only be used with `full_crypto` feature
 #[doc(hidden)]
 #[macro_export]

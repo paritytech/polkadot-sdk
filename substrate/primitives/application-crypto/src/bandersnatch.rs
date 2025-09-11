@@ -74,7 +74,6 @@ impl RuntimePublic for Public {
 		owner: &[u8],
 		proof_of_possession: &Self::Signature,
 	) -> bool {
-		//let proof_of_possession = AppSignature::from(*proof_of_possession);
 		let pub_key = AppPublic::from(*self);
 		<AppPublic as CryptoType>::Pair::verify_proof_of_possession(
 			owner,

@@ -43,7 +43,7 @@ pub trait AppCrypto: 'static + Sized + CryptoType {
 	/// The corresponding signature type in this application scheme.
 	type Signature: AppSignature;
 
-	/// The corresponding signature type in this application scheme.
+	/// The corresponding proof of possession type in this application scheme.
 	type ProofOfPossession: AppSignature;
 
 	/// The corresponding key pair type in this application scheme.
