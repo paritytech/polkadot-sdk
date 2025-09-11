@@ -12,6 +12,7 @@ use std::{
 	io::{BufRead, BufReader, Write},
 	process::{Child, Command, Stdio},
 	thread,
+	time::Duration,
 };
 
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -128,7 +129,7 @@ impl EthRpcServer {
 			.arg("--node-rpc-url")
 			.arg(node_rpc_url)
 			.arg("--dev")
-			.arg("-leth-rpc=debug")
+			.arg("-leth-rpc=trace")
 			.stdout(Stdio::piped())
 			.stderr(Stdio::piped())
 			.spawn()
@@ -174,6 +175,8 @@ impl EthRpcServer {
 			});
 		}
 
+		// Sleep couple of seconds until eth-rpc server is up
+		std::thread::sleep(Duration::from_secs(2));
 		log::info!("eth-rpc server launched with PID: {}", child.id());
 
 		Ok(Self { child })
