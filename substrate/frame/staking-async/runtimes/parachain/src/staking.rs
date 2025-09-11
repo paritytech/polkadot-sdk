@@ -47,7 +47,7 @@ pub(crate) fn enable_ksm_preset(fast: bool) {
 	Pages::set(&16);
 	MinerPages::set(&4);
 	MaxElectingVoters::set(&12_500);
-	TargetSnapshotPerBlock::set(&4000);
+	TargetSnapshotPerBlock::set(&2500);
 	if !fast {
 		SignedValidationPhase::set(&(4 * Pages::get()));
 		SignedPhase::set(&(20 * MINUTES));
@@ -216,8 +216,8 @@ parameter_types! {
 	/// Fixed deposit for invulnerable accounts.
 	pub InvulnerableDeposit: Balance = UNITS;
 
-	/// * Polkadot: 20%
-	/// * Kusama: 10%
+	/// * Polkadot: 10% (more restrictive, don't bail!)
+	/// * Kusama: 25%
 	///
 	/// Reasoning: The weight/fee of the `bail` transaction is already assuming you delete all pages
 	/// of your solution while bailing, and charges you accordingly. So the chain is being
@@ -449,7 +449,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = ConstU32<1>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
@@ -465,6 +465,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type RelayChainOrigin = EnsureRoot<AccountId>;
 	type AHStakingInterface = Staking;
 	type SendToRelayChain = StakingXcmToRelayChain;
+	type MaxValidatorSetRetries = ConstU32<5>;
 }
 
 parameter_types! {
@@ -507,13 +508,13 @@ pub struct StakingXcmToRelayChain;
 
 impl rc_client::SendToRelayChain for StakingXcmToRelayChain {
 	type AccountId = AccountId;
-	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) {
+	fn validator_set(report: rc_client::ValidatorSetReport<Self::AccountId>) -> Result<(), ()> {
 		rc_client::XCMSender::<
 			xcm_config::XcmRouter,
 			StakingXcmDestination,
 			rc_client::ValidatorSetReport<Self::AccountId>,
 			ValidatorSetToXcm,
-		>::split_then_send(report, Some(8));
+		>::send(report)
 	}
 }
 
