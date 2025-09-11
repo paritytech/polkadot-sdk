@@ -92,7 +92,7 @@ impl<
 	>
 {
 	type Balance = u128;
-	type Payer = Transactor;
+	type Sender = Transactor;
 	type Beneficiary = Transactor;
 	type AssetKind = AssetKind;
 	type RemoteFeeAsset = Asset;
@@ -100,11 +100,11 @@ impl<
 	type Error = Error;
 
 	fn transfer(
-		from: &Self::Payer,
-		to: &Self::Beneficiary,
-		asset_kind: Self::AssetKind,
-		amount: Self::Balance,
-		remote_fee: Option<Self::RemoteFeeAsset>,
+        from: &Self::Sender,
+        to: &Self::Beneficiary,
+        asset_kind: Self::AssetKind,
+        amount: Self::Balance,
+        remote_fee: Option<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
 		let fee_asset = remote_fee.unwrap_or_else(RemoteFee::get_default_remote_fee);
 
@@ -147,10 +147,10 @@ impl<
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		_: &Self::Payer,
-		_: &Self::Beneficiary,
-		asset_kind: Self::AssetKind,
-		_: Self::Balance,
+        _: &Self::Sender,
+        _: &Self::Beneficiary,
+        asset_kind: Self::AssetKind,
+        _: Self::Balance,
 	) {
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
 		Router::ensure_successful_delivery(Some(locatable.location));
@@ -226,8 +226,8 @@ impl<
 	///
 	/// This is the account that executes the transfer on the remote chain.
 	pub fn from_on_remote(
-		from: &<Self as Transfer>::Payer,
-		asset_kind: <Self as Transfer>::AssetKind,
+        from: &<Self as Transfer>::Sender,
+        asset_kind: <Self as Transfer>::AssetKind,
 	) -> Result<Location, Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");

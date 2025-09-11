@@ -33,7 +33,7 @@ pub trait Transfer {
 	/// The type by which identify the payer involved in the transfer.
 	///
 	/// This is usually and AccountId or a Location.
-	type Payer;
+	type Sender;
 
 	/// The type by which we identify the beneficiary involved in the transfer.
 	///
@@ -55,7 +55,7 @@ pub trait Transfer {
 	/// Make a payment and return an identifier for later evaluation of success in some off-chain
 	/// mechanism (likely an event, but possibly not on this chain).
 	fn transfer(
-		from: &Self::Payer,
+		from: &Self::Sender,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
@@ -71,7 +71,7 @@ pub trait Transfer {
 	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		from: &Self::Payer,
+		from: &Self::Sender,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
