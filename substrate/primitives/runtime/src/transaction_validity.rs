@@ -286,9 +286,8 @@ pub struct ValidTransaction {
 	///
 	/// <div class="warning">
 	///
-	/// The transaction pool is using the provided tags to distinguish transactions. So, if two
-	/// transactions with different hashes have the same provided tags, the transaction pool
-	/// threats them as the same.
+	/// If two different transactions with have the same `provides` tags, the transaction pool
+	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on submission time, priority of transaction.
 	///
 	/// A transaction that has no provided tags, will be dropped by the transaction pool.
 	///
