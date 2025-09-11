@@ -989,7 +989,10 @@ pub mod pallet {
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
-		fn build(&self) {}
+		fn build(&self) {
+			// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
+			sp_io::storage::set(b":c", &[]);
+		}
 	}
 }
 
