@@ -286,7 +286,7 @@ pub struct ValidTransaction {
 	///
 	/// <div class="warning">
 	///
-	/// If two different transactions with have the same `provides` tags, the transaction pool
+	/// If two different transactions have the same `provides` tags, the transaction pool
 	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on submission time, priority of transaction.
 	///
 	/// A transaction that has no provided tags, will be dropped by the transaction pool.
