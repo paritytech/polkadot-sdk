@@ -4914,3 +4914,26 @@ fn return_data_limit_is_enforced() {
 		}
 	});
 }
+
+/// EIP-3607
+/// Test that a top-level signed transaction that uses a contract address as the signer is rejected.
+#[test]
+fn reject_signed_tx_from_contract_address() {
+	let (binary, _code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr: contract_addr, account_id: contract_account_id, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
+
+		let result = builder::bare_call(BOB_ADDR)
+			.native_value(1)
+			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
+			.build();
+
+		assert_err!(result.result, <Error<Test>>::TransferFailed);
+	});
+}
