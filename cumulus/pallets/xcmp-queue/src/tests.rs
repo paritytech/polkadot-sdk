@@ -239,8 +239,7 @@ fn xcm_enqueueing_starts_dropping_on_out_of_weight() {
 		});
 
 		let mut total_size = 0;
-		let xcms = generate_mock_xcm_batch(0, 10);
-		let xcms = encode_xcm_batch(xcms, XcmEncoding::Simple);
+		let xcms = encode_xcm_batch(generate_mock_xcm_batch(0, 10), XcmEncoding::Simple);
 		for (idx, xcm) in xcms.iter().enumerate() {
 			EnqueuedMessages::set(vec![]);
 
