@@ -147,8 +147,8 @@ enum AccountVerification<Balance> {
 	SuccessfulConversion { proxy_held: Balance, announcement_held: Balance },
 	/// Account preserved with zero deposit - funds released to free balance
 	PreservedWithZeroDeposit { released_amount: Balance },
-	/// Account was cleaned up (had no deposits originally)
-	AccountCleanedup { released_amount: Balance },
+	/// Storage cleared due to zero deposit - proxy/announcement entries removed
+	StorageClearedDueToZeroDeposit { released_amount: Balance },
 }
 
 /// Summary of migration verification results
@@ -699,7 +699,7 @@ where
 							acc.preserved_with_zero_deposit += 1;
 							acc.total_released_to_users += *released_amount;
 						},
-						AccountVerification::AccountCleanedup { released_amount } => {
+						AccountVerification::StorageClearedDueToZeroDeposit { released_amount } => {
 							acc.accounts_cleaned_up += 1;
 							acc.total_released_to_users += *released_amount;
 						},
@@ -970,7 +970,9 @@ where
 
 		if total_old_deposit.is_zero() {
 			// Account never had deposits - this is normal
-			return Ok(AccountVerification::AccountCleanedup { released_amount: Zero::zero() });
+			return Ok(AccountVerification::StorageClearedDueToZeroDeposit {
+				released_amount: Zero::zero(),
+			});
 		}
 
 		// Account had deposits but storage was removed
