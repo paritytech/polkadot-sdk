@@ -11,3 +11,5 @@ doc:
 crates:
 - name: pallet-bags-list
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
