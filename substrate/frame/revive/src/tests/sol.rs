@@ -189,7 +189,6 @@ fn opcode_tracing_works() {
 			disable_stack: false,
 			disable_storage: true,
 			enable_return_data: false,
-			debug: false,
 			limit: 10,
 		};
 		let mut opcode_tracer = OpcodeTracer::new(config);
@@ -218,7 +217,7 @@ fn opcode_tracing_works() {
 
 		// Each step should have the required fields
 		for step in &trace.struct_logs {
-			assert!(!step.op.is_empty());
+			// Opcode should be valid (any u8 is valid)
 			// Stack should be present (not disabled)
 			assert!(step.stack.is_some());
 			// Memory should not be present (disabled)
@@ -249,7 +248,6 @@ fn opcode_tracing_with_memory_works() {
 			disable_stack: true,
 			disable_storage: true,
 			enable_return_data: true,
-			debug: false,
 			limit: 5,
 		};
 		let mut opcode_tracer = OpcodeTracer::new(config);
@@ -275,7 +273,7 @@ fn opcode_tracing_with_memory_works() {
 
 		// Each step should have the required fields based on config
 		for step in &trace.struct_logs {
-			assert!(!step.op.is_empty());
+			// Opcode should be valid (any u8 is valid)
 			// Stack should not be present (disabled)
 			assert!(step.stack.is_none());
 			// Memory should be present (enabled)
@@ -303,7 +301,6 @@ fn opcode_tracing_comprehensive_works() {
 			disable_stack: false, 
 			disable_storage: true, 
 			enable_return_data: true, 
-			debug: false, 
 			limit: 5  // Limit to first 5 steps for predictable testing
 		};
 
@@ -324,11 +321,11 @@ fn opcode_tracing_comprehensive_works() {
 		let expected_trace = OpcodeTrace {
 			gas: actual_trace.gas, // Use actual gas since it varies
 			failed: false,
-			return_value: "0x0000000000000000000000000000000000000000000000000000000000000002".to_string(), // fib(3) = 2
+			return_value: crate::evm::Bytes(U256::from(2).to_be_bytes_vec()), // fib(3) = 2
 			struct_logs: vec![
 				OpcodeStep {
 					pc: 0,
-					op: format!("{:02x}", PUSH1),
+					op: PUSH1,
 					gas: 0,
 					gas_cost: 0,
 					depth: 0,
@@ -339,24 +336,24 @@ fn opcode_tracing_comprehensive_works() {
 				},
 				OpcodeStep {
 					pc: 2,
-					op: format!("{:02x}", PUSH1),
+					op: PUSH1,
 					gas: 0,
 					gas_cost: 0,
 					depth: 0,
-					stack: Some(vec!["0x0000000000000000000000000000000000000000000000000000000000000001".to_string()]),
+					stack: Some(vec![crate::evm::Bytes(U256::from(1).to_be_bytes_vec())]),
 					memory: None,
 					storage: None,
 					error: None,
 				},
 				OpcodeStep {
 					pc: 4,
-					op: format!("{:02x}", MSTORE),
+					op: MSTORE,
 					gas: 0,
 					gas_cost: 0,
 					depth: 0,
 					stack: Some(vec![
-						"0x0000000000000000000000000000000000000000000000000000000000000002".to_string(),
-						"0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+						crate::evm::Bytes(U256::from(2).to_be_bytes_vec()),
+						crate::evm::Bytes(U256::from(1).to_be_bytes_vec())
 					]),
 					memory: None,
 					storage: None,
@@ -364,7 +361,7 @@ fn opcode_tracing_comprehensive_works() {
 				},
 				OpcodeStep {
 					pc: 5,
-					op: format!("{:02x}", CALLVALUE),
+					op: CALLVALUE,
 					gas: 0,
 					gas_cost: 0,
 					depth: 0,
@@ -375,11 +372,11 @@ fn opcode_tracing_comprehensive_works() {
 				},
 				OpcodeStep {
 					pc: 6,
-					op: format!("{:02x}", DUP1),
+					op: DUP1,
 					gas: 0,
 					gas_cost: 0,
 					depth: 0,
-					stack: Some(vec!["0x0000000000000000000000000000000000000000000000000000000000000001".to_string()]),
+					stack: Some(vec![crate::evm::Bytes(U256::from(1).to_be_bytes_vec())]),
 					memory: None,
 					storage: None,
 					error: None,
@@ -390,4 +387,38 @@ fn opcode_tracing_comprehensive_works() {
 		// Single assertion that verifies the complete trace structure matches exactly
 		assert_eq!(actual_trace, expected_trace);
 	});
+}
+
+#[test]
+fn revm_opcode_serialization_works() {
+	use crate::evm::OpcodeStep;
+	use revm::bytecode::opcode::*;
+	
+	// Test that our opcode serialization uses REVM opcode names
+	let step = OpcodeStep {
+		pc: 0,
+		op: PUSH1,
+		gas: 0,
+		gas_cost: 0,
+		depth: 0,
+		stack: Some(vec![]),
+		memory: None,
+		storage: None,
+		error: None,
+	};
+	
+	// Serialize to JSON
+	let json = serde_json::to_string(&step).unwrap();
+	
+	// Should contain "PUSH1" string from REVM
+	assert!(json.contains("\"op\":\"PUSH1\""));
+	
+	// Test a few more opcodes
+	let step_add = OpcodeStep { op: ADD, ..step.clone() };
+	let json_add = serde_json::to_string(&step_add).unwrap();
+	assert!(json_add.contains("\"op\":\"ADD\""));
+	
+	let step_call = OpcodeStep { op: CALL, ..step.clone() };
+	let json_call = serde_json::to_string(&step_call).unwrap();
+	assert!(json_call.contains("\"op\":\"CALL\""));
 }

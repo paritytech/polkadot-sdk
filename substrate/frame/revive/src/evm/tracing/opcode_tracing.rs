@@ -18,9 +18,13 @@
 use crate::{
 	evm::{OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
 	tracing::Tracing,
-	ExecReturnValue, Weight, DispatchError,
+	DispatchError, ExecReturnValue, Weight,
 };
-use alloc::{collections::BTreeMap, format, string::String, string::ToString, vec::Vec};
+use alloc::{
+	format,
+	string::{String, ToString},
+	vec::Vec,
+};
 use sp_core::{H160, U256};
 
 /// A tracer that traces opcode execution step-by-step.
@@ -28,22 +32,22 @@ use sp_core::{H160, U256};
 pub struct OpcodeTracer {
 	/// The tracer configuration.
 	config: OpcodeTracerConfig,
-	
+
 	/// The collected trace steps.
 	steps: Vec<OpcodeStep>,
-	
+
 	/// Current call depth.
 	depth: u32,
-	
+
 	/// Number of steps captured (for limiting).
 	step_count: u64,
-	
+
 	/// Total gas used by the transaction.
 	total_gas_used: u64,
-	
+
 	/// Whether the transaction failed.
 	failed: bool,
-	
+
 	/// The return value of the transaction.
 	return_value: Vec<u8>,
 }
@@ -65,20 +69,10 @@ impl OpcodeTracer {
 	/// Collect the traces and return them.
 	pub fn collect_trace(&mut self) -> OpcodeTrace {
 		let struct_logs = core::mem::take(&mut self.steps);
-		let return_value = if self.return_value.is_empty() {
-			"0x".to_string()
-		} else {
-			format!("0x{}", alloy_core::hex::encode(&self.return_value))
-		};
-		
-		OpcodeTrace { 
-			gas: self.total_gas_used,
-			failed: self.failed,
-			return_value,
-			struct_logs,
-		}
-	}
+		let return_value = crate::evm::Bytes(self.return_value.clone());
 
+		OpcodeTrace { gas: self.total_gas_used, failed: self.failed, return_value, struct_logs }
+	}
 
 	/// Record an error in the current step.
 	pub fn record_error(&mut self, error: String) {
@@ -91,12 +85,12 @@ impl OpcodeTracer {
 	pub fn record_return_data(&mut self, data: &[u8]) {
 		self.return_value = data.to_vec();
 	}
-	
+
 	/// Mark the transaction as failed.
 	pub fn mark_failed(&mut self) {
 		self.failed = true;
 	}
-	
+
 	/// Set the total gas used by the transaction.
 	pub fn set_total_gas_used(&mut self, gas_used: u64) {
 		self.total_gas_used = gas_used;
@@ -104,19 +98,19 @@ impl OpcodeTracer {
 }
 
 impl Tracing for OpcodeTracer {
-	fn is_opcode_tracer(&self) -> bool { 
-		true 
+	fn is_opcode_tracer(&self) -> bool {
+		true
 	}
 
 	fn record_opcode_step(
 		&mut self,
 		pc: u64,
-		opcode: &str,
+		opcode: u8,
 		gas_before: u64,
 		gas_cost: u64,
 		depth: u32,
-		stack: Option<Vec<String>>,
-		memory: Option<Vec<String>>,
+		stack: Option<Vec<crate::evm::Bytes>>,
+		memory: Option<Vec<crate::evm::Bytes>>,
 	) {
 		// Check step limit
 		if self.config.limit > 0 && self.step_count >= self.config.limit {
@@ -124,23 +118,15 @@ impl Tracing for OpcodeTracer {
 		}
 
 		// Apply configuration settings
-		let final_stack = if self.config.disable_stack {
-			None
-		} else {
-			stack
-		};
-		
-		let final_memory = if self.config.enable_memory {
-			memory
-		} else {
-			None
-		};
+		let final_stack = if self.config.disable_stack { None } else { stack };
+
+		let final_memory = if self.config.enable_memory { memory } else { None };
 
 		// TODO: Storage capture would need to be implemented based on the EVM storage access
 		let storage = if !self.config.disable_storage {
 			// For now, return empty storage since we need to track storage changes
 			// This would need to be implemented with actual storage change tracking
-			Some(BTreeMap::new())
+			Some(alloc::collections::BTreeMap::new())
 		} else {
 			None
 		};
@@ -148,7 +134,7 @@ impl Tracing for OpcodeTracer {
 		// Create the opcode step
 		let step = OpcodeStep {
 			pc,
-			op: opcode.to_string(),
+			op: opcode,
 			gas: gas_before,
 			gas_cost,
 			depth,
@@ -160,12 +146,6 @@ impl Tracing for OpcodeTracer {
 
 		self.steps.push(step);
 		self.step_count += 1;
-
-		// Debug output if enabled
-		if self.config.debug {
-			println!("OPCODE TRACE: PC={}, OP={}, Gas={}, Cost={}, Depth={}", 
-				pc, opcode, gas_before, gas_cost, depth);
-		}
 	}
 
 	fn enter_child_span(
@@ -190,13 +170,13 @@ impl Tracing for OpcodeTracer {
 		} else {
 			self.record_return_data(&output.data);
 		}
-		
+
 		// Set total gas used if this is the top-level call (depth 1, will become 0 after decrement)
 		if self.depth == 1 {
 			// Convert Weight to gas units - this is a simplified conversion
 			self.set_total_gas_used(gas_used.ref_time() / 1_000_000); // Rough conversion
 		}
-		
+
 		if self.depth > 0 {
 			self.depth -= 1;
 		}
@@ -204,16 +184,15 @@ impl Tracing for OpcodeTracer {
 
 	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
 		self.record_error(format!("{:?}", error));
-		
+
 		// Mark as failed if this is the top-level call
 		if self.depth == 1 {
 			self.mark_failed();
 			self.set_total_gas_used(gas_used.ref_time() / 1_000_000); // Rough conversion
 		}
-		
+
 		if self.depth > 0 {
 			self.depth -= 1;
 		}
 	}
 }
-

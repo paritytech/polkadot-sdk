@@ -130,9 +130,6 @@ pub struct OpcodeTracerConfig {
 	/// Whether to enable return data capture (default: false)
 	pub enable_return_data: bool,
 
-	/// Whether to print output during capture (default: false)
-	pub debug: bool,
-
 	/// Limit number of steps captured (default: 0, no limit)
 	pub limit: u64,
 }
@@ -144,7 +141,6 @@ impl Default for OpcodeTracerConfig {
 			disable_stack: false,
 			disable_storage: false,
 			enable_return_data: false,
-			debug: false,
 			limit: 0,
 		}
 	}
@@ -327,19 +323,14 @@ pub struct OpcodeTrace {
 	/// Whether the transaction failed.
 	pub failed: bool,
 	/// The return value of the transaction.
-	pub return_value: String,
+	pub return_value: Bytes,
 	/// The list of opcode execution steps (structLogs in Geth).
 	pub struct_logs: Vec<OpcodeStep>,
 }
 
 impl Default for OpcodeTrace {
 	fn default() -> Self {
-		Self { 
-			gas: 0,
-			failed: false,
-			return_value: "0x".to_string(),
-			struct_logs: Vec::new(),
-		}
+		Self { gas: 0, failed: false, return_value: Bytes::default(), struct_logs: Vec::new() }
 	}
 }
 
@@ -351,7 +342,8 @@ pub struct OpcodeStep {
 	/// The program counter.
 	pub pc: u64,
 	/// The opcode being executed.
-	pub op: String,
+	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
+	pub op: u8,
 	/// Remaining gas before executing this opcode.
 	pub gas: u64,
 	/// Cost of executing this opcode.
@@ -360,16 +352,267 @@ pub struct OpcodeStep {
 	pub depth: u32,
 	/// EVM stack contents (optional based on config).
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub stack: Option<Vec<String>>,
+	pub stack: Option<Vec<Bytes>>,
 	/// EVM memory contents (optional based on config).
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub memory: Option<Vec<String>>,
+	pub memory: Option<Vec<Bytes>>,
 	/// Contract storage changes (optional based on config).
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub storage: Option<alloc::collections::BTreeMap<String, String>>,
+	pub storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
 	/// Any error that occurred during opcode execution.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,
+}
+
+/// Get opcode name from byte value using REVM opcode names
+fn get_opcode_name(opcode: u8) -> &'static str {
+	match opcode {
+		// Arithmetic operations
+		revm::bytecode::opcode::STOP => "STOP",
+		revm::bytecode::opcode::ADD => "ADD",
+		revm::bytecode::opcode::MUL => "MUL",
+		revm::bytecode::opcode::SUB => "SUB",
+		revm::bytecode::opcode::DIV => "DIV",
+		revm::bytecode::opcode::SDIV => "SDIV",
+		revm::bytecode::opcode::MOD => "MOD",
+		revm::bytecode::opcode::SMOD => "SMOD",
+		revm::bytecode::opcode::ADDMOD => "ADDMOD",
+		revm::bytecode::opcode::MULMOD => "MULMOD",
+		revm::bytecode::opcode::EXP => "EXP",
+		revm::bytecode::opcode::SIGNEXTEND => "SIGNEXTEND",
+		// Comparison operations
+		revm::bytecode::opcode::LT => "LT",
+		revm::bytecode::opcode::GT => "GT",
+		revm::bytecode::opcode::SLT => "SLT",
+		revm::bytecode::opcode::SGT => "SGT",
+		revm::bytecode::opcode::EQ => "EQ",
+		revm::bytecode::opcode::ISZERO => "ISZERO",
+		// Bitwise operations
+		revm::bytecode::opcode::AND => "AND",
+		revm::bytecode::opcode::OR => "OR",
+		revm::bytecode::opcode::XOR => "XOR",
+		revm::bytecode::opcode::NOT => "NOT",
+		revm::bytecode::opcode::BYTE => "BYTE",
+		revm::bytecode::opcode::SHL => "SHL",
+		revm::bytecode::opcode::SHR => "SHR",
+		revm::bytecode::opcode::SAR => "SAR",
+		// Hash operations
+		revm::bytecode::opcode::KECCAK256 => "KECCAK256",
+		// Environment information
+		revm::bytecode::opcode::ADDRESS => "ADDRESS",
+		revm::bytecode::opcode::BALANCE => "BALANCE",
+		revm::bytecode::opcode::ORIGIN => "ORIGIN",
+		revm::bytecode::opcode::CALLER => "CALLER",
+		revm::bytecode::opcode::CALLVALUE => "CALLVALUE",
+		revm::bytecode::opcode::CALLDATALOAD => "CALLDATALOAD",
+		revm::bytecode::opcode::CALLDATASIZE => "CALLDATASIZE",
+		revm::bytecode::opcode::CALLDATACOPY => "CALLDATACOPY",
+		revm::bytecode::opcode::CODESIZE => "CODESIZE",
+		revm::bytecode::opcode::CODECOPY => "CODECOPY",
+		revm::bytecode::opcode::GASPRICE => "GASPRICE",
+		revm::bytecode::opcode::EXTCODESIZE => "EXTCODESIZE",
+		revm::bytecode::opcode::EXTCODECOPY => "EXTCODECOPY",
+		revm::bytecode::opcode::RETURNDATASIZE => "RETURNDATASIZE",
+		revm::bytecode::opcode::RETURNDATACOPY => "RETURNDATACOPY",
+		revm::bytecode::opcode::EXTCODEHASH => "EXTCODEHASH",
+		// Block information
+		revm::bytecode::opcode::BLOCKHASH => "BLOCKHASH",
+		revm::bytecode::opcode::COINBASE => "COINBASE",
+		revm::bytecode::opcode::TIMESTAMP => "TIMESTAMP",
+		revm::bytecode::opcode::NUMBER => "NUMBER",
+		revm::bytecode::opcode::DIFFICULTY => "DIFFICULTY",
+		revm::bytecode::opcode::GASLIMIT => "GASLIMIT",
+		revm::bytecode::opcode::CHAINID => "CHAINID",
+		revm::bytecode::opcode::SELFBALANCE => "SELFBALANCE",
+		revm::bytecode::opcode::BASEFEE => "BASEFEE",
+		revm::bytecode::opcode::BLOBHASH => "BLOBHASH",
+		revm::bytecode::opcode::BLOBBASEFEE => "BLOBBASEFEE",
+		// Storage and memory operations
+		revm::bytecode::opcode::POP => "POP",
+		revm::bytecode::opcode::MLOAD => "MLOAD",
+		revm::bytecode::opcode::MSTORE => "MSTORE",
+		revm::bytecode::opcode::MSTORE8 => "MSTORE8",
+		revm::bytecode::opcode::SLOAD => "SLOAD",
+		revm::bytecode::opcode::SSTORE => "SSTORE",
+		revm::bytecode::opcode::JUMP => "JUMP",
+		revm::bytecode::opcode::JUMPI => "JUMPI",
+		revm::bytecode::opcode::PC => "PC",
+		revm::bytecode::opcode::MSIZE => "MSIZE",
+		revm::bytecode::opcode::GAS => "GAS",
+		revm::bytecode::opcode::JUMPDEST => "JUMPDEST",
+		revm::bytecode::opcode::TLOAD => "TLOAD",
+		revm::bytecode::opcode::TSTORE => "TSTORE",
+		revm::bytecode::opcode::MCOPY => "MCOPY",
+		// Push operations
+		revm::bytecode::opcode::PUSH0 => "PUSH0",
+		revm::bytecode::opcode::PUSH1 => "PUSH1", revm::bytecode::opcode::PUSH2 => "PUSH2", revm::bytecode::opcode::PUSH3 => "PUSH3", revm::bytecode::opcode::PUSH4 => "PUSH4",
+		revm::bytecode::opcode::PUSH5 => "PUSH5", revm::bytecode::opcode::PUSH6 => "PUSH6", revm::bytecode::opcode::PUSH7 => "PUSH7", revm::bytecode::opcode::PUSH8 => "PUSH8",
+		revm::bytecode::opcode::PUSH9 => "PUSH9", revm::bytecode::opcode::PUSH10 => "PUSH10", revm::bytecode::opcode::PUSH11 => "PUSH11", revm::bytecode::opcode::PUSH12 => "PUSH12",
+		revm::bytecode::opcode::PUSH13 => "PUSH13", revm::bytecode::opcode::PUSH14 => "PUSH14", revm::bytecode::opcode::PUSH15 => "PUSH15", revm::bytecode::opcode::PUSH16 => "PUSH16",
+		revm::bytecode::opcode::PUSH17 => "PUSH17", revm::bytecode::opcode::PUSH18 => "PUSH18", revm::bytecode::opcode::PUSH19 => "PUSH19", revm::bytecode::opcode::PUSH20 => "PUSH20",
+		revm::bytecode::opcode::PUSH21 => "PUSH21", revm::bytecode::opcode::PUSH22 => "PUSH22", revm::bytecode::opcode::PUSH23 => "PUSH23", revm::bytecode::opcode::PUSH24 => "PUSH24",
+		revm::bytecode::opcode::PUSH25 => "PUSH25", revm::bytecode::opcode::PUSH26 => "PUSH26", revm::bytecode::opcode::PUSH27 => "PUSH27", revm::bytecode::opcode::PUSH28 => "PUSH28",
+		revm::bytecode::opcode::PUSH29 => "PUSH29", revm::bytecode::opcode::PUSH30 => "PUSH30", revm::bytecode::opcode::PUSH31 => "PUSH31", revm::bytecode::opcode::PUSH32 => "PUSH32",
+		// Dup operations
+		revm::bytecode::opcode::DUP1 => "DUP1", revm::bytecode::opcode::DUP2 => "DUP2", revm::bytecode::opcode::DUP3 => "DUP3", revm::bytecode::opcode::DUP4 => "DUP4",
+		revm::bytecode::opcode::DUP5 => "DUP5", revm::bytecode::opcode::DUP6 => "DUP6", revm::bytecode::opcode::DUP7 => "DUP7", revm::bytecode::opcode::DUP8 => "DUP8",
+		revm::bytecode::opcode::DUP9 => "DUP9", revm::bytecode::opcode::DUP10 => "DUP10", revm::bytecode::opcode::DUP11 => "DUP11", revm::bytecode::opcode::DUP12 => "DUP12",
+		revm::bytecode::opcode::DUP13 => "DUP13", revm::bytecode::opcode::DUP14 => "DUP14", revm::bytecode::opcode::DUP15 => "DUP15", revm::bytecode::opcode::DUP16 => "DUP16",
+		// Swap operations
+		revm::bytecode::opcode::SWAP1 => "SWAP1", revm::bytecode::opcode::SWAP2 => "SWAP2", revm::bytecode::opcode::SWAP3 => "SWAP3", revm::bytecode::opcode::SWAP4 => "SWAP4",
+		revm::bytecode::opcode::SWAP5 => "SWAP5", revm::bytecode::opcode::SWAP6 => "SWAP6", revm::bytecode::opcode::SWAP7 => "SWAP7", revm::bytecode::opcode::SWAP8 => "SWAP8",
+		revm::bytecode::opcode::SWAP9 => "SWAP9", revm::bytecode::opcode::SWAP10 => "SWAP10", revm::bytecode::opcode::SWAP11 => "SWAP11", revm::bytecode::opcode::SWAP12 => "SWAP12",
+		revm::bytecode::opcode::SWAP13 => "SWAP13", revm::bytecode::opcode::SWAP14 => "SWAP14", revm::bytecode::opcode::SWAP15 => "SWAP15", revm::bytecode::opcode::SWAP16 => "SWAP16",
+		// Log operations
+		revm::bytecode::opcode::LOG0 => "LOG0", revm::bytecode::opcode::LOG1 => "LOG1", revm::bytecode::opcode::LOG2 => "LOG2", revm::bytecode::opcode::LOG3 => "LOG3", revm::bytecode::opcode::LOG4 => "LOG4",
+		// System operations
+		revm::bytecode::opcode::CREATE => "CREATE",
+		revm::bytecode::opcode::CALL => "CALL",
+		revm::bytecode::opcode::CALLCODE => "CALLCODE",
+		revm::bytecode::opcode::RETURN => "RETURN",
+		revm::bytecode::opcode::DELEGATECALL => "DELEGATECALL",
+		revm::bytecode::opcode::CREATE2 => "CREATE2",
+		revm::bytecode::opcode::STATICCALL => "STATICCALL",
+		revm::bytecode::opcode::REVERT => "REVERT",
+		revm::bytecode::opcode::INVALID => "INVALID",
+		revm::bytecode::opcode::SELFDESTRUCT => "SELFDESTRUCT",
+		_ => "INVALID",
+	}
+}
+
+/// Get opcode byte from name string
+fn get_opcode_byte(name: &str) -> Option<u8> {
+	match name {
+		// Arithmetic operations
+		"STOP" => Some(revm::bytecode::opcode::STOP),
+		"ADD" => Some(revm::bytecode::opcode::ADD),
+		"MUL" => Some(revm::bytecode::opcode::MUL),
+		"SUB" => Some(revm::bytecode::opcode::SUB),
+		"DIV" => Some(revm::bytecode::opcode::DIV),
+		"SDIV" => Some(revm::bytecode::opcode::SDIV),
+		"MOD" => Some(revm::bytecode::opcode::MOD),
+		"SMOD" => Some(revm::bytecode::opcode::SMOD),
+		"ADDMOD" => Some(revm::bytecode::opcode::ADDMOD),
+		"MULMOD" => Some(revm::bytecode::opcode::MULMOD),
+		"EXP" => Some(revm::bytecode::opcode::EXP),
+		"SIGNEXTEND" => Some(revm::bytecode::opcode::SIGNEXTEND),
+		// Comparison operations
+		"LT" => Some(revm::bytecode::opcode::LT),
+		"GT" => Some(revm::bytecode::opcode::GT),
+		"SLT" => Some(revm::bytecode::opcode::SLT),
+		"SGT" => Some(revm::bytecode::opcode::SGT),
+		"EQ" => Some(revm::bytecode::opcode::EQ),
+		"ISZERO" => Some(revm::bytecode::opcode::ISZERO),
+		// Bitwise operations
+		"AND" => Some(revm::bytecode::opcode::AND),
+		"OR" => Some(revm::bytecode::opcode::OR),
+		"XOR" => Some(revm::bytecode::opcode::XOR),
+		"NOT" => Some(revm::bytecode::opcode::NOT),
+		"BYTE" => Some(revm::bytecode::opcode::BYTE),
+		"SHL" => Some(revm::bytecode::opcode::SHL),
+		"SHR" => Some(revm::bytecode::opcode::SHR),
+		"SAR" => Some(revm::bytecode::opcode::SAR),
+		// Hash operations
+		"KECCAK256" => Some(revm::bytecode::opcode::KECCAK256),
+		// Environment information
+		"ADDRESS" => Some(revm::bytecode::opcode::ADDRESS),
+		"BALANCE" => Some(revm::bytecode::opcode::BALANCE),
+		"ORIGIN" => Some(revm::bytecode::opcode::ORIGIN),
+		"CALLER" => Some(revm::bytecode::opcode::CALLER),
+		"CALLVALUE" => Some(revm::bytecode::opcode::CALLVALUE),
+		"CALLDATALOAD" => Some(revm::bytecode::opcode::CALLDATALOAD),
+		"CALLDATASIZE" => Some(revm::bytecode::opcode::CALLDATASIZE),
+		"CALLDATACOPY" => Some(revm::bytecode::opcode::CALLDATACOPY),
+		"CODESIZE" => Some(revm::bytecode::opcode::CODESIZE),
+		"CODECOPY" => Some(revm::bytecode::opcode::CODECOPY),
+		"GASPRICE" => Some(revm::bytecode::opcode::GASPRICE),
+		"EXTCODESIZE" => Some(revm::bytecode::opcode::EXTCODESIZE),
+		"EXTCODECOPY" => Some(revm::bytecode::opcode::EXTCODECOPY),
+		"RETURNDATASIZE" => Some(revm::bytecode::opcode::RETURNDATASIZE),
+		"RETURNDATACOPY" => Some(revm::bytecode::opcode::RETURNDATACOPY),
+		"EXTCODEHASH" => Some(revm::bytecode::opcode::EXTCODEHASH),
+		// Block information
+		"BLOCKHASH" => Some(revm::bytecode::opcode::BLOCKHASH),
+		"COINBASE" => Some(revm::bytecode::opcode::COINBASE),
+		"TIMESTAMP" => Some(revm::bytecode::opcode::TIMESTAMP),
+		"NUMBER" => Some(revm::bytecode::opcode::NUMBER),
+		"DIFFICULTY" => Some(revm::bytecode::opcode::DIFFICULTY),
+		"GASLIMIT" => Some(revm::bytecode::opcode::GASLIMIT),
+		"CHAINID" => Some(revm::bytecode::opcode::CHAINID),
+		"SELFBALANCE" => Some(revm::bytecode::opcode::SELFBALANCE),
+		"BASEFEE" => Some(revm::bytecode::opcode::BASEFEE),
+		"BLOBHASH" => Some(revm::bytecode::opcode::BLOBHASH),
+		"BLOBBASEFEE" => Some(revm::bytecode::opcode::BLOBBASEFEE),
+		// Storage and memory operations
+		"POP" => Some(revm::bytecode::opcode::POP),
+		"MLOAD" => Some(revm::bytecode::opcode::MLOAD),
+		"MSTORE" => Some(revm::bytecode::opcode::MSTORE),
+		"MSTORE8" => Some(revm::bytecode::opcode::MSTORE8),
+		"SLOAD" => Some(revm::bytecode::opcode::SLOAD),
+		"SSTORE" => Some(revm::bytecode::opcode::SSTORE),
+		"JUMP" => Some(revm::bytecode::opcode::JUMP),
+		"JUMPI" => Some(revm::bytecode::opcode::JUMPI),
+		"PC" => Some(revm::bytecode::opcode::PC),
+		"MSIZE" => Some(revm::bytecode::opcode::MSIZE),
+		"GAS" => Some(revm::bytecode::opcode::GAS),
+		"JUMPDEST" => Some(revm::bytecode::opcode::JUMPDEST),
+		"TLOAD" => Some(revm::bytecode::opcode::TLOAD),
+		"TSTORE" => Some(revm::bytecode::opcode::TSTORE),
+		"MCOPY" => Some(revm::bytecode::opcode::MCOPY),
+		// Push operations
+		"PUSH0" => Some(revm::bytecode::opcode::PUSH0),
+		"PUSH1" => Some(revm::bytecode::opcode::PUSH1), "PUSH2" => Some(revm::bytecode::opcode::PUSH2), "PUSH3" => Some(revm::bytecode::opcode::PUSH3), "PUSH4" => Some(revm::bytecode::opcode::PUSH4),
+		"PUSH5" => Some(revm::bytecode::opcode::PUSH5), "PUSH6" => Some(revm::bytecode::opcode::PUSH6), "PUSH7" => Some(revm::bytecode::opcode::PUSH7), "PUSH8" => Some(revm::bytecode::opcode::PUSH8),
+		"PUSH9" => Some(revm::bytecode::opcode::PUSH9), "PUSH10" => Some(revm::bytecode::opcode::PUSH10), "PUSH11" => Some(revm::bytecode::opcode::PUSH11), "PUSH12" => Some(revm::bytecode::opcode::PUSH12),
+		"PUSH13" => Some(revm::bytecode::opcode::PUSH13), "PUSH14" => Some(revm::bytecode::opcode::PUSH14), "PUSH15" => Some(revm::bytecode::opcode::PUSH15), "PUSH16" => Some(revm::bytecode::opcode::PUSH16),
+		"PUSH17" => Some(revm::bytecode::opcode::PUSH17), "PUSH18" => Some(revm::bytecode::opcode::PUSH18), "PUSH19" => Some(revm::bytecode::opcode::PUSH19), "PUSH20" => Some(revm::bytecode::opcode::PUSH20),
+		"PUSH21" => Some(revm::bytecode::opcode::PUSH21), "PUSH22" => Some(revm::bytecode::opcode::PUSH22), "PUSH23" => Some(revm::bytecode::opcode::PUSH23), "PUSH24" => Some(revm::bytecode::opcode::PUSH24),
+		"PUSH25" => Some(revm::bytecode::opcode::PUSH25), "PUSH26" => Some(revm::bytecode::opcode::PUSH26), "PUSH27" => Some(revm::bytecode::opcode::PUSH27), "PUSH28" => Some(revm::bytecode::opcode::PUSH28),
+		"PUSH29" => Some(revm::bytecode::opcode::PUSH29), "PUSH30" => Some(revm::bytecode::opcode::PUSH30), "PUSH31" => Some(revm::bytecode::opcode::PUSH31), "PUSH32" => Some(revm::bytecode::opcode::PUSH32),
+		// Dup operations
+		"DUP1" => Some(revm::bytecode::opcode::DUP1), "DUP2" => Some(revm::bytecode::opcode::DUP2), "DUP3" => Some(revm::bytecode::opcode::DUP3), "DUP4" => Some(revm::bytecode::opcode::DUP4),
+		"DUP5" => Some(revm::bytecode::opcode::DUP5), "DUP6" => Some(revm::bytecode::opcode::DUP6), "DUP7" => Some(revm::bytecode::opcode::DUP7), "DUP8" => Some(revm::bytecode::opcode::DUP8),
+		"DUP9" => Some(revm::bytecode::opcode::DUP9), "DUP10" => Some(revm::bytecode::opcode::DUP10), "DUP11" => Some(revm::bytecode::opcode::DUP11), "DUP12" => Some(revm::bytecode::opcode::DUP12),
+		"DUP13" => Some(revm::bytecode::opcode::DUP13), "DUP14" => Some(revm::bytecode::opcode::DUP14), "DUP15" => Some(revm::bytecode::opcode::DUP15), "DUP16" => Some(revm::bytecode::opcode::DUP16),
+		// Swap operations
+		"SWAP1" => Some(revm::bytecode::opcode::SWAP1), "SWAP2" => Some(revm::bytecode::opcode::SWAP2), "SWAP3" => Some(revm::bytecode::opcode::SWAP3), "SWAP4" => Some(revm::bytecode::opcode::SWAP4),
+		"SWAP5" => Some(revm::bytecode::opcode::SWAP5), "SWAP6" => Some(revm::bytecode::opcode::SWAP6), "SWAP7" => Some(revm::bytecode::opcode::SWAP7), "SWAP8" => Some(revm::bytecode::opcode::SWAP8),
+		"SWAP9" => Some(revm::bytecode::opcode::SWAP9), "SWAP10" => Some(revm::bytecode::opcode::SWAP10), "SWAP11" => Some(revm::bytecode::opcode::SWAP11), "SWAP12" => Some(revm::bytecode::opcode::SWAP12),
+		"SWAP13" => Some(revm::bytecode::opcode::SWAP13), "SWAP14" => Some(revm::bytecode::opcode::SWAP14), "SWAP15" => Some(revm::bytecode::opcode::SWAP15), "SWAP16" => Some(revm::bytecode::opcode::SWAP16),
+		// Log operations
+		"LOG0" => Some(revm::bytecode::opcode::LOG0), "LOG1" => Some(revm::bytecode::opcode::LOG1), "LOG2" => Some(revm::bytecode::opcode::LOG2), "LOG3" => Some(revm::bytecode::opcode::LOG3), "LOG4" => Some(revm::bytecode::opcode::LOG4),
+		// System operations
+		"CREATE" => Some(revm::bytecode::opcode::CREATE),
+		"CALL" => Some(revm::bytecode::opcode::CALL),
+		"CALLCODE" => Some(revm::bytecode::opcode::CALLCODE),
+		"RETURN" => Some(revm::bytecode::opcode::RETURN),
+		"DELEGATECALL" => Some(revm::bytecode::opcode::DELEGATECALL),
+		"CREATE2" => Some(revm::bytecode::opcode::CREATE2),
+		"STATICCALL" => Some(revm::bytecode::opcode::STATICCALL),
+		"REVERT" => Some(revm::bytecode::opcode::REVERT),
+		"INVALID" => Some(revm::bytecode::opcode::INVALID),
+		"SELFDESTRUCT" => Some(revm::bytecode::opcode::SELFDESTRUCT),
+		_ => None,
+	}
+}
+
+/// Serialize opcode as string using REVM opcode names
+fn serialize_opcode<S>(opcode: &u8, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let name = get_opcode_name(*opcode);
+	serializer.serialize_str(name)
+}
+
+/// Deserialize opcode from string using reverse lookup table
+fn deserialize_opcode<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	let s = String::deserialize(deserializer)?;
+	get_opcode_byte(&s)
+		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown opcode: {}", s)))
 }
 
 /// A smart contract execution call trace.

@@ -220,12 +220,15 @@ where
 				// Create a simplified stack representation showing the stack has items
 				// Unfortunately, we can't directly read stack values without modifying the stack
 				// So we'll show placeholder values indicating stack depth
-				let mut stack_strings = Vec::new();
+				let mut stack_bytes = Vec::new();
 				for i in 0..core::cmp::min(stack_len, 16) { // Limit to 16 items for performance
-					stack_strings.push(format!("0x{:064x}", (stack_len - i) as u64));
+					let value = (stack_len - i) as u64;
+					let mut bytes = [0u8; 32];
+					bytes[24..32].copy_from_slice(&value.to_be_bytes());
+					stack_bytes.push(crate::evm::Bytes(bytes.to_vec()));
 				}
 
-				Some(stack_strings)
+				Some(stack_bytes)
 			};
 
 			// Capture memory data - we know opcode tracing is enabled
@@ -236,7 +239,7 @@ where
 				if memory_size == 0 {
 					Some(Vec::new())
 				} else {
-					let mut memory_strings = Vec::new();
+					let mut memory_bytes = Vec::new();
 					// Read memory in 32-byte chunks, limiting to reasonable size
 					let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
 
@@ -248,13 +251,16 @@ where
 							// Use the slice method available from the MemoryTr trait
 							let slice = interpreter.memory.slice(offset..end);
 
-							// Convert to hex string, padding to 64 characters (32 bytes)
-							let hex_chunk = slice.iter().map(|b| format!("{:02x}", b)).collect::<String>();
-							memory_strings.push(format!("0x{:0<64}", hex_chunk));
+							// Convert to bytes, padding to 32 bytes
+							let mut chunk_bytes = vec![0u8; 32];
+							for (i, &byte) in slice.iter().enumerate().take(32) {
+								chunk_bytes[i] = byte;
+							}
+							memory_bytes.push(crate::evm::Bytes(chunk_bytes));
 						}
 					}
 
-					Some(memory_strings)
+					Some(memory_bytes)
 				}
 			};
 
@@ -269,7 +275,7 @@ where
 			tracing::if_tracing(|tracer| {
 				tracer.record_opcode_step(
 					pc as u64,
-					&format!("{:02X}", opcode.get()),
+					opcode.get(),
 					gas_before,
 					gas_cost,
 					0, // TODO: track actual call depth from the call stack

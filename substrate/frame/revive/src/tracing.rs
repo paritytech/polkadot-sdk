@@ -49,12 +49,12 @@ pub trait Tracing {
 	fn record_opcode_step(
 		&mut self,
 		_pc: u64,
-		_opcode: &str,
+		_opcode: u8,
 		_gas_before: u64,
 		_gas_cost: u64,
 		_depth: u32,
-		_stack: Option<Vec<String>>,
-		_memory: Option<Vec<String>>,
+		_stack: Option<Vec<crate::evm::Bytes>>,
+		_memory: Option<Vec<crate::evm::Bytes>>,
 	) {}
 
 	/// Register an address that should be traced.
