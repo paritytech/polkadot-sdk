@@ -351,45 +351,6 @@ where
 	}
 }
 
-/// Extract the [`BasicParachainInherentData`].
-fn extract_parachain_inherent_data<B: BlockT, PSC: crate::Config>(
-	block: &B,
-) -> &BasicParachainInherentData
-where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
-{
-	block
-		.extrinsics()
-		.iter()
-		// Inherents are at the front of the block and are unsigned.
-		.take_while(|e| e.is_bare())
-		.filter_map(|e| e.call().is_sub_type())
-		.find_map(|c| match c {
-			crate::Call::set_validation_data { data: validation_data, .. } => Some(validation_data),
-			_ => None,
-		})
-		.expect("Could not find `set_validation_data` inherent")
-}
-
-/// Validate the given [`PersistedValidationData`] against the [`MemoryOptimizedValidationParams`].
-fn validate_validation_data(
-	validation_data: &PersistedValidationData,
-	relay_parent_number: RelayChainBlockNumber,
-	relay_parent_storage_root: RHash,
-	parent_head: &[u8],
-) {
-	assert_eq!(parent_head, validation_data.parent_head.0, "Parent head doesn't match");
-	assert_eq!(
-		relay_parent_number, validation_data.relay_parent_number,
-		"Relay parent number doesn't match",
-	);
-	assert_eq!(
-		relay_parent_storage_root, validation_data.relay_parent_storage_root,
-		"Relay parent storage root doesn't match",
-	);
-}
-
 /// Build a seed from the head data of the parachain block.
 ///
 /// Uses both the relay parent storage root and the hash of the blocks
