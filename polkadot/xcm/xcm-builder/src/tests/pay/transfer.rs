@@ -189,7 +189,7 @@ fn sender_on_remote_works() {
 	};
 
 	let sender_on_remote =
-		TestTransferOverXcmHelper::from_on_remote(&SenderAccount::get(), asset_kind.clone())
+		TestTransferOverXcmHelper::from_relative_to_asset_location(&SenderAccount::get(), asset_kind.clone())
 			.unwrap();
 
 	assert_eq!(sender_on_remote, SenderLocationOnTarget::get());

@@ -45,11 +45,14 @@ pub trait GetDefaultRemoteFee {
 
 /// Transfer an asset on a remote chain.
 ///
-/// It is similar to the `PayOverXcm` struct from the polkadot-sdk with the difference
-/// that the source account executing the transaction is function parameter.
+/// It is similar to the `PayOverXcm` implementation, but more flexible in the way:
+/// * It is configurable by method parameter if remote XCM execution fees need to be paid.
+///	* The sender account is not static.
 ///
 /// The account transferring funds remotely will be for example:
 ///  * `Location::new(1, XX([Parachain(SourceParaId), from_location.interior ])`
+///
+/// The low-level XCM configuration is done in the `TransferOverXcmHelper` generic type.
 pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>(
 	PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>,
 );
@@ -117,6 +120,7 @@ where
 	}
 }
 
+/// Helper type to make a transfer on another chain via XCM.
 pub struct TransferOverXcmHelper<
 	Router,
 	Querier,
@@ -139,15 +143,17 @@ pub struct TransferOverXcmHelper<
 	)>,
 );
 
+/// Helper trait to abstract away the complexities of executing a remote transfer.
 pub trait TransferOverXcmHelperT {
-	type Beneficiary: Debug;
-
-	type AssetKind;
-
-	type Balance;
-
-	type QueryId;
-
+	/// The beneficiary of a remote transfer.
+	type Beneficiary: Debug + Clone;
+	/// The type for the kinds of asset that are going to be paid.
+	type AssetKind: Debug + Clone;
+	/// The units of the currency.
+	type Balance: Debug + Clone;
+	/// The query id of an XCM Payment
+	type QueryId: Debug + Clone;
+	/// Construct and send a remote transfer xcm to the destination chain.
 	fn send_remote_transfer_xcm(
 		from_location: Location,
 		to: &Self::Beneficiary,
@@ -157,7 +163,8 @@ pub trait TransferOverXcmHelperT {
 	) -> Result<QueryId, Error>;
 
 	fn check_payment(id: Self::QueryId) -> PaymentStatus;
-
+	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be successful if done immediately
+	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance);
 
@@ -264,7 +271,8 @@ impl<
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
 		Router::ensure_successful_delivery(Some(locatable.location));
 	}
-
+	/// Ensure that a call to `check_payment` with the given parameters will return either `Success`
+	/// or `Failure`.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::QueryId) {
 		Querier::expect_response(id, Response::ExecutionResult(None));
@@ -295,7 +303,7 @@ impl<
 	/// Returns the `from` relative to the asset's location.
 	///
 	/// This is the account that executes the transfer on the remote chain.
-	pub fn from_on_remote(from: &Beneficiary, asset_kind: AssetKind) -> Result<Location, Error> {
+	pub fn from_relative_to_asset_location(from: &Beneficiary, asset_kind: AssetKind) -> Result<Location, Error> {
 		let from_location = BeneficiaryRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation
