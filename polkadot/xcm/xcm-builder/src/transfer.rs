@@ -170,23 +170,23 @@ impl<
 		Querier: QueryHandler,
 		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
-		Transactor: Clone + core::fmt::Debug,
+		Beneficiary: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
-		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Transactor, Location>,
+		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> TransferOverXcmHelperT
 	for TransferOverXcmHelper<
 		Router,
 		Querier,
 		XcmFeeHandler,
 		Timeout,
-		Transactor,
+		Beneficiary,
 		AssetKind,
 		AssetKindToLocatableAsset,
 		BeneficiaryRefToLocation,
 	>
 {
-	type Beneficiary = Transactor;
+	type Beneficiary = Beneficiary;
 	type AssetKind = AssetKind;
 	type Balance = u128;
 	type QueryId = QueryId;
@@ -194,9 +194,9 @@ impl<
 	/// Gets the XCM executing the transfer on the remote chain.
 	fn send_remote_transfer_xcm(
 		from_location: Location,
-		to: &Transactor,
+		to: &Beneficiary,
 		asset_kind: AssetKind,
-		amount: u128,
+		amount: Self::Balance,
 		remote_fee: PaysRemoteFee<Asset>,
 	) -> Result<QueryId, Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
