@@ -43,7 +43,7 @@ const PARA_ID: u32 = 2400;
 /// 2. One with a PoV size bigger than what one block alone is allowed to process.
 /// Each transaction is sent after the other and waits for finalization.
 #[tokio::test(flavor = "multi_thread")]
-async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
+async fn pov_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -79,11 +79,10 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	let first_call = create_utility_with_weight_call(ref_time_1s, 0);
 	let sudo_first_call = create_sudo_call(first_call);
 
-	log::info!("Sending first transaction with 1s ref_time");
+	log::info!("Testing scenario 1: Sending a transaction with 1s ref time weight usage");
 	let block_hash =
 		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_first_call, &alice)
 			.await?;
-	log::info!("First transaction finalized");
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
@@ -92,22 +91,20 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	let second_call = create_utility_with_weight_call(0, pov_size as u64);
 	let sudo_second_call = create_sudo_call(second_call);
 
-	log::info!("Sending second transaction with half max PoV size");
+	log::info!("Testing scenario 2: Sending a transaction with ~2.5MiB storage weight usage");
 	let block_hash =
 		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_second_call, &alice)
 			.await?;
-	log::info!("Second transaction finalized");
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
 	let third_call = create_schedule_weight_registration_call();
 	let sudo_third_call = create_sudo_call(third_call);
 
-	log::info!("Sending third transaction to schedule weight registration");
+	log::info!("Testing scenario 3: Enabling an inherent that will use 1s ref time");
 	let block_hash =
 		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_third_call, &alice)
 			.await?;
-	log::info!("Third transaction finalized, weight registration scheduled for next block");
 
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
 		.await?;
@@ -115,14 +112,13 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 	let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
 	let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
 
-	log::info!("Sending transaction to set inherent weight consumption (1s ref_time)");
+	log::info!("Testing scenario 4: Enabling `on_initialize` to use 1s ref time");
 	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
 		&para_client,
 		&sudo_inherent_weight_call,
 		&alice,
 	)
 	.await?;
-	log::info!("Weight consumption scheduled for next inherent call");
 
 	// The next block should contain the consume_weight_inherent and consume the 1s ref_time
 	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
