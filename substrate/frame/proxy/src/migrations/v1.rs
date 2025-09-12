@@ -188,11 +188,11 @@ pub struct MigrationStats {
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum MigrationCursor<AccountId> {
 	/// Migrating proxies storage.
-	Proxies { last_key: Option<AccountId>, stats: MigrationStats },
-	/// Migrating announcements storage.  
-	Announcements { last_key: Option<AccountId>, stats: MigrationStats },
+	Proxies { last_key: Option<AccountId> },
+	/// Migrating announcements storage.
+	Announcements { last_key: Option<AccountId> },
 	/// Migration complete.
-	Complete { stats: MigrationStats },
+	Complete,
 }
 
 /// Migration result for an account with weight consumed.
@@ -463,10 +463,10 @@ where
 	/// Process one batch of proxy migrations within weight limit.
 	pub fn process_proxy_batch(
 		last_key: Option<<T as frame_system::Config>::AccountId>,
-		stats: MigrationStats,
+		stats: &mut MigrationStats,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
-		let mut stats = stats;
+		// stats are tracked externally through &mut MigrationStats
 		let mut iter = if let Some(last) = last_key.clone() {
 			// IMPORTANT: When resuming, skip the last processed key
 			let mut temp_iter = Proxies::<T>::iter_from(Proxies::<T>::hashed_key_for(&last));
@@ -505,11 +505,11 @@ where
 					who
 				);
 				// Return the last successfully processed account so we resume from the next one
-				return MigrationCursor::Proxies { last_key: last_account, stats };
+				return MigrationCursor::Proxies { last_key: last_account };
 			}
 
 			// Migrate this account (handles both regular and pure proxy accounts)
-			let result = Self::migrate_proxy_account(&who, proxies, deposit.into(), &mut stats);
+			let result = Self::migrate_proxy_account(&who, proxies, deposit.into(), stats);
 
 			if meter.try_consume(result.weight_consumed).is_err() {
 				// We've already migrated but don't have weight to account for it
@@ -524,7 +524,7 @@ where
 					accounts_processed
 				);
 				// Still return since we're out of weight
-				return MigrationCursor::Proxies { last_key: last_account, stats };
+				return MigrationCursor::Proxies { last_key: last_account };
 			}
 
 			accounts_processed += 1;
@@ -537,16 +537,16 @@ where
 			"All proxy accounts processed ({} in this batch), moving to announcements",
 			accounts_processed
 		);
-		MigrationCursor::Announcements { last_key: None, stats }
+		MigrationCursor::Announcements { last_key: None }
 	}
 
 	/// Process one batch of announcement migrations within weight limit.
 	pub fn process_announcement_batch(
 		last_key: Option<<T as frame_system::Config>::AccountId>,
-		stats: MigrationStats,
+		stats: &mut MigrationStats,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
-		let mut stats = stats;
+		// stats are tracked externally through &mut MigrationStats
 		let mut iter = if let Some(last) = last_key.clone() {
 			// IMPORTANT: When resuming, skip the last processed key
 			let mut temp_iter =
@@ -585,12 +585,12 @@ where
 					who
 				);
 				// Return the last successfully processed account so we resume from the next one
-				return MigrationCursor::Announcements { last_key: last_account, stats };
+				return MigrationCursor::Announcements { last_key: last_account };
 			}
 
 			// Migrate this account
 			let result =
-				Self::migrate_announcement_account(&who, announcements, deposit.into(), &mut stats);
+				Self::migrate_announcement_account(&who, announcements, deposit.into(), stats);
 
 			if meter.try_consume(result.weight_consumed).is_err() {
 				// We've already migrated but don't have weight to account for it
@@ -605,7 +605,7 @@ where
 					accounts_processed
 				);
 				// Still return since we're out of weight
-				return MigrationCursor::Announcements { last_key: last_account, stats };
+				return MigrationCursor::Announcements { last_key: last_account };
 			}
 
 			accounts_processed += 1;
@@ -618,7 +618,7 @@ where
 			"All announcement accounts processed ({} in this batch), migration complete",
 			accounts_processed
 		);
-		MigrationCursor::Complete { stats }
+		MigrationCursor::Complete
 	}
 }
 
@@ -629,7 +629,8 @@ where
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
 {
-	type Cursor = MigrationCursor<<T as frame_system::Config>::AccountId>;
+	// The cursor carries the stage and accumulated stats externally
+	type Cursor = (MigrationCursor<<T as frame_system::Config>::AccountId>, MigrationStats);
 	type Identifier = MigrationId<16>;
 
 	fn id() -> Self::Identifier {
@@ -651,39 +652,31 @@ where
 		}
 
 		// Initialize migration if this is the first call
-		let current_cursor = if let Some(cursor) = cursor {
-			cursor
+		let (stage, mut stats) = if let Some((stage, stats)) = cursor {
+			(stage, stats)
 		} else {
 			// First call - emit start event
 			Pallet::<T>::deposit_event(Event::MigrationStarted);
-			MigrationCursor::Proxies { last_key: None, stats: MigrationStats::default() }
+			(MigrationCursor::Proxies { last_key: None }, MigrationStats::default())
 		};
 
 		// Process based on cursor state
-		let result = match current_cursor {
-			MigrationCursor::Proxies { last_key, stats } => {
+		let result = match stage {
+			MigrationCursor::Proxies { last_key } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing proxy batch, last_key: {:?}", last_key);
-				let next_cursor = Self::process_proxy_batch(last_key, stats, meter);
-				if let MigrationCursor::Announcements { stats, .. } |
-				MigrationCursor::Proxies { stats, .. } = &next_cursor
-				{
-					log_migration_stats(stats);
-				}
-				log::info!(target: LOG_TARGET, "✅ Proxy batch processed, next cursor: {:?}", next_cursor);
-				Ok(Some(next_cursor))
+				let next_stage = Self::process_proxy_batch(last_key, &mut stats, meter);
+				log_migration_stats(&stats);
+				log::info!(target: LOG_TARGET, "✅ Proxy batch processed, next cursor: {:?}", next_stage);
+				Ok(Some((next_stage, stats)))
 			},
-			MigrationCursor::Announcements { last_key, stats } => {
+			MigrationCursor::Announcements { last_key } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing announcement batch, last_key: {:?}", last_key);
-				let next_cursor = Self::process_announcement_batch(last_key, stats, meter);
-				if let MigrationCursor::Complete { stats } = &next_cursor {
-					log_migration_stats(stats);
-				} else if let MigrationCursor::Announcements { stats, .. } = &next_cursor {
-					log_migration_stats(stats);
-				}
-				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_cursor);
-				Ok(Some(next_cursor))
+				let next_stage = Self::process_announcement_batch(last_key, &mut stats, meter);
+				log_migration_stats(&stats);
+				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_stage);
+				Ok(Some((next_stage, stats)))
 			},
-			MigrationCursor::Complete { stats } => {
+			MigrationCursor::Complete => {
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
 				log_migration_stats(&stats);
 				// Update storage version to mark migration as complete
@@ -1081,8 +1074,11 @@ where
 		let mut meter = WeightMeter::new();
 		meter.consume(Weight::MAX); // Start with max weight available
 
-		// Initialize stepped migration
-		let mut cursor: Option<MigrationCursor<<T as frame_system::Config>::AccountId>> = None;
+		// Initialize stepped migration (stage + stats)
+		let mut cursor: Option<(
+			MigrationCursor<<T as frame_system::Config>::AccountId>,
+			MigrationStats,
+		)> = None;
 
 		// Run steps until completion
 		loop {
