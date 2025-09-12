@@ -104,7 +104,6 @@ use alloc::format;
 use alloc::collections::btree_map::BTreeMap;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::sync::atomic::{AtomicU32, Ordering};
 use frame::{
 	arithmetic::Zero,
 	deps::frame_support::{
@@ -125,39 +124,20 @@ const LOG_TARGET: &str = "runtime::proxy";
 /// A unique identifier for the proxy pallet v1 migration.
 const PROXY_PALLET_MIGRATION_ID: &[u8; 16] = b"pallet-proxy-mbm";
 
-/// Migration statistics counters
-static PROXIES_MIGRATED: AtomicU32 = AtomicU32::new(0);
-static PROXIES_PRESERVED_ZERO_DEPOSIT: AtomicU32 = AtomicU32::new(0);
-static ANNOUNCEMENTS_MIGRATED: AtomicU32 = AtomicU32::new(0);
-static ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT: AtomicU32 = AtomicU32::new(0);
+fn log_migration_stats(stats: &MigrationStats) {
+	let total_processed = stats.proxies_migrated +
+		stats.proxies_preserved_zero_deposit +
+		stats.announcements_migrated +
+		stats.announcements_preserved_zero_deposit;
 
-/// Reset migration statistics (for testing)
-#[cfg(test)]
-fn reset_migration_stats() {
-	PROXIES_MIGRATED.store(0, Ordering::Relaxed);
-	PROXIES_PRESERVED_ZERO_DEPOSIT.store(0, Ordering::Relaxed);
-	ANNOUNCEMENTS_MIGRATED.store(0, Ordering::Relaxed);
-	ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.store(0, Ordering::Relaxed);
-}
-
-/// Log current migration statistics
-fn log_migration_stats() {
-	let proxies_migrated = PROXIES_MIGRATED.load(Ordering::Relaxed);
-	let proxies_preserved = PROXIES_PRESERVED_ZERO_DEPOSIT.load(Ordering::Relaxed);
-	let announcements_migrated = ANNOUNCEMENTS_MIGRATED.load(Ordering::Relaxed);
-	let announcements_preserved = ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.load(Ordering::Relaxed);
-
-	let total_processed =
-		proxies_migrated + proxies_preserved + announcements_migrated + announcements_preserved;
-
-	log::info!(
+	log::debug!(
 		target: LOG_TARGET,
 		"📊 Migration Stats ({} total) - Proxies: {} migrated, {} preserved zero deposit | Announcements: {} migrated, {} preserved zero deposit",
 		total_processed,
-		proxies_migrated,
-		proxies_preserved,
-		announcements_migrated,
-		announcements_preserved
+		stats.proxies_migrated,
+		stats.proxies_preserved_zero_deposit,
+		stats.announcements_migrated,
+		stats.announcements_preserved_zero_deposit
 	);
 }
 
@@ -202,15 +182,24 @@ impl<Balance: Zero> Default for MigrationSummary<Balance> {
 	}
 }
 
+/// Migration statistics tracking progress and outcomes for logging and testing purposes.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen, Default)]
+pub struct MigrationStats {
+	pub proxies_migrated: u32,
+	pub proxies_preserved_zero_deposit: u32,
+	pub announcements_migrated: u32,
+	pub announcements_preserved_zero_deposit: u32,
+}
+
 /// Migration cursor to track progress across blocks.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum MigrationCursor<AccountId> {
 	/// Migrating proxies storage.
-	Proxies { last_key: Option<AccountId> },
+	Proxies { last_key: Option<AccountId>, stats: MigrationStats },
 	/// Migrating announcements storage.  
-	Announcements { last_key: Option<AccountId> },
+	Announcements { last_key: Option<AccountId>, stats: MigrationStats },
 	/// Migration complete.
-	Complete,
+	Complete { stats: MigrationStats },
 }
 
 /// Migration result for an account.
@@ -252,6 +241,7 @@ where
 			T::MaxProxies,
 		>,
 		old_deposit: BalanceOf<T>,
+		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
@@ -270,7 +260,7 @@ where
 					old_deposit
 				);
 				// Preserve proxy config with zero deposit
-				PROXIES_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
+				stats.proxies_preserved_zero_deposit += 1;
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
@@ -290,7 +280,7 @@ where
 		match T::Currency::hold(&HoldReason::ProxyDeposit.into(), who, actually_unreserved) {
 			Ok(_) => {
 				// Success: deposit migrated to hold
-				PROXIES_MIGRATED.fetch_add(1, Ordering::Relaxed);
+				stats.proxies_migrated += 1;
 				log::info!(
 					target: LOG_TARGET,
 					"✅ Proxy migrated: account {:?}, {} proxies, deposit {:?}",
@@ -313,7 +303,7 @@ where
 				// - Proxy relationships continue working
 				// - Can restore deposits later via add_proxy
 
-				PROXIES_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
+				stats.proxies_preserved_zero_deposit += 1;
 				log::warn!(
 					target: LOG_TARGET,
 					"⚠️ Proxy preserved with zero deposit: account {:?}, {} proxies, deposit {:?} freed",
@@ -348,6 +338,7 @@ where
 			T::MaxPending,
 		>,
 		old_deposit: BalanceOf<T>,
+		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
@@ -366,7 +357,7 @@ where
 					old_deposit
 				);
 				// Preserve announcement config with zero deposit
-				ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
+				stats.announcements_preserved_zero_deposit += 1;
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
@@ -386,7 +377,7 @@ where
 		match T::Currency::hold(&HoldReason::AnnouncementDeposit.into(), who, actually_unreserved) {
 			Ok(_) => {
 				// Success: announcement deposit migrated
-				ANNOUNCEMENTS_MIGRATED.fetch_add(1, Ordering::Relaxed);
+				stats.announcements_migrated += 1;
 				log::info!(
 					target: LOG_TARGET,
 					"✅ Announcement migrated: account {:?}, {} announcements, deposit {:?}",
@@ -404,7 +395,7 @@ where
 				// Migration failed - preserve announcements with zero deposit
 				// The unreserved funds remain in the account's free balance
 				// Announcements continue to function normally
-				ANNOUNCEMENTS_PRESERVED_ZERO_DEPOSIT.fetch_add(1, Ordering::Relaxed);
+				stats.announcements_preserved_zero_deposit += 1;
 				log::warn!(
 					target: LOG_TARGET,
 					"⚠️ Announcements preserved with zero deposit: account {:?}, {} announcements, deposit {:?} freed",
@@ -433,8 +424,10 @@ where
 	/// Process one batch of proxy migrations within weight limit.
 	pub fn process_proxy_batch(
 		last_key: Option<<T as frame_system::Config>::AccountId>,
+		stats: MigrationStats,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
+		let mut stats = stats;
 		let mut iter = if let Some(last) = last_key.clone() {
 			// IMPORTANT: When resuming, skip the last processed key
 			let mut temp_iter = Proxies::<T>::iter_from(Proxies::<T>::hashed_key_for(&last));
@@ -472,11 +465,11 @@ where
 					who
 				);
 				// Return the last successfully processed account so we resume from the next one
-				return MigrationCursor::Proxies { last_key: last_account };
+				return MigrationCursor::Proxies { last_key: last_account, stats };
 			}
 
 			// Migrate this account (handles both regular and pure proxy accounts)
-			let _result = Self::migrate_proxy_account(&who, proxies, deposit.into());
+			let _result = Self::migrate_proxy_account(&who, proxies, deposit.into(), &mut stats);
 
 			accounts_processed += 1;
 			last_account = Some(who.clone());
@@ -488,14 +481,16 @@ where
 			"All proxy accounts processed ({} in this batch), moving to announcements",
 			accounts_processed
 		);
-		MigrationCursor::Announcements { last_key: None }
+		MigrationCursor::Announcements { last_key: None, stats }
 	}
 
 	/// Process one batch of announcement migrations within weight limit.
 	pub fn process_announcement_batch(
 		last_key: Option<<T as frame_system::Config>::AccountId>,
+		stats: MigrationStats,
 		meter: &mut WeightMeter,
 	) -> MigrationCursor<<T as frame_system::Config>::AccountId> {
+		let mut stats = stats;
 		let mut iter = if let Some(last) = last_key.clone() {
 			// IMPORTANT: When resuming, skip the last processed key
 			let mut temp_iter =
@@ -534,11 +529,12 @@ where
 					who
 				);
 				// Return the last successfully processed account so we resume from the next one
-				return MigrationCursor::Announcements { last_key: last_account };
+				return MigrationCursor::Announcements { last_key: last_account, stats };
 			}
 
 			// Migrate this account
-			let _result = Self::migrate_announcement_account(&who, announcements, deposit.into());
+			let _result =
+				Self::migrate_announcement_account(&who, announcements, deposit.into(), &mut stats);
 
 			accounts_processed += 1;
 			last_account = Some(who.clone());
@@ -550,7 +546,7 @@ where
 			"All announcement accounts processed ({} in this batch), migration complete",
 			accounts_processed
 		);
-		MigrationCursor::Complete
+		MigrationCursor::Complete { stats }
 	}
 }
 
@@ -587,40 +583,48 @@ where
 		} else {
 			// First call - emit start event
 			Pallet::<T>::deposit_event(Event::MigrationStarted);
-			MigrationCursor::Proxies { last_key: None }
+			MigrationCursor::Proxies { last_key: None, stats: MigrationStats::default() }
 		};
 
 		// Process based on cursor state
 		let result = match current_cursor {
-			MigrationCursor::Proxies { last_key } => {
+			MigrationCursor::Proxies { last_key, stats } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing proxy batch, last_key: {:?}", last_key);
-				let next_cursor = Self::process_proxy_batch(last_key, meter);
-				log_migration_stats();
+				let next_cursor = Self::process_proxy_batch(last_key, stats, meter);
+				if let MigrationCursor::Announcements { stats, .. } |
+				MigrationCursor::Proxies { stats, .. } = &next_cursor
+				{
+					log_migration_stats(stats);
+				}
 				log::info!(target: LOG_TARGET, "✅ Proxy batch processed, next cursor: {:?}", next_cursor);
 				Ok(Some(next_cursor))
 			},
-			MigrationCursor::Announcements { last_key } => {
+			MigrationCursor::Announcements { last_key, stats } => {
 				log::info!(target: LOG_TARGET, "🔄 Processing announcement batch, last_key: {:?}", last_key);
-				let next_cursor = Self::process_announcement_batch(last_key, meter);
-				log_migration_stats();
+				let next_cursor = Self::process_announcement_batch(last_key, stats, meter);
+				if let MigrationCursor::Complete { stats } = &next_cursor {
+					log_migration_stats(stats);
+				} else if let MigrationCursor::Announcements { stats, .. } = &next_cursor {
+					log_migration_stats(stats);
+				}
 				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_cursor);
 
 				// Check if migration is complete
-				match next_cursor {
-					MigrationCursor::Complete => {
+				match &next_cursor {
+					MigrationCursor::Complete { stats } => {
 						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
-						log_migration_stats();
+						log_migration_stats(stats);
 						// Update storage version to mark migration as complete
 						StorageVersion::new(1).put::<Pallet<T>>();
 						Pallet::<T>::deposit_event(Event::MigrationCompleted);
 						Ok(None)
 					},
-					other => Ok(Some(other)),
+					_ => Ok(Some(next_cursor)),
 				}
 			},
-			MigrationCursor::Complete => {
+			MigrationCursor::Complete { stats } => {
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
-				log_migration_stats();
+				log_migration_stats(&stats);
 				// Update storage version to mark migration as complete
 				StorageVersion::new(1).put::<Pallet<T>>();
 				// Migration is complete
@@ -1273,7 +1277,7 @@ mod tests {
 
 	// Helper to setup tests with clean migration stats
 	fn setup_test_with_clean_stats() {
-		reset_migration_stats();
+		// Stats are now tracked in cursor, no need to reset static counters
 	}
 
 	// Helper to setup multiple accounts without clearing between them
