@@ -97,12 +97,6 @@ use crate::{
 };
 extern crate alloc;
 
-#[cfg(feature = "try-runtime")]
-use alloc::format;
-
-#[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame::{
 	arithmetic::Zero,
@@ -111,13 +105,17 @@ use frame::{
 		traits::{StorageVersion, UncheckedOnRuntimeUpgrade},
 		weights::WeightMeter,
 	},
+	log,
 	prelude::*,
 	traits::{fungible::MutateHold, Get, ReservableCurrency},
 };
 use scale_info::TypeInfo;
 
 #[cfg(feature = "try-runtime")]
-use alloc::vec::Vec;
+use alloc::{collections::btree_map::BTreeMap, format, vec::Vec};
+
+#[cfg(feature = "try-runtime")]
+use frame::try_runtime::TryRuntimeError;
 
 const LOG_TARGET: &str = "runtime::proxy";
 
@@ -140,11 +138,6 @@ fn log_migration_stats(stats: &MigrationStats) {
 		stats.announcements_preserved_zero_deposit
 	);
 }
-
-#[cfg(feature = "try-runtime")]
-use frame::try_runtime::TryRuntimeError;
-
-use frame::log;
 
 /// Result of verifying a single account after migration
 #[cfg(feature = "try-runtime")]
