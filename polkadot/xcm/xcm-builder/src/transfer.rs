@@ -56,7 +56,7 @@ pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOv
 impl<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper> Transfer
 	for TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
 where
-	DefaultRemoteFee: GetDefaultRemoteFee,
+	DefaultRemoteFee: GetDefaultRemoteFee<Asset=Asset>,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 	TransactorRefToLocation: for<'a> TryConvert<&'a TransferOverXcmHelper::Beneficiary, Location>,
 {
