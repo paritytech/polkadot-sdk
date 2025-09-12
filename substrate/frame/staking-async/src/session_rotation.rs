@@ -483,21 +483,37 @@ impl<T: Config> Rotator<T> {
 
 	#[cfg(any(feature = "try-runtime", test))]
 	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		// planned era can always be at most one more than active era
-		let planned = Self::planned_era();
-		let active = Self::active_era();
-		ensure!(
-			planned == active || planned == active + 1,
-			"planned era is always equal or one more than active"
-		);
+		// Check planned era vs active era relationship
+		let active_era = ActiveEra::<T>::get();
+		let planned_era = CurrentEra::<T>::get();
 
-		// bonded eras must always be the range [active - bonding_duration .. active_era]
 		let bonded = BondedEras::<T>::get();
-		ensure!(
-			bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
-				(active.saturating_sub(T::BondingDuration::get())..=active).collect::<Vec<_>>(),
-			"BondedEras range incorrect"
-		);
+
+		match (&active_era, &planned_era) {
+			(None, None) => {
+				// Uninitialized state - both should be None
+				ensure!(bonded.is_empty(), "BondedEras must be empty when ActiveEra is None");
+			},
+			(Some(active), Some(planned)) => {
+				// Normal state - planned can be at most one more than active
+				ensure!(
+					*planned == active.index || *planned == active.index + 1,
+					"planned era is always equal or one more than active"
+				);
+
+				// If we have an active era, bonded eras must always be the range
+				// [active - bonding_duration .. active_era]
+				ensure!(
+					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
+							.collect::<Vec<_>>(),
+					"BondedEras range incorrect"
+				);
+			},
+			_ => {
+				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
+			},
+		}
 
 		Ok(())
 	}
