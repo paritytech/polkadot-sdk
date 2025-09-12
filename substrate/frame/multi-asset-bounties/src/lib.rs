@@ -590,13 +590,8 @@ pub mod pallet {
 			.unwrap_or(Ok(()))?;
 
 			let index = BountyCount::<T, I>::get();
-			let payment_status = Self::do_process_funding_payment(
-				index,
-				None,
-				*asset_kind.clone(),
-				value,
-				None,
-			)?;
+			let payment_status =
+				Self::do_process_funding_payment(index, None, *asset_kind.clone(), value, None)?;
 
 			let curator_deposit = T::Consideration::new(&curator, 0u32.into())?;
 			let bounty = BountyOf::<T, I> {
