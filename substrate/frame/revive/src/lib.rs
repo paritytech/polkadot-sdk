@@ -480,6 +480,8 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
+		/// The account that signed the transaction is a contract account.
+		ContractAccountCannotSend = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -1179,6 +1181,24 @@ where
 	MomentOf<T>: Into<U256>,
 	T::Hash: frame_support::traits::IsType<H256>,
 {
+	/// Ensure the origin has no code deplyoyed if it is a signed origin.
+	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> Result<(), DispatchError> {
+		use crate::exec::EMPTY_CODE_HASH;
+		if let Ok(who) = ensure_signed(origin.clone()) {
+			let addr = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+			if let Some(contract) = AccountInfo::<T>::load_contract(&addr) {
+				if contract.code_hash != EMPTY_CODE_HASH {
+					log::debug!(
+						target: crate::LOG_TARGET,
+						"EIP-3607: reject externally-signed tx from contract account {:?}",
+						addr
+					);
+					return Err(<Error<T>>::ContractAccountCannotSend.into());
+				}
+			}
+		}
+		Ok(())
+	}
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
@@ -1193,6 +1213,15 @@ where
 		storage_deposit_limit: DepositLimit<BalanceOf<T>>,
 		data: Vec<u8>,
 	) -> ContractResult<ExecReturnValue, BalanceOf<T>> {
+		if let Err(contract_result) =
+			Self::ensure_non_contract_if_signed(&origin).map_err(|err| ContractResult {
+				result: Err(err),
+				gas_consumed: 0.into(),
+				gas_required: 0.into(),
+				storage_deposit: Default::default(),
+			}) {
+			return contract_result;
+		}
 		let mut gas_meter = GasMeter::new(gas_limit);
 		let mut storage_deposit = Default::default();
 

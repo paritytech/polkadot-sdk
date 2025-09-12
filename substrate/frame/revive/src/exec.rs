@@ -1527,22 +1527,6 @@ where
 			Ok(())
 		}
 
-		// Only reject if the account actually has deployed contract code (non-empty code hash).
-		let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-		if let Origin::Signed(signer) = origin {
-			if T::AddressMapper::to_address(&signer) == from_addr {
-				if let Some(contract) = AccountInfo::<T>::load_contract(&from_addr) {
-					if contract.code_hash != EMPTY_CODE_HASH {
-						log::debug!(
-							target: crate::LOG_TARGET,
-							"EIP-3607: Reject externally-signed transactions from contract accounts (deployed code)"
-						);
-						return Err(Error::<T>::TransferFailed.into());
-					}
-				}
-			}
-		}
-
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)?;
 		if value.is_zero() {
 			return Ok(());

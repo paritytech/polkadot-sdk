@@ -3028,7 +3028,9 @@ fn root_can_call() {
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
 		// Call the contract.
-		assert_ok!(builder::call(addr).origin(RuntimeOrigin::root()).build());
+		let result = builder::call(addr).origin(RuntimeOrigin::root()).build();
+		println!(">>>>>>>result: {result:?}");
+		assert_ok!(result);
 	});
 }
 
@@ -4934,6 +4936,6 @@ fn reject_signed_tx_from_contract_address() {
 			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
 			.build();
 
-		assert_err!(result.result, <Error<Test>>::TransferFailed);
+		assert_err!(result.result, <Error<Test>>::ContractAccountCannotSend);
 	});
 }
