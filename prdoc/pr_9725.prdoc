@@ -10,4 +10,4 @@ doc:
     - Add cleanup logic for non-staking pending accounts.
 crates:
 - name: pallet-bags-list
-  bump: patch
+  bump: minor
