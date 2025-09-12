@@ -681,19 +681,7 @@ where
 					log_migration_stats(stats);
 				}
 				log::info!(target: LOG_TARGET, "✅ Announcement batch processed, next cursor: {:?}", next_cursor);
-
-				// Check if migration is complete
-				match &next_cursor {
-					MigrationCursor::Complete { stats } => {
-						log::info!(target: LOG_TARGET, "🎉 Migration complete after announcement batch!");
-						log_migration_stats(stats);
-						// Update storage version to mark migration as complete
-						StorageVersion::new(1).put::<Pallet<T>>();
-						Pallet::<T>::deposit_event(Event::MigrationCompleted);
-						Ok(None)
-					},
-					_ => Ok(Some(next_cursor)),
-				}
+				Ok(Some(next_cursor))
 			},
 			MigrationCursor::Complete { stats } => {
 				log::info!(target: LOG_TARGET, "🎉 Migration complete!");
@@ -735,13 +723,7 @@ where
 
 		// Decode pre-migration state
 		let pre_migration_deposits: BTreeMap<T::AccountId, (BalanceOf<T>, BalanceOf<T>)> =
-			match Decode::decode(&mut &state[..]) {
-				Ok(deposits) => deposits,
-				Err(e) => {
-					log::error!(target: LOG_TARGET, "Failed to decode pre_upgrade state: {:?}", e);
-					return Err("Failed to decode pre_upgrade state".into());
-				},
-			};
+			Decode::decode(&mut &state[..]).expect("Pre-upgrade state cannot fail to decode");
 
 		// Verify each account and collect both results and errors
 		let mut verification_results = Vec::new();
