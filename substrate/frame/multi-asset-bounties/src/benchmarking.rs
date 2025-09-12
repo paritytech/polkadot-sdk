@@ -25,7 +25,7 @@ use crate::Pallet as Bounties;
 
 use alloc::{borrow::Cow, vec};
 use frame_benchmarking::{v2::*, BenchmarkError};
-use frame_support::{assert_err, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_ok};
 use frame_system::RawOrigin;
 use sp_core::crypto::FromEntropy;
 
