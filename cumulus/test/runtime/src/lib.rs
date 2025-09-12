@@ -263,7 +263,7 @@ impl frame_system::Config for Runtime {
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type PreInherents =
-		cumulus_pallet_parachain_system::max_parachain_block_weight::MaxBlockWeightHooks<Runtime>;
+		cumulus_pallet_parachain_system::max_parachain_block_weight::MaxBlockWeightHooks<Runtime, NumberOfBlocksPerRelaySlot>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
