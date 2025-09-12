@@ -158,18 +158,12 @@ fn run<'a, E: Ext>(
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
 	loop {
-		// Check if opcode tracing is enabled
-		let is_opcode_tracing =
-			tracing::if_tracing(|tracer| tracer.is_opcode_tracer()).unwrap_or(false);
+		// Check if opcode tracing is enabled and get configuration
+		let opcode_config =
+			tracing::if_tracing(|tracer| tracer.get_opcode_tracer_config()).flatten();
 
-		let action = if is_opcode_tracing {
-			// Get tracer configuration flags
-			let (is_stack_enabled, is_memory_enabled) = tracing::if_tracing(|tracer| {
-				(tracer.is_stack_capture_enabled(), tracer.is_memory_capture_enabled())
-			})
-			.unwrap_or((false, false));
-
-			run_with_opcode_tracing(interpreter, table, host, is_stack_enabled, is_memory_enabled)
+		let action = if let Some(config) = opcode_config {
+			run_with_opcode_tracing(interpreter, table, host, config)
 		} else {
 			interpreter.run_plain(table, host)
 		};
@@ -199,8 +193,7 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 	host: &mut DummyHost,
-	is_stack_enabled: bool,
-	is_memory_enabled: bool,
+	config: crate::evm::OpcodeTracerConfig,
 ) -> InterpreterAction
 where
 	EVMInterpreter<'a, E>: InterpreterTypes,
@@ -222,7 +215,7 @@ where
 			let gas_before = interpreter.gas.remaining();
 
 			// Capture stack data only if enabled
-			let stack_data = if is_stack_enabled {
+			let stack_data = if !config.disable_stack {
 				// Get stack length - this is available through the trait
 				let stack_len = interpreter.stack.len();
 
@@ -244,7 +237,7 @@ where
 			};
 
 			// Capture memory data only if enabled
-			let memory_data = if is_memory_enabled {
+			let memory_data = if config.enable_memory {
 				// Get memory size - this is available through the trait
 				let memory_size = interpreter.memory.size();
 

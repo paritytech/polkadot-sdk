@@ -42,19 +42,10 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 
 /// Defines methods to trace contract interactions.
 pub trait Tracing {
-	/// Check if this tracer requires opcode-level tracing.
-	fn is_opcode_tracer(&self) -> bool {
-		false
-	}
-
-	/// Check if stack capture is enabled for opcode tracing.
-	fn is_stack_capture_enabled(&self) -> bool {
-		false
-	}
-
-	/// Check if memory capture is enabled for opcode tracing.
-	fn is_memory_capture_enabled(&self) -> bool {
-		false
+	/// Get opcode tracer configuration if this tracer supports opcode-level tracing.
+	/// Returns None if opcode tracing is not supported.
+	fn get_opcode_tracer_config(&self) -> Option<crate::evm::OpcodeTracerConfig> {
+		None
 	}
 
 	/// Record an opcode step for opcode tracers.

@@ -98,16 +98,8 @@ impl OpcodeTracer {
 }
 
 impl Tracing for OpcodeTracer {
-	fn is_opcode_tracer(&self) -> bool {
-		true
-	}
-
-	fn is_stack_capture_enabled(&self) -> bool {
-		!self.config.disable_stack
-	}
-
-	fn is_memory_capture_enabled(&self) -> bool {
-		self.config.enable_memory
+	fn get_opcode_tracer_config(&self) -> Option<crate::evm::OpcodeTracerConfig> {
+		Some(self.config.clone())
 	}
 
 	fn record_opcode_step(
