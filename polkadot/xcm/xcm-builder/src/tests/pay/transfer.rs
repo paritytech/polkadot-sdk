@@ -44,6 +44,7 @@ parameter_types! {
 }
 
 type TestTransferOverXcm = TransferOverXcm<
+	ConstantRelayTokenDefaultFee,
 	TestFeeManager,
 	TestMessageSender,
 	TestQueryHandler<TestConfig, BlockNumber>,
@@ -52,7 +53,6 @@ type TestTransferOverXcm = TransferOverXcm<
 	AssetKind,
 	LocatableAssetKindConverter,
 	AliasesIntoAccountId32<AnyNetwork, AccountId>,
-	ConstantRelayTokenDefaultFee,
 >;
 
 type TestTransferOverXcmHelper = TransferOverXcmHelper<
