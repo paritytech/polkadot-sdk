@@ -20,25 +20,22 @@ use super::{
 	run_with_validation_params, trie_cache, trie_recorder, MemoryOptimizedValidationParams,
 	ValidationParams,
 };
-use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain::{Hash as RHash, UMPSignal, UMP_SEPARATOR},
-	ClaimQueueOffset, CoreSelector, ParachainBlockData, PersistedValidationData,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, CoreSelector, ParachainBlockData,
 };
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
 };
-use polkadot_parachain_primitives::primitives::{
-	HeadData, RelayChainBlockNumber, ValidationResult,
-};
+use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
-	Block as BlockT, ExtrinsicCall, ExtrinsicLike, Hash as HashT, HashingFor, Header as HeaderT,
+	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT,
 };
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, ProofSizeProvider, EMPTY_PREFIX};
