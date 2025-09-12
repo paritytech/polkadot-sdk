@@ -268,6 +268,10 @@ impl HeaderBackend<Block> for MockClient {
 	fn hash(&self, number: BlockNumber) -> sc_client_api::blockchain::Result<Option<Hash>> {
 		self.client.lock().hash(number)
 	}
+
+	fn leaf_hashes(&self) -> sp_blockchain::Result<Vec<<Block as BlockT>::Hash>> {
+		self.client.lock().leaf_hashes()
+	}
 }
 
 impl BlockchainEvents<Block> for MockClient {
