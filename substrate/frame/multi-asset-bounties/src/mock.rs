@@ -29,7 +29,7 @@ use frame_support::{
 	traits::{
 		fungible::{HoldConsideration, Mutate},
 		tokens::UnityAssetBalanceConversion,
-		ConstU32, ConstU64, Currency,
+		ConstU64, Currency,
 	},
 	weights::constants::ParityDbWeight,
 	PalletId,
@@ -179,7 +179,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type PalletId = BountyPalletId;
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type SpendOrigin = TestSpendOrigin;
@@ -189,11 +188,10 @@ impl Config for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
-	type FundingSource = FundingSourceAccount<Test, ()>;
-	type BountySource = BountySourceAccount<Test, ()>;
-	type ChildBountySource = ChildBountySourceAccount<Test, ()>;
+	type FundingSource = PalletIdAsFundingSource<BountyPalletId, Test, ()>;
+	type BountySource = BountySourceAccount<BountyPalletId, Test, ()>;
+	type ChildBountySource = ChildBountySourceAccount<BountyPalletId, Test, ()>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
@@ -215,7 +213,6 @@ impl Config for Test {
 type CuratorDeposit =
 	CuratorDepositAmount<CuratorDepositMultiplier, CuratorDepositMin, CuratorDepositMax, Balance>;
 impl Config<Instance1> for Test {
-	type PalletId = BountyPalletId2;
 	type Balance = <Self as pallet_balances::Config>::Balance;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type SpendOrigin = TestSpendOrigin;
@@ -225,11 +222,10 @@ impl Config<Instance1> for Test {
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
-	type FundingSource = FundingSourceAccount<Test, Instance1>;
-	type BountySource = BountySourceAccount<Test, Instance1>;
-	type ChildBountySource = ChildBountySourceAccount<Test, Instance1>;
+	type FundingSource = PalletIdAsFundingSource<BountyPalletId2, Test, Instance1>;
+	type BountySource = BountySourceAccount<BountyPalletId2, Test, Instance1>;
+	type ChildBountySource = ChildBountySourceAccount<BountyPalletId2, Test, Instance1>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
@@ -348,7 +344,7 @@ pub fn get_payment_id(
 		pallet_bounties::Pallet::<Test>::get_bounty_details(parent_bounty_id, child_bounty_id)
 			.expect("no bounty");
 
-	match bounty.3 {
+	match bounty.2 {
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
@@ -401,7 +397,7 @@ pub struct TestBounty {
 	pub child_curator_deposit: u64,
 	pub beneficiary: u128,
 	pub child_beneficiary: u128,
-	pub hash: <Test as frame_system::Config>::Hash,
+	pub metadata: <Test as frame_system::Config>::Hash,
 }
 
 pub fn setup_bounty() -> TestBounty {
@@ -414,7 +410,7 @@ pub fn setup_bounty() -> TestBounty {
 	let child_beneficiary = 9;
 	let expected_deposit = CuratorDeposit::convert(value);
 	let child_expected_deposit = CuratorDeposit::convert(child_value);
-	let hash = note_preimage(1);
+	let metadata = note_preimage(1);
 	Balances::set_balance(&curator, Balances::minimum_balance() + expected_deposit);
 	Balances::set_balance(&child_curator, Balances::minimum_balance() + child_expected_deposit);
 
@@ -430,7 +426,7 @@ pub fn setup_bounty() -> TestBounty {
 		child_curator_deposit: child_expected_deposit,
 		beneficiary,
 		child_beneficiary,
-		hash,
+		metadata,
 	}
 }
 
@@ -442,7 +438,7 @@ pub fn create_parent_bounty() -> TestBounty {
 		Box::new(s.asset_kind),
 		s.value,
 		s.curator,
-		s.hash
+		s.metadata
 	));
 	let parent_bounty_id = pallet_bounties::BountyCount::<Test>::get() - 1;
 	s.parent_bounty_id = parent_bounty_id;
@@ -513,7 +509,7 @@ pub fn create_child_bounty_with_curator() -> TestBounty {
 		s.parent_bounty_id,
 		s.child_value,
 		Some(s.child_curator),
-		s.hash
+		s.metadata
 	));
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;

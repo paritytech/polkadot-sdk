@@ -82,7 +82,7 @@ struct BenchmarkBounty<T: Config<I>, I: 'static> {
 	/// The child-/bounty beneficiary account.
 	beneficiary: T::Beneficiary,
 	/// Bounty metadata hash.
-	hash: T::Hash,
+	metadata: T::Hash,
 }
 
 const SEED: u32 = 0;
@@ -106,7 +106,7 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 	let bounty = Bounties::<T, I>::get_bounty_details(parent_bounty_id, child_bounty_id)
 		.expect("no bounty found");
 
-	match bounty.3 {
+	match bounty.2 {
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
@@ -132,7 +132,7 @@ fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
 		<T as Config<I>>::BenchmarkHelper::create_beneficiary([(SEED).try_into().unwrap(); 32]);
-	let hash = T::Preimages::note(Cow::from(vec![5, 6])).unwrap();
+	let metadata = T::Preimages::note(Cow::from(vec![5, 6])).unwrap();
 
 	BenchmarkBounty::<T, I> {
 		parent_bounty_id: 0,
@@ -143,7 +143,7 @@ fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
 		value,
 		child_value,
 		beneficiary,
-		hash,
+		metadata,
 	}
 }
 
@@ -171,7 +171,7 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 		Box::new(s.asset_kind.clone()),
 		s.value,
 		curator_lookup,
-		s.hash,
+		s.metadata,
 	)?;
 
 	s.parent_bounty_id = pallet_bounties::BountyCount::<T, I>::get() - 1;
@@ -220,7 +220,7 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 		s.parent_bounty_id,
 		s.child_value,
 		Some(child_curator_lookup),
-		s.hash,
+		s.metadata,
 	)?;
 	s.child_bounty_id =
 		pallet_bounties::TotalChildBountiesPerParent::<T, I>::get(s.parent_bounty_id) - 1;
@@ -288,7 +288,7 @@ pub fn set_status<T: Config<I>, I: 'static>(
 		pallet_bounties::Pallet::<T, I>::get_bounty_details(parent_bounty_id, child_bounty_id)
 			.expect("no bounty");
 
-	let new_status = match bounty.3 {
+	let new_status = match bounty.2 {
 		BountyStatus::FundingAttempted { curator, .. } =>
 			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator },
 		BountyStatus::RefundAttempted { curator, .. } =>
@@ -306,7 +306,6 @@ pub fn set_status<T: Config<I>, I: 'static>(
 		parent_bounty_id,
 		child_bounty_id,
 		new_status,
-		None,
 	);
 
 	Ok(())
@@ -342,7 +341,7 @@ mod benchmarks {
 		);
 
 		#[extrinsic_call]
-		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.hash);
+		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.metadata);
 
 		let parent_bounty_id = BountyCount::<T, I>::get() - 1;
 		assert_last_event::<T, I>(Event::BountyCreated { index: parent_bounty_id }.into());
@@ -382,7 +381,7 @@ mod benchmarks {
 				s.parent_bounty_id,
 				s.child_value,
 				Some(child_curator_lookup),
-				s.hash,
+				s.metadata,
 			);
 
 			if spend_exists {
@@ -965,7 +964,6 @@ mod benchmarks {
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				new_status,
-				None,
 			);
 			true
 		} else {
@@ -1029,7 +1027,6 @@ mod benchmarks {
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				new_status,
-				None,
 			);
 			true
 		} else {
