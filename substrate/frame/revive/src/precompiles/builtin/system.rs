@@ -72,7 +72,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
 				let address = env.address();
-				let output = env.code_hash(&address).encode();
+				let output = env.code_hash(&address).0.abi_encode();
 				Ok(output)
 			},
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {

@@ -27,7 +27,10 @@ use crate::{
 	evm::{runtime::GAS_PRICE, CallTrace, CallTracer, CallType, GenericTransaction},
 	exec::Key,
 	limits,
-	precompiles::alloy::sol_types::{sol_data::Bool, SolType},
+	precompiles::alloy::sol_types::{
+		sol_data::{Bool, FixedBytes},
+		SolType,
+	},
 	storage::DeletionQueueManager,
 	test_utils::builder::Contract,
 	tests::{
@@ -3482,7 +3485,8 @@ fn call_own_code_hash_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let ret = builder::bare_call(addr).build_and_unwrap_result();
-		assert_eq!(H256::from_slice(&ret.data[..]), code_hash);
+		let ret_hash = FixedBytes::<32>::abi_decode(&ret.data).unwrap();
+		assert_eq!(ret_hash, code_hash.0);
 	});
 }
 
