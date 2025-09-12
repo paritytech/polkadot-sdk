@@ -989,6 +989,174 @@ mod on_idle {
 			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
 		});
 	}
+
+	/// Tests the PendingRebag feature that handles accounts that fail to be inserted due to
+	/// locking.
+	#[test]
+	fn pending_rebag() {
+		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(3);
+
+			// Create more initial nodes to ensure cursor is set
+			assert_ok!(List::<Runtime>::insert(1, 10));
+			assert_ok!(List::<Runtime>::insert(2, 1000));
+			assert_ok!(List::<Runtime>::insert(3, 1000));
+			assert_ok!(List::<Runtime>::insert(4, 1000));
+			assert_ok!(List::<Runtime>::insert(9, 1000));
+			assert_ok!(List::<Runtime>::insert(10, 1000));
+
+			assert_eq!(
+				List::<Runtime>::get_bags(),
+				vec![(10, vec![1]), (1_000, vec![2, 3, 4, 9, 10])]
+			);
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			BagsList::lock();
+
+			// Try to insert 6 new nodes while locked - 5 regular + 1 that will lose staking status
+			assert_eq!(BagsList::on_insert(5, 15), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(6, 45), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(7, 55), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(8, 1500), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(11, 100), Err(ListError::Locked));
+			assert_eq!(BagsList::on_insert(99, 500), Err(ListError::Locked)); // Will lose staking
+
+			// Verify they're in PendingRebag with correct scores
+			assert_eq!(PendingRebag::<Runtime>::count(), 6); // Now 6
+			assert_eq!(PendingRebag::<Runtime>::get(5), Some(15));
+			assert_eq!(PendingRebag::<Runtime>::get(6), Some(45));
+			assert_eq!(PendingRebag::<Runtime>::get(7), Some(55));
+			assert_eq!(PendingRebag::<Runtime>::get(8), Some(1500));
+			assert_eq!(PendingRebag::<Runtime>::get(11), Some(100));
+			assert_eq!(PendingRebag::<Runtime>::get(99), Some(500));
+
+			// Verify they're NOT in the list yet
+			assert!(!List::<Runtime>::contains(&5));
+			assert!(!List::<Runtime>::contains(&6));
+			assert!(!List::<Runtime>::contains(&7));
+			assert!(!List::<Runtime>::contains(&8));
+			assert!(!List::<Runtime>::contains(&11));
+			assert!(!List::<Runtime>::contains(&99));
+
+			BagsList::unlock();
+
+			// Set scores for regular nodes
+			StakingMock::set_score_of(&1, 10); // Keep account 1 at score 10
+			StakingMock::set_score_of(&2, 10); // Regular node needs rebagging
+			StakingMock::set_score_of(&3, 20); // Regular node needs rebagging
+			StakingMock::set_score_of(&4, 1000); // Keep account 4 at score 1000
+			StakingMock::set_score_of(&9, 1000); // Keep account 9 at score 1000
+			StakingMock::set_score_of(&10, 1000); // Keep account 10 at score 1000
+
+			StakingMock::set_score_of(&5, 15);
+			StakingMock::set_score_of(&6, 45);
+			StakingMock::set_score_of(&7, 55);
+			StakingMock::set_score_of(&8, 1500);
+			StakingMock::set_score_of(&11, 100);
+			// Note: account 99 deliberately has NO score provider - it will be cleaned up
+
+			// Run on_idle with budget of 3 - processes first 3 accounts: [6, 5, 8]
+			let weight_used = run_to_block(1, Weight::MAX);
+			assert!(weight_used.ref_time() > 0);
+			assert!(weight_used.proof_size() > 0);
+
+			// With iteration order [6, 5, 8, 7, 11, 99] and budget of 3, we process: [6, 5, 8]
+			// Account 99 remains pending (not reached with budget 3)
+			assert_eq!(PendingRebag::<Runtime>::count(), 3); // Three pending accounts remain (7, 11, 99)
+
+			let expected_processed = vec![5, 6, 8];
+			let expected_unprocessed = vec![7, 11, 99];
+
+			let actual_processed: Vec<_> = [5, 6, 7, 8, 11]
+				.iter()
+				.filter(|id| List::<Runtime>::contains(id))
+				.copied()
+				.collect();
+			assert_eq!(actual_processed, expected_processed);
+
+			let actual_pending: Vec<_> = [5, 6, 7, 8, 11, 99]
+				.iter()
+				.filter(|id| PendingRebag::<Runtime>::contains_key(id))
+				.copied()
+				.collect();
+			assert_eq!(actual_pending, expected_unprocessed);
+
+			// Verify account 99 is still pending (not processed yet due to budget limit)
+			assert!(!List::<Runtime>::contains(&99));
+			assert!(PendingRebag::<Runtime>::contains_key(&99));
+			assert_eq!(PendingRebag::<Runtime>::get(99), Some(500));
+
+			assert_eq!(List::<Runtime>::get_score(&6).unwrap(), 45);
+			assert_eq!(List::<Runtime>::get_score(&5).unwrap(), 15);
+			assert_eq!(List::<Runtime>::get_score(&8).unwrap(), 1500);
+
+			// Verify the bags contain the right accounts
+			let bags = List::<Runtime>::get_bags();
+
+			assert!(bags
+				.iter()
+				.any(|(threshold, accounts)| *threshold == 10 && accounts.contains(&1)));
+
+			assert!(bags.iter().any(|(threshold, accounts)| *threshold == 1_000 &&
+				accounts.contains(&2) &&
+				accounts.contains(&3) &&
+				accounts.contains(&4) &&
+				accounts.contains(&9) &&
+				accounts.contains(&10)));
+
+			// Check that the three processed pending accounts are in their correct bags
+			assert!(bags
+				.iter()
+				.any(|(threshold, accounts)| *threshold == 50 && accounts.contains(&6)));
+			assert!(bags
+				.iter()
+				.any(|(threshold, accounts)| *threshold == 20 && accounts.contains(&5)));
+			assert!(bags
+				.iter()
+				.any(|(threshold, accounts)| *threshold == 2_000 && accounts.contains(&8)));
+
+			// After processing 3 pending accounts [6, 5, 8] with budget of 3:
+			// The 4th account collected would be the next pending account (7), but since
+			// we filter out pending accounts from the cursor, it should be None
+			let cursor_after_first = NextNodeAutoRebagged::<Runtime>::get();
+			assert_eq!(
+				cursor_after_first, None,
+				"Cursor should be None since we only processed pending accounts"
+			);
+
+			// Process remaining pending accounts (budget 3: accounts 7, 11, 99)
+			run_to_block(2, Weight::MAX);
+
+			// All pending accounts should now be processed (including cleanup of 99)
+			assert_eq!(PendingRebag::<Runtime>::count(), 0);
+
+			// Verify accounts 7 and 11 are now in the list
+			assert!(List::<Runtime>::contains(&7));
+			assert!(List::<Runtime>::contains(&11));
+
+			// Verify account 99 was cleaned up (not in list, removed from pending)
+			assert!(!List::<Runtime>::contains(&99));
+			assert!(!PendingRebag::<Runtime>::contains_key(&99));
+			assert_eq!(PendingRebag::<Runtime>::get(99), None);
+
+			// Verify all processed accounts are in their correct bags
+			let final_bags = List::<Runtime>::get_bags();
+			assert!(final_bags.iter().any(|(t, accs)| *t == 20 && accs.contains(&5)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 50 && accs.contains(&6)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 60 && accs.contains(&7)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 2_000 && accs.contains(&8)));
+			assert!(final_bags.iter().any(|(t, accs)| *t == 1_000 && accs.contains(&11)));
+
+			// Verify final list contains exactly the expected accounts (original + successfully
+			// inserted pending)
+			let final_list: Vec<_> = List::<Runtime>::iter().map(|n| *n.id()).collect();
+			let mut expected_final = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+			expected_final.sort();
+			let mut actual_final = final_list.clone();
+			actual_final.sort();
+			assert_eq!(actual_final, expected_final);
+		});
+	}
 }
 
 pub mod lock {

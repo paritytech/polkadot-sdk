@@ -284,6 +284,20 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Lock<T: Config<I>, I: 'static = ()> = StorageValue<_, (), OptionQuery>;
 
+	/// Accounts that failed to be inserted into the bags-list due to locking.
+	/// These accounts will be processed with priority in `on_idle`.
+	///
+	/// Note: This storage is intentionally unbounded. The following factors make bounding
+	/// unnecessary:
+	/// 1. The storage usage is temporary - accounts are processed and removed in `on_idle`
+	/// 2. The pallet is only locked during snapshot generation, which is weight-limited
+	/// 3. Processing happens at multiple accounts per block, clearing even large backlogs quickly
+	/// 4. An artificial limit could be exhausted by an attacker, preventing legitimate
+	///    auto-rebagging from putting accounts in the correct position
+	#[pallet::storage]
+	pub type PendingRebag<T: Config<I>, I: 'static = ()> =
+		CountedStorageMap<_, Twox64Concat, T::AccountId, T::Score>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -410,6 +424,10 @@ pub mod pallet {
 		/// Automatically performs a limited number of `rebag` operations each block,
 		/// incrementally correcting the position of accounts within the bags-list.
 		///
+		/// Processes accounts in the following priority order:
+		/// 1. Pending accounts that failed to be inserted due to locking
+		/// 2. Regular accounts that need rebagging
+		///
 		/// Guarantees processing as many nodes as possible without failing on errors.
 		/// It stores a persistent cursor to continue across blocks.
 		fn on_idle(_n: BlockNumberFor<T>, limit: Weight) -> Weight {
@@ -428,8 +446,10 @@ pub mod pallet {
 			}
 
 			let total_nodes = ListNodes::<T, I>::count();
-			if total_nodes == 0 {
-				log!(debug, "Auto-rebag skipped: total_nodes=0");
+			let pending_count = PendingRebag::<T, I>::count();
+
+			if total_nodes == 0 && pending_count == 0 {
+				log!(debug, "Auto-rebag skipped: total_nodes=0 and pending_count=0");
 				return meter.consumed();
 			}
 
@@ -440,13 +460,14 @@ pub mod pallet {
 
 			log!(
 				debug,
-				"Starting auto-rebag. Budget: {} accounts/block, total_nodes={}.",
+				"Starting auto-rebag. Budget: {} accounts/block, total_nodes={}, pending_count={}.",
 				rebag_budget,
-				total_nodes
+				total_nodes,
+				pending_count
 			);
 
 			let cursor = NextNodeAutoRebagged::<T, I>::get();
-			let iter = match cursor {
+			let regular_iter = match cursor {
 				Some(ref last) => {
 					log!(debug, "Next node from previous block: {:?}", last);
 
@@ -460,9 +481,14 @@ pub mod pallet {
 					Self::iter()
 				},
 			};
-			let accounts: Vec<_> = iter.take((rebag_budget + 1) as usize).collect();
 
-			// Safe split: if we reached (or passed) the tail of the list, we don’t want to panic.
+			// Chain PendingRebag accounts with regular ListNodes.
+			// PendingRebag comes first for priority processing
+			let combined_iter = PendingRebag::<T, I>::iter_keys().chain(regular_iter);
+
+			let accounts: Vec<_> = combined_iter.take((rebag_budget + 1) as usize).collect();
+
+			// Safe split: if we reached (or passed) the tail of the list, we don't want to panic.
 			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {
 				// This guarantees we either get the next account to process
 				// or gracefully receive None.
@@ -474,8 +500,11 @@ pub mod pallet {
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
+			let mut pending_processed = 0u32;
 
 			for account in to_process {
+				let was_pending = PendingRebag::<T, I>::contains_key(&account);
+
 				match Self::rebag_internal(&account) {
 					Err(Error::<T, I>::Locked) => {
 						defensive!("Pallet became locked during auto-rebag, stopping");
@@ -488,9 +517,15 @@ pub mod pallet {
 					Ok(Some((from, to))) => {
 						log!(debug, "Rebagged {:?}: moved from {:?} to {:?}", account, from, to);
 						successful_rebags += 1;
+						if was_pending {
+							pending_processed += 1;
+						}
 					},
 					Ok(None) => {
 						log!(debug, "Rebagging not needed for {:?}", account);
+						if was_pending {
+							pending_processed += 1;
+						}
 					},
 				}
 
@@ -500,7 +535,11 @@ pub mod pallet {
 				}
 			}
 
-			match next_cursor.first() {
+			// Update cursor - only track regular ListNodes accounts, not PendingRebag
+			let next_regular_account =
+				next_cursor.iter().find(|account| !PendingRebag::<T, I>::contains_key(account));
+
+			match next_regular_account {
 				// Defensive check: prevents re-processing the same node multiple times within a
 				// single block. This situation should not occur during normal execution, but
 				// can happen in test environments or if `on_idle()` is invoked more than once
@@ -509,25 +548,31 @@ pub mod pallet {
 					NextNodeAutoRebagged::<T, I>::kill();
 					defensive!("Loop detected: {:?} already processed — cursor killed", next);
 				},
-				// Normal case: save the next node as a cursor for the following block.
+				// Normal case: save the next regular node as a cursor for the following block.
 				Some(next) => {
-					NextNodeAutoRebagged::<T, I>::put(next);
+					NextNodeAutoRebagged::<T, I>::put(next.clone());
 					log!(debug, "Saved next node to be processed in rebag cursor: {:?}", next);
 				},
-				// End of a list: no cursor needed.
+				// End of regular list reached: no cursor needed.
+				// This happens when either:
+				// 1. We've processed all regular accounts in the list, OR
+				// 2. We collected fewer than budget+1 accounts (meaning the iterator was exhausted)
+				// Since pending accounts are processed first and not tracked in the cursor,
+				// this simply means there are no more regular accounts to process.
 				None => {
 					NextNodeAutoRebagged::<T, I>::kill();
-					log!(debug, "End of list — cursor killed");
+					log!(debug, "End of regular list reached — cursor killed");
 				},
 			}
 
 			let weight_used = meter.consumed();
 			log!(
 				debug,
-				"Auto-rebag finished: processed={}, successful_rebags={}, errors={}, weight_used={:?}",
+				"Auto-rebag finished: processed={}, successful_rebags={}, errors={}, pending_processed={}, weight_used={:?}",
 				processed,
 				successful_rebags,
 				failed_rebags,
+				pending_processed,
 				weight_used
 			);
 
@@ -584,12 +629,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// Ensure the pallet is not locked
 		Self::ensure_unlocked().map_err(|_| Error::<T, I>::Locked)?;
 
+		// Check if this is a pending account that needs to be inserted
+		let is_pending = PendingRebag::<T, I>::contains_key(account);
+
 		// Check if the account exists and retrieve its current score
 		let existed = ListNodes::<T, I>::contains_key(account);
 		let score_provider: fn(&T::AccountId) -> Option<T::Score> = T::ScoreProvider::score;
 		let maybe_score = score_provider(account);
 
-		match (existed, maybe_score) {
+		if is_pending && maybe_score.is_none() {
+			// Account is no longer staking - just clean up PendingRebag and skip
+			PendingRebag::<T, I>::remove(account);
+			log!(debug, "Removed {:?} from PendingRebag as it's no longer staking", account);
+			return Err(Error::<T, I>::List(ListError::NodeNotFound));
+		}
+
+		let result = match (existed, maybe_score) {
 			(true, Some(current_score)) => {
 				// The account exists and has a valid score, so try to rebag
 				log!(debug, "Attempting to rebag node {:?}", account);
@@ -613,7 +668,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// The account doesn't exist and has no valid score - do nothing
 				Err(Error::<T, I>::List(ListError::NodeNotFound))
 			},
+		};
+
+		// If processing was successful and this was a pending account, remove it from PendingRebag
+		if result.is_ok() && is_pending {
+			PendingRebag::<T, I>::remove(account);
+			log!(debug, "Removed {:?} from PendingRebag after successful processing", account);
 		}
+
+		result
 	}
 }
 
@@ -657,7 +720,11 @@ impl<T: Config<I>, I: 'static> SortedListProvider<T::AccountId> for Pallet<T, I>
 	}
 
 	fn on_insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
-		Pallet::<T, I>::ensure_unlocked()?;
+		Pallet::<T, I>::ensure_unlocked().map_err(|_| {
+			// Pallet is locked - store in PendingRebag for later processing
+			PendingRebag::<T, I>::insert(&id, score);
+			ListError::Locked
+		})?;
 		List::<T, I>::insert(id, score)
 	}
 
