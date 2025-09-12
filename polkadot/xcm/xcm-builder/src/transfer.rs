@@ -30,18 +30,9 @@ use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
 
-pub use frame_support::traits::tokens::transfer::Transfer;
+pub use frame_support::traits::tokens::transfer::{Transfer, GetDefaultRemoteFee};
 
-const LOG_TARGET: &str = "xcm::transfer_remote";
-
-/// Abstraction to get a default remote xcm execution fee.
-///
-/// This might come from some pallet's storage value that is frequently
-/// updated with the result of a dry-run execution to make sure that the
-/// fee is sensible.
-pub trait GetDefaultRemoteFee {
-	fn get_default_remote_fee() -> Asset;
-}
+const LOG_TARGET: &str = "xcm::transfer_over_xcm";
 
 /// Transfers an asset to a beneficiary on a remote chain via XCM.
 ///

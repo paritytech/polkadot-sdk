@@ -29,10 +29,9 @@ use sp_runtime::codec::{FullCodec, MaxEncodedLen};
 pub enum PaysRemoteFeeWithMaybeDefault<RemoteFeeAsset> {
 	/// No remote XCM execution fees have to be paid.
 	No,
-	/// Pays fees and will use the `GetDefaultFee` trait to derive the fees.
+	/// Pays fees and will use the [`GetDefaultRemoteFee`] trait to derive the fees.
 	YesWithDefault,
-	/// Defines that remote execution fees have to be paid, and optionally defines the payment
-	/// asset.
+	/// Defines that remote execution fees have to be paid.
 	Yes { fee_asset: RemoteFeeAsset },
 }
 
@@ -43,6 +42,20 @@ pub enum PaysRemoteFee<RemoteFeeAsset> {
 	No,
 	/// Defines that remote execution fees have to be paid.
 	Yes { fee_asset: RemoteFeeAsset },
+}
+
+/// Abstraction to get a default remote xcm execution fee.
+///
+/// This might come from some pallet's storage value that is frequently
+/// updated with the result of a dry-run execution to make sure that the
+/// fee is sensible.
+pub trait GetDefaultRemoteFee {
+
+	/// The asset type use the pay the fees with.
+	type Asset;
+
+	/// Gets the default fee.
+	fn get_default_remote_fee() -> Self::Asset;
 }
 
 /// Is intended to be implemented using a `fungible` impl, but can also be implemented with
