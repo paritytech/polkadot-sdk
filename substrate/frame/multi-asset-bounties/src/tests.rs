@@ -23,8 +23,11 @@ use super::{Event as BountiesEvent, *};
 use crate as pallet_bounties;
 use crate::mock::{Bounties, *};
 
-use frame_support::{assert_err_ignore_postinfo, assert_noop, assert_ok, traits::Currency};
-use sp_runtime::traits::Dispatchable;
+use frame_support::{
+	assert_err_ignore_postinfo, assert_noop, assert_ok,
+	traits::{fungible::Mutate, Currency},
+};
+use sp_runtime::{traits::Dispatchable, TokenError};
 
 type UtilityCall = pallet_utility::Call<Test>;
 type BountiesCall = crate::Call<Test>;
@@ -38,6 +41,7 @@ fn fund_bounty_works() {
 		let value = 50;
 		let curator = 4;
 		let hash = note_preimage(1);
+		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
 
 		// When
 		assert_ok!(Bounties::fund_bounty(
@@ -63,7 +67,7 @@ fn fund_bounty_works() {
 			Bounty {
 				asset_kind,
 				value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash,
 				status: BountyStatus::FundingAttempted {
 					curator,
@@ -84,6 +88,7 @@ fn fund_bounty_in_batch_respects_max_total() {
 		let value = 2; // `native_amount` is 2
 		let curator = 4;
 		let hash = note_preimage(1);
+		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
 
 		// When/Then
 		// Respect the `max_total` for the given origin.
@@ -146,6 +151,7 @@ fn fund_bounty_second_instance_works() {
 		let parent_bounty_account_2 =
 			Bounties1::bounty_account(parent_bounty_id, asset_kind).expect("conversion failed");
 		let hash = note_preimage(1);
+		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
 
 		// When
 		assert_ok!(Bounties1::fund_bounty(
@@ -170,6 +176,7 @@ fn fund_bounty_fails() {
 		let value = 50;
 		let curator = 4;
 		let hash = note_preimage(1);
+		let _ = Balances::mint_into(&curator, Balances::minimum_balance());
 
 		// When/Then
 		let invalid_origin = RuntimeOrigin::none();
@@ -284,7 +291,7 @@ fn fund_child_bounty_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.child_curator,
@@ -333,7 +340,7 @@ fn fund_child_bounty_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.curator,
@@ -492,7 +499,7 @@ fn check_status_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.curator,
@@ -543,7 +550,10 @@ fn check_status_works() {
 				payment_status: PaymentState::Failed
 			}
 		);
-		assert_eq!(Balances::free_balance(s.curator), 100 - s.curator_deposit);
+		assert_eq!(
+			Balances::free_balance(s.curator),
+			Balances::minimum_balance() + 100 - s.curator_deposit
+		);
 		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
 
 		// Given: parent bounty status is `RefundAttempted` and payment succeeds
@@ -566,7 +576,7 @@ fn check_status_works() {
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
 		);
-		assert_eq!(Balances::free_balance(s.curator), 100); // initial
+		assert_eq!(Balances::free_balance(s.curator), 100 + Balances::minimum_balance()); // initial
 
 		// Given: parent bounty status is `PayoutAttempted` and payment fails
 		let s = create_awarded_parent_bounty();
@@ -590,7 +600,10 @@ fn check_status_works() {
 				payment_status: PaymentState::Failed
 			}
 		);
-		assert_eq!(Balances::free_balance(s.curator), 100 - s.curator_deposit);
+		assert_eq!(
+			Balances::free_balance(s.curator),
+			Balances::minimum_balance() + 100 - s.curator_deposit
+		);
 
 		// Given: parent bounty status is `PayoutAttempted` and payment succeeds
 		let s = create_awarded_parent_bounty();
@@ -615,7 +628,7 @@ fn check_status_works() {
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
 		);
-		assert_eq!(Balances::free_balance(s.curator), 100); // initial
+		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance() + 100); // initial
 
 		// Given: child-bounty status is `FundingAttempted` and payment fails
 		let s = create_child_bounty_with_curator();
@@ -645,7 +658,7 @@ fn check_status_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.child_curator,
@@ -725,7 +738,10 @@ fn check_status_works() {
 			pallet_bounties::ChildBounties::<Test>::iter_prefix(s.parent_bounty_id).count(),
 			1
 		);
-		assert_eq!(Balances::free_balance(s.child_curator), 100 - s.child_curator_deposit);
+		assert_eq!(
+			Balances::free_balance(s.child_curator),
+			Balances::minimum_balance() + 100 - s.child_curator_deposit
+		);
 
 		// Given: child-bounty with curator and status `RefundAttempted` and payment succeeds
 		let s = create_canceled_child_bounty();
@@ -765,7 +781,7 @@ fn check_status_works() {
 			pallet_bounties::ChildBounties::<Test>::iter_prefix(s.parent_bounty_id).count(),
 			0
 		);
-		assert_eq!(Balances::free_balance(s.child_curator), 100); // initial
+		assert_eq!(Balances::free_balance(s.child_curator), Balances::minimum_balance() + 100); // initial
 
 		// Given: child-bounty without curator and status `RefundAttempted` and payment succeeds
 		let s = create_active_parent_bounty();
@@ -797,7 +813,10 @@ fn check_status_works() {
 		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
 			.expect("no payment attempt");
 		set_status(payment_id, PaymentStatus::Success);
-		assert_eq!(Balances::free_balance(s.curator), 100 - s.curator_deposit); // reserved
+		assert_eq!(
+			Balances::free_balance(s.curator),
+			Balances::minimum_balance() + 100 - s.curator_deposit
+		); // reserved
 
 		// When
 		assert_ok!(Bounties::check_status(
@@ -807,7 +826,10 @@ fn check_status_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(s.curator), 100 - s.curator_deposit); // still reserved
+		assert_eq!(
+			Balances::free_balance(s.curator),
+			Balances::minimum_balance() + 100 - s.curator_deposit
+		); // still reserved
 
 		// Given: child-bounty status is `PayoutAttempted` and payment succeeds
 		let s = create_awarded_child_bounty();
@@ -847,7 +869,7 @@ fn check_status_works() {
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
 			s.child_value
 		);
-		assert_eq!(Balances::free_balance(s.child_curator), 100); // initial
+		assert_eq!(Balances::free_balance(s.child_curator), Balances::minimum_balance() + 100); // initial
 	});
 }
 
@@ -933,7 +955,7 @@ fn retry_payment_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.curator,
@@ -1027,7 +1049,7 @@ fn retry_payment_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::FundingAttempted {
 					curator: s.child_curator,
@@ -1219,7 +1241,7 @@ fn accept_curator_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: s.curator_deposit,
+				curator_deposit: consideration(s.value),
 				hash: s.hash,
 				status: BountyStatus::Active { curator: s.curator },
 			}
@@ -1243,7 +1265,7 @@ fn accept_curator_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: s.child_curator_deposit,
+				curator_deposit: consideration(s.child_value),
 				hash: s.hash,
 				status: BountyStatus::Active { curator: s.child_curator },
 			}
@@ -1352,8 +1374,7 @@ fn accept_curator_fails() {
 		);
 
 		// Given: parent bounty status is `Funded`
-		let expected_deposit = Bounties::calculate_curator_deposit(&s.value, s.asset_kind).unwrap();
-		Balances::make_free_balance_be(&s.curator, expected_deposit - 1);
+		Balances::make_free_balance_be(&s.curator, s.curator_deposit - 1);
 		let parent_bounty_account =
 			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
 		approve_payment(parent_bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
@@ -1367,14 +1388,12 @@ fn accept_curator_fails() {
 		// When/Then
 		assert_noop!(
 			Bounties::accept_curator(RuntimeOrigin::signed(s.curator), s.parent_bounty_id, None,),
-			pallet_balances::Error::<Test, _>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 
 		// Given: child-bounty status is `Funded`
 		let s = create_child_bounty_with_curator();
-		let expected_deposit =
-			Bounties::calculate_curator_deposit(&s.child_value, s.asset_kind).unwrap();
-		Balances::make_free_balance_be(&s.child_curator, expected_deposit - 1);
+		Balances::make_free_balance_be(&s.child_curator, s.child_curator_deposit - 1);
 		let child_bounty_account =
 			Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind)
 				.expect("conversion failed");
@@ -1403,7 +1422,7 @@ fn accept_curator_fails() {
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 			),
-			pallet_balances::Error::<Test, _>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 	});
 }
@@ -1431,12 +1450,12 @@ fn unassign_curator_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::CuratorUnassigned,
 			}
 		);
-		assert_eq!(Balances::free_balance(&s.curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: parent bounty status is `Funded`
 		let s = create_funded_parent_bounty();
@@ -1445,7 +1464,7 @@ fn unassign_curator_works() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), s.parent_bounty_id, None));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: parent bounty status is `Active` and sender is the curator
 		let s = create_active_parent_bounty();
@@ -1458,7 +1477,7 @@ fn unassign_curator_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: parent bounty status is `Active` and sender is `RejectOrigin`
 		let s = create_active_parent_bounty();
@@ -1467,7 +1486,10 @@ fn unassign_curator_works() {
 		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), s.parent_bounty_id, None));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.curator), 100 - s.curator_deposit); // slashed
+		assert_eq!(
+			Balances::free_balance(&s.curator),
+			Balances::minimum_balance() + 100 - s.curator_deposit
+		); // slashed
 
 		// Given: child-bounty status is `Funded`
 		let s = create_funded_child_bounty();
@@ -1490,12 +1512,12 @@ fn unassign_curator_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::CuratorUnassigned,
 			}
 		);
-		assert_eq!(Balances::free_balance(&s.child_curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.child_curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: child-bounty status is `Funded`
 		let s = create_funded_child_bounty();
@@ -1508,7 +1530,7 @@ fn unassign_curator_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.child_curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.child_curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: child-bounty status is `Active`
 		let s = create_active_child_bounty();
@@ -1521,7 +1543,7 @@ fn unassign_curator_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.child_curator), 100); // not slashed
+		assert_eq!(Balances::free_balance(&s.child_curator), Balances::minimum_balance() + 100); // not slashed
 
 		// Given: child-bounty status is `Active`
 		let s = create_active_child_bounty();
@@ -1534,7 +1556,10 @@ fn unassign_curator_works() {
 		));
 
 		// Then
-		assert_eq!(Balances::free_balance(&s.child_curator), 100 - s.child_curator_deposit); // slashed
+		assert_eq!(
+			Balances::free_balance(&s.child_curator),
+			Balances::minimum_balance() + 100 - s.child_curator_deposit
+		); // slashed
 	});
 }
 
@@ -1623,7 +1648,7 @@ fn propose_curator_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::Funded { curator: s.curator },
 			}
@@ -1655,7 +1680,7 @@ fn propose_curator_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::Funded { curator: s.child_curator },
 			}
@@ -1795,7 +1820,7 @@ fn award_bounty_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: s.curator_deposit,
+				curator_deposit: consideration(s.value),
 				hash: s.hash,
 				status: BountyStatus::PayoutAttempted {
 					curator: s.curator,
@@ -1833,7 +1858,7 @@ fn award_bounty_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: s.child_curator_deposit,
+				curator_deposit: consideration(s.child_value),
 				hash: s.hash,
 				status: BountyStatus::PayoutAttempted {
 					curator: s.child_curator,
@@ -1930,7 +1955,7 @@ fn close_bounty_works() {
 			Bounty {
 				asset_kind: s.asset_kind,
 				value: s.value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::RefundAttempted {
 					curator: Some(s.curator),
@@ -2001,7 +2026,7 @@ fn close_bounty_works() {
 			ChildBounty {
 				parent_bounty: s.parent_bounty_id,
 				value: s.child_value,
-				curator_deposit: 0,
+				curator_deposit: consideration(0),
 				hash: s.hash,
 				status: BountyStatus::RefundAttempted {
 					curator: Some(s.child_curator),
@@ -2293,7 +2318,7 @@ fn fund_and_award_child_bounty_without_curator_works() {
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
 			s.child_value
 		);
-		assert_eq!(Balances::free_balance(s.child_curator), 100); // initial
+		assert_eq!(Balances::free_balance(s.child_curator), Balances::minimum_balance() + 100); // initial
 	})
 }
 

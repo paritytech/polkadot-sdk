@@ -26,12 +26,16 @@ use alloc::collections::btree_map::BTreeMap;
 use core::cell::RefCell;
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{tokens::UnityAssetBalanceConversion, ConstU32, ConstU64, Currency},
+	traits::{
+		fungible::{HoldConsideration, Mutate},
+		tokens::UnityAssetBalanceConversion,
+		ConstU32, ConstU64, Currency,
+	},
 	weights::constants::ParityDbWeight,
 	PalletId,
 };
 use sp_runtime::{
-	traits::{BlakeTwo256, Hash, IdentityLookup},
+	traits::{BlakeTwo256, Convert, Hash, IdentityLookup},
 	BuildStorage, Perbill,
 };
 
@@ -115,6 +119,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl pallet_preimage::Config for Test {
@@ -167,61 +172,74 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for TestSpendOrigin {
 parameter_types! {
 	// This will be 50% of the bounty value.
 	pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
-	pub const CuratorDepositMax: Balance = 1_000;
 	pub const CuratorDepositMin: Balance = 3;
+	pub const CuratorDepositMax: Balance = 1_000;
+	pub const CuratorDepositHoldReason: RuntimeHoldReason = RuntimeHoldReason::Bounties(pallet_bounties::HoldReason::CuratorDeposit);
 	pub static MaxActiveChildBountyCount: u32 = 3;
 }
 
 impl Config for Test {
 	type PalletId = BountyPalletId;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Balance = <Self as pallet_balances::Config>::Balance;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = u128;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type CuratorDepositMultiplier = CuratorDepositMultiplier;
-	type CuratorDepositMax = CuratorDepositMax;
-	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
-	type OnSlash = ();
 	type FundingSource = FundingSourceAccount<Test, ()>;
 	type BountySource = BountySourceAccount<Test, ()>;
 	type ChildBountySource = ChildBountySourceAccount<Test, ()>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
+	type Consideration = HoldConsideration<
+		Self::AccountId,
+		Balances,
+		CuratorDepositHoldReason,
+		CuratorDepositAmount<
+			CuratorDepositMultiplier,
+			CuratorDepositMin,
+			CuratorDepositMax,
+			Balance,
+		>,
+		Balance,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
-
+type CuratorDeposit =
+	CuratorDepositAmount<CuratorDepositMultiplier, CuratorDepositMin, CuratorDepositMax, Balance>;
 impl Config<Instance1> for Test {
 	type PalletId = BountyPalletId2;
-	type Currency = pallet_balances::Pallet<Test>;
+	type Balance = <Self as pallet_balances::Config>::Balance;
 	type RejectOrigin = frame_system::EnsureRoot<u128>;
 	type SpendOrigin = TestSpendOrigin;
 	type AssetKind = u32;
 	type Beneficiary = u128;
 	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type CuratorDepositMultiplier = CuratorDepositMultiplier;
-	type CuratorDepositMax = CuratorDepositMax;
-	type CuratorDepositMin = CuratorDepositMin;
 	type BountyValueMinimum = ConstU64<2>;
 	type ChildBountyValueMinimum = ConstU64<1>;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
 	type MaximumReasonLength = ConstU32<16384>;
 	type WeightInfo = ();
-	type OnSlash = ();
 	type FundingSource = FundingSourceAccount<Test, Instance1>;
 	type BountySource = BountySourceAccount<Test, Instance1>;
 	type ChildBountySource = ChildBountySourceAccount<Test, Instance1>;
 	type Paymaster = TestBountiesPay;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type Preimages = Preimage;
+	type Consideration = HoldConsideration<
+		Self::AccountId,
+		Balances,
+		CuratorDepositHoldReason,
+		CuratorDeposit,
+		Balance,
+	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -317,6 +335,11 @@ pub fn note_preimage(who: u128) -> <Test as frame_system::Config>::Hash {
 	hash
 }
 
+/// create consideration for comparison in tests
+pub fn consideration(amount: u64) -> <Test as Config>::Consideration {
+	<Test as Config>::Consideration::new(&0, amount).unwrap()
+}
+
 pub fn get_payment_id(
 	parent_bounty_id: BountyIndex,
 	child_bounty_id: Option<BountyIndex>,
@@ -389,12 +412,11 @@ pub fn setup_bounty() -> TestBounty {
 	let child_curator = 8;
 	let beneficiary = 5;
 	let child_beneficiary = 9;
-	let expected_deposit = Bounties::calculate_curator_deposit(&value, asset_kind).unwrap();
-	let child_expected_deposit =
-		Bounties::calculate_curator_deposit(&child_value, asset_kind).unwrap();
+	let expected_deposit = CuratorDeposit::convert(value);
+	let child_expected_deposit = CuratorDeposit::convert(child_value);
 	let hash = note_preimage(1);
-	Balances::make_free_balance_be(&curator, 100);
-	Balances::make_free_balance_be(&child_curator, 100);
+	Balances::set_balance(&curator, Balances::minimum_balance() + 100);
+	Balances::set_balance(&child_curator, Balances::minimum_balance() + 100);
 
 	TestBounty {
 		parent_bounty_id: 0,

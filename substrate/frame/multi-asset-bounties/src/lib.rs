@@ -836,10 +836,15 @@ pub mod pallet {
 
 			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind)
 				.map_err(|_| Error::<T, I>::FailedToConvertBalance)?;
-			let _ = T::Consideration::update(curator_deposit, &curator, native_amount)?;
-
+			let new_curator_deposit =
+				T::Consideration::update(curator_deposit, &curator, native_amount)?;
 			let new_status = BountyStatus::Active { curator: curator.clone() };
-			Self::update_bounty_details(parent_bounty_id, child_bounty_id, new_status, None)?;
+			Self::update_bounty_details(
+				parent_bounty_id,
+				child_bounty_id,
+				new_status,
+				Some(new_curator_deposit),
+			)?;
 
 			Self::deposit_event(Event::<T, I>::BountyBecameActive {
 				index: parent_bounty_id,
