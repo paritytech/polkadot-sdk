@@ -1637,6 +1637,36 @@ impl pallet_offences::Config for Runtime {
 	type OnOffenceHandler = Staking;
 }
 
+parameter_types! {
+	pub const OpfPalletId: PalletId = PalletId(*b"py/opfun");
+	pub TreasuryAccountId: AccountId = Treasury::account_id();
+}
+
+impl pallet_opf::Config for Runtime {
+	type PotId = OpfPalletId;
+	type Fungible = Balances;
+	type WeightInfo = pallet_opf::weights::SubstrateWeight<Runtime>;
+	type AdminOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProjects = ConstU32<1000>;
+	type RoundDuration = ConstU32<{ 30u32 * DAYS }>;
+	type BlockNumberProvider = System;
+	type ResetVotesRoundNumber = ConstU32<10>;
+	type TreasuryAccountId = TreasuryAccountId;
+	type ConvictionVotingInstance = Instance1;
+}
+
+impl pallet_conviction_voting::Config<Instance1> for Runtime {
+	type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Self>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type VoteLockingPeriod = ConstU32<{ 30 * DAYS }>;
+	type MaxVotes = ConstU32<512>;
+	type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
+	type Polls = Opf;
+	type BlockNumberProvider = System;
+	type VotingHooks = Opf;
+}
+
 impl pallet_authority_discovery::Config for Runtime {
 	type MaxAuthorities = MaxAuthorities;
 }
@@ -2799,6 +2829,12 @@ mod runtime {
 
 	#[runtime::pallet_index(89)]
 	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
+
+	#[runtime::pallet_index(90)]
+	pub type Opf = pallet_opf::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type OpfConvictionVoting = pallet_conviction_voting::Pallet<Runtime, Instance1>;
 }
 
 /// The address format for describing accounts.
@@ -3054,6 +3090,8 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
+		[pallet_opf, Opf]
+		[pallet_conviction_voting, OpfConvictionVoting]
 	);
 }
 

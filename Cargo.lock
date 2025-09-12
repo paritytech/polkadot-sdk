@@ -12842,6 +12842,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-opf"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-conviction-voting",
+ "pallet-preimage",
+ "pallet-referenda",
+ "pallet-scheduler",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core 28.0.0",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 14.0.0",
+]
+
+[[package]]
 name = "pallet-origin-restriction"
 version = "1.0.0"
 dependencies = [
@@ -16303,6 +16328,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
+ "pallet-opf",
  "pallet-origin-restriction",
  "pallet-paged-list",
  "pallet-parameters",

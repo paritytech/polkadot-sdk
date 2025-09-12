@@ -118,6 +118,7 @@ std = [
 	"pallet-nomination-pools?/std",
 	"pallet-offences-benchmarking?/std",
 	"pallet-offences?/std",
+	"pallet-opf?/std",
 	"pallet-origin-restriction?/std",
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
@@ -303,6 +304,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools?/runtime-benchmarks",
 	"pallet-offences-benchmarking?/runtime-benchmarks",
 	"pallet-offences?/runtime-benchmarks",
+	"pallet-opf?/runtime-benchmarks",
 	"pallet-origin-restriction?/runtime-benchmarks",
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
@@ -440,6 +442,7 @@ try-runtime = [
 	"pallet-node-authorization?/try-runtime",
 	"pallet-nomination-pools?/try-runtime",
 	"pallet-offences?/try-runtime",
+	"pallet-opf?/try-runtime",
 	"pallet-origin-restriction?/try-runtime",
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
@@ -503,6 +506,7 @@ serde = [
 	"pallet-message-queue?/serde",
 	"pallet-meta-tx?/serde",
 	"pallet-offences?/serde",
+	"pallet-opf?/serde",
 	"pallet-parameters?/serde",
 	"pallet-referenda?/serde",
 	"pallet-remark?/serde",
@@ -654,6 +658,7 @@ runtime-full = [
 	"pallet-nomination-pools-runtime-api",
 	"pallet-offences",
 	"pallet-offences-benchmarking",
+	"pallet-opf",
 	"pallet-origin-restriction",
 	"pallet-paged-list",
 	"pallet-parameters",
@@ -1562,6 +1567,11 @@ path = "../substrate/frame/offences"
 default-features = false
 optional = true
 path = "../substrate/frame/offences/benchmarking"
+
+[dependencies.pallet-opf]
+default-features = false
+optional = true
+path = "../substrate/frame/opf"
 
 [dependencies.pallet-origin-restriction]
 default-features = false
