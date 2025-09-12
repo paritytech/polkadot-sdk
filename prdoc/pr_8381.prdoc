@@ -1,0 +1,13 @@
+title: 'pallet-multi-asset-bounties: create first version of the pallet'
+doc:
+- audience: Runtime Dev
+  description: 'Closes #8768'
+crates:
+- name: pallet-multi-asset-bounties
+  bump: patch
+- name: pallet-treasury
+  bump: patch
+- name: frame-support
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
