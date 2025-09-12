@@ -52,8 +52,9 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
-use pallet_revive_uapi::precompiles::system::ISystem;
-use pallet_revive_uapi::{pack_hi_lo, CallFlags, ReturnErrorCode, StorageFlags};
+use pallet_revive_uapi::{
+	pack_hi_lo, precompiles::system::ISystem, CallFlags, ReturnErrorCode, StorageFlags,
+};
 use revm::{
 	bytecode::{opcode::EXTCODECOPY, Bytecode},
 	interpreter::{

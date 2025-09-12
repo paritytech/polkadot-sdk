@@ -61,31 +61,12 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
-				let is_origin = match env.origin() {
-					Origin::Root => {
-						// `Root` does not have an address
-						false
-					},
-					Origin::Signed(origin_account_id) => {
-						let origin_address = T::AddressMapper::to_address(&origin_account_id).0;
-						match env.caller() {
-							Origin::Signed(caller_account_id) => {
-								let caller_address =
-									T::AddressMapper::to_address(&caller_account_id).0;
-								origin_address == caller_address
-							},
-							Origin::Root => false,
-						}
-					},
-				};
+				let is_origin = env.caller_is_origin();
 				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
-				let is_root = match env.caller() {
-					Origin::Root => true,
-					Origin::Signed(_) => false,
-				};
+				let is_root = env.caller_is_root();
 				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
