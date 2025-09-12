@@ -31,10 +31,9 @@ pub enum PaysRemoteFeeWithMaybeDefault<RemoteFeeAsset> {
 	No,
 	/// Pays fees and will use the `GetDefaultFee` trait to derive the fees.
 	YesWithDefault,
-	/// Defines that remote execution fees have to be paid, and optionally defines the payment asset.
-	Yes {
-		fee_asset: RemoteFeeAsset,
-	},
+	/// Defines that remote execution fees have to be paid, and optionally defines the payment
+	/// asset.
+	Yes { fee_asset: RemoteFeeAsset },
 }
 
 /// Defines if the sender have to pay remote XCM execution fees.
@@ -43,9 +42,7 @@ pub enum PaysRemoteFee<RemoteFeeAsset> {
 	/// No remote XCM execution fees have to be paid.
 	No,
 	/// Defines that remote execution fees have to be paid.
-	Yes {
-		fee_asset: RemoteFeeAsset,
-	},
+	Yes { fee_asset: RemoteFeeAsset },
 }
 
 /// Is intended to be implemented using a `fungible` impl, but can also be implemented with
