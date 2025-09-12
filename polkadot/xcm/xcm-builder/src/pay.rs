@@ -57,6 +57,7 @@ pub type PayOverXcm<
 	TransferOverXcmHelper<
 		Router,
 		Querier,
+		WaiveDeliveryFees,
 		Timeout,
 		Beneficiary,
 		AssetKind,
@@ -65,12 +66,14 @@ pub type PayOverXcm<
 	>,
 >;
 
+pub type WaiveDeliveryFees = ();
+
 pub struct PayOverXcmWithHelper<Interior, TransferOverXcmHelper>(
 	PhantomData<(Interior, TransferOverXcmHelper)>,
 );
-impl<Interior: Get<InteriorLocation>, TransferOverXcmHelper: TransferOverXcmHelperT> Pay
-	for PayOverXcmWithHelper<Interior, TransferOverXcmHelper>
+impl<Interior, TransferOverXcmHelper> Pay for PayOverXcmWithHelper<Interior, TransferOverXcmHelper>
 where
+	Interior: Get<InteriorLocation>,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 {
 	type Balance = u128;
@@ -84,7 +87,7 @@ where
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let (_delivery_fees, query_id) = TransferOverXcmHelper::send_remote_transfer_xcm(
+		let query_id = TransferOverXcmHelper::send_remote_transfer_xcm(
 			Interior::get().into(),
 			who,
 			asset_kind,

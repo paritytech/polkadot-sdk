@@ -63,11 +63,11 @@ pub type TransferOverXcm<
 	TransactorRefToLocation,
 > = TransferOverXcmWithHelper<
 	DefaultRemoteFee,
-	XcmFeeHandler,
 	TransactorRefToLocation,
 	TransferOverXcmHelper<
 		Router,
 		Querier,
+		XcmFeeHandler,
 		Timeout,
 		Transactors,
 		AssetKind,
@@ -78,21 +78,14 @@ pub type TransferOverXcm<
 
 pub struct TransferOverXcmWithHelper<
 	DefaultRemoteFee,
-	XcmFeeHandler,
 	TransactorRefToLocation,
 	TransferOverXcmHelper,
->(PhantomData<(DefaultRemoteFee, XcmFeeHandler, TransactorRefToLocation, TransferOverXcmHelper)>);
+>(PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>);
 
-impl<DefaultRemoteFee, XcmFeeHandler, TransactorRefToLocation, TransferOverXcmHelper> Transfer
-	for TransferOverXcmWithHelper<
-		DefaultRemoteFee,
-		XcmFeeHandler,
-		TransactorRefToLocation,
-		TransferOverXcmHelper,
-	>
+impl<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper> Transfer
+	for TransferOverXcmWithHelper<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
 where
 	DefaultRemoteFee: GetDefaultRemoteFee,
-	XcmFeeHandler: FeeManager,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 	TransactorRefToLocation: for<'a> TryConvert<&'a TransferOverXcmHelper::Beneficiary, Location>,
 {
@@ -124,18 +117,13 @@ where
 			PaysRemoteFeeWithMaybeDefault::No => PaysRemoteFee::No,
 		};
 
-		let (delivery_fees, query_id) = TransferOverXcmHelper::send_remote_transfer_xcm(
+		let query_id = TransferOverXcmHelper::send_remote_transfer_xcm(
 			from_location.clone(),
 			to,
 			asset_kind,
 			amount,
 			remote_fee,
 		)?;
-
-		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
-			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
-		}
-
 		Ok(query_id)
 	}
 
@@ -161,6 +149,7 @@ where
 pub struct TransferOverXcmHelper<
 	Router,
 	Querier,
+	XcmFeeHandler,
 	Timeout,
 	Transactor,
 	AssetKind,
@@ -170,6 +159,7 @@ pub struct TransferOverXcmHelper<
 	PhantomData<(
 		Router,
 		Querier,
+		XcmFeeHandler,
 		Timeout,
 		Transactor,
 		AssetKind,
@@ -193,7 +183,7 @@ pub trait TransferOverXcmHelperT {
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 		remote_fee: PaysRemoteFee<Asset>,
-	) -> Result<(Assets, QueryId), Error>;
+	) -> Result<QueryId, Error>;
 
 	fn check_payment(id: Self::QueryId) -> PaymentStatus;
 
@@ -207,6 +197,7 @@ pub trait TransferOverXcmHelperT {
 impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
+		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Transactor: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
@@ -216,6 +207,7 @@ impl<
 	for TransferOverXcmHelper<
 		Router,
 		Querier,
+		XcmFeeHandler,
 		Timeout,
 		Transactor,
 		AssetKind,
@@ -235,7 +227,7 @@ impl<
 		asset_kind: AssetKind,
 		amount: u128,
 		remote_fee: PaysRemoteFee<Asset>,
-	) -> Result<(Assets, QueryId), Error> {
+	) -> Result<QueryId, Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
 
@@ -254,7 +246,7 @@ impl<
 
 		let message = match remote_fee {
 			PaysRemoteFee::No => remote_transfer_xcm_free_execution(
-				from_location,
+				from_location.clone(),
 				origin_location_on_remote,
 				beneficiary,
 				asset_id,
@@ -262,7 +254,7 @@ impl<
 				query_id,
 			)?,
 			PaysRemoteFee::Yes { fee_asset } => remote_transfer_xcm_paying_fees(
-				from_location,
+				from_location.clone(),
 				origin_location_on_remote,
 				beneficiary,
 				asset_id,
@@ -276,7 +268,11 @@ impl<
 			Router::validate(&mut Some(asset_location), &mut Some(message))?;
 		Router::deliver(ticket)?;
 
-		Ok((delivery_fees, query_id))
+		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
+			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
+		}
+
+		Ok(query_id)
 	}
 
 	fn check_payment(id: Self::QueryId) -> PaymentStatus {
@@ -307,6 +303,7 @@ impl<
 impl<
 		Router: SendXcm,
 		Querier: QueryHandler,
+		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Beneficiary: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
@@ -316,6 +313,7 @@ impl<
 	TransferOverXcmHelper<
 		Router,
 		Querier,
+		XcmFeeHandler,
 		Timeout,
 		Beneficiary,
 		AssetKind,

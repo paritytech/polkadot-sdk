@@ -58,6 +58,7 @@ type TestTransferOverXcm = TransferOverXcm<
 type TestTransferOverXcmHelper = TransferOverXcmHelper<
 	TestMessageSender,
 	TestQueryHandler<TestConfig, BlockNumber>,
+	TestFeeManager,
 	Timeout,
 	AccountId,
 	AssetKind,
