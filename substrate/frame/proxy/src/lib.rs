@@ -60,6 +60,11 @@ pub type BlockNumberFor<T> =
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+type ProxyDefinitions<T, BlockNumber = BlockNumberFor<T>> = BoundedVec<
+	ProxyDefinition<<T as frame_system::Config>::AccountId, <T as Config>::ProxyType, BlockNumber>,
+	<T as Config>::MaxProxies,
+>;
+
 /// The parameters under which a particular account has a proxy relationship with some other
 /// account.
 #[derive(
@@ -856,12 +861,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// Public function to proxies storage.
-	pub fn proxies(
-		account: T::AccountId,
-	) -> (
-		BoundedVec<ProxyDefinition<T::AccountId, T::ProxyType, BlockNumberFor<T>>, T::MaxProxies>,
-		BalanceOf<T>,
-	) {
+	pub fn proxies(account: T::AccountId) -> (ProxyDefinitions<T>, BalanceOf<T>) {
 		Proxies::<T>::get(account)
 	}
 

@@ -93,7 +93,7 @@
 
 use crate::{
 	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
-	ProxyDefinition,
+	ProxyDefinitions,
 };
 extern crate alloc;
 
@@ -229,10 +229,7 @@ where
 	/// Preserves proxy relationships even when hold creation fails.
 	fn migrate_proxy_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
-		proxies: BoundedVec<
-			ProxyDefinition<<T as frame_system::Config>::AccountId, T::ProxyType, BlockNumber>,
-			T::MaxProxies,
-		>,
+		proxies: ProxyDefinitions<T, BlockNumber>,
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
