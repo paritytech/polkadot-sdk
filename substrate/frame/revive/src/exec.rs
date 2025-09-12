@@ -208,6 +208,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	fn terminate(&mut self, beneficiary: &H160) -> Result<CodeRemoved, DispatchError>;
 
 	/// Returns the code hash of the contract being executed.
+	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
 	/// Sets new code hash and immutable data for an existing contract.
