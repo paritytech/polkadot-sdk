@@ -81,7 +81,7 @@ where
 		remote_fee: PaysRemoteFeeWithMaybeDefault<Self::RemoteFeeAsset>,
 	) -> Result<Self::Id, Self::Error> {
 		let from_location = TransactorRefToLocation::try_convert(from).map_err(|error| {
-			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
+			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert `Sender` to location");
 			Error::InvalidLocation
 		})?;
 
