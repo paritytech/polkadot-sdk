@@ -926,26 +926,7 @@ impl<T: Config> Pallet<T> {
 			let i = proxies.binary_search(&proxy_def).err().ok_or(Error::<T>::Duplicate)?;
 			proxies.try_insert(i, proxy_def).map_err(|_| Error::<T>::TooMany)?;
 			let new_deposit = Self::deposit(proxies.len() as u32);
-
-			// Special handling for zero-deposit accounts (failed migration)
-			// If deposit is zero but proxies existed before, we need to hold the full new deposit
-			if *deposit == Zero::zero() && proxies.len() > 1 {
-				// This is a failed migration account - need to restore full deposit
-				T::Currency::hold(&HoldReason::ProxyDeposit.into(), delegator, new_deposit)?;
-			} else if new_deposit > *deposit {
-				T::Currency::hold(
-					&HoldReason::ProxyDeposit.into(),
-					delegator,
-					new_deposit - *deposit,
-				)?;
-			} else if new_deposit < *deposit {
-				let _ = T::Currency::release(
-					&HoldReason::ProxyDeposit.into(),
-					delegator,
-					*deposit - new_deposit,
-					Precision::BestEffort,
-				);
-			}
+			T::Currency::set_on_hold(&HoldReason::ProxyDeposit.into(), delegator, new_deposit)?;
 			*deposit = new_deposit;
 			Self::deposit_event(Event::<T>::ProxyAdded {
 				delegator: delegator.clone(),
@@ -982,28 +963,10 @@ impl<T: Config> Pallet<T> {
 			proxies.remove(i);
 			let new_deposit = Self::deposit(proxies.len() as u32);
 
-			let final_deposit = if old_deposit == Zero::zero() {
-				// Special handling for zero-deposit accounts (failed migration)
-				// Keep deposit as zero - no refund needed (funds already in free balance)
-				Zero::zero()
-			} else if new_deposit > old_deposit {
-				T::Currency::hold(
-					&HoldReason::ProxyDeposit.into(),
-					delegator,
-					new_deposit - old_deposit,
-				)?;
-				new_deposit
-			} else if new_deposit < old_deposit {
-				let _ = T::Currency::release(
-					&HoldReason::ProxyDeposit.into(),
-					delegator,
-					old_deposit - new_deposit,
-					Precision::BestEffort,
-				);
-				new_deposit
-			} else {
-				new_deposit
-			};
+			// For failed migration accounts (old_deposit == 0), keep deposit at 0
+			let final_deposit =
+				if old_deposit == Zero::zero() { Zero::zero() } else { new_deposit };
+			T::Currency::set_on_hold(&HoldReason::ProxyDeposit.into(), delegator, final_deposit)?;
 
 			if !proxies.is_empty() {
 				*x = Some((proxies, final_deposit))
