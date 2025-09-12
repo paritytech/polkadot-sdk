@@ -3028,9 +3028,7 @@ fn root_can_call() {
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
 		// Call the contract.
-		let result = builder::call(addr).origin(RuntimeOrigin::root()).build();
-		println!(">>>>>>>result: {result:?}");
-		assert_ok!(result);
+		assert_ok!(builder::call(addr).origin(RuntimeOrigin::root()).build());
 	});
 }
 
