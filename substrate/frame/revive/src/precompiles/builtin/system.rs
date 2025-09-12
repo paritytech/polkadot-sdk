@@ -16,10 +16,9 @@
 // limitations under the License.
 
 use crate::{
-	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
-	Config, Origin, H160,
+	Config, H160,
 };
 use alloc::vec::Vec;
 use alloy_core::sol_types::SolValue;
