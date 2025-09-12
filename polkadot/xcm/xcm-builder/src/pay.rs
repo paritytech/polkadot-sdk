@@ -24,6 +24,7 @@ use frame_support::traits::{
 };
 use sp_runtime::traits::TryConvert;
 use xcm::prelude::*;
+use xcm_executor::traits::WaiveDeliveryFees;
 
 /// Implementation of the `frame_support::traits::tokens::Pay` trait, to allow
 /// for XCM-based payments of a given `Balance` of some asset ID existing on some chain under
@@ -65,8 +66,6 @@ pub type PayOverXcm<
 		BeneficiaryRefToLocation,
 	>,
 >;
-
-pub type WaiveDeliveryFees = ();
 
 pub struct PayOverXcmWithHelper<Interior, TransferOverXcmHelper>(
 	PhantomData<(Interior, TransferOverXcmHelper)>,
