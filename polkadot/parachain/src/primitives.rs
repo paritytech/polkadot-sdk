@@ -396,6 +396,8 @@ pub enum XcmpMessageFormat {
 	/// One or more channel control signals; these should be interpreted immediately upon receipt
 	/// from the relay-chain.
 	Signals,
+	/// Double encoded `VersionedXcm` messages, all concatenated.
+	ConcatenatedOpaqueVersionedXcm,
 }
 
 /// Something that should be called for each batch of messages received over XCMP.
