@@ -453,9 +453,9 @@ pub fn create_parent_bounty() -> TestBounty {
 pub fn create_funded_parent_bounty() -> TestBounty {
 	let s = create_parent_bounty();
 
-	let parent_bounty_account = Bounties::bounty_account(s.parent_bounty_id, s.asset_kind.clone())
-		.expect("conversion failed");
-	approve_payment(parent_bounty_account, s.parent_bounty_id, None, s.asset_kind.clone(), s.value);
+	let parent_bounty_account =
+		Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+	approve_payment(parent_bounty_account, s.parent_bounty_id, None, s.asset_kind, s.value);
 
 	s
 }
@@ -525,13 +525,13 @@ pub fn create_funded_child_bounty() -> TestBounty {
 	let s = create_child_bounty_with_curator();
 
 	let child_bounty_account =
-		Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind.clone())
+		Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind)
 			.expect("conversion failed");
 	approve_payment(
 		child_bounty_account,
 		s.parent_bounty_id,
 		Some(s.child_bounty_id),
-		s.asset_kind.clone(),
+		s.asset_kind,
 		s.child_value,
 	);
 

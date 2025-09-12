@@ -267,12 +267,9 @@ fn fund_child_bounty_works() {
 		// Then
 		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
 			.expect("no payment attempt");
-		let child_bounty_account = Bounties::child_bounty_account(
-			s.parent_bounty_id,
-			s.child_bounty_id,
-			s.asset_kind.clone(),
-		)
-		.expect("conversion failed");
+		let child_bounty_account =
+			Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind)
+				.expect("conversion failed");
 		assert_eq!(paid(child_bounty_account, s.asset_kind), s.child_value);
 		expect_events(vec![
 			BountiesEvent::Paid {
@@ -792,17 +789,14 @@ fn check_status_works() {
 			None,
 			s.hash
 		));
-		let child_bounty_account = Bounties::child_bounty_account(
-			s.parent_bounty_id,
-			s.child_bounty_id,
-			s.asset_kind.clone(),
-		)
-		.expect("conversion failed");
+		let child_bounty_account =
+			Bounties::child_bounty_account(s.parent_bounty_id, s.child_bounty_id, s.asset_kind)
+				.expect("conversion failed");
 		approve_payment(
 			child_bounty_account,
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
-			s.asset_kind.clone(),
+			s.asset_kind,
 			s.child_value,
 		);
 		assert_ok!(Bounties::close_bounty(
