@@ -39,10 +39,7 @@ use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
 	traits::{
-		fungible::{
-			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Inspect as FunInspect, Mutate as FunMutate,
-		},
+		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
 		tokens::Precision,
 		InstanceFilter, StorageVersion,
 	},
@@ -180,9 +177,7 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// The currency mechanism.
-		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ FunMutate<Self::AccountId>
-			+ FunHoldBalanced<Self::AccountId>;
+		type Currency: FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
 		/// Overarching hold reason.
 		type RuntimeHoldReason: From<HoldReason>;

@@ -39,7 +39,10 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
-fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str> {
+fn add_proxies<T: Config>(n: u32, maybe_who: Option<T::AccountId>) -> Result<(), &'static str>
+where
+	T::Currency: FunMutate<T::AccountId>,
+{
 	let caller = maybe_who.unwrap_or_else(whitelisted_caller);
 	// Mint sufficient balance for operations and deposits
 	let balance_amount = BalanceOf::<T>::max_value() / 100u32.into();
@@ -61,7 +64,10 @@ fn add_announcements<T: Config>(
 	n: u32,
 	maybe_who: Option<T::AccountId>,
 	maybe_real: Option<T::AccountId>,
-) -> Result<(), &'static str> {
+) -> Result<(), &'static str>
+where
+	T::Currency: FunMutate<T::AccountId>,
+{
 	let caller = if let Some(who) = maybe_who {
 		who
 	} else {
@@ -99,7 +105,7 @@ fn add_announcements<T: Config>(
 	Ok(())
 }
 
-#[benchmarks]
+#[benchmarks(where T::Currency: FunMutate<T::AccountId>)]
 mod benchmarks {
 	use super::*;
 
