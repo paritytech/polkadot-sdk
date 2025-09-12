@@ -16,7 +16,10 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{
+	run_with_validation_params, trie_cache, trie_recorder, MemoryOptimizedValidationParams,
+	ValidationParams,
+};
 use crate::parachain_inherent::BasicParachainInherentData;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
@@ -78,12 +81,7 @@ environmental::environmental!(recorder: trait ProofSizeProvider);
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 #[doc(hidden)]
 #[allow(deprecated)]
-pub fn validate_block<
-	B: BlockT,
-	E: ExecuteBlock<B>,
-	PSC: crate::Config,
-	CI: crate::CheckInherents<B>,
->(
+pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	MemoryOptimizedValidationParams {
 		block_data,
 		parent_head: parachain_head,
@@ -168,6 +166,11 @@ where
 	let mut head_data = None;
 	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
+	let mut validation_params = ValidationParams {
+		parent_head: parachain_head,
+		relay_parent_number,
+		relay_parent_storage_root,
+	};
 
 	// Create the db
 	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
@@ -205,55 +208,21 @@ where
 		let mut overlay = OverlayedChanges::default();
 
 		parent_header = block.header().clone();
-		let inherent_data = extract_parachain_inherent_data(&block);
 
-		validate_validation_data(
-			&inherent_data.validation_data,
-			relay_parent_number,
-			relay_parent_storage_root,
-			&parachain_head,
-		);
-
-		// We don't need the recorder or the overlay in here.
-		run_with_externalities_and_recorder::<B, _, _>(
-			&backend,
-			&mut Default::default(),
-			&mut Default::default(),
-			|| {
-				let relay_chain_proof = crate::RelayChainStateProof::new(
-					PSC::SelfParaId::get(),
-					inherent_data.validation_data.relay_parent_storage_root,
-					inherent_data.relay_chain_state.clone(),
-				)
-				.expect("Invalid relay chain state proof");
-
-				#[allow(deprecated)]
-				let res = CI::check_inherents(&block, &relay_chain_proof);
-
-				if !res.ok() {
-					if log::log_enabled!(log::Level::Error) {
-						res.into_errors().for_each(|e| {
-							log::error!("Checking inherent with identifier `{:?}` failed", e.0)
-						});
-					}
-
-					panic!("Checking inherents failed");
-				}
-			},
-		);
-
-		run_with_externalities_and_recorder::<B, _, _>(
-			&execute_backend,
-			// Here is the only place where we want to use the recorder.
-			// We want to ensure that we not accidentally read something from the proof, that was
-			// not yet read and thus, alter the proof size. Otherwise we end up with mismatches in
-			// later blocks.
-			&mut execute_recorder,
-			&mut overlay,
-			|| {
-				E::execute_block(block);
-			},
-		);
+		run_with_validation_params(&mut validation_params, || {
+			run_with_externalities_and_recorder::<B, _, _>(
+				&execute_backend,
+				// Here is the only place where we want to use the recorder.
+				// We want to ensure that we not accidentally read something from the proof, that
+				// was not yet read and thus, alter the proof size. Otherwise, we end up with
+				// mismatches in later blocks.
+				&mut execute_recorder,
+				&mut overlay,
+				|| {
+					E::execute_block(block);
+				},
+			);
+		});
 
 		run_with_externalities_and_recorder::<B, _, _>(
 			&backend,

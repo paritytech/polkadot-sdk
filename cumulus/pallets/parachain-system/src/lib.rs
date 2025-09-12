@@ -96,12 +96,10 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// ```
 ///     struct BlockExecutor;
 ///     struct Runtime;
-///     struct CheckInherents;
 ///
 ///     cumulus_pallet_parachain_system::register_validate_block! {
 ///         Runtime = Runtime,
 ///         BlockExecutor = Executive,
-///         CheckInherents = CheckInherents,
 ///     }
 ///
 /// # fn main() {}
@@ -591,6 +589,10 @@ pub mod pallet {
 				relay_parent_descendants,
 				collator_peer_id: _,
 			} = data;
+
+			// Ensure that the validation data is correct when run in the context of
+			// `validate_block`.
+			Self::validate_validation_data(&vfp);
 
 			// Check that the associated relay chain block number is as expected.
 			T::CheckAssociatedRelayNumber::check_associated_relay_number(
@@ -1087,6 +1089,27 @@ impl<T: Config> GetChannelInfo for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Validates the given [`PersistedValidationData`] against the data from the relay chain.
+	///
+	/// This function will actually only do the checks when running inside the context of
+	/// `validate_block`, as it needs to access the data passed by the relay chain.
+	fn validate_validation_data(validation_data: &PersistedValidationData) {
+		validate_block::with_validation_params(|params| {
+			assert_eq!(
+				params.parent_head, validation_data.parent_head.0,
+				"Parent head doesn't match"
+			);
+			assert_eq!(
+				params.relay_parent_number, validation_data.relay_parent_number,
+				"Relay parent number doesn't match",
+			);
+			assert_eq!(
+				params.relay_parent_storage_root, validation_data.relay_parent_storage_root,
+				"Relay parent storage root doesn't match",
+			);
+		});
+	}
+
 	/// The bandwidth limit per block that applies when receiving messages from the relay chain via
 	/// DMP or XCMP.
 	///
@@ -1749,34 +1772,6 @@ impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
 			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
 		}
-	}
-}
-
-/// Something that can check the inherents of a block.
-#[deprecated(note = "This trait is deprecated and will be removed by September 2024. \
-		Consider switching to `cumulus-pallet-parachain-system::ConsensusHook`")]
-pub trait CheckInherents<Block: BlockT> {
-	/// Check all inherents of the block.
-	///
-	/// This function gets passed all the extrinsics of the block, so it is up to the callee to
-	/// identify the inherents. The `validation_data` can be used to access the
-	fn check_inherents(
-		block: &Block,
-		validation_data: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult;
-}
-
-/// Struct that always returns `Ok` on inherents check, needed for backwards-compatibility.
-#[doc(hidden)]
-pub struct DummyCheckInherents<Block>(core::marker::PhantomData<Block>);
-
-#[allow(deprecated)]
-impl<Block: BlockT> CheckInherents<Block> for DummyCheckInherents<Block> {
-	fn check_inherents(
-		_: &Block,
-		_: &RelayChainStateProof,
-	) -> frame_support::inherent::CheckInherentsResult {
-		sp_inherents::CheckInherentsResult::new()
 	}
 }
 
