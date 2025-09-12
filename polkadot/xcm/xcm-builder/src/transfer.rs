@@ -50,40 +50,12 @@ pub trait GetDefaultRemoteFee {
 ///
 /// The account transferring funds remotely will be for example:
 ///  * `Location::new(1, XX([Parachain(SourceParaId), from_location.interior ])`
-#[allow(clippy::type_complexity)]
-pub type TransferOverXcm<
-	DefaultRemoteFee,
-	XcmFeeHandler,
-	Router,
-	Querier,
-	Timeout,
-	Transactors,
-	AssetKind,
-	AssetKindToLocatableAsset,
-	TransactorRefToLocation,
-> = TransferOverXcmWithHelper<
-	DefaultRemoteFee,
-	TransactorRefToLocation,
-	TransferOverXcmHelper<
-		Router,
-		Querier,
-		XcmFeeHandler,
-		Timeout,
-		Transactors,
-		AssetKind,
-		AssetKindToLocatableAsset,
-		TransactorRefToLocation,
-	>,
->;
-
-pub struct TransferOverXcmWithHelper<
-	DefaultRemoteFee,
-	TransactorRefToLocation,
-	TransferOverXcmHelper,
->(PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>);
+pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>(
+	PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>,
+);
 
 impl<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper> Transfer
-	for TransferOverXcmWithHelper<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
+	for TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
 where
 	DefaultRemoteFee: GetDefaultRemoteFee,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
