@@ -42,7 +42,7 @@ pub enum PaysRemoteFeeWithMaybeDefault<RemoteFeeAsset> {
 pub enum PaysRemoteFee<RemoteFeeAsset> {
 	/// No remote XCM execution fees have to be paid.
 	No,
-	/// Defines that remote execution fees have to be paid, and optionally defines the payment asset.
+	/// Defines that remote execution fees have to be paid.
 	Yes {
 		fee_asset: RemoteFeeAsset,
 	},
