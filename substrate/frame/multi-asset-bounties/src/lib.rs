@@ -591,10 +591,10 @@ pub mod pallet {
 
 			let index = BountyCount::<T, I>::get();
 			let payment_status = Self::do_process_funding_payment(
-				index.clone(),
+				index,
 				None,
 				*asset_kind.clone(),
-				value.clone(),
+				value,
 				None,
 			)?;
 
