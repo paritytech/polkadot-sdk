@@ -17,8 +17,7 @@
 
 use crate::{
 	exec::ExecError,
-	gas, vec,
-	tracing,
+	gas, tracing, vec,
 	vm::{BytecodeType, ExecResult, Ext},
 	AccountIdOf, Code, CodeInfo, Config, ContractBlob, DispatchError, Error, ExecReturnValue,
 	RuntimeCosts, H256, LOG_TARGET, U256,
@@ -34,7 +33,9 @@ use revm::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
-		interpreter_types::{InputsTr, Jumps, LegacyBytecode, LoopControl, MemoryTr, ReturnData, StackTr},
+		interpreter_types::{
+			InputsTr, Jumps, LegacyBytecode, LoopControl, MemoryTr, ReturnData, StackTr,
+		},
 		CallInput, CallInputs, CallScheme, CreateInputs, FrameInput, Gas, InstructionResult,
 		Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
@@ -158,15 +159,16 @@ fn run<'a, E: Ext>(
 	let host = &mut DummyHost {};
 	loop {
 		// Check if opcode tracing is enabled
-		let is_opcode_tracing = tracing::if_tracing(|tracer| tracer.is_opcode_tracer())
-			.unwrap_or(false);
+		let is_opcode_tracing =
+			tracing::if_tracing(|tracer| tracer.is_opcode_tracer()).unwrap_or(false);
 
 		let action = if is_opcode_tracing {
 			// Get tracer configuration flags
 			let (is_stack_enabled, is_memory_enabled) = tracing::if_tracing(|tracer| {
 				(tracer.is_stack_capture_enabled(), tracer.is_memory_capture_enabled())
-			}).unwrap_or((false, false));
-			
+			})
+			.unwrap_or((false, false));
+
 			run_with_opcode_tracing(interpreter, table, host, is_stack_enabled, is_memory_enabled)
 		} else {
 			interpreter.run_plain(table, host)
@@ -228,7 +230,8 @@ where
 				// Unfortunately, we can't directly read stack values without modifying the stack
 				// So we'll show placeholder values indicating stack depth
 				let mut stack_bytes = Vec::new();
-				for i in 0..core::cmp::min(stack_len, 16) { // Limit to 16 items for performance
+				for i in 0..core::cmp::min(stack_len, 16) {
+					// Limit to 16 items for performance
 					let value = (stack_len - i) as u64;
 					let mut bytes = [0u8; 32];
 					bytes[24..32].copy_from_slice(&value.to_be_bytes());

@@ -180,8 +180,8 @@ fn opcode_tracing_works() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
 		// Create a simple contract that will produce some opcodes
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// Test opcode tracing with basic config
 		let config = OpcodeTracerConfig {
@@ -208,10 +208,10 @@ fn opcode_tracing_works() {
 		);
 
 		let trace = opcode_tracer.collect_trace();
-		
+
 		// Should have captured some opcode steps
 		assert!(!trace.struct_logs.is_empty());
-		
+
 		// Should have limited the number of steps to the config limit
 		assert!(trace.struct_logs.len() <= 10);
 
@@ -239,8 +239,8 @@ fn opcode_tracing_with_memory_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code.clone()))
-			.build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
 
 		// Test opcode tracing with memory enabled
 		let config = OpcodeTracerConfig {
@@ -267,7 +267,7 @@ fn opcode_tracing_with_memory_works() {
 		);
 
 		let trace = opcode_tracer.collect_trace();
-		
+
 		// Should have captured some opcode steps
 		assert!(!trace.struct_logs.is_empty());
 
@@ -296,12 +296,12 @@ fn opcode_tracing_comprehensive_works() {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		// Test with a specific configuration and verify exact structure
-		let config = OpcodeTracerConfig { 
-			enable_memory: false, 
-			disable_stack: false, 
-			disable_storage: true, 
-			enable_return_data: true, 
-			limit: 5  // Limit to first 5 steps for predictable testing
+		let config = OpcodeTracerConfig {
+			enable_memory: false,
+			disable_stack: false,
+			disable_storage: true,
+			enable_return_data: true,
+			limit: 5,
 		};
 
 		let mut tracer = OpcodeTracer::new(config);
@@ -353,7 +353,7 @@ fn opcode_tracing_comprehensive_works() {
 					depth: 0,
 					stack: Some(vec![
 						crate::evm::Bytes(U256::from(2).to_be_bytes_vec()),
-						crate::evm::Bytes(U256::from(1).to_be_bytes_vec())
+						crate::evm::Bytes(U256::from(1).to_be_bytes_vec()),
 					]),
 					memory: None,
 					storage: None,
@@ -381,7 +381,7 @@ fn opcode_tracing_comprehensive_works() {
 					storage: None,
 					error: None,
 				},
-			]
+			],
 		};
 
 		// Single assertion that verifies the complete trace structure matches exactly
@@ -393,7 +393,7 @@ fn opcode_tracing_comprehensive_works() {
 fn revm_opcode_serialization_works() {
 	use crate::evm::OpcodeStep;
 	use revm::bytecode::opcode::*;
-	
+
 	// Test that our opcode serialization uses REVM opcode names
 	let step = OpcodeStep {
 		pc: 0,
@@ -406,18 +406,18 @@ fn revm_opcode_serialization_works() {
 		storage: None,
 		error: None,
 	};
-	
+
 	// Serialize to JSON
 	let json = serde_json::to_string(&step).unwrap();
-	
+
 	// Should contain "PUSH1" string from REVM
 	assert!(json.contains("\"op\":\"PUSH1\""));
-	
+
 	// Test a few more opcodes
 	let step_add = OpcodeStep { op: ADD, ..step.clone() };
 	let json_add = serde_json::to_string(&step_add).unwrap();
 	assert!(json_add.contains("\"op\":\"ADD\""));
-	
+
 	let step_call = OpcodeStep { op: CALL, ..step.clone() };
 	let json_call = serde_json::to_string(&step_call).unwrap();
 	assert!(json_call.contains("\"op\":\"CALL\""));
