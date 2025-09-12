@@ -907,7 +907,7 @@ where
 					);
 				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -921,7 +921,7 @@ where
 					who, held_proxy, current_proxy_deposit, held_announcement, current_announcement_deposit
 				);
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -949,7 +949,7 @@ where
 					);
 				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -960,7 +960,7 @@ where
 					who, held_proxy, current_proxy_deposit
 				);
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -995,7 +995,7 @@ where
 					);
 				}
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -1006,7 +1006,7 @@ where
 					who, held_announcement, current_announcement_deposit
 				);
 				return Ok(AccountVerification::PreservedWithZeroDeposit {
-					released_amount: old_proxy_deposit + old_announcement_deposit,
+					released_amount: old_proxy_deposit.saturating_add(old_announcement_deposit),
 				});
 			}
 
@@ -1021,7 +1021,7 @@ where
 		}
 
 		// Case 4: No storage entries - either preservation with zero deposit or cleanup
-		let total_old_deposit = old_proxy_deposit + old_announcement_deposit;
+		let total_old_deposit = old_proxy_deposit.saturating_add(old_announcement_deposit);
 
 		if total_old_deposit.is_zero() {
 			// Account never had deposits - this is normal
