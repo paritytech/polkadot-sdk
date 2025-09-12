@@ -501,8 +501,8 @@ impl<T: Config> Rotator<T> {
 					"planned era is always equal or one more than active"
 				);
 
-				// If we have an active era, bonded eras must always be the range [active -
-				// bonding_duration .. active_era]
+				// If we have an active era, bonded eras must always be the range
+				// [active - bonding_duration .. active_era]
 				ensure!(
 					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
