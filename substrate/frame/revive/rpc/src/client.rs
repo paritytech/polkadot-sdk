@@ -26,7 +26,7 @@ use storage_api::StorageApi;
 use crate::{
 	subxt_client::{self, revive::calls::types::EthTransact, SrcChainConfig},
 	BlockInfoProvider, BlockTag, FeeHistoryProvider, ReceiptProvider, SubxtBlockInfoProvider,
-	TracerType, TransactionInfo, LOG_TARGET,
+	TracerType, TransactionInfo,
 };
 use jsonrpsee::{
 	core::traits::ToRpcParams,
@@ -131,6 +131,7 @@ pub enum ClientError {
 	#[error("Ethereum block not found")]
 	EthereumBlockNotFound,
 }
+const LOG_TARGET: &str = "eth-rpc::client";
 
 const REVERT_CODE: i32 = 3;
 impl From<ClientError> for ErrorObjectOwned {
@@ -552,6 +553,12 @@ impl Client {
 	/// This method provides the abstraction layer needed by the RPC APIs.
 	pub async fn resolve_substrate_hash(&self, ethereum_hash: &H256) -> Option<H256> {
 		self.receipt_provider.get_substrate_hash(ethereum_hash).await
+	}
+
+	/// Resolve Substrate block hash to Ethereum block hash, then get the block.
+	/// This method provides the abstraction layer needed by the RPC APIs.
+	pub async fn resolve_ethereum_hash(&self, substrate_hash: &H256) -> Option<H256> {
+		self.receipt_provider.get_ethereum_hash(substrate_hash).await
 	}
 
 	/// Get a block by Ethereum hash with automatic resolution to Substrate hash.
