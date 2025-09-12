@@ -1613,6 +1613,42 @@ fn call_deny_reentry() {
 }
 
 #[test]
+fn minimum_balance_must_return_converted_balance() {
+	let min_balance: BalanceOf<Test> = <Test as Config>::Currency::minimum_balance();
+	let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
+
+	let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
+		// The value returned by `Ext::minimum_balance` is `U256`, it must
+		// have been converted from the native balance type to `U256`.
+		assert_eq!(ctx.ext.minimum_balance(), min_balance_evm_value);
+		exec_success()
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
+			let succ_fail_executable =
+				MockExecutable::from_storage(succ_fail_code, &mut gas_meter).unwrap();
+			let mut storage_meter = storage::meter::Meter::new(deposit_limit::<Test>());
+			set_balance(&ALICE, min_balance * 10_000);
+
+			assert_ok!(MockStack::run_instantiate(
+				ALICE,
+				succ_fail_executable,
+				&mut gas_meter,
+				&mut storage_meter,
+				min_balance_evm_value,
+				vec![],
+				Some(&[0; 32]),
+				false,
+				BumpNonce::Yes,
+			));
+		});
+}
+
+#[test]
 fn nonce() {
 	let fail_code = MockLoader::insert(Constructor, |_, _| exec_trapped());
 	let success_code = MockLoader::insert(Constructor, |_, _| exec_success());
@@ -1639,7 +1675,7 @@ fn nonce() {
 				Weight::MAX,
 				U256::MAX,
 				Code::Existing(success_code),
-				ctx.ext.minimum_balance() * 100,
+				ctx.ext.minimum_balance(),
 				vec![],
 				Some(&[0; 32]),
 			)
@@ -1669,6 +1705,8 @@ fn nonce() {
 		.build()
 		.execute_with(|| {
 			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
+
 			let mut gas_meter = GasMeter::<Test>::new(GAS_LIMIT);
 			let fail_executable = MockExecutable::from_storage(fail_code, &mut gas_meter).unwrap();
 			let success_executable =
@@ -1687,7 +1725,7 @@ fn nonce() {
 				fail_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 100).into(),
+				min_balance_evm_value * 100,
 				vec![],
 				Some(&[0; 32]),
 				false,
@@ -1701,7 +1739,7 @@ fn nonce() {
 				success_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 100).into(),
+				min_balance_evm_value * 100,
 				vec![],
 				Some(&[0; 32]),
 				false,
@@ -1714,7 +1752,7 @@ fn nonce() {
 				succ_fail_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 200).into(),
+				min_balance_evm_value * 200,
 				vec![],
 				Some(&[0; 32]),
 				false,
@@ -1727,7 +1765,7 @@ fn nonce() {
 				succ_succ_executable,
 				&mut gas_meter,
 				&mut storage_meter,
-				(min_balance * 200).into(),
+				min_balance_evm_value * 200,
 				vec![],
 				Some(&[0; 32]),
 				false,
