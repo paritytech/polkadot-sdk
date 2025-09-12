@@ -132,16 +132,6 @@ fn setup_bounty<T: Config<I>, I: 'static>() -> BenchmarkBounty<T, I> {
 	let child_curator = account("child-curator", 1, SEED);
 	let beneficiary =
 		<T as Config<I>>::BenchmarkHelper::create_beneficiary([(SEED).try_into().unwrap(); 32]);
-	let curator_deposit =
-		Pallet::<T, I>::calculate_curator_deposit(&value, asset_kind.clone()).expect("");
-	let _ = T::Currency::make_free_balance_be(
-		&curator,
-		curator_deposit + T::Currency::minimum_balance(),
-	);
-	let _ = T::Currency::make_free_balance_be(
-		&child_curator,
-		curator_deposit + T::Currency::minimum_balance(),
-	);
 	let hash = T::Preimages::note(Cow::from(vec![5, 6])).unwrap();
 
 	BenchmarkBounty::<T, I> {
@@ -174,6 +164,7 @@ fn create_parent_bounty<T: Config<I>, I: 'static>(
 		s.asset_kind.clone(),
 		s.value,
 	);
+	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&s.curator, 0u32.into());
 
 	Bounties::<T, I>::fund_bounty(
 		origin,
@@ -207,6 +198,7 @@ fn create_active_parent_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let s = create_funded_bounty::<T, I>(origin)?;
 	let curator = s.curator.clone();
+	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&curator, s.value);
 
 	Bounties::<T, I>::accept_curator(RawOrigin::Signed(curator).into(), s.parent_bounty_id, None)?;
 
@@ -218,6 +210,10 @@ fn create_child_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let mut s = create_active_parent_bounty::<T, I>(origin.clone())?;
 	let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
+	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
+		&s.child_curator,
+		0u32.into(),
+	);
 
 	Bounties::<T, I>::fund_child_bounty(
 		RawOrigin::Signed(s.curator.clone()).into(),
@@ -255,6 +251,7 @@ fn create_active_child_bounty<T: Config<I>, I: 'static>(
 ) -> Result<BenchmarkBounty<T, I>, BenchmarkError> {
 	let s = create_funded_child_bounty::<T, I>(origin)?;
 	let caller = s.child_curator.clone();
+	<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(&caller, s.child_value);
 
 	Bounties::<T, I>::accept_curator(
 		RawOrigin::Signed(caller).into(),
@@ -339,6 +336,10 @@ mod benchmarks {
 			s.asset_kind.clone(),
 			s.value,
 		);
+		<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
+			&s.curator,
+			0u32.into(),
+		);
 
 		#[extrinsic_call]
 		_(approve_origin, Box::new(s.asset_kind), s.value, curator_lookup, s.hash);
@@ -361,10 +362,14 @@ mod benchmarks {
 	#[benchmark]
 	fn fund_child_bounty() -> Result<(), BenchmarkError> {
 		let s = setup_bounty::<T, I>();
-		let child_curator_lookup = T::Lookup::unlookup(s.child_curator);
+		let child_curator_lookup = T::Lookup::unlookup(s.child_curator.clone());
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_active_parent_bounty::<T, I>(origin)?;
+			<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
+				&s.child_curator,
+				0u32.into(),
+			);
 			true
 		} else {
 			false
@@ -507,6 +512,10 @@ mod benchmarks {
 
 		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			create_funded_child_bounty::<T, I>(origin)?;
+			<T as pallet_bounties::Config<I>>::Consideration::ensure_successful(
+				&caller,
+				s.child_value,
+			);
 			true
 		} else {
 			false

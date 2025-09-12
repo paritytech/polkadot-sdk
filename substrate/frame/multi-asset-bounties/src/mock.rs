@@ -415,8 +415,8 @@ pub fn setup_bounty() -> TestBounty {
 	let expected_deposit = CuratorDeposit::convert(value);
 	let child_expected_deposit = CuratorDeposit::convert(child_value);
 	let hash = note_preimage(1);
-	Balances::set_balance(&curator, Balances::minimum_balance() + 100);
-	Balances::set_balance(&child_curator, Balances::minimum_balance() + 100);
+	Balances::set_balance(&curator, Balances::minimum_balance() + expected_deposit);
+	Balances::set_balance(&child_curator, Balances::minimum_balance() + child_expected_deposit);
 
 	TestBounty {
 		parent_bounty_id: 0,
