@@ -103,7 +103,7 @@ use frame::{
 	deps::frame_support::{
 		migrations::{MigrationId, SteppedMigration, SteppedMigrationError, VersionedMigration},
 		traits::{StorageVersion, UncheckedOnRuntimeUpgrade},
-		weights::WeightMeter,
+		weights::{Weight, WeightMeter},
 	},
 	log,
 	prelude::*,
@@ -195,9 +195,16 @@ pub enum MigrationCursor<AccountId> {
 	Complete { stats: MigrationStats },
 }
 
-/// Migration result for an account.
+/// Migration result for an account with weight consumed.
 #[derive(Debug, PartialEq)]
-enum AccountMigrationResult<T: Config> {
+struct AccountMigrationResult<T: Config> {
+	outcome: MigrationOutcome<T>,
+	weight_consumed: Weight,
+}
+
+/// The outcome of migrating an account.
+#[derive(Debug, PartialEq)]
+enum MigrationOutcome<T: Config> {
 	Success,
 	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
@@ -211,30 +218,21 @@ where
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
 {
-	/// Weight required per account migration.
-	fn weight_per_account() -> Weight {
-		// Operations per account:
-		// - Read storage item (proxies or announcements) - 1 read
-		// - Read reserved balance from old currency system - 1 read
-		// - Read account data for hold operation - 1 read
-		// - Read holds storage for validation - 1 read
-		// - Read system account for existential deposit checks - 1 read
-		// - Unreserve from old system (account update) - 1 write
-		// - Hold in new system OR mutate deposit to zero - 1-2 writes
-		// - Update storage deposit field - 1 write
-		T::DbWeight::get().reads_writes(5, 4)
-	}
-
 	/// Migrate a single proxy account with proxy preservation on failure.
 	/// Preserves proxy relationships even when hold creation fails.
+	/// Returns the migration outcome and actual weight consumed.
 	fn migrate_proxy_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
 		proxies: ProxyDefinitions<T, BlockNumber>,
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
+		let mut weight = Weight::zero();
+
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
+		weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
 		let reserved_balance: BalanceOf<T> = old_reserved.into();
 
 		// Migrate what was actually deposited (stored in storage), bounded by actual reserves
@@ -254,16 +252,26 @@ where
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				return AccountMigrationResult::PreservedWithZeroDeposit {
-					freed_amount: Zero::zero(),
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+				return AccountMigrationResult {
+					outcome: MigrationOutcome::PreservedWithZeroDeposit {
+						freed_amount: Zero::zero(),
+					},
+					weight_consumed: weight,
 				};
 			}
-			return AccountMigrationResult::Success;
+			return AccountMigrationResult {
+				outcome: MigrationOutcome::Success,
+				weight_consumed: weight,
+			};
 		}
 
 		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
+		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
 
 		// Try to hold in new system
@@ -282,7 +290,14 @@ where
 					delegator: who.clone(),
 					amount: actually_unreserved,
 				});
-				AccountMigrationResult::Success
+
+				// Hold operation: reads account, checks holds limit, writes hold
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+
+				AccountMigrationResult {
+					outcome: MigrationOutcome::Success,
+					weight_consumed: weight,
+				}
 			},
 			Err(_) => {
 				// Migration failed - preserve proxy relationships with zero deposit
@@ -302,18 +317,25 @@ where
 					actually_unreserved
 				);
 
+				// Hold failed but we still did reads trying to create it
+				weight = weight.saturating_add(T::DbWeight::get().reads(2));
+
 				// Set deposit to zero but keep proxies
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				Pallet::<T>::deposit_event(Event::ProxyDepositMigrationFailed {
 					delegator: who.clone(),
 					freed_amount: actually_unreserved,
 				});
 
-				AccountMigrationResult::PreservedWithZeroDeposit {
-					freed_amount: actually_unreserved,
+				AccountMigrationResult {
+					outcome: MigrationOutcome::PreservedWithZeroDeposit {
+						freed_amount: actually_unreserved,
+					},
+					weight_consumed: weight,
 				}
 			},
 		}
@@ -321,6 +343,7 @@ where
 
 	/// Migrate a single announcement account with announcement preservation on failure.
 	/// Preserves announcements even when hold creation fails.
+	/// Returns the migration outcome and actual weight consumed.
 	fn migrate_announcement_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
 		announcements: BoundedVec<
@@ -330,8 +353,12 @@ where
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
+		let mut weight = Weight::zero();
+
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
+		weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
 		let reserved_balance: BalanceOf<T> = old_reserved.into();
 
 		// Migrate what was actually deposited (stored in storage), bounded by actual reserves
@@ -351,16 +378,27 @@ where
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				return AccountMigrationResult::PreservedWithZeroDeposit {
-					freed_amount: Zero::zero(),
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+				return AccountMigrationResult {
+					outcome: MigrationOutcome::PreservedWithZeroDeposit {
+						freed_amount: Zero::zero(),
+					},
+					weight_consumed: weight,
 				};
 			}
-			return AccountMigrationResult::Success;
+			return AccountMigrationResult {
+				outcome: MigrationOutcome::Success,
+				weight_consumed: weight,
+			};
 		}
 
 		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
+		// Unreserve performs account updates
+		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
 
 		// Try to hold in new system
@@ -379,7 +417,14 @@ where
 					announcer: who.clone(),
 					amount: actually_unreserved,
 				});
-				AccountMigrationResult::Success
+
+				// Hold operation: reads account, checks holds limit, writes hold
+				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+
+				AccountMigrationResult {
+					outcome: MigrationOutcome::Success,
+					weight_consumed: weight,
+				}
 			},
 			Err(_) => {
 				// Migration failed - preserve announcements with zero deposit
@@ -394,18 +439,25 @@ where
 					actually_unreserved
 				);
 
+				// Hold failed but we still did reads trying to create it
+				weight = weight.saturating_add(T::DbWeight::get().reads(2));
+
 				// Set deposit to zero but keep announcements
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				Pallet::<T>::deposit_event(Event::AnnouncementDepositMigrationFailed {
 					announcer: who.clone(),
 					freed_amount: actually_unreserved,
 				});
 
-				AccountMigrationResult::PreservedWithZeroDeposit {
-					freed_amount: actually_unreserved,
+				AccountMigrationResult {
+					outcome: MigrationOutcome::PreservedWithZeroDeposit {
+						freed_amount: actually_unreserved,
+					},
+					weight_consumed: weight,
 				}
 			},
 		}
@@ -443,11 +495,12 @@ where
 
 		// Process accounts until weight limit is reached
 		while let Some((who, (proxies, deposit))) = iter.next() {
-			// Check if we have weight for one more account
-			if meter.try_consume(Self::weight_per_account()).is_err() {
+			// First read the storage item (we already consumed this read by calling iter.next())
+			// Account for the storage read
+			let storage_read_weight = T::DbWeight::get().reads(1);
+			if meter.try_consume(storage_read_weight).is_err() {
 				// Weight limit reached, return cursor pointing to last successfully processed
-				// account We return last_account (not who) because who hasn't been processed
-				// yet
+				// account
 				log::info!(
 					target: LOG_TARGET,
 					"Proxy batch weight limit reached after {} accounts, next account to process: {:?}",
@@ -459,7 +512,23 @@ where
 			}
 
 			// Migrate this account (handles both regular and pure proxy accounts)
-			let _result = Self::migrate_proxy_account(&who, proxies, deposit.into(), &mut stats);
+			let result = Self::migrate_proxy_account(&who, proxies, deposit.into(), &mut stats);
+
+			if meter.try_consume(result.weight_consumed).is_err() {
+				// We've already migrated but don't have weight to account for it
+				accounts_processed += 1;
+				last_account = Some(who.clone());
+
+				log::warn!(
+					target: LOG_TARGET,
+					"Insufficient weight after processing account {:?}, consumed {:?}, processed {} accounts",
+					who,
+					result.weight_consumed,
+					accounts_processed
+				);
+				// Still return since we're out of weight
+				return MigrationCursor::Proxies { last_key: last_account, stats };
+			}
 
 			accounts_processed += 1;
 			last_account = Some(who.clone());
@@ -507,11 +576,11 @@ where
 
 		// Process accounts until weight limit is reached
 		while let Some((who, (announcements, deposit))) = iter.next() {
-			// Check if we have weight for one more account
-			if meter.try_consume(Self::weight_per_account()).is_err() {
+			// First read the storage item (we already consumed this read by calling iter.next())
+			let storage_read_weight = T::DbWeight::get().reads(1);
+			if meter.try_consume(storage_read_weight).is_err() {
 				// Weight limit reached, return cursor pointing to last successfully processed
-				// account We return last_account (not who) because who hasn't been processed
-				// yet
+				// account
 				log::info!(
 					target: LOG_TARGET,
 					"Announcement batch weight limit reached after {} accounts, next account to process: {:?}",
@@ -523,8 +592,24 @@ where
 			}
 
 			// Migrate this account
-			let _result =
+			let result =
 				Self::migrate_announcement_account(&who, announcements, deposit.into(), &mut stats);
+
+			if meter.try_consume(result.weight_consumed).is_err() {
+				// We've already migrated but don't have weight to account for it
+				accounts_processed += 1;
+				last_account = Some(who.clone());
+
+				log::warn!(
+					target: LOG_TARGET,
+					"Insufficient weight after processing account {:?}, consumed {:?}, processed {} accounts",
+					who,
+					result.weight_consumed,
+					accounts_processed
+				);
+				// Still return since we're out of weight
+				return MigrationCursor::Announcements { last_key: last_account, stats };
+			}
 
 			accounts_processed += 1;
 			last_account = Some(who.clone());
@@ -561,10 +646,11 @@ where
 		log::info!(target: LOG_TARGET, "Migration step: cursor={:?}", cursor);
 
 		// Check if we have minimal weight to proceed
-		let required = Self::weight_per_account();
-		if meter.remaining().any_lt(required) {
-			log::warn!(target: LOG_TARGET, "Insufficient weight");
-			return Err(SteppedMigrationError::InsufficientWeight { required });
+		// We need at least enough weight to read one storage item to make progress
+		let min_required = T::DbWeight::get().reads(1);
+		if meter.remaining().any_lt(min_required) {
+			log::warn!(target: LOG_TARGET, "Insufficient weight to make any progress");
+			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
 		// Initialize migration if this is the first call
@@ -1023,20 +1109,21 @@ where
 		loop {
 			// Reset meter for each step
 			meter = WeightMeter::new();
-			meter.consume(Weight::MAX);
+			let initial_weight = Weight::MAX;
+			meter.consume(initial_weight);
 
 			match MigrateReservesToHolds::<T, OldCurrency>::step(cursor, &mut meter) {
 				Ok(Some(next_cursor)) => {
 					// Continue with next step
 					cursor = Some(next_cursor);
-					weight_used = weight_used
-						.saturating_add(
-							MigrateReservesToHolds::<T, OldCurrency>::weight_per_account(),
-						);
+					let consumed = initial_weight.saturating_sub(meter.remaining());
+					weight_used = weight_used.saturating_add(consumed);
 				},
 				Ok(None) => {
-					// Migration complete
-					log::info!(target: LOG_TARGET, "Single-block migration completed successfully");
+					// Migration complete - track final weight
+					let consumed = initial_weight.saturating_sub(meter.remaining());
+					weight_used = weight_used.saturating_add(consumed);
+					log::info!(target: LOG_TARGET, "Single-block migration completed successfully with weight: {:?}", weight_used);
 					break;
 				},
 				Err(SteppedMigrationError::InsufficientWeight { .. }) => {
