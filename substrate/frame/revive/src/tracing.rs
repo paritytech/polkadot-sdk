@@ -45,6 +45,12 @@ pub trait Tracing {
 	/// Check if this tracer requires opcode-level tracing.
 	fn is_opcode_tracer(&self) -> bool { false }
 
+	/// Check if stack capture is enabled for opcode tracing.
+	fn is_stack_capture_enabled(&self) -> bool { false }
+
+	/// Check if memory capture is enabled for opcode tracing.
+	fn is_memory_capture_enabled(&self) -> bool { false }
+
 	/// Record an opcode step for opcode tracers.
 	fn record_opcode_step(
 		&mut self,

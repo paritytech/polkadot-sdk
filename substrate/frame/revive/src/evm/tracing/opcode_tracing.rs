@@ -102,6 +102,14 @@ impl Tracing for OpcodeTracer {
 		true
 	}
 
+	fn is_stack_capture_enabled(&self) -> bool {
+		!self.config.disable_stack
+	}
+
+	fn is_memory_capture_enabled(&self) -> bool {
+		self.config.enable_memory
+	}
+
 	fn record_opcode_step(
 		&mut self,
 		pc: u64,
