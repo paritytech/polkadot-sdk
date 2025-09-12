@@ -45,7 +45,6 @@ tokio = { features = ["macros", "time"], workspace = true, default-features = tr
 tokio-stream = { workspace = true }
 
 [dev-dependencies]
-mockall = { workspace = true }
 quickcheck = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sp-test-primitives = { workspace = true }

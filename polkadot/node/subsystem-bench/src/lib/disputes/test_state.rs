@@ -30,10 +30,9 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem_test_helpers::mock::new_block_import_info;
 use polkadot_overseer::BlockInfo;
 use polkadot_primitives::{
-	vstaging::{CandidateEvent, CandidateReceiptV2},
-	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateHash, CoreIndex, GroupIndex,
-	Hash, HeadData, Header, InvalidDisputeStatementKind, SessionIndex, ValidDisputeStatementKind,
-	ValidatorId, ValidatorIndex,
+	AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
+	CandidateReceiptV2, CoreIndex, GroupIndex, Hash, HeadData, Header, InvalidDisputeStatementKind,
+	SessionIndex, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt_v2_bad_sig, dummy_hash};
 use sp_keystore::KeystorePtr;
@@ -199,7 +198,10 @@ impl HandleNetworkMessage for TestState {
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(authority_id, Requests::DisputeSendingV1(req)) => {
+			NetworkMessage::RequestFromNode(authority_id, requests) => {
+				let Requests::DisputeSendingV1(req) = *requests else {
+					todo!("Wrong requests type in message: {:?}", requests);
+				};
 				let mut tracker = self.requests_tracker.lock().unwrap();
 				tracker
 					.entry(req.payload.0.candidate_receipt.hash())
@@ -213,7 +215,7 @@ impl HandleNetworkMessage for TestState {
 				None
 			},
 			_ => {
-				todo!("{:?}", message);
+				todo!("Wrong message type: {:?}", message);
 			},
 		}
 	}

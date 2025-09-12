@@ -1,0 +1,9 @@
+title: Migrate pallet-bounties benchmark to v2
+doc:
+  - audience: Runtime Dev
+    description: |
+      Migrate pallet-bounties benchmark to v2
+
+crates:
+- name: pallet-bounties
+  bump: minor

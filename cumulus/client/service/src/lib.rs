@@ -27,11 +27,9 @@ use cumulus_primitives_core::{CollectCollationInfo, ParaId};
 pub use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::{
-	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
-};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 use futures::{channel::mpsc, StreamExt};
-use polkadot_primitives::{vstaging::CandidateEvent, CollatorPair, OccupiedCoreAssumption};
+use polkadot_primitives::{CandidateEvent, CollatorPair, OccupiedCoreAssumption};
 use prometheus::{Histogram, HistogramOpts, Registry};
 use sc_client_api::{
 	Backend as BackendT, BlockBackend, BlockchainEvents, Finalizer, ProofProvider, UsageProvider,
@@ -302,6 +300,7 @@ where
 		.spawn("cumulus-pov-recovery", None, pov_recovery.run());
 
 	let parachain_informant = parachain_informant::<Block, _>(
+		para_id,
 		relay_chain_interface.clone(),
 		client.clone(),
 		prometheus_registry.map(ParachainInformantMetrics::new).transpose()?,
@@ -416,8 +415,6 @@ pub async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await,
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager).await,
 	}
 }
 
@@ -609,6 +606,7 @@ where
 
 /// Task for logging candidate events and some related metrics.
 async fn parachain_informant<Block: BlockT, Client>(
+	para_id: ParaId,
 	relay_chain_interface: impl RelayChainInterface + Clone,
 	client: Arc<Client>,
 	metrics: Option<ParachainInformantMetrics>,
@@ -636,7 +634,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 		let mut timed_out_candidates = Vec::new();
 		for event in candidate_events {
 			match event {
-				CandidateEvent::CandidateBacked(_, head, _, _) => {
+				CandidateEvent::CandidateBacked(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let backed_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -656,7 +657,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					last_backed_block_time = Some(backed_block_time);
 					backed_candidates.push(backed_block);
 				},
-				CandidateEvent::CandidateIncluded(_, head, _, _) => {
+				CandidateEvent::CandidateIncluded(receipt, head, _, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let included_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {
@@ -674,7 +678,10 @@ async fn parachain_informant<Block: BlockT, Client>(
 					}
 					included_candidates.push(included_block);
 				},
-				CandidateEvent::CandidateTimedOut(_, head, _) => {
+				CandidateEvent::CandidateTimedOut(receipt, head, _) => {
+					if receipt.descriptor.para_id() != para_id {
+						continue;
+					}
 					let timed_out_block = match Block::Header::decode(&mut &head.0[..]) {
 						Ok(header) => header,
 						Err(e) => {

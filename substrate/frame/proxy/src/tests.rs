@@ -546,6 +546,8 @@ fn pure_works() {
 				who: 1,
 				proxy_type: ProxyType::Any,
 				disambiguation_index: 0,
+				at: <Test as Config>::BlockNumberProvider::current_block_number(),
+				extrinsic_index: System::extrinsic_index().unwrap(),
 			}
 			.into(),
 		);

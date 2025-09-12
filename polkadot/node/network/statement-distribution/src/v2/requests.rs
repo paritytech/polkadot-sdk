@@ -49,9 +49,9 @@ use polkadot_node_network_protocol::{
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_primitives::{
-	vstaging::CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CandidateHash,
-	CompactStatement, GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex,
-	SignedStatement, SigningContext, ValidatorId, ValidatorIndex,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CompactStatement,
+	GroupIndex, Hash, Id as ParaId, PersistedValidationData, SessionIndex, SignedStatement,
+	SigningContext, ValidatorId, ValidatorIndex,
 };
 
 use futures::{future::BoxFuture, prelude::*, stream::FuturesUnordered};
@@ -1295,7 +1295,6 @@ mod tests {
 		candidate_receipt.descriptor.persisted_validation_data_hash =
 			persisted_validation_data.hash();
 		let candidate = candidate_receipt.hash();
-		let candidate_receipt: CommittedCandidateReceipt = candidate_receipt.into();
 		let requested_peer = PeerId::random();
 
 		let identifier = request_manager
@@ -1337,7 +1336,7 @@ mod tests {
 					requested_peer,
 					props: request_properties.clone(),
 					response: Ok(AttestedCandidateResponse {
-						candidate_receipt: candidate_receipt.clone(),
+						candidate_receipt: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					}),
@@ -1362,7 +1361,7 @@ mod tests {
 				ResponseValidationOutput {
 					requested_peer,
 					request_status: CandidateRequestStatus::Complete {
-						candidate: candidate_receipt.clone(),
+						candidate: candidate_receipt.clone().into(),
 						persisted_validation_data: persisted_validation_data.clone(),
 						statements,
 					},

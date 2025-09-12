@@ -369,7 +369,7 @@ mod test {
 			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(1),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -405,7 +405,7 @@ mod test {
 			let data = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(1),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -436,7 +436,7 @@ mod test {
 			let data = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(1),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -482,7 +482,7 @@ mod test {
 			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -506,7 +506,7 @@ mod test {
 			let data = pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(owner),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,
@@ -528,7 +528,7 @@ mod test {
 			pallet_revive::Pallet::<Test>::bare_call(
 				RuntimeOrigin::signed(spender),
 				H160::from(asset_addr),
-				0u64,
+				0u32.into(),
 				Weight::MAX,
 				DepositLimit::UnsafeOnlyForDryRun,
 				data,

@@ -20,7 +20,7 @@ use crate::{
 	mock::{new_test_ext, Configuration, MockGenesisConfig, ParasShared, RuntimeOrigin, Test},
 };
 use bitvec::{bitvec, prelude::Lsb0};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_ok};
 
 fn on_new_session(session_index: SessionIndex) -> (HostConfiguration<u32>, HostConfiguration<u32>) {
 	ParasShared::set_session_index(session_index);
@@ -417,13 +417,6 @@ fn setting_pending_config_members() {
 			new_config.max_upward_queue_size,
 		)
 		.unwrap();
-		assert_noop!(
-			Configuration::set_max_upward_queue_size(
-				RuntimeOrigin::root(),
-				MAX_UPWARD_MESSAGE_SIZE_BOUND + 1,
-			),
-			Error::<Test>::InvalidNewValue
-		);
 		Configuration::set_max_downward_message_size(
 			RuntimeOrigin::root(),
 			new_config.max_downward_message_size,
