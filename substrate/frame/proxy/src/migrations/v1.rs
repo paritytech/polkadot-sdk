@@ -1069,7 +1069,7 @@ where
 /// This provides the OnRuntimeUpgrade trait expected by runtime systems that don't use
 /// the newer SteppedMigration system. It ensures the migration only runs once when the
 /// on-chain storage version is 0, and updates it to 1 after completion.
-pub type MigrateReservesToHoldsVersioned<T, OldCurrency> = VersionedMigration<
+pub type MigrateV0ToV1<T, OldCurrency> = VersionedMigration<
 	0, // Only execute when storage version is 0
 	1, // Set storage version to 1 after completion
 	InnerMigrateReservesToHolds<T, OldCurrency>,
