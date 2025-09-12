@@ -19,6 +19,7 @@ env_logger = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 jsonrpsee = { workspace = true, features = ["full"] }
 pallet-revive-eth-rpc = { workspace = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 pallet-revive = { workspace = true }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }

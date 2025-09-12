@@ -73,6 +73,10 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 
 		anyhow::bail!("Timeout, failed to get receipt")
 	}
+
+	pub fn generic_transaction(&self) -> GenericTransaction {
+		self.tx.clone()
+	}
 }
 
 impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {

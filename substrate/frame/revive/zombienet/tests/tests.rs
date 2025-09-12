@@ -1,10 +1,17 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use pallet_revive::evm::{Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{example::TransactionBuilder, subxt_client, EthRpcClient};
+use pallet_revive::evm::{
+	Account, Block as EvmBlock, BlockNumberOrTag, BlockTag, GenericTransaction, ReceiptInfo,
+	TransactionInfo,
+};
+use pallet_revive_eth_rpc::{
+	example::TransactionBuilder,
+	subxt_client::{self},
+	EthRpcClient,
+};
 use pallet_revive_zombienet::{TestEnvironment, BEST_BLOCK_METRIC};
-use sp_core::H256;
+use sp_core::{H256, U256};
 use subxt::{self, ext::subxt_rpcs::rpc_params};
 // use zombienet_sdk::subxt::{
 // 	self, backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params, OnlineClient, PolkadotConfig,
@@ -28,11 +35,12 @@ async fn test_dont_spawn_zombienet() {
 
 	// TODO: block zero is reconstructed from substrate
 	// sanity_block_check(&test_env, BlockNumberOrTag::U256(0.into()), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
+	assert_block(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
 
-	transfer(&test_env).await;
+	test_transfer(&test_env).await;
+	test_deployment(&test_env).await;
 }
 
 // This tests makes sure that RPC collator is able to build blocks
@@ -49,11 +57,11 @@ async fn test_with_zombienet_spawning() {
 
 	// TODO: block zero is reconstructed from substrate
 	// sanity_block_check(&test_env, BlockNumberOrTag::U256(0.into()), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
-	sanity_block_check(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
+	assert_block(&test_env, BlockNumberOrTag::U256(1.into()), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Earliest), true).await;
+	assert_block(&test_env, BlockNumberOrTag::BlockTag(BlockTag::Finalized), true).await;
 
-	transfer(&test_env).await;
+	// test_transfer(&test_env).await;
 
 	// TODO remove after tests are implemented
 	let alice = zombienet
@@ -66,23 +74,35 @@ async fn test_with_zombienet_spawning() {
 		.is_ok());
 }
 
-async fn sanity_block_check(
+fn print_receipt_info(receipt: &ReceiptInfo) {
+	println!("Receipt:");
+	println!("- Block number:        {}", receipt.block_number);
+	println!("- Block hash:          {}", receipt.block_hash);
+	println!("- Gas used:            {}", receipt.gas_used);
+	println!("- From:                {}", receipt.from);
+	println!("- To:                  {:?}", receipt.to);
+	println!("- Contract address:    {:?}", receipt.contract_address);
+	println!("- Cumulative gas used: {}", receipt.cumulative_gas_used);
+	println!("- Success:             {:?}", receipt.status);
+}
+
+async fn assert_block(
 	test_env: &TestEnvironment,
 	block_number_or_tag: BlockNumberOrTag,
-	expected_empty: bool,
+	should_be_empty: bool,
 ) {
 	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
 
-	println!("Sanity block checking {block_number_or_tag:?} expected_empty: {expected_empty}");
+	println!("Asserting block {block_number_or_tag:?} should_be_empty: {should_be_empty}");
 	let eth_rpc_block = eth_rpc_client
 		.get_block_by_number(block_number_or_tag.clone(), false)
 		.await
 		.unwrap_or_else(|err| panic!("Failed to fetch block {block_number_or_tag:?}: {err:?}"))
-		.expect("Expected block {block_number_or_tag:?} not found");
+		.expect(&format!("Expected block {block_number_or_tag:?} not found"));
 
 	println!("eth block number: {:?} hash: {:?}", eth_rpc_block.number, eth_rpc_block.hash);
 
-	if expected_empty {
+	if should_be_empty {
 		// Blocks with no transactions and no state should have the same roots
 		assert_eq!(hex::encode(&eth_rpc_block.transactions_root), ROOT_FROM_NO_DATA);
 		assert_eq!(hex::encode(&eth_rpc_block.receipts_root), ROOT_FROM_NO_DATA);
@@ -115,11 +135,62 @@ async fn sanity_block_check(
 		.fetch(&query)
 		.await
 		.unwrap_or_else(|err| panic!("Failed to fetch block hash from storage: {err:?}"))
-		.expect("Block hash not found in storage");
+		.expect(&format!("Block number {:?} hash not found in storage", eth_rpc_block.number));
 	assert_eq!(eth_rpc_block.hash, block_hash_from_storage);
 }
 
-async fn transfer(test_env: &TestEnvironment) {
+async fn assert_transactions(
+	test_env: &TestEnvironment,
+	signer: Account,
+	transactions: Vec<(H256, GenericTransaction, ReceiptInfo)>,
+) {
+	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+
+	for (idx, (tx_hash, tx, receipt)) in transactions.into_iter().enumerate() {
+		let block_number = receipt.block_number;
+		let block_hash = receipt.block_hash;
+		let tx_unsigned = tx
+			.try_into_unsigned()
+			.unwrap_or_else(|err| panic!("Failed to convert transaction: {err:?}"));
+		let tx_signed = signer.sign_transaction(tx_unsigned);
+		let expected_tx_info = TransactionInfo::new(&receipt, tx_signed);
+
+		let tx_by_hash = eth_rpc_client
+			.get_transaction_by_hash(tx_hash)
+			.await
+			.unwrap_or_else(|err| panic!("Failed to fetch tx by hash {tx_hash:?}: {err:?}"))
+			.expect(&format!("Expected transaction {tx_hash:?} not found"));
+		let tx_by_block_number_and_index = eth_rpc_client
+			.get_transaction_by_block_number_and_index(
+				BlockNumberOrTag::U256(block_number.into()),
+				idx.into(),
+			)
+			.await
+			.unwrap_or_else(|err| {
+				panic!(
+					"Failed to fetch tx by block number {block_number:?} and index {idx:?} {err:?}",
+				)
+			})
+			.expect(&format!(
+				"Expected transaction at block number {block_number:?} and index {idx:?} not found"
+			));
+		let tx_by_block_hash_and_index = eth_rpc_client
+			.get_transaction_by_block_hash_and_index(block_hash, idx.into())
+			.await
+			.unwrap_or_else(|err| {
+				panic!("Failed to fetch tx by block hash {block_hash:?} and index {idx:?} {err:?}",)
+			})
+			.expect(&format!(
+				"Expected transaction at block hash {block_hash:?} and index {idx:?} not found",
+			));
+
+		assert_eq!(expected_tx_info, tx_by_hash);
+		assert_eq!(expected_tx_info, tx_by_block_number_and_index);
+		assert_eq!(expected_tx_info, tx_by_block_hash_and_index);
+	}
+}
+
+async fn test_transfer(test_env: &TestEnvironment) {
 	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
 
 	let alith = Account::default();
@@ -135,32 +206,23 @@ async fn transfer(test_env: &TestEnvironment) {
 		.get_balance(ethan.address(), BlockTag::Latest.into())
 		.await
 		.unwrap_or_else(|err| panic!("Failed to get Ethan's balance: {err:?}"));
-	println!("Balances before:");
-	println!("Alith: {alith_balance_before:?}");
-	println!("Ethan: {ethan_balance_before:?}");
 
 	println!("\n\n=== Transferring  ===\n\n");
 
 	let tx = TransactionBuilder::new(&eth_rpc_client)
-		.signer(alith)
+		.signer(alith.clone())
 		.value(amount)
 		.to(ethan.address())
 		.send()
 		.await
 		.unwrap_or_else(|err| panic!("Failed to send transaction: {err:?}"));
-	println!("Transaction hash: {:?}", tx.hash());
+	println!("Tx hash: {:?}", tx.hash());
 
-	let ReceiptInfo { block_number, gas_used, cumulative_gas_used, status, block_hash, .. } = tx
+	let receipt = tx
 		.wait_for_receipt()
 		.await
 		.unwrap_or_else(|err| panic!("Failed while waiting for receipt: {err:?}"));
-
-	println!("Receipt: ");
-	println!("- Block number: {block_number}");
-	println!("- Block hash: {block_hash}");
-	println!("- Gas used: {gas_used}");
-	println!("- Cumulative used: {cumulative_gas_used}");
-	println!("- Success: {status:?}");
+	print_receipt_info(&receipt);
 
 	let alith_balance_after = eth_rpc_client
 		.get_balance(alith_address, BlockTag::Latest.into())
@@ -170,12 +232,15 @@ async fn transfer(test_env: &TestEnvironment) {
 		.get_balance(ethan.address(), BlockTag::Latest.into())
 		.await
 		.unwrap_or_else(|err| panic!("Failed to get Ethan's balance: {err:?}"));
+	println!("Balances before:");
+	println!("  Alith: {alith_balance_before:?}");
+	println!("  Ethan: {ethan_balance_before:?}");
 	println!("Balances after:");
 	println!(
-		"Alith: {alith_balance_after:?} gas:{:?}",
+		"  Alith: {alith_balance_after:?} gas:{:?}",
 		alith_balance_before.saturating_sub(alith_balance_after).saturating_sub(amount)
 	);
-	println!("Ethan: {ethan_balance_after:?}");
+	println!("  Ethan: {ethan_balance_after:?}");
 
 	// TODO:
 	//  Should Alith's balance reduced by amount and gas used?
@@ -185,6 +250,77 @@ async fn transfer(test_env: &TestEnvironment) {
 	// 	alith_balance_before.saturating_sub(amount).saturating_sub(gas_used)
 	// );
 	assert_eq!(ethan_balance_after, ethan_balance_before.saturating_add(amount));
+	assert_block(test_env, BlockNumberOrTag::U256(receipt.block_number), false).await;
+	assert_transactions(test_env, alith, vec![(tx.hash(), tx.generic_transaction(), receipt)])
+		.await;
+}
 
-	sanity_block_check(test_env, BlockNumberOrTag::U256(block_number), false).await;
+async fn test_deployment(test_env: &TestEnvironment) {
+	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+
+	let account = Account::default();
+
+	let data = vec![];
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")
+		.unwrap_or_else(|err| panic!("Failed to compile dummy contract: {err:?}"));
+	let input = bytes.into_iter().chain(data.clone()).collect::<Vec<u8>>();
+
+	println!("Account:");
+	println!("- address: {:?}", account.address());
+	println!("- substrate: {}", account.substrate_account());
+
+	println!("\n\n=== Deploying contract ===\n\n");
+
+	let nonce = eth_rpc_client
+		.get_transaction_count(account.address(), BlockTag::Latest.into())
+		.await
+		.unwrap_or_else(|err| panic!("Failed to get transactions count: {err:?}"));
+
+	let tx = TransactionBuilder::new(&eth_rpc_client)
+		.signer(account.clone())
+		.value(5_000_000_000_000u128.into())
+		.input(input)
+		.send()
+		.await
+		.unwrap_or_else(|err| panic!("Failed to send transaction: {err:?}"));
+	println!("Tx hash: {:?}", tx.hash());
+
+	let receipt = tx
+		.wait_for_receipt()
+		.await
+		.unwrap_or_else(|err| panic!("Failed while waiting for receipt: {err:?}"));
+	print_receipt_info(&receipt);
+
+	let contract_address = receipt.contract_address.unwrap();
+
+	assert_eq!(
+		contract_address,
+		pallet_revive::create1(&account.address(), nonce.try_into().unwrap())
+	);
+	assert_block(test_env, BlockNumberOrTag::U256(receipt.block_number), false).await;
+	assert_transactions(
+		test_env,
+		account.clone(),
+		vec![(tx.hash(), tx.generic_transaction(), receipt)],
+	)
+	.await;
+
+	println!("\n\n=== Calling contract ===\n\n");
+	let tx = TransactionBuilder::new(&eth_rpc_client)
+		.value(U256::from(1_000_000u32))
+		.to(contract_address)
+		.send()
+		.await
+		.unwrap_or_else(|err| panic!("Failed to send transaction: {err:?}"));
+	println!("Tx hash: {:?}", tx.hash());
+	let receipt = tx
+		.wait_for_receipt()
+		.await
+		.unwrap_or_else(|err| panic!("Failed while waiting for receipt: {err:?}"));
+	print_receipt_info(&receipt);
+
+	assert_eq!(contract_address, receipt.to.unwrap());
+	assert_block(test_env, BlockNumberOrTag::U256(receipt.block_number), false).await;
+	assert_transactions(test_env, account, vec![(tx.hash(), tx.generic_transaction(), receipt)])
+		.await;
 }
