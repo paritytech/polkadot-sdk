@@ -61,14 +61,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 
-	for (name, timeout_secs) in [
-		("bob", 600u64),
-		("alice", 600u64),
-		("charlie", 600u64),
-		("one", 800u64),
-		("two", 800u64),
-		("eve", 800u64),
-	] {
+	for (name, timeout_secs) in [("bob", 600u64)] {
 		log::info!("Checking block production for {name} within {timeout_secs}s");
 		assert!(network
 			.get_node(name)?
@@ -77,14 +70,16 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 			.is_ok());
 	}
 
-	// Wait (up to 10 seconds) until pattern occurs at least 10 times
-	let options = LogLineCountOptions {
-		predicate: Arc::new(|n| n >= 10),
-		timeout: Duration::from_secs(10),
-		wait_until_timeout_elapses: false,
-	};
+	for (name, timeout_secs) in
+		[("alice", 600u64), ("charlie", 600u64), ("one", 800u64), ("two", 800u64), ("eve", 800u64)]
+	{
+		// Wait (up to 10 seconds) until pattern occurs at least 10 times
+		let options = LogLineCountOptions {
+			predicate: Arc::new(|n| n >= 20),
+			timeout: Duration::from_secs(timeout_secs),
+			wait_until_timeout_elapses: false,
+		};
 
-	for name in ["one", "two", "eve", "charlie", "alice"] {
 		log::info!("Ensuring blocks are imported using PoV recovery by {name}");
 		let result = network
 			.get_node(name)?
