@@ -1,13 +1,19 @@
-title: 'pallet-multi-asset-bounties: create first version of the pallet'
+title: Introduce pallet-multi-asset-bounties
 doc:
 - audience: Runtime Dev
-  description: 'Closes #8768'
+  description: |-
+      This PR introduces `pallet-multi-asset-bounties`, which enables bounties to be funded with other than the native token and adds several key enhancements to bounty management.
+      
+      The motivation for creating this pallet is to support stablecoin funding in order to mitigate volatility in bounty value and reduce curator overhead.  
+
+      See the pallet docs for more info about the pallet.
+
 crates:
 - name: pallet-multi-asset-bounties
-  bump: patch
-- name: pallet-treasury
-  bump: patch
+  bump: major
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: polkadot-sdk
-  bump: patch
+  bump: minor
+- name: kitchensink-runtime
+  bump: major
