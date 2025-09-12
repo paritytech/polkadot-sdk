@@ -13,23 +13,23 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-serde_json = { workspace = true }
-log = { workspace = true }
 env_logger = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+hex = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
+log = { workspace = true }
+pallet-revive = { workspace = true }
 pallet-revive-eth-rpc = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
-pallet-revive = { workspace = true }
+serde_json = { workspace = true }
+sp-core = { workspace = true, default-features = true }
 subxt = { workspace = true, default-features = true, features = ["reconnecting-rpc-client"] }
 subxt-signer = { workspace = true, features = ["unstable-eth"] }
-hex = { workspace = true }
-sp-core = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["full"] }
 # Zombienet dependencies
-zombienet-sdk = { workspace = true }
-zombienet-orchestrator = { workspace = true }
-zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
+zombienet-configuration = { workspace = true }
+zombienet-orchestrator = { workspace = true }
+zombienet-sdk = { workspace = true }
 
 # Polkadot dependencies
 polkadot-primitives = { workspace = true, default-features = true }
