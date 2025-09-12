@@ -1798,10 +1798,6 @@ where
 	Mult: Get<Permill>,
 {
 	fn convert(value: Balance) -> Balance {
-		if value.is_zero() {
-			return Balance::zero()
-		}
-
 		let mut deposit = Mult::get().mul_floor(value);
 
 		if let Some(min) = Min::get() {
