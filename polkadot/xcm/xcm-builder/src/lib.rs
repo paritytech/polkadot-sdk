@@ -124,7 +124,9 @@ pub use origin_conversion::{
 };
 
 mod pay;
-pub use pay::{FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm};
+pub use pay::{
+	FixedLocation, LocatableAssetId, PayAccountId32OnChainOverXcm, PayOverXcm, PayOverXcmWithHelper,
+};
 
 mod process_xcm_message;
 pub use process_xcm_message::ProcessXcmMessage;
