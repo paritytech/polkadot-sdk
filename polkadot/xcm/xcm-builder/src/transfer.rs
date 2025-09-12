@@ -168,8 +168,8 @@ pub trait TransferOverXcmHelperT {
 	) -> Result<QueryId, Error>;
 
 	fn check_payment(id: Self::QueryId) -> PaymentStatus;
-	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be successful if done immediately
-	/// after this call. Used in benchmarking code.
+	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be
+	/// successful if done immediately after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance);
 
@@ -308,7 +308,10 @@ impl<
 	/// Returns the `from` relative to the asset's location.
 	///
 	/// This is the account that executes the transfer on the remote chain.
-	pub fn from_relative_to_asset_location(from: &Beneficiary, asset_kind: AssetKind) -> Result<Location, Error> {
+	pub fn from_relative_to_asset_location(
+		from: &Beneficiary,
+		asset_kind: AssetKind,
+	) -> Result<Location, Error> {
 		let from_location = BeneficiaryRefToLocation::try_convert(from).map_err(|error| {
 			tracing::error!(target: LOG_TARGET, ?error, "Failed to convert from to location");
 			Error::InvalidLocation

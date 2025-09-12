@@ -45,10 +45,10 @@ use xcm_executor::traits::WaiveDeliveryFees;
 /// See also `PayAccountId32OverXcm` which is similar to this except that `BeneficiaryRefToLocation`
 /// need not be supplied and `Beneficiary` must implement `Into<[u8; 32]>`.
 ///
-/// The implementatino of this type assumes:
+/// The implementation of this type assumes:
 ///
-/// - The sending account on the remote chain is fixed (derived from the `Interior` location), rather than
-///   being fully configurable.
+/// - The sending account on the remote chain is fixed (derived from the `Interior` location),
+///   rather than being fully configurable.
 /// - The remote chain waives the XCM execution fee (`PaysRemoteFee::No`).
 ///
 /// See also [super::transfer::TransferOverXcm] for a more generic implementation with a flexible
@@ -77,6 +77,8 @@ pub type PayOverXcm<
 	>,
 >;
 
+/// Simpler than [`PayOverXcm`] the low-level XCM configuration is extracted to the
+/// `TransferOverXcmHelper` type.
 pub struct PayOverXcmWithHelper<Interior, TransferOverXcmHelper>(
 	PhantomData<(Interior, TransferOverXcmHelper)>,
 );

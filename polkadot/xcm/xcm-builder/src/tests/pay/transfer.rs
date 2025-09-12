@@ -188,9 +188,11 @@ fn sender_on_remote_works() {
 		asset_id: RelayLocation::get().into(),
 	};
 
-	let sender_on_remote =
-		TestTransferOverXcmHelper::from_relative_to_asset_location(&SenderAccount::get(), asset_kind.clone())
-			.unwrap();
+	let sender_on_remote = TestTransferOverXcmHelper::from_relative_to_asset_location(
+		&SenderAccount::get(),
+		asset_kind.clone(),
+	)
+	.unwrap();
 
 	assert_eq!(sender_on_remote, SenderLocationOnTarget::get());
 }
