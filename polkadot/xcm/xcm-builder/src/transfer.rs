@@ -349,7 +349,7 @@ fn remote_transfer_xcm_paying_fees(
 			ReportError(QueryResponseInfo {
 				destination: origin_relative_to_remote.clone(),
 				query_id,
-				max_weight: Weight::max_value(),
+				max_weight: Weight::MAX,
 			}),
 			RefundSurplus,
 			DepositAsset { assets: AssetFilter::Wild(WildAsset::All), beneficiary: from_at_target },
