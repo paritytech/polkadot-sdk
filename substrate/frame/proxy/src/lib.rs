@@ -39,7 +39,10 @@ use alloc::{boxed::Box, vec};
 use frame::{
 	prelude::*,
 	traits::{
-		fungible::{hold::Mutate as FunHoldMutate, Inspect as FunInspect},
+		fungible::{
+			hold::{Inspect as FunHoldInspect, Mutate as FunHoldMutate},
+			Inspect as FunInspect,
+		},
 		tokens::Precision,
 		InstanceFilter, StorageVersion,
 	},
@@ -1091,6 +1094,14 @@ impl<T: Config> Pallet<T> {
 			&delegator,
 			old_deposit,
 			Precision::BestEffort,
+		);
+		defensive_assert!(
+			<T::Currency as FunHoldInspect<_>>::balance_on_hold(
+				&HoldReason::ProxyDeposit.into(),
+				&delegator
+			)
+			.is_zero(),
+			"Proxy deposit hold should be zero after removing all proxies"
 		);
 	}
 }
