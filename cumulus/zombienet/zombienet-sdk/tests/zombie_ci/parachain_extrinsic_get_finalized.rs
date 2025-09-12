@@ -8,7 +8,7 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
 use zombienet_orchestrator::network::node::{LogLineCount, LogLineCountOptions};
 use zombienet_sdk::{
-	subxt::{self, dynamic::Value, OnlineClient, SubstrateConfig},
+	subxt::{self, dynamic::Value, OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
@@ -105,7 +105,7 @@ async fn parachain_extrinsic_gets_finalized() -> Result<(), anyhow::Error> {
 
 	log::info!("Ensuring parachain extrinsic gets finalized");
 	let call = subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("xxx".as_bytes())]);
-	let charlie_client: OnlineClient<SubstrateConfig> = charlie.wait_client().await?;
+	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 
 	let res = submit_extrinsic_and_wait_for_finalization_success_with_timeout(
 		&charlie_client,

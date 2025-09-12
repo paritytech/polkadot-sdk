@@ -42,6 +42,7 @@ mod benchmarks {
 		frame_system::Pallet::<T>::inc_providers(&caller);
 		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
 		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), keys, proof);
@@ -55,7 +56,8 @@ mod benchmarks {
 		frame_system::Pallet::<T>::inc_providers(&caller);
 		let keys = T::Keys::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
 		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
-		let _t = pallet_session::Pallet::<T>::set_keys(
+		<pallet_session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+	        let _t = pallet_session::Pallet::<T>::set_keys(
 			RawOrigin::Signed(caller.clone()).into(),
 			keys,
 			proof,

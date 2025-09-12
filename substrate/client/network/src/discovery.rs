@@ -46,7 +46,13 @@
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
 //! of a node's address, you must call `add_self_reported_address`.
 
-use crate::{config::ProtocolId, utils::LruHashSet};
+use crate::{
+	config::{
+		ProtocolId, KADEMLIA_MAX_PROVIDER_KEYS, KADEMLIA_PROVIDER_RECORD_TTL,
+		KADEMLIA_PROVIDER_REPUBLISH_INTERVAL,
+	},
+	utils::LruHashSet,
+};
 
 use array_bytes::bytes2hex;
 use futures::prelude::*;
@@ -56,7 +62,7 @@ use libp2p::{
 	core::{transport::PortUse, Endpoint, Multiaddr},
 	kad::{
 		self,
-		store::{MemoryStore, RecordStore},
+		store::{MemoryStore, MemoryStoreConfig, RecordStore},
 		Behaviour as Kademlia, BucketInserts, Config as KademliaConfig, Event as KademliaEvent,
 		Event, GetClosestPeersError, GetClosestPeersOk, GetProvidersError, GetProvidersOk,
 		GetRecordOk, PeerRecord, QueryId, QueryResult, Quorum, Record, RecordKey,
@@ -239,7 +245,18 @@ impl DiscoveryConfig {
 			// auto-insertion and instead add peers manually.
 			config.set_kbucket_inserts(BucketInserts::Manual);
 			config.disjoint_query_paths(kademlia_disjoint_query_paths);
-			let store = MemoryStore::new(local_peer_id);
+
+			config.set_provider_record_ttl(Some(KADEMLIA_PROVIDER_RECORD_TTL));
+			config.set_provider_publication_interval(Some(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL));
+
+			let store = MemoryStore::with_config(
+				local_peer_id,
+				MemoryStoreConfig {
+					max_provided_keys: KADEMLIA_MAX_PROVIDER_KEYS,
+					..Default::default()
+				},
+			);
+
 			let mut kad = Kademlia::with_config(local_peer_id, store, config);
 			kad.set_mode(Some(kad::Mode::Server));
 

@@ -34,7 +34,6 @@ use cumulus_client_consensus_aura::{
 	},
 	ImportQueueParams,
 };
-use cumulus_client_consensus_proposer::Proposer;
 use prometheus::Registry;
 use runtime::AccountId;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
@@ -62,9 +61,7 @@ use cumulus_client_service::{
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface, RelayChainResult};
-use cumulus_relay_chain_minimal_node::{
-	build_minimal_relay_chain_node_light_client, build_minimal_relay_chain_node_with_rpc,
-};
+use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node_with_rpc;
 
 use cumulus_test_runtime::{Hash, Header, NodeBlock as Block, RuntimeApi};
 
@@ -289,6 +286,7 @@ async fn build_relay_chain_interface(
 			},
 			None,
 			polkadot_service::CollatorOverseerGen,
+			Some("Relaychain"),
 		)
 		.map_err(|e| RelayChainError::Application(Box::new(e) as Box<_>))?,
 		cumulus_client_cli::RelayChainMode::ExternalRpc(rpc_target_urls) =>
@@ -300,10 +298,6 @@ async fn build_relay_chain_interface(
 			)
 			.await
 			.map(|r| r.0),
-		cumulus_client_cli::RelayChainMode::LightClient =>
-			return build_minimal_relay_chain_node_light_client(relay_chain_config, task_manager)
-				.await
-				.map(|r| r.0),
 	};
 
 	task_manager.add_child(relay_chain_node.task_manager);
@@ -474,14 +468,13 @@ where
 			})
 			.await;
 		} else {
-			let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+			let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
 				task_manager.spawn_handle(),
 				client.clone(),
 				transaction_pool.clone(),
 				prometheus_registry.as_ref(),
 				None,
 			);
-			let proposer = Proposer::new(proposer_factory);
 
 			let collator_service = CollatorService::new(
 				client.clone(),

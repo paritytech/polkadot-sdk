@@ -95,7 +95,6 @@ mod sys {
 		pub fn seal_return(flags: u32, data_ptr: *const u8, data_len: u32);
 		pub fn caller(out_ptr: *mut u8);
 		pub fn origin(out_ptr: *mut u8);
-		pub fn to_account_id(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_hash(address_ptr: *const u8, out_ptr: *mut u8);
 		pub fn code_size(address_ptr: *const u8) -> u64;
 		pub fn own_code_hash(out_ptr: *mut u8);
@@ -127,8 +126,6 @@ mod sys {
 		pub fn block_hash(block_number_ptr: *const u8, out_ptr: *mut u8);
 		pub fn block_author(out_ptr: *mut u8);
 		pub fn hash_keccak_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn hash_blake2_256(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
-		pub fn hash_blake2_128(input_ptr: *const u8, input_len: u32, out_ptr: *mut u8);
 		pub fn call_chain_extension(
 			id: u32,
 			input_ptr: *const u8,
@@ -449,11 +446,6 @@ impl HostFn for HostFnImpl {
 	}
 
 	#[unstable_hostfn]
-	fn to_account_id(address: &[u8; 20], output: &mut [u8]) {
-		unsafe { sys::to_account_id(address.as_ptr(), output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
 	fn block_hash(block_number_ptr: &[u8; 32], output: &mut [u8; 32]) {
 		unsafe { sys::block_hash(block_number_ptr.as_ptr(), output.as_mut_ptr()) };
 	}
@@ -513,16 +505,6 @@ impl HostFn for HostFnImpl {
 	fn ecdsa_to_eth_address(pubkey: &[u8; 33], output: &mut [u8; 20]) -> Result {
 		let ret_code = unsafe { sys::ecdsa_to_eth_address(pubkey.as_ptr(), output.as_mut_ptr()) };
 		ret_code.into()
-	}
-
-	#[unstable_hostfn]
-	fn hash_blake2_256(input: &[u8], output: &mut [u8; 32]) {
-		unsafe { sys::hash_blake2_256(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
-	}
-
-	#[unstable_hostfn]
-	fn hash_blake2_128(input: &[u8], output: &mut [u8; 16]) {
-		unsafe { sys::hash_blake2_128(input.as_ptr(), input.len() as u32, output.as_mut_ptr()) }
 	}
 
 	#[unstable_hostfn]

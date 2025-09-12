@@ -68,6 +68,7 @@ fn register_validators<T: Config + session_benchmarking::Config>(count: u32) -> 
 	let validators = (0..count).map(|c| validator::<T>(c)).collect::<Vec<_>>();
 
 	for (who, keys, proof) in validators.clone() {
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
 		<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 	}
 
@@ -147,6 +148,7 @@ mod benchmarks {
 		candidates.push((new_invulnerable.clone(), new_invulnerable_keys, new_proof));
 		// set their keys ...
 		for (who, keys, proof) in candidates.clone() {
+			<session::Pallet<T>>::ensure_can_pay_key_deposit(&who).unwrap();
 			<session::Pallet<T>>::set_keys(RawOrigin::Signed(who).into(), keys, proof).unwrap();
 		}
 		// ... and register them.
@@ -287,8 +289,13 @@ mod benchmarks {
 		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
-			.unwrap();
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+		<session::Pallet<T>>::set_keys(
+			RawOrigin::Signed(caller.clone()).into(),
+			keys::<T>(c + 1),
+			proof,
+		)
+		.unwrap();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller.clone()));
@@ -310,10 +317,17 @@ mod benchmarks {
 		let bond: BalanceOf<T> = <T as pallet::Config>::Currency::minimum_balance() * 10u32.into();
 		<T as pallet::Config>::Currency::make_free_balance_be(&caller, bond);
 
-		let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
 
-		<session::Pallet<T>>::set_keys(RawOrigin::Signed(caller.clone()).into(), keys, proof)
-			.unwrap();
+		<session::Pallet<T>>::ensure_can_pay_key_deposit(&caller).unwrap();
+
+	        let (keys, proof) = T::generate_session_keys_and_proof(caller.clone());
+	    
+		<session::Pallet<T>>::set_keys(
+			RawOrigin::Signed(caller.clone()).into(),
+			keys::<T>(c + 1),
+			proof,
+		)
+		.unwrap();
 
 		let target = CandidateList::<T>::get().iter().last().unwrap().who.clone();
 
@@ -439,5 +453,5 @@ mod benchmarks {
 		}
 	}
 
-	impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test,);
+	impl_benchmark_test_suite!(CollatorSelection, crate::mock::new_test_ext(), crate::mock::Test);
 }

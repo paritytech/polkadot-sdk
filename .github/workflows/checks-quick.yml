@@ -60,6 +60,9 @@ jobs:
         run: |
           # Pull all dependencies eagerly:
           time cargo metadata --format-version=1 --locked > /dev/null
+      - name: Install newer Zepter
+        run: |
+          cargo install zepter@1.78.2 --locked -q
       - name: run zepter
         run: |
           zepter --version
@@ -138,6 +141,9 @@ jobs:
       - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
       - name: install python deps
         run: pip3 install "cargo-workspace>=1.2.4" toml
+      - name: Install newer Zepter
+        run: |
+          cargo install zepter@1.78.2 --locked -q && zepter --version
       - name: check umbrella correctness
         run: |
           # Fixes "detected dubious ownership" error in the ci
