@@ -155,9 +155,28 @@ impl Default for OpcodeTracerConfig {
 /// ```json
 /// { "tracer": "callTracer" }
 /// ```
+///
+/// By default if not specified the tracer is a  StructLogger, and it's config is passed inline
+///
+/// ```json
+/// { "tracer": null, "tracerConfig": { "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true } }
+/// ```
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
+		(
+			r#"{ "tracer": null, "tracerConfig": { "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true } }"#,
+			TracerConfig {
+				config: TracerType::StructLogger(Some(OpcodeTracerConfig {
+					enable_memory: true,
+					disable_stack: false,
+					disable_storage: false,
+					enable_return_data: true,
+					limit: 0,
+				})),
+				timeout: None,
+			},
+		),
 		(
 			r#"{"tracer": "callTracer"}"#,
 			TracerConfig { config: TracerType::CallTracer(None), timeout: None },
