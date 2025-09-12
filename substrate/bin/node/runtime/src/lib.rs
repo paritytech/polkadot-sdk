@@ -1436,7 +1436,6 @@ parameter_types! {
 }
 
 impl pallet_multi_asset_bounties::Config for Runtime {
-	type PalletId = TreasuryPalletId;
 	type Balance = Balance;
 	type RejectOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
@@ -1449,11 +1448,12 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	type BountyValueMinimum = BountyValueMinimum;
 	type ChildBountyValueMinimum = ChildBountyValueMinimum;
 	type MaxActiveChildBountyCount = MaxActiveChildBountyCount;
-	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = pallet_multi_asset_bounties::weights::SubstrateWeight<Runtime>;
-	type FundingSource = pallet_multi_asset_bounties::FundingSourceAccount<Runtime>;
-	type BountySource = pallet_multi_asset_bounties::BountySourceAccount<Runtime>;
-	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceAccount<Runtime>;
+	type FundingSource =
+		pallet_multi_asset_bounties::PalletIdAsFundingSource<TreasuryPalletId, Runtime>;
+	type BountySource = pallet_multi_asset_bounties::BountySourceAccount<TreasuryPalletId, Runtime>;
+	type ChildBountySource =
+		pallet_multi_asset_bounties::ChildBountySourceAccount<TreasuryPalletId, Runtime>;
 	type Paymaster = PayWithFungibles<NativeAndAssets, AccountId>;
 	type BalanceConverter = AssetRate;
 	type Preimages = Preimage;
