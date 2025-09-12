@@ -191,6 +191,16 @@ mod benchmarks {
 		// Create a caller based on the rank.
 		let caller = make_member::<T, I>(rank);
 
+		// Simulate the rank_to_votes conversion process
+    	let vote_weight = if let Some(ref class) = class {
+        	let min_rank = T::MinRankOfClass::convert(class.clone());
+        	let member_rank = Members::<T, I>::get(&caller).map(|m| m.rank).unwrap_or(0);
+        	let excess = member_rank.checked_sub(min_rank).unwrap_or(0);
+        	T::VoteWeight::convert(excess)
+   		} else {
+        	0
+    	};
+
 		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
 		// poll.
 		let poll = if let Some(ref class) = class {
@@ -227,8 +237,8 @@ mod benchmarks {
 
 		// If the class exists, verify the vote event and tally.
 		if let Some(_) = class {
-			let tally = Tally::from_parts(0, 0, 1);
-			let vote_event = Event::Voted { who: caller, poll, vote: VoteRecord::Nay(1), tally };
+			let tally = Tally::from_parts(0, 0, vote_weight);
+			let vote_event = Event::Voted { who: caller, poll, vote: VoteRecord::Nay(vote_weight), tally };
 			assert_last_event::<T, I>(vote_event.into());
 		}
 
