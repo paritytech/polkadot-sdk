@@ -115,9 +115,9 @@ where
 	fn ensure_successful(
 		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
-		_: Self::Balance,
+		balance: Self::Balance,
 	) {
-		TransferOverXcmHelper::ensure_successful(beneficiary, asset_kind);
+		TransferOverXcmHelper::ensure_successful(beneficiary, asset_kind, balance);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

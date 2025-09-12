@@ -50,7 +50,6 @@ pub enum PaysRemoteFee<RemoteFeeAsset> {
 /// updated with the result of a dry-run execution to make sure that the
 /// fee is sensible.
 pub trait GetDefaultRemoteFee {
-
 	/// The asset type use the pay the fees with.
 	type Asset;
 
@@ -105,7 +104,6 @@ pub trait Transfer {
 	/// after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		from: &Self::Sender,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,

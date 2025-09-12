@@ -30,7 +30,7 @@ use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
 use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
 
-pub use frame_support::traits::tokens::transfer::{Transfer, GetDefaultRemoteFee};
+pub use frame_support::traits::tokens::transfer::{GetDefaultRemoteFee, Transfer};
 
 const LOG_TARGET: &str = "xcm::transfer_over_xcm";
 
@@ -56,7 +56,7 @@ pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOv
 impl<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper> Transfer
 	for TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>
 where
-	DefaultRemoteFee: GetDefaultRemoteFee<Asset=Asset>,
+	DefaultRemoteFee: GetDefaultRemoteFee<Asset = Asset>,
 	TransferOverXcmHelper: TransferOverXcmHelperT<Balance = u128, QueryId = QueryId>,
 	TransactorRefToLocation: for<'a> TryConvert<&'a TransferOverXcmHelper::Beneficiary, Location>,
 {
@@ -105,9 +105,9 @@ where
 	fn ensure_successful(
 		beneficiary: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
-		_: Self::Balance,
+		balance: Self::Balance,
 	) {
-		TransferOverXcmHelper::ensure_successful(beneficiary, asset_kind);
+		TransferOverXcmHelper::ensure_successful(beneficiary, asset_kind, balance);
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -162,7 +162,11 @@ pub trait TransferOverXcmHelperT {
 	/// Ensure that a call to `send_remote_transfer_xcm` with the given parameters will be
 	/// successful if done immediately after this call. Used in benchmarking code.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance);
+	fn ensure_successful(
+		beneficiary: &Self::Beneficiary,
+		asset_kind: Self::AssetKind,
+		balance: Self::Balance,
+	);
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::QueryId);

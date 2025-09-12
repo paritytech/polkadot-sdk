@@ -63,7 +63,6 @@ type TestTransferOverXcmHelper = TransferOverXcmHelper<
 struct ConstantRelayTokenDefaultFee;
 
 impl GetDefaultRemoteFee for ConstantRelayTokenDefaultFee {
-
 	type Asset = Asset;
 
 	fn get_default_remote_fee() -> Self::Asset {
