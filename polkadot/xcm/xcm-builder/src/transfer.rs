@@ -89,14 +89,13 @@ where
 			PaysRemoteFeeWithMaybeDefault::No => PaysRemoteFee::No,
 		};
 
-		let query_id = TransferOverXcmHelper::send_remote_transfer_xcm(
+		TransferOverXcmHelper::send_remote_transfer_xcm(
 			from_location.clone(),
 			to,
 			asset_kind,
 			amount,
 			remote_fee,
-		)?;
-		Ok(query_id)
+		)
 	}
 
 	fn check_payment(id: Self::Id) -> PaymentStatus {
@@ -163,7 +162,7 @@ pub trait TransferOverXcmHelperT {
 	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance);
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id);
+	fn ensure_concluded(id: Self::QueryId);
 }
 
 impl<
@@ -206,7 +205,7 @@ impl<
 		let origin_location_on_remote = Self::origin_location_on_remote(&asset_location)?;
 
 		let beneficiary = BeneficiaryRefToLocation::try_convert(to).map_err(|error| {
-			tracing::debug!(target: "xcm::pay", ?error, "Failed to convert beneficiary to location");
+			tracing::debug!(target: LOG_TARGET, ?error, "Failed to convert beneficiary to location");
 			Error::InvalidLocation
 		})?;
 
@@ -267,7 +266,7 @@ impl<
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_concluded(id: Self::Id) {
+	fn ensure_concluded(id: Self::QueryId) {
 		Querier::expect_response(id, Response::ExecutionResult(None));
 	}
 }
@@ -305,9 +304,7 @@ impl<
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 
 		let origin_location_on_remote = Self::origin_location_on_remote(&locatable.location)?;
-		origin_location_on_remote
-			.appended_with(from_location)
-			.map_err(|_| Error::LocationFull)
+		append_from_to_target(from_location, origin_location_on_remote)
 	}
 
 	fn origin_location_on_remote(asset_location: &Location) -> Result<Location, Error> {
