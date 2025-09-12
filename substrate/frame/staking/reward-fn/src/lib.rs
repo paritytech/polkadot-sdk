@@ -111,7 +111,7 @@ struct INPoSParam {
 	accuracy: BigUint,
 }
 
-/// Compute `2^((x_ideal - x) / d)` using taylor serie.
+/// Compute `2^((x_ideal - x) / d)` using taylor series.
 ///
 /// x must be strictly more than x_ideal.
 ///
