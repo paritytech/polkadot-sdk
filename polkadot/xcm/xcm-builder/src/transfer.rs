@@ -272,10 +272,10 @@ impl<
 }
 
 impl<
-		Router: SendXcm,
+		Router,
 		Querier: QueryHandler,
-		XcmFeeHandler: FeeManager,
-		Timeout: Get<Querier::BlockNumber>,
+		XcmFeeHandler,
+		Timeout,
 		Beneficiary: Clone + core::fmt::Debug,
 		AssetKind: Clone + core::fmt::Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
@@ -327,7 +327,7 @@ impl<
 
 fn remote_transfer_xcm_paying_fees(
 	from_location: Location,
-	destination: Location,
+	origin_relative_to_remote: Location,
 	beneficiary: Location,
 	asset_id: AssetId,
 	amount: u128,
@@ -336,7 +336,8 @@ fn remote_transfer_xcm_paying_fees(
 ) -> Result<Xcm<()>, Error> {
 	// Transform `from` into Location::new(1, XX([Parachain(source), from.interior }])
 	// We need this one for the refunds.
-	let from_at_target = append_from_to_target(from_location.clone(), destination.clone())?;
+	let from_at_target =
+		append_from_to_target(from_location.clone(), origin_relative_to_remote.clone())?;
 	tracing::trace!(target: LOG_TARGET, ?from_at_target, "From at target");
 
 	let xcm = Xcm(vec![
@@ -346,7 +347,7 @@ fn remote_transfer_xcm_paying_fees(
 		PayFees { asset: remote_fee },
 		SetAppendix(Xcm(vec![
 			ReportError(QueryResponseInfo {
-				destination: destination.clone(),
+				destination: origin_relative_to_remote.clone(),
 				query_id,
 				max_weight: Weight::zero(),
 			}),
@@ -361,7 +362,7 @@ fn remote_transfer_xcm_paying_fees(
 
 fn remote_transfer_xcm_free_execution(
 	from_location: Location,
-	destination: Location,
+	origin_relative_to_remote: Location,
 	beneficiary: Location,
 	asset_id: AssetId,
 	amount: u128,
@@ -372,7 +373,11 @@ fn remote_transfer_xcm_free_execution(
 		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 		SetAppendix(Xcm(vec![
 			SetFeesMode { jit_withdraw: true },
-			ReportError(QueryResponseInfo { destination, query_id, max_weight: Weight::zero() }),
+			ReportError(QueryResponseInfo {
+				destination: origin_relative_to_remote,
+				query_id,
+				max_weight: Weight::zero(),
+			}),
 		])),
 		TransferAsset {
 			beneficiary,
