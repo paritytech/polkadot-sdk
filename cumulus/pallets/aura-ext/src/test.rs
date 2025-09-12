@@ -21,7 +21,7 @@ use super::*;
 
 use core::num::NonZeroU32;
 use cumulus_pallet_parachain_system::{
-	consensus_hook::ExpectParentIncluded, AnyRelayNumber, DefaultCoreSelector, ParachainSetCode,
+	consensus_hook::ExpectParentIncluded, AnyRelayNumber, ParachainSetCode,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -114,7 +114,6 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = ExpectParentIncluded;
-	type SelectCore = DefaultCoreSelector<Test>;
 	type RelayParentOffset = ConstU32<0>;
 }
 

@@ -26,7 +26,7 @@ use futures::{
 	future,
 	future::{Future, FutureExt},
 };
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, log_enabled, trace, warn, Level};
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_block_builder::{BlockBuilderApi, BlockBuilderBuilder};
 use sc_proposer_metrics::{EndProposingReason, MetricsLink as PrometheusMetrics};
@@ -414,8 +414,18 @@ where
 		inherent_data: InherentData,
 	) -> Result<(), sp_blockchain::Error> {
 		let create_inherents_start = time::Instant::now();
+
+		let inherent_identifiers = log_enabled!(target: LOG_TARGET, Level::Debug).then(|| {
+			inherent_data
+				.identifiers()
+				.map(|id| String::from_utf8_lossy(id).to_string())
+				.collect::<Vec<String>>()
+		});
+
 		let inherents = block_builder.create_inherents(inherent_data)?;
 		let create_inherents_end = time::Instant::now();
+
+		debug!(target: LOG_TARGET, "apply_inherents: Runtime provided {} inherents. Inherent identifiers present: {:?}", inherents.len(), inherent_identifiers);
 
 		self.metrics.report(|metrics| {
 			metrics.create_inherents_time.observe(
