@@ -646,7 +646,7 @@ where
 		// We need at least enough weight to read one storage item to make progress
 		let min_required = T::DbWeight::get().reads(1);
 		if meter.remaining().any_lt(min_required) {
-			log::warn!(target: LOG_TARGET, "Insufficient weight to make any progress");
+			log::debug!(target: LOG_TARGET, "Insufficient weight to make any progress");
 			return Err(SteppedMigrationError::InsufficientWeight { required: min_required });
 		}
 
