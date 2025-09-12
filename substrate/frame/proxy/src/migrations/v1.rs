@@ -92,7 +92,7 @@
 //! 5. No additional storage needed - uses existing deposit field
 
 use crate::{
-	Announcement, Announcements, BalanceOf, CallHashOf, Config, Event, HoldReason, Pallet, Proxies,
+	Announcements, BalanceOf, BoundedAnnouncements, Config, Event, HoldReason, Pallet, Proxies,
 	ProxyDefinitions,
 };
 extern crate alloc;
@@ -344,12 +344,9 @@ where
 	/// Migrate a single announcement account with announcement preservation on failure.
 	/// Preserves announcements even when hold creation fails.
 	/// Returns the migration outcome and actual weight consumed.
-	fn migrate_announcement_account<BlockNumber>(
+	fn migrate_announcement_account(
 		who: &<T as frame_system::Config>::AccountId,
-		announcements: BoundedVec<
-			Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumber>,
-			T::MaxPending,
-		>,
+		announcements: BoundedAnnouncements<T>,
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {

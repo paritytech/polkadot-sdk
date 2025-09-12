@@ -65,6 +65,11 @@ type ProxyDefinitions<T, BlockNumber = BlockNumberFor<T>> = BoundedVec<
 	<T as Config>::MaxProxies,
 >;
 
+type BoundedAnnouncements<T, BlockNumber = BlockNumberFor<T>> = BoundedVec<
+	Announcement<<T as frame_system::Config>::AccountId, CallHashOf<T>, BlockNumber>,
+	<T as Config>::MaxPending,
+>;
+
 /// The parameters under which a particular account has a proxy relationship with some other
 /// account.
 #[derive(
@@ -835,10 +840,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::AccountId,
-		(
-			BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
-			BalanceOf<T>,
-		),
+		(BoundedAnnouncements<T>, BalanceOf<T>),
 		ValueQuery,
 	>;
 
@@ -866,12 +868,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Public function to announcements storage.
-	pub fn announcements(
-		account: T::AccountId,
-	) -> (
-		BoundedVec<Announcement<T::AccountId, CallHashOf<T>, BlockNumberFor<T>>, T::MaxPending>,
-		BalanceOf<T>,
-	) {
+	pub fn announcements(account: T::AccountId) -> (BoundedAnnouncements<T>, BalanceOf<T>) {
 		Announcements::<T>::get(account)
 	}
 
