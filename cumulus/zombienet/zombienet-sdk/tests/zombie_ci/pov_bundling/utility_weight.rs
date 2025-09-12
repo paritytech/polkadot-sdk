@@ -109,7 +109,24 @@ async fn pov_bundling_utility_weight() -> Result<(), anyhow::Error> {
 			.await?;
 	log::info!("Third transaction finalized, weight registration scheduled for next block");
 
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash)).await?;
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+		.await?;
+
+	let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
+	let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
+
+	log::info!("Sending transaction to set inherent weight consumption (1s ref_time)");
+	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+		&para_client,
+		&sudo_inherent_weight_call,
+		&alice,
+	)
+	.await?;
+	log::info!("Weight consumption scheduled for next inherent call");
+
+	// The next block should contain the consume_weight_inherent and consume the 1s ref_time
+	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+		.await?;
 
 	Ok(())
 }
@@ -147,6 +164,16 @@ fn create_schedule_weight_registration_call() -> DynamicPayload {
 		"schedule_weight_registration",
 		vec![] as Vec<zombienet_sdk::subxt::ext::scale_value::Value>,
 	)
+}
+
+/// Creates a `test-pallet` `set_inherent_weight_consume` call
+fn create_set_inherent_weight_consume_call(ref_time: u64, proof_size: u64) -> DynamicPayload {
+	let weight = value!({
+		ref_time: ref_time,
+		proof_size: proof_size
+	});
+
+	zombienet_sdk::subxt::tx::dynamic("TestPallet", "set_inherent_weight_consume", vec![weight])
 }
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {

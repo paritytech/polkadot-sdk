@@ -25,8 +25,15 @@ pub const TEST_RUNTIME_UPGRADE_KEY: &[u8] = b"+test_runtime_upgrade_key+";
 pub mod pallet {
 	use crate::test_pallet::TEST_RUNTIME_UPGRADE_KEY;
 	use alloc::vec;
-	use frame_support::{pallet_prelude::*, weights::constants::WEIGHT_REF_TIME_PER_SECOND};
+	use frame_support::{
+		inherent::{InherentData, InherentIdentifier, ProvideInherent},
+		pallet_prelude::*,
+		weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+	};
 	use frame_system::pallet_prelude::*;
+
+	/// The inherent identifier for weight consumption.
+	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"consume0";
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -41,6 +48,10 @@ pub mod pallet {
 	/// Flag to indicate if a 1s weight should be registered in the next `on_initialize`.
 	#[pallet::storage]
 	pub type ScheduleWeightRegistration<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Weight to be consumed by the inherent call.
+	#[pallet::storage]
+	pub type InherentWeightConsume<T: Config> = StorageValue<_, Weight, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -132,6 +143,53 @@ pub mod pallet {
 		pub fn schedule_weight_registration(_: OriginFor<T>) -> DispatchResult {
 			ScheduleWeightRegistration::<T>::set(true);
 			Ok(())
+		}
+
+		/// Set the weight to be consumed by the next inherent call.
+		#[pallet::weight(0)]
+		pub fn set_inherent_weight_consume(_: OriginFor<T>, weight: Weight) -> DispatchResult {
+			InherentWeightConsume::<T>::put(weight);
+			Ok(())
+		}
+
+		/// Consume weight via inherent call (clears the storage after consuming).
+		#[pallet::weight((
+			InherentWeightConsume::<T>::get().unwrap_or_default(),
+			DispatchClass::Mandatory
+		))]
+		pub fn consume_weight_inherent(origin: OriginFor<T>) -> DispatchResult {
+			ensure_none(origin)?;
+
+			// Clear the storage item to ensure this can only be called once per inherent
+			InherentWeightConsume::<T>::kill();
+
+			Ok(())
+		}
+	}
+
+	#[pallet::inherent]
+	impl<T: Config> ProvideInherent for Pallet<T> {
+		type Call = Call<T>;
+		type Error = sp_inherents::MakeFatalError<()>;
+		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+		fn create_inherent(_data: &InherentData) -> Option<Self::Call> {
+			// Check if there's weight to consume from storage
+			let weight_to_consume = InherentWeightConsume::<T>::get()?;
+
+			// Check if the weight fits in the remaining block capacity
+			let remaining_weight = frame_system::Pallet::<T>::remaining_block_weight();
+
+			if remaining_weight.can_consume(weight_to_consume) {
+				Some(Call::consume_weight_inherent {})
+			} else {
+				// Weight doesn't fit, don't create the inherent
+				None
+			}
+		}
+
+		fn is_inherent(call: &Self::Call) -> bool {
+			matches!(call, Call::consume_weight_inherent {})
 		}
 	}
 
