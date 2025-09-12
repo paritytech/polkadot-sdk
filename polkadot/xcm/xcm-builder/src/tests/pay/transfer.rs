@@ -182,7 +182,7 @@ fn transfer_over_xcm_works_with_default_fee() {
 }
 
 #[test]
-fn sender_on_remote_works() {
+fn sender_on_relative_to_asset_location_works() {
 	let asset_kind = AssetKind {
 		destination: (Parent, Parachain(1000)).into(),
 		asset_id: RelayLocation::get().into(),
