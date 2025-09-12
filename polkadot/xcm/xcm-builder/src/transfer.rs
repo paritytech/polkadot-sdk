@@ -43,7 +43,7 @@ pub trait GetDefaultRemoteFee {
 	fn get_default_remote_fee() -> Asset;
 }
 
-/// Transfer an asset on a remote chain (in practice this should be only asset hub).
+/// Transfer an asset on a remote chain.
 ///
 /// It is similar to the `PayOverXcm` struct from the polkadot-sdk with the difference
 /// that the source account executing the transaction is function parameter.

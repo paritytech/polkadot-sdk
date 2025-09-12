@@ -231,7 +231,7 @@ fn remote_transfer_xcm<Call>(
 			ReportError(QueryResponseInfo {
 				destination: (Parent, Parachain(MockRuntimeParachainId::get().into())).into(),
 				query_id: 1,
-				max_weight: Weight::zero(),
+				max_weight: Weight::MAX,
 			}),
 			RefundSurplus,
 			DepositAsset {
