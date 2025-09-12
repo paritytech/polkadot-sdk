@@ -141,12 +141,10 @@ impl EthRpcServer {
 				let reader = BufReader::new(stdout);
 				let mut log_file = File::create(log_file_path_clone).unwrap();
 
-				for line in reader.lines() {
-					if let Ok(line) = line {
-						println!("[eth-rpc] {}", line); // Print to stdout
-						writeln!(log_file, "{}", line).unwrap(); // Write to file
-						log_file.flush().unwrap();
-					}
+				for line in reader.lines().flatten() {
+					println!("[eth-rpc] {}", line); // Print to stdout
+					writeln!(log_file, "{}", line).unwrap(); // Write to file
+					log_file.flush().unwrap();
 				}
 			});
 		}
@@ -162,12 +160,10 @@ impl EthRpcServer {
 					.open(log_file_path_clone)
 					.unwrap();
 
-				for line in reader.lines() {
-					if let Ok(line) = line {
-						eprintln!("[eth-rpc] {}", line); // Print to stderr
-						writeln!(log_file, "{}", line).unwrap(); // Write to file
-						log_file.flush().unwrap();
-					}
+				for line in reader.lines().flatten() {
+					eprintln!("[eth-rpc] {}", line); // Print to stderr
+					writeln!(log_file, "{}", line).unwrap(); // Write to file
+					log_file.flush().unwrap();
 				}
 			});
 		}

@@ -144,7 +144,7 @@ async fn assert_transactions(
 	signer: Account,
 	transactions: Vec<(H256, GenericTransaction, ReceiptInfo)>,
 ) {
-	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+	let TestEnvironment { eth_rpc_client,   .. } = test_env;
 
 	for (idx, (tx_hash, tx, receipt)) in transactions.into_iter().enumerate() {
 		let block_number = receipt.block_number;
@@ -191,7 +191,7 @@ async fn assert_transactions(
 }
 
 async fn test_transfer(test_env: &TestEnvironment) {
-	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+	let TestEnvironment { eth_rpc_client,   .. } = test_env;
 
 	let alith = Account::default();
 	let alith_address = alith.address();
@@ -256,7 +256,7 @@ async fn test_transfer(test_env: &TestEnvironment) {
 }
 
 async fn test_deployment(test_env: &TestEnvironment) {
-	let TestEnvironment { eth_rpc_client, collator_rpc_client, collator_client, .. } = test_env;
+	let TestEnvironment { eth_rpc_client,   .. } = test_env;
 
 	let account = Account::default();
 
