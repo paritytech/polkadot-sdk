@@ -6,8 +6,8 @@ crates:
 - name: sc-consensus-grandpa
   bump: patch
 - name: sc-network-sync
-  bump: patch
+  bump: major
 - name: sc-rpc-spec-v2
   bump: patch
 - name: sp-runtime
-  bump: patch
+  bump: major
