@@ -86,15 +86,13 @@ where
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		let query_id = TransferOverXcmHelper::send_remote_transfer_xcm(
+		TransferOverXcmHelper::send_remote_transfer_xcm(
 			Interior::get().into(),
 			who,
 			asset_kind,
 			amount,
 			PaysRemoteFee::No,
-		)?;
-
-		Ok(query_id.into())
+		)
 	}
 
 	fn check_payment(id: Self::Id) -> PaymentStatus {

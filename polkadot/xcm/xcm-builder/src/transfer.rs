@@ -170,8 +170,8 @@ impl<
 		Querier: QueryHandler,
 		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
-		Beneficiary: Clone + core::fmt::Debug,
-		AssetKind: Clone + core::fmt::Debug,
+		Beneficiary: Clone + Debug,
+		AssetKind: Clone + Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> TransferOverXcmHelperT
@@ -276,8 +276,8 @@ impl<
 		Querier: QueryHandler,
 		XcmFeeHandler,
 		Timeout,
-		Beneficiary: Clone + core::fmt::Debug,
-		AssetKind: Clone + core::fmt::Debug,
+		Beneficiary: Clone + Debug,
+		AssetKind: Clone + Debug,
 		AssetKindToLocatableAsset: TryConvert<AssetKind, LocatableAssetId>,
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	>
@@ -349,7 +349,7 @@ fn remote_transfer_xcm_paying_fees(
 			ReportError(QueryResponseInfo {
 				destination: origin_relative_to_remote.clone(),
 				query_id,
-				max_weight: Weight::zero(),
+				max_weight: Weight::max_value(),
 			}),
 			RefundSurplus,
 			DepositAsset { assets: AssetFilter::Wild(WildAsset::All), beneficiary: from_at_target },
