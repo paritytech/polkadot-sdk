@@ -78,12 +78,13 @@ pub struct ValidationParams {
 	pub relay_parent_storage_root: cumulus_primitives_core::relay_chain::Hash,
 }
 
-/// Stores the [`ValidationParams`] when running `execute_block` inside of `validate_block`.
-///
-/// The pallet uses the params to verify the `ValidationData` coming from the collator.
+// Stores the [`ValidationParams`] when running `execute_block` inside of `validate_block`.
+//
+// The pallet uses the params to verify the `ValidationData` coming from the collator.
 environmental::environmental!(validation_params: ValidationParams);
 
 /// Run `function` with the given `validation_params` available in its context.
+#[cfg(not(feature = "std"))]
 fn run_with_validation_params(validation_params: &mut ValidationParams, function: impl FnOnce()) {
 	validation_params::using(validation_params, function)
 }
