@@ -38,9 +38,9 @@ const LOG_TARGET: &str = "xcm::transfer_over_xcm";
 ///
 /// The sender account on the destination chain is derived from the local account. For example:
 ///
-/// ```ignore
+/// `
 /// Location::new(1, X2([Parachain(SourceParaId), from_location.interior]))
-/// ```
+/// `
 ///
 /// For a more specialized implementation, see [`super::pay::PayOverXcm`].
 /// That variant assumes:
