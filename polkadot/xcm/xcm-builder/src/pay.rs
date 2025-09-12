@@ -44,6 +44,16 @@ use xcm_executor::traits::WaiveDeliveryFees;
 ///
 /// See also `PayAccountId32OverXcm` which is similar to this except that `BeneficiaryRefToLocation`
 /// need not be supplied and `Beneficiary` must implement `Into<[u8; 32]>`.
+///
+/// The implementatino of this type assumes:
+///
+/// - The sending account on the remote chain is fixed (derived from the `Interior` location), rather than
+///   being fully configurable.
+/// - The remote chain waives the XCM execution fee (`PaysRemoteFee::No`).
+///
+/// See also [super::transfer::TransferOverXcm] for a more generic implementation with a flexible
+/// sender account on the remote chain, and not making the assumption that the remote XCM execution
+/// fee is waived.
 pub type PayOverXcm<
 	Interior,
 	Router,

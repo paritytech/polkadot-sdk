@@ -43,16 +43,21 @@ pub trait GetDefaultRemoteFee {
 	fn get_default_remote_fee() -> Asset;
 }
 
-/// Transfer an asset on a remote chain.
+/// Transfers an asset to a beneficiary on a remote chain via XCM.
 ///
-/// It is similar to the `PayOverXcm` implementation, but more flexible in the way:
-/// * It is configurable by method parameter if remote XCM execution fees need to be paid.
-///	* The sender account is not static.
+/// The sender account on the destination chain is derived from the local account. For example:
 ///
-/// The account transferring funds remotely will be for example:
-///  * `Location::new(1, XX([Parachain(SourceParaId), from_location.interior ])`
+/// ```ignore
+/// Location::new(1, X2([Parachain(SourceParaId), from_location.interior]))
+/// ```
 ///
-/// The low-level XCM configuration is done in the `TransferOverXcmHelper` generic type.
+/// For a more specialized implementation, see [`super::pay::PayOverXcm`].
+/// That variant assumes:
+/// - The origin chain does **not** pay remote XCM execution fees on the destination chain.
+/// - The sender account is fixed to a static `Interior` location of the origin chain.
+///
+/// The low-level XCM construction and configuration is handled by the generic
+/// [`TransferOverXcmHelper`] type.
 pub struct TransferOverXcm<DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper>(
 	PhantomData<(DefaultRemoteFee, TransactorRefToLocation, TransferOverXcmHelper)>,
 );
