@@ -1,0 +1,13 @@
+title: Revert "store headers and justifications during warp sync"
+doc:
+- audience: Node Operator
+  description: Reverts paritytech/polkadot-sdk#9424
+crates:
+- name: sc-consensus-grandpa
+  bump: patch
+- name: sc-network-sync
+  bump: patch
+- name: sc-rpc-spec-v2
+  bump: patch
+- name: sp-runtime
+  bump: patch
