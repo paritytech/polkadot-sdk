@@ -42,3 +42,6 @@ target/
 *.scale
 justfile
 rustc-ice-*
+.claude
+CLAUDE.md
+context/
