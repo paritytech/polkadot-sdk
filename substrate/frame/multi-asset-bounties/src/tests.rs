@@ -1346,7 +1346,7 @@ fn accept_curator_works() {
 		assert_eq!(Balances::reserved_balance(&s.child_curator), s.child_curator_deposit);
 
 		// Given: 2nd child-bounty with same curator
-		Balances::mint_into(&s.child_curator, s.child_curator_deposit);
+		let _ = Balances::mint_into(&s.child_curator, s.child_curator_deposit);
 		assert_ok!(Bounties::fund_child_bounty(
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
