@@ -38,7 +38,7 @@ pub enum Tracer<T> {
 	/// A tracer that traces the prestate.
 	PrestateTracer(PrestateTracer<T>),
 	/// A tracer that traces opcodes.
-	OpcodeTracer(OpcodeTracer),
+	OpcodeTracer(OpcodeTracer<U256, fn(Weight) -> U256>),
 }
 
 impl<T: Config> Tracer<T>
@@ -76,7 +76,7 @@ where
 	}
 
 	/// Get a mutable reference to the opcode tracer if this is an opcode tracer.
-	pub fn as_opcode_tracer(&mut self) -> Option<&mut OpcodeTracer> {
+	pub fn as_opcode_tracer(&mut self) -> Option<&mut OpcodeTracer<U256, fn(Weight) -> U256>> {
 		match self {
 			Tracer::OpcodeTracer(inner) => Some(inner),
 			_ => None,

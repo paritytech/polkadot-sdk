@@ -190,7 +190,7 @@ fn opcode_tracing_works() {
 			limit: 5,
 		};
 
-		let mut tracer = OpcodeTracer::new(config);
+		let mut tracer = OpcodeTracer::new(config, |_| sp_core::U256::from(0u64));
 		let _result = trace(&mut tracer, || {
 			builder::bare_call(addr)
 				.data(
@@ -212,9 +212,9 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 0,
 					op: PUSH1,
-					gas: 0,
-					gas_cost: 0,
-					depth: 0,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
 					stack: Some(vec![]),
 					memory: None,
 					storage: None,
@@ -223,10 +223,10 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 2,
 					op: PUSH1,
-					gas: 0,
-					gas_cost: 0,
-					depth: 0,
-					stack: Some(vec![crate::evm::Bytes(U256::from(1).to_be_bytes_vec())]),
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					stack: Some(vec![crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec())]),
 					memory: None,
 					storage: None,
 					error: None,
@@ -234,12 +234,12 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 4,
 					op: MSTORE,
-					gas: 0,
-					gas_cost: 0,
-					depth: 0,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
 					stack: Some(vec![
-						crate::evm::Bytes(U256::from(2).to_be_bytes_vec()),
-						crate::evm::Bytes(U256::from(1).to_be_bytes_vec()),
+						crate::evm::Bytes(U256::from(0x40).to_be_bytes_vec()),
+						crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec()),
 					]),
 					memory: None,
 					storage: None,
@@ -248,9 +248,9 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 5,
 					op: CALLVALUE,
-					gas: 0,
-					gas_cost: 0,
-					depth: 0,
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
 					stack: Some(vec![]),
 					memory: None,
 					storage: None,
@@ -259,10 +259,10 @@ fn opcode_tracing_works() {
 				OpcodeStep {
 					pc: 6,
 					op: DUP1,
-					gas: 0,
-					gas_cost: 0,
-					depth: 0,
-					stack: Some(vec![crate::evm::Bytes(U256::from(1).to_be_bytes_vec())]),
+					gas: sp_core::U256::from(0u64),
+					gas_cost: sp_core::U256::from(0u64),
+					depth: 1,
+					stack: Some(vec![crate::evm::Bytes(U256::from(0).to_be_bytes_vec())]),
 					memory: None,
 					storage: None,
 					error: None,

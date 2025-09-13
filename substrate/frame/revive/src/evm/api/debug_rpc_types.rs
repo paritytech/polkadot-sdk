@@ -21,6 +21,7 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
+	de::{self, Deserializer},
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
@@ -66,7 +67,7 @@ impl Default for TracerType {
 
 /// Tracer configuration used to trace calls.
 #[derive(TypeInfo, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature = "std", derive(Deserialize, Serialize), serde(rename_all = "camelCase"))]
+#[cfg_attr(feature = "std", derive(Serialize), serde(rename_all = "camelCase"))]
 pub struct TracerConfig {
 	/// The tracer type.
 	#[cfg_attr(feature = "std", serde(flatten, default))]
@@ -75,6 +76,93 @@ pub struct TracerConfig {
 	/// Timeout for the tracer.
 	#[cfg_attr(feature = "std", serde(with = "humantime_serde", default))]
 	pub timeout: Option<core::time::Duration>,
+}
+
+#[cfg(feature = "std")]
+impl<'de> Deserialize<'de> for TracerConfig {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		#[derive(Deserialize, Default)]
+		#[serde(default, rename_all = "camelCase")]
+		struct RawTracerConfig<'a> {
+			tracer: Option<&'a str>,
+			tracer_config: Option<TracerConfigInner>,
+
+			#[serde(with = "humantime_serde", default)]
+			timeout: Option<core::time::Duration>,
+		}
+
+		// We can't use untagged enums reliably because they may pick the wrong variant
+		// Instead, we'll use a custom deserializer that tries each type based on tracer name
+		#[derive(Deserialize, Default)]
+		#[serde(default, rename_all = "camelCase")]
+		struct TracerConfigInner {
+			// CallTracer fields
+			with_logs: Option<bool>,
+			only_top_call: Option<bool>,
+
+			// PrestateTracer fields
+			diff_mode: Option<bool>,
+			disable_code: Option<bool>,
+
+			// OpcodeTracer fields
+			enable_memory: Option<bool>,
+			disable_stack: Option<bool>,
+
+			// This field exists in both PrestateTracer and OpcodeTracer
+			disable_storage: Option<bool>,
+			enable_return_data: Option<bool>,
+			limit: Option<u64>,
+		}
+
+		let raw = RawTracerConfig::deserialize(deserializer)?;
+		let tracer_type = raw.tracer.unwrap_or_else(|| "structLogger");
+		let config = match tracer_type {
+			"callTracer" =>
+				if let Some(inner) = raw.tracer_config {
+					let call_config = CallTracerConfig {
+						with_logs: inner.with_logs.unwrap_or(true),
+						only_top_call: inner.only_top_call.unwrap_or(false),
+					};
+					TracerType::CallTracer(Some(call_config))
+				} else {
+					TracerType::CallTracer(None)
+				},
+			"prestateTracer" =>
+				if let Some(inner) = raw.tracer_config {
+					let prestate_config = PrestateTracerConfig {
+						diff_mode: inner.diff_mode.unwrap_or(false),
+						disable_storage: inner.disable_storage.unwrap_or(false),
+						disable_code: inner.disable_code.unwrap_or(false),
+					};
+					TracerType::PrestateTracer(Some(prestate_config))
+				} else {
+					TracerType::PrestateTracer(None)
+				},
+			"structLogger" =>
+				if let Some(inner) = raw.tracer_config {
+					let opcode_config = OpcodeTracerConfig {
+						enable_memory: inner.enable_memory.unwrap_or(false),
+						disable_stack: inner.disable_stack.unwrap_or(false),
+						disable_storage: inner.disable_storage.unwrap_or(false),
+						enable_return_data: inner.enable_return_data.unwrap_or(false),
+						limit: inner.limit.unwrap_or(0),
+					};
+					TracerType::StructLogger(Some(opcode_config))
+				} else {
+					TracerType::StructLogger(None)
+				},
+			_ =>
+				return Err(de::Error::unknown_variant(
+					&tracer_type,
+					&["callTracer", "prestateTracer", "structLogger"],
+				)),
+		};
+
+		Ok(TracerConfig { config, timeout: raw.timeout })
+	}
 }
 
 /// The configuration for the call tracer.
@@ -336,20 +424,20 @@ where
 /// This matches Geth's structLogger output format.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeTrace {
+pub struct OpcodeTrace<Gas = U256> {
 	/// Total gas used by the transaction.
-	pub gas: u64,
+	pub gas: Gas,
 	/// Whether the transaction failed.
 	pub failed: bool,
 	/// The return value of the transaction.
 	pub return_value: Bytes,
 	/// The list of opcode execution steps (structLogs in Geth).
-	pub struct_logs: Vec<OpcodeStep>,
+	pub struct_logs: Vec<OpcodeStep<Gas>>,
 }
 
-impl Default for OpcodeTrace {
+impl<Gas: Default> Default for OpcodeTrace<Gas> {
 	fn default() -> Self {
-		Self { gas: 0, failed: false, return_value: Bytes::default(), struct_logs: Vec::new() }
+		Self { gas: Gas::default(), failed: false, return_value: Bytes::default(), struct_logs: Vec::new() }
 	}
 }
 
@@ -357,16 +445,16 @@ impl Default for OpcodeTrace {
 /// This matches Geth's structLog format exactly.
 #[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OpcodeStep {
+pub struct OpcodeStep<Gas = U256> {
 	/// The program counter.
 	pub pc: u64,
 	/// The opcode being executed.
 	#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 	pub op: u8,
 	/// Remaining gas before executing this opcode.
-	pub gas: u64,
+	pub gas: Gas,
 	/// Cost of executing this opcode.
-	pub gas_cost: u64,
+	pub gas_cost: Gas,
 	/// Current call depth.
 	pub depth: u32,
 	/// EVM stack contents (optional based on config).

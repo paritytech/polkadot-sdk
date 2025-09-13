@@ -1636,8 +1636,11 @@ where
 			.into(),
 			TracerType::PrestateTracer(config) =>
 				PrestateTracer::new(config.unwrap_or_default()).into(),
-			TracerType::StructLogger(config) =>
-				OpcodeTracer::new(config.unwrap_or_default()).into(),
+			TracerType::StructLogger(config) => OpcodeTracer::new(
+				config.unwrap_or_default(),
+				Self::evm_gas_from_weight as fn(Weight) -> U256,
+			)
+			.into(),
 		}
 	}
 

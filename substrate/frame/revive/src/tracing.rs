@@ -40,25 +40,30 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 	tracer::with(f)
 }
 
-/// Defines methods to trace contract interactions.
-pub trait Tracing {
-	/// Get opcode tracer configuration if this tracer supports opcode-level tracing.
-	/// Returns None if opcode tracing is not supported.
-	fn get_opcode_tracer_config(&self) -> Option<crate::evm::OpcodeTracerConfig> {
-		None
-	}
-
-	/// Record an opcode step for opcode tracers.
+/// Trait for opcode-level tracing functionality.
+pub trait OpcodeTracing {
+	/// Check if stack recording is enabled.
+	fn stack_recording_enabled(&self) -> bool;
+	/// Check if memory recording is enabled.
+	fn memory_recording_enabled(&self) -> bool;
+	/// Record an opcode step.
 	fn record_opcode_step(
 		&mut self,
-		_pc: u64,
-		_opcode: u8,
-		_gas_before: u64,
-		_gas_cost: u64,
-		_depth: u32,
-		_stack: Option<Vec<crate::evm::Bytes>>,
-		_memory: Option<Vec<crate::evm::Bytes>>,
-	) {
+		pc: u64,
+		opcode: u8,
+		gas_before: Weight,
+		gas_cost: Weight,
+		stack: Option<Vec<crate::evm::Bytes>>,
+		memory: Option<Vec<crate::evm::Bytes>>,
+	);
+}
+
+/// Defines methods to trace contract interactions.
+pub trait Tracing {
+	/// Get opcode tracer if this tracer supports opcode-level tracing.
+	/// Returns None if opcode tracing is not supported.
+	fn as_opcode_tracer(&mut self) -> Option<&mut dyn OpcodeTracing> {
+		None
 	}
 
 	/// Register an address that should be traced.

@@ -33,9 +33,7 @@ use revm::{
 		host::DummyHost,
 		interpreter::{ExtBytecode, ReturnDataImpl, RuntimeFlags},
 		interpreter_action::InterpreterAction,
-		interpreter_types::{
-			InputsTr, Jumps, LegacyBytecode, LoopControl, MemoryTr, ReturnData, StackTr,
-		},
+		interpreter_types::{InputsTr, Jumps, LoopControl, MemoryTr, ReturnData},
 		CallInput, CallInputs, CallScheme, CreateInputs, FrameInput, Gas, InstructionResult,
 		Interpreter, InterpreterResult, InterpreterTypes, SharedMemory, Stack,
 	},
@@ -157,16 +155,17 @@ fn run<'a, E: Ext>(
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 ) -> InterpreterResult {
 	let host = &mut DummyHost {};
-	loop {
-		// Check if opcode tracing is enabled and get configuration
-		let opcode_config =
-			tracing::if_tracing(|tracer| tracer.get_opcode_tracer_config()).flatten();
 
-		let action = if let Some(config) = opcode_config {
-			run_with_opcode_tracing(interpreter, table, host, config)
-		} else {
-			interpreter.run_plain(table, host)
-		};
+	loop {
+		let action = tracing::if_tracing(|tracer| {
+			if let Some(opcode_tracer) = tracer.as_opcode_tracer() {
+				Some(run_with_opcode_tracing(interpreter, table, host, opcode_tracer))
+			} else {
+				None
+			}
+		})
+		.flatten()
+		.unwrap_or_else(|| interpreter.run_plain(table, host));
 
 		match action {
 			InterpreterAction::Return(result) => {
@@ -193,112 +192,80 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 	host: &mut DummyHost,
-	config: crate::evm::OpcodeTracerConfig,
-) -> InterpreterAction
-where
-	EVMInterpreter<'a, E>: InterpreterTypes,
-{
-	use revm::bytecode::OpCode;
+	opcode_tracer: &mut dyn crate::tracing::OpcodeTracing,
+) -> InterpreterAction {
+	use revm::interpreter::InstructionContext;
 
-	// Track instruction count for limiting
-	let mut _instruction_count = 0u64;
+	while interpreter.bytecode.is_not_end() {
+		let opcode = interpreter.bytecode.opcode();
+		let pc = interpreter.bytecode.pc();
 
-	loop {
-		// Check if bytecode execution is complete
-		if interpreter.bytecode.is_not_end() {
-			// Get current program counter and opcode
-			let pc = interpreter.bytecode.pc();
-			let opcode_byte = interpreter.bytecode.bytecode_slice()[pc];
-			let opcode = OpCode::new(opcode_byte).unwrap_or(unsafe { OpCode::new_unchecked(0xFF) }); // INVALID opcode
+		let stack_data = if opcode_tracer.stack_recording_enabled() {
+			// Get actual stack values using the data() method
+			let stack_values = interpreter.stack.data();
+			let mut stack_bytes = Vec::new();
 
-			// Record gas before execution
-			let gas_before = interpreter.gas.remaining();
+			// Convert stack values to bytes in reverse order (top of stack first)
+			for value in stack_values.iter().rev() {
+				let bytes = value.to_be_bytes_vec();
+				stack_bytes.push(crate::evm::Bytes(bytes));
+			}
 
-			// Capture stack data only if enabled
-			let stack_data = if !config.disable_stack {
-				// Get stack length - this is available through the trait
-				let stack_len = interpreter.stack.len();
-
-				// Create a simplified stack representation showing the stack has items
-				// Unfortunately, we can't directly read stack values without modifying the stack
-				// So we'll show placeholder values indicating stack depth
-				let mut stack_bytes = Vec::new();
-				for i in 0..core::cmp::min(stack_len, 16) {
-					// Limit to 16 items for performance
-					let value = (stack_len - i) as u64;
-					let mut bytes = [0u8; 32];
-					bytes[24..32].copy_from_slice(&value.to_be_bytes());
-					stack_bytes.push(crate::evm::Bytes(bytes.to_vec()));
-				}
-
-				Some(stack_bytes)
-			} else {
-				None
-			};
-
-			// Capture memory data only if enabled
-			let memory_data = if config.enable_memory {
-				// Get memory size - this is available through the trait
-				let memory_size = interpreter.memory.size();
-
-				if memory_size == 0 {
-					Some(Vec::new())
-				} else {
-					let mut memory_bytes = Vec::new();
-					// Read memory in 32-byte chunks, limiting to reasonable size
-					let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
-
-					for i in 0..chunks_to_read {
-						let offset = i * 32;
-						let end = core::cmp::min(offset + 32, memory_size);
-
-						if offset < memory_size {
-							// Use the slice method available from the MemoryTr trait
-							let slice = interpreter.memory.slice(offset..end);
-
-							// Convert to bytes, padding to 32 bytes
-							let mut chunk_bytes = vec![0u8; 32];
-							for (i, &byte) in slice.iter().enumerate().take(32) {
-								chunk_bytes[i] = byte;
-							}
-							memory_bytes.push(crate::evm::Bytes(chunk_bytes));
-						}
-					}
-
-					Some(memory_bytes)
-				}
-			} else {
-				None
-			};
-
-			// Execute the instruction step
-			interpreter.step(table, host);
-
-			// Calculate gas cost
-			let gas_after = interpreter.gas.remaining();
-			let gas_cost = gas_before.saturating_sub(gas_after);
-
-			// Record the step in the tracer
-			tracing::if_tracing(|tracer| {
-				tracer.record_opcode_step(
-					pc as u64,
-					opcode.get(),
-					gas_before,
-					gas_cost,
-					0, // TODO: track actual call depth from the call stack
-					stack_data,
-					memory_data,
-				);
-			});
-
-			_instruction_count += 1;
+			Some(stack_bytes)
 		} else {
-			// Bytecode execution is complete
-			break;
-		}
-	}
+			None
+		};
 
-	// Return the final result
+		let memory_data = if opcode_tracer.memory_recording_enabled() {
+			let memory_size = interpreter.memory.size();
+
+			if memory_size == 0 {
+				Some(Vec::new())
+			} else {
+				let mut memory_bytes = Vec::new();
+				// Read memory in 32-byte chunks, limiting to reasonable size
+				let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
+
+				for i in 0..chunks_to_read {
+					let offset = i * 32;
+					let end = core::cmp::min(offset + 32, memory_size);
+
+					if offset < memory_size {
+						let slice = interpreter.memory.slice(offset..end);
+
+						// Convert to bytes, padding to 32 bytes
+						let mut chunk_bytes = vec![0u8; 32];
+						for (i, &byte) in slice.iter().enumerate().take(32) {
+							chunk_bytes[i] = byte;
+						}
+						memory_bytes.push(crate::evm::Bytes(chunk_bytes));
+					}
+				}
+
+				Some(memory_bytes)
+			}
+		} else {
+			None
+		};
+
+		let gas_before = interpreter.extend.gas_meter().gas_left();
+
+		interpreter.bytecode.relative_jump(1);
+		let context = InstructionContext { interpreter, host };
+		table[opcode as usize](context);
+		let gas_cost = gas_before.saturating_sub(interpreter.extend.gas_meter().gas_left());
+
+		opcode_tracer.record_opcode_step(
+			pc as u64,
+			opcode,
+			gas_before,
+			gas_cost,
+			stack_data,
+			memory_data,
+		);
+	}
+	interpreter.bytecode.revert_to_previous_pointer();
+
 	interpreter.take_next_action()
 }
 
