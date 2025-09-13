@@ -141,7 +141,7 @@ fn registering_foreign_assets_work() {
 			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
 			simple_para_asset_location.clone(),
 			simple_para_sovereign.clone().into(),
-			3_000_000_000_000,
+			3 * UNITS,
 		));
 		asset_para::System::reset_events();
 
@@ -178,6 +178,39 @@ fn registering_foreign_assets_work() {
 
 		// clear events that we do not want later.
 		asset_para::System::reset_events();
+
+		// Anybody can add liquidity to the pool
+		assert_ok!(asset_para::AssetConversion::add_liquidity(
+			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
+			Box::new(Location::here()),
+			Box::new(simple_para_asset_location.clone()),
+			1 * UNITS,
+			2 * UNITS,
+			1,
+			1,
+			simple_para_sovereign.clone(),
+		));
+
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::System(
+			frame_system::Event::NewAccount  {
+				account: pool_account.clone(),
+			},
+		));
+
+		// Todo: assert balance/foreign assets transfer event to the pool account.
+		// (write assert events macro similar to the on in the xcm-emulator.
+
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
+			pallet_asset_conversion::Event::LiquidityAdded  {
+				who: simple_para_sovereign.clone(),
+				mint_to: simple_para_sovereign.clone(),
+				pool_id: pool_id.clone(),
+				amount1_provided: 1 * UNITS,
+				amount2_provided: 2 * UNITS,
+				lp_token: 1,
+				lp_token_minted: 14142135523,
+			},
+		));
 	});
 
 	// Todo: Step 3. Show how we can transfer our asset to the relay chain, and pay XCM-execution
