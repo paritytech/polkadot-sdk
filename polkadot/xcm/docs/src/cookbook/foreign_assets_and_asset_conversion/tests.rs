@@ -37,6 +37,8 @@ fn registering_foreign_assets_work() {
 	)
 	.expect("Can convert");
 
+	// We ensure that Simple Para's sovereign account has funds on the Asset Para to pay for the
+	// deposits needed to create the foreign asset.
 	AssetPara::execute_with(|| {
 		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, 10 * UNITS));
 		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), 10 * UNITS);
@@ -95,7 +97,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-		// The creation of the asset required an asset deposit
+		// The creation of the asset required an asset deposit.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.clone(),
@@ -118,10 +120,13 @@ fn registering_foreign_assets_work() {
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
 				who: simple_para_sovereign.into(),
-				// T::MetadataDepositBase + metadata_bytes * T::MetadataDepositPerByte
+				// T::MetadataDepositBase + T::MetadataDepositPerByte * metadata_bytes
 				amount: 30,
 			},
 		));
+
+		// clear events that we do not want later.
+		asset_para::System::reset_events();
 	});
 
 	// Todo: Step 2. Create a pool with the AssetPara's native asset and the foreign asset that
