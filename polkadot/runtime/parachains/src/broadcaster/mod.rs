@@ -88,17 +88,14 @@ pub mod pallet {
 			origin_para_id: ParaId,
 			data: Vec<(Vec<u8>, Vec<u8>)>,
 		) -> DispatchResult {
-			// Validate input limits
+			// Validate input limits first before making any changes
 			ensure!(
 				data.len() <= T::MaxPublishItems::get() as usize,
 				Error::<T>::TooManyPublishItems
 			);
 
-			// Get or create child trie info for this publisher
-			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
-
-			// Store each key-value pair in the child trie
-			for (key, value) in data {
+			// Validate all keys and values before creating publisher entry
+			for (key, value) in &data {
 				ensure!(
 					key.len() <= T::MaxKeyLength::get() as usize,
 					Error::<T>::KeyTooLong
@@ -107,8 +104,13 @@ pub mod pallet {
 					value.len() <= T::MaxValueLength::get() as usize,
 					Error::<T>::ValueTooLong
 				);
+			}
 
-				// Store in child trie
+			// All validation passed, now get or create child trie info for this publisher
+			let child_info = Self::get_or_create_publisher_child_info(origin_para_id);
+
+			// Store each key-value pair in the child trie
+			for (key, value) in data {
 				frame_support::storage::child::put(&child_info, &key, &value);
 			}
 
@@ -140,8 +142,20 @@ pub mod pallet {
 		pub fn derive_child_info(para_id: ParaId) -> ChildInfo {
 			let mut key = b"pubsub".to_vec();
 			key.extend_from_slice(&para_id.encode());
-			
+
 			ChildInfo::new_default(&key)
+		}
+
+		/// Retrieve a value from a publisher's child trie.
+		///
+		/// Returns None if the publisher doesn't exist or the key is not found.
+		pub fn get_published_value(para_id: ParaId, key: &[u8]) -> Option<Vec<u8>> {
+			if PublisherExists::<T>::get(para_id) {
+				let child_info = Self::derive_child_info(para_id);
+				frame_support::storage::child::get(&child_info, key)
+			} else {
+				None
+			}
 		}
 	}
 }
