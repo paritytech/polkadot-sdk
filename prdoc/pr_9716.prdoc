@@ -7,3 +7,5 @@ doc:
 crates:
 - name: polkadot-node-core-pvf
   bump: minor
+- name: polkadot-service
+  bump: minor
