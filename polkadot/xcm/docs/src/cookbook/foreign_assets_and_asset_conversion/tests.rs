@@ -157,12 +157,14 @@ fn registering_foreign_assets_work() {
 		let pool_account: AccountId32 = PoolIdToAccountId::try_convert(&pool_id).unwrap();
 		assert_eq!(pool_account.to_string(), "5CWpVFvs5i7vvo9ZNNycgtRpqSCKosH9B4wJTs6H8LLC6NPD");
 
+		let lp_token_id = 0;
+
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
 			pallet_asset_conversion::Event::PoolCreated {
 				creator: simple_para_sovereign.clone().into(),
 				pool_id: pool_id.clone(),
 				pool_account: PoolIdToAccountId::try_convert(&pool_id).unwrap(),
-				lp_token: 0,
+				lp_token: lp_token_id,
 			},
 		));
 
@@ -207,7 +209,7 @@ fn registering_foreign_assets_work() {
 				pool_id: pool_id.clone(),
 				amount1_provided: 1 * UNITS,
 				amount2_provided: 2 * UNITS,
-				lp_token: 1,
+				lp_token: lp_token_id,
 				lp_token_minted: 14142135523,
 			},
 		));
