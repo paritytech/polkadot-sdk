@@ -157,15 +157,14 @@ fn run<'a, E: Ext>(
 	let host = &mut DummyHost {};
 
 	loop {
-		let action = tracing::if_tracing(|tracer| {
-			if let Some(opcode_tracer) = tracer.as_opcode_tracer() {
-				Some(run_with_opcode_tracing(interpreter, table, host, opcode_tracer))
-			} else {
-				None
-			}
-		})
-		.flatten()
-		.unwrap_or_else(|| interpreter.run_plain(table, host));
+		let use_opcode_tracing = tracing::if_tracing(|tracer| tracer.is_opcode_tracing_enabled())
+			.unwrap_or(false);
+
+		let action = if use_opcode_tracing {
+			run_with_opcode_tracing(interpreter, table, host)
+		} else {
+			interpreter.run_plain(table, host)
+		};
 
 		match action {
 			InterpreterAction::Return(result) => {
@@ -192,7 +191,6 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 	interpreter: &mut Interpreter<EVMInterpreter<'a, E>>,
 	table: &revm::interpreter::InstructionTable<EVMInterpreter<'a, E>, DummyHost>,
 	host: &mut DummyHost,
-	opcode_tracer: &mut dyn crate::tracing::OpcodeTracing,
 ) -> InterpreterAction {
 	use revm::interpreter::InstructionContext;
 
@@ -201,20 +199,24 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 		let pc = interpreter.bytecode.pc();
 		let gas_before = interpreter.extend.gas_meter().gas_left();
 
-		opcode_tracer.enter_opcode(
-			pc as u64,
-			opcode,
-			gas_before,
-			&interpreter.stack,
-			&interpreter.memory,
-		);
+		tracing::if_tracing(|tracer| {
+			tracer.enter_opcode(
+				pc as u64,
+				opcode,
+				gas_before,
+				&interpreter.stack,
+				&interpreter.memory,
+			);
+		});
 
 		interpreter.bytecode.relative_jump(1);
 		let context = InstructionContext { interpreter, host };
 		table[opcode as usize](context);
 		let gas_left = interpreter.extend.gas_meter().gas_left();
 		
-		opcode_tracer.exit_opcode(gas_left);
+		tracing::if_tracing(|tracer| {
+			tracer.exit_opcode(gas_left);
+		});
 	}
 	interpreter.bytecode.revert_to_previous_pointer();
 

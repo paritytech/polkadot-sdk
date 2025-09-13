@@ -16,16 +16,17 @@
 // limitations under the License.
 
 use crate::{
-	evm::{OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
+	evm::{tracing::Tracing, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
 	DispatchError, ExecReturnValue, Weight,
 };
 use alloc::{
 	format,
 	string::{String, ToString},
+	vec,
 	vec::Vec,
 };
 use revm::interpreter::interpreter_types::MemoryTr;
-use sp_core::H160;
+use sp_core::{H160, U256};
 
 /// A tracer that traces opcode execution step-by-step.
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -115,9 +116,11 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 	}
 }
 
-impl<GasMapper: Fn(Weight) -> sp_core::U256> crate::tracing::OpcodeTracing
-	for OpcodeTracer<sp_core::U256, GasMapper>
-{
+impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasMapper> {
+	fn is_opcode_tracing_enabled(&self) -> bool {
+		true
+	}
+
 	fn enter_opcode(
 		&mut self,
 		pc: u64,
@@ -210,14 +213,6 @@ impl<GasMapper: Fn(Weight) -> sp_core::U256> crate::tracing::OpcodeTracing
 			}
 			self.steps.push(step);
 		}
-	}
-}
-
-impl<GasMapper: Fn(Weight) -> sp_core::U256 + 'static> crate::tracing::Tracing
-	for OpcodeTracer<sp_core::U256, GasMapper>
-{
-	fn as_opcode_tracer(&mut self) -> Option<&mut dyn crate::tracing::OpcodeTracing> {
-		Some(self)
 	}
 
 	fn enter_child_span(

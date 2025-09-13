@@ -40,29 +40,26 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 	tracer::with(f)
 }
 
-/// Trait for opcode-level tracing functionality.
-pub trait OpcodeTracing {
+/// Defines methods to trace contract interactions.
+pub trait Tracing {
+	/// Check if opcode tracing is enabled.
+	fn is_opcode_tracing_enabled(&self) -> bool {
+		false
+	}
+
 	/// Called before an opcode is executed.
 	fn enter_opcode(
 		&mut self,
-		pc: u64,
-		opcode: u8,
-		gas_before: Weight,
-		stack: &revm::interpreter::Stack,
-		memory: &revm::interpreter::SharedMemory,
-	);
+		_pc: u64,
+		_opcode: u8,
+		_gas_before: Weight,
+		_stack: &revm::interpreter::Stack,
+		_memory: &revm::interpreter::SharedMemory,
+	) {
+	}
 
 	/// Called after an opcode is executed to record the gas cost.
-	fn exit_opcode(&mut self, gas_left: Weight);
-}
-
-/// Defines methods to trace contract interactions.
-pub trait Tracing {
-	/// Get opcode tracer if this tracer supports opcode-level tracing.
-	/// Returns None if opcode tracing is not supported.
-	fn as_opcode_tracer(&mut self) -> Option<&mut dyn OpcodeTracing> {
-		None
-	}
+	fn exit_opcode(&mut self, _gas_left: Weight) {}
 
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
