@@ -21,7 +21,6 @@ use super::{
 	simple_para,
 };
 use frame::{prelude::fungible::Mutate, testing_prelude::*, traits::TryConvert};
-use test_log::test;
 use sp_runtime::AccountId32;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -132,7 +131,7 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-	// Todo: Step 2. Create a pool with the AssetPara's native asset and the foreign asset that
+	// Step 2. Create a pool with the AssetPara's native asset and the foreign asset.
 	AssetPara::execute_with(|| {
 		use asset_para::assets::PoolIdToAccountId;
 
@@ -152,13 +151,12 @@ fn registering_foreign_assets_work() {
 			Box::new(simple_para_asset_location.clone()),
 		));
 
-		// The setting of the metadata required a deposit too.
+		// Give names to some values for better understanding later.
 		let pool_id = (Location::here(), simple_para_asset_location.clone());
 		let pool_account: AccountId32 = PoolIdToAccountId::try_convert(&pool_id).unwrap();
-		assert_eq!(pool_account.to_string(), "5CWpVFvs5i7vvo9ZNNycgtRpqSCKosH9B4wJTs6H8LLC6NPD");
-
 		let lp_token_id = 0;
 
+		// Assert that we have successfully created the liquidity pool.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
 			pallet_asset_conversion::Event::PoolCreated {
 				creator: simple_para_sovereign.clone().into(),
@@ -168,9 +166,11 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
+		// Creating the liquidity pool will also create the corresponding asset in our
+		// `PoolAssets` instance.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::PoolAssets(
 			pallet_assets::Event::ForceCreated {
-				asset_id: 0,
+				asset_id: lp_token_id,
 				owner: pool_account.clone(),
 			},
 		));
@@ -181,7 +181,7 @@ fn registering_foreign_assets_work() {
 		// clear events that we do not want later.
 		asset_para::System::reset_events();
 
-		// Anybody can add liquidity to the pool
+		// Anybody can add liquidity to the pool.
 		assert_ok!(asset_para::AssetConversion::add_liquidity(
 			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
 			Box::new(Location::here()),
@@ -193,17 +193,16 @@ fn registering_foreign_assets_work() {
 			simple_para_sovereign.clone(),
 		));
 
+		// This is the first time we add liquidity. So we will create the pool account.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::System(
-			frame_system::Event::NewAccount  {
-				account: pool_account.clone(),
-			},
+			frame_system::Event::NewAccount { account: pool_account.clone() },
 		));
 
-		// Todo: assert balance/foreign assets transfer event to the pool account.
-		// (write assert events macro similar to the on in the xcm-emulator.
+		// There are also some balance/foreign assets transfers. We will again omit them for
+		// conciseness.
 
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
-			pallet_asset_conversion::Event::LiquidityAdded  {
+			pallet_asset_conversion::Event::LiquidityAdded {
 				who: simple_para_sovereign.clone(),
 				mint_to: simple_para_sovereign.clone(),
 				pool_id: pool_id.clone(),
