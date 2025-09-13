@@ -199,70 +199,22 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 	while interpreter.bytecode.is_not_end() {
 		let opcode = interpreter.bytecode.opcode();
 		let pc = interpreter.bytecode.pc();
-
-		let stack_data = if opcode_tracer.stack_recording_enabled() {
-			// Get actual stack values using the data() method
-			let stack_values = interpreter.stack.data();
-			let mut stack_bytes = Vec::new();
-
-			// Convert stack values to bytes in reverse order (top of stack first)
-			for value in stack_values.iter().rev() {
-				let bytes = value.to_be_bytes_vec();
-				stack_bytes.push(crate::evm::Bytes(bytes));
-			}
-
-			Some(stack_bytes)
-		} else {
-			None
-		};
-
-		let memory_data = if opcode_tracer.memory_recording_enabled() {
-			let memory_size = interpreter.memory.size();
-
-			if memory_size == 0 {
-				Some(Vec::new())
-			} else {
-				let mut memory_bytes = Vec::new();
-				// Read memory in 32-byte chunks, limiting to reasonable size
-				let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
-
-				for i in 0..chunks_to_read {
-					let offset = i * 32;
-					let end = core::cmp::min(offset + 32, memory_size);
-
-					if offset < memory_size {
-						let slice = interpreter.memory.slice(offset..end);
-
-						// Convert to bytes, padding to 32 bytes
-						let mut chunk_bytes = vec![0u8; 32];
-						for (i, &byte) in slice.iter().enumerate().take(32) {
-							chunk_bytes[i] = byte;
-						}
-						memory_bytes.push(crate::evm::Bytes(chunk_bytes));
-					}
-				}
-
-				Some(memory_bytes)
-			}
-		} else {
-			None
-		};
-
 		let gas_before = interpreter.extend.gas_meter().gas_left();
+
+		opcode_tracer.enter_opcode(
+			pc as u64,
+			opcode,
+			gas_before,
+			&interpreter.stack,
+			&interpreter.memory,
+		);
 
 		interpreter.bytecode.relative_jump(1);
 		let context = InstructionContext { interpreter, host };
 		table[opcode as usize](context);
-		let gas_cost = gas_before.saturating_sub(interpreter.extend.gas_meter().gas_left());
-
-		opcode_tracer.record_opcode_step(
-			pc as u64,
-			opcode,
-			gas_before,
-			gas_cost,
-			stack_data,
-			memory_data,
-		);
+		let gas_left = interpreter.extend.gas_meter().gas_left();
+		
+		opcode_tracer.exit_opcode(gas_left);
 	}
 	interpreter.bytecode.revert_to_previous_pointer();
 

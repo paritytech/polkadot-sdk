@@ -42,20 +42,18 @@ pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) 
 
 /// Trait for opcode-level tracing functionality.
 pub trait OpcodeTracing {
-	/// Check if stack recording is enabled.
-	fn stack_recording_enabled(&self) -> bool;
-	/// Check if memory recording is enabled.
-	fn memory_recording_enabled(&self) -> bool;
-	/// Record an opcode step.
-	fn record_opcode_step(
+	/// Called before an opcode is executed.
+	fn enter_opcode(
 		&mut self,
 		pc: u64,
 		opcode: u8,
 		gas_before: Weight,
-		gas_cost: Weight,
-		stack: Option<Vec<crate::evm::Bytes>>,
-		memory: Option<Vec<crate::evm::Bytes>>,
+		stack: &revm::interpreter::Stack,
+		memory: &revm::interpreter::SharedMemory,
 	);
+
+	/// Called after an opcode is executed to record the gas cost.
+	fn exit_opcode(&mut self, gas_left: Weight);
 }
 
 /// Defines methods to trace contract interactions.

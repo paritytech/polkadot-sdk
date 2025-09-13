@@ -24,6 +24,7 @@ use alloc::{
 	string::{String, ToString},
 	vec::Vec,
 };
+use revm::interpreter::interpreter_types::MemoryTr;
 use sp_core::H160;
 
 /// A tracer that traces opcode execution step-by-step.
@@ -52,6 +53,12 @@ pub struct OpcodeTracer<Gas, GasMapper> {
 
 	/// The return value of the transaction.
 	return_value: Vec<u8>,
+
+	/// Pending step that's waiting for gas cost to be recorded.
+	pending_step: Option<OpcodeStep<Gas>>,
+
+	/// Gas before executing the current pending step.
+	pending_gas_before: Option<Weight>,
 }
 
 impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
@@ -69,6 +76,8 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 			total_gas_used: Gas::default(),
 			failed: false,
 			return_value: Vec::new(),
+			pending_step: None,
+			pending_gas_before: None,
 		}
 	}
 
@@ -109,53 +118,98 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 impl<GasMapper: Fn(Weight) -> sp_core::U256> crate::tracing::OpcodeTracing
 	for OpcodeTracer<sp_core::U256, GasMapper>
 {
-	fn stack_recording_enabled(&self) -> bool {
-		!self.config.disable_stack
-	}
-
-	fn memory_recording_enabled(&self) -> bool {
-		self.config.enable_memory
-	}
-
-	fn record_opcode_step(
+	fn enter_opcode(
 		&mut self,
 		pc: u64,
 		opcode: u8,
 		gas_before: Weight,
-		gas_cost: Weight,
-		stack: Option<Vec<crate::evm::Bytes>>,
-		memory: Option<Vec<crate::evm::Bytes>>,
+		stack: &revm::interpreter::Stack,
+		memory: &revm::interpreter::SharedMemory,
 	) {
-		// Check step limit
+		// Check step limit - if exceeded, don't record anything
 		if self.config.limit > 0 && self.step_count >= self.config.limit {
 			return;
 		}
 
-		// Apply configuration settings
-		let final_stack = if self.config.disable_stack { None } else { stack };
+		// Extract stack data if enabled
+		let stack_data = if !self.config.disable_stack {
+			// Get actual stack values using the data() method
+			let stack_values = stack.data();
+			let mut stack_bytes = Vec::new();
 
-		let final_memory = if self.config.enable_memory { memory } else { None };
+			// Convert stack values to bytes in reverse order (top of stack first)
+			for value in stack_values.iter().rev() {
+				let bytes = value.to_be_bytes_vec();
+				stack_bytes.push(crate::evm::Bytes(bytes));
+			}
 
-		// TODO: Storage capture
+			Some(stack_bytes)
+		} else {
+			None
+		};
 
-		// Create the opcode step
+		// Extract memory data if enabled
+		let memory_data = if self.config.enable_memory {
+			let memory_size = memory.size();
+
+			if memory_size == 0 {
+				Some(Vec::new())
+			} else {
+				let mut memory_bytes = Vec::new();
+				// Read memory in 32-byte chunks, limiting to reasonable size
+				let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
+
+				for i in 0..chunks_to_read {
+					let offset = i * 32;
+					let end = core::cmp::min(offset + 32, memory_size);
+
+					if offset < memory_size {
+						let slice = memory.slice(offset..end);
+
+						// Convert to bytes, padding to 32 bytes
+						let mut chunk_bytes = vec![0u8; 32];
+						for (i, &byte) in slice.iter().enumerate().take(32) {
+							chunk_bytes[i] = byte;
+						}
+						memory_bytes.push(crate::evm::Bytes(chunk_bytes));
+					}
+				}
+
+				Some(memory_bytes)
+			}
+		} else {
+			None
+		};
+
+		// Create the pending opcode step (without gas cost)
 		let gas_before_mapped = (self.gas_mapper)(gas_before);
-		let gas_cost_mapped = (self.gas_mapper)(gas_cost);
 
 		let step = OpcodeStep {
 			pc,
 			op: opcode,
 			gas: gas_before_mapped,
-			gas_cost: gas_cost_mapped,
+			gas_cost: sp_core::U256::zero(), // Will be set in exit_opcode
 			depth: self.depth,
-			stack: final_stack,
-			memory: final_memory,
+			stack: stack_data,
+			memory: memory_data,
 			storage: None,
 			error: None,
 		};
 
-		self.steps.push(step);
+		self.pending_step = Some(step);
+		self.pending_gas_before = Some(gas_before);
 		self.step_count += 1;
+	}
+
+	fn exit_opcode(&mut self, gas_left: Weight) {
+		if let Some(mut step) = self.pending_step.take() {
+			if let Some(gas_before) = self.pending_gas_before.take() {
+				let gas_cost = gas_before.saturating_sub(gas_left);
+				let gas_cost_mapped = (self.gas_mapper)(gas_cost);
+				step.gas_cost = gas_cost_mapped;
+			}
+			self.steps.push(step);
+		}
 	}
 }
 
