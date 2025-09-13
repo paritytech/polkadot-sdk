@@ -121,7 +121,7 @@ pub use polkadot_node_core_pvf_common::{
 	SecurityStatus,
 };
 
-use std::{path::Path, process::Command, ffi::OsStr};
+use std::{ffi::OsStr, path::Path, process::Command};
 
 /// The log target for this crate.
 pub const LOG_TARGET: &str = "parachain::pvf";
@@ -147,8 +147,8 @@ pub fn probe_worker_security<I, S>(
 	extra_args: I,
 ) -> std::io::Result<()>
 where
-    I: IntoIterator<Item = S>,
-    S: AsRef<OsStr>,
+	I: IntoIterator<Item = S>,
+	S: AsRef<OsStr>,
 {
 	let mut command = Command::new(worker_path);
 
@@ -163,8 +163,8 @@ where
 	let output = command.arg(check_arg).args(extra_args).output()?;
 
 	if output.status.success() {
-        Ok(())
-    } else {
+		Ok(())
+	} else {
 		let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 		let msg = if stderr.is_empty() {
 			format!("{check_arg}: not available")
