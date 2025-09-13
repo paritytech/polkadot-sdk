@@ -75,7 +75,10 @@ fn fund_bounty_works() {
 			}
 		);
 		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
-		assert_eq!(pallet_bounties::CuratorDeposit::<Test>::get(parent_bounty_id, curator), None);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(parent_bounty_id, None::<BountyIndex>),
+			None
+		);
 	});
 }
 
@@ -305,7 +308,10 @@ fn fund_child_bounty_works() {
 			s.child_value
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 
@@ -348,11 +354,15 @@ fn fund_child_bounty_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator).unwrap(),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
 			consideration(s.value)
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 	})
@@ -514,7 +524,7 @@ fn check_status_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
 		);
 
@@ -562,6 +572,11 @@ fn check_status_works() {
 		);
 		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance());
 		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
+			consideration(s.value)
+		);
 
 		// Given: parent bounty status is `RefundAttempted` and payment succeeds
 		let s = create_canceled_parent_bounty();
@@ -587,6 +602,10 @@ fn check_status_works() {
 			Balances::free_balance(s.curator),
 			Balances::minimum_balance() + s.curator_deposit
 		); // initial
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
+			None
+		);
 
 		// Given: parent bounty status is `PayoutAttempted` and payment fails
 		let s = create_awarded_parent_bounty();
@@ -611,6 +630,11 @@ fn check_status_works() {
 			}
 		);
 		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance());
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
+			consideration(s.value)
+		);
 
 		// Given: parent bounty status is `PayoutAttempted` and payment succeeds
 		let s = create_awarded_parent_bounty();
@@ -634,6 +658,10 @@ fn check_status_works() {
 		assert_eq!(
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
+		);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
+			None
 		);
 		assert_eq!(
 			Balances::free_balance(s.curator),
@@ -676,7 +704,10 @@ fn check_status_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 
@@ -751,6 +782,14 @@ fn check_status_works() {
 			pallet_bounties::ChildBounties::<Test>::iter_prefix(s.parent_bounty_id).count(),
 			1
 		);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			)
+			.unwrap(),
+			consideration(s.child_value)
+		);
 		assert_eq!(Balances::free_balance(s.child_curator), Balances::minimum_balance());
 
 		// Given: child-bounty with curator and status `RefundAttempted` and payment succeeds
@@ -790,6 +829,13 @@ fn check_status_works() {
 		assert_eq!(
 			pallet_bounties::ChildBounties::<Test>::iter_prefix(s.parent_bounty_id).count(),
 			0
+		);
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
+			None
 		);
 		assert_eq!(
 			Balances::free_balance(s.child_curator),
@@ -970,7 +1016,7 @@ fn retry_payment_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
 		);
 
@@ -1067,7 +1113,10 @@ fn retry_payment_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 
@@ -1259,7 +1308,8 @@ fn accept_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator).unwrap(),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
 			consideration(s.value)
 		);
 		assert_eq!(Balances::reserved_balance(&s.curator), s.curator_deposit);
@@ -1286,11 +1336,52 @@ fn accept_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator)
-				.unwrap(),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			)
+			.unwrap(),
 			consideration(s.child_value)
 		);
 		assert_eq!(Balances::reserved_balance(&s.child_curator), s.child_curator_deposit);
+
+		// Given: 2nd child-bounty with same curator
+		Balances::mint_into(&s.child_curator, s.child_curator_deposit);
+		assert_ok!(Bounties::fund_child_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			s.child_value,
+			Some(s.child_curator),
+			s.metadata
+		));
+		let child_bounty_id =
+			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id) - 1;
+		let child_bounty_account =
+			Bounties::child_bounty_account(s.parent_bounty_id, child_bounty_id, s.asset_kind)
+				.expect("conversion failed");
+		approve_payment(
+			child_bounty_account,
+			s.parent_bounty_id,
+			Some(child_bounty_id),
+			s.asset_kind,
+			s.child_value * 2,
+		);
+
+		// When
+		assert_ok!(Bounties::accept_curator(
+			RuntimeOrigin::signed(s.child_curator),
+			s.parent_bounty_id,
+			Some(child_bounty_id),
+		));
+		assert_eq!(
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			)
+			.unwrap(),
+			consideration(s.child_value)
+		);
+		assert_eq!(Balances::reserved_balance(&s.child_curator), s.child_curator_deposit * 2);
 	});
 }
 
@@ -1475,7 +1566,7 @@ fn unassign_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
 		);
 		assert_eq!(
@@ -1546,7 +1637,10 @@ fn unassign_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 		assert_eq!(
@@ -1691,7 +1785,7 @@ fn propose_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
 		);
 
@@ -1726,7 +1820,10 @@ fn propose_curator_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 	});
@@ -1873,7 +1970,8 @@ fn award_bounty_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator).unwrap(),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
+				.unwrap(),
 			consideration(s.value)
 		);
 
@@ -1915,8 +2013,11 @@ fn award_bounty_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator)
-				.unwrap(),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			)
+			.unwrap(),
 			consideration(s.child_value)
 		);
 		expect_events(vec![
@@ -2015,7 +2116,7 @@ fn close_bounty_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
 		);
 
@@ -2089,7 +2190,10 @@ fn close_bounty_works() {
 			}
 		);
 		assert_eq!(
-			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, s.child_curator),
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			),
 			None
 		);
 

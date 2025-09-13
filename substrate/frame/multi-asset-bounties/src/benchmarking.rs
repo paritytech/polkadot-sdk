@@ -306,6 +306,7 @@ pub fn set_status<T: Config<I>, I: 'static>(
 		parent_bounty_id,
 		child_bounty_id,
 		new_status,
+		None,
 	);
 
 	Ok(())
@@ -964,6 +965,7 @@ mod benchmarks {
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				new_status,
+				None,
 			);
 			true
 		} else {
@@ -1027,6 +1029,7 @@ mod benchmarks {
 				s.parent_bounty_id,
 				Some(s.child_bounty_id),
 				new_status,
+				None,
 			);
 			true
 		} else {
