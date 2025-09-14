@@ -29,8 +29,9 @@ use super::{asset_para, relay_chain, simple_para};
 pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([1u8; 32]);
 pub const UNITS: u128 = 10_000_000_000;
+pub const FOREIGN_UNITS: u128 = 10_000_000_000;
 pub const CENTS: u128 = 100_000_000;
-pub const INITIAL_BALANCE: u128 = UNITS;
+pub const INITIAL_BALANCE: u128 = 100 * UNITS;
 
 decl_test_parachain! {
 	pub struct SimplePara {
@@ -84,15 +85,15 @@ pub fn simple_para_ext() -> TestExternalities {
 		balances: vec![(ALICE, INITIAL_BALANCE)],
 		..Default::default()
 	}
-		.assimilate_storage(&mut t)
-		.unwrap();
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	parachain_info::GenesisConfig::<Runtime> {
 		parachain_id: SIMPLE_PARA_ID.into(),
 		..Default::default()
 	}
-		.assimilate_storage(&mut t)
-		.unwrap();
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
@@ -111,8 +112,8 @@ pub fn asset_para_ext() -> TestExternalities {
 		balances: vec![(ALICE, INITIAL_BALANCE)],
 		..Default::default()
 	}
-		.assimilate_storage(&mut t)
-		.unwrap();
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	parachain_info::GenesisConfig::<Runtime> {
 		parachain_id: ASSET_PARA_ID.into(),

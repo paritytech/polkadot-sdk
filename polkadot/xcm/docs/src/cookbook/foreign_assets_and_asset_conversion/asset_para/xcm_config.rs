@@ -22,7 +22,7 @@ use super::{
 	MessageQueue, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, XcmPallet,
 };
 use crate::cookbook::foreign_assets_and_asset_conversion::network::ASSET_PARA_ID;
-use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation};
+use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset};
 use frame::{
 	deps::frame_system,
 	prelude::imbalance::{ResolveAssetTo, ResolveTo},
@@ -35,11 +35,11 @@ use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::traits::TryConvertInto;
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
-	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
+	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, DescribeAllTerminal, DescribeFamily,
+	EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
 	SignedToAccountId32, SovereignSignedViaLocation, StartsWithExplicitGlobalConsensus,
-	UsingComponents,
+	TakeWeightCredit, TrailingSetTopicAsId, UsingComponents, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -159,12 +159,12 @@ mod asset_transactor {
 		NativeAndAssets,
 		(
 			ForeignAssetsConvertedConcreteId,
-			// `ForeignAssetsConvertedConcreteId` doesn't include Relay token, so we handle it
+			// `ForeignAssetsConvertedConcreteId` doesn't include our native token, so we handle it
 			// explicitly here.
 			MatchedConvertedConcreteId<
 				Location,
 				Balance,
-				Equals<ParentLocation>,
+				Equals<HereLocation>,
 				WithLatestLocationConverter<Location>,
 				TryConvertInto,
 			>,
@@ -212,7 +212,7 @@ type Traders = (
 	cumulus_primitives_utility::SwapFirstAssetTrader<
 		HereLocation,
 		AssetConversion,
-		IdentityFee<Balance>,
+		FixedFee<1u32, Balance>,
 		NativeAndAssets,
 		(asset_transactor::ForeignAssetsConvertedConcreteId,),
 		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
@@ -238,6 +238,14 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
+pub type Barrier = TrailingSetTopicAsId<(
+	// Withdraws funds from a local account for local execution.
+	TakeWeightCredit,
+	// If the message is one that immediately attempts to pay for execution, then
+	// allow it.
+	AllowTopLevelPaidExecutionFrom<Everything>,
+)>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -251,7 +259,7 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	// This is not safe, you should use `xcm_builder::AllowTopLevelPaidExecutionFrom<T>` in a
 	// production chain
-	type Barrier = xcm_builder::AllowUnpaidExecutionFrom<Everything>;
+	type Barrier = Barrier;
 	type Weigher = weigher::Weigher;
 	type Trader = Traders;
 	type ResponseHandler = ();
@@ -261,7 +269,8 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
-	type FeeManager = ();
+	// Fee manager that simply burns the fee.
+	type FeeManager = XcmFeeManagerFromComponents<(), ()>;
 	type MaxAssetsIntoHolding = frame::traits::ConstU32<1>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

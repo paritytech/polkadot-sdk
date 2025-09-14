@@ -18,9 +18,12 @@
 use super::{
 	asset_para,
 	asset_para::xcm_config::ThisNetwork,
-	network::{AssetPara, MockNet, SimplePara, ALICE, ASSET_PARA_ID, SIMPLE_PARA_ID, UNITS},
+	network::{
+		AssetPara, MockNet, SimplePara, ALICE, ASSET_PARA_ID, FOREIGN_UNITS, SIMPLE_PARA_ID, UNITS,
+	},
 	simple_para,
 };
+use asset_para::assets::PoolIdToAccountId;
 use frame::{prelude::fungible::Mutate, testing_prelude::*, traits::TryConvert};
 use sp_runtime::AccountId32;
 use sp_tracing;
@@ -47,8 +50,8 @@ fn registering_foreign_assets_work() {
 	// We ensure that Simple Para's sovereign account has funds on the Asset Para to pay for the
 	// deposits needed to create the foreign asset.
 	AssetPara::execute_with(|| {
-		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, 10 * UNITS));
-		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), 10 * UNITS);
+		assert_ok!(asset_para::Balances::mint_into(&simple_para_sovereign, 100 * UNITS));
+		assert_eq!(asset_para::Balances::free_balance(&simple_para_sovereign), 100 * UNITS);
 
 		// clear events that we do not want later.
 		asset_para::System::reset_events();
@@ -93,7 +96,7 @@ fn registering_foreign_assets_work() {
 					id: simple_para_asset_location.clone(),
 					name: "Simple Para Token".into(),
 					symbol: "TOK".into(),
-					decimals: 12,
+					decimals: 10,
 				})
 				.encode()
 				.into(),
@@ -134,7 +137,7 @@ fn registering_foreign_assets_work() {
 				asset_id: simple_para_asset_location.clone(),
 				name: "Simple Para Token".into(),
 				symbol: "TOK".into(),
-				decimals: 12,
+				decimals: 10,
 				is_frozen: false,
 			},
 		));
@@ -153,15 +156,19 @@ fn registering_foreign_assets_work() {
 	});
 
 	// Step 2. Create a pool with the AssetPara's native asset and the foreign asset.
-	AssetPara::execute_with(|| {
-		use asset_para::assets::PoolIdToAccountId;
 
+	// Give names to some values for better understanding later.
+	let pool_id = (Location::here(), simple_para_asset_location.clone());
+	let pool_account: AccountId32 = PoolIdToAccountId::try_convert(&pool_id).unwrap();
+	let lp_token_id = 0;
+
+	AssetPara::execute_with(|| {
 		// Create some liquidity of the foreign asset on the Asset Para.
 		assert_ok!(asset_para::ForeignAssets::mint(
 			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			simple_para_asset_location.clone(),
 			simple_para_sovereign.clone(),
-			3 * UNITS,
+			100 * FOREIGN_UNITS,
 		));
 		asset_para::System::reset_events();
 
@@ -171,11 +178,6 @@ fn registering_foreign_assets_work() {
 			Box::new(Location::here()),
 			Box::new(simple_para_asset_location.clone()),
 		));
-
-		// Give names to some values for better understanding later.
-		let pool_id = (Location::here(), simple_para_asset_location.clone());
-		let pool_account: AccountId32 = PoolIdToAccountId::try_convert(&pool_id).unwrap();
-		let lp_token_id = 0;
 
 		// Assert that we have successfully created the liquidity pool.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
@@ -207,8 +209,8 @@ fn registering_foreign_assets_work() {
 			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			Box::new(Location::here()),
 			Box::new(simple_para_asset_location.clone()),
-			UNITS,
-			2 * UNITS,
+			10 * UNITS,
+			20 * FOREIGN_UNITS,
 			1,
 			1,
 			simple_para_sovereign.clone(),
@@ -227,10 +229,10 @@ fn registering_foreign_assets_work() {
 				who: simple_para_sovereign.clone(),
 				mint_to: simple_para_sovereign.clone(),
 				pool_id: pool_id.clone(),
-				amount1_provided: UNITS,
-				amount2_provided: 2 * UNITS,
+				amount1_provided: 10 * UNITS,
+				amount2_provided: 20 * FOREIGN_UNITS,
 				lp_token: lp_token_id,
-				lp_token_minted: 14142135523,
+				lp_token_minted: 141421356137,
 			},
 		));
 
@@ -254,7 +256,7 @@ fn registering_foreign_assets_work() {
 			// Beneficiary
 			Box::new(alice_location.clone().into()),
 			// Assets to be teleported
-			Box::new(vec![(Location::here(), Fungible(UNITS)).into()].into()),
+			Box::new(vec![(Location::here(), Fungible(2 * FOREIGN_UNITS)).into()].into()),
 			// Fee asset index
 			0,
 			WeightLimit::Unlimited,
@@ -263,13 +265,41 @@ fn registering_foreign_assets_work() {
 		simple_para::System::reset_events();
 	});
 
+	// Confirm that we have received the foreign asset and that we could pay the XCM execution
+	// fees with our foreign asset.
 	AssetPara::execute_with(|| {
+		// We configured our `SwapFirstAssetTrader` to always charge 1 native Balance, but we need
+		// to pay 3 Simple Para tokens to get 1 native token.
+		let fee_to_be_paid = 3;
+
+		// Confirm that we have successfully received the foreign asset.
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
+			pallet_assets::Event::Deposited {
+				amount: fee_to_be_paid,
+				asset_id: simple_para_asset_location.clone(),
+				who: pool_account.clone(),
+			},
+		));
+
+		// Confirm that we have successfully received the foreign asset.
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
+			pallet_asset_conversion::Event::SwapCreditExecuted {
+				// We need to pay 3 Simple Para tokens to get 1 native token
+				amount_in: fee_to_be_paid,
+				amount_out: 1,
+				path: vec![
+					(simple_para_asset_location.clone(), fee_to_be_paid),
+					(Location::here(), 1),
+				],
+			},
+		));
+
 		// Confirm that we have successfully received the foreign asset.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Issued {
 				asset_id: simple_para_asset_location.clone(),
 				owner: ALICE,
-				amount: UNITS,
+				amount: 2 * FOREIGN_UNITS - fee_to_be_paid,
 			},
 		));
 
@@ -284,7 +314,8 @@ fn registering_foreign_assets_work() {
 			Box::new(alice_location.into()),
 			// Assets to be teleported (note the difference to above).
 			Box::new(
-				vec![(Location::new(1, Parachain(SIMPLE_PARA_ID)), Fungible(UNITS)).into()].into()
+				vec![(Location::new(1, Parachain(SIMPLE_PARA_ID)), Fungible(FOREIGN_UNITS)).into()]
+					.into()
 			),
 			// Fee asset index
 			0,
@@ -294,7 +325,7 @@ fn registering_foreign_assets_work() {
 
 	SimplePara::execute_with(|| {
 		simple_para::System::assert_has_event(simple_para::RuntimeEvent::Balances(
-			pallet_balances::Event::Minted { who: ALICE, amount: UNITS },
+			pallet_balances::Event::Minted { who: ALICE, amount: FOREIGN_UNITS },
 		));
 	});
 }
