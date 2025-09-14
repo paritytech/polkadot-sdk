@@ -341,7 +341,8 @@ mod test {
 			},
 			defender: Mutex::new(NaiveEquivocationDefender::default()),
 			telemetry: None,
-			authorities_tracker: AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None).unwrap(),
+			authorities_tracker: AuthoritiesTracker::new(client.clone(), &CompatibilityMode::None)
+				.unwrap(),
 		};
 
 		let genesis = client.info().best_hash;
