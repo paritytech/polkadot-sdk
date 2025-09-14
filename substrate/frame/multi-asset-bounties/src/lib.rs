@@ -131,7 +131,7 @@ pub struct Bounty<AccountId, Balance, AssetKind, Hash, PaymentId, Beneficiary> {
 	/// The amount that should be paid if the bounty is rewarded, including
 	/// beneficiary payout and possible child bounties.
 	///
-	/// The asset class determined by [`asset_kind`].
+	/// The asset class determined by `asset_kind`.
 	pub value: Balance,
 	/// The metadata concerning the bounty.
 	///
@@ -149,7 +149,7 @@ pub struct ChildBounty<AccountId, Balance, Hash, PaymentId, Beneficiary> {
 	pub parent_bounty: BountyIndex,
 	/// The amount that should be paid if the child-bounty is rewarded.
 	///
-	/// The asset class determined by the parent bounty [`asset_kind`].
+	/// The asset class determined by the parent bounty `asset_kind`.
 	pub value: Balance,
 	/// The metadata concerning the child-bounty.
 	///
@@ -326,7 +326,7 @@ pub mod pallet {
 			<<Self as pallet::Config<I>>::Paymaster as PayWithSource>::Source,
 		>;
 
-		/// Type for processing payments of [`Self::AssetKind`] from [`Self::Source`] in favor of
+		/// Type for processing payments of [`Self::AssetKind`] from a `Source` in favor of
 		/// [`Self::Beneficiary`].
 		type Paymaster: PayWithSource<
 			Balance = Self::Balance,
@@ -351,7 +351,7 @@ pub mod pallet {
 		/// which is incurred by the child-/bounty curator.
 		///
 		/// The footprint accounts for the child-/bounty value in
-		/// the native asset. The cost taken from the curator [`Self::AccountId`] may vary based on
+		/// the native asset. The cost taken from the curator `AccountId` may vary based on
 		/// this balance.
 		type Consideration: Consideration<Self::AccountId, Self::Balance>;
 
