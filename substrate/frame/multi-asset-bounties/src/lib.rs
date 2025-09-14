@@ -1198,29 +1198,14 @@ pub mod pallet {
 
 					let new_status = match new_payment_status {
 						PaymentState::Succeeded => {
-							// Decide whether we should drop the curator deposit.
-							// Bounty: always drop if there is a curator.
-							// Child-bounty: drop only if parent curator is different from the child
-							// curator.
-							let should_drop = match (
-								child_bounty_id,
-								curator.as_ref(),
-								parent_curator.as_ref(),
-							) {
-								(None, Some(_), _) => true,
-								(Some(_), Some(child_curator), Some(parent_curator))
-									if child_curator != parent_curator =>
-									true,
-								_ => false,
-							};
-							if should_drop {
-								if let Some(curator) = curator {
-									if let Some(curator_deposit) = CuratorDeposit::<T, I>::take(
-										parent_bounty_id,
-										child_bounty_id,
-									) {
-										let _ = curator_deposit.drop(curator);
-									}
+							if let Some(curator) = curator {
+								// Drop the curator deposit when payment succeeds
+								// If the parent curator is also the child curator, there
+								// is no deposit
+								if let Some(curator_deposit) =
+									CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+								{
+									let _ = curator_deposit.drop(curator);
 								}
 							}
 							if let Some(_) = child_bounty_id {
@@ -1807,9 +1792,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 /// Type implementing curator deposit as a percentage of the child-/bounty value.
 ///
-/// It implements [Convert](sp_runtime::traits::Convert) trait and can be used with types
-/// like [HoldConsideration](`frame_support::traits::fungible::HoldConsideration`) implementing
-/// [Consideration](`frame_support::traits::Consideration`) trait.
+/// It implements `Convert` trait and can be used with types like `HoldConsideration` implementing
+/// `Consideration` trait.
 pub struct CuratorDepositAmount<Mult, Min, Max, Balance>(PhantomData<(Mult, Min, Max, Balance)>);
 impl<Mult, Min, Max, Balance> Convert<Balance, Balance>
 	for CuratorDepositAmount<Mult, Min, Max, Balance>
