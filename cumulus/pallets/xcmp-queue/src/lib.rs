@@ -57,7 +57,7 @@ extern crate alloc;
 
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use bounded_collections::{BoundedBTreeSet, BoundedSlice, BoundedVec};
-use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeLimit, Encode, MaxEncodedLen};
 use cumulus_primitives_core::{
 	relay_chain::BlockNumber as RelayBlockNumber, ChannelStatus, GetChannelInfo, MessageSendError,
 	ParaId, XcmpMessageFormat, XcmpMessageHandler, XcmpMessageSource,
@@ -460,9 +460,7 @@ impl<T: Config> Pallet<T> {
 	/// Place a message `fragment` on the outgoing XCMP queue for `recipient`.
 	///
 	/// Format is the type of aggregate message that the `fragment` may be safely encoded and
-	/// appended onto. Whether earlier unused space is used for the fragment at the risk of sending
-	/// it out of order is determined with `qos`. NOTE: For any two messages to be guaranteed to be
-	/// dispatched in order, then both must be sent with `ServiceQuality::Ordered`.
+	/// appended onto.
 	///
 	/// ## Background
 	///
@@ -682,8 +680,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
-	/// individual items.
+	/// Split concatenated encoded `VersionedXcm`s into individual items.
 	///
 	/// We directly encode them again since that is needed later on.
 	///
@@ -692,11 +689,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn take_first_concatenated_xcm<'a>(
 		data: &mut &'a [u8],
 		meter: &mut WeightMeter,
-	) -> Result<Option<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>>, ()> {
-		if data.is_empty() {
-			return Ok(None)
-		}
-
+	) -> Result<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>, ()> {
 		// Let's make sure that we can decode at least an empty xcm message.
 		let base_weight = T::WeightInfo::take_first_concatenated_xcm(0);
 		if meter.try_consume(base_weight).is_err() {
@@ -722,24 +715,55 @@ impl<T: Config> Pallet<T> {
 			T::WeightInfo::take_first_concatenated_xcm(xcm_data.len() as u32) - base_weight;
 		meter.consume(extra_weight);
 
-		let xcm = Some(BoundedSlice::try_from(xcm_data).map_err(|error| {
+		let xcm = BoundedSlice::try_from(xcm_data).map_err(|error| {
 			tracing::error!(
 				target: LOG_TARGET,
 				?error,
 				"Failed to take XCM after decoding: message is too long"
 			);
 			()
-		})?);
+		})?;
 
 		Ok(xcm)
 	}
 
-	/// Split concatenated encoded `VersionedXcm`s or `MaybeDoubleEncodedVersionedXcm`s into
-	/// batches.
+	/// Split concatenated opaque `VersionedXcm`s into individual items.
+	///
+	/// This method is not benchmarked because it's almost free.
+	pub(crate) fn take_first_concatenated_opaque_xcm<'a>(
+		data: &mut &'a [u8],
+	) -> Result<BoundedSlice<'a, u8, MaxXcmpMessageLenOf<T>>, ()> {
+		let xcm_len = Compact::<u32>::decode(data).map_err(|error| {
+			tracing::debug!(target: LOG_TARGET, ?error, "Failed to decode opaque XCM length");
+			()
+		})?;
+		let (xcm_data, remaining_data) = match data.split_at_checked(xcm_len.0 as usize) {
+			Some((xcm_data, remaining_data)) => (xcm_data, remaining_data),
+			None => {
+				tracing::debug!(target: LOG_TARGET, ?xcm_len, "Wrong opaque XCM length");
+				return Err(())
+			},
+		};
+		*data = remaining_data;
+
+		let xcm = BoundedSlice::try_from(xcm_data).map_err(|error| {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				"Failed to take opaque XCM after decoding: message is too long"
+			);
+			()
+		})?;
+
+		Ok(xcm)
+	}
+
+	/// Split concatenated encoded `VersionedXcm`s into batches.
 	///
 	/// We directly encode them again since that is needed later on.
 	pub(crate) fn take_first_concatenated_xcms<'a>(
 		data: &mut &'a [u8],
+		encoding: XcmEncoding,
 		batch_size: usize,
 		meter: &mut WeightMeter,
 	) -> Result<
@@ -748,14 +772,21 @@ impl<T: Config> Pallet<T> {
 	> {
 		let mut batch = vec![];
 		loop {
-			match Self::take_first_concatenated_xcm(data, meter) {
-				Ok(Some(xcm)) => {
+			if data.is_empty() {
+				return Ok(batch)
+			}
+
+			let maybe_xcm = match encoding {
+				XcmEncoding::Simple => Self::take_first_concatenated_xcm(data, meter),
+				XcmEncoding::Double => Self::take_first_concatenated_opaque_xcm(data),
+			};
+			match maybe_xcm {
+				Ok(xcm) => {
 					batch.push(xcm);
 					if batch.len() >= batch_size {
 						return Ok(batch);
 					}
 				},
-				Ok(None) => return Ok(batch),
 				Err(_) => return Err(batch),
 			}
 		}
@@ -843,6 +874,24 @@ impl<T: Config> QueuePausedQuery<ParaId> for Pallet<T> {
 	}
 }
 
+/// The encoding of the XCM messages in an XCMP page.
+#[derive(Copy, Clone)]
+enum XcmEncoding {
+	/// Simple encoded (`xcm.encode()`)
+	///
+	/// When we receive this king of messages, we have to decode and then re-encoded them before
+	/// enqueueing them for later processing.
+	Simple,
+	/// Double encoded (`xcm.encode().encode()`)
+	///
+	/// The XCM message is encoded first, resulting a vector of bytes. And then the vector of bytes
+	/// is encoded again. This has 2 advantages:
+	/// 1. We can just decode them before enqueueing them for later processing. They don't need to
+	///    be re-encoded.
+	/// 2. Decoding a `Vec<u8>` is much more efficient than decoding XCM messages.
+	Double,
+}
+
 impl<T: Config> XcmpMessageHandler for Pallet<T> {
 	fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 		iter: I,
@@ -883,7 +932,17 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 							},
 						}
 					},
-				XcmpMessageFormat::ConcatenatedVersionedXcm => {
+				XcmpMessageFormat::ConcatenatedVersionedXcm |
+				XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => {
+					let encoding = match format {
+						XcmpMessageFormat::ConcatenatedVersionedXcm => XcmEncoding::Simple,
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm => XcmEncoding::Double,
+						_ => {
+							// This branch is unreachable.
+							continue
+						},
+					};
+
 					if known_xcm_senders.insert(sender) {
 						if meter
 							.try_consume(T::WeightInfo::uncached_enqueue_xcmp_messages())
@@ -902,6 +961,7 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 					while can_process_next_batch {
 						let batch = match Self::take_first_concatenated_xcms(
 							&mut data,
+							encoding,
 							XCM_BATCH_SIZE,
 							&mut meter,
 						) {
@@ -1136,16 +1196,24 @@ impl<T: Config> InspectMessageQueues for Pallet<T> {
 
 		OutboundXcmpMessages::<T>::iter()
 			.map(|(para_id, _, messages)| {
-				let mut data = &messages[..];
-				let decoded_format = XcmpMessageFormat::decode(&mut data).unwrap();
-				if decoded_format != XcmpMessageFormat::ConcatenatedVersionedXcm {
-					panic!("Unexpected format.")
-				}
+				let data = &mut &messages[..];
+
+				let decoded_format = XcmpMessageFormat::decode(data).unwrap();
 				let mut decoded_messages = Vec::new();
 				while !data.is_empty() {
+					let message_bytes = match decoded_format {
+						XcmpMessageFormat::ConcatenatedVersionedXcm =>
+							Self::take_first_concatenated_xcm(data, &mut WeightMeter::new()),
+						XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm =>
+							Self::take_first_concatenated_opaque_xcm(data),
+						unexpected_format => {
+							panic!("Unexpected XCMP format: {unexpected_format:?}!")
+						},
+					}
+					.unwrap();
 					let decoded_message = VersionedXcm::<()>::decode_with_depth_limit(
 						MAX_XCM_DECODE_DEPTH,
-						&mut data,
+						&mut &message_bytes[..],
 					)
 					.unwrap();
 					decoded_messages.push(decoded_message);
