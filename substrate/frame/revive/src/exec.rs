@@ -2003,18 +2003,7 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into()
-		}
-
-		<AccountInfo<T>>::load_contract(&address)
-			.map(|contract| contract.code_hash)
-			.unwrap_or_else(|| {
-				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
-					return EMPTY_CODE_HASH;
-				}
-				H256::zero()
-			})
+		code_hash_for_address::<T>(address)
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
@@ -2160,6 +2149,24 @@ where
 
 		buf[len..].fill(0);
 	}
+}
+
+pub fn code_hash_for_address<T: Config>(address: &H160) -> H256 {
+	// precompiles have static code provided by the runtime
+	if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
+		return sp_io::hashing::keccak_256(code).into();
+	}
+
+	// check stored contract info or account existence
+	<AccountInfo<T>>::load_contract(address)
+		.map(|contract| contract.code_hash)
+		.unwrap_or_else(|| {
+			if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
+				EMPTY_CODE_HASH
+			} else {
+				H256::zero()
+			}
+		})
 }
 
 mod sealing {

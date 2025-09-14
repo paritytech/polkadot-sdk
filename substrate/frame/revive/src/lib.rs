@@ -1183,22 +1183,27 @@ where
 {
 	/// Ensure the origin has no code deplyoyed if it is a signed origin.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> Result<(), DispatchError> {
-		use crate::exec::EMPTY_CODE_HASH;
+		use crate::exec::{code_hash_for_address, EMPTY_CODE_HASH};
 		if let Ok(who) = ensure_signed(origin.clone()) {
-			let addr = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
-			if let Some(contract) = AccountInfo::<T>::load_contract(&addr) {
-				if contract.code_hash != EMPTY_CODE_HASH {
-					log::debug!(
-						target: crate::LOG_TARGET,
-						"EIP-3607: reject externally-signed tx from contract account {:?}",
-						addr
-					);
-					return Err(<Error<T>>::ContractAccountCannotSend.into());
-				}
+			let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
+			// Get canonical code-hash (handles precompiles, contract storage and non-existent
+			// accounts).
+			let code_hash = code_hash_for_address::<T>(&address);
+
+			// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
+			// (account exists but no code).
+			if code_hash != H256::zero() && code_hash != EMPTY_CODE_HASH {
+				log::debug!(
+					target: crate::LOG_TARGET,
+					"EIP-3607: reject externally-signed tx from contract account {:?}",
+					address
+				);
+				return Err(<Error<T>>::ContractAccountCannotSend.into());
 			}
 		}
 		Ok(())
 	}
+
 	/// A generalized version of [`Self::call`].
 	///
 	/// Identical to [`Self::call`] but tailored towards being called by other code within the
