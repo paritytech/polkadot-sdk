@@ -61,7 +61,7 @@ fn registering_foreign_assets_work() {
 			// In general parachains do not have free execution. So we have to withdraw some funds
 			// into the holding register to pay for our execution fees on the target chain.
 			WithdrawAsset(fee_asset.clone().into()),
-			PayFees { asset: fee_asset.into() },
+			PayFees { asset: fee_asset },
 			SetAppendix(Xcm(vec![
 				RefundSurplus,
 				DepositAsset {
@@ -201,7 +201,7 @@ fn registering_foreign_assets_work() {
 			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			Box::new(Location::here()),
 			Box::new(simple_para_asset_location.clone()),
-			1 * UNITS,
+			UNITS,
 			2 * UNITS,
 			1,
 			1,
@@ -221,7 +221,7 @@ fn registering_foreign_assets_work() {
 				who: simple_para_sovereign.clone(),
 				mint_to: simple_para_sovereign.clone(),
 				pool_id: pool_id.clone(),
-				amount1_provided: 1 * UNITS,
+				amount1_provided: UNITS,
 				amount2_provided: 2 * UNITS,
 				lp_token: lp_token_id,
 				lp_token_minted: 14142135523,
