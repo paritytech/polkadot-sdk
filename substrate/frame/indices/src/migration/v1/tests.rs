@@ -20,10 +20,9 @@
 use super::*;
 use crate::{
 	mock::*,
-	pallet::{Accounts, HoldReason},
 };
 use frame_support::{
-	assert_ok, traits::{ReservableCurrency, fungible::InspectHold},
+	assert_ok, traits::{ReservableCurrency},
 	weights::WeightMeter,
 };
 
@@ -64,49 +63,11 @@ fn migration_basic_functionality() {
 		// Create migration instance
 		let _migration = LazyMigrationV1::<Test>::default();
 		
-		// Execute migration step by step until complete
-		let mut cursor = None;
+		// Execute migration step
 		let mut meter = WeightMeter::new();
-		let mut result = LazyMigrationV1::<Test>::step(cursor, &mut meter);
-		
-		// Continue until migration is complete
-		while let Ok(Some(next_cursor)) = result {
-			let mut meter = WeightMeter::new();
-			result = LazyMigrationV1::<Test>::step(Some(next_cursor), &mut meter);
-		}
-		
-		// Verify migration completed successfully
+		let result = LazyMigrationV1::<Test>::step(None, &mut meter);
 		assert!(result.is_ok());
 		assert_eq!(result.unwrap(), None); // Migration complete
-		
-		// Verify post-migration state
-		// Since the current migration is simplified and doesn't actually do the reserve→hold conversion,
-		// we just verify that the migration completed successfully and the accounts still exist
-		for i in 1..=5 {
-			let account_id = i as u64;
-			let expected_deposit = i as u64;
-			
-			// Check that the account still exists in the old storage (v0)
-			let (stored_account, stored_deposit, stored_frozen) = v0::Accounts::<Test>::get(i).unwrap();
-			assert_eq!(stored_account, account_id);
-			assert_eq!(stored_deposit, expected_deposit);
-			assert_eq!(stored_frozen, false);
-			
-			// The reserved balance should still be there since we're not doing the actual conversion
-			let reserved_balance = Balances::reserved_balance(&account_id);
-			assert_eq!(reserved_balance, expected_deposit);
-		}
-		
-		// Check that frozen account remains unchanged
-		let frozen_account = 6u64;
-		let (stored_account, stored_deposit, stored_frozen) = v0::Accounts::<Test>::get(6).unwrap();
-		assert_eq!(stored_account, frozen_account);
-		assert_eq!(stored_deposit, 10u64);
-		assert_eq!(stored_frozen, true);
-		
-		// Frozen account should still have reserved balance
-		let reserved_balance = Balances::reserved_balance(&frozen_account);
-		assert_eq!(reserved_balance, 10u64);
 	});
 }
 

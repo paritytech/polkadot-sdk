@@ -26,7 +26,7 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
-// use frame_support::traits::{ReservableCurrency, fungible::MutateHold};
+use frame_support::traits::{ReservableCurrency, fungible::MutateHold};
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
@@ -95,6 +95,73 @@ impl<T: Config> SteppedMigration for LazyMigrationV1<T> {
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		// Start from cursor position, or 0 if this is the first step
+		let start_index = cursor.unwrap_or(0);
+		
+		// Process accounts in batches to avoid exceeding weight limits
+		let mut processed = 0u32;
+		let max_per_step = 10u32; // Process up to 10 accounts per step
+		
+		// Get all accounts that need migration
+		let accounts_to_migrate: Vec<_> = v0::Accounts::<T>::iter()
+			.filter(|(index, _)| (*index).into() >= start_index)
+			.take(max_per_step as usize)
+			.collect();
+		
+		if accounts_to_migrate.is_empty() {
+			// No more accounts to migrate
+			return Ok(None);
+		}
+		
+		// Process each account in the batch
+		for (index, (account, deposit, frozen)) in accounts_to_migrate {
+			// Skip if already frozen (permanent indices don't need migration)
+			if frozen {
+				continue;
+			}
+			
+			// Step 1: Unreserve the old deposit using the old ReservableCurrency system
+			let unreserved = T::Currency::unreserve(&account, deposit);
+			
+			// Step 2: Remove the old account entry from v0 storage
+			v0::Accounts::<T>::remove(index);
+			
+			// Step 3: Re-claim the index using the new hold system
+			// First, we need to hold the deposit with the new hold reason
+			if let Err(_) = T::Currency::hold(
+				&crate::pallet::HoldReason::DepositForIndex.into(),
+				&account,
+				deposit
+			) {
+				// If holding fails, we need to restore the old state
+				// This is a critical error that should not happen in practice
+				return Err(SteppedMigrationError::from("Failed to hold deposit during migration".to_string()));
+			}
+			
+			// Step 4: Insert the account with the new system
+			crate::pallet::Accounts::<T>::insert(index, (account, deposit, false));
+			
+			processed += 1;
+			
+			// Consume weight for this account migration (claim + free operations)
+			meter.consume(frame_support::weights::Weight::from_parts(2000, 2000));
+		}
+		
+		// Update cursor to the next position
+		let next_cursor = start_index + processed;
+		
+		// Check if we've processed all accounts
+		let remaining_accounts = v0::Accounts::<T>::iter()
+			.filter(|(index, _)| (*index).into() >= next_cursor)
+			.count();
+		
+		if remaining_accounts == 0 {
+			// Migration complete
+			Ok(None)
+		} else {
+			// Continue with next batch
+			Ok(Some(next_cursor))
+		}
 	}
 
 	#[cfg(feature = "try-runtime")]
