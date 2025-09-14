@@ -83,9 +83,7 @@ mod asset_transactor {
 		// `Balances` is the name given to the balances pallet in this particular recipe.
 		// Any implementation of the traits would suffice.
 		Balances,
-		// This transactor deals with the native token of the Relay Chain.
-		// This token is referenced by the Location of the Relay Chain relative to this chain
-		// -- Location::parent().
+		// This transactor deals with our native token.
 		IsConcrete<HereLocation>,
 		// How to convert an XCM Location into a local account id.
 		// This is also something that's configured in the XCM executor.
