@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! # Relay Asset Transactor
+//! # Foreign Assets and Asset Conversion Example
 //!
 //! This example shows how to configure a parachain (namely the Asset Para) to be able to have other
 //! parachains register their native token as foreign assets, and how the other chains actually
@@ -23,22 +23,27 @@
 //! to trade foreign assets to the Asset Para's native token, and how this setup can be used to pay
 //! XCM-execution fees in a foreign asset.
 //!
-//! The first step is using the [`xcm_builder::FungibleAdapter`] to create an `AssetTransactor` that
-//! can handle the relay chain token.
-#![doc = docify::embed!("src/cookbook/relay_token_transactor/parachain/xcm_config.rs", asset_transactor)]
+//! The first step is using the [`pallet_assets::Config`] to create an `ForeignAssets` pallet
+//! instance that allows sibling parachains to create their native token on our Asset Para.
+#![doc = docify::embed!(
+    "src/cookbook/foreign_assets_and_asset_conversion/asset_para/assets.rs",
+    foreign_assets
+)]
 //!
-//! The second step is to configure `IsReserve` to recognize the relay chain as a reserve for its
-//! own asset.
-//! With this, you'll be able to easily mint a derivative asset, backed one-to-one from the Relay
-//! Chain, by using the xcm pallet's `transfer_assets` extrinsic.
+//! As the second step, we will configure the `AssetConvertion` pallet, which will create, and
+//! manage liquidity pools for asset swaps. To achieve this, we must add another `pallet_assets`
+//! instance, which will be used to manage a liquidity pool's token.
+#![doc = docify::embed!(
+    "src/cookbook/foreign_assets_and_asset_conversion/asset_para/assets.rs",
+    asset_conversion
+)]
 //!
-//! The `IsReserve` type takes a type that implements `ContainsPair<MultiAsset, MultiLocation>`.
-//! In this case, we want a type that contains the pair `(relay_chain_native_token, relay_chain)`.
-#![doc = docify::embed!("src/cookbook/relay_token_transactor/parachain/xcm_config.rs", is_reserve)]
-//!
-//! With this setup, we are able to do a reserve asset transfer to and from the parachain and relay
-//! chain.
-#![doc = docify::embed!("src/cookbook/relay_token_transactor/tests.rs", reserve_asset_transfers_work)]
+//! Finally, in the test we show how the flow to create and use a foreign asset would look like, and
+//! what events would be emitted by the chain.
+#![doc = docify::embed!(
+    "src/cookbook/foreign_assets_and_asset_conversion/tests.rs",
+    registering_foreign_assets_work
+)]
 //!
 //! For the rest of the code, be sure to check the contents of this module.
 
