@@ -17,10 +17,11 @@
 
 use super::{
 	asset_para,
-	network::{AssetPara, MockNet, SimplePara, ASSET_PARA_ID, SIMPLE_PARA_ID, UNITS},
+	network::{AssetPara, MockNet, SimplePara, ALICE, ASSET_PARA_ID, SIMPLE_PARA_ID, UNITS},
 	simple_para,
 };
 use frame::{prelude::fungible::Mutate, testing_prelude::*, traits::TryConvert};
+use frame::deps::frame_support::__private::sp_tracing;
 use sp_runtime::AccountId32;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
@@ -29,6 +30,8 @@ use xcm_simulator::TestExt;
 #[docify::export]
 #[test]
 fn registering_foreign_assets_work() {
+	sp_tracing::init_for_tests();
+
 	// We restart the mock network.
 	MockNet::reset();
 
@@ -227,8 +230,57 @@ fn registering_foreign_assets_work() {
 				lp_token_minted: 14142135523,
 			},
 		));
+
+		// clear events that we do not want later.
+		asset_para::System::reset_events();
 	});
 
-	// Todo: Step 3. Show how we can transfer our asset to the relay chain, and pay XCM-execution
-	// fees with it.
+	// Step 3. Teleport our native asset to Asset Para.
+	let alice_location = Location {
+		parents: 0,
+		interior: Junction::AccountId32 { network: None, id: ALICE.into() }.into(),
+	};
+
+	SimplePara::execute_with(|| {
+		assert_ok!(simple_para::XcmPallet::limited_teleport_assets(
+			simple_para::RuntimeOrigin::signed(ALICE),
+			Box::new(Location::new(1, Parachain(ASSET_PARA_ID)).into()),
+			Box::new(alice_location.clone().into()),
+			Box::new((Location::here(), Fungible(UNITS)).into()),
+			0,
+			WeightLimit::Unlimited,
+		));
+	});
+
+	AssetPara::execute_with(|| {
+		// Confirm that we have successfully created the asset.
+		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
+			pallet_assets::Event::Issued {
+				asset_id: simple_para_asset_location.clone(),
+				owner: ALICE,
+				amount: UNITS,
+			},
+		));
+
+		// clear events that we do not want later.
+		asset_para::System::reset_events();
+
+		assert_ok!(asset_para::XcmPallet::limited_teleport_assets(
+			asset_para::RuntimeOrigin::signed(ALICE),
+			Box::new(Location::new(1, Parachain(SIMPLE_PARA_ID)).into()),
+			Box::new(alice_location.into()),
+			Box::new((Location::here(), Fungible(UNITS)).into()),
+			0,
+			WeightLimit::Unlimited,
+		));
+	});
+
+	SimplePara::execute_with(|| {
+
+		simple_para::System::assert_has_event(simple_para::RuntimeEvent::Balances(
+			pallet_balances::Event::Issued {
+				amount: UNITS,
+			},
+		));
+	});
 }

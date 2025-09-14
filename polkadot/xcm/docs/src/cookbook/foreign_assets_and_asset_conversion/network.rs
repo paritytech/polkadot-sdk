@@ -78,11 +78,26 @@ decl_test_network! {
 pub fn simple_para_ext() -> TestExternalities {
 	use simple_para::{MessageQueue, Runtime, System};
 
-	let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(ALICE, INITIAL_BALANCE)],
+		..Default::default()
+	}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+	parachain_info::GenesisConfig::<Runtime> {
+		parachain_id: SIMPLE_PARA_ID.into(),
+		..Default::default()
+	}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		MessageQueue::set_para_id(2222.into());
+		MessageQueue::set_para_id(SIMPLE_PARA_ID.into());
 	});
 	ext
 }
@@ -91,6 +106,13 @@ pub fn asset_para_ext() -> TestExternalities {
 	use asset_para::{MessageQueue, Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Runtime> {
+		balances: vec![(ALICE, INITIAL_BALANCE)],
+		..Default::default()
+	}
+		.assimilate_storage(&mut t)
+		.unwrap();
 
 	parachain_info::GenesisConfig::<Runtime> {
 		parachain_id: ASSET_PARA_ID.into(),
@@ -102,7 +124,7 @@ pub fn asset_para_ext() -> TestExternalities {
 	let mut ext = TestExternalities::new(t);
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		MessageQueue::set_para_id(2222.into());
+		MessageQueue::set_para_id(ASSET_PARA_ID.into());
 	});
 	ext
 }

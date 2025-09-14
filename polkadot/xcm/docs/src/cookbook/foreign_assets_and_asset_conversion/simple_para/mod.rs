@@ -24,13 +24,17 @@ use xcm_simulator::mock_message_queue;
 mod xcm_config;
 use xcm_config::XcmConfig;
 
+#[cfg(test)]
+pub use xcm_config::{LocationToAccountId, ThisNetwork};
+
 pub type Block = frame_system::mocking::MockBlock<Runtime>;
 pub type AccountId = frame::deps::sp_runtime::AccountId32;
-pub type Balance = u64;
+pub type Balance = u128;
 
 construct_runtime! {
 	pub struct Runtime {
 		System: frame_system,
+		ParachainInfo: parachain_info,
 		MessageQueue: mock_message_queue,
 		Balances: pallet_balances,
 		XcmPallet: pallet_xcm,
@@ -53,4 +57,7 @@ impl mock_message_queue::Config for Runtime {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
+	type Balance = Balance;
 }
+
+impl parachain_info::Config for Runtime {}

@@ -17,8 +17,13 @@
 
 //! # XCM Configuration
 
-use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
-use crate::cookbook::foreign_assets_and_asset_conversion::network::SIMPLE_PARA_ID;
+use super::{
+	AccountId, Balances, MessageQueue, ParachainInfo, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeOrigin,
+};
+use crate::cookbook::foreign_assets_and_asset_conversion::network::{
+	ASSET_PARA_ID, SIMPLE_PARA_ID,
+};
 use frame::{
 	deps::frame_system,
 	runtime::prelude::*,
@@ -26,7 +31,7 @@ use frame::{
 };
 use xcm::latest::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
+	AccountId32Aliases, Case, DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	SignedToAccountId32,
 };
@@ -92,6 +97,45 @@ mod weigher {
 
 parameter_types! {
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::Polkadot), Parachain(SIMPLE_PARA_ID)].into();
+
+	pub AssetParaLocation: Location = Location::new(1, [Parachain(ASSET_PARA_ID)]);
+	pub const SimpleParaNative: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(Location::here()) });
+	pub AssetParaTrustedTeleporter: (AssetFilter, Location) = (SimpleParaNative::get(), AssetParaLocation::get());
+}
+
+/// Teleport config to send our asset to the Asset Para.
+#[docify::export]
+mod teleport_config {
+	use super::*;
+
+	parameter_types! {
+
+		pub AssetParaLocation: Location = Location::new(1, [Parachain(ASSET_PARA_ID)]);
+		pub const SimpleParaNative: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(Location::here()) });
+		pub AssetParaTrustedTeleporter: (AssetFilter, Location) = (SimpleParaNative::get(), AssetParaLocation::get());
+	}
+
+	pub type TrustedTeleporters = (Case<crate::cookbook::foreign_assets_and_asset_conversion::simple_para::xcm_config::AssetParaTrustedTeleporter>,);
+
+	pub struct OnlyTeleportNative;
+
+	impl Contains<(Location, Vec<Asset>)> for OnlyTeleportNative {
+		fn contains(t: &(Location, Vec<Asset>)) -> bool {
+			let self_para_id: u32 = ParachainInfo::parachain_id().into();
+
+			t.1.iter().any(|asset| {
+				if let Asset { id: AssetId(asset_loc), fun: Fungible(_a) } = asset {
+					match asset_loc.unpack() {
+						(0, []) => true,
+						(1, [Parachain(id)]) if *id == self_para_id => true,
+						_ => false,
+					}
+				} else {
+					false
+				}
+			})
+		}
+	}
 }
 
 pub struct XcmConfig;
@@ -103,7 +147,8 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = ();
 	// The declaration of which Locations are reserves for which Assets.
 	type IsReserve = ();
-	type IsTeleporter = ();
+	// Trusted teleport destinations
+	type IsTeleporter = teleport_config::TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	// This is not safe, you should use `xcm_builder::AllowTopLevelPaidExecutionFrom<T>` in a
 	// production chain
@@ -138,15 +183,16 @@ pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, T
 impl pallet_xcm::Config for Runtime {
 	// We turn off sending for these tests
 	type SendXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, ()>;
-	type XcmRouter = super::super::network::ParachainXcmRouter<MessageQueue>; // Provided by xcm-simulator
-																		   // Anyone can execute XCM programs
+	// Provided by xcm-simulator
+	type XcmRouter = super::super::network::ParachainXcmRouter<MessageQueue>;
+	// Anyone can execute XCM programs
 	type ExecuteXcmOrigin = EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	// We execute any type of program
 	type XcmExecuteFilter = Everything;
 	// How we execute programs
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	// We don't allow teleports
-	type XcmTeleportFilter = Nothing;
+	// We only allow teleporting our own asset.
+	type XcmTeleportFilter = teleport_config::OnlyTeleportNative;
 	// We allow all reserve transfers
 	type XcmReserveTransferFilter = Everything;
 	// Same weigher executor uses to weigh XCM programs
