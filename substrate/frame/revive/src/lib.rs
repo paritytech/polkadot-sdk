@@ -580,7 +580,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
 	where
-		BalanceOf<T>: Into<U256> + TryFrom<U256>,
+		BalanceOf<T>: Into<U256> + TryFrom<U256> + Bounded,
+		MomentOf<T>: Into<U256>,
+		T::Hash: frame_support::traits::IsType<H256>,
 	{
 		fn build(&self) {
 			use crate::{exec::Key, vm::ContractBlob};
@@ -602,17 +604,8 @@ pub mod pallet {
 			let owner = Pallet::<T>::account_id();
 
 			for genesis::Account { address, balance, nonce, contract_data } in &self.accounts {
-				let Ok(balance_with_dust) =
-					BalanceWithDust::<BalanceOf<T>>::from_value::<T>(*balance).inspect_err(|err| {
-						log::error!(target: LOG_TARGET, "Failed to convert balance for {address:?}: {err:?}");
-					})
-				else {
-					continue;
-				};
 				let account_id = T::AddressMapper::to_account_id(address);
-				let (value, dust) = balance_with_dust.deconstruct();
 
-				let _ = T::Currency::set_balance(&account_id, value);
 				frame_system::Account::<T>::mutate(&account_id, |info| {
 					info.nonce = (*nonce).into();
 				});
@@ -621,7 +614,7 @@ pub mod pallet {
 					None => {
 						AccountInfoOf::<T>::insert(
 							address,
-							AccountInfo { account_type: AccountType::EOA, dust },
+							AccountInfo { account_type: AccountType::EOA, dust: 0 },
 						);
 					},
 					Some(genesis::ContractData { code, storage }) => {
@@ -650,7 +643,7 @@ pub mod pallet {
 
 						AccountInfoOf::<T>::insert(
 							address,
-							AccountInfo { account_type: info.clone().into(), dust },
+							AccountInfo { account_type: info.clone().into(), dust: 0 },
 						);
 
 						<PristineCode<T>>::insert(blob.code_hash(), code);
@@ -662,6 +655,10 @@ pub mod pallet {
 						}
 					},
 				}
+
+				let _ = Pallet::<T>::set_evm_balance(address, *balance).inspect_err(|err| {
+					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");
+				});
 			}
 		}
 	}
@@ -1539,9 +1536,30 @@ where
 	}
 
 	/// Get the balance with EVM decimals of the given `address`.
+	///
+	/// Returns the spendable balance excluding the existential deposit.
 	pub fn evm_balance(address: &H160) -> U256 {
 		let balance = AccountInfo::<T>::balance((*address).into());
 		Self::convert_native_to_evm(balance)
+	}
+
+	/// Set the EVM balance of an account.
+	///
+	/// The account's total balance becomes the EVM value plus the existential deposit,
+	/// consistent with `evm_balance` which returns the spendable balance excluding the existential
+	/// deposit.
+	pub fn set_evm_balance(address: &H160, evm_value: U256) -> Result<(), Error<T>> {
+		let ed = T::Currency::minimum_balance();
+		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)
+			.map_err(|_| <Error<T>>::BalanceConversionFailed)?;
+		let (value, dust) = balance_with_dust.deconstruct();
+		let account_id = T::AddressMapper::to_account_id(&address);
+		T::Currency::set_balance(&account_id, ed.saturating_add(value));
+		AccountInfoOf::<T>::mutate(address, |account| {
+			account.as_mut().map(|a| a.dust = dust);
+		});
+
+		Ok(())
 	}
 
 	/// Get the nonce for the given `address`.
