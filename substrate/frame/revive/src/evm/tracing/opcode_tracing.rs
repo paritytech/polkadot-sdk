@@ -140,15 +140,14 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 			let stack_values = stack.data();
 			let mut stack_bytes = Vec::new();
 
-			// Convert stack values to bytes in reverse order (top of stack first)
-			for value in stack_values.iter().rev() {
+			for value in stack_values.iter() {
 				let bytes = value.to_be_bytes_vec();
 				stack_bytes.push(crate::evm::Bytes(bytes));
 			}
 
-			Some(stack_bytes)
+			stack_bytes
 		} else {
-			None
+			Vec::new()
 		};
 
 		// Extract memory data if enabled
@@ -156,7 +155,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 			let memory_size = memory.size();
 
 			if memory_size == 0 {
-				Some(Vec::new())
+				Vec::new()
 			} else {
 				let mut memory_bytes = Vec::new();
 				// Read memory in 32-byte chunks, limiting to reasonable size
@@ -178,10 +177,10 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 					}
 				}
 
-				Some(memory_bytes)
+				memory_bytes
 			}
 		} else {
-			None
+			Vec::new()
 		};
 
 		// Create the pending opcode step (without gas cost)

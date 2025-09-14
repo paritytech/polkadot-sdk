@@ -75,6 +75,17 @@ impl Bytes {
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}
+
+	/// Convert to minimal hex format without padding 0s
+	pub fn to_short_hex(&self) -> alloc::string::String {
+		let word = sp_core::U256::from_big_endian(&self.0);
+		alloc::format!("0x{:x}", word)
+	}
+
+	/// Convert to hex format without "0x" prefix
+	pub fn to_hex_no_prefix(&self) -> alloc::string::String {
+		alloy_core::hex::encode(&self.0)
+	}
 }
 
 impl_hex!(Byte, u8, 0u8);
@@ -82,6 +93,18 @@ impl_hex!(Bytes, Vec<u8>, vec![]);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
+
+#[test]
+fn test_to_short_hex() {
+	let bytes = Bytes(crate::U256::from(4).to_big_endian().to_vec());
+	assert_eq!(bytes.to_short_hex(), "0x4");
+}
+
+#[test]
+fn test_to_hex_no_prefix() {
+	let bytes = Bytes(vec![0x12, 0x34, 0x56, 0x78]);
+	assert_eq!(bytes.to_hex_no_prefix(), "12345678");
+}
 
 #[test]
 fn serialize_works() {

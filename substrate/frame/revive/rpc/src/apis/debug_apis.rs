@@ -113,6 +113,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		tracer_config: TracerConfig,
 	) -> RpcResult<Trace> {
 		let TracerConfig { config, timeout } = tracer_config;
+		dbg!(&config);
 		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
 	}
 }

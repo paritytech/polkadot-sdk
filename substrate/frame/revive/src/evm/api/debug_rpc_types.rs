@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
-	de::{self, Deserializer},
+	de::Deserializer,
 	ser::{SerializeMap, Serializer},
 	Deserialize, Serialize,
 };
@@ -84,84 +84,24 @@ impl<'de> Deserialize<'de> for TracerConfig {
 	where
 		D: Deserializer<'de>,
 	{
-		#[derive(Deserialize, Default)]
+		#[derive(Default, Deserialize)]
 		#[serde(default, rename_all = "camelCase")]
-		struct RawTracerConfig<'a> {
-			tracer: Option<&'a str>,
-			tracer_config: Option<TracerConfigInner>,
+		struct TracerConfigInner {
+			#[serde(flatten)]
+			config: Option<TracerType>,
 
-			#[serde(with = "humantime_serde", default)]
+			#[serde(flatten)]
+			opcode_config: Option<OpcodeTracerConfig>,
+
+			#[serde(with = "humantime_serde")]
 			timeout: Option<core::time::Duration>,
 		}
 
-		// We can't use untagged enums reliably because they may pick the wrong variant
-		// Instead, we'll use a custom deserializer that tries each type based on tracer name
-		#[derive(Deserialize, Default)]
-		#[serde(default, rename_all = "camelCase")]
-		struct TracerConfigInner {
-			// CallTracer fields
-			with_logs: Option<bool>,
-			only_top_call: Option<bool>,
-
-			// PrestateTracer fields
-			diff_mode: Option<bool>,
-			disable_code: Option<bool>,
-
-			// OpcodeTracer fields
-			enable_memory: Option<bool>,
-			disable_stack: Option<bool>,
-
-			// This field exists in both PrestateTracer and OpcodeTracer
-			disable_storage: Option<bool>,
-			enable_return_data: Option<bool>,
-			limit: Option<u64>,
-		}
-
-		let raw = RawTracerConfig::deserialize(deserializer)?;
-		let tracer_type = raw.tracer.unwrap_or_else(|| "structLogger");
-		let config = match tracer_type {
-			"callTracer" =>
-				if let Some(inner) = raw.tracer_config {
-					let call_config = CallTracerConfig {
-						with_logs: inner.with_logs.unwrap_or(true),
-						only_top_call: inner.only_top_call.unwrap_or(false),
-					};
-					TracerType::CallTracer(Some(call_config))
-				} else {
-					TracerType::CallTracer(None)
-				},
-			"prestateTracer" =>
-				if let Some(inner) = raw.tracer_config {
-					let prestate_config = PrestateTracerConfig {
-						diff_mode: inner.diff_mode.unwrap_or(false),
-						disable_storage: inner.disable_storage.unwrap_or(false),
-						disable_code: inner.disable_code.unwrap_or(false),
-					};
-					TracerType::PrestateTracer(Some(prestate_config))
-				} else {
-					TracerType::PrestateTracer(None)
-				},
-			"structLogger" =>
-				if let Some(inner) = raw.tracer_config {
-					let opcode_config = OpcodeTracerConfig {
-						enable_memory: inner.enable_memory.unwrap_or(false),
-						disable_stack: inner.disable_stack.unwrap_or(false),
-						disable_storage: inner.disable_storage.unwrap_or(false),
-						enable_return_data: inner.enable_return_data.unwrap_or(false),
-						limit: inner.limit.unwrap_or(0),
-					};
-					TracerType::StructLogger(Some(opcode_config))
-				} else {
-					TracerType::StructLogger(None)
-				},
-			_ =>
-				return Err(de::Error::unknown_variant(
-					&tracer_type,
-					&["callTracer", "prestateTracer", "structLogger"],
-				)),
-		};
-
-		Ok(TracerConfig { config, timeout: raw.timeout })
+		let inner = TracerConfigInner::deserialize(deserializer)?;
+		Ok(TracerConfig {
+			config: inner.config.unwrap_or_else(|| TracerType::StructLogger(inner.opcode_config)),
+			timeout: inner.timeout,
+		})
 	}
 }
 
@@ -247,13 +187,13 @@ impl Default for OpcodeTracerConfig {
 /// By default if not specified the tracer is a  StructLogger, and it's config is passed inline
 ///
 /// ```json
-/// { "tracer": null, "tracerConfig": { "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true } }
+/// { "tracer": null,  "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true  }
 /// ```
 #[test]
 fn test_tracer_config_serialization() {
 	let tracers = vec![
 		(
-			r#"{ "tracer": null, "tracerConfig": { "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true } }"#,
+			r#"{ "enableMemory": true, "disableStack": false, "disableStorage": false, "enableReturnData": true }"#,
 			TracerConfig {
 				config: TracerType::StructLogger(Some(OpcodeTracerConfig {
 					enable_memory: true,
@@ -262,6 +202,13 @@ fn test_tracer_config_serialization() {
 					enable_return_data: true,
 					limit: 0,
 				})),
+				timeout: None,
+			},
+		),
+		(
+			r#"{  }"#,
+			TracerConfig {
+				config: TracerType::StructLogger(Some(OpcodeTracerConfig::default())),
 				timeout: None,
 			},
 		),
@@ -437,7 +384,12 @@ pub struct OpcodeTrace<Gas = U256> {
 
 impl<Gas: Default> Default for OpcodeTrace<Gas> {
 	fn default() -> Self {
-		Self { gas: Gas::default(), failed: false, return_value: Bytes::default(), struct_logs: Vec::new() }
+		Self {
+			gas: Gas::default(),
+			failed: false,
+			return_value: Bytes::default(),
+			struct_logs: Vec::new(),
+		}
 	}
 }
 
@@ -458,11 +410,11 @@ pub struct OpcodeStep<Gas = U256> {
 	/// Current call depth.
 	pub depth: u32,
 	/// EVM stack contents (optional based on config).
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub stack: Option<Vec<Bytes>>,
+	#[serde(serialize_with = "serialize_stack_minimal")]
+	pub stack: Vec<Bytes>,
 	/// EVM memory contents (optional based on config).
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub memory: Option<Vec<Bytes>>,
+	#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_memory_no_prefix")]
+	pub memory: Vec<Bytes>,
 	/// Contract storage changes (optional based on config).
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
@@ -890,4 +842,22 @@ pub struct TransactionTrace {
 	/// The trace of the transaction.
 	#[serde(rename = "result")]
 	pub trace: Trace,
+}
+
+/// Serialize stack values using minimal hex format (like Geth)
+fn serialize_stack_minimal<S>(stack: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let minimal_values: Vec<String> = stack.iter().map(|bytes| bytes.to_short_hex()).collect();
+	minimal_values.serialize(serializer)
+}
+
+/// Serialize memory values without "0x" prefix (like Geth)
+fn serialize_memory_no_prefix<S>(memory: &Vec<Bytes>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: serde::Serializer,
+{
+	let hex_values: Vec<String> = memory.iter().map(|bytes| bytes.to_hex_no_prefix()).collect();
+	hex_values.serialize(serializer)
 }
