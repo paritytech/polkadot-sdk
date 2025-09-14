@@ -17,7 +17,11 @@
 
 //! # Relay Asset Transactor
 //!
-//! This example shows how to configure a parachain to only deal with the Relay Chain token.
+//! This example shows how to configure a parachain (namely the Asset Para) to be able to have other
+//! parachains register their native token as foreign assets, and how the other chains actually
+//! register their token. Additionally, the example shows how we can create asset conversion pools
+//! to trade foreign assets to the Asset Para's native token, and how this setup can be used to pay
+//! XCM-execution fees in a foreign asset.
 //!
 //! The first step is using the [`xcm_builder::FungibleAdapter`] to create an `AssetTransactor` that
 //! can handle the relay chain token.
@@ -38,8 +42,10 @@
 //!
 //! For the rest of the code, be sure to check the contents of this module.
 
+/// The asset parachain runtime that will accept foreign tokens (the main stage of this example).
 pub mod asset_para;
-/// The parachain runtime for this example
+
+/// The parachain runtime that wants to register its token on the asset para as a foreign token.
 pub mod simple_para;
 
 /// The relay chain runtime for this example.
