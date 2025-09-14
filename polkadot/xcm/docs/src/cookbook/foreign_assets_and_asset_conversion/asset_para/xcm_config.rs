@@ -192,12 +192,17 @@ mod weigher {
 	pub type Weigher = FixedWeightBounds<WeightPerInstruction, RuntimeCall, MaxInstructions>;
 }
 
-/// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
-///
-/// - DOT with the parent Relay Chain and sibling system parachains; and
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
-pub type TrustedTeleporters =
-	(IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,);
+/// Teleport config for this runtime.
+#[docify::export]
+mod teleport_config {
+	use super::*;
+
+	/// We generally accept teleports from other chains, when they send their native token, i.e.,
+	/// when the following is true:
+	/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+	pub type TrustedTeleporters =
+		(IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,);
+}
 
 /// The trader for this runtime, which can pay with any asset exchangeable to the local asset.
 #[docify::export]
@@ -264,7 +269,7 @@ impl xcm_executor::Config for XcmConfig {
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
 	// The declaration of which Locations are reserves for which Assets.
 	type IsReserve = ();
-	type IsTeleporter = TrustedTeleporters;
+	type IsTeleporter = teleport_config::TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = weigher::Weigher;
