@@ -17,12 +17,13 @@
 
 use super::{
 	asset_para,
+	asset_para::xcm_config::ThisNetwork,
 	network::{AssetPara, MockNet, SimplePara, ALICE, ASSET_PARA_ID, SIMPLE_PARA_ID, UNITS},
 	simple_para,
 };
 use frame::{prelude::fungible::Mutate, testing_prelude::*, traits::TryConvert};
-use frame::deps::frame_support::__private::sp_tracing;
 use sp_runtime::AccountId32;
+use sp_tracing;
 use xcm::prelude::*;
 use xcm_executor::traits::ConvertLocation;
 use xcm_simulator::TestExt;
@@ -30,6 +31,7 @@ use xcm_simulator::TestExt;
 #[docify::export]
 #[test]
 fn registering_foreign_assets_work() {
+	// This will print extensive logs if the test fails - very helpful for XCM debugging.
 	sp_tracing::init_for_tests();
 
 	// We restart the mock network.
@@ -98,6 +100,7 @@ fn registering_foreign_assets_work() {
 			},
 		]);
 
+		// Send the XCM...
 		assert_ok!(simple_para::XcmPallet::send(
 			simple_para::RuntimeOrigin::root(),
 			Box::new(Location::new(1, Parachain(ASSET_PARA_ID)).into()),
@@ -235,25 +238,33 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-	// Step 3. Teleport our native asset to Asset Para.
+	// Step 3. Teleport our native asset to Asset Para and back.
+
 	let alice_location = Location {
 		parents: 0,
-		interior: Junction::AccountId32 { network: None, id: ALICE.into() }.into(),
+		interior: Junction::AccountId32 { network: Some(ThisNetwork::get()), id: ALICE.into() }
+			.into(),
 	};
 
 	SimplePara::execute_with(|| {
 		assert_ok!(simple_para::XcmPallet::limited_teleport_assets(
 			simple_para::RuntimeOrigin::signed(ALICE),
+			// Destination chain
 			Box::new(Location::new(1, Parachain(ASSET_PARA_ID)).into()),
+			// Beneficiary
 			Box::new(alice_location.clone().into()),
-			Box::new((Location::here(), Fungible(UNITS)).into()),
+			// Assets to be teleported
+			Box::new(vec![(Location::here(), Fungible(UNITS)).into()].into()),
+			// Fee asset index
 			0,
 			WeightLimit::Unlimited,
 		));
+
+		simple_para::System::reset_events();
 	});
 
 	AssetPara::execute_with(|| {
-		// Confirm that we have successfully created the asset.
+		// Confirm that we have successfully received the foreign asset.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Issued {
 				asset_id: simple_para_asset_location.clone(),
@@ -267,20 +278,23 @@ fn registering_foreign_assets_work() {
 
 		assert_ok!(asset_para::XcmPallet::limited_teleport_assets(
 			asset_para::RuntimeOrigin::signed(ALICE),
+			// Destination chain
 			Box::new(Location::new(1, Parachain(SIMPLE_PARA_ID)).into()),
+			// Beneficiary
 			Box::new(alice_location.into()),
-			Box::new((Location::here(), Fungible(UNITS)).into()),
+			// Assets to be teleported (note the difference to above).
+			Box::new(
+				vec![(Location::new(1, Parachain(SIMPLE_PARA_ID)), Fungible(UNITS)).into()].into()
+			),
+			// Fee asset index
 			0,
 			WeightLimit::Unlimited,
 		));
 	});
 
 	SimplePara::execute_with(|| {
-
 		simple_para::System::assert_has_event(simple_para::RuntimeEvent::Balances(
-			pallet_balances::Event::Issued {
-				amount: UNITS,
-			},
+			pallet_balances::Event::Minted { who: ALICE, amount: UNITS },
 		));
 	});
 }

@@ -27797,6 +27797,7 @@ dependencies = [
  "simple-mermaid",
  "sp-io",
  "sp-runtime",
+ "sp-tracing 16.0.0",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",

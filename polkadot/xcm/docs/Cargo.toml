@@ -42,3 +42,4 @@ simple-mermaid = { workspace = true }
 
 [dev-dependencies]
 test-log = { workspace = true }
+sp-tracing = { workspace = true }

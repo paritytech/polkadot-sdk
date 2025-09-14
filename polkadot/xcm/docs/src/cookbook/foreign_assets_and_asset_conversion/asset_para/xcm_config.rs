@@ -290,8 +290,8 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecuteFilter = Everything;
 	// How we execute programs
 	type XcmExecutor = XcmExecutor<XcmConfig>;
-	// We don't allow teleports
-	type XcmTeleportFilter = Nothing;
+	// We allow teleports in general. The filtering happens through the `TrusterTeleporters`.
+	type XcmTeleportFilter = Everything;
 	// We allow all reserve transfers
 	type XcmReserveTransferFilter = Everything;
 	// Same weigher executor uses to weigh XCM programs
