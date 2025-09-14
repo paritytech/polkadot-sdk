@@ -62,7 +62,7 @@ fn registering_foreign_assets_work() {
 	// sure that we withdraw enough, as the surplus can be refunded.
 	let fee_asset: Asset = (Here, Fungible(UNITS / 2)).into();
 
-	// Step 1. Create the asset on the target chain and set its metadata.
+	// ------------- Step 1. Create the asset on the target chain and set its metadata.
 
 	SimplePara::execute_with(|| {
 		let xcm = Xcm(vec![
@@ -111,6 +111,7 @@ fn registering_foreign_assets_work() {
 		));
 	});
 
+	// Let's check if the token was successfully created on the asset para.
 	AssetPara::execute_with(|| {
 		use asset_para::assets::AssetDeposit;
 
@@ -155,7 +156,7 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-	// Step 2. Create a pool with the AssetPara's native asset and the foreign asset.
+	// ------------- Step 2. Create a pool with the AssetPara's native asset and the foreign asset.
 
 	// Give names to some values for better understanding later.
 	let pool_id = (Location::here(), simple_para_asset_location.clone());
@@ -240,7 +241,7 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
-	// Step 3. Teleport our native asset to Asset Para and back.
+	// ------------- Step 3. Teleport our native asset to Asset Para and back.
 
 	let alice_location = Location {
 		parents: 0,
@@ -272,7 +273,8 @@ fn registering_foreign_assets_work() {
 		// to pay 3 Simple Para tokens to get 1 native token.
 		let fee_to_be_paid = 3;
 
-		// Confirm that we have successfully received the foreign asset.
+		// The 3 Simple Para tokens that will be used to buy on native token are deposited to the
+		// pool account.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Deposited {
 				amount: fee_to_be_paid,
@@ -281,7 +283,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-		// Confirm that we have successfully received the foreign asset.
+		// We see that paid 3 Simple Para token to get one Asset Para token.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
 			pallet_asset_conversion::Event::SwapCreditExecuted {
 				// We need to pay 3 Simple Para tokens to get 1 native token
@@ -294,7 +296,7 @@ fn registering_foreign_assets_work() {
 			},
 		));
 
-		// Confirm that we have successfully received the foreign asset.
+		// Alice receives the remaining amount after deducting the fees.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Issued {
 				asset_id: simple_para_asset_location.clone(),
@@ -306,6 +308,7 @@ fn registering_foreign_assets_work() {
 		// clear events that we do not want later.
 		asset_para::System::reset_events();
 
+		// Teleport some tokens back to the Simple Para.
 		assert_ok!(asset_para::XcmPallet::limited_teleport_assets(
 			asset_para::RuntimeOrigin::signed(ALICE),
 			// Destination chain
@@ -323,7 +326,10 @@ fn registering_foreign_assets_work() {
 		));
 	});
 
+	// Confirm that the tokens made it back to simple para.
 	SimplePara::execute_with(|| {
+		// In this example, Simple Para does not pay for execution fees. Hence, Alice receives
+		// the full amount.
 		simple_para::System::assert_has_event(simple_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Minted { who: ALICE, amount: FOREIGN_UNITS },
 		));
