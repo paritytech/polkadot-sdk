@@ -55,6 +55,7 @@ pub trait Tracing {
 		_gas_before: Weight,
 		_stack: &revm::interpreter::Stack,
 		_memory: &revm::interpreter::SharedMemory,
+		_last_frame_output: &crate::ExecReturnValue,
 	) {
 	}
 

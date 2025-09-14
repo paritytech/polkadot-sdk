@@ -14,15 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 use crate::{
-	evm::{tracing::Tracing, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
-	DispatchError, ExecReturnValue, Weight,
+	evm::{tracing::Tracing, Bytes, OpcodeStep, OpcodeTrace, OpcodeTracerConfig},
+	DispatchError, ExecReturnValue, Key, Weight,
 };
 use alloc::{
+	collections::BTreeMap,
 	format,
 	string::{String, ToString},
-	vec,
 	vec::Vec,
 };
 use revm::interpreter::interpreter_types::MemoryTr;
@@ -60,6 +59,9 @@ pub struct OpcodeTracer<Gas, GasMapper> {
 
 	/// Gas before executing the current pending step.
 	pending_gas_before: Option<Weight>,
+
+	/// List of storage per call
+	storages_per_call: Vec<BTreeMap<Bytes, Bytes>>,
 }
 
 impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
@@ -79,6 +81,8 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 			return_value: Vec::new(),
 			pending_step: None,
 			pending_gas_before: None,
+			// Initialize with one storage map for the root call
+			storages_per_call: vec![Default::default()],
 		}
 	}
 
@@ -128,6 +132,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		gas_before: Weight,
 		stack: &revm::interpreter::Stack,
 		memory: &revm::interpreter::SharedMemory,
+		last_frame_output: &crate::ExecReturnValue,
 	) {
 		// Check step limit - if exceeded, don't record anything
 		if self.config.limit > 0 && self.step_count >= self.config.limit {
@@ -158,29 +163,27 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 				Vec::new()
 			} else {
 				let mut memory_bytes = Vec::new();
-				// Read memory in 32-byte chunks, limiting to reasonable size
-				let chunks_to_read = core::cmp::min(memory_size / 32 + 1, 16); // Limit to 16 chunks
+				// Read memory in 32-byte chunks, limiting to configured size
+				let words_to_read =
+					core::cmp::min((memory_size + 31) / 32, self.config.memory_word_limit as usize);
 
-				for i in 0..chunks_to_read {
-					let offset = i * 32;
-					let end = core::cmp::min(offset + 32, memory_size);
-
-					if offset < memory_size {
-						let slice = memory.slice(offset..end);
-
-						// Convert to bytes, padding to 32 bytes
-						let mut chunk_bytes = vec![0u8; 32];
-						for (i, &byte) in slice.iter().enumerate().take(32) {
-							chunk_bytes[i] = byte;
-						}
-						memory_bytes.push(crate::evm::Bytes(chunk_bytes));
-					}
+				for i in 0..words_to_read {
+					// Use get_word to read 32 bytes directly
+					let word = memory.get_word(i * 32);
+					memory_bytes.push(crate::evm::Bytes(word.0.to_vec()));
 				}
 
 				memory_bytes
 			}
 		} else {
 			Vec::new()
+		};
+
+		// Extract return data if enabled
+		let return_data = if self.config.enable_return_data {
+			crate::evm::Bytes(last_frame_output.data.clone())
+		} else {
+			crate::evm::Bytes::default()
 		};
 
 		// Create the pending opcode step (without gas cost)
@@ -195,6 +198,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 			stack: stack_data,
 			memory: memory_data,
 			storage: None,
+			return_data,
 			error: None,
 		};
 
@@ -224,6 +228,7 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 		_input: &[u8],
 		_gas_left: Weight,
 	) {
+		self.storages_per_call.push(Default::default());
 		self.depth += 1;
 	}
 
@@ -242,6 +247,8 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 			self.set_total_gas_used((self.gas_mapper)(gas_used));
 		}
 
+		self.storages_per_call.pop();
+
 		if self.depth > 0 {
 			self.depth -= 1;
 		}
@@ -258,6 +265,47 @@ impl<GasMapper: Fn(Weight) -> U256> Tracing for OpcodeTracer<sp_core::U256, GasM
 
 		if self.depth > 0 {
 			self.depth -= 1;
+		}
+
+		self.storages_per_call.pop();
+	}
+
+	fn storage_write(&mut self, key: &Key, _old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
+		// Only track storage if not disabled
+		if self.config.disable_storage {
+			return;
+		}
+
+		// Get the last storage map for the current call depth
+		if let Some(storage) = self.storages_per_call.last_mut() {
+			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
+			let value_bytes = crate::evm::Bytes(new_value.map(|v| v.to_vec()).unwrap_or_default());
+			storage.insert(key_bytes, value_bytes);
+
+			// Set storage on the pending step
+			if let Some(ref mut step) = self.pending_step {
+				step.storage = Some(storage.clone());
+			}
+		}
+	}
+
+	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
+		// Only track storage if not disabled
+		if self.config.disable_storage {
+			return;
+		}
+
+		// Get the last storage map for the current call depth
+		if let Some(storage) = self.storages_per_call.last_mut() {
+			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
+			storage.entry(key_bytes).or_insert_with(|| {
+				crate::evm::Bytes(value.map(|v| v.to_vec()).unwrap_or_default())
+			});
+
+			// Set storage on the pending step
+			if let Some(ref mut step) = self.pending_step {
+				step.storage = Some(storage.clone());
+			}
 		}
 	}
 }

@@ -206,6 +206,7 @@ fn run_with_opcode_tracing<'a, E: Ext>(
 				gas_before,
 				&interpreter.stack,
 				&interpreter.memory,
+				interpreter.extend.last_frame_output(),
 			);
 		});
 

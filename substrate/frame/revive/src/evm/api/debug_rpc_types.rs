@@ -160,6 +160,9 @@ pub struct OpcodeTracerConfig {
 
 	/// Limit number of steps captured (default: 0, no limit)
 	pub limit: u64,
+
+	/// Maximum number of memory words to capture per step (default: 16)
+	pub memory_word_limit: u32,
 }
 
 impl Default for OpcodeTracerConfig {
@@ -170,6 +173,7 @@ impl Default for OpcodeTracerConfig {
 			disable_storage: false,
 			enable_return_data: false,
 			limit: 0,
+			memory_word_limit: 16,
 		}
 	}
 }
@@ -201,6 +205,7 @@ fn test_tracer_config_serialization() {
 					disable_storage: false,
 					enable_return_data: true,
 					limit: 0,
+					memory_word_limit: 16,
 				})),
 				timeout: None,
 			},
@@ -409,15 +414,18 @@ pub struct OpcodeStep<Gas = U256> {
 	pub gas_cost: Gas,
 	/// Current call depth.
 	pub depth: u32,
-	/// EVM stack contents (optional based on config).
+	/// EVM stack contents.
 	#[serde(serialize_with = "serialize_stack_minimal")]
 	pub stack: Vec<Bytes>,
-	/// EVM memory contents (optional based on config).
+	/// EVM memory contents.
 	#[serde(skip_serializing_if = "Vec::is_empty", serialize_with = "serialize_memory_no_prefix")]
 	pub memory: Vec<Bytes>,
-	/// Contract storage changes (optional based on config).
+	/// Contract storage changes.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub storage: Option<alloc::collections::BTreeMap<Bytes, Bytes>>,
+	/// Return data from last frame output.
+	#[serde(skip_serializing_if = "Bytes::is_empty")]
+	pub return_data: Bytes,
 	/// Any error that occurred during opcode execution.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub error: Option<String>,

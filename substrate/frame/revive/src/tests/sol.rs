@@ -188,6 +188,7 @@ fn opcode_tracing_works() {
 			disable_storage: true,
 			enable_return_data: true,
 			limit: 5,
+			memory_word_limit: 16,
 		};
 
 		let mut tracer = OpcodeTracer::new(config, |_| sp_core::U256::from(0u64));
@@ -218,6 +219,7 @@ fn opcode_tracing_works() {
 					stack: vec![],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},
 				OpcodeStep {
@@ -229,6 +231,7 @@ fn opcode_tracing_works() {
 					stack: vec![crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec())],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},
 				OpcodeStep {
@@ -238,11 +241,12 @@ fn opcode_tracing_works() {
 					gas_cost: sp_core::U256::from(0u64),
 					depth: 1,
 					stack: vec![
-						crate::evm::Bytes(U256::from(0x40).to_be_bytes_vec()),
 						crate::evm::Bytes(U256::from(0x80).to_be_bytes_vec()),
+						crate::evm::Bytes(U256::from(0x40).to_be_bytes_vec()),
 					],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},
 				OpcodeStep {
@@ -254,6 +258,7 @@ fn opcode_tracing_works() {
 					stack: vec![],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},
 				OpcodeStep {
@@ -265,6 +270,7 @@ fn opcode_tracing_works() {
 					stack: vec![crate::evm::Bytes(U256::from(0).to_be_bytes_vec())],
 					memory: vec![],
 					storage: None,
+					return_data: crate::evm::Bytes::default(),
 					error: None,
 				},
 			],
