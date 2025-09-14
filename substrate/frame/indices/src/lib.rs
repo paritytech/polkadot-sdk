@@ -25,6 +25,9 @@ mod mock;
 mod tests;
 pub mod weights;
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod migration;
+
 extern crate alloc;
 
 use alloc::vec::Vec;
