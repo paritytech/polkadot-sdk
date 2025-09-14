@@ -17,10 +17,7 @@
 
 //! # XCM Configuration
 
-use super::{
-	AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeOrigin,
-};
+use super::{AccountId, Balances, MessageQueue, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin};
 use crate::cookbook::foreign_assets_and_asset_conversion::network::{
 	ASSET_PARA_ID, SIMPLE_PARA_ID,
 };
@@ -115,7 +112,6 @@ mod teleport_config {
 		/// The Asset Para is a trusted teleporter for our native token.
 		pub AssetParaTrustedTeleporter: (AssetFilter, Location) = (SimpleParaNative::get(), AssetParaLocation::get());
 	}
-
 
 	/// All our trusted teleporter Cases. In this example it is only one.
 	pub type TrustedTeleporters = (Case<AssetParaTrustedTeleporter>,);
