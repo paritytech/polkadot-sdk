@@ -43,3 +43,22 @@ simple-mermaid = { workspace = true }
 [dev-dependencies]
 sp-tracing = { workspace = true }
 test-log = { workspace = true }
+
+[features]
+runtime-benchmarks = [
+	"assets-common/runtime-benchmarks",
+	"cumulus-primitives-utility/runtime-benchmarks",
+	"frame/runtime-benchmarks",
+	"pallet-asset-conversion/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+	"parachains-common/runtime-benchmarks",
+	"polkadot-parachain-primitives/runtime-benchmarks",
+	"polkadot-runtime-parachains/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
