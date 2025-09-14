@@ -199,26 +199,35 @@ mod weigher {
 pub type TrustedTeleporters =
 	(IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,);
 
-type Traders = (
-	UsingComponents<
-		IdentityFee<Balance>,
-		HereLocation,
-		AccountId,
-		Balances,
-		ResolveTo<TreasuryAccount, Balances>,
-	>,
-	// This trader allows to pay with any assets exchangeable to this chain's native token with
-	// [`AssetConversion`].
-	cumulus_primitives_utility::SwapFirstAssetTrader<
-		HereLocation,
-		AssetConversion,
-		FixedFee<1u32, Balance>,
-		NativeAndAssets,
-		(asset_transactor::ForeignAssetsConvertedConcreteId,),
-		ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
-		AccountId,
-	>,
-);
+/// The trader for this runtime, which can pay with any asset exchangeable to the local asset.
+#[docify::export]
+mod traders {
+	use super::*;
+
+	/// Our trader to charge XCM fees for XCM execution on our chain.
+	pub type Traders = (
+		// This trader simply allows to pay in the native token.
+		UsingComponents<
+			IdentityFee<Balance>,
+			HereLocation,
+			AccountId,
+			Balances,
+			ResolveTo<TreasuryAccount, Balances>,
+		>,
+		// This trader allows to pay with any assets exchangeable to this chain's native token with
+		// [`AssetConversion`].
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			HereLocation,
+			AssetConversion,
+			// In this example we will just charge 1 for any XCM message.
+			FixedFee<1u32, Balance>,
+			NativeAndAssets,
+			(asset_transactor::ForeignAssetsConvertedConcreteId,),
+			ResolveAssetTo<TreasuryAccount, NativeAndAssets>,
+			AccountId,
+		>,
+	);
+}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -257,11 +266,9 @@ impl xcm_executor::Config for XcmConfig {
 	type IsReserve = ();
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
-	// This is not safe, you should use `xcm_builder::AllowTopLevelPaidExecutionFrom<T>` in a
-	// production chain
 	type Barrier = Barrier;
 	type Weigher = weigher::Weigher;
-	type Trader = Traders;
+	type Trader = traders::Traders;
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();

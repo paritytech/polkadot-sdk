@@ -109,13 +109,12 @@ mod teleport_config {
 	use super::*;
 
 	parameter_types! {
-
 		pub AssetParaLocation: Location = Location::new(1, [Parachain(ASSET_PARA_ID)]);
 		pub const SimpleParaNative: AssetFilter = Wild(AllOf { fun: WildFungible, id: AssetId(Location::here()) });
 		pub AssetParaTrustedTeleporter: (AssetFilter, Location) = (SimpleParaNative::get(), AssetParaLocation::get());
 	}
 
-	pub type TrustedTeleporters = (Case<crate::cookbook::foreign_assets_and_asset_conversion::simple_para::xcm_config::AssetParaTrustedTeleporter>,);
+	pub type TrustedTeleporters = (Case<AssetParaTrustedTeleporter>,);
 
 	pub struct OnlyTeleportNative;
 

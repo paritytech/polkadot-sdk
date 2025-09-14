@@ -36,6 +36,13 @@
     "src/cookbook/foreign_assets_and_asset_conversion/asset_para/assets.rs",
     asset_conversion
 )]
+//! Subsequently, we will configure XCM to allow for foreign assets to be automatically swapped into
+//! the native asset to pay for XCM execution fees. After the groundwork of the previous steps, this
+//! is very simple and can be done with the trader.
+#![doc = docify::embed!(
+    "src/cookbook/foreign_assets_and_asset_conversion/asset_para/xcm_config.rs",
+    traders
+)]
 //! Finally, in the test we show how the flow to create and use a foreign asset would look like, and
 //! what events would be emitted by the chain.
 #![doc = docify::embed!(
