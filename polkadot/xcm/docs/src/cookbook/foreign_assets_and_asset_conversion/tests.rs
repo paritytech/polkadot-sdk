@@ -49,12 +49,27 @@ fn registering_foreign_assets_work() {
 		asset_para::System::reset_events();
 	});
 
+	// Fee asset to pay for remote XCM execution fees.
+	// The actual sensible amount would be estimated by using the dry-run api, but here we just make
+	// sure that we withdraw enough, as the surplus can be refunded.
+	let fee_asset: Asset = (Here, Fungible(UNITS / 2)).into();
+
 	// Step 1. Create the asset on the target chain and set its metadata.
 
 	SimplePara::execute_with(|| {
 		let xcm = Xcm(vec![
-			// We have free execution on the target chain, but usually we need
-			// a Withdraw and a PayFees execution here.
+			// In general parachains do not have free execution. So we have to withdraw some funds
+			// into the holding register to pay for our execution fees on the target chain.
+			WithdrawAsset(fee_asset.clone().into()),
+			PayFees { asset: fee_asset.into() },
+			SetAppendix(Xcm(vec![
+				RefundSurplus,
+				DepositAsset {
+					assets: AssetFilter::Wild(WildAsset::All),
+					beneficiary: simple_para_sovereign.clone().into(),
+				},
+			])),
+			// The following instructions create and configure the foreign asset.
 			Transact {
 				origin_kind: OriginKind::Xcm,
 				fallback_max_weight: None,
