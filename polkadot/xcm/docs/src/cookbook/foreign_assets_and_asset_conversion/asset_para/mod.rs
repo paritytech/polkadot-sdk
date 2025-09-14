@@ -20,7 +20,7 @@
 //! This is the main stage of the example, where we showcase how to configure and use a runtime
 //! that has the capabilities of:
 //! 1. Having foreign assets registered.
-//! 2. Setup a liquidity pool of the native and foreign assets
+//! 2. Set up a liquidity pool of the native and foreign assets
 //! 3. Configure the XCM stuff to use the foreign tokens and pay XCM fees with foreign tokens.
 
 use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
