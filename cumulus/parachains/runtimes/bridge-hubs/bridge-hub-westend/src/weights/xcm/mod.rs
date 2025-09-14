@@ -25,7 +25,7 @@ use pallet_xcm_benchmarks_fungible::WeightInfo as XcmFungibleWeight;
 use pallet_xcm_benchmarks_generic::WeightInfo as XcmGeneric;
 use sp_runtime::BoundedVec;
 use xcm::{
-	latest::{prelude::*, AssetTransferFilter},
+	latest::{prelude::*, AssetTransferFilter, PublishData},
 	DoubleEncoded,
 };
 
@@ -271,5 +271,9 @@ impl<Call> XcmWeightInfo<Call> for BridgeHubWestendXcmWeight<Call> {
 	}
 	fn execute_with_origin(_: &Option<InteriorLocation>, _: &Xcm<Call>) -> Weight {
 		XcmGeneric::<Runtime>::execute_with_origin()
+	}
+	fn publish(_: &PublishData) -> Weight {
+		// TODO: Benchmark		
+		Weight::from_parts(10_000_000, 0)
 	}
 }
