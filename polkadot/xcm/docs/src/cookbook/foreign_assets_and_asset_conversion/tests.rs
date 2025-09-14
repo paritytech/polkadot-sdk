@@ -75,7 +75,7 @@ fn registering_foreign_assets_work() {
 				fallback_max_weight: None,
 				call: asset_para::RuntimeCall::ForeignAssets(pallet_assets::Call::create {
 					id: simple_para_asset_location.clone(),
-					admin: simple_para_sovereign.clone().into(),
+					admin: simple_para_sovereign.clone(),
 					min_balance: 1_000_000_000,
 				})
 				.encode()
@@ -109,8 +109,8 @@ fn registering_foreign_assets_work() {
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::ForeignAssets(
 			pallet_assets::Event::Created {
 				asset_id: simple_para_asset_location.clone(),
-				creator: simple_para_sovereign.clone().into(),
-				owner: simple_para_sovereign.clone().into(),
+				creator: simple_para_sovereign.clone(),
+				owner: simple_para_sovereign.clone(),
 			},
 		));
 
@@ -136,7 +136,7 @@ fn registering_foreign_assets_work() {
 		// The setting of the metadata required a deposit too.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::Balances(
 			pallet_balances::Event::Reserved {
-				who: simple_para_sovereign.clone().into(),
+				who: simple_para_sovereign.clone(),
 				// T::MetadataDepositBase + T::MetadataDepositPerByte * metadata_bytes
 				amount: 30,
 			},
@@ -152,16 +152,16 @@ fn registering_foreign_assets_work() {
 
 		// Create some liquidity of the foreign asset on the Asset Para.
 		assert_ok!(asset_para::ForeignAssets::mint(
-			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
+			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			simple_para_asset_location.clone(),
-			simple_para_sovereign.clone().into(),
+			simple_para_sovereign.clone(),
 			3 * UNITS,
 		));
 		asset_para::System::reset_events();
 
 		// Anyone can create a liquidy pool that doesn't exist yet.
 		assert_ok!(asset_para::AssetConversion::create_pool(
-			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
+			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			Box::new(Location::here()),
 			Box::new(simple_para_asset_location.clone()),
 		));
@@ -174,7 +174,7 @@ fn registering_foreign_assets_work() {
 		// Assert that we have successfully created the liquidity pool.
 		asset_para::System::assert_has_event(asset_para::RuntimeEvent::AssetConversion(
 			pallet_asset_conversion::Event::PoolCreated {
-				creator: simple_para_sovereign.clone().into(),
+				creator: simple_para_sovereign.clone(),
 				pool_id: pool_id.clone(),
 				pool_account: PoolIdToAccountId::try_convert(&pool_id).unwrap(),
 				lp_token: lp_token_id,
@@ -198,7 +198,7 @@ fn registering_foreign_assets_work() {
 
 		// Anybody can add liquidity to the pool.
 		assert_ok!(asset_para::AssetConversion::add_liquidity(
-			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone().into()),
+			asset_para::RuntimeOrigin::signed(simple_para_sovereign.clone()),
 			Box::new(Location::here()),
 			Box::new(simple_para_asset_location.clone()),
 			1 * UNITS,
