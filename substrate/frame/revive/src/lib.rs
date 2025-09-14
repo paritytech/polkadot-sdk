@@ -1216,8 +1216,8 @@ where
 		if let Err(contract_result) =
 			Self::ensure_non_contract_if_signed(&origin).map_err(|err| ContractResult {
 				result: Err(err),
-				gas_consumed: 0.into(),
-				gas_required: 0.into(),
+				gas_consumed: Weight::from_parts(0, 0),
+				gas_required: Weight::from_parts(0, 0),
 				storage_deposit: Default::default(),
 			}) {
 			return contract_result;
