@@ -113,7 +113,7 @@ mod asset_transactor {
 
 	/// Means for transacting foreign assets from different global consensus.
 	pub type ForeignFungiblesTransactor = FungiblesAdapter<
-		// Use this fungibles implementation:
+		// Use this fungibles' implementation:
 		ForeignAssets,
 		// Use this currency when it is a fungible asset matching the given location or name:
 		ForeignAssetsConvertedConcreteId,
@@ -121,7 +121,7 @@ mod asset_transactor {
 		LocationToAccountId,
 		// Our chain's account ID type (we can't get away without mentioning it explicitly):
 		AccountId,
-		// We dont need to check teleports here.
+		// We don't need to check teleports here.
 		NoChecking,
 		// The account to use for tracking teleports.
 		CheckingAccount,
@@ -133,7 +133,7 @@ mod asset_transactor {
 
 	/// Means for transacting asset conversion pool assets on this chain.
 	pub type PoolFungiblesTransactor = FungiblesAdapter<
-		// Use this fungibles implementation:
+		// Use this fungibles' implementation:
 		PoolAssets,
 		// Use this currency when it is a fungible asset matching the given location or name:
 		PoolAssetsConvertedConcreteId,
@@ -149,7 +149,9 @@ mod asset_transactor {
 	>;
 
 	/// Asset converter for pool assets.
+	///
 	/// Used to convert one asset to another, when there is a pool available between the two.
+	///
 	/// This type thus allows paying delivery fees with any asset as long as there is a pool between
 	/// said asset and the asset required for fee payment.
 	pub type PoolAssetsExchanger = SingleAssetExchangeAdapter<
@@ -171,10 +173,9 @@ mod asset_transactor {
 	>;
 
 	/// Actual configuration item that'll be set in the XCM config.
-	/// A tuple could be used here to have multiple transactors, each (potentially) handling
-	/// different assets.
-	/// In this recipe, we only have one.
-	/// Means for transacting assets on this chain.
+	///
+	/// The XCM-Executor will iterate through the individual transactors until one works for
+	/// a given XCM instruction.
 	pub type AssetTransactors =
 		(FungibleTransactor, ForeignFungiblesTransactor, PoolFungiblesTransactor);
 }
@@ -206,7 +207,7 @@ type Traders = (
 		Balances,
 		ResolveTo<TreasuryAccount, Balances>,
 	>,
-	// This trader allows to pay with any assets exchangeable to DOT with
+	// This trader allows to pay with any assets exchangeable to this chain's native token with
 	// [`AssetConversion`].
 	cumulus_primitives_utility::SwapFirstAssetTrader<
 		HereLocation,
