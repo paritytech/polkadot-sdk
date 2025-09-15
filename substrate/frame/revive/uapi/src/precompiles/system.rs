@@ -44,32 +44,17 @@ sol! {
 		/// If no mapping exists for `addr`, the fallback account id will be returned.
 		function toAccountId(address input) external view returns (bytes memory account_id);
 
-		/// Checks whether the contract caller is the origin of the whole call stack.
-		///
-		/// # Important
-		///
-		/// Call this function via [`crate::HostFn::delegate_call`].
-		///
-		/// `delegate_call` is necessary because if `call` were to be used, the call would
-		/// be executed in the context of the pre-compile and examine if the calling contract
-		/// (i.e. your contract) is the origin.
+		/// Checks whether the caller of the contract calling this function is the origin
+		/// of the whole call stack.
 		function callerIsOrigin() external view returns (bool);
 
-		/// Checks whether the caller of the current contract is root.
+		/// Checks whether the caller of the contract calling this function is root.
 		///
 		/// Note that only the origin of the call stack can be root. Hence this
 		/// function returning `true` implies that the contract is being called by the origin.
 		///
 		/// A return value of `true` indicates that this contract is being called by a root origin,
 		/// and `false` indicates that the caller is a signed origin.
-		///
-		/// # Important
-		///
-		/// Call this function via [`crate::HostFn::delegate_call`].
-		///
-		/// `delegate_call` is necessary because if `call` were to be used, the call would
-		/// be executed in the context of the pre-compile and examine if the calling contract
-		/// (i.e. your contract) is `Root`.
 		function callerIsRoot() external view returns (bool);
 
 		/// Returns the minimum balance that is required for creating an account
@@ -77,14 +62,6 @@ sol! {
 		function minimumBalance() external view returns (uint);
 
 		/// Returns the code hash of the caller.
-		///
-		/// # Important
-		///
-		/// Call this function via [`crate::HostFn::call`] with [`crate::flags::CallFlags`]
-		/// set to [`crate::flags::CallFlags::READ_ONLY`].
-		///
-		/// `READONLY` minimizes the security scope of the call. `call` is necessary
-		/// as the function returns the code hash of the caller.
 		function ownCodeHash() external view returns (bytes32);
 
 		/// Returns the amount of `Weight` left.

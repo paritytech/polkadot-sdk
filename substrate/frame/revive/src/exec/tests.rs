@@ -901,13 +901,13 @@ fn own_code_hash_returns_proper_values() {
 fn caller_is_origin_returns_proper_values() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not the origin of the stack call
-		assert!(!ctx.ext.caller_is_origin());
+		assert!(!ctx.ext.caller_is_origin(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// ALICE is the origin of the call stack
-		assert!(ctx.ext.caller_is_origin());
+		assert!(ctx.ext.caller_is_origin(false));
 		// BOB calls CHARLIE
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)
@@ -937,7 +937,7 @@ fn caller_is_origin_returns_proper_values() {
 fn root_caller_succeeds() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -963,7 +963,7 @@ fn root_caller_succeeds() {
 fn root_caller_does_not_succeed_when_value_not_zero() {
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
@@ -989,13 +989,13 @@ fn root_caller_does_not_succeed_when_value_not_zero() {
 fn root_caller_succeeds_with_consecutive_calls() {
 	let code_charlie = MockLoader::insert(Call, |ctx, _| {
 		// BOB is not root, even though the origin is root.
-		assert!(!ctx.ext.caller_is_root());
+		assert!(!ctx.ext.caller_is_root(false));
 		exec_success()
 	});
 
 	let code_bob = MockLoader::insert(Call, |ctx, _| {
 		// root is the origin of the call stack.
-		assert!(ctx.ext.caller_is_root());
+		assert!(ctx.ext.caller_is_root(false));
 		// BOB calls CHARLIE.
 		ctx.ext
 			.call(Weight::zero(), U256::zero(), &CHARLIE_ADDR, U256::zero(), vec![], true, false)

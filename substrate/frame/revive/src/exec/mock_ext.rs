@@ -80,6 +80,10 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller")
 	}
 
+	fn caller_of_caller(&self) -> Origin<Self::T> {
+		panic!("MockExt::caller_of_caller")
+	}
+
 	fn origin(&self) -> &Origin<Self::T> {
 		panic!("MockExt::origin")
 	}
@@ -92,11 +96,11 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::code_size")
 	}
 
-	fn caller_is_origin(&self) -> bool {
+	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_origin")
 	}
 
-	fn caller_is_root(&self) -> bool {
+	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_root")
 	}
 

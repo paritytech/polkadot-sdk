@@ -61,12 +61,12 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::callerIsOrigin(ISystem::callerIsOriginCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsOrigin)?;
-				let is_origin = env.caller_is_origin();
+				let is_origin = env.caller_is_origin(true);
 				Ok(is_origin.abi_encode())
 			},
 			ISystemCalls::callerIsRoot(ISystem::callerIsRootCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::CallerIsRoot)?;
-				let is_root = env.caller_is_root();
+				let is_root = env.caller_is_root(true);
 				Ok(is_root.abi_encode())
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
