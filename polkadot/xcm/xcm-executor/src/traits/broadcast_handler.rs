@@ -16,35 +16,18 @@
 
 //! Traits for handling publish/subscribe operations in XCM.
 
-use xcm::latest::{PublishData, Result as XcmResult};
+use xcm::latest::{Location, PublishData, Result as XcmResult};
 
 /// Trait for handling publish/subscribe operations on the relay chain.
 pub trait BroadcastHandler {
-	/// Handle a publish request from a parachain.
-	///
-	/// This method should:
-	/// 1. Validate the publisher ParaId
-	/// 2. Store the data in the appropriate child trie
-	/// 3. Update subscription registries
-	///
-	/// # Arguments
-	/// * `publisher` - The ParaId of the publishing parachain
-	/// * `data` - The key-value pairs to be published
-	fn handle_publish(publisher: u32, data: PublishData) -> XcmResult;
-}
-
-/// A no-op implementation of `BroadcastHandler` for testing or stub purposes.
-pub struct DoNothingBroadcaster;
-impl BroadcastHandler for DoNothingBroadcaster {
-	fn handle_publish(_publisher: u32, _data: PublishData) -> XcmResult {
-		Ok(())
-	}
+	/// Handle publish operation from the given origin.
+	/// Should validate origin authorization and extract necessary data.
+	fn handle_publish(origin: &Location, data: PublishData) -> XcmResult;
 }
 
 /// Implementation of `BroadcastHandler` for the unit type `()`.
-/// This allows runtimes to use `BroadcastHandler = ()` in their XCM executor config.
 impl BroadcastHandler for () {
-	fn handle_publish(_publisher: u32, _data: PublishData) -> XcmResult {
+	fn handle_publish(_origin: &Location, _data: PublishData) -> XcmResult {
 		// No-op implementation for unit type
 		Ok(())
 	}

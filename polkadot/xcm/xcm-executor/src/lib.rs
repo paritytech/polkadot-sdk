@@ -1821,12 +1821,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					Config::HrmpChannelClosingHandler::handle(initiator, sender, recipient)
 				}),
 			Publish { data } => {
-				// TODO: Proper origin extraction and verification.
-				let para_id = 1000;
-
-				// Call into the broadcaster handler to store the data
-				Config::BroadcastHandler::handle_publish(para_id, data)?;
-
+				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				Config::BroadcastHandler::handle_publish(origin, data)?;
 				Ok(())
 			},
 		}
