@@ -117,6 +117,8 @@ use alloc::{collections::btree_map::BTreeMap, format, vec::Vec};
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
 
+pub use crate::migrations::v1::weights::WeightInfo;
+
 const LOG_TARGET: &str = "runtime::proxy";
 
 /// A unique identifier for the proxy pallet v1 migration.
@@ -209,14 +211,19 @@ enum MigrationOutcome<T: Config> {
 	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
 
-pub struct MigrateReservesToHolds<T, OldCurrency>(PhantomData<(T, OldCurrency)>);
+pub struct MigrateReservesToHolds<
+	T,
+	OldCurrency,
+	W = crate::migrations::v1::weights::SubstrateWeight<T>,
+>(PhantomData<(T, OldCurrency, W)>);
 
-impl<T, OldCurrency> MigrateReservesToHolds<T, OldCurrency>
+impl<T, OldCurrency, W> MigrateReservesToHolds<T, OldCurrency, W>
 where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
+	W: WeightInfo,
 {
 	/// Migrate a single proxy account with proxy preservation on failure.
 	/// Preserves proxy relationships even when hold creation fails.
@@ -227,11 +234,12 @@ where
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
-		let mut weight = Weight::zero();
+		// Calculate benchmarked weight based on proxy count
+		let proxy_count = proxies.len() as u32;
+		let weight = W::migrate_proxy_account(proxy_count);
 
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
-		weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
 		let reserved_balance: BalanceOf<T> = old_reserved.into();
 
@@ -252,7 +260,6 @@ where
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				return AccountMigrationResult {
 					outcome: MigrationOutcome::PreservedWithZeroDeposit {
@@ -270,7 +277,6 @@ where
 		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
-		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
 
@@ -290,9 +296,6 @@ where
 					delegator: who.clone(),
 					amount: actually_unreserved,
 				});
-
-				// Hold operation: reads account, checks holds limit, writes hold
-				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
 
 				AccountMigrationResult {
 					outcome: MigrationOutcome::Success,
@@ -317,14 +320,10 @@ where
 					actually_unreserved
 				);
 
-				// Hold failed but we still did reads trying to create it
-				weight = weight.saturating_add(T::DbWeight::get().reads(2));
-
 				// Set deposit to zero but keep proxies
 				Proxies::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				Pallet::<T>::deposit_event(Event::ProxyDepositMigrationFailed {
 					delegator: who.clone(),
@@ -350,11 +349,12 @@ where
 		old_deposit: BalanceOf<T>,
 		stats: &mut MigrationStats,
 	) -> AccountMigrationResult<T> {
-		let mut weight = Weight::zero();
+		// Calculate benchmarked weight based on announcement count
+		let announcement_count = announcements.len() as u32;
+		let weight = W::migrate_announcement_account(announcement_count);
 
 		// Get current reserved balance from old currency system
 		let old_reserved = OldCurrency::reserved_balance(who);
-		weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
 		let reserved_balance: BalanceOf<T> = old_reserved.into();
 
@@ -375,7 +375,6 @@ where
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				return AccountMigrationResult {
 					outcome: MigrationOutcome::PreservedWithZeroDeposit {
@@ -393,8 +392,6 @@ where
 		// Always unreserve from old currency system
 		let old_to_migrate: OldCurrency::Balance = to_migrate.into();
 		let old_unreserved = OldCurrency::unreserve(who, old_to_migrate);
-		// Unreserve performs account updates
-		weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
 		let actually_unreserved = to_migrate.saturating_sub(old_unreserved.into());
 
@@ -415,9 +412,6 @@ where
 					amount: actually_unreserved,
 				});
 
-				// Hold operation: reads account, checks holds limit, writes hold
-				weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
-
 				AccountMigrationResult {
 					outcome: MigrationOutcome::Success,
 					weight_consumed: weight,
@@ -436,14 +430,10 @@ where
 					actually_unreserved
 				);
 
-				// Hold failed but we still did reads trying to create it
-				weight = weight.saturating_add(T::DbWeight::get().reads(2));
-
 				// Set deposit to zero but keep announcements
 				Announcements::<T>::mutate(who, |(_, deposit)| {
 					*deposit = Zero::zero();
 				});
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 				Pallet::<T>::deposit_event(Event::AnnouncementDepositMigrationFailed {
 					announcer: who.clone(),
@@ -622,12 +612,13 @@ where
 	}
 }
 
-impl<T, OldCurrency> SteppedMigration for MigrateReservesToHolds<T, OldCurrency>
+impl<T, OldCurrency, W> SteppedMigration for MigrateReservesToHolds<T, OldCurrency, W>
 where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
+	W: WeightInfo,
 {
 	// The cursor carries the stage and accumulated stats externally
 	type Cursor = (MigrationCursor<<T as frame_system::Config>::AccountId>, MigrationStats);
@@ -848,12 +839,13 @@ where
 	}
 }
 
-impl<T, OldCurrency> MigrateReservesToHolds<T, OldCurrency>
+impl<T, OldCurrency, W> MigrateReservesToHolds<T, OldCurrency, W>
 where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>>,
+	W: WeightInfo,
 {
 	/// Verify migration result for a single account
 	#[cfg(feature = "try-runtime")]
@@ -1055,18 +1047,23 @@ where
 /// This implementation runs the complete stepped migration in a single block by repeatedly
 /// calling `step()` until completion. This is necessary for runtime systems that expect
 /// OnRuntimeUpgrade trait instead of SteppedMigration.
-pub struct InnerMigrateReservesToHolds<T, OldCurrency>(core::marker::PhantomData<(T, OldCurrency)>);
+pub struct InnerMigrateReservesToHolds<
+	T,
+	OldCurrency,
+	W = crate::migrations::v1::weights::SubstrateWeight<T>,
+>(core::marker::PhantomData<(T, OldCurrency, W)>);
 
-impl<T, OldCurrency> UncheckedOnRuntimeUpgrade for InnerMigrateReservesToHolds<T, OldCurrency>
+impl<T, OldCurrency, W> UncheckedOnRuntimeUpgrade for InnerMigrateReservesToHolds<T, OldCurrency, W>
 where
 	T: Config,
 	OldCurrency: ReservableCurrency<<T as frame_system::Config>::AccountId>,
 	BalanceOf<T>: From<OldCurrency::Balance>,
 	OldCurrency::Balance: From<BalanceOf<T>> + Clone,
+	W: WeightInfo,
 {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		MigrateReservesToHolds::<T, OldCurrency>::pre_upgrade()
+		MigrateReservesToHolds::<T, OldCurrency, W>::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
@@ -1087,7 +1084,7 @@ where
 			let initial_weight = Weight::MAX;
 			meter.consume(initial_weight);
 
-			match MigrateReservesToHolds::<T, OldCurrency>::step(cursor, &mut meter) {
+			match MigrateReservesToHolds::<T, OldCurrency, W>::step(cursor, &mut meter) {
 				Ok(Some(next_cursor)) => {
 					// Continue with next step
 					cursor = Some(next_cursor);
@@ -1118,7 +1115,7 @@ where
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		MigrateReservesToHolds::<T, OldCurrency>::post_upgrade(state)
+		MigrateReservesToHolds::<T, OldCurrency, W>::post_upgrade(state)
 	}
 }
 
@@ -1127,13 +1124,14 @@ where
 /// This provides the OnRuntimeUpgrade trait expected by runtime systems that don't use
 /// the newer SteppedMigration system. It ensures the migration only runs once when the
 /// on-chain storage version is 0, and updates it to 1 after completion.
-pub type MigrateV0ToV1<T, OldCurrency> = VersionedMigration<
-	0, // Only execute when storage version is 0
-	1, // Set storage version to 1 after completion
-	InnerMigrateReservesToHolds<T, OldCurrency>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+pub type MigrateV0ToV1<T, OldCurrency, W = crate::migrations::v1::weights::SubstrateWeight<T>> =
+	VersionedMigration<
+		0, // Only execute when storage version is 0
+		1, // Set storage version to 1 after completion
+		InnerMigrateReservesToHolds<T, OldCurrency, W>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
 
 #[cfg(test)]
 mod tests {
@@ -1354,8 +1352,12 @@ mod tests {
 
 		// Call pre_upgrade to collect state (only when try-runtime enabled)
 		#[cfg(feature = "try-runtime")]
-		let pre_state = MigrateReservesToHolds::<Test, MockOldCurrency>::pre_upgrade()
-			.expect("pre_upgrade should succeed");
+		let pre_state = MigrateReservesToHolds::<
+			Test,
+			MockOldCurrency,
+			crate::migrations::v1::weights::SubstrateWeight<Test>,
+		>::pre_upgrade()
+		.expect("pre_upgrade should succeed");
 
 		// Run the migration to completion using SteppedMigration interface
 		use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
@@ -1365,8 +1367,12 @@ mod tests {
 		let mut cursor = None;
 		loop {
 			let mut meter = WeightMeter::with_limit(block_weight);
-			cursor = MigrateReservesToHolds::<Test, MockOldCurrency>::step(cursor, &mut meter)
-				.expect("Migration step should succeed");
+			cursor = MigrateReservesToHolds::<
+				Test,
+				MockOldCurrency,
+				crate::migrations::v1::weights::SubstrateWeight<Test>,
+			>::step(cursor, &mut meter)
+			.expect("Migration step should succeed");
 			if cursor.is_none() {
 				break;
 			}
@@ -1374,8 +1380,12 @@ mod tests {
 
 		// Call post_upgrade to verify migration (only when try-runtime enabled)
 		#[cfg(feature = "try-runtime")]
-		MigrateReservesToHolds::<Test, MockOldCurrency>::post_upgrade(pre_state)
-			.expect("post_upgrade verification should succeed");
+		MigrateReservesToHolds::<
+			Test,
+			MockOldCurrency,
+			crate::migrations::v1::weights::SubstrateWeight<Test>,
+		>::post_upgrade(pre_state)
+		.expect("post_upgrade verification should succeed");
 	}
 
 	#[test]
@@ -1445,8 +1455,12 @@ mod tests {
 
 			// Run try-runtime verification if enabled
 			#[cfg(feature = "try-runtime")]
-			let pre_state = MigrateReservesToHolds::<Test, MockOldCurrency>::pre_upgrade()
-				.expect("pre_upgrade should succeed");
+			let pre_state = MigrateReservesToHolds::<
+				Test,
+				MockOldCurrency,
+				crate::migrations::v1::weights::SubstrateWeight<Test>,
+			>::pre_upgrade()
+			.expect("pre_upgrade should succeed");
 
 			// Run the migration to completion using SteppedMigration interface
 			use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
@@ -1457,8 +1471,12 @@ mod tests {
 			let mut cursor = None;
 			loop {
 				let mut meter = WeightMeter::with_limit(block_weight);
-				cursor = MigrateReservesToHolds::<Test, MockOldCurrency>::step(cursor, &mut meter)
-					.expect("Migration step should succeed");
+				cursor = MigrateReservesToHolds::<
+					Test,
+					MockOldCurrency,
+					crate::migrations::v1::weights::SubstrateWeight<Test>,
+				>::step(cursor, &mut meter)
+				.expect("Migration step should succeed");
 				if cursor.is_none() {
 					break;
 				}
@@ -1466,8 +1484,12 @@ mod tests {
 
 			// Run try-runtime post-verification if enabled
 			#[cfg(feature = "try-runtime")]
-			MigrateReservesToHolds::<Test, MockOldCurrency>::post_upgrade(pre_state)
-				.expect("post_upgrade verification should succeed");
+			MigrateReservesToHolds::<
+				Test,
+				MockOldCurrency,
+				crate::migrations::v1::weights::SubstrateWeight<Test>,
+			>::post_upgrade(pre_state)
+			.expect("post_upgrade verification should succeed");
 
 			// Verify complete migration succeeded - all reserves converted to holds
 			(1..=3).for_each(|i| {
