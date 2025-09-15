@@ -58,7 +58,9 @@ fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 }
 
 #[instance_benchmarks(
-where <<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>
+where
+	<<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet::Event<T, I>>,
 )]
 mod benchmarks {
 	use super::*;
@@ -227,9 +229,22 @@ mod benchmarks {
 
 		// If the class exists, verify the vote event and tally.
 		if let Some(_) = class {
-			let tally = Tally::from_parts(0, 0, 1);
-			let vote_event = Event::Voted { who: caller, poll, vote: VoteRecord::Nay(1), tally };
-			assert_last_event::<T, I>(vote_event.into());
+			// Get the actual vote weight from the latest event's VoteRecord::Nay
+			let mut events = frame_system::Pallet::<T>::events();
+			let last_event = events.pop().expect("At least one event should exist");
+			let event: Event<T, I> = last_event
+				.event
+				.try_into()
+				.unwrap_or_else(|_| panic!("Event conversion failed"));
+
+			match event {
+				Event::Voted { vote: VoteRecord::Nay(vote_weight), who, poll: poll2, tally } => {
+					assert_eq!(tally, Tally::from_parts(0, 0, vote_weight));
+					assert_eq!(caller, who);
+					assert_eq!(poll, poll2);
+				},
+				_ => panic!("Invalid event"),
+			};
 		}
 
 		Ok(())
