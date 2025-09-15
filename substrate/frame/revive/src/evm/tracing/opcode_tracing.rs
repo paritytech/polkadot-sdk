@@ -82,7 +82,7 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 			pending_step: None,
 			pending_gas_before: None,
 			// Initialize with one storage map for the root call
-			storages_per_call: vec![Default::default()],
+			storages_per_call: alloc::vec![Default::default()],
 		}
 	}
 
