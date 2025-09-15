@@ -405,7 +405,7 @@ pub use macro_magic;
 pub mod testing_prelude {
 	pub use super::traits::Get;
 	pub use crate::{
-		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size, 
+		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size,
 		assert_noop, assert_ok, assert_storage_noop, parameter_types,
 	};
 	pub use sp_arithmetic::assert_eq_error_rate;
