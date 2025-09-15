@@ -2012,7 +2012,7 @@ where
 			Some(frame) => frame,
 		};
 		if let Some(DelegateInfo { caller, .. }) = &caller_of_caller_frame.delegate {
-			caller.to_owned()
+			caller.clone()
 		} else {
 			Origin::from_account_id(caller_of_caller_frame.account_id.clone())
 		}
@@ -2053,11 +2053,7 @@ where
 	}
 
 	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
-		let caller = if use_caller_of_caller {
-			self.caller_of_caller()
-		} else {
-			self.caller()
-		};
+		let caller = if use_caller_of_caller { self.caller_of_caller() } else { self.caller() };
 		self.origin == caller
 	}
 
