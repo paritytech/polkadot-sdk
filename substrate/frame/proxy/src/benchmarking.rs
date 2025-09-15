@@ -532,7 +532,7 @@ mod benchmarks {
 	#[benchmark]
 	fn migrate_proxy_account(p: Linear<0, { T::MaxProxies::get() }>) -> Result<(), BenchmarkError> {
 		use crate::migrations::v1::{
-			benchmarking::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
 		};
 
 		let proxy_count = p;
@@ -578,7 +578,7 @@ mod benchmarks {
 		a: Linear<0, { T::MaxPending::get() }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::migrations::v1::{
-			benchmarking::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds, MigrationStats,
 		};
 
 		let announcement_count = a;
@@ -623,66 +623,73 @@ mod benchmarks {
 	/// Benchmark the complete v1 migration process until completion.
 	/// This simulates the full multi-block migration behavior.
 	#[benchmark]
-	fn migration_complete(n: Linear<1, 50>) -> Result<(), BenchmarkError> {
-		use crate::migrations::v1::{benchmarking::BenchmarkOldCurrency, MigrateReservesToHolds};
+	fn migration_complete(
+		n: Linear<1, { T::MaxProxies::get().max(T::MaxPending::get()) }>,
+	) -> Result<(), BenchmarkError> {
+		use crate::migrations::v1::{
+			benchmarking_helpers::BenchmarkOldCurrency, MigrateReservesToHolds,
+		};
 		use frame::deps::frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 
 		let total_accounts = n;
 
-		// Set up mixed test data (similar to our utility function)
 		let proxy_accounts = total_accounts / 2;
 		let announcement_accounts = total_accounts - proxy_accounts;
 		let mut account_id = 0u32;
 
-		// Create proxy accounts
-		for _i in 0..proxy_accounts {
+		let deposit_per_proxy = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
+		let proxies_per_account = T::MaxProxies::get().min(10u32); // Up to 10 proxies per account, limited by MaxProxies
+		let total_proxy_deposit = deposit_per_proxy * proxies_per_account.into();
+
+		(0..proxy_accounts).try_for_each(|_| -> Result<(), BenchmarkError> {
 			let who: T::AccountId = account("proxy_owner", account_id, 0);
 			account_id = account_id.saturating_add(1);
 
-			let deposit_per_proxy = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
-			let proxies_per_account = 2u32; // Fixed to 2 proxies per account
-			let total_deposit = deposit_per_proxy * proxies_per_account.into();
+			let proxies: BoundedVec<_, T::MaxProxies> = (0..proxies_per_account)
+				.map(|_| {
+					let delegate: T::AccountId = account("proxy_delegate", account_id, 0);
+					account_id = account_id.saturating_add(1);
+					ProxyDefinition {
+						delegate,
+						proxy_type: T::ProxyType::default(),
+						delay: BlockNumberFor::<T>::default(),
+					}
+				})
+				.collect::<Vec<_>>()
+				.try_into()
+				.map_err(|_| BenchmarkError::Stop("Too many proxies"))?;
 
-			let mut proxies = Vec::new();
-			for _j in 0..proxies_per_account {
-				let delegate: T::AccountId = account("proxy_delegate", account_id, 0);
-				account_id = account_id.saturating_add(1);
-				proxies.push(ProxyDefinition {
-					delegate,
-					proxy_type: T::ProxyType::default(),
-					delay: BlockNumberFor::<T>::default(),
-				});
-			}
-			let proxies: BoundedVec<_, T::MaxProxies> =
-				proxies.try_into().map_err(|_| BenchmarkError::Stop("Too many proxies"))?;
+			Proxies::<T>::insert(&who, (&proxies, total_proxy_deposit));
+			Ok(())
+		})?;
 
-			Proxies::<T>::insert(&who, (&proxies, total_deposit));
-		}
+		let deposit_per_announcement =
+			T::AnnouncementDepositBase::get() + T::AnnouncementDepositFactor::get();
+		let announcements_per_account = T::MaxPending::get().min(5u32); // Up to 5 announcements per account, limited by MaxPending
+		let total_announcement_deposit =
+			deposit_per_announcement * announcements_per_account.into();
 
-		// Create announcement accounts
-		for _i in 0..announcement_accounts {
+		(0..announcement_accounts).try_for_each(|_| -> Result<(), BenchmarkError> {
 			let who: T::AccountId = account("announcement_owner", account_id, 0);
 			account_id = account_id.saturating_add(1);
 
-			let deposit_per_announcement =
-				T::AnnouncementDepositBase::get() + T::AnnouncementDepositFactor::get();
-			let announcements_per_account = 1u32; // Fixed to 1 announcement per account
-			let total_deposit = deposit_per_announcement * announcements_per_account.into();
-
-			let mut announcements = Vec::new();
-			let real: T::AccountId = account("announcement_real", account_id, 0);
-			account_id = account_id.saturating_add(1);
-			announcements.push(Announcement {
-				real,
-				call_hash: <T::CallHasher as frame::traits::Hash>::Output::default(),
-				height: BlockNumberFor::<T>::default(),
-			});
-			let announcements: BoundedVec<_, T::MaxPending> = announcements
+			let announcements: BoundedVec<_, T::MaxPending> = (0..announcements_per_account)
+				.map(|i| {
+					let real: T::AccountId = account("announcement_real", account_id + i, 0);
+					Announcement {
+						real,
+						call_hash: <T::CallHasher as frame::traits::Hash>::Output::default(),
+						height: BlockNumberFor::<T>::default(),
+					}
+				})
+				.collect::<Vec<_>>()
 				.try_into()
 				.map_err(|_| BenchmarkError::Stop("Too many announcements"))?;
 
-			Announcements::<T>::insert(&who, (&announcements, total_deposit));
-		}
+			account_id = account_id.saturating_add(announcements_per_account);
+			Announcements::<T>::insert(&who, (&announcements, total_announcement_deposit));
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -693,7 +700,6 @@ mod benchmarks {
 				let weight_limit = block_weights.max_block.saturating_div(10);
 				let mut meter = WeightMeter::with_limit(weight_limit);
 
-				// Execute migration step
 				match MigrateReservesToHolds::<
 					T,
 					BenchmarkOldCurrency<T>,

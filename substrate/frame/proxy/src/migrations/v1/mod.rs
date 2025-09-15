@@ -18,7 +18,7 @@
 //! Version 1 migration for the Proxy pallet.
 
 #[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking;
+pub mod benchmarking_helpers;
 mod migration;
 
 pub use migration::*;
