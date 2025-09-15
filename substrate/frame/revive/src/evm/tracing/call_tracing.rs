@@ -51,8 +51,8 @@ impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> Option<CallTrace<Gas>> {
-		core::mem::take(&mut self.traces).pop()
+	pub fn collect_trace(mut self) -> Option<CallTrace<Gas>> {
+		self.traces.pop()
 	}
 }
 
