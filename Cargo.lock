@@ -9172,6 +9172,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_pcg",
  "scale-info",
+ "serde",
  "serde_json",
  "sp-debug-derive 14.0.0",
  "static_assertions",
