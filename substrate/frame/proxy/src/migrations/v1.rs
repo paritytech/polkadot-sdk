@@ -1143,6 +1143,7 @@ mod tests {
 		Announcement, Announcements, Proxies, ProxyDefinition,
 	};
 	use frame::{
+		deps::frame_support::parameter_types,
 		prelude::{DispatchError, DispatchResult},
 		testing_prelude::{assert_err, assert_ok},
 		traits::{
@@ -1151,16 +1152,15 @@ mod tests {
 			WithdrawReasons,
 		},
 	};
+	use std::{cell::RefCell, collections::BTreeMap};
 
 	type AccountId = u64;
 	type Balance = u64;
 
-	// Simple mock for old currency system
-	// Using thread_local! for test isolation (each test thread gets its own instance and tests can
-	// run in parallel)
-	std::thread_local! {
-		static MOCK_RESERVES: std::cell::RefCell<std::collections::HashMap<u64, u64>> =
-			std::cell::RefCell::new(std::collections::HashMap::new());
+	parameter_types! {
+		static MockReserves: RefCell<BTreeMap<u64, u64>> = RefCell::new(BTreeMap::new());
+
+
 	}
 
 	// Unit type that implements old currency traits for testing
@@ -1169,7 +1169,7 @@ mod tests {
 	impl MockOldCurrency {
 		// Helper to clear reserves between tests
 		pub fn clear_reserves() {
-			MOCK_RESERVES.with(|r| r.borrow_mut().clear());
+			MockReserves::mutate(|r| r.borrow_mut().clear());
 		}
 	}
 
@@ -1258,7 +1258,7 @@ mod tests {
 			_value: Self::Balance,
 		) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 			// Initialize reserves for this account if not present
-			MOCK_RESERVES.with(|r| {
+			MockReserves::mutate(|r| {
 				r.borrow_mut().entry(*who).or_insert(0);
 			});
 			SignedImbalance::Positive(())
@@ -1272,29 +1272,25 @@ mod tests {
 		}
 
 		fn reserved_balance(who: &AccountId) -> Self::Balance {
-			MOCK_RESERVES.with(|r| *r.borrow().get(who).unwrap_or(&0))
+			MockReserves::get().borrow().get(who).copied().unwrap_or_default()
 		}
 
 		fn reserve(who: &AccountId, value: Self::Balance) -> DispatchResult {
-			MOCK_RESERVES.with(|r| {
+			MockReserves::mutate(|r| {
 				let mut reserves = r.borrow_mut();
-				let current = *reserves.get(who).unwrap_or(&0);
-				reserves.insert(*who, current + value);
+				let current = reserves.get(who).copied().unwrap_or_default();
+				reserves.insert(*who, current.saturating_add(value));
 			});
 			Ok(())
 		}
 
 		fn unreserve(who: &AccountId, value: Self::Balance) -> Self::Balance {
-			MOCK_RESERVES.with(|r| {
+			MockReserves::mutate(|r| {
 				let mut reserves = r.borrow_mut();
-				let current = *reserves.get(who).unwrap_or(&0);
-				if current >= value {
-					reserves.insert(*who, current - value);
-					0 // All requested amount was unreserved
-				} else {
-					reserves.insert(*who, 0);
-					value - current // Return amount that couldn't be unreserved
-				}
+				let current = reserves.get(who).copied().unwrap_or_default();
+				let unreserved = current.min(value);
+				reserves.insert(*who, current.saturating_sub(unreserved));
+				value.saturating_sub(unreserved)
 			})
 		}
 
