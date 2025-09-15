@@ -111,8 +111,7 @@ where
 	P::Public: Codec + Debug,
 	C::Api: AuraApi<B, AuthorityId<P>>,
 {
-	/// Fetch authorities from the tracker, if available. If not available, fetch from the client
-	/// and update the tracker.
+	/// Fetch authorities from the tracker, if available. If not available, return an error.
 	pub fn fetch(&self, header: &B::Header) -> Result<Vec<AuthorityId<P>>, String> {
 		let hash = header.hash();
 		let number = *header.number();
