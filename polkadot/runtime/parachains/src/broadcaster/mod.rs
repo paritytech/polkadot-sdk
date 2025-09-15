@@ -26,6 +26,7 @@ use frame_support::{
 	traits::Get,
 };
 use polkadot_primitives::Id as ParaId;
+use xcm_executor::traits::HandlePublish;
 
 pub use pallet::*;
 
@@ -157,5 +158,13 @@ pub mod pallet {
 				None
 			}
 		}
+	}
+}
+
+// XCM integration - implement HandlePublish trait for use with ParachainBroadcastAdapter
+impl<T: Config> HandlePublish for Pallet<T> {
+	fn handle_publish(publisher: u32, data: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), ()> {
+		let para_id = polkadot_primitives::Id::from(publisher);
+		Self::handle_publish(para_id, data).map_err(|_| ())
 	}
 }

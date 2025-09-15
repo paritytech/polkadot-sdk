@@ -16,12 +16,11 @@
 
 //! Adapters for broadcast/publish operations in XCM.
 
-use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::Contains;
 use xcm::latest::{Junction, Location, PublishData, Result as XcmResult};
 use xcm::latest::prelude::XcmError;
-use xcm_executor::traits::BroadcastHandler;
+use xcm_executor::traits::{BroadcastHandler, HandlePublish};
 
 /// Configurable broadcast adapter that validates parachain origins.
 pub struct ParachainBroadcastAdapter<Filter, Handler>(PhantomData<(Filter, Handler)>);
@@ -50,10 +49,8 @@ where
 	}
 }
 
-/// Trait for the actual publish handling logic.
-pub trait HandlePublish {
-	fn handle_publish(publisher: u32, data: Vec<(Vec<u8>, Vec<u8>)>) -> Result<(), ()>;
-}
+// The HandlePublish trait is re-exported from xcm_executor::traits
+// Pallets implement this trait directly (see broadcaster pallet)
 
 /// Allows only direct parachains (parents=0, interior=[Parachain(_)]).
 pub struct DirectParachainsOnly;

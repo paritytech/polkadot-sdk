@@ -50,8 +50,7 @@ pub use barriers::{
 
 mod broadcast_adapter;
 pub use broadcast_adapter::{
-	AllParachains, DirectParachainsOnly, HandlePublish, ParachainBroadcastAdapter,
-	SpecificParachains,
+	AllParachains, DirectParachainsOnly, ParachainBroadcastAdapter, SpecificParachains,
 };
 
 mod controller;
