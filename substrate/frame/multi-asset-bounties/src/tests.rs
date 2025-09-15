@@ -75,6 +75,7 @@ fn fund_bounty_works() {
 			}
 		);
 		assert_eq!(pallet_bounties::BountyCount::<Test>::get(), 1);
+		assert!(Preimage::is_requested(&metadata));
 		assert_eq!(
 			pallet_bounties::CuratorDeposit::<Test>::get(parent_bounty_id, None::<BountyIndex>),
 			None
@@ -307,6 +308,7 @@ fn fund_child_bounty_works() {
 			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
 			s.child_value
 		);
+		assert!(Preimage::is_requested(&s.metadata));
 		assert_eq!(
 			pallet_bounties::CuratorDeposit::<Test>::get(
 				s.parent_bounty_id,
@@ -570,6 +572,7 @@ fn check_status_works() {
 				payment_status: PaymentState::Failed
 			}
 		);
+		assert!(Preimage::is_requested(&s.metadata));
 		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance());
 		assert_eq!(Balances::reserved_balance(s.curator), s.curator_deposit);
 		assert_eq!(
@@ -598,6 +601,7 @@ fn check_status_works() {
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
 		);
+		assert!(!Preimage::is_requested(&s.metadata));
 		assert_eq!(
 			Balances::free_balance(s.curator),
 			Balances::minimum_balance() + s.curator_deposit
@@ -629,6 +633,7 @@ fn check_status_works() {
 				payment_status: PaymentState::Failed
 			}
 		);
+		assert!(Preimage::is_requested(&s.metadata));
 		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance());
 		assert_eq!(
 			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>)
@@ -659,6 +664,7 @@ fn check_status_works() {
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
 			0
 		);
+		assert!(!Preimage::is_requested(&s.metadata));
 		assert_eq!(
 			pallet_bounties::CuratorDeposit::<Test>::get(s.parent_bounty_id, None::<BountyIndex>),
 			None
@@ -782,6 +788,7 @@ fn check_status_works() {
 			pallet_bounties::ChildBounties::<Test>::iter_prefix(s.parent_bounty_id).count(),
 			1
 		);
+		assert!(Preimage::is_requested(&s.metadata));
 		assert_eq!(
 			pallet_bounties::CuratorDeposit::<Test>::get(
 				s.parent_bounty_id,
@@ -837,6 +844,7 @@ fn check_status_works() {
 			),
 			None
 		);
+		assert!(Preimage::is_requested(&s.metadata)); // still requested by parent bounty
 		assert_eq!(
 			Balances::free_balance(s.child_curator),
 			Balances::minimum_balance() + s.child_curator_deposit
@@ -879,6 +887,7 @@ fn check_status_works() {
 		));
 
 		// Then
+		assert!(Preimage::is_requested(&s.metadata)); // still requested by parent bounty
 		assert_eq!(Balances::free_balance(s.curator), Balances::minimum_balance()); // still reserved
 
 		// Given: child-bounty status is `PayoutAttempted` and payment succeeds
@@ -910,6 +919,7 @@ fn check_status_works() {
 			pallet_bounties::ChildBounties::<Test>::get(s.parent_bounty_id, s.child_bounty_id),
 			None
 		);
+		assert!(Preimage::is_requested(&s.metadata)); // still requested by parent bounty
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
 			pallet_bounties::TotalChildBountiesPerParent::<Test>::get(s.parent_bounty_id),
@@ -923,6 +933,26 @@ fn check_status_works() {
 			Balances::free_balance(s.child_curator),
 			Balances::minimum_balance() + s.child_curator_deposit
 		); // initial
+
+		// Given: award same parent bounty as previous `Given` setup
+		assert_ok!(Bounties::award_bounty(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None,
+			s.beneficiary
+		));
+
+		// When
+		let payment_id = get_payment_id(s.parent_bounty_id, None).expect("no payment attempt");
+		set_status(payment_id, PaymentStatus::Success);
+		assert_ok!(Bounties::check_status(RuntimeOrigin::signed(1), s.parent_bounty_id, None));
+
+		// Then
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			0
+		);
+		assert!(!Preimage::is_requested(&s.metadata)); // no longer requested
 	});
 }
 

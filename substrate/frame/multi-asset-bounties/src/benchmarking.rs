@@ -106,7 +106,7 @@ pub fn get_payment_id<T: Config<I>, I: 'static>(
 	let bounty = Bounties::<T, I>::get_bounty_details(parent_bounty_id, child_bounty_id)
 		.expect("no bounty found");
 
-	match bounty.2 {
+	match bounty.3 {
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
@@ -288,7 +288,7 @@ pub fn set_status<T: Config<I>, I: 'static>(
 		pallet_bounties::Pallet::<T, I>::get_bounty_details(parent_bounty_id, child_bounty_id)
 			.expect("no bounty");
 
-	let new_status = match bounty.2 {
+	let new_status = match bounty.3 {
 		BountyStatus::FundingAttempted { curator, .. } =>
 			BountyStatus::FundingAttempted { payment_status: new_payment_status, curator },
 		BountyStatus::RefundAttempted { curator, .. } =>

@@ -502,7 +502,8 @@ pub mod pallet {
 	pub type TotalChildBountiesPerParent<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
-	/// The cumulative child-bounty value for each parent bounty.
+	/// The cumulative child-bounty value for each parent bounty. To be subtracted from the parent
+	/// bounty payout when awarding bounty.
 	///
 	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
@@ -604,6 +605,7 @@ pub mod pallet {
 				status: BountyStatus::FundingAttempted { curator, payment_status },
 			};
 			Bounties::<T, I>::insert(index, &bounty);
+			T::Preimages::request(&metadata);
 			BountyCount::<T, I>::put(index + 1);
 
 			Self::deposit_event(Event::<T, I>::BountyCreated { index });
@@ -647,7 +649,7 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 			ensure!(T::Preimages::len(&metadata).is_some(), Error::<T, I>::PreimageNotExist);
 
-			let (asset_kind, parent_value, _, parent_curator) =
+			let (asset_kind, parent_value, _, _, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, None)
 					.map_err(|_| Error::<T, I>::InvalidIndex)?;
 			let native_amount = T::BalanceConverter::from_asset_balance(value, asset_kind.clone())
@@ -698,6 +700,7 @@ pub mod pallet {
 				},
 			};
 			ChildBounties::<T, I>::insert(parent_bounty_id, child_bounty_id, child_bounty);
+			T::Preimages::request(&metadata);
 
 			// Add child-bounty value to the cumulative value sum. To be
 			// subtracted from the parent bounty payout when awarding
@@ -760,7 +763,7 @@ pub mod pallet {
 				.or_else(|_| T::SpendOrigin::ensure_origin(origin.clone()).map(|_| None))?;
 			let curator = T::Lookup::lookup(curator)?;
 
-			let (asset_kind, value, status, parent_curator) =
+			let (asset_kind, value, _, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 			ensure!(status == BountyStatus::CuratorUnassigned, Error::<T, I>::UnexpectedStatus);
 
@@ -821,7 +824,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let signer = ensure_signed(origin)?;
 
-			let (asset_kind, value, status, _) =
+			let (asset_kind, value, _, status, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let BountyStatus::Funded { ref curator } = status else {
@@ -886,7 +889,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (_, _, status, parent_curator) =
+			let (_, _, _, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			match status {
@@ -987,7 +990,7 @@ pub mod pallet {
 			let signer = ensure_signed(origin)?;
 			let beneficiary = T::BeneficiaryLookup::lookup(beneficiary)?;
 
-			let (asset_kind, value, status, _) =
+			let (asset_kind, value, _, status, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			if child_bounty_id.is_none() {
@@ -1064,7 +1067,7 @@ pub mod pallet {
 				.map(Some)
 				.or_else(|_| T::RejectOrigin::ensure_origin(origin).map(|_| None))?;
 
-			let (asset_kind, value, status, parent_curator) =
+			let (asset_kind, value, _, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let maybe_curator = match status {
@@ -1160,7 +1163,7 @@ pub mod pallet {
 			use BountyStatus::*;
 
 			ensure_signed(origin)?;
-			let (asset_kind, value, status, parent_curator) =
+			let (asset_kind, value, metadata, status, parent_curator) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
@@ -1216,7 +1219,7 @@ pub mod pallet {
 								);
 							}
 							// refund succeeded, cleanup the bounty
-							Self::remove_bounty(parent_bounty_id, child_bounty_id);
+							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
 							return Ok(Pays::No.into())
 						},
 						PaymentState::Pending |
@@ -1252,7 +1255,7 @@ pub mod pallet {
 								let _ = curator_deposit.drop(curator);
 							}
 							// payout succeeded, cleanup the bounty
-							Self::remove_bounty(parent_bounty_id, child_bounty_id);
+							Self::remove_bounty(parent_bounty_id, child_bounty_id, metadata);
 							return Ok(Pays::No.into())
 						},
 						PaymentState::Pending |
@@ -1310,7 +1313,7 @@ pub mod pallet {
 			use BountyStatus::*;
 
 			ensure_signed(origin)?;
-			let (asset_kind, value, status, _) =
+			let (asset_kind, value, _, status, _) =
 				Self::get_bounty_details(parent_bounty_id, child_bounty_id)?;
 
 			let (new_status, weight) = match status {
@@ -1471,6 +1474,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		(
 			T::AssetKind,
 			BalanceOf<T, I>,
+			T::Hash,
 			BountyStatus<T::AccountId, PaymentIdOf<T, I>, T::Beneficiary>,
 			Option<T::AccountId>,
 		),
@@ -1490,6 +1494,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => Ok((
 				parent_bounty.asset_kind,
 				parent_bounty.value,
+				parent_bounty.metadata,
 				parent_bounty.status,
 				parent_curator,
 			)),
@@ -1499,6 +1504,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Ok((
 					parent_bounty.asset_kind,
 					child_bounty.value,
+					child_bounty.metadata,
 					child_bounty.status,
 					parent_curator,
 				))
@@ -1555,7 +1561,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => {
 				// Get total child bounties value, and subtract it from the parent
 				// value.
-				let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
+				let children_value = ChildBountiesValuePerParent::<T, I>::take(parent_bounty_id);
 				debug_assert!(children_value <= value);
 				let payout = value.saturating_sub(children_value);
 				payout
@@ -1565,16 +1571,22 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Cleanup a child-/bounty from the storage.
-	fn remove_bounty(parent_bounty_id: BountyIndex, child_bounty_id: Option<BountyIndex>) {
+	fn remove_bounty(
+		parent_bounty_id: BountyIndex,
+		child_bounty_id: Option<BountyIndex>,
+		metadata: T::Hash,
+	) {
 		match child_bounty_id {
 			None => {
 				Bounties::<T, I>::remove(parent_bounty_id);
+				T::Preimages::unrequest(&metadata);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
+				T::Preimages::unrequest(&metadata);
 				ChildBountiesPerParent::<T, I>::mutate(parent_bounty_id, |count| {
 					count.saturating_dec()
 				});

@@ -344,7 +344,7 @@ pub fn get_payment_id(
 		pallet_bounties::Pallet::<Test>::get_bounty_details(parent_bounty_id, child_bounty_id)
 			.expect("no bounty");
 
-	match bounty.2 {
+	match bounty.3 {
 		BountyStatus::FundingAttempted {
 			payment_status: PaymentState::Attempted { id }, ..
 		} => Some(id),
