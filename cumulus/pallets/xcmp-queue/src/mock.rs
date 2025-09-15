@@ -104,7 +104,6 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
 	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
-	type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Test>;
 	type RelayParentOffset = ConstU32<0>;
 }
 
@@ -284,8 +283,6 @@ pub(crate) fn mk_page() -> Vec<u8> {
 			0 => versioned_xcm(older_xcm_version).encode(),
 			1 => versioned_xcm(newer_xcm_version).encode(),
 			// We cannot push an undecodable XCM here since it would break the decode stream.
-			// This is expected and the whole reason to introduce `MaybeDoubleEncodedVersionedXcm`
-			// instead.
 			_ => unreachable!(),
 		});
 	}

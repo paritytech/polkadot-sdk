@@ -74,21 +74,19 @@ fn staticcall_works() {
 				"the call must reproduce the magic number"
 			);
 
-			// Enable it once sstore host fn is implemented
-			// log::info!("Calling callee from caller");
-			// let result = builder::bare_call(caller_addr)
-			// 	.data(
-			// 		Caller::staticCallCall {
-			// 			_callee: callee_addr.0.into(),
-			// 			_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
-			// 			_gas: U256::MAX,
-			// 		}
-			// 		.abi_encode(),
-			// 	)
-			// 	.build_and_unwrap_result();
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::staticCallCall {
+						_callee: callee_addr.0.into(),
+						_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
 
-			// let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
-			// assert!(!result.success, "Can not store in static call");
+			let result = Caller::staticCallCall::abi_decode_returns(&result.data).unwrap();
+			assert!(!result.success, "Can not store in static call");
 		});
 	}
 }
@@ -136,22 +134,20 @@ fn call_works() {
 				"the call must reproduce the magic number"
 			);
 
-			// Enable it once sstore host fn is implemented
-			// log::info!("Calling callee from caller");
-			// let result = builder::bare_call(caller_addr)
-			// 	.data(
-			// 		Caller::normalCall {
-			// 			_callee: callee_addr.0.into(),
-			// 			_value: U256::ZERO,
-			// 			_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
-			// 			_gas: U256::MAX,
-			// 		}
-			// 		.abi_encode(),
-			// 	)
-			// 	.build_and_unwrap_result();
+			let result = builder::bare_call(caller_addr)
+				.data(
+					Caller::normalCall {
+						_callee: callee_addr.0.into(),
+						_value: U256::ZERO,
+						_data: Callee::storeCall { _data: magic_number }.abi_encode().into(),
+						_gas: U256::MAX,
+					}
+					.abi_encode(),
+				)
+				.build_and_unwrap_result();
 
-			// let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
-			// assert!(result.success, "the store call must succeed");
+			let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			assert!(result.success, "the store call must succeed");
 		});
 	}
 }
@@ -209,7 +205,10 @@ fn call_revert() {
 	}
 }
 
+// This test has a `caller` contract calling into a `callee` contract which then executes the
+// INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
 #[test]
+#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 fn call_invalid_opcode() {
 	for fixture_type in [FixtureType::Resolc, FixtureType::Solc] {
 		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();

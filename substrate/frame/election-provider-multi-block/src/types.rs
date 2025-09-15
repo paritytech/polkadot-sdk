@@ -303,7 +303,6 @@ impl<T: crate::Config> Phase<T> {
 
 	fn are_we_done() -> Self {
 		let query = T::AreWeDone::get();
-		log!(debug, "Are we done? {:?}", query);
 		query
 	}
 
