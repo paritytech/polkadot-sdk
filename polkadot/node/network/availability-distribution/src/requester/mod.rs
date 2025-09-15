@@ -100,6 +100,7 @@ pub struct Requester {
 /// used to streamline chunk-fetching tasks. This structure normalizes data from both
 /// occupied and scheduled cores into a unified format containing only the fields
 /// necessary for chunk fetching and validation.
+#[derive(Debug)]
 struct CoreInfo {
 	/// The candidate hash.
 	candidate_hash: CandidateHash,
@@ -455,10 +456,20 @@ impl Requester {
 					// Record metrics for fetch origin only once we actually start a task
 					match origin {
 						FetchOrigin::Early => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?core.candidate_hash,
+								"Early candidate fetch initiated"
+							);
 							self.metrics.on_early_candidate_fetched();
 							self.early_candidates.insert(core.candidate_hash);
 						},
 						FetchOrigin::Slow => {
+							gum::debug!(
+								target: LOG_TARGET,
+								candidate_hash = ?core.candidate_hash,
+								"Slow path candidate fetch initiated"
+							);
 							self.metrics.on_slow_candidate_fetched();
 						},
 					}
