@@ -144,7 +144,7 @@ mod benchmarking {
 	pub(crate) struct MockBenchmarkHelper;
 
 	#[cfg(feature = "runtime-benchmarks")]
-	impl pallet_assets::BenchmarkHelper<Location> {
+	impl pallet_assets::BenchmarkHelper<Location> for MockBenchmarkHelper {
 		fn create_asset_id_parameter(_: u32) -> Location {
 			Location::here()
 		}
