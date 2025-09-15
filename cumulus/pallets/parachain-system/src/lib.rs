@@ -110,6 +110,7 @@ pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 
+use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "parachain-system";
@@ -1198,18 +1199,18 @@ impl<T: Config> Pallet<T> {
 	) -> &cumulus_primitives_core::AbridgedHrmpChannel {
 		let maybe_channel_idx =
 			ingress_channels.binary_search_by_key(&sender, |&(channel_sender, _)| channel_sender);
-		let channel = match maybe_channel_idx {
-			Ok(channel_idx) => ingress_channels.get(channel_idx).map(|(_, channel)| channel),
-			Err(_) => None,
-		};
-
-		channel.unwrap_or_else(|| {
+		let Ok(channel_idx) = maybe_channel_idx else {
 			panic!(
 				"One of the messages submitted by the collator was sent from a sender ({}) \
 				that doesn't have a channel opened to this parachain",
 				<ParaId as Into<u32>>::into(sender)
 			)
-		})
+		};
+
+		ingress_channels
+			.get(channel_idx)
+			.map(|(_, channel)| channel)
+			.expect("Channel index was just calculated and is correct; qed")
 	}
 
 	fn check_hrmp_mcq_heads(
@@ -1274,8 +1275,9 @@ impl<T: Config> Pallet<T> {
 			.map(|sender| Self::get_ingress_channel_or_panic(ingress_channels, sender));
 		horizontal_messages.check_enough_messages_included(
 			"HRMP",
-			first_hashed_msg_channel.map(|channel| {
-				(Self::messages_collection_size_limit(), channel.max_message_size as usize)
+			first_hashed_msg_channel.map(|channel| AbridgedInboundMessagesSizeInfo {
+				max_full_messages_size: Self::messages_collection_size_limit(),
+				first_hashed_msg_max_size: channel.max_message_size as usize,
 			}),
 		);
 
