@@ -100,7 +100,7 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::caller_is_origin")
 	}
 
-	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
+	fn caller_is_root(&self, _use_caller_of_caller: bool) -> bool {
 		panic!("MockExt::caller_is_root")
 	}
 
