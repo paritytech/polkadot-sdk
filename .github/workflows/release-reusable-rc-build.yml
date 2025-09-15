@@ -187,6 +187,19 @@ jobs:
           mkdir -p ~/.gnupg/
           touch ~/.gnupg/dirmngr.conf
           echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
+
+      - name: Install llvm
+        run: |
+          brew install llvm@21
+
+      - name: Set dynamic library path
+        run: |
+          LLVM_PATH=$(brew --prefix llvm)
+          export LIBCLANG_PATH="$LLVM_PATH/lib"
+          export LDFLAGS="-L$LLVM_PATH/lib"
+          export CPPFLAGS="-I$LLVM_PATH/include"
+          echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+
       - name: Install sha256sum
         run: |
           brew install coreutils
@@ -253,6 +266,7 @@ jobs:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
 
+
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
       uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
       with:
@@ -274,12 +288,28 @@ jobs:
         path: target/production
         merge-multiple: true
 
+    - name: Install rpmbuild
+      run: sudo apt-get update && sudo apt-get install -y rpm
+
+    - name: Set up Ruby
+      uses: actions/setup-ruby@v1
+      with:
+        ruby-version: '3.2'
+
+    - name: Install fpm
+      run: gem install fpm
+
     - name: Build polkadot deb package
       shell: bash
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
         VERSION=$(get_polkadot_node_version_from_code)
         . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
+
+    #- name: Prepare binary for RPM build
+    #  run: |
+    #    mkdir -p target/release
+    #    cp target/production/polkadot target/release/polkadot
 
     - name: Build polkadot rpm package
       shell: bash
@@ -291,7 +321,9 @@ jobs:
     - name: Generate artifact attestation
       uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
       with:
-        subject-path: release-artifacts/polkadot/*.{deb,rpm}
+        subject-path: |
+          target/production/*.deb
+          target/production/*.rpm
 
     - name: Upload ${{inputs.package }} artifacts
       uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
