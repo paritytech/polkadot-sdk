@@ -64,8 +64,7 @@ where
 
 	/// Collect the traces and return them.
 	pub fn collect_trace(self) -> PrestateTrace {
-		let Self { trace, .. } = self;
-		let (mut pre, mut post) = trace;
+		let (mut pre, mut post) = self.trace;
 		let include_code = !self.config.disable_code;
 
 		let is_empty = |info: &PrestateTraceInfo| {
