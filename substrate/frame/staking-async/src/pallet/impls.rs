@@ -1333,11 +1333,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		weight
 	}
 
-	fn weigh_on_new_offences(
-		_slash_session: SessionIndex,
-		offences: &[pallet_staking_async_rc_client::Offence<Self::AccountId>],
-	) -> Weight {
-		T::WeightInfo::rc_on_offence(offences.len() as u32)
+	fn weigh_on_new_offences(offence_count: u32) -> Weight {
+		T::WeightInfo::rc_on_offence(offence_count)
 	}
 }
 
