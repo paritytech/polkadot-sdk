@@ -503,6 +503,15 @@ pub struct CollationInfo {
 	pub head_data: HeadData,
 }
 
+/// Block interval configuration for parachain block production for one relay chain slot.
+#[derive(Clone, Debug, codec::Decode, codec::Encode, PartialEq, TypeInfo)]
+pub struct BlockInterval {
+	/// The number of blocks to produce in the relay chain slot.
+	pub number_of_blocks: u32,
+	/// The target block time in wall clock time for each block.
+	pub block_time: Duration,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api to collect information about a collation.
 	///
@@ -538,18 +547,17 @@ sp_api::decl_runtime_apis! {
 
 	/// API for parachain slot scheduling.
 	///
-	/// This runtime API allows the parachain runtime to communicate the number of scheduled blocks
+	/// This runtime API allows the parachain runtime to communicate the block interval
 	/// to the node side. The node will call this API every relay chain slot (~6 seconds)
-	/// to get the scheduled parachain blocks. The block interval is calculated by dividing the
-	/// relay chain slot duration by the number of scheduled blocks.
+	/// to get the scheduled parachain block interval.
 	pub trait SlotSchedule {
 		/// Get the block production schedule for the next relay chain slot.
 		///
 		/// - `num_cores`: The number of cores assigned to this parachain
 		///
-		/// Returns a vector of [`Duration`] values each representing the block time on standard
-		/// hardware in wall clock time. This should be used as the upper wall clock time when
-		/// building a block.
-		fn next_slot_schedule(num_cores: u32) -> Vec<Duration>;
+		/// Returns a [`BlockInterval`] specifying the number of blocks and target block time
+		/// on standard hardware in wall clock time. This should be used as the upper wall
+		/// clock time when building a block.
+		fn next_slot_schedule(num_cores: u32) -> BlockInterval;
 	}
 }

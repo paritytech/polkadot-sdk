@@ -333,11 +333,11 @@ where
 				},
 			};
 
-			let slot_schedule = match para_client
+			let block_interval = match para_client
 				.runtime_api()
 				.next_slot_schedule(initial_parent.hash, cores.total_cores())
 			{
-				Ok(schedule) => schedule,
+				Ok(interval) => interval,
 				Err(error) => {
 					tracing::debug!(
 						target: crate::LOG_TARGET,
@@ -345,11 +345,14 @@ where
 						?error,
 						"Failed to fetch `slot_schedule`, assuming one block with 2s"
 					);
-					vec![Duration::from_secs(2)]
+					cumulus_primitives_core::BlockInterval {
+						number_of_blocks: 1,
+						block_time: Duration::from_secs(2),
+					}
 				},
 			};
 
-			let blocks_per_core = (slot_schedule.len() as u32 / cores.total_cores()).max(1);
+			let blocks_per_core = (block_interval.number_of_blocks / cores.total_cores()).max(1);
 
 			tracing::debug!(
 				target: crate::LOG_TARGET,
@@ -360,7 +363,6 @@ where
 
 			let mut pov_parent_header = initial_parent.header;
 			let mut pov_parent_hash = initial_parent.hash;
-			let mut slot_schedule = slot_schedule.into_iter();
 
 			loop {
 				let time_for_core = slot_time.time_left() / cores.cores_left();
@@ -380,7 +382,8 @@ where
 					allowed_pov_size,
 					cores.core_info(),
 					cores.core_index(),
-					(&mut slot_schedule).take(blocks_per_core as usize),
+					block_interval.block_time,
+					blocks_per_core,
 					time_for_core,
 					cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
@@ -422,7 +425,8 @@ async fn build_collation_for_core<Block: BlockT, P, RelayClient, BI, CIDP, Propo
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
 	core_index: CoreIndex,
-	block_schedule: impl ExactSizeIterator<Item = Duration>,
+	block_time: Duration,
+	blocks_per_core: u32,
 	slot_time_for_core: Duration,
 	is_last_core_in_parachain_slot: bool,
 ) -> Result<Option<Block::Header>, ()>
@@ -462,19 +466,23 @@ where
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
-	let num_blocks = block_schedule.len();
 
 	let mut parent_hash = pov_parent_hash;
 	let mut parent_header = pov_parent_header.clone();
 
-	for (block_index, block_time) in block_schedule.enumerate() {
+	for block_index in 0..blocks_per_core {
 		//TODO: Remove when transaction streaming is implemented
 		// We require that the next node has imported our last block before it can start building
 		// the next block. To ensure that the next node is able to do so, we are skipping the last
 		// block in the parachain slot. In the future this can be removed again.
-		let is_last = block_index + 1 == num_blocks ||
-			(block_index + 2 == num_blocks && num_blocks > 1 && is_last_core_in_parachain_slot);
-		if block_index + 1 == num_blocks && num_blocks > 1 && is_last_core_in_parachain_slot {
+		let is_last = block_index + 1 == blocks_per_core ||
+			(block_index + 2 == blocks_per_core &&
+				blocks_per_core > 1 &&
+				is_last_core_in_parachain_slot);
+		if block_index + 1 == blocks_per_core &&
+			blocks_per_core > 1 &&
+			is_last_core_in_parachain_slot
+		{
 			tracing::debug!(
 				target: LOG_TARGET,
 				"Skipping block production so that the next node is able to import all blocks before its slot."
@@ -484,13 +492,13 @@ where
 
 		let block_start = Instant::now();
 		let slot_time_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
-			(num_blocks - block_index) as u32;
+			(blocks_per_core - block_index) as u32;
 
 		if slot_time_for_block <= Duration::from_millis(20) {
 			tracing::error!(
 				target: LOG_TARGET,
 				slot_time_for_block_ms = %slot_time_for_block.as_millis(),
-				blocks_left = %(num_blocks - block_index),
+				blocks_left = %(blocks_per_core - block_index),
 				?core_index,
 				"Less than 20ms slot time left to produce blocks, stopping block production for core",
 			);
@@ -580,7 +588,7 @@ where
 			.checked_sub(block_start.elapsed())
 			// Let's not sleep for the last block here, to send out the collation as early as
 			// possible.
-			.filter(|_| block_index + 1 < num_blocks)
+			.filter(|_| block_index + 1 < blocks_per_core)
 		{
 			tokio::time::sleep(sleep).await;
 		}

@@ -645,10 +645,13 @@ impl_runtime_apis! {
 	}
 
 	impl cumulus_primitives_core::SlotSchedule<Block> for Runtime {
-		fn next_slot_schedule(num_cores: u32) -> Vec<Duration> {
+		fn next_slot_schedule(num_cores: u32) -> cumulus_primitives_core::BlockInterval {
 			let block_time = Duration::from_secs(2) * num_cores / NumberOfBlocksPerRelaySlot::get();
 
-			vec![block_time.min(Duration::from_millis(500)); NumberOfBlocksPerRelaySlot::get() as usize]
+			cumulus_primitives_core::BlockInterval {
+				number_of_blocks: NumberOfBlocksPerRelaySlot::get(),
+				block_time: block_time.min(Duration::from_millis(500)),
+			}
 		}
 	}
 }

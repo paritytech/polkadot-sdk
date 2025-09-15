@@ -248,7 +248,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl cumulus_primitives_core::SlotSchedule<$block> for $runtime {
-				fn next_slot_schedule(_: u32) -> Vec<std::time::Duration> {
+				fn next_slot_schedule(_: u32) -> cumulus_primitives_core::BlockInterval {
 					unimplemented!()
 				}
 			}
