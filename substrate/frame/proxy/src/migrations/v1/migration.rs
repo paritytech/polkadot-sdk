@@ -199,14 +199,20 @@ pub enum MigrationCursor<AccountId> {
 
 /// Migration result for an account with weight consumed.
 #[derive(Debug, PartialEq)]
-struct AccountMigrationResult<T: Config> {
+pub struct AccountMigrationResult<T: Config> {
 	outcome: MigrationOutcome<T>,
 	weight_consumed: Weight,
 }
 
+impl<T: Config> AccountMigrationResult<T> {
+	pub fn weight(&self) -> Weight {
+		self.weight_consumed
+	}
+}
+
 /// The outcome of migrating an account.
 #[derive(Debug, PartialEq)]
-enum MigrationOutcome<T: Config> {
+pub enum MigrationOutcome<T: Config> {
 	Success,
 	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
@@ -228,7 +234,7 @@ where
 	/// Migrate a single proxy account with proxy preservation on failure.
 	/// Preserves proxy relationships even when hold creation fails.
 	/// Returns the migration outcome and actual weight consumed.
-	fn migrate_proxy_account<BlockNumber>(
+	pub fn migrate_proxy_account<BlockNumber>(
 		who: &<T as frame_system::Config>::AccountId,
 		proxies: ProxyDefinitions<T, BlockNumber>,
 		old_deposit: BalanceOf<T>,
@@ -343,7 +349,7 @@ where
 	/// Migrate a single announcement account with announcement preservation on failure.
 	/// Preserves announcements even when hold creation fails.
 	/// Returns the migration outcome and actual weight consumed.
-	fn migrate_announcement_account(
+	pub fn migrate_announcement_account(
 		who: &<T as frame_system::Config>::AccountId,
 		announcements: BoundedAnnouncements<T>,
 		old_deposit: BalanceOf<T>,
