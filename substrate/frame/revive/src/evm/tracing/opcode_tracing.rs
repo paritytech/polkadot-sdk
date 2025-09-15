@@ -81,7 +81,6 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 			return_value: Vec::new(),
 			pending_step: None,
 			pending_gas_before: None,
-			// Initialize with one storage map for the root call
 			storages_per_call: alloc::vec![Default::default()],
 		}
 	}

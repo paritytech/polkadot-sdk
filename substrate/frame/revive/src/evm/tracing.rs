@@ -75,14 +75,6 @@ where
 		}
 	}
 
-	/// Get a mutable reference to the opcode tracer if this is an opcode tracer.
-	pub fn as_opcode_tracer(&mut self) -> Option<&mut OpcodeTracer<U256, fn(Weight) -> U256>> {
-		match self {
-			Tracer::OpcodeTracer(inner) => Some(inner),
-			_ => None,
-		}
-	}
-
 	/// Check if this is an opcode tracer.
 	pub fn is_opcode_tracer(&self) -> bool {
 		matches!(self, Tracer::OpcodeTracer(_))
