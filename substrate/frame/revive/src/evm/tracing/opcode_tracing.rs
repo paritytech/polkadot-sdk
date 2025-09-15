@@ -52,7 +52,7 @@ pub struct OpcodeTracer<Gas, GasMapper> {
 	failed: bool,
 
 	/// The return value of the transaction.
-	return_value: Vec<u8>,
+	return_value: Bytes,
 
 	/// Pending step that's waiting for gas cost to be recorded.
 	pending_step: Option<OpcodeStep<Gas>>,
@@ -78,7 +78,7 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 			step_count: 0,
 			total_gas_used: Gas::default(),
 			failed: false,
-			return_value: Vec::new(),
+			return_value: Bytes::default(),
 			pending_step: None,
 			pending_gas_before: None,
 			storages_per_call: alloc::vec![Default::default()],
@@ -86,14 +86,9 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 	}
 
 	/// Collect the traces and return them.
-	pub fn collect_trace(&mut self) -> OpcodeTrace<Gas>
-	where
-		Gas: Copy,
-	{
-		let struct_logs = core::mem::take(&mut self.steps);
-		let return_value = crate::evm::Bytes(self.return_value.clone());
-
-		OpcodeTrace { gas: self.total_gas_used, failed: self.failed, return_value, struct_logs }
+	pub fn collect_trace(self) -> OpcodeTrace<Gas> {
+		let Self { steps: struct_logs, return_value, total_gas_used: gas, failed, .. } = self;
+		OpcodeTrace { gas, failed, return_value, struct_logs }
 	}
 
 	/// Record an error in the current step.
@@ -105,7 +100,7 @@ impl<Gas, GasMapper> OpcodeTracer<Gas, GasMapper> {
 
 	/// Record return data.
 	pub fn record_return_data(&mut self, data: &[u8]) {
-		self.return_value = data.to_vec();
+		self.return_value = Bytes(data.to_vec());
 	}
 
 	/// Mark the transaction as failed.
