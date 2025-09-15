@@ -1,5 +1,8 @@
-//! Test that nodes fetch availability chunks early for scheduled cores and normally for occupied
-//! core.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Test that nodes fetch availability chunks early for scheduled cores and normally for occupied
+// core.
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
