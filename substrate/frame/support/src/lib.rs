@@ -54,6 +54,7 @@ pub mod __private {
 	};
 	pub use codec;
 	pub use frame_metadata as metadata;
+	pub use impl_trait_for_tuples;
 	pub use log;
 	pub use paste;
 	pub use scale_info;
