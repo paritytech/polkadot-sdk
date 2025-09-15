@@ -448,7 +448,7 @@ macro_rules! assert_ok {
 }
 
 /// Assert that the maximum encoding size does not exceed the value defined in
-/// [`MAX_MODULE_ERROR_ENCODED_SIZE`] during compilation.
+/// [`MAX_MODULE_ERROR_ENCODED_SIZE`](crate::MAX_MODULE_ERROR_ENCODED_SIZE) during compilation.
 ///
 /// This macro is intended to be used in conjunction with `tt_call!`.
 #[macro_export]
