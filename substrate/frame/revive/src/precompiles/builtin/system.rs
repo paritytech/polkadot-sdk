@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use crate::{
+	address::AddressMapper,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	vm::RuntimeCosts,
 	Config, H160,
@@ -70,8 +71,9 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 			},
 			ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}) => {
 				env.gas_meter_mut().charge(RuntimeCosts::OwnCodeHash)?;
-				let address = env.address();
-				let output = env.code_hash(&address).0.abi_encode();
+				let caller = env.caller();
+				let addr = T::AddressMapper::to_address(caller.account_id()?);
+				let output = env.code_hash(&addr.into()).0.abi_encode();
 				Ok(output)
 			},
 			ISystemCalls::minimumBalance(ISystem::minimumBalanceCall {}) => {

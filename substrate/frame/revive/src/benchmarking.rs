@@ -676,6 +676,9 @@ mod benchmarks {
 		let input_bytes =
 			ISystem::ISystemCalls::ownCodeHash(ISystem::ownCodeHashCall {}).abi_encode();
 		let mut call_setup = CallSetup::<T>::default();
+		let contract_acc = call_setup.contract().account_id.clone();
+		let caller = call_setup.contract().address;
+		call_setup.set_origin(Origin::from_account_id(contract_acc));
 		let (mut ext, _) = call_setup.ext();
 
 		let result;
@@ -688,8 +691,8 @@ mod benchmarks {
 			);
 		}
 		assert!(result.is_ok());
-		let pre_compile_code_hash = VmBinaryModule::dummy().hash;
-		assert_eq!(pre_compile_code_hash.0.to_vec(), result.unwrap().data);
+		let caller_code_hash = ext.code_hash(&caller);
+		assert_eq!(caller_code_hash.0.to_vec(), result.unwrap().data);
 	}
 
 	#[benchmark(pov_mode = Measured)]
