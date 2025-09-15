@@ -14,6 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
+//! Implementation of the Consensus Statistics Collector subsystem.
+//! This component monitors and manages metrics related to parachain candidate approvals,
+//! including approval votes, distribution of approval chunks, chunk downloads, and chunk uploads.
+//!
+//! Its primary responsibility is to collect and track data reflecting each node’s perspective
+//! on the approval work carried out by all session validators.
+
+
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
 use futures::{channel::oneshot, prelude::*};
@@ -38,7 +46,7 @@ mod tests;
 
 use self::metrics::Metrics;
 
-const LOG_TARGET: &str = "parachain::statistics-collector";
+const LOG_TARGET: &str = "parachain::consensus-statistics-collector";
 
 struct ApprovalsStats {
     votes: HashSet<ValidatorIndex>,
@@ -84,19 +92,19 @@ impl View {
 
 /// The statistics collector subsystem.
 #[derive(Default)]
-pub struct StatisticsCollectorSubsystem {
+pub struct ConsensusStatisticsCollector {
     metrics: Metrics,
 }
 
-impl StatisticsCollectorSubsystem {
-    /// Create a new instance of the `StatisticsCollectorSubsystem`.
+impl ConsensusStatisticsCollector {
+    /// Create a new instance of the `ConsensusStatisticsCollector`.
     pub fn new(metrics: Metrics) -> Self {
         Self { metrics }
     }
 }
 
 #[overseer::subsystem(StatisticsCollector, error = SubsystemError, prefix = self::overseer)]
-impl<Context> StatisticsCollectorSubsystem
+impl<Context> ConsensusStatisticsCollector
 where
     Context: Send + Sync,
 {
@@ -105,7 +113,7 @@ where
             future: run(ctx, self.metrics)
                 .map_err(|e| SubsystemError::with_origin("statistics-parachains", e))
                 .boxed(),
-            name: "statistics-collector-subsystem",
+            name: "consensus-statistics-collector-subsystem",
         }
     }
 }
@@ -143,9 +151,7 @@ pub(crate) async fn run_iteration<Context>(
                             relay_view.approvals_stats
                                 .entry(candidate_hash)
                                 .and_modify(|a: &mut ApprovalsStats| {
-                                    for v_idx in approvals.iter_ones() {
-                                        a.votes.insert(ValidatorIndex(v_idx as u32));
-                                    }
+                                    a.votes.extend(approvals.into());
                                 });
                         }
                     }

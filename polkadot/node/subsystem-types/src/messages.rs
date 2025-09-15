@@ -1465,7 +1465,7 @@ pub enum ProspectiveParachainsMessage {
 #[derive(Debug)]
 pub enum StatisticsCollectorMessage {
 	// Candidate received enough approval and now is approved
-	CandidateApproved(CandidateHash, Hash, bitvec::vec::BitVec<u8, BitOrderLsb0>),
+	CandidateApproved(CandidateHash, Hash, Vec<ValidatorIndex>),
 
 	// Set of candidates that has not shared votes in time
 	ObservedNoShows(SessionIndex, Vec<ValidatorIndex>),

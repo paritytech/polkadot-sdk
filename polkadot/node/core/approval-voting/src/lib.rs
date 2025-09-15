@@ -3135,12 +3135,6 @@ where
 			}
 
 			metrics.on_candidate_approved(status.tranche_now as _);
-			sender.send_message(
-				StatisticsCollectorMessage::CandidateApproved(
-					candidate_hash,
-					block_hash,
-				)
-			).await;
 
 			if is_block_approved && !was_block_approved {
 				metrics.on_block_approved(status.tranche_now as _);
@@ -3180,12 +3174,48 @@ where
 		}
 		if newly_approved {
 			state.record_no_shows(session_index, para_id.into(), &status.no_show_validators);
-			sender.send_message(StatisticsCollectorMessage::CandidateApproved(
-					candidate_hash,
-					block_hash,
-					candidate_entry.approvals().clone().into(),
-				)).await;
+			let mut collected_useful_approvals = vec![];
+
+			// getting all the votes a candidate has till now
+			for validator_approval_idx in candidate_entry.approvals().iter_ones() {
+				if let Some(current_block_assignments) = candidate_entry.approval_entry(&block_hash) {
+					for tranche_entry in approval_entry.tranches() {
+						match status.required_tranches {
+							RequiredTranches::All => {},
+							RequiredTranches::Exact {needed, ..} => {
+								if tranche_entry.tranche() <= needed {
+									let trance_assignments = tranche_entry.assignments();
+									let useful_vote = trance_assignments
+										.iter()
+										.find(|(validator_on_tranche, _)| *validator_on_tranche == ValidatorIndex(validator_approval_idx as _));
+
+									match useful_vote {
+										Some((vidx, _)) => collected_useful_approvals.push(*vidx),
+										// Found no useful votes on a needed tranche
+										None => {}
+									}
+								}
+							}
+							_ => {}
+						}
+					}
+				}
+			}
+
+			_ = sender.try_send_message(StatisticsCollectorMessage::CandidateApproved(
+				candidate_hash,
+				block_hash,
+				collected_useful_approvals,
+			)).map_err(|_| {
+				gum::warn!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?block_hash,
+					"Failed to send approvals to statistics subsystem",
+				);
+			});
 		}
+
 		actions.extend(schedule_wakeup_action(
 			&approval_entry,
 			block_hash,
