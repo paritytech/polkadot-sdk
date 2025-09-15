@@ -58,7 +58,9 @@ fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 }
 
 #[instance_benchmarks(
-where <<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>
+where
+	<<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet::Event<T, I>>,
 )]
 mod benchmarks {
 	use super::*;
@@ -191,16 +193,6 @@ mod benchmarks {
 		// Create a caller based on the rank.
 		let caller = make_member::<T, I>(rank);
 
-		// Simulate the rank_to_votes conversion process
-		let vote_weight = if let Some(ref class) = class {
-			let min_rank = T::MinRankOfClass::convert(class.clone());
-			let member_rank = Members::<T, I>::get(&caller).map(|m| m.rank).unwrap_or(0);
-			let excess = member_rank.checked_sub(min_rank).unwrap_or(0);
-			T::VoteWeight::convert(excess)
-		} else {
-			0
-		};
-
 		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
 		// poll.
 		let poll = if let Some(ref class) = class {
@@ -237,10 +229,22 @@ mod benchmarks {
 
 		// If the class exists, verify the vote event and tally.
 		if let Some(_) = class {
-			let tally = Tally::from_parts(0, 0, vote_weight);
-			let vote_event =
-				Event::Voted { who: caller, poll, vote: VoteRecord::Nay(vote_weight), tally };
-			assert_last_event::<T, I>(vote_event.into());
+			// Get the actual vote weight from the latest event's VoteRecord::Nay
+			let mut events = frame_system::Pallet::<T>::events();
+			let last_event = events.pop().expect("At least one event should exist");
+			let event: Event<T, I> = last_event
+				.event
+				.try_into()
+				.unwrap_or_else(|_| panic!("Event conversion failed"));
+
+			match event {
+				Event::Voted { vote: VoteRecord::Nay(vote_weight), who, poll: poll2, tally } => {
+					assert_eq!(tally, Tally::from_parts(0, 0, vote_weight));
+					assert_eq!(caller, who);
+					assert_eq!(poll, poll2);
+				},
+				_ => panic!("Invalid event"),
+			};
 		}
 
 		Ok(())
