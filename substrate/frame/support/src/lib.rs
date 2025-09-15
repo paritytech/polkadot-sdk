@@ -2334,7 +2334,7 @@ mod test {
 			MyVal::set(BoundedVec::try_from(vec![42, 43]).unwrap());
 			assert_eq!(MyVal::get(), vec![42, 43]);
 			// Try to append a single u32 to BoundedVec stored in `MyVal`
-			assert_ok!(MyVal::try_append(40));
+			crate::assert_ok!(MyVal::try_append(40));
 			assert_eq!(MyVal::get(), vec![42, 43, 40]);
 		});
 	}
