@@ -22,7 +22,7 @@ use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use inflector::Inflector;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut, Result, Token};
+use syn::{parse2, spanned::Spanned, visit_mut, visit_mut::VisitMut, Expr, Lit, Result, Token};
 
 /// Parse and expand a `#[dynamic_params(..)]` module.
 pub fn dynamic_params(attr: TokenStream, item: TokenStream) -> Result<TokenStream> {
@@ -56,6 +56,9 @@ pub struct DynamicParamModAttrMeta {
 	_comma: Option<Token![,]>,
 	#[parse_if(_comma.is_some())]
 	params_pallet: Option<syn::Type>,
+	_comma_2: Option<Token![,]>,
+	#[parse_if(_comma_2.is_some())]
+	impl_serialization_expression: Option<syn::ExprAssign>
 }
 
 impl DynamicParamModAttr {
@@ -107,9 +110,14 @@ impl ToTokens for DynamicParamModAttr {
 			});
 		}
 
+		let quoted_serialization_traits = match get_serialization_traits(&scrate, &self.meta.impl_serialization_expression) {
+			Ok(result) => result,
+			Err(err) => return tokens.extend(err.into_compile_error()),
+		};
+
 		// Inject the outer args into the inner `#[dynamic_pallet_params(..)]` attribute.
 		if let Some(params_pallet) = &self.meta.params_pallet {
-			MacroInjectArgs { runtime_params: name.clone(), params_pallet: params_pallet.clone() }
+			MacroInjectArgs { runtime_params: name.clone(), params_pallet: params_pallet.clone(), impl_serialization_expression: self.meta.impl_serialization_expression.clone() }
 				.visit_item_mod_mut(&mut params_mod);
 		}
 
@@ -117,10 +125,46 @@ impl ToTokens for DynamicParamModAttr {
 			#params_mod
 
 			#[#scrate::dynamic_params::dynamic_aggregated_params_internal]
+			#quoted_serialization_traits
 			pub enum #name {
 				#quoted_enum
 			}
 		});
+	}
+}
+
+fn get_serialization_traits(scrate: &syn::Path, optional_serialization_expression: &Option<syn::ExprAssign>) -> Result<TokenStream> {
+	match optional_serialization_expression {
+		None => Ok(quote! {}),
+		Some(serialization_expression) => {
+			if serialization_expression.left.to_token_stream().to_string() != "serializable" {
+				return Err(syn::Error::new(serialization_expression.left.span(), "Expected identifier serializable"));
+			}
+
+			let should_implement_serialization = match serialization_expression.right.as_ref() {
+				Expr::Lit(literal) => {
+					match &literal.lit {
+						Lit::Bool(lit_bool) => {
+							Ok(lit_bool.value)
+						},
+						_ => {
+							Err(syn::Error::new(literal.span(), "Expected bool literal"))
+						}
+					}
+				},
+				_ => {
+					Err(syn::Error::new(serialization_expression.right.span(), "Expected an expression of form `serializable = true`"))
+				}
+			}?;
+
+			if should_implement_serialization {
+				Ok(quote! {
+					#[derive(#scrate::__private::serde::Serialize, #scrate::__private::serde::Deserialize)]
+				})
+			} else {
+				Ok(quote! {})
+			}
+		}
 	}
 }
 
@@ -152,6 +196,7 @@ fn ensure_codec_index(attrs: &Vec<syn::Attribute>, span: Span) -> Result<()> {
 struct MacroInjectArgs {
 	runtime_params: syn::Ident,
 	params_pallet: syn::Type,
+	impl_serialization_expression: Option<syn::ExprAssign>
 }
 impl VisitMut for MacroInjectArgs {
 	fn visit_item_mod_mut(&mut self, item: &mut syn::ItemMod) {
@@ -168,11 +213,20 @@ impl VisitMut for MacroInjectArgs {
 			let runtime_params = &self.runtime_params;
 			let params_pallet = &self.params_pallet;
 
-			attr.meta = syn::parse2::<syn::Meta>(quote! {
-				dynamic_pallet_params(#runtime_params, #params_pallet)
-			})
-			.unwrap()
-			.into();
+			if let Some(impl_serialization_expression) = self.impl_serialization_expression.clone() {
+				attr.meta = syn::parse2::<syn::Meta>(quote! {
+				dynamic_pallet_params(#runtime_params, #params_pallet, #impl_serialization_expression)
+				})
+					.unwrap()
+					.into();
+			} else {
+				attr.meta = syn::parse2::<syn::Meta>(quote! {
+					dynamic_pallet_params(#runtime_params, #params_pallet)
+				})
+					.unwrap()
+					.into();
+			}
+
 		}
 
 		visit_mut::visit_item_mod_mut(self, item);
@@ -192,6 +246,9 @@ pub struct DynamicPalletParamAttrMeta {
 	runtime_params: syn::Ident,
 	_comma: Token![,],
 	parameter_pallet: syn::Type,
+	_comma_2: Option<Token![,]>,
+	#[parse_if(_comma_2.is_some())]
+	impl_serialization_expression: Option<syn::ExprAssign>
 }
 
 impl DynamicPalletParamAttr {
@@ -221,6 +278,11 @@ impl ToTokens for DynamicPalletParamAttr {
 		};
 		let (params_mod, parameter_pallet, runtime_params) =
 			(&self.inner_mod, &self.meta.parameter_pallet, &self.meta.runtime_params);
+
+		let quoted_serialization_traits = match get_serialization_traits(&scrate, &self.meta.impl_serialization_expression) {
+			Ok(result) => result,
+			Err(err) => return tokens.extend(err.into_compile_error()),
+		};
 
 		let aggregate_name = syn::Ident::new(
 			&params_mod.ident.to_string().to_pascal_case(),
@@ -260,6 +322,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				use super::*;
 
 				#[doc(hidden)]
+				#quoted_serialization_traits
 				#[derive(
 					Clone,
 					PartialEq,
@@ -279,6 +342,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				}
 
 				#[doc(hidden)]
+				#quoted_serialization_traits
 				#[derive(
 					Clone,
 					PartialEq,
@@ -298,6 +362,7 @@ impl ToTokens for DynamicPalletParamAttr {
 				}
 
 				#[doc(hidden)]
+				#quoted_serialization_traits
 				#[derive(
 					Clone,
 					PartialEq,
@@ -333,6 +398,7 @@ impl ToTokens for DynamicPalletParamAttr {
 
 				#(
 					#[doc(hidden)]
+					#quoted_serialization_traits
 					#[derive(
 						Clone,
 						PartialEq,
@@ -387,6 +453,7 @@ impl ToTokens for DynamicPalletParamAttr {
 					}
 
 					#[doc(hidden)]
+					#quoted_serialization_traits
 					#[derive(
 						Clone,
 						PartialEq,
@@ -447,7 +514,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 			Err(err) => return tokens.extend(err),
 		};
 		let params_enum = &self.aggregated_enum;
-		let (name, vis) = (&params_enum.ident, &params_enum.vis);
+		let (name, vis, attr) = (&params_enum.ident, &params_enum.vis, &params_enum.attrs);
 
 		let (mut indices, mut param_names, mut param_types): (Vec<_>, Vec<_>, Vec<_>) =
 			Default::default();
@@ -482,6 +549,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::sp_runtime::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
+			#(#attr)*
 			#vis enum #name {
 				#(
 					//#[codec(index = #indices)]
@@ -502,6 +570,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::sp_runtime::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
+			#(#attr)*
 			#vis enum #params_key_ident {
 				#(
 					#(#attributes)*
@@ -521,6 +590,7 @@ impl ToTokens for DynamicParamAggregatedEnum {
 				#scrate::sp_runtime::RuntimeDebug,
 				#scrate::__private::scale_info::TypeInfo
 			)]
+			#(#attr)*
 			#vis enum #params_value_ident {
 				#(
 					#(#attributes)*
