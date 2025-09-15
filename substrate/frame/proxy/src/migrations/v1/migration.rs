@@ -117,7 +117,7 @@ use alloc::{collections::btree_map::BTreeMap, format, vec::Vec};
 #[cfg(feature = "try-runtime")]
 use frame::try_runtime::TryRuntimeError;
 
-pub use crate::migrations::v1::weights::WeightInfo;
+pub use crate::weights::{SubstrateWeight as DefaultWeights, WeightInfo};
 
 const LOG_TARGET: &str = "runtime::proxy";
 
@@ -217,11 +217,9 @@ pub enum MigrationOutcome<T: Config> {
 	PreservedWithZeroDeposit { freed_amount: BalanceOf<T> },
 }
 
-pub struct MigrateReservesToHolds<
-	T,
-	OldCurrency,
-	W = crate::migrations::v1::weights::SubstrateWeight<T>,
->(PhantomData<(T, OldCurrency, W)>);
+pub struct MigrateReservesToHolds<T, OldCurrency, W = DefaultWeights<T>>(
+	PhantomData<(T, OldCurrency, W)>,
+);
 
 impl<T, OldCurrency, W> MigrateReservesToHolds<T, OldCurrency, W>
 where
@@ -1053,11 +1051,9 @@ where
 /// This implementation runs the complete stepped migration in a single block by repeatedly
 /// calling `step()` until completion. This is necessary for runtime systems that expect
 /// OnRuntimeUpgrade trait instead of SteppedMigration.
-pub struct InnerMigrateReservesToHolds<
-	T,
-	OldCurrency,
-	W = crate::migrations::v1::weights::SubstrateWeight<T>,
->(core::marker::PhantomData<(T, OldCurrency, W)>);
+pub struct InnerMigrateReservesToHolds<T, OldCurrency, W = DefaultWeights<T>>(
+	core::marker::PhantomData<(T, OldCurrency, W)>,
+);
 
 impl<T, OldCurrency, W> UncheckedOnRuntimeUpgrade for InnerMigrateReservesToHolds<T, OldCurrency, W>
 where
@@ -1130,14 +1126,13 @@ where
 /// This provides the OnRuntimeUpgrade trait expected by runtime systems that don't use
 /// the newer SteppedMigration system. It ensures the migration only runs once when the
 /// on-chain storage version is 0, and updates it to 1 after completion.
-pub type MigrateV0ToV1<T, OldCurrency, W = crate::migrations::v1::weights::SubstrateWeight<T>> =
-	VersionedMigration<
-		0, // Only execute when storage version is 0
-		1, // Set storage version to 1 after completion
-		InnerMigrateReservesToHolds<T, OldCurrency, W>,
-		Pallet<T>,
-		<T as frame_system::Config>::DbWeight,
-	>;
+pub type MigrateV0ToV1<T, OldCurrency, W = DefaultWeights<T>> = VersionedMigration<
+	0, // Only execute when storage version is 0
+	1, // Set storage version to 1 after completion
+	InnerMigrateReservesToHolds<T, OldCurrency, W>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -1358,12 +1353,9 @@ mod tests {
 
 		// Call pre_upgrade to collect state (only when try-runtime enabled)
 		#[cfg(feature = "try-runtime")]
-		let pre_state = MigrateReservesToHolds::<
-			Test,
-			MockOldCurrency,
-			crate::migrations::v1::weights::SubstrateWeight<Test>,
-		>::pre_upgrade()
-		.expect("pre_upgrade should succeed");
+		let pre_state =
+			MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::pre_upgrade()
+				.expect("pre_upgrade should succeed");
 
 		// Run the migration to completion using SteppedMigration interface
 		use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
@@ -1373,11 +1365,9 @@ mod tests {
 		let mut cursor = None;
 		loop {
 			let mut meter = WeightMeter::with_limit(block_weight);
-			cursor = MigrateReservesToHolds::<
-				Test,
-				MockOldCurrency,
-				crate::migrations::v1::weights::SubstrateWeight<Test>,
-			>::step(cursor, &mut meter)
+			cursor = MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::step(
+				cursor, &mut meter,
+			)
 			.expect("Migration step should succeed");
 			if cursor.is_none() {
 				break;
@@ -1386,11 +1376,9 @@ mod tests {
 
 		// Call post_upgrade to verify migration (only when try-runtime enabled)
 		#[cfg(feature = "try-runtime")]
-		MigrateReservesToHolds::<
-			Test,
-			MockOldCurrency,
-			crate::migrations::v1::weights::SubstrateWeight<Test>,
-		>::post_upgrade(pre_state)
+		MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::post_upgrade(
+			pre_state,
+		)
 		.expect("post_upgrade verification should succeed");
 	}
 
@@ -1461,12 +1449,10 @@ mod tests {
 
 			// Run try-runtime verification if enabled
 			#[cfg(feature = "try-runtime")]
-			let pre_state = MigrateReservesToHolds::<
-				Test,
-				MockOldCurrency,
-				crate::migrations::v1::weights::SubstrateWeight<Test>,
-			>::pre_upgrade()
-			.expect("pre_upgrade should succeed");
+			let pre_state =
+				MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::pre_upgrade(
+				)
+				.expect("pre_upgrade should succeed");
 
 			// Run the migration to completion using SteppedMigration interface
 			use frame::deps::{frame_system::limits::BlockWeights, sp_core::Get};
@@ -1477,12 +1463,11 @@ mod tests {
 			let mut cursor = None;
 			loop {
 				let mut meter = WeightMeter::with_limit(block_weight);
-				cursor = MigrateReservesToHolds::<
-					Test,
-					MockOldCurrency,
-					crate::migrations::v1::weights::SubstrateWeight<Test>,
-				>::step(cursor, &mut meter)
-				.expect("Migration step should succeed");
+				cursor =
+					MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::step(
+						cursor, &mut meter,
+					)
+					.expect("Migration step should succeed");
 				if cursor.is_none() {
 					break;
 				}
@@ -1490,11 +1475,9 @@ mod tests {
 
 			// Run try-runtime post-verification if enabled
 			#[cfg(feature = "try-runtime")]
-			MigrateReservesToHolds::<
-				Test,
-				MockOldCurrency,
-				crate::migrations::v1::weights::SubstrateWeight<Test>,
-			>::post_upgrade(pre_state)
+			MigrateReservesToHolds::<Test, MockOldCurrency, DefaultWeights<Test>>::post_upgrade(
+				pre_state,
+			)
 			.expect("post_upgrade verification should succeed");
 
 			// Verify complete migration succeeded - all reserves converted to holds

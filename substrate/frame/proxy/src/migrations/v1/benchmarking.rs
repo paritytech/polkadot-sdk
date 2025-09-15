@@ -19,12 +19,14 @@
 
 use super::migration::*;
 use crate::{
-	Announcement, Announcements, BalanceOf, BlockNumberFor, Config, Proxies, ProxyDefinition,
+	weights::SubstrateWeight as DefaultWeights, Announcement, Announcements, BalanceOf,
+	BlockNumberFor, Config, Proxies, ProxyDefinition,
 };
 use alloc::vec::Vec;
 use frame::{
 	benchmarking::prelude::*,
 	deps::frame_support::{
+		migrations::SteppedMigration,
 		traits::{Currency, Imbalance, ReservableCurrency},
 		BoundedVec,
 	},
@@ -339,7 +341,7 @@ pub mod benchmarks {
 		let result = MigrateReservesToHolds::<
 			T,
 			BenchmarkOldCurrency<T>,
-			crate::migrations::v1::weights::SubstrateWeight<T>,
+			DefaultWeights<T>,
 		>::migrate_proxy_account(&who, proxies, total_deposit, &mut stats);
 
 		Ok(result.weight())
@@ -381,9 +383,110 @@ pub mod benchmarks {
 			MigrateReservesToHolds::<
 				T,
 				BenchmarkOldCurrency<T>,
-				crate::migrations::v1::weights::SubstrateWeight<T>,
+				DefaultWeights<T>,
 			>::migrate_announcement_account(&who, announcements, total_deposit, &mut stats);
 
 		Ok(result.weight())
+	}
+
+	/// Benchmark the complete migration process with varying numbers of accounts
+	/// This simulates the multi-block migration behavior until completion
+	pub fn migration_complete<T: Config>(
+		total_accounts: u32,
+	) -> Result<frame::deps::frame_support::weights::Weight, &'static str>
+	where
+		BalanceOf<T>: From<u32>,
+		T::ProxyType: Default,
+		T::CallHasher: Default,
+		BlockNumberFor<T>: Default,
+	{
+		use frame::deps::frame_support::weights::WeightMeter;
+
+		// Set up mixed test data
+		let proxy_accounts = total_accounts / 2;
+		let announcement_accounts = total_accounts - proxy_accounts;
+
+		// Set up proxy accounts
+		let mut account_id = 0u32;
+
+		// Create proxy accounts
+		for _i in 0..proxy_accounts {
+			let who: T::AccountId = account("proxy_owner", account_id, 0);
+			account_id = account_id.saturating_add(1);
+
+			let deposit_per_proxy = T::ProxyDepositBase::get() + T::ProxyDepositFactor::get();
+			let proxies_per_account = 2; // Fixed to 2 proxies per account for consistent benchmarking
+			let total_deposit = deposit_per_proxy * proxies_per_account.into();
+
+			let mut proxies = Vec::new();
+			for _j in 0..proxies_per_account {
+				let delegate: T::AccountId = account("proxy_delegate", account_id, 0);
+				account_id = account_id.saturating_add(1);
+				proxies.push(ProxyDefinition {
+					delegate,
+					proxy_type: T::ProxyType::default(),
+					delay: BlockNumberFor::<T>::default(),
+				});
+			}
+			let proxies: BoundedVec<_, T::MaxProxies> =
+				proxies.try_into().map_err(|_| "Too many proxies for benchmark")?;
+
+			Proxies::<T>::insert(&who, (&proxies, total_deposit));
+		}
+
+		// Create announcement accounts
+		for _i in 0..announcement_accounts {
+			let who: T::AccountId = account("announcement_owner", account_id, 0);
+			account_id = account_id.saturating_add(1);
+
+			let deposit_per_announcement =
+				T::AnnouncementDepositBase::get() + T::AnnouncementDepositFactor::get();
+			let announcements_per_account = 1; // Fixed to 1 announcement per account
+			let total_deposit = deposit_per_announcement * announcements_per_account.into();
+
+			let mut announcements = Vec::new();
+			let real: T::AccountId = account("announcement_real", account_id, 0);
+			account_id = account_id.saturating_add(1);
+			announcements.push(Announcement {
+				real,
+				call_hash: <T::CallHasher as frame::traits::Hash>::Output::default(),
+				height: BlockNumberFor::<T>::default(),
+			});
+			let announcements: BoundedVec<_, T::MaxPending> =
+				announcements.try_into().map_err(|_| "Too many announcements for benchmark")?;
+
+			Announcements::<T>::insert(&who, (&announcements, total_deposit));
+		}
+
+		// Process complete migration and measure total weight
+		let mut cursor = None;
+		let mut total_weight = frame::deps::frame_support::weights::Weight::zero();
+
+		// Loop until migration is complete - assuming it will end in benchmarking
+		loop {
+			// Use 10% of max block weight to simulate realistic multi-block behavior
+			let block_weights = T::BlockWeights::get();
+			let weight_limit = block_weights.max_block.saturating_div(10);
+			let mut meter = WeightMeter::with_limit(weight_limit);
+
+			// Execute migration step
+			match MigrateReservesToHolds::<T, BenchmarkOldCurrency<T>, DefaultWeights<T>>::step(
+				cursor, &mut meter,
+			) {
+				Ok(Some(next_cursor)) => {
+					// Migration continues
+					total_weight = total_weight.saturating_add(meter.consumed());
+					cursor = Some(next_cursor);
+				},
+				Ok(None) => {
+					// Migration complete
+					total_weight = total_weight.saturating_add(meter.consumed());
+					break;
+				},
+				Err(_) => return Err("Migration step failed"),
+			}
+		}
+
+		Ok(total_weight)
 	}
 }
