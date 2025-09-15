@@ -141,9 +141,8 @@ mod benchmarking {
 
 	// We are not going to use it, but we need to pass an implementation for the trait bound
 	// because the `TestDefaultConfig` cannot supply an implementation when the AssetId == Location.
-	pub(crate) struct MockBenchmarkHelper;
+	pub struct MockBenchmarkHelper;
 
-	#[cfg(feature = "runtime-benchmarks")]
 	impl pallet_assets::BenchmarkHelper<Location> for MockBenchmarkHelper {
 		fn create_asset_id_parameter(_: u32) -> Location {
 			Location::here()
