@@ -2003,7 +2003,7 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		code_hash_for_address::<T>(address)
+		code_hash::<T>(address)
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
@@ -2152,7 +2152,7 @@ where
 	}
 }
 
-pub fn code_hash_for_address<T: Config>(address: &H160) -> H256 {
+pub fn code_hash<T: Config>(address: &H160) -> H256 {
 	// precompiles have static code provided by the runtime
 	if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
 		return sp_io::hashing::keccak_256(code).into();

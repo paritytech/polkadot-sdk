@@ -4929,11 +4929,15 @@ fn reject_signed_tx_from_contract_address() {
 
 		assert!(AccountInfoOf::<Test>::contains_key(&contract_addr));
 
-		let result = builder::bare_call(BOB_ADDR)
+		let call_result = builder::bare_call(BOB_ADDR)
 			.native_value(1)
 			.origin(RuntimeOrigin::signed(contract_account_id.clone()))
 			.build();
+		assert_err!(call_result.result, DispatchError::BadOrigin);
 
-		assert_err!(result.result, <Error<Test>>::ContractAccountCannotSend);
+		let instantiate_result = builder::bare_instantiate(Code::Upload(Vec::new()))
+			.origin(RuntimeOrigin::signed(contract_account_id))
+			.build();
+		assert_err!(instantiate_result.result, DispatchError::BadOrigin);
 	});
 }

@@ -480,8 +480,6 @@ pub mod pallet {
 		CallDataTooLarge = 0x30,
 		/// The return data exceeds [`limits::CALLDATA_BYTES`].
 		ReturnDataTooLarge = 0x31,
-		/// The account that signed the transaction is a contract account.
-		ContractAccountCannotSend = 0x32,
 	}
 
 	/// A reason for the pallet revive placing a hold on funds.
@@ -1183,12 +1181,12 @@ where
 {
 	/// Ensure the origin has no code deplyoyed if it is a signed origin.
 	fn ensure_non_contract_if_signed(origin: &OriginFor<T>) -> Result<(), DispatchError> {
-		use crate::exec::{code_hash_for_address, EMPTY_CODE_HASH};
+		use crate::exec::{code_hash, EMPTY_CODE_HASH};
 		if let Ok(who) = ensure_signed(origin.clone()) {
 			let address = <T::AddressMapper as AddressMapper<T>>::to_address(&who);
 			// Get canonical code-hash (handles precompiles, contract storage and non-existent
 			// accounts).
-			let code_hash = code_hash_for_address::<T>(&address);
+			let code_hash = code_hash::<T>(&address);
 
 			// Deployed code exists when hash is neither zero (no account) nor EMPTY_CODE_HASH
 			// (account exists but no code).
@@ -1198,7 +1196,7 @@ where
 					"EIP-3607: reject externally-signed tx from contract account {:?}",
 					address
 				);
-				return Err(<Error<T>>::ContractAccountCannotSend.into());
+				return Err(DispatchError::BadOrigin);
 			}
 		}
 		Ok(())
@@ -1221,8 +1219,8 @@ where
 		if let Err(contract_result) =
 			Self::ensure_non_contract_if_signed(&origin).map_err(|err| ContractResult {
 				result: Err(err),
-				gas_consumed: Weight::from_parts(0, 0),
-				gas_required: Weight::from_parts(0, 0),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
 				storage_deposit: Default::default(),
 			}) {
 			return contract_result;
@@ -1288,8 +1286,8 @@ where
 		if let Err(contract_result) =
 			Self::ensure_non_contract_if_signed(&origin).map_err(|err| ContractResult {
 				result: Err(err),
-				gas_consumed: Weight::from_parts(0, 0),
-				gas_required: Weight::from_parts(0, 0),
+				gas_consumed: Weight::default(),
+				gas_required: Weight::default(),
 				storage_deposit: Default::default(),
 			}) {
 			return contract_result;
