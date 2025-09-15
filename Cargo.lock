@@ -6772,6 +6772,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "frame-try-runtime",
+ "impl-trait-for-tuples",
  "log",
  "pallet-balances",
  "pallet-transaction-payment",

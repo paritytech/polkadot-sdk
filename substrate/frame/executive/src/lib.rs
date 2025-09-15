@@ -130,6 +130,7 @@ use frame_support::{
 	MAX_EXTRINSIC_DEPTH,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use impl_trait_for_tuples::impl_for_tuples;
 use sp_runtime::{
 	generic::Digest,
 	traits::{
@@ -464,6 +465,36 @@ where
 				Err("`try_decode_entire_state` failed".into())
 			},
 		}
+	}
+}
+
+/// See [`Hooks::on_initialize`].
+pub trait OnInitializeWithWeight<T: frame_system::Config, BlockNumber> {
+	/// See [`Hooks::on_initialize`].
+	fn on_initialize_with_weight_registration(_n: BlockNumber) -> Weight {
+		Weight::zero()
+	}
+}
+
+#[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
+#[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
+#[cfg_attr(feature = "tuples-128", impl_for_tuples(128))]
+#[tuple_types_custom_trait_bound(OnInitialize<BlockNumber>)]
+impl<BlockNumber: Clone, T: frame_system::Config> OnInitializeWithWeight<T, BlockNumber> for Tuple {
+	fn on_initialize_with_weight_registration(n: BlockNumber) -> Weight {
+		let mut weight = Weight::zero();
+		for_tuples!( #(
+			let individual_weight = Tuple::on_initialize(n.clone());
+
+			<frame_system::Pallet<T>>::register_extra_weight_unchecked(
+				individual_weight,
+				DispatchClass::Mandatory,
+			);
+
+			weight = weight.saturating_add(individual_weight);
+		)* );
+
+		weight
 	}
 }
 

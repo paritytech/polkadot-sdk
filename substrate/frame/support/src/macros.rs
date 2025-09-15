@@ -496,3 +496,30 @@ macro_rules! hypothetically_ok {
 		$crate::assert_ok!($crate::hypothetically!($e) $(, $args)*);
 	};
 }
+
+#[cfg(all(not(feature = "tuples-96"), not(feature = "tuples-128")))]
+#[macro_export]
+macro_rules! impl_for_tuples {
+	( $( $input:tt )* ) => {
+		#[impl_for_tuples(64)]
+		$( $input )*
+	}
+}
+
+#[cfg(all(feature = "tuples-96", not(feature = "tuples-128")))]
+#[macro_export]
+macro_rules! impl_for_tuples {
+	( $( $input:tt )* ) => {
+		#[impl_for_tuples(96)]
+		$( $input )*
+	}
+}
+
+#[cfg(feature = "tuples-128")]
+#[macro_export]
+macro_rules! impl_for_tuples {
+	( $( $input:tt )* ) => {
+		#[impl_for_tuples(128)]
+		$( $input )*
+	}
+}
