@@ -26,6 +26,7 @@ use sp_api::{
 	ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProofRecorderIgnoredNodes,
 	ProvideRuntimeApi, StorageProof,
 };
+use sp_consensus::BlockOrigin;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as _};
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
@@ -90,6 +91,83 @@ impl<Block: BlockT, BI, Client, AuthorityId> SlotBasedBlockImport<Block, BI, Cli
 			SlotBasedBlockImportHandle { receiver },
 		)
 	}
+
+	/// Execute the given block and collect the storage proof.
+	///
+	/// We need to execute the block on this level here, because we are collecting the storage
+	/// proofs and combining them for blocks on the same core. So, blocks on the same core do not
+	/// need to include the same trie nodes multiple times and thus, not wasting storage proof size.
+	fn execute_block_and_collect_storage_proof(
+		&self,
+		params: &mut sc_consensus::BlockImportParams<Block>,
+	) -> Result<(), sp_consensus::Error>
+	where
+		Client: ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync,
+		Client::StateBackend: Send,
+		Client::Api: Core<Block> + AuraApi<Block, AuthorityId>,
+		AuthorityId: Codec + Send + Sync + std::fmt::Debug,
+	{
+		let core_info = CumulusDigestItem::find_core_info(params.header.digest());
+		let relay_block_identifier =
+			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
+
+		let (Some(core_info), Some(relay_block_identifier)) = (core_info, relay_block_identifier)
+		else {
+			return Ok(())
+		};
+
+		let slot = find_pre_digest::<Block, ()>(&params.header)
+			.map_err(|error| sp_consensus::Error::Other(Box::new(error)))?;
+		let authorities = fetch_authorities(&*self.client, *params.header.parent_hash())?;
+
+		let pov_bundle = PoVBundle {
+			author_index: *slot as usize % authorities.len(),
+			core_info,
+			relay_block_identifier,
+		};
+
+		let mut nodes_to_ignore = self.nodes_to_ignore.lock();
+		let nodes_to_ignore = nodes_to_ignore.entry(pov_bundle).or_default();
+
+		let recorder = ProofRecorder::<Block>::with_ignored_nodes(nodes_to_ignore.clone());
+
+		let mut runtime_api = self.client.runtime_api();
+
+		runtime_api.set_call_context(CallContext::Onchain);
+
+		runtime_api.record_proof_with_recorder(recorder.clone());
+		runtime_api.register_extension(ProofSizeExt::new(recorder));
+
+		let parent_hash = *params.header.parent_hash();
+
+		let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
+
+		runtime_api
+			.execute_block(parent_hash, block)
+			.map_err(|e| Box::new(e) as Box<_>)?;
+
+		let storage_proof =
+			runtime_api.extract_proof().expect("Proof recording was enabled above; qed");
+
+		let state = self.client.state_at(parent_hash).map_err(|e| Box::new(e) as Box<_>)?;
+		let gen_storage_changes = runtime_api
+			.into_storage_changes(&state, parent_hash)
+			.map_err(sp_consensus::Error::ChainLookup)?;
+
+		if params.header.state_root() != &gen_storage_changes.transaction_storage_root {
+			return Err(sp_consensus::Error::Other(Box::new(sp_blockchain::Error::InvalidStateRoot)))
+		}
+
+		nodes_to_ignore
+			.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof));
+		nodes_to_ignore
+			.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
+
+		params.state_action =
+			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
+
+		Ok(())
+	}
 }
 
 impl<Block: BlockT, BI: Clone, Client, AuthorityId> Clone
@@ -131,64 +209,8 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		let core_info = CumulusDigestItem::find_core_info(params.header.digest());
-		let relay_block_identifier =
-			CumulusDigestItem::find_relay_block_identifier(params.header.digest());
-
-		if let (Some(core_info), Some(relay_block_identifier)) = (core_info, relay_block_identifier)
-		{
-			let slot = find_pre_digest::<Block, ()>(&params.header)
-				.map_err(|error| sp_consensus::Error::Other(Box::new(error)))?;
-			let authorities = fetch_authorities(&*self.client, *params.header.parent_hash())?;
-
-			let pov_bundle = PoVBundle {
-				author_index: *slot as usize % authorities.len(),
-				core_info,
-				relay_block_identifier,
-			};
-
-			let mut nodes_to_ignore = self.nodes_to_ignore.lock();
-			let nodes_to_ignore = nodes_to_ignore.entry(pov_bundle).or_default();
-
-			let recorder = ProofRecorder::<Block>::with_ignored_nodes(nodes_to_ignore.clone());
-
-			let mut runtime_api = self.client.runtime_api();
-
-			runtime_api.set_call_context(CallContext::Onchain);
-
-			runtime_api.record_proof_with_recorder(recorder.clone());
-			runtime_api.register_extension(ProofSizeExt::new(recorder));
-
-			let parent_hash = *params.header.parent_hash();
-
-			let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
-
-			runtime_api
-				.execute_block(parent_hash, block)
-				.map_err(|e| Box::new(e) as Box<_>)?;
-
-			let storage_proof =
-				runtime_api.extract_proof().expect("Proof recording was enabled above; qed");
-
-			let state = self.client.state_at(parent_hash).map_err(|e| Box::new(e) as Box<_>)?;
-			let gen_storage_changes = runtime_api
-				.into_storage_changes(&state, parent_hash)
-				.map_err(sp_consensus::Error::ChainLookup)?;
-
-			if params.header.state_root() != &gen_storage_changes.transaction_storage_root {
-				return Err(sp_consensus::Error::Other(Box::new(
-					sp_blockchain::Error::InvalidStateRoot,
-				)))
-			}
-
-			nodes_to_ignore
-				.extend(IgnoredNodes::from_storage_proof::<HashingFor<Block>>(&storage_proof));
-			nodes_to_ignore
-				.extend(IgnoredNodes::from_memory_db(gen_storage_changes.transaction.clone()));
-
-			params.state_action = StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(
-				gen_storage_changes,
-			));
+		if params.origin != BlockOrigin::Own {
+			self.execute_block_and_collect_storage_proof(&mut params)?;
 		}
 
 		self.inner.import_block(params).await.map_err(Into::into)
