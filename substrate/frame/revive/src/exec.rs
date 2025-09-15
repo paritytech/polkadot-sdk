@@ -2059,7 +2059,8 @@ where
 	}
 
 	fn minimum_balance(&self) -> U256 {
-		T::Currency::minimum_balance().into()
+		let min = T::Currency::minimum_balance();
+		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
 	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
